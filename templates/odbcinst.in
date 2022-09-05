@@ -1,0 +1,4 @@
+[TAOS_ODBC_DRIVER]
+Description=taos 3.0 odbc driver
+Driver=/usr/local/lib/libtaos_odbc.so
+

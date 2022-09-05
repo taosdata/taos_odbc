@@ -1,0 +1,4 @@
+[TAOS_ODBC_DSN]
+Description=Connection to TAOS 3.0
+Driver=TAOS_ODBC_DRIVER
+

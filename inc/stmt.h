@@ -3,6 +3,8 @@
 
 #include "conn.h"
 
+#include <sql.h>
+
 EXTERN_C_BEGIN
 
 typedef struct stmt_s              stmt_t;
@@ -11,7 +13,32 @@ stmt_t* stmt_create(conn_t *conn) FA_HIDDEN;
 stmt_t* stmt_ref(stmt_t *stmt) FA_HIDDEN;
 stmt_t* stmt_unref(stmt_t *stmt) FA_HIDDEN;
 
-int stmt_exec_direct(stmt_t *stmt, const char *sql, int len);
+int stmt_exec_direct(stmt_t *stmt, const char *sql, int len) FA_HIDDEN;
+int stmt_set_row_array_size(stmt_t *stmt, SQLULEN row_array_size) FA_HIDDEN;
+int stmt_set_row_status_ptr(stmt_t *stmt, SQLUSMALLINT *row_status_ptr) FA_HIDDEN;
+int stmt_get_row_count(stmt_t *stmt, SQLLEN *row_count_ptr) FA_HIDDEN;
+int stmt_get_col_count(stmt_t *stmt, SQLSMALLINT *col_count_ptr) FA_HIDDEN;
+int stmt_set_row_bind_type(stmt_t *stmt, SQLULEN row_bind_type) FA_HIDDEN;
+int stmt_set_rows_fetched_ptr(stmt_t *stmt, SQLULEN *rows_fetched_ptr) FA_HIDDEN;
+int stmt_describe_col(stmt_t *stmt,
+    SQLUSMALLINT   ColumnNumber,
+    SQLCHAR       *ColumnName,
+    SQLSMALLINT    BufferLength,
+    SQLSMALLINT   *NameLengthPtr,
+    SQLSMALLINT   *DataTypePtr,
+    SQLULEN       *ColumnSizePtr,
+    SQLSMALLINT   *DecimalDigitsPtr,
+    SQLSMALLINT   *NullablePtr) FA_HIDDEN;
+int stmt_bind_col(stmt_t *stmt,
+    SQLUSMALLINT   ColumnNumber,
+    SQLSMALLINT    TargetType,
+    SQLPOINTER     TargetValuePtr,
+    SQLLEN         BufferLength,
+    SQLLEN        *StrLen_or_IndPtr) FA_HIDDEN;
+
+SQLRETURN stmt_fetch(stmt_t *stmt) FA_HIDDEN;
+
+int stmt_close_cursor(stmt_t *stmt) FA_HIDDEN;
 
 EXTERN_C_END
 

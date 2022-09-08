@@ -3,6 +3,8 @@
 static int conn_init(conn_t *conn, env_t *env)
 {
   conn->env = env_ref(env);
+  int prev = atomic_fetch_add(&env->conns, 1);
+  OA_ILE(prev >= 0);
 
   conn->refc = 1;
 
@@ -13,6 +15,10 @@ static void conn_release(conn_t *conn)
 {
   OA_ILE(conn->taos == NULL);
 
+  int prev = atomic_fetch_sub(&conn->env->conns, 1);
+  OA_ILE(prev >= 1);
+  int stmts = atomic_load(&conn->stmts);
+  OA_ILE(stmts == 0);
   env_unref(conn->env);
   conn->env = NULL;
 
@@ -90,5 +96,11 @@ int conn_get_driver_name(conn_t *conn, const char **name)
   const char *client = taos_get_client_info();
   *name = client;
   return 0;
+}
+
+int conn_rollback(conn_t *conn)
+{
+  int outstandings = atomic_load(&conn->outstandings);
+  return outstandings == 0 ? 0 : -1;
 }
 

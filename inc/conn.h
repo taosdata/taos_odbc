@@ -43,6 +43,8 @@ void conn_disconnect(conn_t *conn) FA_HIDDEN;
 int conn_get_dbms_name(conn_t *conn, const char **name) FA_HIDDEN;
 int conn_get_driver_name(conn_t *conn, const char **name) FA_HIDDEN;
 
+int conn_rollback(conn_t *conn) FA_HIDDEN;
+
 EXTERN_C_END
 
 #endif //  _conn_h_

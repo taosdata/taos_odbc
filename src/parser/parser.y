@@ -102,23 +102,23 @@ connect_str:
 attribute:
   DSN
 | DSN '='
-| DSN '=' VALUE                   { fprintf(stderr, "DSN=%.*s\n", (int)$3.leng, $3.text); SET_DSN($3); }
+| DSN '=' VALUE                   { SET_DSN($3); }
 | UID
 | UID '='
-| UID '=' VALUE                   { fprintf(stderr, "UID=%.*s\n", (int)$3.leng, $3.text); SET_UID($3); }
+| UID '=' VALUE                   { SET_UID($3); }
 | PWD
 | PWD '='
-| PWD '=' VALUE                   { fprintf(stderr, "PWD=%.*s\n", (int)$3.leng, $3.text); SET_PWD($3); }
-| DRIVER '=' VALUE                { fprintf(stderr, "DRIVER=%.*s\n", (int)$3.leng, $3.text); SET_DRIVER($3); }
-| DRIVER '=' '{' VALUE '}'        { fprintf(stderr, "DRIVER={%.*s}\n", (int)$4.leng, $4.text); SET_DRIVER($4); }
+| PWD '=' VALUE                   { SET_PWD($3); }
+| DRIVER '=' VALUE                { SET_DRIVER($3); }
+| DRIVER '=' '{' VALUE '}'        { SET_DRIVER($4); }
 | ID
 | ID '='
-| ID '=' VALUE                    { fprintf(stderr, "unknown: %.*s=%.*s\n", (int)$1.leng, $1.text, (int)$3.leng, $3.text); }
+| ID '=' VALUE                    { ; }
 | SERVER
 | SERVER '='
-| SERVER '=' FQDN                 { fprintf(stderr, "SERVER=%.*s\n", (int)$3.leng, $3.text); SET_FQDN($3); }
-| SERVER '=' FQDN ':'             { fprintf(stderr, "SERVER=%.*s\n", (int)$3.leng, $3.text); SET_FQDN($3); }
-| SERVER '=' FQDN ':' DIGITS      { fprintf(stderr, "SERVER=%.*s:%.*s\n", (int)$3.leng, $3.text, (int)$5.leng, $5.text); SET_FQDN_PORT($3, $5); }
+| SERVER '=' FQDN                 { SET_FQDN($3); }
+| SERVER '=' FQDN ':'             { SET_FQDN($3); }
+| SERVER '=' FQDN ':' DIGITS      { SET_FQDN_PORT($3, $5); }
 ;
 
 %%

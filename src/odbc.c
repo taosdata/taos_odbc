@@ -95,25 +95,22 @@ SQLRETURN SQL_API SQLAllocHandle(
 }
 
 static SQLRETURN do_free_env(
-    SQLHANDLE Handle)
+    env_t *env)
 {
-  env_t *env = (env_t*)Handle;
   env_unref(env);
   return SQL_SUCCESS;
 }
 
 static SQLRETURN do_free_conn(
-    SQLHANDLE Handle)
+    conn_t *conn)
 {
-  conn_t *conn = (conn_t*)Handle;
   conn_unref(conn);
   return SQL_SUCCESS;
 }
 
 static SQLRETURN do_free_stmt(
-    SQLHANDLE Handle)
+    stmt_t *stmt)
 {
-  stmt_t *stmt = (stmt_t*)Handle;
   stmt_unref(stmt);
   return SQL_SUCCESS;
 }
@@ -126,18 +123,18 @@ SQLRETURN SQL_API SQLFreeHandle(
 
   switch (HandleType) {
     case SQL_HANDLE_ENV:
-      return do_free_env(Handle);
+      return do_free_env((env_t*)Handle);
     case SQL_HANDLE_DBC:
-      return do_free_conn(Handle);
+      return do_free_conn((conn_t*)Handle);
     case SQL_HANDLE_STMT:
-      return do_free_stmt(Handle);
+      return do_free_stmt((stmt_t*)Handle);
     default:
       return SQL_ERROR;
   }
 }
 
 static SQLRETURN do_driver_connect(
-    SQLHDBC         ConnectionHandle,
+    conn_t         *conn,
     SQLCHAR        *InConnectionString,
     SQLSMALLINT     StringLength1,
     SQLCHAR        *OutConnectionString,
@@ -148,11 +145,11 @@ static SQLRETURN do_driver_connect(
   // param.debug_flex = 1;
   // param.debug_bison = 1;
 
+  if (StringLength1 == SQL_NTS) StringLength1 = strlen((const char*)InConnectionString);
   int r = parser_parse((const char*)InConnectionString, StringLength1, &param);
   do {
     if (r) break;
 
-    conn_t *conn = (conn_t*)ConnectionHandle;
     r = conn_connect(conn, &param.conn_str);
 
     if (r) break;
@@ -203,16 +200,15 @@ SQLRETURN SQL_API SQLDriverConnect(
   OA_NIY(WindowHandle == NULL);
   switch (DriverCompletion) {
     case SQL_DRIVER_NOPROMPT:
-      return do_driver_connect(ConnectionHandle, InConnectionString, StringLength1, OutConnectionString, BufferLength, StringLength2Ptr);
+      return do_driver_connect((conn_t*)ConnectionHandle, InConnectionString, StringLength1, OutConnectionString, BufferLength, StringLength2Ptr);
     default:
       return SQL_ERROR;
   }
 }
 
 static SQLRETURN do_disconnect(
-    SQLHDBC ConnectionHandle)
+    conn_t *conn)
 {
-  conn_t *conn = (conn_t*)ConnectionHandle;
   conn_disconnect(conn);
 
   return SQL_SUCCESS;
@@ -222,15 +218,14 @@ SQLRETURN SQL_API SQLDisconnect(
     SQLHDBC ConnectionHandle)
 {
   OA_DM(ConnectionHandle);
-  return do_disconnect(ConnectionHandle);
+  return do_disconnect((conn_t*)ConnectionHandle);
 }
 
 static SQLRETURN do_exec_direct(
-    SQLHSTMT     StatementHandle,
+    stmt_t      *stmt,
     SQLCHAR     *StatementText,
     SQLINTEGER   TextLength)
 {
-  stmt_t *stmt = (stmt_t*)StatementHandle;
   int r = stmt_exec_direct(stmt, (const char*)StatementText, TextLength);
   return r ? SQL_ERROR : SQL_SUCCESS;
 }
@@ -241,7 +236,7 @@ SQLRETURN SQL_API SQLExecDirect(
     SQLINTEGER   TextLength)
 {
   OA_DM(StatementHandle);
-  return do_exec_direct(StatementHandle, StatementText, TextLength);
+  return do_exec_direct((stmt_t*)StatementHandle, StatementText, TextLength);
 }
 
 SQLRETURN SQL_API SQLBindParameter(
@@ -355,13 +350,12 @@ static SQLRETURN do_conn_get_info_driver_name(
 }
 
 static SQLRETURN do_conn_get_info(
-    SQLHDBC         ConnectionHandle,
+    conn_t         *conn,
     SQLUSMALLINT    InfoType,
     SQLPOINTER      InfoValuePtr,
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr)
 {
-  conn_t *conn = (conn_t*)ConnectionHandle;
   (void)InfoType;
   (void)InfoValuePtr;
   (void)BufferLength;
@@ -371,6 +365,8 @@ static SQLRETURN do_conn_get_info(
       return do_conn_get_info_dbms_name(conn, (char*)InfoValuePtr, (size_t)BufferLength, StringLengthPtr);
     case SQL_DRIVER_NAME:
       return do_conn_get_info_driver_name(conn, (char*)InfoValuePtr, (size_t)BufferLength, StringLengthPtr);
+    case SQL_CURSOR_COMMIT_BEHAVIOR:
+      return SQL_ERROR;
     default:
       return SQL_ERROR;
   }
@@ -383,6 +379,211 @@ SQLRETURN SQL_API SQLGetInfo(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr)
 {
-  return do_conn_get_info(ConnectionHandle, InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+  return do_conn_get_info((conn_t*)ConnectionHandle, InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+}
+
+static SQLRETURN do_env_end_tran(
+    env_t       *env,
+    SQLSMALLINT   CompletionType)
+{
+  switch (CompletionType) {
+    case SQL_COMMIT:
+      return SQL_SUCCESS;
+    case SQL_ROLLBACK:
+      if (env_rollback(env)) return SQL_ERROR;
+      return SQL_SUCCESS;
+    default:
+      return SQL_ERROR;
+  }
+}
+
+static SQLRETURN do_conn_end_tran(
+    conn_t       *conn,
+    SQLSMALLINT   CompletionType)
+{
+  switch (CompletionType) {
+    case SQL_COMMIT:
+      return SQL_SUCCESS;
+    case SQL_ROLLBACK:
+      if (conn_rollback(conn)) return SQL_ERROR;
+      return SQL_SUCCESS;
+    default:
+      return SQL_ERROR;
+  }
+}
+
+SQLRETURN SQL_API SQLEndTran(
+    SQLSMALLINT   HandleType,
+    SQLHANDLE     Handle,
+    SQLSMALLINT   CompletionType)
+{
+  switch (HandleType) {
+    case SQL_HANDLE_ENV:
+      return do_env_end_tran((env_t*)Handle, CompletionType);
+    case SQL_HANDLE_DBC:
+      return do_conn_end_tran((conn_t*)Handle, CompletionType);
+    default:
+      return SQL_ERROR;
+  }
+}
+
+SQLRETURN SQL_API SQLSetConnectAttr(
+    SQLHDBC       ConnectionHandle,
+    SQLINTEGER    Attribute,
+    SQLPOINTER    ValuePtr,
+    SQLINTEGER    StringLength)
+{
+  (void)ConnectionHandle;
+  (void)ValuePtr;
+  (void)StringLength;
+  switch (Attribute) {
+    case SQL_ATTR_CONNECTION_TIMEOUT:
+    case SQL_ATTR_LOGIN_TIMEOUT:
+      return SQL_SUCCESS;
+    default:
+      return SQL_ERROR;
+  }
+}
+
+static SQLRETURN do_stmt_set_cursor_type(
+    stmt_t       *stmt,
+    SQLULEN       cursor_type)
+{
+  (void)stmt;
+  switch (cursor_type) {
+    case SQL_CURSOR_FORWARD_ONLY:
+      return SQL_SUCCESS;
+    case SQL_CURSOR_STATIC:
+      return SQL_SUCCESS;
+    case SQL_CURSOR_KEYSET_DRIVEN:
+      OD("");
+      return SQL_ERROR;
+    case SQL_CURSOR_DYNAMIC:
+      OD("");
+      return SQL_ERROR;
+    default:
+      OD("");
+      return SQL_ERROR;
+  }
+}
+
+static SQLRETURN do_stmt_set_row_array_size(
+    stmt_t       *stmt,
+    SQLULEN       row_array_size)
+{
+  OA_NIY(row_array_size == 1);
+  if (stmt_set_row_array_size(stmt, row_array_size)) return SQL_ERROR;
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN do_stmt_set_row_status_ptr(
+    stmt_t       *stmt,
+    SQLUSMALLINT *row_status_ptr)
+{
+  if (stmt_set_row_status_ptr(stmt, row_status_ptr)) return SQL_ERROR;
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN do_stmt_set_row_bind_type(
+    stmt_t       *stmt,
+    SQLULEN       row_bind_type)
+{
+  if (stmt_set_row_bind_type(stmt, row_bind_type)) return SQL_ERROR;
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN do_stmt_set_rows_fetched_ptr(
+    stmt_t       *stmt,
+    SQLULEN      *rows_fetched_ptr)
+{
+  if (stmt_set_rows_fetched_ptr(stmt, rows_fetched_ptr)) return SQL_ERROR;
+  return SQL_SUCCESS;
+}
+
+SQLRETURN SQL_API SQLSetStmtAttr(
+    SQLHSTMT      StatementHandle,
+    SQLINTEGER    Attribute,
+    SQLPOINTER    ValuePtr,
+    SQLINTEGER    StringLength)
+{
+  (void)StringLength;
+  switch (Attribute) {
+    case SQL_ATTR_CURSOR_TYPE:
+      return do_stmt_set_cursor_type((stmt_t*)StatementHandle, (SQLULEN)ValuePtr);
+    case SQL_ATTR_ROW_ARRAY_SIZE:
+      return do_stmt_set_row_array_size((stmt_t*)StatementHandle, (SQLULEN)ValuePtr);
+    case SQL_ATTR_ROW_STATUS_PTR:
+      return do_stmt_set_row_status_ptr((stmt_t*)StatementHandle, (SQLUSMALLINT*)ValuePtr);
+    case SQL_ATTR_ROW_BIND_TYPE:
+      return do_stmt_set_row_bind_type((stmt_t*)StatementHandle, (SQLULEN)ValuePtr);
+    case SQL_ATTR_ROWS_FETCHED_PTR:
+      return do_stmt_set_rows_fetched_ptr((stmt_t*)StatementHandle, (SQLULEN*)ValuePtr);
+    default:
+      return SQL_ERROR;
+  }
+}
+
+SQLRETURN SQL_API SQLRowCount(
+    SQLHSTMT   StatementHandle,
+    SQLLEN    *RowCountPtr)
+{
+  if (stmt_get_row_count((stmt_t*)StatementHandle, RowCountPtr)) return SQL_ERROR;
+  return SQL_SUCCESS;
+}
+
+SQLRETURN SQL_API SQLNumResultCols(
+     SQLHSTMT        StatementHandle,
+     SQLSMALLINT    *ColumnCountPtr)
+{
+  if (stmt_get_col_count((stmt_t*)StatementHandle, ColumnCountPtr)) return SQL_ERROR;
+  return SQL_SUCCESS;
+}
+
+SQLRETURN SQL_API SQLDescribeCol(
+    SQLHSTMT       StatementHandle,
+    SQLUSMALLINT   ColumnNumber,
+    SQLCHAR       *ColumnName,
+    SQLSMALLINT    BufferLength,
+    SQLSMALLINT   *NameLengthPtr,
+    SQLSMALLINT   *DataTypePtr,
+    SQLULEN       *ColumnSizePtr,
+    SQLSMALLINT   *DecimalDigitsPtr,
+    SQLSMALLINT   *NullablePtr)
+{
+  if (stmt_describe_col((stmt_t*)StatementHandle, ColumnNumber, ColumnName, BufferLength, NameLengthPtr, DataTypePtr, ColumnSizePtr, DecimalDigitsPtr, NullablePtr)) return SQL_ERROR;
+
+  return SQL_SUCCESS;
+}
+
+SQLRETURN SQL_API SQLBindCol(
+    SQLHSTMT       StatementHandle,
+    SQLUSMALLINT   ColumnNumber,
+    SQLSMALLINT    TargetType,
+    SQLPOINTER     TargetValuePtr,
+    SQLLEN         BufferLength,
+    SQLLEN        *StrLen_or_IndPtr)
+{
+  if (stmt_bind_col((stmt_t*)StatementHandle, ColumnNumber, TargetType, TargetValuePtr, BufferLength, StrLen_or_IndPtr)) return SQL_ERROR;
+  return SQL_SUCCESS;
+}
+
+SQLRETURN SQL_API SQLFetch(
+    SQLHSTMT     StatementHandle)
+{
+  return stmt_fetch((stmt_t*)StatementHandle);
+}
+
+SQLRETURN SQLFreeStmt(
+    SQLHSTMT       StatementHandle,
+    SQLUSMALLINT   Option)
+{
+  switch (Option) {
+    case SQL_CLOSE:
+      if (stmt_close_cursor((stmt_t*)StatementHandle)) return SQL_ERROR;
+      return SQL_SUCCESS;
+    default:
+      OA_NIY(0);
+      return SQL_ERROR;
+  }
 }
 

@@ -28,7 +28,8 @@ static int env_init(env_t *env)
 
 static void env_release(env_t *env)
 {
-  (void)env;
+  int conns = atomic_load(&env->conns);
+  OA_ILE(conns == 0);
   return;
 }
 
@@ -65,5 +66,11 @@ env_t* env_unref(env_t *env)
   free(env);
 
   return NULL;
+}
+
+int env_rollback(env_t *env)
+{
+  int conns = atomic_load(&env->conns);
+  return conns == 0 ? 0 : -1;
 }
 

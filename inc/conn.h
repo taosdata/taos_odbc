@@ -5,11 +5,13 @@
 #include "log.h"
 #include "utils.h"
 
+#include <sql.h>
+
 EXTERN_C_BEGIN
 
-typedef struct connection_str_s    connection_str_t;
+typedef struct connection_cfg_s    connection_cfg_t;
 
-struct connection_str_s {
+struct connection_cfg_s {
   char                  *driver;
   char                  *dsn;
   char                  *uid;
@@ -17,9 +19,11 @@ struct connection_str_s {
   char                  *ip;
   char                  *db;
   int                    port;
+
+  unsigned int           legacy:2; // 0x00: not specified; 0x01: legacy; 0x03: otherwise
 };
 
-static inline void connection_str_release(connection_str_t *conn_str)
+static inline void connection_cfg_release(connection_cfg_t *conn_str)
 {
   if (!conn_str) return;
 
@@ -37,13 +41,22 @@ conn_t* conn_create(env_t *env) FA_HIDDEN;
 conn_t* conn_ref(conn_t *conn) FA_HIDDEN;
 conn_t* conn_unref(conn_t *conn) FA_HIDDEN;
 
-int conn_connect(conn_t *conn, const connection_str_t *conn_str) FA_HIDDEN;
+int conn_connect(conn_t *conn, const connection_cfg_t *cfg) FA_HIDDEN;
 void conn_disconnect(conn_t *conn) FA_HIDDEN;
 
 int conn_get_dbms_name(conn_t *conn, const char **name) FA_HIDDEN;
 int conn_get_driver_name(conn_t *conn, const char **name) FA_HIDDEN;
 
 int conn_rollback(conn_t *conn) FA_HIDDEN;
+
+SQLRETURN conn_get_diag_rec(
+    conn_t         *conn,
+    SQLSMALLINT     RecNumber,
+    SQLCHAR        *SQLState,
+    SQLINTEGER     *NativeErrorPtr,
+    SQLCHAR        *MessageText,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *TextLengthPtr) FA_HIDDEN;
 
 EXTERN_C_END
 

@@ -22,7 +22,7 @@ struct parser_token_s {
 typedef struct parser_param_s           parser_param_t;
 
 struct parser_param_s {
-  connection_str_t       conn_str;
+  connection_cfg_t       conn_str;
 
   int                    row0, col0;
   int                    row1, col1;
@@ -35,7 +35,7 @@ struct parser_param_s {
 static inline void parser_param_release(parser_param_t *param)
 {
   if (!param) return;
-  connection_str_release(&param->conn_str);
+  connection_cfg_release(&param->conn_str);
   TOD_SAFE_FREE(param->errmsg);
   param->row0 = 0;
 }

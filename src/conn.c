@@ -1,5 +1,7 @@
 #include "internal.h"
 
+#include <string.h>
+
 static int conn_init(conn_t *conn, env_t *env)
 {
   conn->env = env_ref(env);
@@ -63,12 +65,26 @@ conn_t* conn_unref(conn_t *conn)
   return NULL;
 }
 
-int conn_connect(conn_t *conn, const connection_str_t *conn_str)
+int conn_connect(conn_t *conn, const connection_cfg_t *cfg)
 {
   OA_ILE(conn);
   OA_ILE(conn->taos == NULL);
 
-  conn->taos = taos_connect(conn_str->ip, conn_str->uid, conn_str->pwd, conn_str->db, conn_str->port);
+  if (cfg->legacy && cfg->legacy != 1) {
+    err_set(&conn->err,
+        0,
+        "`LEGACY=FALSE` specified in `connection string`, but not allowed",
+        "HY000");
+    return -1;
+  }
+
+  conn->taos = taos_connect(cfg->ip, cfg->uid, cfg->pwd, cfg->db, cfg->port);
+  if (!conn->taos) {
+    err_set(&conn->err,
+        taos_errno(NULL),
+        taos_errstr(NULL),
+        "HY000");
+  }
 
   return conn->taos ? 0 : -1;
 }
@@ -102,5 +118,24 @@ int conn_rollback(conn_t *conn)
 {
   int outstandings = atomic_load(&conn->outstandings);
   return outstandings == 0 ? 0 : -1;
+}
+
+SQLRETURN conn_get_diag_rec(
+    conn_t         *conn,
+    SQLSMALLINT     RecNumber,
+    SQLCHAR        *SQLState,
+    SQLINTEGER     *NativeErrorPtr,
+    SQLCHAR        *MessageText,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *TextLengthPtr)
+{
+  if (RecNumber > 1) return SQL_NO_DATA;
+  if (conn->err.sql_state[0] == '\0') return SQL_NO_DATA;
+  if (NativeErrorPtr) *NativeErrorPtr = conn->err.err;
+  if (SQLState) strncpy((char*)SQLState, (const char*)conn->err.sql_state, 6);
+  int n = snprintf((char*)MessageText, BufferLength, "%s", conn->err.estr);
+  if (TextLengthPtr) *TextLengthPtr = n;
+
+  return SQL_SUCCESS;
 }
 

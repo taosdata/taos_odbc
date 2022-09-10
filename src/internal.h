@@ -11,6 +11,15 @@
 
 EXTERN_C_BEGIN
 
+typedef struct err_s             err_t;
+struct err_s {
+  int                 err;
+  const char         *estr;
+  SQLCHAR             sql_state[6];
+};
+
+void err_set(err_t *err, int e, const char *estr, const char *sql_state);
+
 struct env_s {
   atomic_int          refc;
 
@@ -24,31 +33,45 @@ struct conn_s {
 
   env_t              *env;
 
+  err_t               err;
+
   TAOS               *taos;
 };
 
-typedef struct col_bind_s          col_bind_t;
-struct col_bind_s {
+typedef struct sql_c_data_desc_s   sql_c_data_desc_t;
+
+typedef SQLRETURN (*conv_f)(stmt_t *stmt, const char *data, int len, int row, sql_c_data_desc_t *desc);
+
+struct sql_c_data_desc_s {
   SQLUSMALLINT   ColumnNumber;
   SQLSMALLINT    TargetType;
   SQLPOINTER     TargetValuePtr;
   SQLLEN         BufferLength;
   SQLLEN        *StrLen_or_IndPtr;
+};
 
-  unsigned char  bounded:1;
+typedef struct col_bind_s          col_bind_t;
+
+struct col_bind_s {
+  sql_c_data_desc_t    desc;
+
+  conv_f               conv;
+
+  unsigned char        bounded:1;
 };
 
 typedef struct col_binds_s          col_binds_t;
 struct col_binds_s {
   col_bind_t               *binds;
   size_t                    cap;
-  size_t                    nr;
 };
 
 typedef struct rowset_s             rowset_t;
 struct rowset_s {
   TAOS_ROW            rows;
   int                 nr_rows;
+
+  int                 cursor;
 };
 
 struct stmt_s {
@@ -56,13 +79,13 @@ struct stmt_s {
 
   conn_t             *conn;
 
-  int                 err;
-  const char         *estr;
+  err_t               err;
 
   TAOS_RES           *res;
   SQLLEN              row_count;
   SQLSMALLINT         col_count;
   TAOS_FIELD         *cols;
+  int                *lengths;
   int                 time_precision;
   col_binds_t         col_binds;
   rowset_t            rowset;

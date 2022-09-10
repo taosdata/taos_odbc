@@ -471,7 +471,6 @@ static SQLRETURN do_stmt_set_row_array_size(
     stmt_t       *stmt,
     SQLULEN       row_array_size)
 {
-  OA_NIY(row_array_size == 1);
   if (stmt_set_row_array_size(stmt, row_array_size)) return SQL_ERROR;
   return SQL_SUCCESS;
 }
@@ -488,6 +487,7 @@ static SQLRETURN do_stmt_set_row_bind_type(
     stmt_t       *stmt,
     SQLULEN       row_bind_type)
 {
+  OA_NIY(row_bind_type == SQL_BIND_BY_COLUMN);
   if (stmt_set_row_bind_type(stmt, row_bind_type)) return SQL_ERROR;
   return SQL_SUCCESS;
 }
@@ -585,5 +585,117 @@ SQLRETURN SQLFreeStmt(
       OA_NIY(0);
       return SQL_ERROR;
   }
+}
+
+static SQLRETURN do_env_get_diag_rec(
+    env_t          *env,
+    SQLSMALLINT     RecNumber,
+    SQLCHAR        *SQLState,
+    SQLINTEGER     *NativeErrorPtr,
+    SQLCHAR        *MessageText,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *TextLengthPtr)
+{
+  (void)env;
+  (void)RecNumber;
+  (void)SQLState;
+  (void)NativeErrorPtr;
+  (void)MessageText;
+  (void)BufferLength;
+  (void)TextLengthPtr;
+  OA_NIY(0);
+}
+
+static SQLRETURN do_conn_get_diag_rec(
+    conn_t         *conn,
+    SQLSMALLINT     RecNumber,
+    SQLCHAR        *SQLState,
+    SQLINTEGER     *NativeErrorPtr,
+    SQLCHAR        *MessageText,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *TextLengthPtr)
+{
+  (void)conn;
+  (void)RecNumber;
+  (void)SQLState;
+  (void)NativeErrorPtr;
+  (void)MessageText;
+  (void)BufferLength;
+  (void)TextLengthPtr;
+  return conn_get_diag_rec(conn, RecNumber, SQLState, NativeErrorPtr, MessageText, BufferLength, TextLengthPtr);
+}
+
+static SQLRETURN do_stmt_get_diag_rec(
+    stmt_t         *stmt,
+    SQLSMALLINT     RecNumber,
+    SQLCHAR        *SQLState,
+    SQLINTEGER     *NativeErrorPtr,
+    SQLCHAR        *MessageText,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *TextLengthPtr)
+{
+  (void)stmt;
+  (void)RecNumber;
+  (void)SQLState;
+  (void)NativeErrorPtr;
+  (void)MessageText;
+  (void)BufferLength;
+  (void)TextLengthPtr;
+  return stmt_get_diag_rec(stmt, RecNumber, SQLState, NativeErrorPtr, MessageText, BufferLength, TextLengthPtr);
+}
+
+SQLRETURN SQL_API SQLGetDiagRec(
+    SQLSMALLINT     HandleType,
+    SQLHANDLE       Handle,
+    SQLSMALLINT     RecNumber,
+    SQLCHAR        *SQLState,
+    SQLINTEGER     *NativeErrorPtr,
+    SQLCHAR        *MessageText,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *TextLengthPtr)
+{
+  switch (HandleType) {
+    case SQL_HANDLE_ENV:
+      return do_env_get_diag_rec((env_t*)Handle, RecNumber, SQLState, NativeErrorPtr, MessageText, BufferLength, TextLengthPtr);
+    case SQL_HANDLE_DBC:
+      return do_conn_get_diag_rec((conn_t*)Handle, RecNumber, SQLState, NativeErrorPtr, MessageText, BufferLength, TextLengthPtr);
+    case SQL_HANDLE_STMT:
+      return do_stmt_get_diag_rec((stmt_t*)Handle, RecNumber, SQLState, NativeErrorPtr, MessageText, BufferLength, TextLengthPtr);
+    default:
+      OA_NIY(0);
+      return SQL_ERROR;
+  }
+
+  return SQL_ERROR;
+}
+
+SQLRETURN SQL_API SQLGetDiagField(
+    SQLSMALLINT     HandleType,
+    SQLHANDLE       Handle,
+    SQLSMALLINT     RecNumber,
+    SQLSMALLINT     DiagIdentifier,
+    SQLPOINTER      DiagInfoPtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr)
+{
+  (void)HandleType;
+  (void)Handle;
+  (void)RecNumber;
+  (void)DiagIdentifier;
+  (void)DiagInfoPtr;
+  (void)BufferLength;
+  (void)StringLengthPtr;
+  OA_NIY(0);
+}
+
+SQLRETURN SQL_API SQLGetData(
+    SQLHSTMT       StatementHandle,
+    SQLUSMALLINT   Col_or_Param_Num,
+    SQLSMALLINT    TargetType,
+    SQLPOINTER     TargetValuePtr,
+    SQLLEN         BufferLength,
+    SQLLEN        *StrLen_or_IndPtr)
+{
+  return stmt_get_data((stmt_t*)StatementHandle, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, StrLen_or_IndPtr);
 }
 

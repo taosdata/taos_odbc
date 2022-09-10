@@ -1,6 +1,7 @@
 #include "internal.h"
 
 #include <pthread.h>
+#include <string.h>
 
 
 static void _exit_routine(void)
@@ -12,6 +13,13 @@ static void _init_once(void)
 {
   OA(0==taos_init(), "taos_init failed");
   atexit(_exit_routine);
+}
+
+void err_set(err_t *err, int e, const char *estr, const char *sql_state)
+{
+    err->err = e;
+    err->estr = estr;
+    strncpy((char*)err->sql_state, sql_state, sizeof(err->sql_state));
 }
 
 static int env_init(env_t *env)

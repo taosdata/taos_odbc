@@ -519,4 +519,40 @@
    obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
    fun:SQLDriverConnect
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:rpcMallocCont
+   fun:cliSend
+   fun:cliHandleRelease
+   fun:cliAsyncCb
+   fun:uv__async_io
+   fun:uv__io_poll
+   fun:uv_run
+   fun:cliWorkThread
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:transReleaseCliHandle
+   fun:rpcReleaseHandle
+   fun:schFreeHbTrans
+   fun:schRemoveHbConnection
+   fun:schDeregisterTaskHb
+   fun:schFreeTask
+   fun:schFreeJobImpl
+   fun:taosDecRefCount
+   fun:taosReleaseRef
+   fun:schReleaseJob
+   fun:schedulerFreeJob
+   fun:taos_stop_query
+   fun:destroyRequest
+   fun:taos_free_result
+}
 

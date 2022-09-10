@@ -61,6 +61,7 @@ do {                                              \
 %x SERVER_EQ
 %x FQDN
 %x COLON
+%x LEGACY
 
 SP       [ \t]
 LN       "\r\n"|"\n\r"|[\f\r\n]
@@ -69,6 +70,9 @@ UID      (?i:uid)
 PWD      (?i:pwd)
 DRIVER   (?i:driver)
 SERVER   (?i:server)
+LEGACY   (?i:legacy)
+TRUE     (?i:true)
+FALSE    (?i:false)
 FQDN     [-[:alnum:]]+((\.[-[:alnum:]]+)+)*(\.)?
 ID       [^\[\]{}(),;?*=!@[:space:]]+
 VALUE    [^\[\]{}(),;?*=!@[:space:]]+
@@ -86,6 +90,7 @@ DIGITS   [[:digit:]]+
 {PWD}     { R(); C(); return MKT(PWD); }
 {DRIVER}  { R(); C(); return MKT(DRIVER); }
 {SERVER}  { R(); PUSH(SERVER); C(); return MKT(SERVER); }
+{LEGACY}  { R(); PUSH(LEGACY); C(); return MKT(LEGACY); }
 {DIGITS}  { R(); SET_STR(); C(); return MKT(DIGITS); }
 {ID}      { R(); SET_STR(); C(); return MKT(ID); }
 "="       { R(); PUSH(EQ); C(); return *yytext; }
@@ -122,6 +127,14 @@ DIGITS   [[:digit:]]+
 ";"       { R(); POP(); C(); return ';'; }
 {SP}      { R(); POP(); C(); }
 {LN}      { R(); POP(); L(); }
+.         { R(); C(); return *yytext; } /* let bison to handle */
+}
+
+<LEGACY>{
+{SP}      { R(); C(); } /* eat */
+{LN}      { R(); L(); } /* eat */
+{TRUE}    { R(); POP(); C(); return MKT(TRUE); }
+{FALSE}   { R(); POP(); C(); return MKT(FALSE); }
 .         { R(); C(); return *yytext; } /* let bison to handle */
 }
 

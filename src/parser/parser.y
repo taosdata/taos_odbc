@@ -59,6 +59,14 @@
       param->conn_str.ip = strndup(_v.text, _v.leng);                \
       param->conn_str.port = strtol(_p.text, NULL, 10);              \
     } while (0)
+    #define SET_LEGACY() do {                                        \
+      if (!param) break;                                             \
+      param->conn_str.legacy = 1;                                    \
+    } while (0)
+    #define CLR_LEGACY() do {                                        \
+      if (!param) break;                                             \
+      param->conn_str.legacy = -1;                                   \
+    } while (0)
 }
 
 /* Bison declarations. */
@@ -79,7 +87,7 @@
 %union { parser_token_t token; }
 %union { char c; }
 
-%token DSN UID PWD DRIVER SERVER
+%token DSN UID PWD DRIVER SERVER LEGACY TRUE FALSE
 %token <token> ID VALUE FQDN DIGITS
 
  /* %nterm <str>   args */ // non-terminal `input` use `str` to store
@@ -119,6 +127,10 @@ attribute:
 | SERVER '=' FQDN                 { SET_FQDN($3); }
 | SERVER '=' FQDN ':'             { SET_FQDN($3); }
 | SERVER '=' FQDN ':' DIGITS      { SET_FQDN_PORT($3, $5); }
+| LEGACY                          { SET_LEGACY(); }
+| LEGACY '='                      { CLR_LEGACY(); }
+| LEGACY '=' TRUE                 { SET_LEGACY(); }
+| LEGACY '=' FALSE                { CLR_LEGACY(); }
 ;
 
 %%

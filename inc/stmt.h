@@ -3,8 +3,6 @@
 
 #include "conn.h"
 
-#include <sql.h>
-
 EXTERN_C_BEGIN
 
 typedef struct stmt_s              stmt_t;
@@ -39,6 +37,23 @@ int stmt_bind_col(stmt_t *stmt,
 SQLRETURN stmt_fetch(stmt_t *stmt) FA_HIDDEN;
 
 int stmt_close_cursor(stmt_t *stmt) FA_HIDDEN;
+
+SQLRETURN stmt_get_diag_rec(
+    stmt_t         *stmt,
+    SQLSMALLINT     RecNumber,
+    SQLCHAR        *SQLState,
+    SQLINTEGER     *NativeErrorPtr,
+    SQLCHAR        *MessageText,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *TextLengthPtr) FA_HIDDEN;
+
+SQLRETURN stmt_get_data(
+    stmt_t        *stmt,
+    SQLUSMALLINT   Col_or_Param_Num,
+    SQLSMALLINT    TargetType,
+    SQLPOINTER     TargetValuePtr,
+    SQLLEN         BufferLength,
+    SQLLEN        *StrLen_or_IndPtr) FA_HIDDEN;
 
 EXTERN_C_END
 

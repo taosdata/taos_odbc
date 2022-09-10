@@ -685,18 +685,18 @@ static void _stmt_get_data_len(stmt_t *stmt, int row, int col, const char **data
   }
 }
 
-static SQLRETURN _stmt_conv_bounded_col(stmt_t *stmt, int row, col_bind_t *col_bind)
+static SQLRETURN _stmt_conv_bounded_col(stmt_t *stmt, int row, sql_c_data_desc_t *desc, conv_f conv)
 {
   const char *data = NULL;
   int len = 0;
 
-  int i = col_bind->desc.ColumnNumber - 1;
+  int i = desc->ColumnNumber - 1;
   _stmt_get_data_len(stmt, row, i, &data, &len);
   if (data) {
-    return col_bind->conv(stmt, data, len, row-stmt->rowset.cursor, &col_bind->desc);
+    return conv(stmt, data, len, row-stmt->rowset.cursor, desc);
   } else {
-    if (col_bind->desc.StrLen_or_IndPtr) {
-      col_bind->desc.StrLen_or_IndPtr[row-stmt->rowset.cursor] = SQL_NULL_DATA;
+    if (desc->StrLen_or_IndPtr) {
+      desc->StrLen_or_IndPtr[row-stmt->rowset.cursor] = SQL_NULL_DATA;
     }
     return SQL_SUCCESS;
   }
@@ -732,7 +732,7 @@ SQLRETURN stmt_fetch(stmt_t *stmt)
       col_bind_t *col_bind = stmt->col_binds.binds + j;
       if (col_bind->bounded) {
         OA_NIY(col_bind->desc.ColumnNumber == j+1);
-        r = _stmt_conv_bounded_col(stmt, i, col_bind);
+        r = _stmt_conv_bounded_col(stmt, i, &col_bind->desc, col_bind->conv);
         if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return r;
       }
     }

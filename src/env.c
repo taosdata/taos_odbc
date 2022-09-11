@@ -1,5 +1,6 @@
 #include "internal.h"
 
+#include <libgen.h>
 #include <pthread.h>
 #include <string.h>
 
@@ -15,10 +16,14 @@ static void _init_once(void)
   atexit(_exit_routine);
 }
 
-void err_set(err_t *err, int e, const char *estr, const char *sql_state)
+void err_set_x(err_t *err, const char *file, int line, const char *func, int e, const char *estr, const char *sql_state)
 {
     err->err = e;
-    err->estr = estr;
+    snprintf(err->buf, sizeof(err->buf),
+        "%s[%d]:%s(): %s",
+        basename((char*)file), line, func,
+        estr);
+    err->estr = err->buf;
     strncpy((char*)err->sql_state, sql_state, sizeof(err->sql_state));
 }
 

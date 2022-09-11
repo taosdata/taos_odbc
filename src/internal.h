@@ -16,9 +16,13 @@ struct err_s {
   int                 err;
   const char         *estr;
   SQLCHAR             sql_state[6];
+
+  char                buf[1024];
 };
 
-void err_set(err_t *err, int e, const char *estr, const char *sql_state);
+void err_set_x(err_t *err, const char *file, int line, const char *func, int e, const char *estr, const char *sql_state);
+#define err_set(_err, _e, _estr, _sql_state) \
+  err_set_x(_err, __FILE__, __LINE__, __func__, _e, _estr, _sql_state)
 
 struct env_s {
   atomic_int          refc;

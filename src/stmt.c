@@ -395,47 +395,43 @@ static SQLRETURN _conv_tsdb_timestamp_to_sql_c_char(stmt_t *stmt, const char *da
   int64_t val = *(int64_t*)data;
 
   int n;
-  if (!stmt->conn->fmt_time) {
-    n = snprintf(base, desc->BufferLength, "%" PRId64 "", val);
-  } else {
-    time_t  tt;
-    int32_t ms = 0;
-    int w;
-    switch (stmt->time_precision) {
-      case 2:
-        tt = (time_t)(val / 1000000000);
-        ms = val % 1000000000;
-        w = 9;
-        break;
-      case 1:
-        tt = (time_t)(val / 1000000);
-        ms = val % 1000000;
-        w = 6;
-        break;
-      case 0:
-        tt = (time_t)(val / 1000);
-        ms = val % 1000;
-        w = 3;
-        break;
-      default:
-        OA_ILE(0);
-        break;
-    }
-
-    if (tt <= 0 && ms < 0) {
-      OA_NIY(0);
-    }
-
-    struct tm ptm = {0};
-    struct tm *p = localtime_r(&tt, &ptm);
-    OA_ILE(p == &ptm);
-
-    n = snprintf(base, desc->BufferLength,
-        "%04d-%02d-%02d %02d:%02d:%02d.%0*d",
-        ptm.tm_year + 1900, ptm.tm_mon + 1, ptm.tm_mday,
-        ptm.tm_hour, ptm.tm_min, ptm.tm_sec,
-        w, ms);
+  time_t  tt;
+  int32_t ms = 0;
+  int w;
+  switch (stmt->time_precision) {
+    case 2:
+      tt = (time_t)(val / 1000000000);
+      ms = val % 1000000000;
+      w = 9;
+      break;
+    case 1:
+      tt = (time_t)(val / 1000000);
+      ms = val % 1000000;
+      w = 6;
+      break;
+    case 0:
+      tt = (time_t)(val / 1000);
+      ms = val % 1000;
+      w = 3;
+      break;
+    default:
+      OA_ILE(0);
+      break;
   }
+
+  if (tt <= 0 && ms < 0) {
+    OA_NIY(0);
+  }
+
+  struct tm ptm = {0};
+  struct tm *p = localtime_r(&tt, &ptm);
+  OA_ILE(p == &ptm);
+
+  n = snprintf(base, desc->BufferLength,
+      "%04d-%02d-%02d %02d:%02d:%02d.%0*d",
+      ptm.tm_year + 1900, ptm.tm_mon + 1, ptm.tm_mday,
+      ptm.tm_hour, ptm.tm_min, ptm.tm_sec,
+      w, ms);
 
   if (desc->StrLen_or_IndPtr) desc->StrLen_or_IndPtr[row] = n;
   if (n >= desc->BufferLength) {

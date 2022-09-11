@@ -36,6 +36,8 @@ struct conn_s {
   err_t               err;
 
   TAOS               *taos;
+
+  unsigned int        fmt_time:1;
 };
 
 typedef struct sql_c_data_desc_s   sql_c_data_desc_t;

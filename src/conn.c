@@ -70,13 +70,15 @@ int conn_connect(conn_t *conn, const connection_cfg_t *cfg)
   OA_ILE(conn);
   OA_ILE(conn->taos == NULL);
 
-  if (cfg->legacy && cfg->legacy != 1) {
+  if (cfg->legacy) {
     err_set(&conn->err,
         0,
-        "`LEGACY=FALSE` specified in `connection string`, but not allowed",
+        "`LEGACY` specified in `connection string`, but not implemented yet",
         "HY000");
     return -1;
   }
+
+  conn->fmt_time = cfg->fmt_time;
 
   conn->taos = taos_connect(cfg->ip, cfg->uid, cfg->pwd, cfg->db, cfg->port);
   if (!conn->taos) {

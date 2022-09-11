@@ -63,9 +63,9 @@
       if (!param) break;                                             \
       param->conn_str.legacy = 1;                                    \
     } while (0)
-    #define CLR_LEGACY() do {                                        \
+    #define SET_FMT_TIME() do {                                      \
       if (!param) break;                                             \
-      param->conn_str.legacy = -1;                                   \
+      param->conn_str.fmt_time = 1;                                  \
     } while (0)
 }
 
@@ -87,7 +87,7 @@
 %union { parser_token_t token; }
 %union { char c; }
 
-%token DSN UID PWD DRIVER SERVER LEGACY TRUE FALSE
+%token DSN UID PWD DRIVER SERVER LEGACY FMT_TIME
 %token <token> ID VALUE FQDN DIGITS
 
  /* %nterm <str>   args */ // non-terminal `input` use `str` to store
@@ -128,9 +128,7 @@ attribute:
 | SERVER '=' FQDN ':'             { SET_FQDN($3); }
 | SERVER '=' FQDN ':' DIGITS      { SET_FQDN_PORT($3, $5); }
 | LEGACY                          { SET_LEGACY(); }
-| LEGACY '='                      { CLR_LEGACY(); }
-| LEGACY '=' TRUE                 { SET_LEGACY(); }
-| LEGACY '=' FALSE                { CLR_LEGACY(); }
+| FMT_TIME                        { SET_FMT_TIME(); }
 ;
 
 %%

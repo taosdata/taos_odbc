@@ -20,7 +20,8 @@ struct connection_cfg_s {
   char                  *db;
   int                    port;
 
-  unsigned int           legacy:2; // 0x00: not specified; 0x01: legacy; 0x03: otherwise
+  unsigned int           legacy:1;
+  unsigned int           fmt_time:1;
 };
 
 static inline void connection_cfg_release(connection_cfg_t *conn_str)

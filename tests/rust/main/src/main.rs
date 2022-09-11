@@ -86,5 +86,8 @@ fn do_test_cases(env: &Environment<Odbc3>) {
   assert_eq!(test_execute(&conn, r##"select "abc" union all select "bcd" union all select "cde""##), true);
   assert_eq!(test_query(&conn, r##"select "abc" union all select "bcd" union all select "cde""##), true);
   assert_eq!(test_query(&conn, r##"select * from t"##), true);
+
+  let conn = env.connect_with_connection_string("DSN=TAOS_ODBC_DSN;FMT_TIME").unwrap();
+  assert_eq!(test_query(&conn, r##"select * from foo.t"##), true);
 }
 

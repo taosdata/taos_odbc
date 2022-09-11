@@ -116,10 +116,10 @@ async function do_test_cases() {
   assert.equal(await case1('DSN=TAOS_ODBC_DSN'), 0);
   assert.equal(await execute('DSN=TAOS_ODBC_DSN', 'show databases'), 0);
   assert.equal(await execute('DSN=TAOS_ODBC_DSN', 'select ts, name from foo.t'), 0);
-  assert.equal(await execute('DSN=TAOS_ODBC_DSN; LEGACY=TRUE', 'select * from foo.t'), 0);
-  assert.equal(await execute('DSN=TAOS_ODBC_DSN; LEGACY=FALSE', 'select * from foo.t'), -1);
+  assert.equal(await execute('DSN=TAOS_ODBC_DSN; LEGACY', 'select * from foo.t'), -1);
   assert.equal(await execute('DSN=TAOS_ODBC_DSN', 'xshow databases'), -1);
   assert.equal(await execute('DSN=TAOS_ODBC_DSN', 'select * from foo.t'), 0);
+  assert.equal(await execute('DSN=TAOS_ODBC_DSN;FMT_TIME', 'select * from foo.t'), 0);
 
   return 0;
 }

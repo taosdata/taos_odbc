@@ -403,6 +403,7 @@ static SQLRETURN do_conn_end_tran(
 {
   switch (CompletionType) {
     case SQL_COMMIT:
+      OA_NIY(0);
       return SQL_SUCCESS;
     case SQL_ROLLBACK:
       if (conn_rollback(conn)) return SQL_ERROR;

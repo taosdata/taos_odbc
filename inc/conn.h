@@ -42,7 +42,15 @@ conn_t* conn_create(env_t *env) FA_HIDDEN;
 conn_t* conn_ref(conn_t *conn) FA_HIDDEN;
 conn_t* conn_unref(conn_t *conn) FA_HIDDEN;
 
-int conn_connect(conn_t *conn, const connection_cfg_t *cfg) FA_HIDDEN;
+SQLRETURN conn_driver_connect(
+    conn_t         *conn,
+    SQLHWND         WindowHandle,
+    SQLCHAR        *InConnectionString,
+    SQLSMALLINT     StringLength1,
+    SQLCHAR        *OutConnectionString,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLength2Ptr) FA_HIDDEN;
+
 void conn_disconnect(conn_t *conn) FA_HIDDEN;
 
 int conn_get_dbms_name(conn_t *conn, const char **name) FA_HIDDEN;

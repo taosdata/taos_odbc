@@ -1,7 +1,7 @@
 #include "conn.h"
 #include "env.h"
+#include "internal.h"
 #include "log.h"
-#include "parser.h"
 #include "stmt.h"
 
 #include <stdatomic.h>
@@ -133,58 +133,6 @@ SQLRETURN SQL_API SQLFreeHandle(
   }
 }
 
-static SQLRETURN do_driver_connect(
-    conn_t         *conn,
-    SQLCHAR        *InConnectionString,
-    SQLSMALLINT     StringLength1,
-    SQLCHAR        *OutConnectionString,
-    SQLSMALLINT     BufferLength,
-    SQLSMALLINT    *StringLength2Ptr)
-{
-  parser_param_t param = {};
-  // param.debug_flex = 1;
-  // param.debug_bison = 1;
-
-  if (StringLength1 == SQL_NTS) StringLength1 = strlen((const char*)InConnectionString);
-  int r = parser_parse((const char*)InConnectionString, StringLength1, &param);
-  do {
-    if (r) break;
-
-    r = conn_connect(conn, &param.conn_str);
-
-    if (r) break;
-
-    if (OutConnectionString) {
-      int n;
-      if (StringLength1 > BufferLength) {
-        n = BufferLength;
-      } else {
-        n = StringLength1;
-      }
-
-      strncpy((char*)OutConnectionString, (const char*)InConnectionString, n);
-      if (n<BufferLength) {
-        OutConnectionString[n] = '\0';
-      } else if (BufferLength>0) {
-        OutConnectionString[BufferLength-1] = '\0';
-      }
-      if (StringLength2Ptr) {
-        *StringLength2Ptr = strlen((const char*)OutConnectionString);
-      }
-    } else {
-      if (StringLength2Ptr) {
-        *StringLength2Ptr = 0;
-      }
-    }
-
-    parser_param_release(&param);
-    return SQL_SUCCESS;
-  } while (0);
-
-  parser_param_release(&param);
-  return SQL_ERROR;
-}
-
 SQLRETURN SQL_API SQLDriverConnect(
     SQLHDBC         ConnectionHandle,
     SQLHWND         WindowHandle,
@@ -197,10 +145,9 @@ SQLRETURN SQL_API SQLDriverConnect(
 {
   OA_DM(ConnectionHandle);
   OA_DM(InConnectionString);
-  OA_NIY(WindowHandle == NULL);
   switch (DriverCompletion) {
     case SQL_DRIVER_NOPROMPT:
-      return do_driver_connect((conn_t*)ConnectionHandle, InConnectionString, StringLength1, OutConnectionString, BufferLength, StringLength2Ptr);
+      return conn_driver_connect((conn_t*)ConnectionHandle, WindowHandle, InConnectionString, StringLength1, OutConnectionString, BufferLength, StringLength2Ptr);
     default:
       return SQL_ERROR;
   }
@@ -462,7 +409,6 @@ static SQLRETURN do_stmt_set_row_bind_type(
     stmt_t       *stmt,
     SQLULEN       row_bind_type)
 {
-  OA_NIY(row_bind_type == SQL_BIND_BY_COLUMN);
   if (stmt_set_row_bind_type(stmt, row_bind_type)) return SQL_ERROR;
   return SQL_SUCCESS;
 }
@@ -567,7 +513,7 @@ SQLRETURN SQLFreeStmt(
       if (stmt_close_cursor((stmt_t*)StatementHandle)) return SQL_ERROR;
       return SQL_SUCCESS;
     default:
-      OA_NIY(0);
+      err_set(&((stmt_t*)StatementHandle)->err, "HY000", 0, "only `SQL_CLOSE` is supported now");
       return SQL_ERROR;
   }
 }
@@ -588,7 +534,8 @@ static SQLRETURN do_env_get_diag_rec(
   (void)MessageText;
   (void)BufferLength;
   (void)TextLengthPtr;
-  OA_NIY(0);
+  err_set(&env->err, "HY000", 0, "not supported yet");
+  return SQL_ERROR;
 }
 
 static SQLRETURN do_conn_get_diag_rec(

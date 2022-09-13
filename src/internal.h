@@ -111,6 +111,8 @@ struct env_s {
   atomic_int          refc;
 
   atomic_int          conns;
+
+  err_t               err;
 };
 
 struct conn_s {

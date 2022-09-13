@@ -11,7 +11,56 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <taos.h>
 
+#define D_APPLY0(_func)                                 ({ D("%s", #_func); _func(); })
+#define D_APPLY1(_func, _v1)                            ({ D("%s", #_func); _func(_v1); })
+#define D_APPLY2(_func, _v1, _v2)                       ({ D("%s", #_func); _func(_v1, _v2); })
+#define D_APPLY3(_func, _v1, _v2, _v3)                  ({ D("%s", #_func); _func(_v1, _v2, _v3); })
+#define D_APPLY4(_func, _v1, _v2, _v3, _v4)             ({ D("%s", #_func); _func(_v1, _v2, _v3, _v4); })
+#define D_APPLY5(_func, _v1, _v2, _v3, _v4, _v5)        ({ D("%s", #_func); _func(_v1, _v2, _v3, _v4, _v5); })
+
+#define TAOS_init()                                                D_APPLY0(taos_init)
+#define TAOS_num_fields(_result)                                   D_APPLY1(taos_num_fields, _result)
+#define TAOS_fetch_fields(_result)                                 D_APPLY1(taos_fetch_fields, _result)
+#define TAOS_fetch_row(_result)                                    D_APPLY1(taos_fetch_row, _result)
+#define TAOS_print_row(_temp, _row, _fields, _num_fields)          D_APPLY4(taos_print_row, _temp, _row, _fields, _num_fields)
+#define TAOS_query(_taos, _sql)     ({const char *__sql = _sql; D("sql: [%s]", __sql); D_APPLY2(taos_query, _taos, _sql); })
+#define TAOS_errno(_result)                                        D_APPLY1(taos_errno, _result)
+#define TAOS_errstr(_result)                                       D_APPLY1(taos_errstr, _result)
+#define TAOS_free_result(_result)                                  D_APPLY1(taos_free_result, _result)
+#define TAOS_stmt_is_insert(_stmt, _isInsert)                      D_APPLY2(taos_stmt_is_insert, _stmt, _isInsert)
+#define TAOS_stmt_errstr(_result)                                  D_APPLY1(taos_stmt_errstr, _result)
+#define TAOS_stmt_num_params(_stmt, _num)                          D_APPLY2(taos_stmt_num_params, _stmt, _num)
+#define TAOS_stmt_affected_rows(_stmt)                             D_APPLY1(taos_stmt_affected_rows, _stmt)
+#define TAOS_stmt_affected_rows_once(_stmt)                        D_APPLY1(taos_stmt_affected_rows_once, _stmt)
+#define TAOS_stmt_use_result(_stmt)                                D_APPLY1(taos_stmt_use_result, _stmt)
+#define TAOS_stmt_get_param(_stmt, _i, _fieldType, _fieldBytes)    D_APPLY4(taos_stmt_get_param, _stmt, _i, _fieldType, _fieldBytes)
+#define TAOS_stmt_get_tag_fields(_stmt, _fieldNum, _pFields)       D_APPLY3(taos_stmt_get_tag_fields, _stmt, _fieldNum, _pFields)
+#define TAOS_stmt_get_col_fields(_stmt, _fieldNum, _pFields)       D_APPLY3(taos_stmt_get_col_fields, _stmt, _fieldNum, _pFields)
+#define TAOS_stmt_bind_param_batch(_stmt, _bind)                   D_APPLY2(taos_stmt_bind_param_batch, _stmt, _bind)
+#define TAOS_stmt_bind_single_param_batch(_stmt, _bind, _i)        D_APPLY3(taos_stmt_bind_single_param_batch, _stmt, _bind, _i)
+#define TAOS_stmt_bind_param(_stmt, _bind)                         D_APPLY2(taos_stmt_bind_param, _stmt, _bind)
+#define TAOS_stmt_set_tbname(_stmt, _tblName)                      D_APPLY2(taos_stmt_set_tbname, _stmt, _tblName)
+#define TAOS_stmt_set_tags(_stmt, _pTags)                          D_APPLY2(taos_stmt_set_tags, _stmt, _pTags)
+#define TAOS_stmt_set_tbname_tags(_stmt, _tblName, _pTags)         D_APPLY3(taos_stmt_set_tbname_tags, _stmt, _tblName, _pTags)
+#define TAOS_stmt_prepare(_stmt, _sql, _len) ({const char *__sql = _sql; D("sql: [%s]", __sql); D_APPLY3(taos_stmt_prepare, _stmt, _sql, _len); })
+#define TAOS_stmt_add_batch(_stmt)                                 D_APPLY1(taos_stmt_add_batch, _stmt)
+#define TAOS_stmt_execute(_stmt)                                   D_APPLY1(taos_stmt_execute, _stmt)
+#define TAOS_stmt_init(_stmt)                                      D_APPLY1(taos_stmt_init, _stmt)
+#define TAOS_stmt_close(_stmt)                                     D_APPLY1(taos_stmt_close, _stmt)
+#define TAOS_connect(_host, _uid, _pwd, _db, _port)                                               \
+  ({                                                                                              \
+    const char *__host = _host;                                                                   \
+    const char *__uid = _uid;                                                                     \
+    const char *__pwd = _pwd;                                                                     \
+    const char *__db = _db;                                                                       \
+    uint16_t __port = _port;                                                                      \
+    D("_host[%s]; _uid[%s]; _pwd[%s]; _db[%s]; _port[%d]", __host, __uid, __pwd, __db, __port);   \
+    D_APPLY5(taos_connect, _host, _uid, _pwd, _db, _port);                                        \
+  })
+
+#define TAOS_close(_stmt)                                          D_APPLY1(taos_close, _stmt)
 
 #define LOG(_file, _line, _func, _fmt, ...)                   \
   fprintf(stderr, "%s[%d]:%s: " _fmt "\n",                    \
@@ -252,22 +301,22 @@ static int do_sql_stmt_execute_direct_prepare(SQLHANDLE stmth)
   CHK2(test_sql_stmt_execute_direct, stmth, "use bar", 0);
   CHK2(test_sql_stmt_execute_direct, stmth, "create table if not exists t (ts timestamp, v int)", 0);
 
-  SQLRETURN r;
-  SQL_TIMESTAMP_STRUCT ts = {};
-  SQLLEN cbOrderDate;
+  // SQLRETURN r;
+  // SQL_TIMESTAMP_STRUCT ts = {};
+  // SQLLEN cbOrderDate;
 
-  CALL_ODBC(r, SQL_HANDLE_STMT, stmth, SQLBindParameter(stmth, 1, SQL_PARAM_INPUT, SQL_C_TYPE_TIMESTAMP, SQL_TYPE_TIMESTAMP, sizeof(ts), 0, &ts, 0, &cbOrderDate));
-  D("input: ipar: %d", 1);
-  D("input: fParamType: %d", SQL_PARAM_INPUT);
-  D("input: fCType: %d", SQL_C_TYPE_TIMESTAMP);
-  D("input: fSqlType: %d", SQL_TYPE_TIMESTAMP);
-  D("input: cbColDef: %ld", sizeof(ts));
-  D("input: ibScale: %d", 0);
-  D("input: rgbValue: %p", &ts);
-  D("input: cbValueMax: %d", 0);
-  D("input: pcbValue: %p", &cbOrderDate);
-  if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
-  if (r != SQL_SUCCESS) return -1;
+  // CALL_ODBC(r, SQL_HANDLE_STMT, stmth, SQLBindParameter(stmth, 1, SQL_PARAM_INPUT, SQL_C_TYPE_TIMESTAMP, SQL_TYPE_TIMESTAMP, sizeof(ts), 0, &ts, 0, &cbOrderDate));
+  // D("input: ipar: %d", 1);
+  // D("input: fParamType: %d", SQL_PARAM_INPUT);
+  // D("input: fCType: %d", SQL_C_TYPE_TIMESTAMP);
+  // D("input: fSqlType: %d", SQL_TYPE_TIMESTAMP);
+  // D("input: cbColDef: %ld", sizeof(ts));
+  // D("input: ibScale: %d", 0);
+  // D("input: rgbValue: %p", &ts);
+  // D("input: cbValueMax: %d", 0);
+  // D("input: pcbValue: %p", &cbOrderDate);
+  // if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
+  // if (r != SQL_SUCCESS) return -1;
 
   return 0;
 }

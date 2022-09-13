@@ -1,5 +1,6 @@
 set(utils_SOURCES
-    log.c)
+    log.c
+    utils.c)
 
 add_library(utils_obj OBJECT ${utils_SOURCES})
 target_include_directories(utils_obj PRIVATE

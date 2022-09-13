@@ -239,32 +239,6 @@ SQLRETURN SQL_API SQLExecDirect(
   return do_exec_direct((stmt_t*)StatementHandle, StatementText, TextLength);
 }
 
-SQLRETURN SQL_API SQLBindParameter(
-    SQLHSTMT        StatementHandle,
-    SQLUSMALLINT    ParameterNumber,
-    SQLSMALLINT     InputOutputType,
-    SQLSMALLINT     ValueType,
-    SQLSMALLINT     ParameterType,
-    SQLULEN         ColumnSize,
-    SQLSMALLINT     DecimalDigits,
-    SQLPOINTER      ParameterValuePtr,
-    SQLLEN          BufferLength,
-    SQLLEN         *StrLen_or_IndPtr)
-{
-  (void)StatementHandle;
-  (void)ParameterNumber;
-  (void)InputOutputType;
-  (void)ValueType;
-  (void)ParameterType;
-  (void)ColumnSize;
-  (void)DecimalDigits;
-  (void)ParameterValuePtr;
-  (void)BufferLength;
-  (void)StrLen_or_IndPtr;
-
-  return SQL_SUCCESS;
-}
-
 static SQLRETURN do_env_set_odbc_version(
     env_t       *env,
     int32_t      odbc_version)
@@ -551,9 +525,15 @@ SQLRETURN SQL_API SQLDescribeCol(
     SQLSMALLINT   *DecimalDigitsPtr,
     SQLSMALLINT   *NullablePtr)
 {
-  if (stmt_describe_col((stmt_t*)StatementHandle, ColumnNumber, ColumnName, BufferLength, NameLengthPtr, DataTypePtr, ColumnSizePtr, DecimalDigitsPtr, NullablePtr)) return SQL_ERROR;
-
-  return SQL_SUCCESS;
+  return stmt_describe_col((stmt_t*)StatementHandle,
+      ColumnNumber,
+      ColumnName,
+      BufferLength,
+      NameLengthPtr,
+      DataTypePtr,
+      ColumnSizePtr,
+      DecimalDigitsPtr,
+      NullablePtr);
 }
 
 SQLRETURN SQL_API SQLBindCol(
@@ -564,8 +544,12 @@ SQLRETURN SQL_API SQLBindCol(
     SQLLEN         BufferLength,
     SQLLEN        *StrLen_or_IndPtr)
 {
-  if (stmt_bind_col((stmt_t*)StatementHandle, ColumnNumber, TargetType, TargetValuePtr, BufferLength, StrLen_or_IndPtr)) return SQL_ERROR;
-  return SQL_SUCCESS;
+  return stmt_bind_col((stmt_t*)StatementHandle,
+      ColumnNumber,
+      TargetType,
+      TargetValuePtr,
+      BufferLength,
+      StrLen_or_IndPtr);
 }
 
 SQLRETURN SQL_API SQLFetch(
@@ -698,5 +682,78 @@ SQLRETURN SQL_API SQLGetData(
     SQLLEN        *StrLen_or_IndPtr)
 {
   return stmt_get_data((stmt_t*)StatementHandle, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, StrLen_or_IndPtr);
+}
+
+SQLRETURN SQL_API SQLPrepare(
+    SQLHSTMT      StatementHandle,
+    SQLCHAR      *StatementText,
+    SQLINTEGER    TextLength)
+{
+  if (TextLength == SQL_NTS) TextLength = strlen((const char*)StatementText);
+  return stmt_prepare((stmt_t*)StatementHandle, (const char*)StatementText, (size_t)TextLength);
+}
+
+SQLRETURN SQL_API SQLNumParams(
+    SQLHSTMT        StatementHandle,
+    SQLSMALLINT    *ParameterCountPtr)
+{
+  return stmt_get_num_params((stmt_t*)StatementHandle, ParameterCountPtr);
+}
+
+SQLRETURN SQL_API SQLDescribeParam(
+    SQLHSTMT        StatementHandle,
+    SQLUSMALLINT    ParameterNumber,
+    SQLSMALLINT    *DataTypePtr,
+    SQLULEN        *ParameterSizePtr,
+    SQLSMALLINT    *DecimalDigitsPtr,
+    SQLSMALLINT    *NullablePtr)
+{
+  return stmt_describe_param(
+      (stmt_t*)StatementHandle,
+      ParameterNumber,
+      DataTypePtr,
+      ParameterSizePtr,
+      DecimalDigitsPtr,
+      NullablePtr);
+}
+
+SQLRETURN SQL_API SQLBindParameter(
+    SQLHSTMT        StatementHandle,
+    SQLUSMALLINT    ParameterNumber,
+    SQLSMALLINT     InputOutputType,
+    SQLSMALLINT     ValueType,
+    SQLSMALLINT     ParameterType,
+    SQLULEN         ColumnSize,
+    SQLSMALLINT     DecimalDigits,
+    SQLPOINTER      ParameterValuePtr,
+    SQLLEN          BufferLength,
+    SQLLEN         *StrLen_or_IndPtr)
+{
+  return stmt_bind_param((stmt_t*)StatementHandle,
+    ParameterNumber,
+    InputOutputType,
+    ValueType,
+    ParameterType,
+    ColumnSize,
+    DecimalDigits,
+    ParameterValuePtr,
+    BufferLength,
+    StrLen_or_IndPtr);
+  (void)StatementHandle;
+  (void)ParameterNumber;
+  (void)InputOutputType;
+  (void)ValueType;
+  (void)ParameterType;
+  (void)ColumnSize;
+  (void)DecimalDigits;
+  (void)ParameterValuePtr;
+  (void)BufferLength;
+  (void)StrLen_or_IndPtr;
+}
+
+SQLRETURN SQL_API SQLExecute(
+    SQLHSTMT     StatementHandle)
+{
+  return stmt_execute((stmt_t*)StatementHandle);
 }
 

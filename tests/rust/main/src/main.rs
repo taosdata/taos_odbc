@@ -115,6 +115,51 @@ fn test_case1(conn: &Connection<'_, AutocommitOn>) -> bool {
   _case1(conn).unwrap()
 }
 
+// fn _case2(conn: &Connection<'_, AutocommitOn>) -> Result<bool> {
+//   assert_eq!(test_execute(&conn, r#"drop database if exists foo"#), true);
+//   assert_eq!(test_execute(&conn, r#"create database if not exists foo"#), true);
+//   assert_eq!(test_execute(&conn, r#"use foo"#), true);
+//   assert_eq!(test_execute(&conn, r#"drop table if exists t"#), true);
+//   assert_eq!(test_execute(&conn, r#"create table if not exists t (ts timestamp, name varchar(20), age int, sex varchar(8), text nchar(3))"#), true);
+//   assert_eq!(test_execute(&conn, r#"select * from t"#), true);
+//   assert_eq!(test_execute(&conn, r#"insert into t (ts, name, age, sex, text) values (1662861448752, "name1", 20, "male", "中国人")"#), true);
+//   assert_eq!(test_execute(&conn, r#"insert into t (ts, name, age, sex, text) values (1662861449753, "name2", 30, "female", "苏州人")"#), true);
+//   assert_eq!(test_execute(&conn, r#"insert into t (ts, name, age, sex, text) values (1662861450754, "name3", null, null, null)"#), true);
+// 
+//   let _parsed = json::array![
+//     [{ts:r#"2022-09-11 09:57:28.752"#}, {name:r#"name1"#}, {age:"20"}, {sex:r#"male"#}, {text:r#"中国人"#}],
+//     [{ts:r#"2022-09-11 09:57:29.753"#}, {name:r#"name2"#}, {age:"30"}, {sex:r#"female"#}, {text:r#"苏州人"#}],
+//     [{ts:r#"2022-09-11 09:57:30.754"#}, {name:r#"name3"#}, {age:null}, {sex:null}, {text:null}],
+//   ];
+// 
+//   let stmt = Statement::with_parent(conn)?;
+// 
+//   let mut stmt = stmt.prepare("select * from foo.t where name = ?")?;
+// 
+//   fn print_one_movie_from<'a> (name:&str, stmt: Statement<'a,'a, Prepared, NoResult, safe::AutocommitOn>) ->
+//     Result<Statement<'a, 'a, Prepared, NoResult, safe::AutocommitOn>>
+//   {
+//     let stmt = stmt.bind_parameter(1, &name)?;
+//     let stmt = if let Data(mut stmt) = stmt.execute()?{
+//          if let Some(mut cursor) = stmt.fetch()?{
+//              println!("{}", cursor.get_data::<String>(1)?.unwrap());
+//          }
+//          stmt.close_cursor()?
+//      } else {
+//         panic!("SELECT statement returned no result set");
+//      };
+//      stmt.reset_parameters()
+//   }
+// 
+//   print_one_movie_from("name2", stmt).unwrap();
+// 
+//   Ok(true)
+// }
+// 
+// fn test_case2(conn: &Connection<'_, AutocommitOn>) -> bool {
+//   _case2(conn).unwrap()
+// }
+
 fn do_test_cases(env: &Environment<Odbc3>) {
   assert_eq!(test_connect(&env, "DSN=xTAOS_ODBC_DSN"), false);
   assert_eq!(test_connect(&env, "DSN=TAOS_ODBC_DSN"), true);
@@ -136,5 +181,8 @@ fn do_test_cases(env: &Environment<Odbc3>) {
   assert_eq!(test_query(&conn, r#"select "abc" union all select "bcd" union all select "cde""#), true);
   assert_eq!(test_query(&conn, r#"select * from t"#), true);
   assert_eq!(test_case1(&conn), true);
+  assert_eq!(test_execute(&conn, r#"select * from t where name = ?"#), false);
+  assert_eq!(test_execute(&conn, r#"insert into t (ts, name) values (now, ?)"#), false);
+  // assert_eq!(test_case2(&conn), true);
 }
 

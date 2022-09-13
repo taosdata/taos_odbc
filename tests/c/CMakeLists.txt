@@ -1,6 +1,6 @@
 add_executable(api_test api_test.c)
 
-target_link_libraries(api_test odbc dl)
+target_link_libraries(api_test odbc dl taos)
 add_dependencies(api_test taos_odbc)
 
 add_test(NAME api_test

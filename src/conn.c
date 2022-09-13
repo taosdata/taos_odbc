@@ -72,20 +72,21 @@ int conn_connect(conn_t *conn, const connection_cfg_t *cfg)
 
   if (cfg->legacy) {
     err_set(&conn->err,
+        "HY000",
         0,
-        "`LEGACY` specified in `connection string`, but not implemented yet",
-        "HY000");
+        "`LEGACY` specified in `connection string`, but not implemented yet");
     return -1;
   }
 
   conn->fmt_time = cfg->fmt_time;
 
-  conn->taos = taos_connect(cfg->ip, cfg->uid, cfg->pwd, cfg->db, cfg->port);
+  // conn->taos = TAOS_connect(cfg->ip, cfg->uid, cfg->pwd, cfg->db, cfg->port);
+  conn->taos = TAOS_connect("localhost", "root", "taosdata", NULL, 6030);
   if (!conn->taos) {
     err_set(&conn->err,
-        taos_errno(NULL),
-        taos_errstr(NULL),
-        "HY000");
+        "HY000",
+        TAOS_errno(NULL),
+        TAOS_errstr(NULL));
   }
 
   return conn->taos ? 0 : -1;
@@ -95,7 +96,7 @@ void conn_disconnect(conn_t *conn)
 {
   OA_ILE(conn);
   OA_ILE(conn->taos);
-  taos_close(conn->taos);
+  TAOS_close(conn->taos);
   conn->taos = NULL;
 }
 
@@ -103,7 +104,7 @@ int conn_get_dbms_name(conn_t *conn, const char **name)
 {
   OA_ILE(conn);
   OA_ILE(conn->taos);
-  const char *server = taos_get_server_info(conn->taos);
+  const char *server = TAOS_get_server_info(conn->taos);
   *name = server;
   return 0;
 }
@@ -111,7 +112,7 @@ int conn_get_dbms_name(conn_t *conn, const char **name)
 int conn_get_driver_name(conn_t *conn, const char **name)
 {
   OA_ILE(conn);
-  const char *client = taos_get_client_info();
+  const char *client = TAOS_get_client_info();
   *name = client;
   return 0;
 }

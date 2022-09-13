@@ -19,13 +19,13 @@ static void _init_once(void)
 
 void err_set_x(err_t *err, const char *file, int line, const char *func, const char *sql_state, int e, const char *estr)
 {
-    err->err = e;
-    snprintf(err->buf, sizeof(err->buf),
-        "%s[%d]:%s(): %s",
-        basename((char*)file), line, func,
-        estr);
-    err->estr = err->buf;
-    strncpy((char*)err->sql_state, sql_state, sizeof(err->sql_state));
+  err->err = e;
+  snprintf(err->buf, sizeof(err->buf),
+      "%s[%d]:%s(): %s",
+      basename((char*)file), line, func,
+      estr);
+  err->estr = err->buf;
+  strncpy((char*)err->sql_state, sql_state, sizeof(err->sql_state));
 }
 
 const char *sql_c_data_type_to_str(SQLSMALLINT sql_c_data_type)

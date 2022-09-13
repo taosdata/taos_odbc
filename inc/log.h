@@ -11,19 +11,21 @@ EXTERN_C_BEGIN
 
 #define OD(_fmt, ...)                                                \
   do {                                                               \
+    if (getenv("TAOS_ODBC_DEBUG") == NULL) break;                    \
     fprintf(stderr, "%s[%d]:%s(): " _fmt "\n",                       \
                     basename((char*)__FILE__), __LINE__, __func__,   \
                     ##__VA_ARGS__);                                  \
   } while (0)
 
-#define OA(_statement, _fmt, ...)                \
-  do {                                           \
-    if (!(_statement)) {                         \
-      OD("assertion failed: [%s] " _fmt "\n",    \
-                      #_statement,               \
-                      ##__VA_ARGS__);            \
-      abort();                                   \
-    }                                            \
+#define OA(_statement, _fmt, ...)                                         \
+  do {                                                                    \
+    if (!(_statement)) {                                                  \
+    fprintf(stderr, "%s[%d]:%s(): assertion failed: [%s]" _fmt "\n",      \
+                    basename((char*)__FILE__), __LINE__, __func__,        \
+                      #_statement,                                        \
+                    ##__VA_ARGS__);                                       \
+      abort();                                                            \
+    }                                                                     \
   } while (0)
 
 #define OA_ILE(_statement)        OA(_statement, "internal logic error")

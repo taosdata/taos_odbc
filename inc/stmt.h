@@ -83,6 +83,12 @@ SQLRETURN stmt_bind_param(
 SQLRETURN stmt_execute(
     stmt_t         *stmt) FA_HIDDEN;
 
+SQLRETURN stmt_unbind_cols(
+    stmt_t         *stmt) FA_HIDDEN;
+
+SQLRETURN stmt_reset_params(
+    stmt_t         *stmt) FA_HIDDEN;
+
 EXTERN_C_END
 
 #endif //  _stmt_h_

@@ -512,6 +512,10 @@ SQLRETURN SQLFreeStmt(
     case SQL_CLOSE:
       if (stmt_close_cursor((stmt_t*)StatementHandle)) return SQL_ERROR;
       return SQL_SUCCESS;
+    case SQL_UNBIND:
+      return stmt_unbind_cols((stmt_t*)StatementHandle);
+    case SQL_RESET_PARAMS:
+      return stmt_reset_params((stmt_t*)StatementHandle);
     default:
       err_set(&((stmt_t*)StatementHandle)->err, "HY000", 0, "only `SQL_CLOSE` is supported now");
       return SQL_ERROR;

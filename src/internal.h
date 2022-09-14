@@ -164,39 +164,31 @@ struct param_bind_s {
   unsigned char        bounded:1;
 };
 
-typedef struct param_binds_s        param_binds_t;
+typedef struct param_binds_s   param_binds_t;
 struct param_binds_s {
-  param_bind_t             *binds;
-  size_t                    cap;
+  param_bind_t           *binds;
+  size_t                  cap;
 };
 
-typedef struct sql_c_data_desc_s   sql_c_data_desc_t;
-
-typedef SQLRETURN (*conv_f)(stmt_t *stmt, const char *data, int len, int row, sql_c_data_desc_t *desc);
-
-struct sql_c_data_desc_s {
+typedef struct col_bind_s      col_bind_t;
+struct col_bind_s {
   SQLUSMALLINT   ColumnNumber;
   SQLSMALLINT    TargetType;
   SQLPOINTER     TargetValuePtr;
   SQLLEN         BufferLength;
   SQLLEN        *StrLen_or_IndPtr;
+
+  unsigned int   valid:1;
 };
 
-typedef struct col_bind_s          col_bind_t;
-
-struct col_bind_s {
-  sql_c_data_desc_t    desc;
-
-  conv_f               conv;
-
-  unsigned char        bounded:1;
-};
-
-typedef struct col_binds_s          col_binds_t;
+typedef struct col_binds_s     col_binds_t;
 struct col_binds_s {
-  col_bind_t               *binds;
-  size_t                    cap;
+  col_bind_t                  *binds;
+  size_t                       cap;
+  size_t                       nr;
 };
+
+typedef SQLRETURN (*conv_f)(stmt_t *stmt, const char *data, int len, int row, col_bind_t *col_bind);
 
 typedef struct rowset_s             rowset_t;
 struct rowset_s {
@@ -217,13 +209,14 @@ struct stmt_s {
   int                 nr_params;
   param_binds_t       param_binds;
 
+  col_binds_t         col_binds;
+
   TAOS_RES           *res;
   SQLLEN              row_count;
   SQLSMALLINT         col_count;
   TAOS_FIELD         *cols;
   int                *lengths;
   int                 time_precision;
-  col_binds_t         col_binds;
   rowset_t            rowset;
 
   SQLULEN             row_array_size;

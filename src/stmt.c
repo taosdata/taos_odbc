@@ -10,6 +10,12 @@
 
 #include <sqlext.h>
 
+#define _stmt_malloc_fail(_stmt)             \
+  err_set(&_stmt->err,                       \
+    "HY001",                                 \
+    0,                                       \
+    "memory allocation failure");
+
 static void rowset_reset(rowset_t *rowset)
 {
   rowset->rows = NULL;
@@ -100,29 +106,24 @@ static void col_binds_release(col_binds_t *col_binds)
   col_binds->cap = 0;
 }
 
-#define _stmt_malloc_fail(_stmt)             \
-  err_set(&_stmt->err,                       \
-    "HY001",                                 \
-    0,                                       \
-    "memory allocation failure");
-
-static SQLRETURN col_binds_bind_col(stmt_t *stmt, col_binds_t *col_binds, col_bind_t *col_bind)
+static int col_binds_bind_col(col_binds_t *col_binds, col_bind_t *col_bind)
 {
-  if (col_bind->desc.ColumnNumber > col_binds->cap) {
-    int cap = (col_bind->desc.ColumnNumber + 15) / 16 * 16;
+  if (col_bind->ColumnNumber > col_binds->cap) {
+    size_t cap = (col_bind->ColumnNumber + 15) / 16 * 16;
     col_bind_t *binds = (col_bind_t*)realloc(col_binds->binds, sizeof(*binds) * cap);
-    if (!col_binds) {
-      _stmt_malloc_fail(stmt);
-      return SQL_ERROR;
-    }
+    if (!binds) return -1;
     col_binds->binds = binds;
+    for (size_t i=col_binds->nr; i<cap; ++i) {
+      col_binds->binds[i].valid = 0;
+    }
     col_binds->cap = cap;
   }
 
-  col_binds->binds[col_bind->desc.ColumnNumber - 1]         = *col_bind;
-  col_binds->binds[col_bind->desc.ColumnNumber - 1].bounded = 1;
+  col_binds->binds[col_bind->ColumnNumber - 1]       = *col_bind;
+  col_binds->binds[col_bind->ColumnNumber - 1].valid = !!(col_bind->TargetValuePtr);
+  if (col_bind->ColumnNumber > col_binds->nr) col_binds->nr = col_bind->ColumnNumber;
 
-  return SQL_SUCCESS;
+  return 0;
 }
 
 static int stmt_init(stmt_t *stmt, conn_t *conn)
@@ -222,7 +223,6 @@ static int _stmt_exec_direct(stmt_t *stmt, const char *sql, int len)
 
   if (stmt->rows_fetched_ptr) *stmt->rows_fetched_ptr = 0;
   rowset_reset(&stmt->rowset);
-  col_binds_reset(&stmt->col_binds);
   stmt_release_result(stmt);
   param_binds_reset(&stmt->param_binds);
 
@@ -243,8 +243,9 @@ static int _stmt_exec_direct(stmt_t *stmt, const char *sql, int len)
 
   TAOS *taos = stmt->conn->taos;
 
-  if (!stmt->stmt) stmt->res = TAOS_query(taos, p);
-  else {
+  if (!stmt->stmt) {
+    stmt->res = TAOS_query(taos, p);
+  } else {
     OA_NIY(0);
     int r = TAOS_stmt_execute(stmt->stmt);
     if (r) {
@@ -275,7 +276,7 @@ static int _stmt_exec_direct(stmt_t *stmt, const char *sql, int len)
     err_set(&stmt->err, "HY000", e, estr);
   }
 
-  return stmt->err.err ? -1 : 0;
+  return e ? -1 : 0;
 }
 
 int stmt_exec_direct(stmt_t *stmt, const char *sql, int len)
@@ -353,8 +354,24 @@ SQLRETURN stmt_describe_col(stmt_t *stmt,
   }
   if (NullablePtr) *NullablePtr = SQL_NULLABLE_UNKNOWN;
   switch (p->type) {
+    case TSDB_DATA_TYPE_TINYINT:
+      if (DataTypePtr)      *DataTypePtr = SQL_TINYINT;
+      break;
+    case TSDB_DATA_TYPE_SMALLINT:
+      if (DataTypePtr)      *DataTypePtr = SQL_SMALLINT;
+      break;
     case TSDB_DATA_TYPE_INT:
       if (DataTypePtr)      *DataTypePtr = SQL_INTEGER;
+      break;
+    case TSDB_DATA_TYPE_FLOAT:
+      if (DataTypePtr)      *DataTypePtr = SQL_REAL;
+      // https://docs.microsoft.com/en-us/sql/odbc/reference/appendixes/column-size?view=sql-server-ver16
+      if (ColumnSizePtr)    *ColumnSizePtr = 7;
+      break;
+    case TSDB_DATA_TYPE_DOUBLE:
+      if (DataTypePtr)      *DataTypePtr = SQL_DOUBLE;
+      // https://docs.microsoft.com/en-us/sql/odbc/reference/appendixes/column-size?view=sql-server-ver16
+      if (ColumnSizePtr)    *ColumnSizePtr = 15;
       break;
     case TSDB_DATA_TYPE_VARCHAR:
       if (DataTypePtr)      *DataTypePtr = SQL_VARCHAR;
@@ -386,23 +403,24 @@ SQLRETURN stmt_describe_col(stmt_t *stmt,
       // OA(0, "bytes: %d", p->bytes);
       break;
     default:
-      err_set_format(&stmt->err, "HY000", 0, "`%s[%d]` not implemented yet", taos_data_type(p->type), p->type);
+      OA(0, "`%s[%d]` for ColumnNumber[#%d] not implemented yet", taos_data_type(p->type), p->type, ColumnNumber);
+      err_set_format(&stmt->err, "HY000", 0, "`%s[%d]` for ColumnNumber[#%d] not implemented yet", taos_data_type(p->type), p->type, ColumnNumber);
       return SQL_ERROR;
   }
 
   return SQL_SUCCESS;
 }
 
-static SQLRETURN _conv_tsdb_int_to_sql_c_char(stmt_t *stmt, const char *data, int len, int row, sql_c_data_desc_t *desc)
+static SQLRETURN _conv_tsdb_int_to_sql_c_char(stmt_t *stmt, const char *data, int len, int row, col_bind_t *col_bind)
 {
   OA_ILE(data);
   OA_ILE(len = sizeof(int32_t));
   OA_NIY(stmt->row_bind_type == SQL_BIND_BY_COLUMN);
-  char *base = (char*)desc->TargetValuePtr;
-  base += desc->BufferLength * row;
-  int n = snprintf(base, desc->BufferLength, "%d", *(int32_t*)data);
-  if (desc->StrLen_or_IndPtr) desc->StrLen_or_IndPtr[row] = n;
-  if (n >= desc->BufferLength) {
+  char *base = (char*)col_bind->TargetValuePtr;
+  base += col_bind->BufferLength * row;
+  int n = snprintf(base, col_bind->BufferLength, "%d", *(int32_t*)data);
+  if (col_bind->StrLen_or_IndPtr) col_bind->StrLen_or_IndPtr[row] = n;
+  if (n >= col_bind->BufferLength) {
     err_set(&stmt->err, "01004", 0, "String was truncated");
     return SQL_SUCCESS_WITH_INFO;
   }
@@ -410,15 +428,18 @@ static SQLRETURN _conv_tsdb_int_to_sql_c_char(stmt_t *stmt, const char *data, in
   return SQL_SUCCESS;
 }
 
-static SQLRETURN _conv_tsdb_varchar_to_sql_c_char(stmt_t *stmt, const char *data, int len, int row, sql_c_data_desc_t *desc)
+static SQLRETURN _conv_tsdb_float_to_sql_c_char(stmt_t *stmt, const char *data, int len, int row, col_bind_t *col_bind)
 {
   OA_ILE(data);
+  OA_ILE(len = sizeof(int32_t));
   OA_NIY(stmt->row_bind_type == SQL_BIND_BY_COLUMN);
-  char *base = (char*)desc->TargetValuePtr;
-  base += desc->BufferLength * row;
-  int n = snprintf(base, desc->BufferLength, "%.*s", len, data);
-  if (desc->StrLen_or_IndPtr) desc->StrLen_or_IndPtr[row] = n;
-  if (n >= desc->BufferLength) {
+  char *base = (char*)col_bind->TargetValuePtr;
+  base += col_bind->BufferLength * row;
+
+
+  int n = snprintf(base, col_bind->BufferLength, "%g", *(float*)data);
+  if (col_bind->StrLen_or_IndPtr) col_bind->StrLen_or_IndPtr[row] = n;
+  if (n >= col_bind->BufferLength) {
     err_set(&stmt->err, "01004", 0, "String was truncated");
     return SQL_SUCCESS_WITH_INFO;
   }
@@ -426,16 +447,77 @@ static SQLRETURN _conv_tsdb_varchar_to_sql_c_char(stmt_t *stmt, const char *data
   return SQL_SUCCESS;
 }
 
-static SQLRETURN _conv_tsdb_nchar_to_sql_c_char(stmt_t *stmt, const char *data, int len, int row, sql_c_data_desc_t *desc)
+static SQLRETURN _conv_tsdb_tinyint_to_sql_c_utinyint(stmt_t *stmt, const char *data, int len, int row, col_bind_t *col_bind)
+{
+  (void)len;
+  OA_ILE(data);
+  OA_NIY(stmt->row_bind_type == SQL_BIND_BY_COLUMN);
+  char *base = (char*)col_bind->TargetValuePtr;
+  base += col_bind->BufferLength * row;
+
+  // FIXME: signess
+  int8_t tinyint = *(int8_t*)data;
+  *(int8_t*)base = tinyint;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _conv_tsdb_smallint_to_sql_c_short(stmt_t *stmt, const char *data, int len, int row, col_bind_t *col_bind)
+{
+  (void)len;
+  OA_ILE(data);
+  OA_NIY(stmt->row_bind_type == SQL_BIND_BY_COLUMN);
+  char *base = (char*)col_bind->TargetValuePtr;
+  base += col_bind->BufferLength * row;
+
+  // FIXME: signess
+  int16_t smallint = *(int16_t*)data;
+  *(int16_t*)base = smallint;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _conv_tsdb_double_to_sql_c_double(stmt_t *stmt, const char *data, int len, int row, col_bind_t *col_bind)
+{
+  (void)len;
+  OA_ILE(data);
+  OA_NIY(stmt->row_bind_type == SQL_BIND_BY_COLUMN);
+  char *base = (char*)col_bind->TargetValuePtr;
+  base += col_bind->BufferLength * row;
+
+  // FIXME: signess
+  double v = *(double*)data;
+  *(double*)base = v;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _conv_tsdb_varchar_to_sql_c_char(stmt_t *stmt, const char *data, int len, int row, col_bind_t *col_bind)
 {
   OA_ILE(data);
   OA_NIY(stmt->row_bind_type == SQL_BIND_BY_COLUMN);
-  char *base = (char*)desc->TargetValuePtr;
-  base += desc->BufferLength * row;
-  int n = snprintf(base, desc->BufferLength, "%.*s", len, data);
-  OD("base[%s]; blen[%ld]; len[%d]; n[%d]", base, desc->BufferLength, len, n);
-  if (desc->StrLen_or_IndPtr) desc->StrLen_or_IndPtr[row] = n;
-  if (n >= desc->BufferLength) {
+  char *base = (char*)col_bind->TargetValuePtr;
+  base += col_bind->BufferLength * row;
+  int n = snprintf(base, col_bind->BufferLength, "%.*s", len, data);
+  if (col_bind->StrLen_or_IndPtr) col_bind->StrLen_or_IndPtr[row] = n;
+  if (n >= col_bind->BufferLength) {
+    err_set(&stmt->err, "01004", 0, "String was truncated");
+    return SQL_SUCCESS_WITH_INFO;
+  }
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _conv_tsdb_nchar_to_sql_c_char(stmt_t *stmt, const char *data, int len, int row, col_bind_t *col_bind)
+{
+  OA_ILE(data);
+  OA_NIY(stmt->row_bind_type == SQL_BIND_BY_COLUMN);
+  char *base = (char*)col_bind->TargetValuePtr;
+  base += col_bind->BufferLength * row;
+  int n = snprintf(base, col_bind->BufferLength, "%.*s", len, data);
+  OD("base[%s]; blen[%ld]; len[%d]; n[%d]", base, col_bind->BufferLength, len, n);
+  if (col_bind->StrLen_or_IndPtr) col_bind->StrLen_or_IndPtr[row] = n;
+  if (n >= col_bind->BufferLength) {
     err_set(&stmt->err, "01004", 0, "String was truncated");
     return SQL_SUCCESS_WITH_INFO;
   }
@@ -455,52 +537,130 @@ static SQLRETURN _stmt_encode(stmt_t *stmt,
     return SQL_ERROR;
   }
 
+  size_t inbytes = *inbytesleft;
+  size_t outbytes = *outbytesleft;
   size_t sz = iconv(cd, inbuf, inbytesleft, outbuf, outbytesleft);
+  int e = errno;
   iconv_close(cd);
-  if (sz == (size_t)-1 || sz > 0) {
-    // FIXME: what actually means when sz > 0???
-    err_set_format(&stmt->err, "HY000", 0,
-        "[iconv] Character set conversion for `%s` to `%s` failed: [%d] %s",
-        fromcode, tocode, errno, strerror(errno));
-    return SQL_ERROR;
-  }
   if (*inbytesleft > 0) {
     err_set_format(&stmt->err, "22001", 0,
-        "[iconv] Character set conversion for `%s` to `%s` results in string truncation: [%d] %s",
-        fromcode, tocode, errno, strerror(errno));
+        "[iconv] Character set conversion for `%s` to `%s` results in string truncation, #%ld out of #%ld bytes consumed, #%ld out of #%ld bytes converted: [%d] %s",
+        fromcode, tocode, inbytes - *inbytesleft, inbytes, outbytes - * outbytesleft, outbytes, e, strerror(e));
+    return SQL_SUCCESS_WITH_INFO;
+  }
+  if (sz == (size_t)-1) {
+    err_set_format(&stmt->err, "HY000", 0,
+        "[iconv] Character set conversion for `%s` to `%s` failed: [%d] %s",
+        fromcode, tocode, e, strerror(e));
     return SQL_ERROR;
+  }
+  if (sz > 0) {
+    // FIXME: what actually means when sz > 0???
+    err_set_format(&stmt->err, "HY000", 0,
+        "[iconv] Character set conversion for `%s` to `%s` succeeded with #[%ld] of nonreversible characters converted",
+        fromcode, tocode, sz);
+    return SQL_SUCCESS_WITH_INFO;
   }
 
   return SQL_SUCCESS;
 }
 
-static SQLRETURN _conv_tsdb_nchar_to_sql_c_wchar(stmt_t *stmt, const char *data, int len, int row, sql_c_data_desc_t *desc)
+static SQLRETURN _conv_tsdb_nchar_to_sql_c_wchar(stmt_t *stmt, const char *data, int len, int row, col_bind_t *col_bind)
 {
   OA_ILE(data);
   OA_NIY(stmt->row_bind_type == SQL_BIND_BY_COLUMN);
-  char *base = (char*)desc->TargetValuePtr;
-  base += desc->BufferLength * row;
- 
+  char *base = (char*)col_bind->TargetValuePtr;
+  base += col_bind->BufferLength * row;
+
   char *inbuf = (char*)data;
   size_t inbytes = len;
   char *outbuf = (char*)base;
-  size_t outbytes = desc->BufferLength;
+  size_t outbytes = col_bind->BufferLength;
 
   SQLRETURN sr = _stmt_encode(stmt, "utf8", &inbuf, &inbytes, "ucs2", &outbuf, &outbytes);
-  if (!sql_successed(sr)) return sr;
-  
-  if (desc->StrLen_or_IndPtr) desc->StrLen_or_IndPtr[row] = desc->BufferLength - outbytes;
+  if (sql_successed(sr)) {
+    if (col_bind->StrLen_or_IndPtr) col_bind->StrLen_or_IndPtr[row] = col_bind->BufferLength - outbytes;
+  }
 
-  return SQL_SUCCESS;
+  return sr;
 }
 
-static SQLRETURN _conv_tsdb_timestamp_to_sql_c_char(stmt_t *stmt, const char *data, int len, int row, sql_c_data_desc_t *desc)
+static SQLRETURN _conv_tsdb_varchar_to_sql_c_wchar(stmt_t *stmt, const char *data, int len, int row, col_bind_t *col_bind)
+{
+  OA_ILE(data);
+  OA_NIY(stmt->row_bind_type == SQL_BIND_BY_COLUMN);
+  char *base = (char*)col_bind->TargetValuePtr;
+  base += col_bind->BufferLength * row;
+
+  char *inbuf = (char*)data;
+  size_t inbytes = len;
+  char *outbuf = (char*)base;
+  size_t outbytes = col_bind->BufferLength;
+
+  SQLRETURN sr = _stmt_encode(stmt, "utf8", &inbuf, &inbytes, "ucs2", &outbuf, &outbytes);
+  if (sql_successed(sr)) {
+    if (col_bind->StrLen_or_IndPtr) col_bind->StrLen_or_IndPtr[row] = col_bind->BufferLength - outbytes;
+  }
+
+  return sr;
+}
+
+static SQLRETURN _conv_tsdb_int_to_sql_c_wchar(stmt_t *stmt, const char *data, int len, int row, col_bind_t *col_bind)
+{
+  (void)len;
+  OA_ILE(data);
+  OA_NIY(stmt->row_bind_type == SQL_BIND_BY_COLUMN);
+  char *base = (char*)col_bind->TargetValuePtr;
+  base += col_bind->BufferLength * row;
+
+  char buf[64];
+  int n = snprintf(buf, sizeof(buf), "%d", *(int32_t*)data);
+
+  char *inbuf = buf;
+  size_t inbytes = n;
+  char *outbuf = (char*)base;
+  size_t outbytes = col_bind->BufferLength;
+
+  SQLRETURN sr = _stmt_encode(stmt, "utf8", &inbuf, &inbytes, "ucs2", &outbuf, &outbytes);
+  if (sql_successed(sr)) {
+    if (col_bind->StrLen_or_IndPtr) col_bind->StrLen_or_IndPtr[row] = col_bind->BufferLength - outbytes;
+  }
+
+  return sr;
+}
+
+static SQLRETURN _conv_tsdb_timestamp_to_sql_c_wchar(stmt_t *stmt, const char *data, int len, int row, col_bind_t *col_bind)
+{
+  (void)len;
+  OA_ILE(data);
+  OA_NIY(stmt->row_bind_type == SQL_BIND_BY_COLUMN);
+  char *base = (char*)col_bind->TargetValuePtr;
+  base += col_bind->BufferLength * row;
+
+  char buf[64];
+  int n = snprintf(buf, sizeof(buf), "%ld", *(int64_t*)data);
+
+  char *inbuf = buf;
+  size_t inbytes = n;
+  char *outbuf = (char*)base;
+  size_t outbytes = col_bind->BufferLength;
+
+  SQLRETURN sr = _stmt_encode(stmt, "utf8", &inbuf, &inbytes, "ucs2", &outbuf, &outbytes);
+  if (sr == SQL_SUCCESS_WITH_INFO) sr = SQL_ERROR;
+  if (sql_successed(sr)) {
+    if (col_bind->StrLen_or_IndPtr) col_bind->StrLen_or_IndPtr[row] = col_bind->BufferLength - outbytes;
+  }
+
+  return sr;
+}
+
+static SQLRETURN _conv_tsdb_timestamp_to_sql_c_char(stmt_t *stmt, const char *data, int len, int row, col_bind_t *col_bind)
 {
   OA_ILE(data);
   OA(len == sizeof(int64_t), "");
   OA_NIY(stmt->row_bind_type == SQL_BIND_BY_COLUMN);
-  char *base = (char*)desc->TargetValuePtr;
-  base += desc->BufferLength * row;
+  char *base = (char*)col_bind->TargetValuePtr;
+  base += col_bind->BufferLength * row;
 
   int64_t val = *(int64_t*)data;
 
@@ -537,14 +697,14 @@ static SQLRETURN _conv_tsdb_timestamp_to_sql_c_char(stmt_t *stmt, const char *da
   struct tm *p = localtime_r(&tt, &ptm);
   OA_ILE(p == &ptm);
 
-  n = snprintf(base, desc->BufferLength,
+  n = snprintf(base, col_bind->BufferLength,
       "%04d-%02d-%02d %02d:%02d:%02d.%0*d",
       ptm.tm_year + 1900, ptm.tm_mon + 1, ptm.tm_mday,
       ptm.tm_hour, ptm.tm_min, ptm.tm_sec,
       w, ms);
 
-  if (desc->StrLen_or_IndPtr) desc->StrLen_or_IndPtr[row] = n;
-  if (n >= desc->BufferLength) {
+  if (col_bind->StrLen_or_IndPtr) col_bind->StrLen_or_IndPtr[row] = n;
+  if (n >= col_bind->BufferLength) {
     OA_NIY(0);
     err_set(&stmt->err, "01004", 0, "String was truncated");
     return SQL_SUCCESS_WITH_INFO;
@@ -560,6 +720,9 @@ static SQLRETURN _stmt_get_conv_to_sql_c_char(stmt_t *stmt, int taos_type, conv_
   switch (taos_type) {
     case TSDB_DATA_TYPE_INT:
       *conv = _conv_tsdb_int_to_sql_c_char;
+      break;
+    case TSDB_DATA_TYPE_FLOAT:
+      *conv = _conv_tsdb_float_to_sql_c_char;
       break;
     case TSDB_DATA_TYPE_VARCHAR:
       *conv = _conv_tsdb_varchar_to_sql_c_char;
@@ -580,11 +743,59 @@ static SQLRETURN _stmt_get_conv_to_sql_c_char(stmt_t *stmt, int taos_type, conv_
   return SQL_SUCCESS;
 }
 
-static SQLRETURN _conv_tsdb_int_to_sql_c_slong(stmt_t *stmt, const char *data, int len, int row, sql_c_data_desc_t *desc)
+static SQLRETURN _stmt_get_conv_to_sql_c_utinyint(stmt_t *stmt, int taos_type, conv_f *conv)
+{
+  switch (taos_type) {
+    case TSDB_DATA_TYPE_TINYINT:
+      *conv = _conv_tsdb_tinyint_to_sql_c_utinyint;
+      break;
+    default:
+      err_set_format(&stmt->err, "HY000", 0,
+          "converstion from `%s[%d]` to `SQL_C_CHAR` not implemented yet",
+          taos_data_type(taos_type), taos_type);
+      return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_get_conv_to_sql_c_short(stmt_t *stmt, int taos_type, conv_f *conv)
+{
+  switch (taos_type) {
+    case TSDB_DATA_TYPE_SMALLINT:
+      *conv = _conv_tsdb_smallint_to_sql_c_short;
+      break;
+    default:
+      err_set_format(&stmt->err, "HY000", 0,
+          "converstion from `%s[%d]` to `SQL_C_SHORT` not implemented yet",
+          taos_data_type(taos_type), taos_type);
+      return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_get_conv_to_sql_c_double(stmt_t *stmt, int taos_type, conv_f *conv)
+{
+  switch (taos_type) {
+    case TSDB_DATA_TYPE_DOUBLE:
+      *conv = _conv_tsdb_double_to_sql_c_double;
+      break;
+    default:
+      err_set_format(&stmt->err, "HY000", 0,
+          "converstion from `%s[%d]` to `SQL_C_SHORT` not implemented yet",
+          taos_data_type(taos_type), taos_type);
+      return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _conv_tsdb_int_to_sql_c_slong(stmt_t *stmt, const char *data, int len, int row, col_bind_t *col_bind)
 {
   OA(len == sizeof(int32_t), "");
   OA_NIY(stmt->row_bind_type == SQL_BIND_BY_COLUMN);
-  SQLINTEGER *base = (SQLINTEGER*)desc->TargetValuePtr;
+  SQLINTEGER *base = (SQLINTEGER*)col_bind->TargetValuePtr;
   base += row;
   *base = *(int32_t*)data;
 
@@ -617,6 +828,15 @@ static SQLRETURN _stmt_get_conv_to_sql_c_wchar(stmt_t *stmt, int taos_type, conv
     case TSDB_DATA_TYPE_NCHAR:
       *conv = _conv_tsdb_nchar_to_sql_c_wchar;
       break;
+    case TSDB_DATA_TYPE_VARCHAR:
+      *conv = _conv_tsdb_varchar_to_sql_c_wchar;
+      break;
+    case TSDB_DATA_TYPE_INT:
+      *conv = _conv_tsdb_int_to_sql_c_wchar;
+      break;
+    case TSDB_DATA_TYPE_TIMESTAMP:
+      *conv = _conv_tsdb_timestamp_to_sql_c_wchar;
+      break;
     default:
       err_set_format(&stmt->err, "HY000", 0,
           "converstion from `%s[%d]` to `SQL_C_WCHAR` not implemented yet",
@@ -629,8 +849,13 @@ static SQLRETURN _stmt_get_conv_to_sql_c_wchar(stmt_t *stmt, int taos_type, conv
 
 static SQLRETURN _stmt_get_conv(stmt_t *stmt, SQLSMALLINT TargetType, int taos_type, conv_f *conv)
 {
-  OD("sql_c_data_type[%d]", TargetType);
   switch (TargetType) {
+    case SQL_C_UTINYINT:
+      return _stmt_get_conv_to_sql_c_utinyint(stmt, taos_type, conv);
+    case SQL_C_SHORT:
+      return _stmt_get_conv_to_sql_c_short(stmt, taos_type, conv);
+    case SQL_C_DOUBLE:
+      return _stmt_get_conv_to_sql_c_double(stmt, taos_type, conv);
     case SQL_C_CHAR:
       return _stmt_get_conv_to_sql_c_char(stmt, taos_type, conv);
     case SQL_C_SLONG:
@@ -638,6 +863,8 @@ static SQLRETURN _stmt_get_conv(stmt_t *stmt, SQLSMALLINT TargetType, int taos_t
     case SQL_C_WCHAR:
       return _stmt_get_conv_to_sql_c_wchar(stmt, taos_type, conv);
     default:
+      // OA(0, "converstion to `%s[%d]` not implemented yet",
+      //     sql_c_data_type_to_str(TargetType), TargetType);
       err_set_format(&stmt->err, "HY000", 0,
           "converstion to `%s[%d]` not implemented yet",
           sql_c_data_type_to_str(TargetType), TargetType);
@@ -654,30 +881,70 @@ SQLRETURN stmt_bind_col(stmt_t *stmt,
     SQLLEN        *StrLen_or_IndPtr)
 {
   col_bind_t col_bind = {};
-  col_bind.desc.ColumnNumber       = ColumnNumber;
-  col_bind.desc.TargetType         = TargetType;
-  col_bind.desc.TargetValuePtr     = TargetValuePtr;
-  col_bind.desc.BufferLength       = BufferLength;
-  col_bind.desc.StrLen_or_IndPtr   = StrLen_or_IndPtr;
+  col_bind.ColumnNumber       = ColumnNumber;
+  col_bind.TargetType         = TargetType;
+  col_bind.TargetValuePtr     = TargetValuePtr;
+  col_bind.BufferLength       = BufferLength;
+  col_bind.StrLen_or_IndPtr   = StrLen_or_IndPtr;
 
-  TAOS_FIELD *p = stmt->cols + ColumnNumber - 1;
-
-  SQLRETURN sr = _stmt_get_conv(stmt, TargetType, p->type, &col_bind.conv);
-  if (!sql_successed(sr)) return sr;
-
-  return col_binds_bind_col(stmt, &stmt->col_binds, &col_bind);
+  int r = col_binds_bind_col(&stmt->col_binds, &col_bind);
+  if (r) {
+    _stmt_malloc_fail(stmt);
+    return SQL_ERROR;
+  }
+  return SQL_SUCCESS;
 }
 
 static SQLRETURN _stmt_get_data_len(stmt_t *stmt, int row, int col, const char **data, int *len)
 {
   TAOS_FIELD *field = stmt->cols + col;
   switch(field->type) {
+    case TSDB_DATA_TYPE_TINYINT:
+      if (TAOS_is_null(stmt->res, row, col)) {
+        *data = NULL;
+        *len = 0;
+      } else {
+        unsigned char *base = (unsigned char*)stmt->rowset.rows[col];
+        base += row;
+        *data = (const char*)base;
+        *len = sizeof(*base);
+      } break;
+    case TSDB_DATA_TYPE_SMALLINT:
+      if (TAOS_is_null(stmt->res, row, col)) {
+        *data = NULL;
+        *len = 0;
+      } else {
+        int16_t *base = (int16_t*)stmt->rowset.rows[col];
+        base += row;
+        *data = (const char*)base;
+        *len = sizeof(*base);
+      } break;
     case TSDB_DATA_TYPE_INT:
       if (TAOS_is_null(stmt->res, row, col)) {
         *data = NULL;
         *len = 0;
       } else {
         int32_t *base = (int32_t*)stmt->rowset.rows[col];
+        base += row;
+        *data = (const char*)base;
+        *len = sizeof(*base);
+      } break;
+    case TSDB_DATA_TYPE_FLOAT:
+      if (TAOS_is_null(stmt->res, row, col)) {
+        *data = NULL;
+        *len = 0;
+      } else {
+        float *base = (float*)stmt->rowset.rows[col];
+        base += row;
+        *data = (const char*)base;
+        *len = sizeof(*base);
+      } break;
+    case TSDB_DATA_TYPE_DOUBLE:
+      if (TAOS_is_null(stmt->res, row, col)) {
+        *data = NULL;
+        *len = 0;
+      } else {
+        double *base = (double*)stmt->rowset.rows[col];
         base += row;
         *data = (const char*)base;
         *len = sizeof(*base);
@@ -728,21 +995,20 @@ static SQLRETURN _stmt_get_data_len(stmt_t *stmt, int row, int col, const char *
   return SQL_SUCCESS;
 }
 
-static SQLRETURN _stmt_conv_bounded_col(stmt_t *stmt, int row, sql_c_data_desc_t *desc, conv_f conv)
+static SQLRETURN _stmt_fill_col(stmt_t *stmt, int row, col_bind_t *col_bind, conv_f conv)
 {
   const char *data = NULL;
   int len = 0;
 
-  int i = desc->ColumnNumber - 1;
+  int i = col_bind->ColumnNumber - 1;
   SQLRETURN sr = _stmt_get_data_len(stmt, row, i, &data, &len);
   if (!sql_successed(sr)) return sr;
 
   if (data) {
-    OD("taos_bytes: %d", len);
-    return conv(stmt, data, len, row-stmt->rowset.cursor, desc);
+    return conv(stmt, data, len, row-stmt->rowset.cursor, col_bind);
   } else {
-    if (desc->StrLen_or_IndPtr) {
-      desc->StrLen_or_IndPtr[row-stmt->rowset.cursor] = SQL_NULL_DATA;
+    if (col_bind->StrLen_or_IndPtr) {
+      col_bind->StrLen_or_IndPtr[row-stmt->rowset.cursor] = SQL_NULL_DATA;
     }
     return SQL_SUCCESS;
   }
@@ -772,20 +1038,35 @@ SQLRETURN stmt_fetch(stmt_t *stmt)
     stmt->rowset.cursor += stmt->row_array_size;
   }
 
+  int with_info = 0;
   for (int i = stmt->rowset.cursor; (SQLULEN)i < stmt->rowset.cursor + stmt->row_array_size; i++) {
     if (i >= stmt->rowset.nr_rows) break;
-    for (int j=0; j<stmt->col_count && (size_t)j<stmt->col_binds.cap; ++j) {
-      col_bind_t *col_bind = stmt->col_binds.binds + j;
-      if (col_bind->bounded) {
-        OA_NIY(col_bind->desc.ColumnNumber == j+1);
-        sr = _stmt_conv_bounded_col(stmt, i, &col_bind->desc, col_bind->conv);
-        if (!sql_successed(sr)) return sr;
+    for (int j=0; j>=0 && (size_t)j<stmt->col_binds.nr; ++j) {
+      if (j>=stmt->col_count) {
+        err_set_format(&stmt->err,
+            "07009",
+            0,
+            "ColumnNumber[%d] exceeded the maximum number of columns[#%d] in the result set",
+            j+1, stmt->col_count);
+        return SQL_ERROR;
       }
+      col_bind_t *col_bind = stmt->col_binds.binds + j;
+      if (!col_bind->valid) continue;
+      OA_NIY(col_bind->ColumnNumber == j+1);
+
+      TAOS_FIELD *p = stmt->cols + col_bind->ColumnNumber - 1;
+      conv_f conv = NULL;
+      sr = _stmt_get_conv(stmt, col_bind->TargetType, p->type, &conv);
+      if (!sql_successed(sr)) return sr;
+      sr = _stmt_fill_col(stmt, i, col_bind, conv);
+      if (!sql_successed(sr)) return sr;
+      if (sr == SQL_SUCCESS_WITH_INFO) with_info = 1;
     }
     if (stmt->row_status_ptr) stmt->row_status_ptr[i - stmt->rowset.cursor] = SQL_ROW_SUCCESS;
     if (stmt->rows_fetched_ptr) *stmt->rows_fetched_ptr = i - stmt->rowset.cursor + 1;
   }
 
+  if (sr == SQL_SUCCESS && with_info) return SQL_SUCCESS_WITH_INFO;
   return sr;
 }
 
@@ -842,14 +1123,14 @@ SQLRETURN stmt_get_data(
     sr = _stmt_get_conv(stmt, TargetType, p->type, &conv);
     if (!sql_successed(sr)) return sr;
 
-    sql_c_data_desc_t desc = {};
-    desc.ColumnNumber         = Col_or_Param_Num;
-    desc.TargetType           = TargetType;
-    desc.TargetValuePtr       = TargetValuePtr;
-    desc.BufferLength         = BufferLength;
-    desc.StrLen_or_IndPtr     = StrLen_or_IndPtr;
+    col_bind_t col_bind = {};
+    col_bind.ColumnNumber         = Col_or_Param_Num;
+    col_bind.TargetType           = TargetType;
+    col_bind.TargetValuePtr       = TargetValuePtr;
+    col_bind.BufferLength         = BufferLength;
+    col_bind.StrLen_or_IndPtr     = StrLen_or_IndPtr;
 
-    return conv(stmt, data, len, 0/*stmt->rowset.cursor*/, &desc);
+    return conv(stmt, data, len, 0/*stmt->rowset.cursor*/, &col_bind);
   } else {
     if (StrLen_or_IndPtr) {
       StrLen_or_IndPtr[0/*stmt->rowset.cursor*/] = SQL_NULL_DATA;
@@ -1103,11 +1384,76 @@ static SQLRETURN _stmt_conv_bounded_param_c_sbigint_to_tsdb_timestamp(stmt_t *st
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_conv_bounded_param_c_char_to_tsdb_timestamp(stmt_t *stmt, param_bind_t *param_bind)
+{
+  _param_bind_reset_default_actual_data(param_bind);
+
+  param_bind->mb.buffer_type = TSDB_DATA_TYPE_TIMESTAMP;
+
+  if (*param_bind->StrLen_or_IndPtr != SQL_NULL_DATA) {
+    const char *base = (const char*)param_bind->ParameterValuePtr;
+    SQLLEN len = *param_bind->StrLen_or_IndPtr;
+    if (len == SQL_NTS) len = strlen(base);
+
+    char *end;
+    errno = 0;
+    long int v = strtol(base, &end, 0);
+    int e = errno;
+    if (e == ERANGE && (v == LONG_MAX || v == LONG_MIN)) {
+      err_set_format(&stmt->err,
+          "HY000",
+          0,
+          "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed: [%d] %s",
+          e, strerror(e));
+      return SQL_ERROR;
+    }
+    if (e != 0) {
+      err_set_format(&stmt->err,
+          "HY000",
+          0,
+          "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed: [%d] %s",
+          e, strerror(e));
+      return SQL_ERROR;
+    }
+    if (end == base) {
+      err_set(&stmt->err,
+          "HY000",
+          0,
+          "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed: no digits at all");
+      return SQL_ERROR;
+    }
+    if (end && *end) {
+      err_set_format(&stmt->err,
+          "HY000",
+          0,
+          "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed: string following digits[%s]",
+          end);
+      return SQL_ERROR;
+    }
+
+    param_bind->value.tsdb_timestamp = v;
+
+    param_bind->mb.buffer_length = sizeof(int64_t);
+    param_bind->mb.buffer = &param_bind->value.tsdb_timestamp;
+    param_bind->mb.length = NULL;
+  }
+
+  int r = TAOS_stmt_bind_single_param_batch(stmt->stmt, &param_bind->mb, param_bind->ParameterNumber - 1);
+  if (r) {
+    _stmt_param_bind_fail(stmt, param_bind, r);
+    return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_conv_bounded_param_to_tsdb_timestamp(stmt_t *stmt, param_bind_t *param_bind)
 {
   switch (param_bind->ValueType) {
     case SQL_C_SBIGINT:
       return _stmt_conv_bounded_param_c_sbigint_to_tsdb_timestamp(stmt, param_bind);
+    case SQL_C_CHAR:
+      return _stmt_conv_bounded_param_c_char_to_tsdb_timestamp(stmt, param_bind);
     default:
       _stmt_conv_bounded_param_fail(stmt, param_bind);
       return SQL_ERROR;
@@ -1129,6 +1475,35 @@ static SQLRETURN _stmt_conv_bounded_param_c_char_to_tsdb_varchar(stmt_t *stmt, p
     param_bind->mb.buffer_length = param_bind->taos_bytes;
     param_bind->mb.buffer = (char*)base;
     param_bind->value.length = n;
+  }
+
+  int r = TAOS_stmt_bind_single_param_batch(stmt->stmt, &param_bind->mb, param_bind->ParameterNumber - 1);
+  if (r) {
+    _stmt_param_bind_fail(stmt, param_bind, r);
+    return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_conv_bounded_param_c_sbigint_to_tsdb_varchar(stmt_t *stmt, param_bind_t *param_bind)
+{
+  _param_bind_reset_default_actual_data(param_bind);
+
+  param_bind->mb.buffer_type = TSDB_DATA_TYPE_VARCHAR;
+
+  if (*param_bind->StrLen_or_IndPtr != SQL_NULL_DATA) {
+    int64_t *base = (int64_t*)param_bind->ParameterValuePtr;
+    char buf[64];
+    int n = snprintf(buf, sizeof(buf), "%ld", *base);
+    OD("c_sbigint: [%ld]", *base);
+
+    param_bind->value.ptr = strdup(buf);
+    param_bind->value.allocated = 1;
+    param_bind->value.length = n;
+
+    param_bind->mb.buffer_length = param_bind->taos_bytes;
+    param_bind->mb.buffer = param_bind->value.ptr;
   }
 
   int r = TAOS_stmt_bind_single_param_batch(stmt->stmt, &param_bind->mb, param_bind->ParameterNumber - 1);
@@ -1162,6 +1537,8 @@ static SQLRETURN _stmt_conv_bounded_param_to_tsdb_varchar(stmt_t *stmt, param_bi
   switch (param_bind->ValueType) {
     case SQL_C_CHAR:
       return _stmt_conv_bounded_param_c_char_to_tsdb_varchar(stmt, param_bind);
+    case SQL_C_SBIGINT:
+      return _stmt_conv_bounded_param_c_sbigint_to_tsdb_varchar(stmt, param_bind);
     case SQL_C_DEFAULT:
       return _stmt_conv_bounded_param_c_default_to_tsdb_varchar(stmt, param_bind);
     default:
@@ -1185,7 +1562,7 @@ static SQLRETURN _stmt_conv_bounded_param_c_sbigint_to_tsdb_int(stmt_t *stmt, pa
       return SQL_ERROR;
     }
 
-    param_bind->mb.buffer_length = sizeof(int64_t);
+    param_bind->mb.buffer_length = sizeof(int);
     param_bind->mb.buffer = base;
     param_bind->mb.length = NULL;
   }
@@ -1327,7 +1704,6 @@ SQLRETURN stmt_execute(
   if (stmt->rows_fetched_ptr) *stmt->rows_fetched_ptr = 0;
   rowset_reset(&stmt->rowset);
   // column-binds remain valid among executes
-  // col_binds_reset(&stmt->col_binds);
   stmt_release_result(stmt);
 
   int r = 0;
@@ -1370,6 +1746,20 @@ SQLRETURN stmt_execute(
     return SQL_ERROR;
   }
 
+  return SQL_SUCCESS;
+}
+
+SQLRETURN stmt_unbind_cols(
+    stmt_t         *stmt)
+{
+  col_binds_reset(&stmt->col_binds);
+  return SQL_SUCCESS;
+}
+
+SQLRETURN stmt_reset_params(
+    stmt_t         *stmt)
+{
+  param_binds_reset(&stmt->param_binds);
   return SQL_SUCCESS;
 }
 

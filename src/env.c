@@ -36,10 +36,12 @@ const char *sql_c_data_type_to_str(SQLSMALLINT sql_c_data_type)
     CASE(SQL_C_TINYINT);
     CASE(SQL_C_SLONG);
     CASE(SQL_C_SSHORT);
+    CASE(SQL_C_SHORT);
     CASE(SQL_C_STINYINT);
     CASE(SQL_C_ULONG);
     CASE(SQL_C_USHORT);
     CASE(SQL_C_UTINYINT);
+    CASE(SQL_C_DOUBLE);
     CASE(SQL_C_DATE);
     CASE(SQL_C_TIME);
     CASE(SQL_C_TIMESTAMP);
@@ -68,7 +70,8 @@ const char *sql_c_data_type_to_str(SQLSMALLINT sql_c_data_type)
     CASE(SQL_C_GUID);
     CASE(SQL_C_DEFAULT);
     default:
-    OA(0, "unknown sql_c_data_type[%d]", sql_c_data_type);
+    OD("unknown sql_c_data_type[%d]", sql_c_data_type);
+    return "[SQL_C_unknown]";
   }
 #undef CASE
 }
@@ -116,7 +119,8 @@ const char *sql_data_type_to_str(SQLSMALLINT sql_data_type)
     CASE(SQL_INTERVAL_MINUTE_TO_SECOND);
     CASE(SQL_GUID);
     default:
-    OA(0, "unknown sql_data_type[%d]", sql_data_type);
+    OD("unknown sql_data_type[%d]", sql_data_type);
+    return "[SQL_TYPE_unknown]";
   }
 #undef CASE
 }

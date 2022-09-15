@@ -280,7 +280,8 @@ async function case5(conn_str) {
         {ts:'2022-09-11 09:57:29.753', name:'name2', age:30, sex:'female', text:'苏州人'},
         {ts:'2022-09-11 09:57:30.754', name:'name3', age:null, sex:null, text:null},
         {ts:'2022-09-11 09:57:31.755', name:'name4', age:40, sex:'male', text:'外星人'},
-        {ts:'2022-09-11 09:57:32.756', name:'name5', age:50, sex:'female', text:'类地人'},
+        {ts:'2022-09-11 09:57:32.756', name:'12345', age:50, sex:'female', text:'类地人'},
+        {ts:'2022-09-11 09:57:33.757', name:null, age:null, sex:null, text:null},
     ];
 
     stmt = await conn.createStatement();
@@ -291,14 +292,35 @@ async function case5(conn_str) {
         [1662861451755, 'name4', 40, 'male', '外星人'],
       );
       result = await stmt.execute();
+      {
+        var cursor = await conn.query('select * from t' , {cursor: true, fetchSize: 4});
+        var result = await cursor.fetch();
+        var rows = [result[0], result[1], result[2], result[3], exp[4], exp[5]];
+        assert.equal(JSON.stringify(rows), JSON.stringify(exp));
+      }
+
       await stmt.bind(
-        ['1662861452756', 'name5', 50, 'female', '类地人'],
+        ['1662861452756', '12345', 50, 'female', '类地人'],
       );
       result = await stmt.execute();
+      {
+        var cursor = await conn.query('select * from t' , {cursor: true, fetchSize: 5});
+        var result = await cursor.fetch();
+        var rows = [result[0], result[1], result[2], result[3], result[4], exp[5]];
+        assert.equal(JSON.stringify(rows), JSON.stringify(exp));
+      }
+
       await stmt.bind(
-        [1662861453757, null, null, null, null],
+        ['1662861453757', null, null, null, null],
       );
       result = await stmt.execute();
+      {
+        var cursor = await conn.query('select * from t', {cursor: true, fetchSize: 6});
+        var result = await cursor.fetch();
+        var rows = [result[0], result[1], result[2], result[3], result[4], result[5]];
+        assert.equal(JSON.stringify(rows), JSON.stringify(exp));
+      }
+
     } catch (error) {
       console.error(error);
       r = -1;
@@ -306,23 +328,23 @@ async function case5(conn_str) {
 
     await stmt.close();
 
-    {
-      var cursor = await conn.query('select * from t' , {cursor: true, fetchSize: 5});
-      var result = await cursor.fetch();
-      var rows = [result[0], result[1], result[2], result[3], result[4]];
-      assert.equal(JSON.stringify(rows), JSON.stringify(exp));
-    }
-
     stmt = await conn.createStatement();
 
     try {
-      await stmt.prepare('select * from t where age = ?');
+      await stmt.prepare('select * from t where text = ?');
       await stmt.bind(
-        [30]
+        ['苏州人']
       );
       result = await stmt.execute();
       var rows = [result[0]];
       assert.equal(JSON.stringify(rows), JSON.stringify([exp[1]]));
+
+      await stmt.bind(
+        ['中国人']
+      );
+      result = await stmt.execute();
+      var rows = [result[0]];
+      assert.equal(JSON.stringify(rows), JSON.stringify([exp[0]]));
     } catch (error) {
       console.error(error);
       r = -1;

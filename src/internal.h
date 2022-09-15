@@ -155,13 +155,14 @@ struct param_bind_s {
   SQLLEN              *StrLen_or_IndPtr;
 
   SQLSMALLINT          expected_ParameterType;
+
   int                  taos_type;
   int                  taos_bytes;
 
   TAOS_MULTI_BIND      mb;
   param_value_t        value;
 
-  unsigned char        bounded:1;
+  unsigned int         bounded:1;
 };
 
 typedef struct param_binds_s   param_binds_t;

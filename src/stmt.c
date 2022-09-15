@@ -1217,8 +1217,16 @@ SQLRETURN stmt_describe_param(
   int bytes;
   r = TAOS_stmt_get_param(stmt->stmt, idx, &type, &bytes);
   if (r) {
-    err_set(&stmt->err, "HY000", r, TAOS_stmt_errstr(stmt->stmt));
-    return SQL_ERROR;
+    if (stmt->is_insert_stmt) {
+      err_set(&stmt->err, "HY000", r, TAOS_stmt_errstr(stmt->stmt));
+      return SQL_ERROR;
+    }
+    // FIXME: return SQL_VARCHAR and hard-coded parameters for the moment
+    if (DataTypePtr)         *DataTypePtr = SQL_VARCHAR;
+    if (ParameterSizePtr)    *ParameterSizePtr = 1024; /* hard-coded */
+    OD("ParameterSize: %ld", *ParameterSizePtr);
+    err_set(&stmt->err, "HY000", 0, "Arbitrary `SQL_VARCHAR(1024s)` is chosen to return because of taos lacking parm-desc for non-insert-statement");
+    return SQL_SUCCESS_WITH_INFO;
   }
   OD("bytes: %d", bytes);
 
@@ -1252,6 +1260,36 @@ SQLRETURN stmt_describe_param(
   }
 
   return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_guess_taos_data_type(
+    stmt_t         *stmt,
+    SQLSMALLINT     ValueType,
+    SQLLEN          BufferLength,
+    int            *taos_type,
+    int            *taos_bytes)
+{
+  (void)taos_type;
+  (void)taos_bytes;
+  switch (ValueType) {
+    case SQL_C_CHAR:
+      *taos_type = TSDB_DATA_TYPE_VARCHAR;
+      *taos_bytes = BufferLength;
+      break;
+    case SQL_C_SBIGINT:
+      *taos_type = TSDB_DATA_TYPE_BIGINT;
+      *taos_bytes = sizeof(int64_t);
+      break;
+    default:
+      err_set_format(&stmt->err,
+        "HY000",
+        0,
+        "unable to guess taos-data-type for `%s[%d]`",
+        sql_c_data_type_to_str(ValueType), ValueType);
+      return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS_WITH_INFO;
 }
 
 SQLRETURN stmt_bind_param(
@@ -1297,27 +1335,32 @@ SQLRETURN stmt_bind_param(
   param_bind.StrLen_or_IndPtr         = StrLen_or_IndPtr;
   param_bind.value.inited = 0;
 
+  SQLRETURN sr = SQL_SUCCESS;
   int type;
   int bytes;
   int r = 0;
   r = TAOS_stmt_get_param(stmt->stmt, ParameterNumber-1, &type, &bytes);
   if (r) {
-    err_set(&stmt->err, "HY000", r, taos_stmt_errstr(stmt->stmt));
-    stmt_release_stmt(stmt);
-    return SQL_ERROR;
+    if (stmt->is_insert_stmt) {
+      err_set(&stmt->err, "HY000", r, taos_stmt_errstr(stmt->stmt));
+      stmt_release_stmt(stmt);
+      return SQL_ERROR;
+    }
+    sr = _stmt_guess_taos_data_type(stmt, ValueType, BufferLength, &type, &bytes);
+    if (!sql_successed(sr)) return sr;
   }
 
-  param_bind.taos_type                = type;
-  param_bind.taos_bytes               = bytes;
+  param_bind.taos_type      = type;
+  param_bind.taos_bytes     = bytes;
   OD("ValueType[%d]%s; ParameterType[%d]%s; ColumnSize[%ld]; DecimalDigits[%d]; BufferLength[%ld]; bytes[%d]",
-    ValueType, sql_c_data_type_to_str(ValueType),
-    ParameterType, sql_data_type_to_str(ParameterType),
-    ColumnSize, DecimalDigits, BufferLength, bytes);
+      ValueType, sql_c_data_type_to_str(ValueType),
+      ParameterType, sql_data_type_to_str(ParameterType),
+      ColumnSize, DecimalDigits, BufferLength, bytes);
 
   r = param_binds_bind_param(&stmt->param_binds, &param_bind);
   OA(r == 0, "");
 
-  return SQL_SUCCESS;
+  return sr;
 }
 
 #define _stmt_conv_bounded_param_fail(_stmt, _param_bind)             \
@@ -1576,6 +1619,30 @@ static SQLRETURN _stmt_conv_bounded_param_c_sbigint_to_tsdb_int(stmt_t *stmt, pa
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_conv_bounded_param_c_sbigint_to_tsdb_bigint(stmt_t *stmt, param_bind_t *param_bind)
+{
+  _param_bind_reset_default_actual_data(param_bind);
+
+  param_bind->mb.buffer_type = TSDB_DATA_TYPE_BIGINT;
+
+  if (*param_bind->StrLen_or_IndPtr != SQL_NULL_DATA) {
+    int64_t *base = (int64_t*)param_bind->ParameterValuePtr;
+    OD("c_sbigint: %" PRId64 "", *base);
+
+    param_bind->mb.buffer_length = sizeof(int64_t);
+    param_bind->mb.buffer = base;
+    param_bind->mb.length = NULL;
+  }
+
+  int r = TAOS_stmt_bind_single_param_batch(stmt->stmt, &param_bind->mb, param_bind->ParameterNumber - 1);
+  if (r) {
+    _stmt_param_bind_fail(stmt, param_bind, r);
+    return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_conv_bounded_param_c_default_to_tsdb_int(stmt_t *stmt, param_bind_t *param_bind)
 {
   _param_bind_reset_default_actual_data(param_bind);
@@ -1600,6 +1667,17 @@ static SQLRETURN _stmt_conv_bounded_param_to_tsdb_int(stmt_t *stmt, param_bind_t
       return _stmt_conv_bounded_param_c_sbigint_to_tsdb_int(stmt, param_bind);
     case SQL_C_DEFAULT:
       return _stmt_conv_bounded_param_c_default_to_tsdb_int(stmt, param_bind);
+    default:
+      _stmt_conv_bounded_param_fail(stmt, param_bind);
+      return SQL_ERROR;
+  }
+}
+
+static SQLRETURN _stmt_conv_bounded_param_to_tsdb_bigint(stmt_t *stmt, param_bind_t *param_bind)
+{
+  switch (param_bind->ValueType) {
+    case SQL_C_SBIGINT:
+      return _stmt_conv_bounded_param_c_sbigint_to_tsdb_bigint(stmt, param_bind);
     default:
       _stmt_conv_bounded_param_fail(stmt, param_bind);
       return SQL_ERROR;
@@ -1672,11 +1750,6 @@ static SQLRETURN _stmt_conv_bounded_param_to_tsdb_nchar(stmt_t *stmt, param_bind
 static SQLRETURN _stmt_conv_bounded_param(stmt_t *stmt, int idx)
 {
   param_bind_t *param_bind = stmt->param_binds.binds + idx;
-  const char *taos_type = TAOS_data_type(param_bind->taos_type);
-  OD("ValueType[%s]; ParameterType[%s]; taos_data_type[%s]",
-    sql_c_data_type_to_str(param_bind->ValueType),
-    sql_data_type_to_str(param_bind->ParameterType),
-    taos_type);
   switch (param_bind->taos_type) {
     case TSDB_DATA_TYPE_TIMESTAMP:
       return _stmt_conv_bounded_param_to_tsdb_timestamp(stmt, param_bind);
@@ -1687,6 +1760,8 @@ static SQLRETURN _stmt_conv_bounded_param(stmt_t *stmt, int idx)
       return _stmt_conv_bounded_param_to_tsdb_int(stmt, param_bind);
     case TSDB_DATA_TYPE_NCHAR:
       return _stmt_conv_bounded_param_to_tsdb_nchar(stmt, param_bind);
+    case TSDB_DATA_TYPE_BIGINT:
+      return _stmt_conv_bounded_param_to_tsdb_bigint(stmt, param_bind);
     default:
       _stmt_conv_bounded_param_fail(stmt, param_bind);
       return SQL_ERROR;

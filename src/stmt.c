@@ -1511,9 +1511,12 @@ static SQLRETURN _stmt_conv_bounded_param_c_char_to_tsdb_varchar(stmt_t *stmt, p
 
   if (*param_bind->StrLen_or_IndPtr != SQL_NULL_DATA) {
     const char *base = (const char*)param_bind->ParameterValuePtr;
-    int n = snprintf(NULL, 0, "%.*s", (int)param_bind->BufferLength, base);
+    size_t len = *param_bind->StrLen_or_IndPtr;
+    if (*param_bind->StrLen_or_IndPtr == SQL_NTS) {
+      len = strlen(base);
+    }
+    int n = snprintf(NULL, 0, "%.*s", (int)len, base);
     OA_NIY(n >= 0);
-    OD("c_char: [%.*s]", (int)param_bind->BufferLength, base);
 
     param_bind->mb.buffer_length = param_bind->taos_bytes;
     param_bind->mb.buffer = (char*)base;

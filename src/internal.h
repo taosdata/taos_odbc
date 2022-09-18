@@ -233,6 +233,7 @@ struct stmt_s {
   SQLULEN            *rows_fetched_ptr;
 
   unsigned int        is_insert_stmt:1;
+  unsigned int        res_is_from_taos_query:1;
 };
 
 EXTERN_C_END

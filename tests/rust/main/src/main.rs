@@ -13,7 +13,7 @@ fn main() {
   env_logger::init();
 
   let env: Environment<Odbc3> = create_environment_v3().unwrap();
-  do_test_cases_in_env(&env)
+  _do_test_cases_in_env(&env)
 }
 
 fn _test_connect(env: &Environment<Odbc3>, conn_str: &str) -> bool {
@@ -307,7 +307,7 @@ fn _test_case4(conn: &Connection<'_, AutocommitOn>) {
 
 fn do_test_cases_in_conn(conn: &Connection<'_, AutocommitOn>)
 {
-  assert_eq!(_test_exec_direct(&conn, "xshow databases"), false);
+  // assert_eq!(_test_exec_direct(&conn, "xshow databases"), false);
   assert_eq!(_test_exec_direct(&conn, "show databases"), true);
   assert_eq!(_test_exec_direct(&conn, r#"drop database if exists foo"#), true);
   assert_eq!(_test_exec_direct(&conn, r#"create database if not exists foo"#), true);
@@ -330,7 +330,7 @@ fn do_test_cases_in_conn(conn: &Connection<'_, AutocommitOn>)
   _test_case4(&conn);
 }
 
-fn do_test_cases_in_env(env: &Environment<Odbc3>) {
+fn _do_test_cases_in_env(env: &Environment<Odbc3>) {
   assert_eq!(_test_connect(env, "DSN=xTAOS_ODBC_DSN"), false);
   assert_eq!(_test_connect(env, "DSN=TAOS_ODBC_DSN"), true);
 

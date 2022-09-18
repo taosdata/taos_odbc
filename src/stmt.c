@@ -140,7 +140,8 @@ static int stmt_init(stmt_t *stmt, conn_t *conn)
 static void stmt_release_result(stmt_t *stmt)
 {
   if (stmt->res) {
-    TAOS_free_result(stmt->res);
+    if (stmt->res_is_from_taos_query) TAOS_free_result(stmt->res);
+    stmt->res_is_from_taos_query = 0;
     stmt->res = NULL;
     stmt->row_count = 0;
     stmt->col_count = 0;
@@ -230,6 +231,7 @@ static int _stmt_exec_direct_sql(stmt_t *stmt, const char *sql)
 
   if (!stmt->stmt) {
     stmt->res = TAOS_query(taos, sql);
+    stmt->res_is_from_taos_query = stmt->res ? 1 : 0;
   } else {
     OA_NIY(0);
     int r = TAOS_stmt_execute(stmt->stmt);
@@ -238,6 +240,7 @@ static int _stmt_exec_direct_sql(stmt_t *stmt, const char *sql)
       return -1;
     }
     stmt->res = TAOS_stmt_use_result(stmt->stmt);
+    stmt->res_is_from_taos_query = 0;
   }
 
   int e;
@@ -1876,6 +1879,7 @@ SQLRETURN stmt_execute(
     return SQL_ERROR;
   }
   stmt->res = TAOS_stmt_use_result(stmt->stmt);
+  stmt->res_is_from_taos_query = 0;
 
   int e;
   const char *estr;

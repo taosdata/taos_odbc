@@ -6,22 +6,29 @@
 
 #include <sqlext.h>
 
-#define D(_fmt, ...)                                                 \
-  do {                                                               \
-    fprintf(stderr, "%s[%d]:%s(): " _fmt "\n",                       \
-                    basename((char*)__FILE__), __LINE__, __func__,   \
-                    ##__VA_ARGS__);                                  \
-  } while (0)
+#ifdef __cplusplus         /* { */
+#define ABORT_OR_THROW throw int(1)
+#else                      /* }{ */
+#include <stdlib.h>
+#define abort()
+#endif                     /* } */
 
-#define A(_statement, _fmt, ...)                                          \
-  do {                                                                    \
-    if (!(_statement)) {                                                  \
-      fprintf(stderr, "%s[%d]:%s(): assertion failed: [%s]" _fmt "\n",    \
-          basename((char*)__FILE__), __LINE__, __func__,                  \
-          #_statement,                                                    \
-          ##__VA_ARGS__);                                                 \
-      throw int(1);                                                       \
-    }                                                                     \
+#define LOG(_file, _line, _func, _fmt, ...)                   \
+  fprintf(stderr, "%s[%d]:%s: " _fmt "\n",                    \
+      basename((char*)_file), _line, _func,                   \
+      ##__VA_ARGS__)
+
+#define D(_fmt, ...) LOG(__FILE__, __LINE__, __func__, _fmt, ##__VA_ARGS__)
+
+#define A(_statement, _fmt, ...)                 \
+  do {                                           \
+    if (!(_statement)) {                         \
+      LOG(__FILE__, __LINE__, __func__,          \
+          "assertion failed: [%s] " _fmt "\n",   \
+                      #_statement,               \
+                      ##__VA_ARGS__);            \
+      ABORT_OR_THROW;                            \
+    }                                            \
   } while (0)
 
 #define SUCCEEDED(_sr) ({ SQLRETURN __sr = _sr; (__sr == SQL_SUCCESS) || (__sr == SQL_SUCCESS_WITH_INFO); })

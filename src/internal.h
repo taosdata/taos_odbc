@@ -38,7 +38,7 @@ EXTERN_C_BEGIN
 #define TAOS_fetch_fields(_result)                                 D_APPLY1(taos_fetch_fields, _result)
 #define TAOS_fetch_row(_result)                                    D_APPLY1(taos_fetch_row, _result)
 #define TAOS_print_row(_temp, _row, _fields, _num_fields)          D_APPLY4(taos_print_row, _temp, _row, _fields, _num_fields)
-#define TAOS_query(_taos, _sql)     ({const char *__sql = _sql; OD("sql: [%s]", __sql); D_APPLY2(taos_query, _taos, _sql); })
+#define TAOS_query(_taos, _sql)     ({const char *__sql = _sql; OD("sql: [%s]", __sql); D_APPLY2(taos_query, _taos, __sql); })
 #define TAOS_errno(_result)                                        D_APPLY1(taos_errno, _result)
 #define TAOS_errstr(_result)                                       D_APPLY1(taos_errstr, _result)
 #define TAOS_free_result(_result)                                  D_APPLY1(taos_free_result, _result)
@@ -57,7 +57,14 @@ EXTERN_C_BEGIN
 #define TAOS_stmt_set_tbname(_stmt, _tblName)                      D_APPLY2(taos_stmt_set_tbname, _stmt, _tblName)
 #define TAOS_stmt_set_tags(_stmt, _pTags)                          D_APPLY2(taos_stmt_set_tags, _stmt, _pTags)
 #define TAOS_stmt_set_tbname_tags(_stmt, _tblName, _pTags)         D_APPLY3(taos_stmt_set_tbname_tags, _stmt, _tblName, _pTags)
-#define TAOS_stmt_prepare(_stmt, _sql, _len) ({const char *__sql = _sql; OD("sql: [%s]", __sql); D_APPLY3(taos_stmt_prepare, _stmt, _sql, _len); })
+#define TAOS_stmt_prepare(_stmt, _sql, _len)                 \
+  ({                                                         \
+   const char *__sql = _sql;                                 \
+   int __len = _len;                                         \
+   OD("sql: [%.*s]",__len, __sql);                           \
+   D_APPLY3(taos_stmt_prepare, _stmt, __sql, __len);         \
+   })
+
 #define TAOS_stmt_add_batch(_stmt)                                 D_APPLY1(taos_stmt_add_batch, _stmt)
 #define TAOS_stmt_execute(_stmt)                                   D_APPLY1(taos_stmt_execute, _stmt)
 #define TAOS_stmt_init(_stmt)                                      D_APPLY1(taos_stmt_init, _stmt)

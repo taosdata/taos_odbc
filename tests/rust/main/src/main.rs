@@ -16,7 +16,7 @@ fn main() {
   do_test_cases_in_env(&env)
 }
 
-fn test_connect(env: &Environment<Odbc3>, conn_str: &str) -> bool {
+fn _test_connect(env: &Environment<Odbc3>, conn_str: &str) -> bool {
   match env.connect_with_connection_string(conn_str) {
     Ok(_) => { true }
     _     => { false }
@@ -239,6 +239,72 @@ fn _test_case3(conn: &Connection<'_, AutocommitOn>) {
     assert_eq!(jv[0].dump(), _parsed[1].dump());
 }
 
+fn _test_case4(conn: &Connection<'_, AutocommitOn>) {
+  assert_eq!(_test_exec_direct(&conn, r#"drop database if exists foo"#), true);
+  assert_eq!(_test_exec_direct(&conn, r#"create database if not exists foo"#), true);
+  assert_eq!(_test_exec_direct(&conn, r#"use foo"#), true);
+  assert_eq!(_test_exec_direct(&conn, r#"drop table if exists t"#), true);
+  assert_eq!(_test_exec_direct(&conn, r#"create table if not exists t (ts timestamp, name varchar(20), age int, sex varchar(8), text nchar(3))"#), true);
+  assert_eq!(_test_exec_direct(&conn, r#"select * from t"#), true);
+  assert_eq!(_test_exec_direct(&conn, r#"insert into t (ts, name, age, sex, text) values (1662861448752, "name1", 20, "male", "中国人")"#), true);
+  assert_eq!(_test_exec_direct(&conn, r#"insert into t (ts, name, age, sex, text) values (1662861449753, "name2", 30, "female", "苏州人")"#), true);
+  assert_eq!(_test_exec_direct(&conn, r#"insert into t (ts, name, age, sex, text) values (1662861450754, "name3", null, null, null)"#), true);
+  assert_eq!(_test_exec_direct(&conn, r#"insert into t (ts, name, age, sex, text) values (1662861451755, "3245", null, null, null)"#), true);
+
+  let _parsed = json::array![
+    [{ts:r#"2022-09-11 09:57:28.752"#}, {name:r#"name1"#}, {age:"20"}, {sex:r#"male"#}, {text:r#"中国人"#}],
+    [{ts:r#"2022-09-11 09:57:29.753"#}, {name:r#"name2"#}, {age:"30"}, {sex:r#"female"#}, {text:r#"苏州人"#}],
+    [{ts:r#"2022-09-11 09:57:30.754"#}, {name:r#"name3"#}, {age:null}, {sex:null}, {text:null}],
+    [{ts:r#"2022-09-11 09:57:31.755"#}, {name:r#"3245"#}, {age:null}, {sex:null}, {text:null}],
+  ];
+
+    let stmt = Statement::with_parent(conn).unwrap();
+
+    let stmt = stmt.prepare("select * from foo.t where name = ?").unwrap();
+
+    let name = "name2";
+    let stmt = stmt.bind_parameter(1, &name).unwrap();
+    let mut jv = json::JsonValue::new_array();
+    let stmt = _execute_to_json(stmt, &mut jv).unwrap();
+    assert_eq!(jv[0].dump(), _parsed[1].dump());
+
+    let name = "name1";
+    let stmt = stmt.bind_parameter(1, &name).unwrap();
+    let mut jv = json::JsonValue::new_array();
+    let stmt = _execute_to_json(stmt, &mut jv).unwrap();
+    assert_eq!(jv[0].dump(), _parsed[0].dump());
+
+    let name = "name3";
+    let stmt = stmt.bind_parameter(1, &name).unwrap();
+    let mut jv = json::JsonValue::new_array();
+    let _stmt = _execute_to_json(stmt, &mut jv).unwrap();
+    assert_eq!(jv[0].dump(), _parsed[2].dump());
+
+    let stmt = Statement::with_parent(conn).unwrap();
+    let stmt = stmt.prepare("select * from foo.t where name <> ?").unwrap();
+    let name = "name";
+    let stmt = stmt.bind_parameter(1, &name).unwrap();
+    let mut jv = json::JsonValue::new_array();
+    let _stmt = _execute_to_json(stmt, &mut jv).unwrap();
+    assert_eq!(jv.dump(), _parsed.dump());
+
+    let stmt = Statement::with_parent(conn).unwrap();
+    let stmt = stmt.prepare("select * from foo.t where age = ?").unwrap();
+    let age = 30;
+    let stmt = stmt.bind_parameter(1, &age).unwrap();
+    let mut jv = json::JsonValue::new_array();
+    let _stmt = _execute_to_json(stmt, &mut jv).unwrap();
+    assert_eq!(jv[0].dump(), _parsed[1].dump());
+
+    let stmt = Statement::with_parent(conn).unwrap();
+    let stmt = stmt.prepare("select * from foo.t where name = ?").unwrap();
+    let name = 3245;
+    let stmt = stmt.bind_parameter(1, &name).unwrap();
+    let mut jv = json::JsonValue::new_array();
+    let _stmt = _execute_to_json(stmt, &mut jv).unwrap();
+    assert_eq!(jv[0].dump(), _parsed[3].dump());
+}
+
 fn do_test_cases_in_conn(conn: &Connection<'_, AutocommitOn>)
 {
   assert_eq!(_test_exec_direct(&conn, "xshow databases"), false);
@@ -261,11 +327,12 @@ fn do_test_cases_in_conn(conn: &Connection<'_, AutocommitOn>)
   assert_eq!(_test_exec_direct(&conn, r#"insert into t (ts, name) values (now, ?)"#), false);
   _test_case2(&conn);
   _test_case3(&conn);
+  _test_case4(&conn);
 }
 
 fn do_test_cases_in_env(env: &Environment<Odbc3>) {
-  assert_eq!(test_connect(env, "DSN=xTAOS_ODBC_DSN"), false);
-  assert_eq!(test_connect(env, "DSN=TAOS_ODBC_DSN"), true);
+  assert_eq!(_test_connect(env, "DSN=xTAOS_ODBC_DSN"), false);
+  assert_eq!(_test_connect(env, "DSN=TAOS_ODBC_DSN"), true);
 
   let conn = env.connect_with_connection_string("DSN=TAOS_ODBC_DSN").unwrap();
   do_test_cases_in_conn(&conn);

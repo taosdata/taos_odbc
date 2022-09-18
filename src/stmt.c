@@ -214,7 +214,7 @@ stmt_t* stmt_unref(stmt_t *stmt)
   return NULL;
 }
 
-static int _stmt_exec_direct(stmt_t *stmt, const char *sql, int len)
+static int _stmt_exec_direct_sql(stmt_t *stmt, const char *sql)
 {
   OA_ILE(stmt);
   OA_ILE(stmt->conn);
@@ -226,31 +226,15 @@ static int _stmt_exec_direct(stmt_t *stmt, const char *sql, int len)
   stmt_release_result(stmt);
   param_binds_reset(&stmt->param_binds);
 
-  char buf[1024];
-  char *p = (char*)sql;
-  if (len == SQL_NTS)
-    len = strlen(sql);
-  if (p[len]) {
-    if ((size_t)len < sizeof(buf)) {
-      strncpy(buf, p, len);
-      buf[len] = '\0';
-      p = buf;
-    } else {
-      p = strndup(p, len);
-      if (!p) return -1;
-    }
-  }
-
   TAOS *taos = stmt->conn->taos;
 
   if (!stmt->stmt) {
-    stmt->res = TAOS_query(taos, p);
+    stmt->res = TAOS_query(taos, sql);
   } else {
     OA_NIY(0);
     int r = TAOS_stmt_execute(stmt->stmt);
     if (r) {
       err_set(&stmt->err, "HY000", r, TAOS_stmt_errstr(stmt->stmt));
-      if (p != sql && p!= buf) free(p);
       return -1;
     }
     stmt->res = TAOS_stmt_use_result(stmt->stmt);
@@ -270,13 +254,35 @@ static int _stmt_exec_direct(stmt_t *stmt, const char *sql, int len)
     stmt->time_precision = TAOS_result_precision(stmt->res);
   }
 
-  if (p != sql && p!= buf) free(p);
-
   if (e) {
     err_set(&stmt->err, "HY000", e, estr);
   }
 
   return e ? -1 : 0;
+}
+
+static int _stmt_exec_direct(stmt_t *stmt, const char *sql, int len)
+{
+  char buf[1024];
+  char *p = (char*)sql;
+  if (len == SQL_NTS)
+    len = strlen(sql);
+  if (p[len]) {
+    if ((size_t)len < sizeof(buf)) {
+      strncpy(buf, p, len);
+      buf[len] = '\0';
+      p = buf;
+    } else {
+      p = strndup(p, len);
+      if (!p) return -1;
+    }
+  }
+
+  int r = _stmt_exec_direct_sql(stmt, p);
+
+  if (p != sql && p!= buf) free(p);
+
+  return r ? -1 : 0;
 }
 
 int stmt_exec_direct(stmt_t *stmt, const char *sql, int len)

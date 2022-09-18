@@ -647,41 +647,8 @@ static SQLRETURN _conv_tsdb_int_to_sql_c_wchar(stmt_t *stmt, const char *data, i
   return sr;
 }
 
-static SQLRETURN _conv_tsdb_timestamp_to_sql_c_wchar(stmt_t *stmt, const char *data, int len, int row, col_bind_t *col_bind)
+static int _tsdb_timestamp_to_string(stmt_t *stmt, int64_t val, char *buf)
 {
-  (void)len;
-  OA_ILE(data);
-  OA_NIY(stmt->row_bind_type == SQL_BIND_BY_COLUMN);
-  char *base = (char*)col_bind->TargetValuePtr;
-  base += col_bind->BufferLength * row;
-
-  char buf[64];
-  int n = snprintf(buf, sizeof(buf), "%ld", *(int64_t*)data);
-
-  char *inbuf = buf;
-  size_t inbytes = n;
-  char *outbuf = (char*)base;
-  size_t outbytes = col_bind->BufferLength;
-
-  SQLRETURN sr = _stmt_encode(stmt, "utf8", &inbuf, &inbytes, "ucs2", &outbuf, &outbytes);
-  if (sr == SQL_SUCCESS_WITH_INFO) sr = SQL_ERROR;
-  if (sql_successed(sr)) {
-    if (col_bind->StrLen_or_IndPtr) col_bind->StrLen_or_IndPtr[row] = col_bind->BufferLength - outbytes;
-  }
-
-  return sr;
-}
-
-static SQLRETURN _conv_tsdb_timestamp_to_sql_c_char(stmt_t *stmt, const char *data, int len, int row, col_bind_t *col_bind)
-{
-  (void)len;
-  OA_ILE(data);
-  OA_NIY(stmt->row_bind_type == SQL_BIND_BY_COLUMN);
-  char *base = (char*)col_bind->TargetValuePtr;
-  base += col_bind->BufferLength * row;
-
-  int64_t val = *(int64_t*)data;
-
   int n;
   time_t  tt;
   int32_t ms = 0;
@@ -715,15 +682,65 @@ static SQLRETURN _conv_tsdb_timestamp_to_sql_c_char(stmt_t *stmt, const char *da
   struct tm *p = localtime_r(&tt, &ptm);
   OA_ILE(p == &ptm);
 
-  n = snprintf(base, col_bind->BufferLength,
+  n = sprintf(buf,
       "%04d-%02d-%02d %02d:%02d:%02d.%0*d",
       ptm.tm_year + 1900, ptm.tm_mon + 1, ptm.tm_mday,
       ptm.tm_hour, ptm.tm_min, ptm.tm_sec,
       w, ms);
 
+  OA_ILE(n > 0);
+
+  return n;
+}
+
+static SQLRETURN _conv_tsdb_timestamp_to_sql_c_wchar(stmt_t *stmt, const char *data, int len, int row, col_bind_t *col_bind)
+{
+  (void)len;
+  OA_ILE(data);
+  OA_NIY(stmt->row_bind_type == SQL_BIND_BY_COLUMN);
+  char *base = (char*)col_bind->TargetValuePtr;
+  base += col_bind->BufferLength * row;
+
+  int64_t val = *(int64_t*)data;
+
+  char buf[64];
+  int n = _tsdb_timestamp_to_string(stmt, val, buf);
+  OA_ILE(n > 0);
+
+  char *inbuf = buf;
+  size_t inbytes = n;
+  char *outbuf = (char*)base;
+  size_t outbytes = col_bind->BufferLength;
+
+  SQLRETURN sr = _stmt_encode(stmt, "utf8", &inbuf, &inbytes, "ucs2", &outbuf, &outbytes);
+  if (sr == SQL_SUCCESS_WITH_INFO) sr = SQL_ERROR;
+
+  n = col_bind->BufferLength - outbytes;
+
+  if (sql_successed(sr)) {
+    if (col_bind->StrLen_or_IndPtr) col_bind->StrLen_or_IndPtr[row] = n;
+  }
+
+  return sr;
+}
+
+static SQLRETURN _conv_tsdb_timestamp_to_sql_c_char(stmt_t *stmt, const char *data, int len, int row, col_bind_t *col_bind)
+{
+  (void)len;
+  OA_ILE(data);
+  OA_NIY(stmt->row_bind_type == SQL_BIND_BY_COLUMN);
+  char *base = (char*)col_bind->TargetValuePtr;
+  base += col_bind->BufferLength * row;
+
+  int64_t val = *(int64_t*)data;
+
+  char buf[64];
+  int n = _tsdb_timestamp_to_string(stmt, val, buf);
+  OA_ILE(n > 0);
+
+  n = snprintf(base, col_bind->BufferLength, "%s", buf);
   if (col_bind->StrLen_or_IndPtr) col_bind->StrLen_or_IndPtr[row] = n;
   if (n >= col_bind->BufferLength) {
-    OA_NIY(0);
     err_set(&stmt->err, "01004", 0, "String was truncated");
     return SQL_SUCCESS_WITH_INFO;
   }

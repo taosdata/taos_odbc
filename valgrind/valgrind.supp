@@ -573,4 +573,23 @@
    fun:uv__io_poll
    fun:uv_run
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   write(buf)
+   fun:__libc_write
+   fun:write
+   fun:uv__writev
+   fun:uv__try_write
+   fun:uv__write
+   fun:uv_write2
+   fun:uv_write
+   fun:cliSend
+   fun:cliConnCb
+   fun:uv__stream_connect
+   fun:uv__stream_io
+   fun:uv__io_poll
+   fun:uv_run
+   fun:cliWorkThread
+}
 

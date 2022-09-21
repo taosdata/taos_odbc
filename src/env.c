@@ -1,10 +1,8 @@
 #include "internal.h"
 
-#include <libgen.h>
-#include <pthread.h>
-#include <string.h>
+#include "env.h"
 
-#include <sqlext.h>
+#include <pthread.h>
 
 static void _exit_routine(void)
 {
@@ -15,17 +13,6 @@ static void _init_once(void)
 {
   OA(0==TAOS_init(), "taos_init failed");
   atexit(_exit_routine);
-}
-
-void err_set_x(err_t *err, const char *file, int line, const char *func, const char *sql_state, int e, const char *estr)
-{
-  err->err = e;
-  snprintf(err->buf, sizeof(err->buf),
-      "%s[%d]:%s(): %s",
-      basename((char*)file), line, func,
-      estr);
-  err->estr = err->buf;
-  strncpy((char*)err->sql_state, sql_state, sizeof(err->sql_state));
 }
 
 const char *sql_c_data_type_to_str(SQLSMALLINT sql_c_data_type)
@@ -141,6 +128,7 @@ static void env_release(env_t *env)
 {
   int conns = atomic_load(&env->conns);
   OA_ILE(conns == 0);
+  errs_release(&env->errs);
   return;
 }
 
@@ -183,5 +171,17 @@ int env_rollback(env_t *env)
 {
   int conns = atomic_load(&env->conns);
   return conns == 0 ? 0 : -1;
+}
+
+SQLRETURN env_get_diag_rec(
+    env_t          *env,
+    SQLSMALLINT     RecNumber,
+    SQLCHAR        *SQLState,
+    SQLINTEGER     *NativeErrorPtr,
+    SQLCHAR        *MessageText,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *TextLengthPtr)
+{
+  return errs_get_diag_rec(&env->errs, RecNumber, SQLState, NativeErrorPtr, MessageText, BufferLength, TextLengthPtr);
 }
 

@@ -2,10 +2,9 @@
 #define _conn_h_
 
 #include "env.h"
-#include "log.h"
 #include "utils.h"
 
-#include <sql.h>
+#include <string.h>
 
 EXTERN_C_BEGIN
 
@@ -34,6 +33,14 @@ static inline void connection_cfg_release(connection_cfg_t *conn_str)
   TOD_SAFE_FREE(conn_str->pwd);
   TOD_SAFE_FREE(conn_str->ip);
   TOD_SAFE_FREE(conn_str->db);
+}
+
+static inline void connection_cfg_transfer(connection_cfg_t *from, connection_cfg_t *to)
+{
+  if (from == to) return;
+  connection_cfg_release(to);
+  *to = *from;
+  memset(from, 0, sizeof(*from));
 }
 
 typedef struct conn_s              conn_t;

@@ -76,26 +76,88 @@ const char *sql_c_data_type_to_str(SQLSMALLINT sql_c_data_type);
 const char *sql_data_type_to_str(SQLSMALLINT sql_data_type);
 
 typedef struct err_s             err_t;
+typedef struct errs_s            errs_t;
+
 struct err_s {
   int                 err;
   const char         *estr;
   SQLCHAR             sql_state[6];
 
   char                buf[1024];
+
+  err_t              *next;
 };
 
-void err_set_x(err_t *err, const char *file, int line, const char *func, const char *sql_state, int e, const char *estr);
-#define err_set(_err, _sql_state, _e, _estr)                                  \
-  ({                                                                          \
-    err_set_x(_err, __FILE__, __LINE__, __func__, _sql_state, _e, _estr);     \
+struct errs_s {
+  err_t              *head;
+  err_t              *free;
+};
+
+void errs_append_x(errs_t *errs, const char *file, int line, const char *func, const char *data_source, const char *sql_state, int e, const char *estr) FA_HIDDEN;
+void errs_clr_x(errs_t *errs) FA_HIDDEN;
+void errs_release_x(errs_t *errs) FA_HIDDEN;
+SQLRETURN errs_get_diag_rec_x(
+    errs_t         *errs,
+    SQLSMALLINT     RecNumber,
+    SQLCHAR        *SQLState,
+    SQLINTEGER     *NativeErrorPtr,
+    SQLCHAR        *MessageText,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *TextLengthPtr) FA_HIDDEN;
+
+#define errs_append(_errs, _data_source, _sql_state, _e, _estr)                              \
+  ({                                                                                         \
+    errs_append_x(_errs, __FILE__, __LINE__, __func__, _data_source, _sql_state, _e, _estr); \
   })
 
-#define err_set_format(_err, _sql_state, _e, _fmt, ...)                       \
+#define errs_append_format(_errs, _data_source, _sql_state, _e, _fmt, ...)    \
   ({                                                                          \
     char _buf[1024];                                                          \
     snprintf(_buf, sizeof(_buf), "" _fmt "", ##__VA_ARGS__);                  \
-    err_set_x(_err, __FILE__, __LINE__, __func__, _sql_state, _e, _buf);      \
+    errs_append(_errs, _data_source, _sql_state, _e, _buf);                   \
   })
+
+#define errs_clr(_errs) errs_clr_x(_errs)
+
+#define errs_release(_errs) errs_release_x(_errs)
+
+#define errs_get_diag_rec(_errs, _RecNumber, _SQLSTATE, _NativeErrorPtr, _MessageText, _BufferLength, _TextLengthPtr) \
+  errs_get_diag_rec_x(_errs, _RecNumber, _SQLSTATE, _NativeErrorPtr, _MessageText, _BufferLength, _TextLengthPtr)
+
+#define conn_data_source(_conn) _conn->cfg.dsn ? _conn->cfg.dsn : (_conn->cfg.driver ? _conn->cfg.driver : "")
+
+#define env_append_err(_env, _sql_state, _e, _estr)              \
+  errs_append(&_env->errs, "", _sql_state, _e, _estr)
+
+#define conn_append_err(_conn, _sql_state, _e, _estr)                                \
+  ({                                                                                 \
+    conn_t *__conn = _conn;                                                          \
+    errs_append(&__conn->errs, conn_data_source(__conn), _sql_state, _e, _estr);     \
+  })
+
+#define stmt_append_err(_stmt, _sql_state, _e, _estr)                                \
+  ({                                                                                 \
+    stmt_t *__stmt = _stmt;                                                          \
+    conn_t *__conn = __stmt->conn;                                                   \
+    errs_append(&__stmt->errs, conn_data_source(__conn), _sql_state, _e, _estr);     \
+  })
+
+#define env_append_err_format(_env, _sql_state, _e, _fmt, ...)                \
+  errs_append_format(&_env->errs, "", _sql_state, _e, _fmt, ##__VA_ARGS__)
+
+#define conn_append_err_format(_conn, _sql_state, _e, _fmt, ...)                                      \
+  ({                                                                                                  \
+    conn_t *__conn = _conn;                                                                           \
+    errs_append_format(&__conn->errs, conn_data_source(__conn), _sql_state, _e, _fmt, ##__VA_ARGS__); \
+  })
+
+#define stmt_append_err_format(_stmt, _sql_state, _e, _fmt, ...)                                      \
+  ({                                                                                                  \
+    stmt_t *__stmt = _stmt;                                                                           \
+    conn_t *__conn = __stmt->conn;                                                                    \
+    errs_append_format(&__stmt->errs, conn_data_source(__conn), _sql_state, _e, _fmt, ##__VA_ARGS__); \
+  })
+
 
 #define sql_successed(_sr) ({ SQLRETURN __sr = _sr; (__sr==SQL_SUCCESS || __sr==SQL_SUCCESS_WITH_INFO); })
 
@@ -119,7 +181,7 @@ struct env_s {
 
   atomic_int          conns;
 
-  err_t               err;
+  errs_t              errs;
 };
 
 struct conn_s {
@@ -129,7 +191,9 @@ struct conn_s {
 
   env_t              *env;
 
-  err_t               err;
+  connection_cfg_t    cfg;
+
+  errs_t              errs;
 
   TAOS               *taos;
 
@@ -211,7 +275,7 @@ struct stmt_s {
 
   conn_t             *conn;
 
-  err_t               err;
+  errs_t              errs;
 
   TAOS_STMT          *stmt;
   int                 nr_params;

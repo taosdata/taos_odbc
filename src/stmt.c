@@ -1,5 +1,7 @@
 #include "internal.h"
 
+#include "stmt.h"
+
 #include <errno.h>
 #include <iconv.h>
 #include <inttypes.h>
@@ -8,10 +10,8 @@
 #include <time.h>
 #include <wchar.h>
 
-#include <sqlext.h>
-
 #define _stmt_malloc_fail(_stmt)             \
-  err_set(&_stmt->err,                       \
+  stmt_append_err(_stmt,                     \
     "HY001",                                 \
     0,                                       \
     "memory allocation failure");
@@ -175,6 +175,8 @@ static void stmt_release(stmt_t *stmt)
   OA_ILE(prev >= 1);
   stmt->conn = NULL;
 
+  errs_release(&stmt->errs);
+
   return;
 }
 
@@ -236,7 +238,7 @@ static int _stmt_exec_direct_sql(stmt_t *stmt, const char *sql)
     OA_NIY(0);
     int r = TAOS_stmt_execute(stmt->stmt);
     if (r) {
-      err_set(&stmt->err, "HY000", r, TAOS_stmt_errstr(stmt->stmt));
+      stmt_append_err(stmt, "HY000", r, TAOS_stmt_errstr(stmt->stmt));
       return -1;
     }
     stmt->res = TAOS_stmt_use_result(stmt->stmt);
@@ -258,7 +260,7 @@ static int _stmt_exec_direct_sql(stmt_t *stmt, const char *sql)
   }
 
   if (e) {
-    err_set(&stmt->err, "HY000", e, estr);
+    stmt_append_err(stmt, "HY000", e, estr);
   }
 
   return e ? -1 : 0;
@@ -332,7 +334,7 @@ int stmt_get_col_count(stmt_t *stmt, SQLSMALLINT *col_count_ptr)
 int stmt_set_row_bind_type(stmt_t *stmt, SQLULEN row_bind_type)
 {
   if (row_bind_type != SQL_BIND_BY_COLUMN) {
-    err_set(&stmt->err, "HY000", 0, "only `SQL_BIND_BY_COLUMN` is supported now`");
+    stmt_append_err(stmt, "HY000", 0, "only `SQL_BIND_BY_COLUMN` is supported now`");
     return -1;
   }
   stmt->row_bind_type = row_bind_type;
@@ -415,7 +417,7 @@ SQLRETURN stmt_describe_col(stmt_t *stmt,
       break;
     default:
       OA(0, "`%s[%d]` for ColumnNumber[#%d] not implemented yet", taos_data_type(p->type), p->type, ColumnNumber);
-      err_set_format(&stmt->err, "HY000", 0, "`%s[%d]` for ColumnNumber[#%d] not implemented yet", taos_data_type(p->type), p->type, ColumnNumber);
+      stmt_append_err_format(stmt, "HY000", 0, "`%s[%d]` for ColumnNumber[#%d] not implemented yet", taos_data_type(p->type), p->type, ColumnNumber);
       return SQL_ERROR;
   }
 
@@ -432,7 +434,7 @@ static SQLRETURN _conv_tsdb_int_to_sql_c_char(stmt_t *stmt, const char *data, in
   int n = snprintf(base, col_bind->BufferLength, "%d", *(int32_t*)data);
   if (col_bind->StrLen_or_IndPtr) col_bind->StrLen_or_IndPtr[row] = n;
   if (n >= col_bind->BufferLength) {
-    err_set(&stmt->err, "01004", 0, "String was truncated");
+    stmt_append_err(stmt, "01004", 0, "String was truncated");
     return SQL_SUCCESS_WITH_INFO;
   }
 
@@ -449,7 +451,7 @@ static SQLRETURN _conv_tsdb_bigint_to_sql_c_char(stmt_t *stmt, const char *data,
   int n = snprintf(base, col_bind->BufferLength, "%" PRId64 "", *(int64_t*)data);
   if (col_bind->StrLen_or_IndPtr) col_bind->StrLen_or_IndPtr[row] = n;
   if (n >= col_bind->BufferLength) {
-    err_set(&stmt->err, "01004", 0, "String was truncated");
+    stmt_append_err(stmt, "01004", 0, "String was truncated");
     return SQL_SUCCESS_WITH_INFO;
   }
 
@@ -468,7 +470,7 @@ static SQLRETURN _conv_tsdb_float_to_sql_c_char(stmt_t *stmt, const char *data, 
   int n = snprintf(base, col_bind->BufferLength, "%g", *(float*)data);
   if (col_bind->StrLen_or_IndPtr) col_bind->StrLen_or_IndPtr[row] = n;
   if (n >= col_bind->BufferLength) {
-    err_set(&stmt->err, "01004", 0, "String was truncated");
+    stmt_append_err(stmt, "01004", 0, "String was truncated");
     return SQL_SUCCESS_WITH_INFO;
   }
 
@@ -529,7 +531,7 @@ static SQLRETURN _conv_tsdb_varchar_to_sql_c_char(stmt_t *stmt, const char *data
   int n = snprintf(base, col_bind->BufferLength, "%.*s", len, data);
   if (col_bind->StrLen_or_IndPtr) col_bind->StrLen_or_IndPtr[row] = n;
   if (n >= col_bind->BufferLength) {
-    err_set(&stmt->err, "01004", 0, "String was truncated");
+    stmt_append_err(stmt, "01004", 0, "String was truncated");
     return SQL_SUCCESS_WITH_INFO;
   }
 
@@ -545,7 +547,7 @@ static SQLRETURN _conv_tsdb_nchar_to_sql_c_char(stmt_t *stmt, const char *data, 
   int n = snprintf(base, col_bind->BufferLength, "%.*s", len, data);
   if (col_bind->StrLen_or_IndPtr) col_bind->StrLen_or_IndPtr[row] = n;
   if (n >= col_bind->BufferLength) {
-    err_set(&stmt->err, "01004", 0, "String was truncated");
+    stmt_append_err(stmt, "01004", 0, "String was truncated");
     return SQL_SUCCESS_WITH_INFO;
   }
 
@@ -558,7 +560,7 @@ static SQLRETURN _stmt_encode(stmt_t *stmt,
 {
   iconv_t cd = iconv_open(tocode, fromcode);
   if ((size_t)cd == (size_t)-1) {
-    err_set_format(&stmt->err, "HY000", 0,
+    stmt_append_err_format(stmt, "HY000", 0,
         "[iconv] No character set conversion found for `%s` to `%s`: [%d] %s",
         fromcode, tocode, errno, strerror(errno));
     return SQL_ERROR;
@@ -570,20 +572,20 @@ static SQLRETURN _stmt_encode(stmt_t *stmt,
   int e = errno;
   iconv_close(cd);
   if (*inbytesleft > 0) {
-    err_set_format(&stmt->err, "22001", 0,
+    stmt_append_err_format(stmt, "22001", 0,
         "[iconv] Character set conversion for `%s` to `%s` results in string truncation, #%ld out of #%ld bytes consumed, #%ld out of #%ld bytes converted: [%d] %s",
         fromcode, tocode, inbytes - *inbytesleft, inbytes, outbytes - * outbytesleft, outbytes, e, strerror(e));
     return SQL_SUCCESS_WITH_INFO;
   }
   if (sz == (size_t)-1) {
-    err_set_format(&stmt->err, "HY000", 0,
+    stmt_append_err_format(stmt, "HY000", 0,
         "[iconv] Character set conversion for `%s` to `%s` failed: [%d] %s",
         fromcode, tocode, e, strerror(e));
     return SQL_ERROR;
   }
   if (sz > 0) {
     // FIXME: what actually means when sz > 0???
-    err_set_format(&stmt->err, "HY000", 0,
+    stmt_append_err_format(stmt, "HY000", 0,
         "[iconv] Character set conversion for `%s` to `%s` succeeded with #[%ld] of nonreversible characters converted",
         fromcode, tocode, sz);
     return SQL_SUCCESS_WITH_INFO;
@@ -750,7 +752,7 @@ static SQLRETURN _conv_tsdb_timestamp_to_sql_c_char(stmt_t *stmt, const char *da
   n = snprintf(base, col_bind->BufferLength, "%s", buf);
   if (col_bind->StrLen_or_IndPtr) col_bind->StrLen_or_IndPtr[row] = n;
   if (n >= col_bind->BufferLength) {
-    err_set(&stmt->err, "01004", 0, "String was truncated");
+    stmt_append_err(stmt, "01004", 0, "String was truncated");
     return SQL_SUCCESS_WITH_INFO;
   }
 
@@ -781,7 +783,7 @@ static SQLRETURN _stmt_get_conv_to_sql_c_char(stmt_t *stmt, int taos_type, conv_
       *conv = _conv_tsdb_nchar_to_sql_c_char;
       break;
     default:
-      err_set_format(&stmt->err, "HY000", 0,
+      stmt_append_err_format(stmt, "HY000", 0,
           "converstion from `%s[%d]` to `SQL_C_CHAR` not implemented yet",
           taos_data_type(taos_type), taos_type);
       return SQL_ERROR;
@@ -797,7 +799,7 @@ static SQLRETURN _stmt_get_conv_to_sql_c_utinyint(stmt_t *stmt, int taos_type, c
       *conv = _conv_tsdb_tinyint_to_sql_c_utinyint;
       break;
     default:
-      err_set_format(&stmt->err, "HY000", 0,
+      stmt_append_err_format(stmt, "HY000", 0,
           "converstion from `%s[%d]` to `SQL_C_CHAR` not implemented yet",
           taos_data_type(taos_type), taos_type);
       return SQL_ERROR;
@@ -813,7 +815,7 @@ static SQLRETURN _stmt_get_conv_to_sql_c_short(stmt_t *stmt, int taos_type, conv
       *conv = _conv_tsdb_smallint_to_sql_c_short;
       break;
     default:
-      err_set_format(&stmt->err, "HY000", 0,
+      stmt_append_err_format(stmt, "HY000", 0,
           "converstion from `%s[%d]` to `SQL_C_SHORT` not implemented yet",
           taos_data_type(taos_type), taos_type);
       return SQL_ERROR;
@@ -829,7 +831,7 @@ static SQLRETURN _stmt_get_conv_to_sql_c_double(stmt_t *stmt, int taos_type, con
       *conv = _conv_tsdb_double_to_sql_c_double;
       break;
     default:
-      err_set_format(&stmt->err, "HY000", 0,
+      stmt_append_err_format(stmt, "HY000", 0,
           "converstion from `%s[%d]` to `SQL_C_SHORT` not implemented yet",
           taos_data_type(taos_type), taos_type);
       return SQL_ERROR;
@@ -842,7 +844,7 @@ static SQLRETURN _conv_tsdb_int_to_sql_c_slong(stmt_t *stmt, const char *data, i
 {
   (void)len;
   if (stmt->row_bind_type != SQL_BIND_BY_COLUMN) {
-    err_set(&stmt->err, "HY000", 0, "only `SQL_BIND_BY_COLUMN` is supported for the moment");
+    stmt_append_err(stmt, "HY000", 0, "only `SQL_BIND_BY_COLUMN` is supported for the moment");
     return SQL_ERROR;
   }
   SQLINTEGER *base = (SQLINTEGER*)col_bind->TargetValuePtr;
@@ -861,7 +863,7 @@ static SQLRETURN _stmt_get_conv_to_sql_c_slong(stmt_t *stmt, int taos_type, conv
       *conv = _conv_tsdb_int_to_sql_c_slong;
       break;
     default:
-      err_set_format(&stmt->err, "HY000", 0,
+      stmt_append_err_format(stmt, "HY000", 0,
           "converstion from `%s[%d]` to `SQL_C_SLONG` not implemented yet",
           taos_data_type(taos_type), taos_type);
       return SQL_ERROR;
@@ -888,7 +890,7 @@ static SQLRETURN _stmt_get_conv_to_sql_c_wchar(stmt_t *stmt, int taos_type, conv
       *conv = _conv_tsdb_timestamp_to_sql_c_wchar;
       break;
     default:
-      err_set_format(&stmt->err, "HY000", 0,
+      stmt_append_err_format(stmt, "HY000", 0,
           "converstion from `%s[%d]` to `SQL_C_WCHAR` not implemented yet",
           taos_data_type(taos_type), taos_type);
       return SQL_ERROR;
@@ -913,7 +915,7 @@ static SQLRETURN _stmt_get_conv(stmt_t *stmt, SQLSMALLINT TargetType, int taos_t
     case SQL_C_WCHAR:
       return _stmt_get_conv_to_sql_c_wchar(stmt, taos_type, conv);
     default:
-      err_set_format(&stmt->err, "HY000", 0,
+      stmt_append_err_format(stmt, "HY000", 0,
           "converstion to `%s[%d]` not implemented yet",
           sql_c_data_type_to_str(TargetType), TargetType);
       return SQL_ERROR;
@@ -1044,7 +1046,7 @@ static SQLRETURN _stmt_get_data_len(stmt_t *stmt, int row, int col, const char *
       }
     } break;
     default:
-      err_set_format(&stmt->err, "HY000", 0,
+      stmt_append_err_format(stmt, "HY000", 0,
           "`%s[%d]` not implemented yet",
           taos_data_type(field->type), field->type);
       return SQL_ERROR;
@@ -1100,7 +1102,7 @@ SQLRETURN stmt_fetch(stmt_t *stmt)
     if (i >= stmt->rowset.nr_rows) break;
     for (int j=0; j>=0 && (size_t)j<stmt->col_binds.nr; ++j) {
       if (j>=stmt->col_count) {
-        err_set_format(&stmt->err,
+        stmt_append_err_format(stmt,
             "07009",
             0,
             "ColumnNumber[%d] exceeded the maximum number of columns[#%d] in the result set",
@@ -1142,14 +1144,7 @@ SQLRETURN stmt_get_diag_rec(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *TextLengthPtr)
 {
-  if (RecNumber > 1) return SQL_NO_DATA;
-  if (stmt->err.sql_state[0] == '\0') return SQL_NO_DATA;
-  if (NativeErrorPtr) *NativeErrorPtr = stmt->err.err;
-  if (SQLState) strncpy((char*)SQLState, (const char*)stmt->err.sql_state, 6);
-  int n = snprintf((char*)MessageText, BufferLength, "%s", stmt->err.estr);
-  if (TextLengthPtr) *TextLengthPtr = n;
-
-  return SQL_SUCCESS;
+  return errs_get_diag_rec(&stmt->errs, RecNumber, SQLState, NativeErrorPtr, MessageText, BufferLength, TextLengthPtr);
 }
 
 SQLRETURN stmt_get_data(
@@ -1163,7 +1158,7 @@ SQLRETURN stmt_get_data(
   OA_NIY(stmt->res);
   OA_NIY(stmt->rowset.rows);
   if (Col_or_Param_Num < 1 || Col_or_Param_Num > stmt->col_count) {
-    err_set(&stmt->err, "07009", 0, "The value specified for the argument `Col_or_Param_Num` is out of range");
+    stmt_append_err(stmt, "07009", 0, "The value specified for the argument `Col_or_Param_Num` is out of range");
     return SQL_ERROR;
   }
 
@@ -1202,7 +1197,7 @@ SQLRETURN stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
   OA_NIY(stmt->stmt == NULL);
   stmt->stmt = TAOS_stmt_init(stmt->conn->taos);
   if (!stmt->stmt) {
-    err_set(&stmt->err, "HY000", TAOS_errno(NULL), TAOS_errstr(NULL));
+    stmt_append_err(stmt, "HY000", TAOS_errno(NULL), TAOS_errstr(NULL));
     return SQL_ERROR;
   }
 
@@ -1215,7 +1210,7 @@ SQLRETURN stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
   isInsert = !!isInsert;
 
   if (r) {
-    err_set(&stmt->err, "HY000", r, TAOS_stmt_errstr(stmt->stmt));
+    stmt_append_err(stmt, "HY000", r, TAOS_stmt_errstr(stmt->stmt));
     stmt_release_stmt(stmt);
 
     return SQL_ERROR;
@@ -1226,7 +1221,7 @@ SQLRETURN stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
   int nr_params = 0;
   r = TAOS_stmt_num_params(stmt->stmt, &nr_params);
   if (r) {
-    err_set(&stmt->err, "HY000", r, TAOS_stmt_errstr(stmt->stmt));
+    stmt_append_err(stmt, "HY000", r, TAOS_stmt_errstr(stmt->stmt));
     stmt_release_stmt(stmt);
 
     return SQL_ERROR;
@@ -1240,7 +1235,7 @@ SQLRETURN stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
     TAOS_FIELD_E* pFields = NULL;
     r = TAOS_stmt_get_col_fields(stmt->stmt, &fieldNum, &pFields);
     if (r) {
-      err_set_format(&stmt->err, "HY000", r, "prepared statement for `INSERT` failed: %s", taos_stmt_errstr(stmt->stmt));
+      stmt_append_err_format(stmt, "HY000", r, "prepared statement for `INSERT` failed: %s", taos_stmt_errstr(stmt->stmt));
       stmt_release_stmt(stmt);
       return SQL_ERROR;
     }
@@ -1275,13 +1270,13 @@ SQLRETURN stmt_describe_param(
   r = TAOS_stmt_get_param(stmt->stmt, idx, &type, &bytes);
   if (r) {
     if (stmt->is_insert_stmt) {
-      err_set(&stmt->err, "HY000", r, TAOS_stmt_errstr(stmt->stmt));
+      stmt_append_err(stmt, "HY000", r, TAOS_stmt_errstr(stmt->stmt));
       return SQL_ERROR;
     }
     // FIXME: return SQL_VARCHAR and hard-coded parameters for the moment
     if (DataTypePtr)         *DataTypePtr = SQL_VARCHAR;
     if (ParameterSizePtr)    *ParameterSizePtr = 1024; /* hard-coded */
-    err_set(&stmt->err, "HY000", 0, "Arbitrary `SQL_VARCHAR(1024s)` is chosen to return because of taos lacking parm-desc for non-insert-statement");
+    stmt_append_err(stmt, "HY000", 0, "Arbitrary `SQL_VARCHAR(1024s)` is chosen to return because of taos lacking parm-desc for non-insert-statement");
     return SQL_SUCCESS_WITH_INFO;
   }
 
@@ -1308,7 +1303,7 @@ SQLRETURN stmt_describe_param(
       if (ParameterSizePtr)    *ParameterSizePtr = (bytes - 2) / 4;
       break;
     default:
-      err_set_format(&stmt->err, "HY000", 0, "`%s[%d]` not implemented yet", taos_data_type(type), type);
+      stmt_append_err_format(stmt, "HY000", 0, "`%s[%d]` not implemented yet", taos_data_type(type), type);
       return SQL_ERROR;
   }
 
@@ -1338,7 +1333,7 @@ static SQLRETURN _stmt_guess_taos_data_type(
       *taos_bytes = sizeof(int32_t);
       break;
     default:
-      err_set_format(&stmt->err,
+      stmt_append_err_format(stmt,
         "HY000",
         0,
         "unable to guess taos-data-type for `%s[%d]`",
@@ -1367,16 +1362,16 @@ SQLRETURN stmt_bind_param(
     case SQL_PARAM_INPUT_OUTPUT:
       break;
     case SQL_PARAM_OUTPUT:
-      err_set(&stmt->err, "HY000", 0, "SQL_PARAM_OUTPUT not supported yet by taos");
+      stmt_append_err(stmt, "HY000", 0, "SQL_PARAM_OUTPUT not supported yet by taos");
       return SQL_ERROR;
     case SQL_PARAM_INPUT_OUTPUT_STREAM:
-      err_set(&stmt->err, "HY000", 0, "SQL_PARAM_INPUT_OUTPUT_STREAM not supported yet by taos");
+      stmt_append_err(stmt, "HY000", 0, "SQL_PARAM_INPUT_OUTPUT_STREAM not supported yet by taos");
       return SQL_ERROR;
     case SQL_PARAM_OUTPUT_STREAM:
-      err_set(&stmt->err, "HY000", 0, "SQL_PARAM_OUTPUT_STREAM not supported yet by taos");
+      stmt_append_err(stmt, "HY000", 0, "SQL_PARAM_OUTPUT_STREAM not supported yet by taos");
       return SQL_ERROR;
     default:
-      err_set(&stmt->err, "HY000", 0, "unknown InputOutputType for `SQLBindParameter`");
+      stmt_append_err(stmt, "HY000", 0, "unknown InputOutputType for `SQLBindParameter`");
       return SQL_ERROR;
   }
 
@@ -1399,7 +1394,7 @@ SQLRETURN stmt_bind_param(
   r = TAOS_stmt_get_param(stmt->stmt, ParameterNumber-1, &type, &bytes);
   if (r) {
     if (stmt->is_insert_stmt) {
-      err_set(&stmt->err, "HY000", r, taos_stmt_errstr(stmt->stmt));
+      stmt_append_err(stmt, "HY000", r, taos_stmt_errstr(stmt->stmt));
       stmt_release_stmt(stmt);
       return SQL_ERROR;
     }
@@ -1424,7 +1419,7 @@ SQLRETURN stmt_bind_param(
       _param_bind->ColumnSize,                                        \
       _param_bind->DecimalDigits,                                     \
       _param_bind->BufferLength);                                     \
-  err_set_format(&_stmt->err,                                         \
+  stmt_append_err_format(_stmt,                                       \
       "HY000",                                                        \
       0,                                                              \
       "`%s` to `%s` for param `%d` not supported yet by taos",        \
@@ -1454,7 +1449,7 @@ static void _param_bind_reset_default_actual_data(param_bind_t *param_bind)
 }
 
 #define _stmt_param_bind_fail(_stmt, _param_bind, _r)     \
-  err_set(&_stmt->err,                                    \
+  stmt_append_err(_stmt,                                  \
     "HY000",                                              \
     _r,                                                   \
     TAOS_stmt_errstr(_stmt->stmt))
@@ -1498,7 +1493,7 @@ static SQLRETURN _stmt_conv_bounded_param_c_char_to_tsdb_timestamp(stmt_t *stmt,
     long int v = strtol(base, &end, 0);
     int e = errno;
     if (e == ERANGE && (v == LONG_MAX || v == LONG_MIN)) {
-      err_set_format(&stmt->err,
+      stmt_append_err_format(stmt,
           "HY000",
           0,
           "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed: [%d] %s",
@@ -1506,7 +1501,7 @@ static SQLRETURN _stmt_conv_bounded_param_c_char_to_tsdb_timestamp(stmt_t *stmt,
       return SQL_ERROR;
     }
     if (e != 0) {
-      err_set_format(&stmt->err,
+      stmt_append_err_format(stmt,
           "HY000",
           0,
           "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed: [%d] %s",
@@ -1514,14 +1509,14 @@ static SQLRETURN _stmt_conv_bounded_param_c_char_to_tsdb_timestamp(stmt_t *stmt,
       return SQL_ERROR;
     }
     if (end == base) {
-      err_set(&stmt->err,
+      stmt_append_err(stmt,
           "HY000",
           0,
           "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed: no digits at all");
       return SQL_ERROR;
     }
     if (end && *end) {
-      err_set_format(&stmt->err,
+      stmt_append_err_format(stmt,
           "HY000",
           0,
           "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed: string following digits[%s]",
@@ -1657,7 +1652,7 @@ static SQLRETURN _stmt_conv_bounded_param_c_sbigint_to_tsdb_int(stmt_t *stmt, pa
     int64_t *base = (int64_t*)param_bind->ParameterValuePtr;
 
     if (*base > INT_MAX || *base < INT_MIN) {
-      err_set(&stmt->err, "22003", 0, "Numeric value out of range");
+      stmt_append_err(stmt, "22003", 0, "Numeric value out of range");
       return SQL_ERROR;
     }
 
@@ -1869,13 +1864,13 @@ SQLRETURN stmt_execute(
 
   r = TAOS_stmt_add_batch(stmt->stmt);
   if (r) {
-    err_set(&stmt->err, "HY000", r, TAOS_stmt_errstr(stmt->stmt));
+    stmt_append_err(stmt, "HY000", r, TAOS_stmt_errstr(stmt->stmt));
     return SQL_ERROR;
   }
 
   r = TAOS_stmt_execute(stmt->stmt);
   if (r) {
-    err_set(&stmt->err, "HY000", r, TAOS_stmt_errstr(stmt->stmt));
+    stmt_append_err(stmt, "HY000", r, TAOS_stmt_errstr(stmt->stmt));
     return SQL_ERROR;
   }
   stmt->res = TAOS_stmt_use_result(stmt->stmt);
@@ -1896,7 +1891,7 @@ SQLRETURN stmt_execute(
   }
 
   if (e) {
-    err_set(&stmt->err, "HY000", e, estr);
+    stmt_append_err(stmt, "HY000", e, estr);
     return SQL_ERROR;
   }
 

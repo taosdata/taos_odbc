@@ -14,6 +14,7 @@ list(APPEND odbc_SOURCES odbc.c)
 list(APPEND odbc_SOURCES env.c)
 list(APPEND odbc_SOURCES conn.c)
 list(APPEND odbc_SOURCES stmt.c)
+list(APPEND odbc_SOURCES errs.c)
 
 add_library(odbc_obj OBJECT ${odbc_SOURCES})
 target_include_directories(odbc_obj PRIVATE

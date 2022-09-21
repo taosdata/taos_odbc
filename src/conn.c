@@ -1,6 +1,8 @@
 #include "internal.h"
 #include "parser.h"
 
+#include "conn.h"
+
 #include <string.h>
 
 static int conn_init(conn_t *conn, env_t *env)
@@ -25,6 +27,9 @@ static void conn_release(conn_t *conn)
   env_unref(conn->env);
   conn->env = NULL;
 
+  connection_cfg_release(&conn->cfg);
+  errs_release(&conn->errs);
+
   return;
 }
 
@@ -34,14 +39,14 @@ conn_t* conn_create(env_t *env)
 
   conn_t *conn = (conn_t*)calloc(1, sizeof(*conn));
   if (!conn) {
-    err_set(&env->err, "HY000", 0, "Memory allocation failure");
+    env_append_err(env, "HY000", 0, "Memory allocation failure");
     return NULL;
   }
 
   int r = conn_init(conn, env);
   if (r) {
     conn_release(conn);
-    err_set(&env->err, "HY000", 0, "Memory allocation failure");
+    env_append_err(env, "HY000", 0, "Memory allocation failure");
     return NULL;
   }
 
@@ -76,7 +81,7 @@ static SQLRETURN conn_connect(conn_t *conn, const connection_cfg_t *cfg)
   OA_ILE(conn->taos == NULL);
 
   if (cfg->legacy) {
-    err_set(&conn->err, "HY000", 0, "`LEGACY` specified in `connection string`, but not implemented yet");
+    conn_append_err_format(conn, "HY000", 0, "`LEGACY` specified in `connection string`, but not implemented yet");
     return SQL_ERROR;
   }
 
@@ -85,7 +90,7 @@ static SQLRETURN conn_connect(conn_t *conn, const connection_cfg_t *cfg)
   // conn->taos = TAOS_connect(cfg->ip, cfg->uid, cfg->pwd, cfg->db, cfg->port);
   conn->taos = TAOS_connect("localhost", "root", "taosdata", NULL, 6030);
   if (!conn->taos) {
-    err_set(&conn->err, "HY000", TAOS_errno(NULL), TAOS_errstr(NULL));
+    conn_append_err(conn, "HY000", TAOS_errno(NULL), TAOS_errstr(NULL));
     return SQL_ERROR;
   }
 
@@ -102,7 +107,7 @@ SQLRETURN conn_driver_connect(
     SQLSMALLINT    *StringLength2Ptr)
 {
   if (WindowHandle) {
-    err_set(&conn->err, "HY000", 0, "Interactive connect not supported yet");
+    conn_append_err(conn, "HY000", 0, "Interactive connect not supported yet");
     return SQL_ERROR;
   }
 
@@ -116,7 +121,7 @@ SQLRETURN conn_driver_connect(
 
   do {
     if (r) {
-      err_set_format(&conn->err, "HY000", 0, "bad syntax for connection string: [%.*s]", StringLength1, InConnectionString);
+      conn_append_err_format(conn, "HY000", 0, "bad syntax for connection string: [%.*s]", StringLength1, InConnectionString);
       sr = SQL_ERROR;
       break;
     }
@@ -147,6 +152,7 @@ SQLRETURN conn_driver_connect(
       }
     }
 
+    connection_cfg_transfer(&param.conn_str, &conn->cfg);
     parser_param_release(&param);
     return SQL_SUCCESS;
   } while (0);
@@ -161,6 +167,7 @@ void conn_disconnect(conn_t *conn)
   OA_ILE(conn->taos);
   TAOS_close(conn->taos);
   conn->taos = NULL;
+  connection_cfg_release(&conn->cfg);
 }
 
 int conn_get_dbms_name(conn_t *conn, const char **name)
@@ -195,13 +202,6 @@ SQLRETURN conn_get_diag_rec(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *TextLengthPtr)
 {
-  if (RecNumber > 1) return SQL_NO_DATA;
-  if (conn->err.sql_state[0] == '\0') return SQL_NO_DATA;
-  if (NativeErrorPtr) *NativeErrorPtr = conn->err.err;
-  if (SQLState) strncpy((char*)SQLState, (const char*)conn->err.sql_state, 6);
-  int n = snprintf((char*)MessageText, BufferLength, "%s", conn->err.estr);
-  if (TextLengthPtr) *TextLengthPtr = n;
-
-  return SQL_SUCCESS;
+  return errs_get_diag_rec(&conn->errs, RecNumber, SQLState, NativeErrorPtr, MessageText, BufferLength, TextLengthPtr);
 }
 

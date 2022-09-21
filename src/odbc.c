@@ -204,7 +204,7 @@ SQLRETURN SQL_API SQLExecDirect(
 
 static SQLRETURN do_env_set_odbc_version(
     env_t       *env,
-    int32_t      odbc_version)
+    SQLINTEGER   odbc_version)
 {
   (void)env;
   switch (odbc_version) {
@@ -235,7 +235,7 @@ static SQLRETURN do_env_set_attr(
       return SQL_ERROR;
 
     case SQL_ATTR_ODBC_VERSION:
-      return do_env_set_odbc_version(env, (int32_t)(size_t)ValuePtr);
+      return do_env_set_odbc_version(env, (SQLINTEGER)(size_t)ValuePtr);
 
     case SQL_ATTR_OUTPUT_NTS:
       return SQL_ERROR;

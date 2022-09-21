@@ -7,8 +7,17 @@
 
 EXTERN_C_BEGIN
 
-const char *sql_c_data_type(SQLSMALLINT sql_c_data_type) FA_HIDDEN;
-const char *sql_data_type(SQLSMALLINT sql_data_type) FA_HIDDEN;
+const char *sql_c_data_type(SQLSMALLINT v) FA_HIDDEN;
+const char *sql_data_type(SQLSMALLINT v) FA_HIDDEN;
+const char *sql_handle_type(SQLSMALLINT v) FA_HIDDEN;
+const char *sql_driver_completion(SQLUSMALLINT v) FA_HIDDEN;
+const char *sql_odbc_version(SQLINTEGER v) FA_HIDDEN;
+const char *sql_info_type(SQLUSMALLINT v) FA_HIDDEN;
+const char *sql_completion_type(SQLSMALLINT v) FA_HIDDEN;
+const char *sql_connection_attr(SQLINTEGER v) FA_HIDDEN;
+const char *sql_cursor_type(SQLULEN v) FA_HIDDEN;
+const char *sql_statement_attr(SQLINTEGER v) FA_HIDDEN;
+const char *sql_free_statement_option(SQLUSMALLINT v) FA_HIDDEN;
 
 EXTERN_C_END
 

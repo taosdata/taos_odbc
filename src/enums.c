@@ -2,7 +2,7 @@
 
 #include "log.h"
 
-const char *sql_c_data_type_to_str(SQLSMALLINT sql_c_data_type)
+const char *sql_c_data_type(SQLSMALLINT sql_c_data_type)
 {
 #define CASE(_x) case _x: return #_x
   switch (sql_c_data_type) {
@@ -50,7 +50,7 @@ const char *sql_c_data_type_to_str(SQLSMALLINT sql_c_data_type)
 #undef CASE
 }
 
-const char *sql_data_type_to_str(SQLSMALLINT sql_data_type)
+const char *sql_data_type(SQLSMALLINT sql_data_type)
 {
 #define CASE(_x) case _x: return #_x
   switch (sql_data_type) {

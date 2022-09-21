@@ -917,7 +917,7 @@ static SQLRETURN _stmt_get_conv(stmt_t *stmt, SQLSMALLINT TargetType, int taos_t
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "converstion to `%s[%d]` not implemented yet",
-          sql_c_data_type_to_str(TargetType), TargetType);
+          sql_c_data_type(TargetType), TargetType);
       return SQL_ERROR;
       break;
   }
@@ -1337,7 +1337,7 @@ static SQLRETURN _stmt_guess_taos_data_type(
         "HY000",
         0,
         "unable to guess taos-data-type for `%s[%d]`",
-        sql_c_data_type_to_str(ValueType), ValueType);
+        sql_c_data_type(ValueType), ValueType);
       return SQL_ERROR;
   }
 
@@ -1423,7 +1423,7 @@ SQLRETURN stmt_bind_param(
       "HY000",                                                        \
       0,                                                              \
       "`%s` to `%s` for param `%d` not supported yet by taos",        \
-      sql_c_data_type_to_str(_param_bind->ValueType),                 \
+      sql_c_data_type(_param_bind->ValueType),                        \
       TAOS_data_type(_param_bind->taos_type),                         \
       _param_bind->ParameterNumber)
 

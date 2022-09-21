@@ -82,7 +82,7 @@ struct err_s {
   const char         *estr;
   SQLCHAR             sql_state[6];
 
-  char                buf[1024];
+  char                buf[256];
 
   err_t              *next;
 };

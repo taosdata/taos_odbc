@@ -210,6 +210,7 @@ static int test_sql_stmt_execute_direct(SQLHANDLE stmth, const char *statement)
 __attribute__((unused))
 static int do_sql_stmt_execute_direct(SQLHANDLE stmth)
 {
+  CHK2(test_sql_stmt_execute_direct, stmth, "xshow databases", -1);
   CHK2(test_sql_stmt_execute_direct, stmth, "show databases", 0);
   CHK2(test_sql_stmt_execute_direct, stmth, "drop database if exists bar", 0);
   CHK2(test_sql_stmt_execute_direct, stmth, "create database bar", 0);

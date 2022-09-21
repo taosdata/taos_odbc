@@ -10,7 +10,7 @@
 #define ABORT_OR_THROW throw int(1)
 #else                      /* }{ */
 #include <stdlib.h>
-#define abort()
+#define ABORT_OR_THROW abort()
 #endif                     /* } */
 
 #define LOG(_file, _line, _func, _fmt, ...)                   \

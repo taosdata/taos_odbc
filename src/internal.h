@@ -1,6 +1,8 @@
 #ifndef _internal_h_
 #define _internal_h_
 
+#include "enums.h"
+
 #include "env.h"
 #include "conn.h"
 #include "stmt.h"
@@ -71,9 +73,6 @@ EXTERN_C_BEGIN
 #define TAOS_stmt_close(_stmt)                                     D_APPLY1(taos_stmt_close, _stmt)
 #define TAOS_connect(_host, _uid, _pwd, _db, _port)                D_APPLY5(taos_connect, _host, _uid, _pwd, _db, _port)
 #define TAOS_close(_stmt)                                          D_APPLY1(taos_close, _stmt)
-
-const char *sql_c_data_type_to_str(SQLSMALLINT sql_c_data_type);
-const char *sql_data_type_to_str(SQLSMALLINT sql_data_type);
 
 typedef struct err_s             err_t;
 typedef struct errs_s            errs_t;

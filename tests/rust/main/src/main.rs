@@ -307,7 +307,7 @@ fn _test_case4(conn: &Connection<'_, AutocommitOn>) {
 
 fn do_test_cases_in_conn(conn: &Connection<'_, AutocommitOn>)
 {
-  // assert_eq!(_test_exec_direct(&conn, "xshow databases"), false);
+  assert_eq!(_test_exec_direct(&conn, "xshow databases"), false);
   assert_eq!(_test_exec_direct(&conn, "show databases"), true);
   assert_eq!(_test_exec_direct(&conn, r#"drop database if exists foo"#), true);
   assert_eq!(_test_exec_direct(&conn, r#"create database if not exists foo"#), true);

@@ -358,24 +358,39 @@ SQLRETURN stmt_describe_col(stmt_t *stmt,
     SQLSMALLINT   *NullablePtr)
 {
   TAOS_FIELD *p = stmt->cols + ColumnNumber - 1;
+  SQLRETURN sr = SQL_SUCCESS;
+
+  if (DecimalDigitsPtr) *DecimalDigitsPtr = 0;
+  if (NullablePtr)      *NullablePtr      = SQL_NULLABLE_UNKNOWN;
+
   int n;
   n = snprintf((char*)ColumnName, BufferLength, "%s", p->name);
   if (NameLengthPtr) {
     *NameLengthPtr = n;
   }
+
+  if (n >= BufferLength) {
+    stmt_append_err_format(stmt, "01004", 0, "String right truncated for Column `%s[#%d]`", p->name, ColumnNumber);
+    sr = SQL_SUCCESS_WITH_INFO;
+  }
+
   if (NullablePtr) *NullablePtr = SQL_NULLABLE_UNKNOWN;
   switch (p->type) {
     case TSDB_DATA_TYPE_TINYINT:
-      if (DataTypePtr)      *DataTypePtr = SQL_TINYINT;
+      if (DataTypePtr)      *DataTypePtr   = SQL_TINYINT;
+      if (ColumnSizePtr)    *ColumnSizePtr = 3;
       break;
     case TSDB_DATA_TYPE_SMALLINT:
       if (DataTypePtr)      *DataTypePtr = SQL_SMALLINT;
+      if (ColumnSizePtr)    *ColumnSizePtr = 5;
       break;
     case TSDB_DATA_TYPE_INT:
       if (DataTypePtr)      *DataTypePtr = SQL_INTEGER;
+      if (ColumnSizePtr)    *ColumnSizePtr = 10;
       break;
     case TSDB_DATA_TYPE_BIGINT:
       if (DataTypePtr)      *DataTypePtr = SQL_BIGINT;
+      if (ColumnSizePtr)    *ColumnSizePtr = 19; // signed bigint
       break;
     case TSDB_DATA_TYPE_FLOAT:
       if (DataTypePtr)      *DataTypePtr = SQL_REAL;
@@ -401,27 +416,16 @@ SQLRETURN stmt_describe_col(stmt_t *stmt,
       }
       break;
     case TSDB_DATA_TYPE_NCHAR:
-      // FIXME: better use WCHAR
       if (DataTypePtr)      *DataTypePtr   = SQL_WVARCHAR;
-      // FIXME: plus 1 for null-terminator or NOT????
-      //        does this belongs to node/odbc?
-      //        https://www.npmjs.com/package/odbc         (2.4.4)
-      if (ColumnSizePtr)    *ColumnSizePtr = p->bytes + 1;
-      // FIXME: making ColumnSize big enough to help application allocate buffer
-      // if (ColumnSizePtr)    *ColumnSizePtr = (p->bytes + 1) * 4;
-
-      // if (DataTypePtr)         *DataTypePtr   = SQL_VARCHAR;
-      // // make application open much room to bind column
-      // if (ColumnSizePtr)       *ColumnSizePtr = p->bytes * sizeof(wchar_t) + 1;
-      // OA(0, "bytes: %d", p->bytes);
+      if (ColumnSizePtr)    *ColumnSizePtr = p->bytes;
       break;
     default:
-      OA(0, "`%s[%d]` for ColumnNumber[#%d] not implemented yet", taos_data_type(p->type), p->type, ColumnNumber);
-      stmt_append_err_format(stmt, "HY000", 0, "`%s[%d]` for ColumnNumber[#%d] not implemented yet", taos_data_type(p->type), p->type, ColumnNumber);
+      OA(0, "`%s[%d]` for Column `%s[#%d]` not implemented yet", taos_data_type(p->type), p->type, p->name, ColumnNumber);
+      stmt_append_err_format(stmt, "HY000", 0, "`%s[%d]` for Column `%s[#%d]` not implemented yet", taos_data_type(p->type), p->type, p->name, ColumnNumber);
       return SQL_ERROR;
   }
 
-  return SQL_SUCCESS;
+  return sr;
 }
 
 static SQLRETURN _conv_tsdb_int_to_sql_c_char(stmt_t *stmt, const char *data, int len, int row, col_bind_t *col_bind)

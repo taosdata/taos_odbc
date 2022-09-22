@@ -109,6 +109,36 @@ static int test_case1(void)
             rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"SELECT * FROM t", SQL_NTS));
             A(SUCCEEDED(rc), "");
 
+            SQLSMALLINT ColumnCount;
+
+            rc = CALL_STMT(SQLNumResultCols(hstmt, &ColumnCount));
+            A(SUCCEEDED(rc), "");
+
+            for (int i = -1; i <= 16; ++i ) {
+              const char fill = 'X';
+              char buf[1024]; memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+
+              SQLUSMALLINT   ColumnNumber         = 2;
+              SQLCHAR *      ColumnName           = (SQLCHAR*)buf;
+              SQLSMALLINT    BufferLength         = i;
+              SQLSMALLINT    NameLength;
+              SQLSMALLINT    DataType;
+              SQLULEN        ColumnSize;
+              SQLSMALLINT    DecimalDigits;
+              SQLSMALLINT    Nullable;
+
+              rc = CALL_STMT(SQLDescribeCol(hstmt, ColumnNumber, ColumnName, BufferLength, &NameLength, &DataType, &ColumnSize, &DecimalDigits, &Nullable));
+              if (i<0) {
+                A(FAILED(rc), "");
+              } else {
+                A(SUCCEEDED(rc), "rc[%d]; BufferLength[%d]", rc, BufferLength);
+                A(NameLength == 4, "BufferLength[%d]; NameLength[%d]", BufferLength, NameLength);
+                if (BufferLength > NameLength) A(buf[NameLength] == '\0', "");
+                else if (BufferLength > 0) A(buf[BufferLength-1] == '\0', "buf[%d]: [%c]", BufferLength-1, buf[BufferLength-1]);
+                else if (BufferLength == 0) A(buf[0] == fill, "buf[%d]: [%c]", 0, buf[0]);
+              }
+            }
+
             const char *exp[][5] = {
               {"[2022-09-11 09:57:28.752]", "[name1]", "[20]", "[male]", "[中国人]"},
               {"[2022-09-11 09:57:29.753]", "[name2]", "[30]", "[female]", "[苏州人]"},
@@ -766,7 +796,7 @@ static int test_mysql_case1(void)
 
 int main()
 {
-  if (0) {
+  if (1) {
     if (test_case1()) return 1;
     if (test_case2()) return 1;
     if (test_case3()) return 1;

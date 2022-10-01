@@ -53,6 +53,7 @@ async function case1(conn_str) {
     {
       var cursor = await conn.query('select * from foo.t' , {cursor: true, fetchSize: 3});
       var result = await cursor.fetch();
+      await cursor.close();
       var rows = [result[0], result[1], result[2]];
       assert.equal(JSON.stringify(rows), JSON.stringify(exp));
     }
@@ -76,6 +77,8 @@ async function case1(conn_str) {
 
       result = await cursor.fetch();
       assert.equal(result[0], undefined);
+
+      await cursor.close();
     }
 
     {
@@ -89,6 +92,8 @@ async function case1(conn_str) {
 
       result = await cursor.fetch();
       assert.equal(result[0], undefined);
+
+      await cursor.close();
     }
 
     await conn.close();
@@ -141,6 +146,7 @@ async function case2(conn_str) {
       {
         var cursor = await conn.query('select * from t' , {cursor: true, fetchSize: 5});
         var result = await cursor.fetch();
+        await cursor.close();
         var rows = [result[0], result[1], result[2], result[3]];
         assert.equal(JSON.stringify(rows), JSON.stringify(exp));
       }
@@ -196,6 +202,7 @@ async function case3(conn_str) {
       {
         var cursor = await conn.query('select * from t' , {cursor: true, fetchSize: 5});
         var result = await cursor.fetch();
+        await cursor.close();
         var rows = [result[0], result[1], result[2], result[3]];
         assert.equal(JSON.stringify(rows), JSON.stringify(exp));
       }
@@ -251,6 +258,7 @@ async function case4(conn_str) {
       {
         var cursor = await conn.query('select * from t' , {cursor: true, fetchSize: 5});
         var result = await cursor.fetch();
+        await cursor.close();
         var rows = [result[0], result[1], result[2], result[3]];
         assert.equal(JSON.stringify(rows), JSON.stringify(exp));
       }
@@ -302,6 +310,7 @@ async function case5(conn_str) {
       {
         var cursor = await conn.query('select * from t' , {cursor: true, fetchSize: 4});
         var result = await cursor.fetch();
+        await cursor.close();
         var rows = [result[0], result[1], result[2], result[3]];
         var exp = [exps[0], exps[1], exps[2], exps[3]];
         assert.equal(JSON.stringify(rows), JSON.stringify(exp));
@@ -314,6 +323,7 @@ async function case5(conn_str) {
       {
         var cursor = await conn.query('select * from t' , {cursor: true, fetchSize: 5});
         var result = await cursor.fetch();
+        await cursor.close();
         var rows = [result[0], result[1], result[2], result[3], result[4]];
         var exp = [exps[0], exps[1], exps[2], exps[3], exps[4]];
         assert.equal(JSON.stringify(rows), JSON.stringify(exp));
@@ -326,6 +336,7 @@ async function case5(conn_str) {
       {
         var cursor = await conn.query('select * from t', {cursor: true, fetchSize: 6});
         var result = await cursor.fetch();
+        await cursor.close();
         var rows = [result[0], result[1], result[2], result[3], result[4], result[5]];
         var exp = [exps[0], exps[1], exps[2], exps[3], exps[4], exps[5]];
         assert.equal(JSON.stringify(rows), JSON.stringify(exp));
@@ -399,12 +410,14 @@ async function case0(conn_str) {
     {
       var cursor = await conn.query('select * from foo.t where name="name1"' , {cursor: true, fetchSize: 1});
       var result = await cursor.fetch();
+      await cursor.close();
       var rows = [result[0]];
       assert.equal(JSON.stringify(rows), JSON.stringify([exp[0]]));
     }
     {
       var cursor = await conn.query('select * from foo.t' , {cursor: true, fetchSize: 3});
       var result = await cursor.fetch();
+      await cursor.close();
       var rows = [result[0], result[1], result[2]];
       assert.equal(JSON.stringify(rows), JSON.stringify(exp));
     }
@@ -427,6 +440,7 @@ async function case0(conn_str) {
       assert.equal(JSON.stringify(result[0]), JSON.stringify(exp[2]));
 
       result = await cursor.fetch();
+      await cursor.close();
       assert.equal(result[0], undefined);
     }
 
@@ -440,6 +454,7 @@ async function case0(conn_str) {
       assert.equal(JSON.stringify(result[0]), JSON.stringify(exp[2]));
 
       result = await cursor.fetch();
+      await cursor.close();
       assert.equal(result[0], undefined);
     }
 

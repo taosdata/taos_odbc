@@ -4,5 +4,8 @@ configure_file(
     @ONLY)
 
 add_test(NAME node_test
-    COMMAND node_test.js)
+    COMMAND ${CMAKE_CURRENT_BINARY_DIR}/node_test.js)
+
+add_test(NAME Vnode_test
+    COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh node ${CMAKE_CURRENT_BINARY_DIR}/node_test.js)
 

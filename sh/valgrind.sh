@@ -10,6 +10,9 @@ valgrind --leak-check=full                                                \
          --exit-on-first-error=yes                                        \
          --error-exitcode=1                                               \
          --suppressions=${_path_to_valgrind}/valgrind.supp                \
+         --suppressions=${_path_to_valgrind}/unixodbc.supp                \
+         --suppressions=${_path_to_valgrind}/rust.supp                    \
+         --suppressions=/usr/lib/x86_64-linux-gnu/valgrind/default.supp   \
          --gen-suppressions=all                                           \
          "$@"
 

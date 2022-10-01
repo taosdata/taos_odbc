@@ -44,10 +44,12 @@ static inline void connection_cfg_transfer(connection_cfg_t *from, connection_cf
 }
 
 typedef struct conn_s              conn_t;
+typedef struct desc_s              desc_t;
 
 conn_t* conn_create(env_t *env) FA_HIDDEN;
 conn_t* conn_ref(conn_t *conn) FA_HIDDEN;
 conn_t* conn_unref(conn_t *conn) FA_HIDDEN;
+SQLRETURN conn_free(conn_t *conn) FA_HIDDEN;
 
 SQLRETURN conn_driver_connect(
     conn_t         *conn,
@@ -73,6 +75,10 @@ SQLRETURN conn_get_diag_rec(
     SQLCHAR        *MessageText,
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *TextLengthPtr) FA_HIDDEN;
+
+SQLRETURN conn_alloc_stmt(conn_t *conn, SQLHANDLE *OutputHandle) FA_HIDDEN;
+
+SQLRETURN conn_alloc_desc(conn_t *conn, SQLHANDLE *OutputHandle) FA_HIDDEN;
 
 EXTERN_C_END
 

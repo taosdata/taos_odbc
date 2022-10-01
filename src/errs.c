@@ -4,6 +4,12 @@
 
 #include <sqlext.h>
 
+void errs_init(errs_t *errs)
+{
+  INIT_TOD_LIST_HEAD(&errs->errs);
+  INIT_TOD_LIST_HEAD(&errs->frees);
+}
+
 static void err_set_x(err_t *err, const char *file, int line, const char *func, const char *data_source, const char *sql_state, int e, const char *estr)
 {
   const char *vendor = "freemine@yeah.net";
@@ -20,7 +26,7 @@ static void err_set_x(err_t *err, const char *file, int line, const char *func, 
 
 void errs_append_x(errs_t *errs, const char *file, int line, const char *func, const char *data_source, const char *sql_state, int e, const char *estr)
 {
-  if (!errs->free) {
+  if (tod_list_empty(&errs->frees)) {
     err_t *err = (err_t*)calloc(1, sizeof(*err));
     if (!err) {
       OD("out of memory");
@@ -32,55 +38,38 @@ void errs_append_x(errs_t *errs, const char *file, int line, const char *func, c
     err->sql_state[0]  = '\0';
     err->buf[0]        = '\0';
 
-    err->next = errs->free;
-    errs->free = err;
+    tod_list_add_tail(&err->node, &errs->frees);
   }
 
-  err_t *err = errs->free;
-  errs->free = err->next;
-  err->next = NULL;
-
+  err_t *err = tod_list_first_entry_or_null(&errs->frees, err_t, node);
+  tod_list_del(&err->node);
   err_set_x(err, file, line, func, data_source, sql_state, e, estr);
-
-  err_t *tail = errs->head;
-  if (tail) {
-    while (tail->next) tail = tail->next;
-    tail->next = err;
-  } else {
-    errs->head = err;
-  }
+  tod_list_add_tail(&err->node, &errs->errs);
 }
 
 void errs_clr_x(errs_t *errs)
 {
-  if (!errs->head) return;
+  if (tod_list_empty(&errs->errs)) return;
 
-  err_t *tail = errs->head;
-  while (tail->next) tail = tail->next;
-  tail->next = errs->free;
-  errs->free = errs->head;
-  errs->head = NULL;
+  err_t *p, *n;
+  tod_list_for_each_entry_safe(p, n, &errs->errs, node) {
+    tod_list_del(&p->node);
+    tod_list_add_tail(&p->node, &errs->frees);
+  }
 }
 
 void errs_release_x(errs_t *errs)
 {
-  err_t *tail;
-
-  tail = errs->head;
-  while (tail) {
-    err_t *p = tail->next;
-    free(tail);
-    tail = p;
+  err_t *p, *n;
+  tod_list_for_each_entry_safe(p, n, &errs->errs, node) {
+    tod_list_del(&p->node);
+    free(p);
   }
-  errs->head = NULL;
 
-  tail = errs->free;
-  while (tail) {
-    err_t *p = tail->next;
-    free(tail);
-    tail = p;
+  tod_list_for_each_entry_safe(p, n, &errs->frees, node) {
+    tod_list_del(&p->node);
+    free(p);
   }
-  errs->free = NULL;
 }
 
 SQLRETURN errs_get_diag_rec_x(
@@ -93,23 +82,27 @@ SQLRETURN errs_get_diag_rec_x(
     SQLSMALLINT    *TextLengthPtr)
 {
   if (RecNumber == 0) return SQL_NO_DATA;
-
-  err_t *head = errs->head;
+  if (tod_list_empty(&errs->errs)) return SQL_NO_DATA;
 
   int i = 1;
-  while (i<RecNumber && head) {
+
+  int found = 0;
+  err_t *p = NULL;
+  tod_list_for_each_entry(p, &errs->errs, node) {
+    if (i == RecNumber) {
+      found = 1;
+      break;
+    }
     ++i;
-    head = head->next;
   }
 
-  if (head == NULL) return SQL_NO_DATA;
+  if (!found) return SQL_NO_DATA;
 
-  if (NativeErrorPtr) *NativeErrorPtr = head->err;
-  if (SQLState) strncpy((char*)SQLState, (const char*)head->sql_state, 6);
-  int n = snprintf((char*)MessageText, BufferLength, "%s", head->estr);
+  if (NativeErrorPtr) *NativeErrorPtr = p->err;
+  if (SQLState) strncpy((char*)SQLState, (const char*)p->sql_state, 6);
+  int n = snprintf((char*)MessageText, BufferLength, "%s", p->estr);
   if (TextLengthPtr) *TextLengthPtr = n;
 
   return SQL_SUCCESS;
 }
-
 

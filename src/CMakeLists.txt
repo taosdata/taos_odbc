@@ -10,6 +10,7 @@ ExternalProject_Add(cjson
 add_subdirectory(parser)
 add_subdirectory(utils)
 
+list(APPEND odbc_SOURCES desc.c)
 list(APPEND odbc_SOURCES enums.c)
 list(APPEND odbc_SOURCES env.c)
 list(APPEND odbc_SOURCES errs.c)

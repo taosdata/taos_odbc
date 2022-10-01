@@ -3,8 +3,10 @@
 
 #include "enums.h"
 
+#include "desc.h"
 #include "env.h"
 #include "conn.h"
+#include "list.h"
 #include "stmt.h"
 
 #include <stdatomic.h>
@@ -78,20 +80,21 @@ typedef struct err_s             err_t;
 typedef struct errs_s            errs_t;
 
 struct err_s {
-  int                 err;
-  const char         *estr;
-  SQLCHAR             sql_state[6];
+  int                         err;
+  const char                 *estr;
+  SQLCHAR                     sql_state[6];
 
-  char                buf[256];
+  char                        buf[256];
 
-  err_t              *next;
+  struct tod_list_head        node;
 };
 
 struct errs_s {
-  err_t              *head;
-  err_t              *free;
+  struct tod_list_head        errs;
+  struct tod_list_head        frees;
 };
 
+void errs_init(errs_t *errs) FA_HIDDEN;
 void errs_append_x(errs_t *errs, const char *file, int line, const char *func, const char *data_source, const char *sql_state, int e, const char *estr) FA_HIDDEN;
 void errs_clr_x(errs_t *errs) FA_HIDDEN;
 void errs_release_x(errs_t *errs) FA_HIDDEN;
@@ -158,7 +161,7 @@ SQLRETURN errs_get_diag_rec_x(
   })
 
 
-#define sql_successed(_sr) ({ SQLRETURN __sr = _sr; (__sr==SQL_SUCCESS || __sr==SQL_SUCCESS_WITH_INFO); })
+#define sql_succeeded(_sr) ({ SQLRETURN __sr = _sr; (__sr==SQL_SUCCESS || __sr==SQL_SUCCESS_WITH_INFO); })
 
 
 typedef struct static_pool_s                   static_pool_t;
@@ -183,9 +186,65 @@ struct env_s {
   errs_t              errs;
 };
 
+typedef struct desc_header_s                  desc_header_t;
+struct desc_header_s {
+  // header fields settable by SQLSetStmtAttr
+  SQLULEN             DESC_ARRAY_SIZE;
+  SQLUSMALLINT       *DESC_STATUS_PTR;
+  SQLULEN            *DESC_BIND_OFFSET_PTR;
+  SQLULEN             DESC_BIND_TYPE;
+  SQLULEN            *DESC_ROWS_FETCHED_PTR;
+
+  // header fields else
+  SQLUSMALLINT        DESC_COUNT;
+};
+
+typedef int (*tsdb_to_sql_c_f)(stmt_t *stmt, const char *data, int len, char *dest, int dlen);
+
+typedef struct desc_record_s                  desc_record_t;
+struct desc_record_s {
+  SQLSMALLINT                   DESC_TYPE;
+  SQLSMALLINT                   DESC_CONCISE_TYPE;
+  SQLULEN                       DESC_LENGTH;
+  SQLSMALLINT                   DESC_PRECISION;
+  SQLSMALLINT                   DESC_SCALE;
+  SQLLEN                        DESC_OCTET_LENGTH;
+  SQLPOINTER                    DESC_DATA_PTR;
+  SQLLEN                       *DESC_INDICATOR_PTR;
+  SQLLEN                       *DESC_OCTET_LENGTH_PTR;
+  SQLSMALLINT                   DESC_PARAMETER_TYPE;
+
+  SQLULEN                       element_size_in_column_wise;
+  tsdb_to_sql_c_f               conv;
+
+  int                           taos_type;
+  int                           taos_bytes;
+};
+
+struct descriptor_s {
+  desc_header_t                 header;
+
+  desc_record_t                *records;
+  size_t                        cap;
+};
+
+struct desc_s {
+  atomic_int                    refc;
+
+  descriptor_t                  descriptor;
+
+  conn_t                       *conn;
+
+  // https://learn.microsoft.com/en-us/sql/odbc/reference/develop-app/types-of-descriptors?view=sql-server-ver16
+  // `A row descriptor in one statement can serve as a parameter descriptor in another statement.`
+  struct tod_list_head          associated_stmts_as_ARD; // struct stmt_s*
+  struct tod_list_head          associated_stmts_as_APD; // struct stmt_s*
+};
+
 struct conn_s {
   atomic_int          refc;
   atomic_int          stmts;
+  atomic_int          descs;
   atomic_int          outstandings;
 
   env_t              *env;
@@ -205,98 +264,88 @@ struct param_value_s {
   char      is_null;
   union {
     int64_t               tsdb_timestamp;
+    int32_t               tsdb_int;
+    int64_t               tsdb_bigint;
+    const char           *tsdb_varchar;
+    const char           *tsdb_nchar;
     void                 *ptr;
   };
   unsigned int            inited:1;
   unsigned int            allocated:1;
 };
 
-typedef struct param_bind_s        param_bind_t;
+typedef struct col_s                col_t;
+struct col_s {
+  TAOS_FIELD          *field;
+  int                  i_col;
+  const char          *data;
+  int                  len;
 
-struct param_bind_s {
-  SQLUSMALLINT         ParameterNumber;
-  SQLSMALLINT          InputOutputType;
-  SQLSMALLINT          ValueType;
-  SQLSMALLINT          ParameterType;
-  SQLULEN              ColumnSize;
-  SQLSMALLINT          DecimalDigits;
-  SQLPOINTER           ParameterValuePtr;
-  SQLLEN               BufferLength;
-  SQLLEN              *StrLen_or_IndPtr;
+  SQLSMALLINT          TargetType;
 
-  SQLSMALLINT          expected_ParameterType;
-
-  int                  taos_type;
-  int                  taos_bytes;
-
-  TAOS_MULTI_BIND      mb;
-  param_value_t        value;
-
-  unsigned int         bounded:1;
+  char                *buf;
+  size_t               cap;
+  size_t               nr;
 };
-
-typedef struct param_binds_s   param_binds_t;
-struct param_binds_s {
-  param_bind_t           *binds;
-  size_t                  cap;
-};
-
-typedef struct col_bind_s      col_bind_t;
-struct col_bind_s {
-  SQLUSMALLINT   ColumnNumber;
-  SQLSMALLINT    TargetType;
-  SQLPOINTER     TargetValuePtr;
-  SQLLEN         BufferLength;
-  SQLLEN        *StrLen_or_IndPtr;
-
-  unsigned int   valid:1;
-};
-
-typedef struct col_binds_s     col_binds_t;
-struct col_binds_s {
-  col_bind_t                  *binds;
-  size_t                       cap;
-  size_t                       nr;
-};
-
-typedef SQLRETURN (*conv_f)(stmt_t *stmt, const char *data, int len, int row, col_bind_t *col_bind);
 
 typedef struct rowset_s             rowset_t;
 struct rowset_s {
-  TAOS_ROW            rows;
-  int                 nr_rows;
+  int                 i_row;
+};
 
-  int                 cursor;
+typedef struct stmt_attrs_s         stmt_attrs_t;
+struct stmt_attrs_s {
+  // SQLULEN                    ATTR_MAX_LENGTH;
+};
+
+typedef struct params_s                        params_t;
+struct params_s {
+  TAOS_MULTI_BIND     *mbs;
+  param_value_t       *values;
+
+  size_t               cap;
 };
 
 struct stmt_s {
-  atomic_int          refc;
+  atomic_int                 refc;
 
-  conn_t             *conn;
+  conn_t                    *conn;
 
-  errs_t              errs;
+  errs_t                     errs;
 
-  TAOS_STMT          *stmt;
-  int                 nr_params;
-  param_binds_t       param_binds;
+  struct tod_list_head       associated_APD_node;
+  desc_t                    *associated_APD;
 
-  col_binds_t         col_binds;
+  struct tod_list_head       associated_ARD_node;
+  desc_t                    *associated_ARD;
 
-  TAOS_RES           *res;
-  SQLLEN              row_count;
-  SQLSMALLINT         col_count;
-  TAOS_FIELD         *cols;
-  int                *lengths;
-  int                 time_precision;
-  rowset_t            rowset;
+  descriptor_t               APD, IPD;
+  descriptor_t               ARD, IRD;
 
-  SQLULEN             row_array_size;
-  SQLUSMALLINT       *row_status_ptr;
-  SQLULEN             row_bind_type;
-  SQLULEN            *rows_fetched_ptr;
+  descriptor_t              *current_APD;
+  descriptor_t              *current_ARD;
 
-  unsigned int        is_insert_stmt:1;
-  unsigned int        res_is_from_taos_query:1;
+  stmt_attrs_t               attrs;
+  col_t                      current_for_get_data;
+
+  TAOS_STMT                 *stmt;
+  int                        nr_params;
+  params_t                   params;
+
+  TAOS_RES                  *res;
+  SQLLEN                     affected_row_count;
+  SQLSMALLINT                col_count;
+  TAOS_FIELD                *fields;
+  int                       *lengths;
+  int                        time_precision;
+
+  TAOS_ROW                   rows;
+  int                        nr_rows;
+
+  rowset_t                   rowset;
+
+  unsigned int               is_insert_stmt:1;
+  unsigned int               res_is_from_taos_query:1;
 };
 
 EXTERN_C_END

@@ -22,6 +22,8 @@ static int env_init(env_t *env)
 
   // TODO:
 
+  errs_init(&env->errs);
+
   env->refc = 1;
 
   return 0;
@@ -68,6 +70,18 @@ env_t* env_unref(env_t *env)
   free(env);
 
   return NULL;
+}
+
+SQLRETURN env_free(env_t *env)
+{
+  int conns = atomic_load(&env->conns);
+  if (conns) {
+    env_append_err_format(env, "HY000", 0, "#%d connections are still connected or allocated", conns);
+    return SQL_ERROR;
+  }
+
+  env_unref(env);
+  return SQL_SUCCESS;
 }
 
 int env_rollback(env_t *env)

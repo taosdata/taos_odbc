@@ -1,15 +1,24 @@
 #include "internal.h"
-#include "parser.h"
 
 #include "conn.h"
+#include "desc.h"
+#include "parser.h"
 
 #include <string.h>
+
+#define _conn_malloc_fail(_conn)             \
+  conn_append_err(_conn,                     \
+    "HY001",                                 \
+    0,                                       \
+    "memory allocation failure");
 
 static int conn_init(conn_t *conn, env_t *env)
 {
   conn->env = env_ref(env);
   int prev = atomic_fetch_add(&env->conns, 1);
   OA_ILE(prev >= 0);
+
+  errs_init(&conn->errs);
 
   conn->refc = 1;
 
@@ -61,7 +70,6 @@ conn_t* conn_ref(conn_t *conn)
   return conn;
 }
 
-
 conn_t* conn_unref(conn_t *conn)
 {
   OA_ILE(conn);
@@ -73,6 +81,24 @@ conn_t* conn_unref(conn_t *conn)
   free(conn);
 
   return NULL;
+}
+
+SQLRETURN conn_free(conn_t *conn)
+{
+  int stmts = atomic_load(&conn->stmts);
+  if (stmts) {
+    conn_append_err_format(conn, "HY000", 0, "#%d statements are still allocated", stmts);
+    return SQL_ERROR;
+  }
+
+  int descs = atomic_load(&conn->descs);
+  if (descs) {
+    conn_append_err_format(conn, "HY000", 0, "#%d descriptors are still allocated", descs);
+    return SQL_ERROR;
+  }
+
+  conn_unref(conn);
+  return SQL_SUCCESS;
 }
 
 static SQLRETURN conn_connect(conn_t *conn, const connection_cfg_t *cfg)
@@ -127,7 +153,7 @@ SQLRETURN conn_driver_connect(
     }
 
     sr = conn_connect(conn, &param.conn_str);
-    if (!sql_successed(sr)) break;
+    if (!sql_succeeded(sr)) break;
 
     if (OutConnectionString) {
       int n;
@@ -203,5 +229,30 @@ SQLRETURN conn_get_diag_rec(
     SQLSMALLINT    *TextLengthPtr)
 {
   return errs_get_diag_rec(&conn->errs, RecNumber, SQLState, NativeErrorPtr, MessageText, BufferLength, TextLengthPtr);
+}
+
+SQLRETURN conn_alloc_stmt(conn_t *conn, SQLHANDLE *OutputHandle)
+{
+  *OutputHandle = SQL_NULL_HANDLE;
+
+  stmt_t *stmt = stmt_create(conn);
+  if (stmt == NULL) {
+    _conn_malloc_fail(conn);
+    return SQL_ERROR;
+  }
+
+  *OutputHandle = (SQLHANDLE)stmt;
+  return SQL_SUCCESS;
+}
+
+SQLRETURN conn_alloc_desc(conn_t *conn, SQLHANDLE *OutputHandle)
+{
+  desc_t *desc = desc_create(conn);
+  if (!desc) {
+    _conn_malloc_fail(conn);
+    return SQL_ERROR;
+  }
+  *OutputHandle = (SQLHANDLE)desc;
+  return SQL_SUCCESS;
 }
 

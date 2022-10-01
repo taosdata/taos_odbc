@@ -3,273 +3,6 @@
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
-   fun:strdup
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:calloc
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:lt__malloc
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   fun:lt_dlopenadvise
-   fun:lt_dlpreload_open
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   fun:SQLDriverConnect
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:lt__malloc
-   fun:lt__memdup
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   fun:lt_dlopenadvise
-   fun:lt_dlpreload_open
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   fun:SQLDriverConnect
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:lt__slist_box
-   fun:lt_dlloader_add
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   fun:lt_dlinit
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   fun:SQLDriverConnect
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:lt__malloc
-   fun:lt__zalloc
-   fun:lt_dlpreload
-   fun:lt_dlinit
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   fun:SQLDriverConnect
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:lt__slist_box
-   fun:lt_dlloader_add
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   fun:lt_dlpreload_open
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   fun:SQLDriverConnect
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:lt__malloc
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   fun:lt_dlsetsearchpath
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   fun:SQLDriverConnect
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:lt__malloc
-   fun:lt__zalloc
-   fun:preopen_LTX_get_vtable
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   fun:lt_dlinit
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   fun:SQLDriverConnect
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:lt__malloc
-   fun:lt__zalloc
-   fun:dlopen_LTX_get_vtable
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   fun:lt_dlpreload_open
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   fun:SQLDriverConnect
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:lt__malloc
-   fun:lt__zalloc
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   fun:lt_dlopenadvise
-   fun:lt_dlpreload_open
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   fun:SQLDriverConnect
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:lt__malloc
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   fun:lt_dlopenadvise
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   fun:SQLDriverConnect
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:lt__malloc
-   fun:lt__memdup
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   fun:lt_dlopenadvise
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   fun:SQLDriverConnect
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:strdup
-   fun:_dl_map_object
-   fun:dl_open_worker
-   fun:_dl_catch_exception
-   fun:_dl_open
-   fun:dlopen_doit
-   fun:_dl_catch_exception
-   fun:_dl_catch_error
-   fun:_dlerror_run
-   fun:dlopen@@GLIBC_2.2.5
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   fun:lt_dlopenadvise
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   fun:SQLDriverConnect
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:_dl_new_object
-   fun:_dl_map_object_from_fd
-   fun:_dl_map_object
-   fun:dl_open_worker
-   fun:_dl_catch_exception
-   fun:_dl_open
-   fun:dlopen_doit
-   fun:_dl_catch_exception
-   fun:_dl_catch_error
-   fun:_dlerror_run
-   fun:dlopen@@GLIBC_2.2.5
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   fun:lt_dlopenadvise
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   fun:SQLDriverConnect
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:lt__malloc
-   fun:lt__zalloc
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   fun:lt_dlopenadvise
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   fun:SQLDriverConnect
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:calloc
-   fun:_dl_check_map_versions
-   fun:dl_open_worker
-   fun:_dl_catch_exception
-   fun:_dl_open
-   fun:dlopen_doit
-   fun:_dl_catch_exception
-   fun:_dl_catch_error
-   fun:_dlerror_run
-   fun:dlopen@@GLIBC_2.2.5
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   fun:lt_dlopenadvise
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   fun:SQLDriverConnect
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:calloc
-   fun:_dl_new_object
-   fun:_dl_map_object_from_fd
-   fun:_dl_map_object
-   fun:dl_open_worker
-   fun:_dl_catch_exception
-   fun:_dl_open
-   fun:dlopen_doit
-   fun:_dl_catch_exception
-   fun:_dl_catch_error
-   fun:_dlerror_run
-   fun:dlopen@@GLIBC_2.2.5
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   fun:lt_dlopenadvise
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   fun:SQLDriverConnect
-}
-
-
-
-# dlopen/dlclose
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
    fun:_dl_close_worker.part.0
    fun:_dl_close_worker
    fun:_dl_close
@@ -353,73 +86,17 @@
    fun:_dlerror_run
    fun:dlopen@@GLIBC_2.2.5
 }
-
-
-
-# taos
 {
    <insert_a_suppression_name_here>
    Memcheck:Leak
    match-leak-kinds: reachable
    fun:malloc
-   fun:taosMemoryMalloc
-   fun:taosArrayInit
-   fun:taosHashInit
-   fun:taos_init_imp
-   fun:__pthread_once_slow
-   fun:taosThreadOnce
-   fun:taos_init
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:calloc
-   fun:taosMemoryCalloc
-   fun:taosHashInit
-   fun:taos_init_imp
-   fun:__pthread_once_slow
-   fun:taosThreadOnce
-   fun:taos_init
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:calloc
-   fun:taosMemoryCalloc
-   fun:taosArrayInit
-   fun:taosHashInit
-   fun:taos_init_imp
-   fun:__pthread_once_slow
-   fun:taosThreadOnce
-   fun:taos_init
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:calloc
-   fun:taosMemoryCalloc
-   fun:taosOpenRef
-   fun:catalogInit
-   fun:taos_init_imp
-   fun:__pthread_once_slow
-   fun:taosThreadOnce
-   fun:taos_init
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:calloc
-   fun:taosMemoryCalloc
-   fun:taosOpenRef
-   fun:schedulerInit
-   fun:taos_init_imp
-   fun:__pthread_once_slow
-   fun:taosThreadOnce
-   fun:taos_init
+   fun:lt__malloc
+   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
+   fun:lt_dlopenadvise
+   fun:lt_dlpreload_open
+   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
+   fun:SQLDriverConnect
 }
 {
    <insert_a_suppression_name_here>
@@ -450,10 +127,46 @@
    fun:taosMemoryMalloc
    fun:taosArrayInit
    fun:taosHashInit
+   fun:taos_init_imp
+   fun:__pthread_once_slow
+   fun:taosThreadOnce
+   fun:taos_init
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:taosMemoryMalloc
+   fun:taosArrayInit
+   fun:taosHashInit
    fun:hbMgrInit
    fun:appHbMgrInit
-   fun:taos_connect_internal
-   fun:taos_connect
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:taosHashInit
+   fun:taos_init_imp
+   fun:__pthread_once_slow
+   fun:taosThreadOnce
+   fun:taos_init
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:taosArrayInit
+   fun:taosHashInit
+   fun:taos_init_imp
+   fun:__pthread_once_slow
+   fun:taosThreadOnce
+   fun:taos_init
 }
 {
    <insert_a_suppression_name_here>
@@ -465,8 +178,6 @@
    fun:taosHashInit
    fun:hbMgrInit
    fun:appHbMgrInit
-   fun:taos_connect_internal
-   fun:taos_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -477,8 +188,6 @@
    fun:taosHashInit
    fun:hbMgrInit
    fun:appHbMgrInit
-   fun:taos_connect_internal
-   fun:taos_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -489,71 +198,48 @@
    fun:doCreateHashNode
    fun:taosHashPut
    fun:hbGatherAppInfo
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: indirect
+   fun:malloc
+   fun:strdup
    fun:hbThreadFunc
 }
 {
    <insert_a_suppression_name_here>
    Memcheck:Leak
    match-leak-kinds: reachable
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:taosOpenRef
+   fun:catalogInit
+   fun:taos_init_imp
+   fun:__pthread_once_slow
+   fun:taosThreadOnce
+   fun:taos_init
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:taosOpenRef
+   fun:schedulerInit
+   fun:taos_init_imp
+   fun:__pthread_once_slow
+   fun:taosThreadOnce
+   fun:taos_init
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: indirect
    fun:malloc
-   fun:decompose_rpath.isra.0
-   fun:cache_rpath
-   fun:cache_rpath
-   fun:_dl_map_object
-   fun:openaux
-   fun:_dl_catch_exception
-   fun:_dl_map_object_deps
-   fun:dl_open_worker
-   fun:_dl_catch_exception
-   fun:_dl_open
-   fun:dlopen_doit
-   fun:_dl_catch_exception
-   fun:_dl_catch_error
-   fun:_dlerror_run
-   fun:dlopen@@GLIBC_2.2.5
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   obj:/usr/lib/x86_64-linux-gnu/libltdl.so.7.3.1
-   fun:lt_dlopenadvise
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   fun:SQLDriverConnect
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: definite
-   fun:calloc
-   fun:taosMemoryCalloc
-   fun:rpcMallocCont
-   fun:cliSend
-   fun:cliHandleRelease
-   fun:cliAsyncCb
-   fun:uv__async_io
-   fun:uv__io_poll
-   fun:uv_run
-   fun:cliWorkThread
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: definite
-   fun:calloc
-   fun:taosMemoryCalloc
-   fun:transReleaseCliHandle
-   fun:rpcReleaseHandle
-   fun:schFreeHbTrans
-   fun:schRemoveHbConnection
-   fun:schDeregisterTaskHb
-   fun:schFreeTask
-   fun:schFreeJobImpl
-   fun:taosDecRefCount
-   fun:taosReleaseRef
-   fun:schReleaseJob
-   fun:schedulerFreeJob
-   fun:taos_stop_query
-   fun:destroyRequest
-   fun:taos_free_result
+   fun:taosMemoryMalloc
+   fun:hbThreadFunc
 }
 {
    <insert_a_suppression_name_here>
@@ -567,318 +253,106 @@
    fun:uv_write2
    fun:uv_write
    fun:cliSend
-   fun:cliHandleReq
-   fun:cliAsyncCb
-   fun:uv__async_io
-   fun:uv__io_poll
-   fun:uv_run
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Param
-   write(buf)
-   fun:__libc_write
-   fun:write
-   fun:uv__writev
-   fun:uv__try_write
-   fun:uv__write
-   fun:uv_write2
-   fun:uv_write
-   fun:cliSend
-   fun:cliConnCb
-   fun:uv__stream_connect
-   fun:uv__stream_io
-   fun:uv__io_poll
-   fun:uv_run
-   fun:cliWorkThread
 }
 {
    <insert_a_suppression_name_here>
    Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:_ZN5alloc5alloc5alloc17h8e717bc525d3ae3dE
-   fun:_ZN5alloc5alloc6Global10alloc_impl17h4071b2a230b84766E
-   fun:_ZN63_$LT$alloc..alloc..Global$u20$as$u20$core..alloc..Allocator$GT$8allocate17h8571955448832cdeE
-   fun:_ZN5alloc5alloc15exchange_malloc17he1e78d2e27422031E
-   fun:new<env_logger::fmt::{impl#5}::build::{closure_env#0}>
-   fun:_ZN10env_logger3fmt7Builder5build17hcb6bd0f78ad5251cE
-   fun:_ZN10env_logger7Builder5build17ha8b37633cd33d416E
-   fun:_ZN10env_logger7Builder8try_init17he0f954e399e18afaE
-   fun:_ZN10env_logger17try_init_from_env17h7252ef955196e729E
-   fun:_ZN10env_logger8try_init17heb231b5b822d27cbE
-   fun:_ZN10env_logger4init17h0727353e5079f214E
+   match-leak-kinds: indirect
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:nodesListAppend
+   fun:createNodeList
+   fun:yy_reduce
+   fun:Parse
+   fun:parse
+   fun:parseSqlSyntax
+   fun:qParseSqlSyntax
+   fun:doAsyncQuery
+   fun:taosAsyncQueryImpl
+   fun:taosQueryImpl
+   fun:taos_query
 }
 {
    <insert_a_suppression_name_here>
    Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:_ZN5alloc5alloc5alloc17h5369f2ce36af4c08E
-   fun:_ZN5alloc5alloc6Global10alloc_impl17h74fe7eb4c6c39cf0E
-   fun:_ZN63_$LT$alloc..alloc..Global$u20$as$u20$core..alloc..Allocator$GT$8allocate17hfe64edfb8a97ed3dE
-   fun:_ZN5alloc7raw_vec11finish_grow17h6b097d389d101528E
-   fun:_ZN5alloc7raw_vec19RawVec$LT$T$C$A$GT$14grow_amortized17h751be1758152c3ceE
-   fun:_ZN5alloc7raw_vec19RawVec$LT$T$C$A$GT$16reserve_for_push17h732be60b74aeec0cE
-   fun:_ZN5alloc3vec16Vec$LT$T$C$A$GT$4push17h717f02e6c234f7a2E
-   fun:_ZN10env_logger6filter7Builder5build17ha9acfa34d1725b7aE
-   fun:_ZN10env_logger7Builder5build17ha8b37633cd33d416E
-   fun:_ZN10env_logger7Builder8try_init17he0f954e399e18afaE
-   fun:_ZN10env_logger17try_init_from_env17h7252ef955196e729E
-   fun:_ZN10env_logger8try_init17heb231b5b822d27cbE
-   fun:_ZN10env_logger4init17h0727353e5079f214E
+   match-leak-kinds: indirect
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:makeNode
+   fun:nodesMakeNode
+   fun:createColumnNode
+   fun:yy_reduce
+   fun:Parse
+   fun:parse
+   fun:parseSqlSyntax
+   fun:qParseSqlSyntax
+   fun:doAsyncQuery
+   fun:taosAsyncQueryImpl
+   fun:taosQueryImpl
+   fun:taos_query
 }
 {
    <insert_a_suppression_name_here>
    Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:malloc
-   fun:_ZN5alloc5alloc5alloc17h8e717bc525d3ae3dE
-   fun:_ZN5alloc5alloc6Global10alloc_impl17h4071b2a230b84766E
-   fun:_ZN63_$LT$alloc..alloc..Global$u20$as$u20$core..alloc..Allocator$GT$8allocate17h8571955448832cdeE
-   fun:_ZN5alloc5alloc15exchange_malloc17he1e78d2e27422031E
-   fun:new<env_logger::Logger>
-   fun:_ZN10env_logger7Builder8try_init17he0f954e399e18afaE
-   fun:_ZN10env_logger17try_init_from_env17h7252ef955196e729E
-   fun:_ZN10env_logger8try_init17heb231b5b822d27cbE
-   fun:_ZN10env_logger4init17h0727353e5079f214E
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Cond
-   fun:_ZN4STMT16free_fake_resultEb
-   fun:_Z22my_SQLFreeStmtExtendedPvtt
-   fun:_Z14my_SQLFreeStmtPvt
-   fun:_Z13my_SQLExecuteP4STMT
-   fun:SQLExecDirect
+   match-leak-kinds: definite
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:makeNode
+   fun:nodesMakeNode
+   fun:createRealTableNode
+   fun:yy_reduce
+   fun:Parse
+   fun:parse
+   fun:parseSqlSyntax
+   fun:qParseSqlSyntax
+   fun:doAsyncQuery
+   fun:taosAsyncQueryImpl
+   fun:taosQueryImpl
+   fun:taos_query
 }
 {
    <insert_a_suppression_name_here>
    Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:_Znwm
-   obj:/usr/lib/x86_64-linux-gnu/odbc/libmyodbc8a.so
-   fun:_Z22add_compiled_collationP12CHARSET_INFO
-   fun:_Z22init_compiled_charsetsi
-   obj:/usr/lib/x86_64-linux-gnu/odbc/libmyodbc8a.so
-   fun:__pthread_once_slow
-   fun:_ZSt9call_onceIRFvvEJEEvRSt9once_flagOT_DpOT0_
-   fun:_Z22my_charset_get_by_nameP17MY_CHARSET_LOADERPKcji
-   fun:_Z21get_charset_by_csnamePKcji
-   fun:_Z11myodbc_initv
-   fun:_Z14my_SQLAllocEnvPPv
-   fun:SQLAllocHandle
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   fun:SQLDriverConnect
+   match-leak-kinds: definite
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:makeNode
+   fun:nodesMakeNode
+   fun:createRawExprNode
+   fun:yy_reduce
+   fun:Parse
+   fun:parse
+   fun:parseSqlSyntax
+   fun:qParseSqlSyntax
+   fun:doAsyncQuery
+   fun:taosAsyncQueryImpl
+   fun:taosQueryImpl
+   fun:taos_query
 }
 {
    <insert_a_suppression_name_here>
    Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:_Znwm
-   fun:_Z10MyFileInitv
-   fun:_Z7my_initv
-   fun:_Z11myodbc_initv
-   fun:_Z14my_SQLAllocEnvPPv
-   fun:SQLAllocHandle
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   fun:SQLDriverConnect
+   match-leak-kinds: definite
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:nodesMakeList
+   fun:createNodeList
+   fun:yy_reduce
+   fun:Parse
+   fun:parse
+   fun:parseSqlSyntax
+   fun:qParseSqlSyntax
+   fun:doAsyncQuery
+   fun:taosAsyncQueryImpl
+   fun:taosQueryImpl
+   fun:taos_query
 }
 {
    <insert_a_suppression_name_here>
    Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:_Znwm
-   obj:/usr/lib/x86_64-linux-gnu/odbc/libmyodbc8a.so
-   fun:__pthread_once_slow
-   fun:_ZSt9call_onceIRFvvEJEEvRSt9once_flagOT_DpOT0_
-   fun:_Z22my_charset_get_by_nameP17MY_CHARSET_LOADERPKcji
-   fun:_Z21get_charset_by_csnamePKcji
-   fun:_Z11myodbc_initv
-   fun:_Z14my_SQLAllocEnvPPv
-   fun:SQLAllocHandle
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   fun:SQLDriverConnect
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:_Znwm
-   fun:_ZNSt8__detail9_Map_baseINSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESt4pairIKS6_iESaIS9_ENS_10_Select1stESt8equal_toIS6_ESt4hashIS6_ENS_18_Mod_range_hashingENS_20_Default_ranged_hashENS_20_Prime_rehash_policyENS_17_Hashtable_traitsILb1ELb0ELb1EEELb1EEixEOS6_
-   obj:/usr/lib/x86_64-linux-gnu/odbc/libmyodbc8a.so
-   fun:_Z22add_compiled_collationP12CHARSET_INFO
-   fun:_Z22init_compiled_charsetsi
-   obj:/usr/lib/x86_64-linux-gnu/odbc/libmyodbc8a.so
-   fun:__pthread_once_slow
-   fun:_ZSt9call_onceIRFvvEJEEvRSt9once_flagOT_DpOT0_
-   fun:_Z22my_charset_get_by_nameP17MY_CHARSET_LOADERPKcji
-   fun:_Z21get_charset_by_csnamePKcji
-   fun:_Z11myodbc_initv
-   fun:_Z14my_SQLAllocEnvPPv
-   fun:SQLAllocHandle
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   fun:SQLDriverConnect
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:_Znwm
-   obj:/usr/lib/x86_64-linux-gnu/odbc/libmyodbc8a.so
-   fun:_ZNSt10_HashtableINSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESt4pairIKS5_iESaIS8_ENSt8__detail10_Select1stESt8equal_toIS5_ESt4hashIS5_ENSA_18_Mod_range_hashingENSA_20_Default_ranged_hashENSA_20_Prime_rehash_policyENSA_17_Hashtable_traitsILb1ELb0ELb1EEEE9_M_rehashEmRKm
-   fun:_ZNSt8__detail9_Map_baseINSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESt4pairIKS6_iESaIS9_ENS_10_Select1stESt8equal_toIS6_ESt4hashIS6_ENS_18_Mod_range_hashingENS_20_Default_ranged_hashENS_20_Prime_rehash_policyENS_17_Hashtable_traitsILb1ELb0ELb1EEELb1EEixEOS6_
-   obj:/usr/lib/x86_64-linux-gnu/odbc/libmyodbc8a.so
-   fun:_Z22add_compiled_collationP12CHARSET_INFO
-   fun:_Z22init_compiled_charsetsi
-   obj:/usr/lib/x86_64-linux-gnu/odbc/libmyodbc8a.so
-   fun:__pthread_once_slow
-   fun:_ZSt9call_onceIRFvvEJEEvRSt9once_flagOT_DpOT0_
-   fun:_Z22my_charset_get_by_nameP17MY_CHARSET_LOADERPKcji
-   fun:_Z21get_charset_by_csnamePKcji
-   fun:_Z11myodbc_initv
-   fun:_Z14my_SQLAllocEnvPPv
-   fun:SQLAllocHandle
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   fun:SQLDriverConnect
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Cond
-   fun:_ZN4STMT16free_fake_resultEb
-   fun:_Z22my_SQLFreeStmtExtendedPvtt
-   fun:_Z14my_SQLFreeStmtPvt
-   fun:_Z13my_SQLExecuteP4STMT
-   fun:SQLExecDirectW
-   fun:SQLExecDirect
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:_Znwm
-   obj:/usr/lib/x86_64-linux-gnu/odbc/libmyodbc8w.so
-   fun:_Z22add_compiled_collationP12CHARSET_INFO
-   fun:_Z22init_compiled_charsetsi
-   obj:/usr/lib/x86_64-linux-gnu/odbc/libmyodbc8w.so
-   fun:__pthread_once_slow
-   fun:_ZSt9call_onceIRFvvEJEEvRSt9once_flagOT_DpOT0_
-   fun:_Z22my_charset_get_by_nameP17MY_CHARSET_LOADERPKcji
-   fun:_Z21get_charset_by_csnamePKcji
-   fun:_Z11myodbc_initv
-   fun:_Z14my_SQLAllocEnvPPv
-   fun:SQLAllocHandle
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   fun:SQLDriverConnect
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:_Znwm
-   obj:/usr/lib/x86_64-linux-gnu/odbc/libmyodbc8w.so
-   fun:__pthread_once_slow
-   fun:_ZSt9call_onceIRFvvEJEEvRSt9once_flagOT_DpOT0_
-   fun:_Z22my_charset_get_by_nameP17MY_CHARSET_LOADERPKcji
-   fun:_Z21get_charset_by_csnamePKcji
-   fun:_Z11myodbc_initv
-   fun:_Z14my_SQLAllocEnvPPv
-   fun:SQLAllocHandle
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   fun:SQLDriverConnect
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:_Znwm
-   fun:_ZNSt8__detail9_Map_baseINSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESt4pairIKS6_iESaIS9_ENS_10_Select1stESt8equal_toIS6_ESt4hashIS6_ENS_18_Mod_range_hashingENS_20_Default_ranged_hashENS_20_Prime_rehash_policyENS_17_Hashtable_traitsILb1ELb0ELb1EEELb1EEixEOS6_
-   obj:/usr/lib/x86_64-linux-gnu/odbc/libmyodbc8w.so
-   fun:_Z22add_compiled_collationP12CHARSET_INFO
-   fun:_Z22init_compiled_charsetsi
-   obj:/usr/lib/x86_64-linux-gnu/odbc/libmyodbc8w.so
-   fun:__pthread_once_slow
-   fun:_ZSt9call_onceIRFvvEJEEvRSt9once_flagOT_DpOT0_
-   fun:_Z22my_charset_get_by_nameP17MY_CHARSET_LOADERPKcji
-   fun:_Z21get_charset_by_csnamePKcji
-   fun:_Z11myodbc_initv
-   fun:_Z14my_SQLAllocEnvPPv
-   fun:SQLAllocHandle
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   fun:SQLDriverConnect
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Leak
-   match-leak-kinds: reachable
-   fun:_Znwm
-   obj:/usr/lib/x86_64-linux-gnu/odbc/libmyodbc8w.so
-   fun:_ZNSt10_HashtableINSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESt4pairIKS5_iESaIS8_ENSt8__detail10_Select1stESt8equal_toIS5_ESt4hashIS5_ENSA_18_Mod_range_hashingENSA_20_Default_ranged_hashENSA_20_Prime_rehash_policyENSA_17_Hashtable_traitsILb1ELb0ELb1EEEE9_M_rehashEmRKm
-   fun:_ZNSt8__detail9_Map_baseINSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESt4pairIKS6_iESaIS9_ENS_10_Select1stESt8equal_toIS6_ESt4hashIS6_ENS_18_Mod_range_hashingENS_20_Default_ranged_hashENS_20_Prime_rehash_policyENS_17_Hashtable_traitsILb1ELb0ELb1EEELb1EEixEOS6_
-   obj:/usr/lib/x86_64-linux-gnu/odbc/libmyodbc8w.so
-   fun:_Z22add_compiled_collationP12CHARSET_INFO
-   fun:_Z22init_compiled_charsetsi
-   obj:/usr/lib/x86_64-linux-gnu/odbc/libmyodbc8w.so
-   fun:__pthread_once_slow
-   fun:_ZSt9call_onceIRFvvEJEEvRSt9once_flagOT_DpOT0_
-   fun:_Z22my_charset_get_by_nameP17MY_CHARSET_LOADERPKcji
-   fun:_Z21get_charset_by_csnamePKcji
-   fun:_Z11myodbc_initv
-   fun:_Z14my_SQLAllocEnvPPv
-   fun:SQLAllocHandle
-   obj:/usr/lib/x86_64-linux-gnu/libodbc.so.2.0.0
-   fun:SQLDriverConnect
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Param
-   write(buf)
-   fun:__libc_write
-   fun:write
-   fun:uv__writev
-   fun:uv__try_write.isra.5
-   fun:uv__write
-   fun:uv__write
-   fun:uv_write2
-   fun:uv_write
-   fun:cliSend
-   fun:cliConnCb
-   fun:uv__stream_connect
-   fun:uv__stream_io
-   fun:uv__io_poll
-   fun:uv_run
-   fun:cliWorkThread
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Cond
-   fun:checkTimestamp
-   fun:parseOneRow
-   fun:parseValues
-   fun:parseValuesClause
-   fun:parseInsertBody
-   fun:parseInsertSql
-   fun:qParseSql
-   fun:parseSql
-   fun:stmtParseSql
-   fun:stmtGetParamNum
-   fun:taos_stmt_num_params
-   fun:stmt_prepare
-   fun:SQLPrepare
-   fun:SQLPrepare
-}
-{
-   <insert_a_suppression_name_here>
-   Memcheck:Cond
-   fun:checkTimestamp
-   fun:qBindStmtSingleColValue
-   fun:stmtBindBatch
-   fun:taos_stmt_bind_single_param_batch
-   fun:_stmt_conv_bounded_param_c_sbigint_to_tsdb_timestamp
-   fun:_stmt_conv_bounded_param_to_tsdb_timestamp
-   fun:_stmt_conv_bounded_param
-   fun:stmt_execute
-   fun:SQLExecute
-   fun:SQLExecute
+   match-leak-kinds: definite
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:hbThreadFunc
 }
 

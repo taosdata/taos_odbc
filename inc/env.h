@@ -12,6 +12,7 @@ typedef struct env_s              env_t;
 env_t* env_create(void) FA_HIDDEN;
 env_t* env_ref(env_t *env) FA_HIDDEN;
 env_t* env_unref(env_t *env) FA_HIDDEN;
+SQLRETURN env_free(env_t *env) FA_HIDDEN;
 
 int env_rollback(env_t *env) FA_HIDDEN;
 

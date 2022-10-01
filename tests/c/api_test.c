@@ -198,13 +198,144 @@ fail_dlsym:
 }
 
 __attribute__((unused))
+static int _sql_stmt_get_long_data_by_col(SQLHANDLE stmth, SQLSMALLINT ColumnNumber)
+{
+  char buf[1024];
+  buf[0] = '\0';
+
+  char *p = buf;
+
+  SQLHANDLE hstmt = stmth;
+
+  SQLUSMALLINT   Col_or_Param_Num    = ColumnNumber;
+  SQLSMALLINT    TargetType          = SQL_C_CHAR;
+  SQLPOINTER     TargetValuePtr      = (SQLPOINTER)p;
+  SQLLEN         BufferLength        = 2;
+  SQLLEN         StrLen_or_Ind;
+
+  while (1) {
+    SQLRETURN r = CALL_STMT(SQLGetData(stmth, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, &StrLen_or_Ind));
+    if (r == SQL_NO_DATA) break;
+    if (SUCCEEDED(r)) {
+      if (StrLen_or_Ind == SQL_NULL_DATA) {
+        D("Column[#%d]: [[null]]", ColumnNumber);
+        return 0;
+      }
+      p += strlen(p);
+      TargetValuePtr = p;
+      continue;
+    }
+    A(0, "");
+    return -1;
+  }
+
+  D("Column[#%d]: [%s]", ColumnNumber, buf);
+
+  return 0;
+}
+
+__attribute__((unused))
+static int _sql_stmt_get_long_data(SQLHANDLE stmth, SQLSMALLINT ColumnCount)
+{
+  int i = 1;
+  for (i=1; i<=ColumnCount; ++i) {
+    if (_sql_stmt_get_long_data_by_col(stmth, i)) break;
+  }
+
+  if (i <= ColumnCount) return -1;
+
+  return 0;
+}
+
+__attribute__((unused))
+static int _sql_stmt_get_data(SQLHANDLE stmth, SQLSMALLINT ColumnCount)
+{
+  SQLHANDLE hstmt = stmth;
+
+  char buf[1024];
+  int i = 1;
+  for (i=1; i<=ColumnCount; ++i) {
+    SQLUSMALLINT   Col_or_Param_Num    = i;
+    SQLSMALLINT    TargetType          = SQL_C_CHAR;
+    SQLPOINTER     TargetValuePtr      = (SQLPOINTER)buf;
+    SQLLEN         BufferLength        = sizeof(buf);
+    SQLLEN         StrLen_or_Ind;
+
+    buf[0] = '\0';
+    SQLRETURN r = CALL_STMT(SQLGetData(stmth, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, &StrLen_or_Ind));
+    if (r != SQL_SUCCESS) break;
+    if (StrLen_or_Ind == SQL_NULL_DATA) {
+      D("Column[#%d]: [[null]]", i);
+      continue;
+    }
+
+    D("Column[#%d]: [%s]", i, buf);
+
+    r = CALL_STMT(SQLGetData(stmth, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, &StrLen_or_Ind));
+    if (r != SQL_NO_DATA) break;
+
+    r = CALL_STMT(SQLGetData(stmth, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, &StrLen_or_Ind));
+    if (r != SQL_NO_DATA) break;
+  }
+
+  if (i <= ColumnCount) return -1;
+
+  return 0;
+}
+
+__attribute__((unused))
 static int test_sql_stmt_execute_direct(SQLHANDLE stmth, const char *statement)
 {
-    SQLRETURN r;
-    CALL_ODBC(r, SQL_HANDLE_STMT, stmth,  SQLExecDirect(stmth, (SQLCHAR*)statement, strlen(statement)));
-    if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
+  SQLHANDLE hstmt = stmth;
 
-    return 0;
+  SQLRETURN r;
+  SQLSMALLINT ColumnCount;
+  int rr;
+
+  r = CALL_STMT(SQLExecDirect(stmth, (SQLCHAR*)statement, strlen(statement)));
+  if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
+
+  r = CALL_STMT(SQLNumResultCols(stmth, &ColumnCount));
+  if (FAILED(r)) return -1;
+
+  r = CALL_STMT(SQLFetch(stmth));
+  if (r == SQL_NO_DATA) return 0;
+
+  rr = _sql_stmt_get_data(stmth, ColumnCount);
+  if (rr == 0) {
+    if (ColumnCount > 1) {
+      rr = _sql_stmt_get_data(stmth, ColumnCount);
+    } else {
+      rr = _sql_stmt_get_data(stmth, ColumnCount);
+      rr = !rr;
+    }
+  }
+
+  CALL_STMT(SQLCloseCursor(stmth));
+
+  if (rr) return -1;
+
+  r = CALL_STMT(SQLExecDirect(stmth, (SQLCHAR*)statement, strlen(statement)));
+  if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
+
+  r = CALL_STMT(SQLNumResultCols(stmth, &ColumnCount));
+  if (FAILED(r)) return -1;
+
+  r = CALL_STMT(SQLFetch(stmth));
+  if (r == SQL_NO_DATA) return 0;
+
+  rr = _sql_stmt_get_long_data(stmth, ColumnCount);
+  if (rr == 0) {
+    if (ColumnCount > 1) {
+      rr = _sql_stmt_get_long_data(stmth, ColumnCount);
+    } else {
+      rr = _sql_stmt_get_long_data(stmth, ColumnCount);
+    }
+  }
+
+  CALL_STMT(SQLCloseCursor(stmth));
+
+  return rr ? -1 : 0;
 }
 
 __attribute__((unused))
@@ -223,6 +354,22 @@ static int do_sql_stmt_execute_direct(SQLHANDLE stmth)
   CHK2(test_sql_stmt_execute_direct, stmth, "insert into t (ts, v) values (now, 123)", 0);
   CHK2(test_sql_stmt_execute_direct, stmth, "select * from t", 0);
   CHK2(test_sql_stmt_execute_direct, stmth, "select count(*) from t", 0);
+
+  CHK2(test_sql_stmt_execute_direct, stmth, "drop table if exists t", 0);
+  CHK2(test_sql_stmt_execute_direct, stmth, "create table if not exists t (ts timestamp, name varchar(20), age int, sex varchar(8), text nchar(3))", 0);
+  CHK2(test_sql_stmt_execute_direct, stmth, "insert into t (ts, name, age, sex, text) values (1662861448752, 'name1', 20, 'male', '中国人')", 0);
+  CHK2(test_sql_stmt_execute_direct, stmth, "select * from t", 0);
+
+  CHK2(test_sql_stmt_execute_direct, stmth, "drop table if exists t", 0);
+  CHK2(test_sql_stmt_execute_direct, stmth, "create table if not exists t (ts timestamp, name varchar(20), age int, sex varchar(8), text nchar(3))", 0);
+  CHK2(test_sql_stmt_execute_direct, stmth, "insert into t (ts, name, age, sex, text) values (1662861449753, 'name2', 30, 'female', '苏州人')", 0);
+  CHK2(test_sql_stmt_execute_direct, stmth, "select * from t", 0);
+
+  CHK2(test_sql_stmt_execute_direct, stmth, "drop table if exists t", 0);
+  CHK2(test_sql_stmt_execute_direct, stmth, "create table if not exists t (ts timestamp, name varchar(20), age int, sex varchar(8), text nchar(3))", 0);
+  CHK2(test_sql_stmt_execute_direct, stmth, "insert into t (ts, name, age, sex, text) values (1662861450754, 'name3', null, null, null)", 0);
+  CHK2(test_sql_stmt_execute_direct, stmth, "select * from t", 0);
+
   CHK2(test_sql_stmt_execute_direct, stmth, "drop stable if exists s", 0);
   CHK2(test_sql_stmt_execute_direct, stmth, "create stable s (ts timestamp, v int) tags (id int, name nchar(10))", 0);
 

@@ -148,7 +148,7 @@ static int test_case1(void)
             SQLWCHAR Name[100];
             SQLLEN cbName = 0;
             const char * const p = (const char*)&Name[0];
-            const size_t bytes = 46;
+            const size_t bytes = 48;
             rc = CALL_STMT(SQLFreeStmt(hstmt, SQL_UNBIND));
             A(SUCCEEDED(rc), "");
             rc = CALL_STMT(SQLBindCol(hstmt, pos, SQL_C_WCHAR, Name, bytes/*sizeof(Name)*/, &cbName));
@@ -163,7 +163,7 @@ static int test_case1(void)
               char cmp[sizeof(buf)+2];
               if (cbName != SQL_NULL_DATA) {
                 A(p[bytes] == '\x01', "");
-                A(p[cbName] == '\x01', "");
+                A(p[cbName] == '\x00', "");
                 char *inbuf = (char*)Name;
                 size_t inbytes = cbName;
                 char *outbuf = buf;

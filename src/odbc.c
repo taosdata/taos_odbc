@@ -1,4 +1,5 @@
 #include "conn.h"
+#include "desc.h"
 #include "env.h"
 #include "internal.h"
 #include "log.h"
@@ -58,20 +59,6 @@ static SQLRETURN do_alloc_conn(
   return SQL_SUCCESS;
 }
 
-static SQLRETURN do_alloc_stmt(
-    SQLHANDLE InputHandle,
-    SQLHANDLE *OutputHandle)
-{
-  *OutputHandle = SQL_NULL_HANDLE;
-
-  conn_t *conn = (conn_t*)InputHandle;
-  stmt_t *stmt = stmt_create(conn);
-  if (stmt == NULL) return SQL_ERROR;
-
-  *OutputHandle = (SQLHANDLE)stmt;
-  return SQL_SUCCESS;
-}
-
 SQLRETURN SQL_API SQLAllocHandle(
     SQLSMALLINT HandleType,
     SQLHANDLE   InputHandle,
@@ -84,38 +71,27 @@ SQLRETURN SQL_API SQLAllocHandle(
       if (InputHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
       errs_clr(&((env_t*)InputHandle)->errs);
+      if (!OutputHandle) return SQL_INVALID_HANDLE;
       return do_alloc_conn(InputHandle, OutputHandle);
     case SQL_HANDLE_STMT:
       if (InputHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
       errs_clr(&((conn_t*)InputHandle)->errs);
-      return do_alloc_stmt(InputHandle, OutputHandle);
+
+      if (!OutputHandle) return SQL_INVALID_HANDLE;
+      return conn_alloc_stmt((conn_t*)InputHandle, OutputHandle);
+    case SQL_HANDLE_DESC:
+      if (InputHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+      errs_clr(&((conn_t*)InputHandle)->errs);
+
+      if (!OutputHandle) return SQL_INVALID_HANDLE;
+      return conn_alloc_desc((conn_t*)InputHandle, OutputHandle);
     default:
       if (InputHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
       return SQL_ERROR;
   }
-}
-
-static SQLRETURN do_free_env(
-    env_t *env)
-{
-  env_unref(env);
-  return SQL_SUCCESS;
-}
-
-static SQLRETURN do_free_conn(
-    conn_t *conn)
-{
-  conn_unref(conn);
-  return SQL_SUCCESS;
-}
-
-static SQLRETURN do_free_stmt(
-    stmt_t *stmt)
-{
-  stmt_unref(stmt);
-  return SQL_SUCCESS;
 }
 
 SQLRETURN SQL_API SQLFreeHandle(
@@ -127,13 +103,15 @@ SQLRETURN SQL_API SQLFreeHandle(
   switch (HandleType) {
     case SQL_HANDLE_ENV:
       errs_clr(&((env_t*)Handle)->errs);
-      return do_free_env((env_t*)Handle);
+      return env_free((env_t*)Handle);
     case SQL_HANDLE_DBC:
       errs_clr(&((conn_t*)Handle)->errs);
-      return do_free_conn((conn_t*)Handle);
+      return conn_free((conn_t*)Handle);
     case SQL_HANDLE_STMT:
       errs_clr(&((stmt_t*)Handle)->errs);
-      return do_free_stmt((stmt_t*)Handle);
+      return stmt_free((stmt_t*)Handle);
+    case SQL_HANDLE_DESC:
+      return desc_free((desc_t*)Handle);
     default:
       return SQL_ERROR;
   }
@@ -186,8 +164,7 @@ static SQLRETURN do_exec_direct(
     SQLCHAR     *StatementText,
     SQLINTEGER   TextLength)
 {
-  int r = stmt_exec_direct(stmt, (const char*)StatementText, TextLength);
-  return r ? SQL_ERROR : SQL_SUCCESS;
+  return stmt_exec_direct(stmt, (const char*)StatementText, TextLength);
 }
 
 SQLRETURN SQL_API SQLExecDirect(
@@ -417,38 +394,6 @@ static SQLRETURN do_stmt_set_cursor_type(
   }
 }
 
-static SQLRETURN do_stmt_set_row_array_size(
-    stmt_t       *stmt,
-    SQLULEN       row_array_size)
-{
-  if (stmt_set_row_array_size(stmt, row_array_size)) return SQL_ERROR;
-  return SQL_SUCCESS;
-}
-
-static SQLRETURN do_stmt_set_row_status_ptr(
-    stmt_t       *stmt,
-    SQLUSMALLINT *row_status_ptr)
-{
-  if (stmt_set_row_status_ptr(stmt, row_status_ptr)) return SQL_ERROR;
-  return SQL_SUCCESS;
-}
-
-static SQLRETURN do_stmt_set_row_bind_type(
-    stmt_t       *stmt,
-    SQLULEN       row_bind_type)
-{
-  if (stmt_set_row_bind_type(stmt, row_bind_type)) return SQL_ERROR;
-  return SQL_SUCCESS;
-}
-
-static SQLRETURN do_stmt_set_rows_fetched_ptr(
-    stmt_t       *stmt,
-    SQLULEN      *rows_fetched_ptr)
-{
-  if (stmt_set_rows_fetched_ptr(stmt, rows_fetched_ptr)) return SQL_ERROR;
-  return SQL_SUCCESS;
-}
-
 SQLRETURN SQL_API SQLSetStmtAttr(
     SQLHSTMT      StatementHandle,
     SQLINTEGER    Attribute,
@@ -457,21 +402,31 @@ SQLRETURN SQL_API SQLSetStmtAttr(
 {
   if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
-  errs_clr(&((stmt_t*)StatementHandle)->errs);
+  stmt_t *stmt = (stmt_t*)StatementHandle;
+
+  errs_clr(&stmt->errs);
 
   (void)StringLength;
 
   switch (Attribute) {
     case SQL_ATTR_CURSOR_TYPE:
-      return do_stmt_set_cursor_type((stmt_t*)StatementHandle, (SQLULEN)ValuePtr);
+      return do_stmt_set_cursor_type(stmt, (SQLULEN)ValuePtr);
     case SQL_ATTR_ROW_ARRAY_SIZE:
-      return do_stmt_set_row_array_size((stmt_t*)StatementHandle, (SQLULEN)ValuePtr);
+      return stmt_set_row_array_size(stmt, (SQLULEN)ValuePtr);
     case SQL_ATTR_ROW_STATUS_PTR:
-      return do_stmt_set_row_status_ptr((stmt_t*)StatementHandle, (SQLUSMALLINT*)ValuePtr);
+      return stmt_set_row_status_ptr(stmt, (SQLUSMALLINT*)ValuePtr);
     case SQL_ATTR_ROW_BIND_TYPE:
-      return do_stmt_set_row_bind_type((stmt_t*)StatementHandle, (SQLULEN)ValuePtr);
+      return stmt_set_row_bind_type(stmt, (SQLULEN)ValuePtr);
     case SQL_ATTR_ROWS_FETCHED_PTR:
-      return do_stmt_set_rows_fetched_ptr((stmt_t*)StatementHandle, (SQLULEN*)ValuePtr);
+      return stmt_set_rows_fetched_ptr(stmt, (SQLULEN*)ValuePtr);
+    case SQL_ATTR_MAX_LENGTH:
+      return stmt_set_max_length(stmt, (SQLULEN)ValuePtr);
+    case SQL_ATTR_ROW_BIND_OFFSET_PTR:
+      return stmt_set_row_bind_offset_ptr(stmt, (SQLULEN*)ValuePtr);
+    case SQL_ATTR_APP_ROW_DESC:
+      return stmt_set_row_desc(stmt, ValuePtr);
+    case SQL_ATTR_APP_PARAM_DESC:
+      return stmt_set_param_desc(stmt, ValuePtr);
     default:
       return SQL_ERROR;
   }

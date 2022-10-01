@@ -131,17 +131,19 @@ async function case2(conn_str) {
 
     await stmt.close();
 
-    var exp = [
-        {ts:'2022-09-11 09:57:28.752', v:'2022-09-11 12:44:08.752'},
-        {ts:'2022-09-11 09:57:29.753', v:'2022-09-11 12:44:09.753'},
-        {ts:'2022-09-11 09:57:30.754', v:'2022-09-11 12:44:10.754'},
-        {ts:'2022-09-11 09:57:31.755', v:'2022-09-11 12:44:11.755'},
-    ];
-    {
-      var cursor = await conn.query('select * from t' , {cursor: true, fetchSize: 5});
-      var result = await cursor.fetch();
-      var rows = [result[0], result[1], result[2], result[3]];
-      assert.equal(JSON.stringify(rows), JSON.stringify(exp));
+    if (r == 0) {
+      var exp = [
+          {ts:'2022-09-11 09:57:28.752', v:'2022-09-11 12:44:08.752'},
+          {ts:'2022-09-11 09:57:29.753', v:'2022-09-11 12:44:09.753'},
+          {ts:'2022-09-11 09:57:30.754', v:'2022-09-11 12:44:10.754'},
+          {ts:'2022-09-11 09:57:31.755', v:'2022-09-11 12:44:11.755'},
+      ];
+      {
+        var cursor = await conn.query('select * from t' , {cursor: true, fetchSize: 5});
+        var result = await cursor.fetch();
+        var rows = [result[0], result[1], result[2], result[3]];
+        assert.equal(JSON.stringify(rows), JSON.stringify(exp));
+      }
     }
   } catch (error) {
     console.error(error);
@@ -184,17 +186,19 @@ async function case3(conn_str) {
 
     await stmt.close();
 
-    var exp = [
-        {ts:'2022-09-11 09:57:28.752', v:'name1'},
-        {ts:'2022-09-11 09:57:29.753', v:'name2'},
-        {ts:'2022-09-11 09:57:30.754', v:'name3'},
-        {ts:'2022-09-11 09:57:31.755', v:'name4'},
-    ];
-    {
-      var cursor = await conn.query('select * from t' , {cursor: true, fetchSize: 5});
-      var result = await cursor.fetch();
-      var rows = [result[0], result[1], result[2], result[3]];
-      assert.equal(JSON.stringify(rows), JSON.stringify(exp));
+    if (r == 0) {
+      var exp = [
+          {ts:'2022-09-11 09:57:28.752', v:'name1'},
+          {ts:'2022-09-11 09:57:29.753', v:'name2'},
+          {ts:'2022-09-11 09:57:30.754', v:'name3'},
+          {ts:'2022-09-11 09:57:31.755', v:'name4'},
+      ];
+      {
+        var cursor = await conn.query('select * from t' , {cursor: true, fetchSize: 5});
+        var result = await cursor.fetch();
+        var rows = [result[0], result[1], result[2], result[3]];
+        assert.equal(JSON.stringify(rows), JSON.stringify(exp));
+      }
     }
   } catch (error) {
     console.error(error);
@@ -237,17 +241,19 @@ async function case4(conn_str) {
 
     await stmt.close();
 
-    var exp = [
-        {ts:'2022-09-11 09:57:28.752', v:1},
-        {ts:'2022-09-11 09:57:29.753', v:2},
-        {ts:'2022-09-11 09:57:30.754', v:3},
-        {ts:'2022-09-11 09:57:31.755', v:4},
-    ];
-    {
-      var cursor = await conn.query('select * from t' , {cursor: true, fetchSize: 5});
-      var result = await cursor.fetch();
-      var rows = [result[0], result[1], result[2], result[3]];
-      assert.equal(JSON.stringify(rows), JSON.stringify(exp));
+    if (r == 0) {
+      var exp = [
+      {ts:'2022-09-11 09:57:28.752', v:1},
+      {ts:'2022-09-11 09:57:29.753', v:2},
+      {ts:'2022-09-11 09:57:30.754', v:3},
+      {ts:'2022-09-11 09:57:31.755', v:4},
+      ];
+      {
+        var cursor = await conn.query('select * from t' , {cursor: true, fetchSize: 5});
+        var result = await cursor.fetch();
+        var rows = [result[0], result[1], result[2], result[3]];
+        assert.equal(JSON.stringify(rows), JSON.stringify(exp));
+      }
     }
   } catch (error) {
     console.error(error);
@@ -275,13 +281,14 @@ async function case5(conn_str) {
     await conn.query('insert into t (ts, name, age, sex, text) values (1662861450754, "name3", null, null, null)');
     await conn.query('select * from t');
 
-    var exp = [
+    var exps = [
         {ts:'2022-09-11 09:57:28.752', name:'name1', age:20, sex:'male', text:'中国人'},
         {ts:'2022-09-11 09:57:29.753', name:'name2', age:30, sex:'female', text:'苏州人'},
         {ts:'2022-09-11 09:57:30.754', name:'name3', age:null, sex:null, text:null},
         {ts:'2022-09-11 09:57:31.755', name:'name4', age:40, sex:'male', text:'外星人'},
         {ts:'2022-09-11 09:57:32.756', name:'12345', age:50, sex:'female', text:'类地人'},
         {ts:'2022-09-11 09:57:33.757', name:null, age:null, sex:null, text:null},
+        {ts:'2022-09-11 09:57:34.758', name:'54321', age:60, sex:'unknown', text:'测试人'},
     ];
 
     stmt = await conn.createStatement();
@@ -295,7 +302,8 @@ async function case5(conn_str) {
       {
         var cursor = await conn.query('select * from t' , {cursor: true, fetchSize: 4});
         var result = await cursor.fetch();
-        var rows = [result[0], result[1], result[2], result[3], exp[4], exp[5]];
+        var rows = [result[0], result[1], result[2], result[3]];
+        var exp = [exps[0], exps[1], exps[2], exps[3]];
         assert.equal(JSON.stringify(rows), JSON.stringify(exp));
       }
 
@@ -306,7 +314,8 @@ async function case5(conn_str) {
       {
         var cursor = await conn.query('select * from t' , {cursor: true, fetchSize: 5});
         var result = await cursor.fetch();
-        var rows = [result[0], result[1], result[2], result[3], result[4], exp[5]];
+        var rows = [result[0], result[1], result[2], result[3], result[4]];
+        var exp = [exps[0], exps[1], exps[2], exps[3], exps[4]];
         assert.equal(JSON.stringify(rows), JSON.stringify(exp));
       }
 
@@ -318,6 +327,7 @@ async function case5(conn_str) {
         var cursor = await conn.query('select * from t', {cursor: true, fetchSize: 6});
         var result = await cursor.fetch();
         var rows = [result[0], result[1], result[2], result[3], result[4], result[5]];
+        var exp = [exps[0], exps[1], exps[2], exps[3], exps[4], exps[5]];
         assert.equal(JSON.stringify(rows), JSON.stringify(exp));
       }
 
@@ -328,30 +338,37 @@ async function case5(conn_str) {
 
     await stmt.close();
 
-    stmt = await conn.createStatement();
+    if (r == 0) {
+      stmt = await conn.createStatement();
 
-    try {
-      await stmt.prepare('select * from t where text = ?');
-      await stmt.bind(
-        ['苏州人']
-      );
-      result = await stmt.execute();
-      var rows = [result[0]];
-      assert.equal(JSON.stringify(rows), JSON.stringify([exp[1]]));
+      try {
+        await stmt.prepare('select * from t where text = ?');
+        await stmt.bind(
+            ['苏州人']
+            );
+        result = await stmt.execute();
+        {
+          var rows = [result[0]];
+          var exp = [exps[1]];
+          assert.equal(JSON.stringify(rows), JSON.stringify(exp));
+        }
 
-      await stmt.bind(
-        ['中国人']
-      );
-      result = await stmt.execute();
-      var rows = [result[0]];
-      assert.equal(JSON.stringify(rows), JSON.stringify([exp[0]]));
-    } catch (error) {
-      console.error(error);
-      r = -1;
+        await stmt.bind(
+            ['中国人']
+            );
+        result = await stmt.execute();
+        {
+          var rows = [result[0]];
+          var exp = [exps[0]];
+          assert.equal(JSON.stringify(rows), JSON.stringify(exp));
+        }
+      } catch (error) {
+        console.error(error);
+        r = -1;
+      }
+
+      await stmt.close();
     }
-
-    await stmt.close();
-
   } catch (error) {
     console.error(error);
     r = -1;
@@ -445,8 +462,8 @@ async function do_test_cases() {
   assert.equal(await case2('DSN=TAOS_ODBC_DSN'), 0);
   assert.equal(await case3('DSN=TAOS_ODBC_DSN'), 0);
   assert.equal(await case4('DSN=TAOS_ODBC_DSN'), 0);
-  assert.equal(await case5('DSN=TAOS_ODBC_DSN'), 0);
   assert.equal(await case0('DSN=TAOS_ODBC_DSN'), 0);
+  assert.equal(await case5('DSN=TAOS_ODBC_DSN'), 0);
 
   return 0;
 }

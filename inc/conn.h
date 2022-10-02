@@ -23,6 +23,7 @@ struct connection_cfg_s {
   unsigned int           fmt_time:1;
   // NOTE: this is to hack node.odbc, which maps SQL_TINYINT to SQL_C_UTINYINT
   unsigned int           tinyint_to_smallint:1;
+  unsigned int           cache_sql:1;
 };
 
 static inline void connection_cfg_release(connection_cfg_t *conn_str)

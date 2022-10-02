@@ -286,6 +286,9 @@ static void stmt_release(stmt_t *stmt)
   stmt->conn = NULL;
 
   stmt_release_descriptors(stmt);
+
+  TOD_SAFE_FREE(stmt->sql);
+
   errs_release(&stmt->errs);
 
   return;
@@ -1915,10 +1918,8 @@ SQLRETURN stmt_get_data(
   return fill(stmt, TargetValuePtr, BufferLength, StrLen_or_IndPtr);
 }
 
-SQLRETURN stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
+SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
 {
-  OA_NIY(stmt->res == NULL);
-  OA_NIY(stmt->stmt == NULL);
   stmt->stmt = TAOS_stmt_init(stmt->conn->taos);
   if (!stmt->stmt) {
     stmt_append_err(stmt, "HY000", TAOS_errno(NULL), TAOS_errstr(NULL));
@@ -1966,6 +1967,45 @@ SQLRETURN stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
   }
 
   return SQL_SUCCESS;
+}
+
+SQLRETURN stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
+{
+  OA_NIY(stmt->res == NULL);
+  OA_NIY(stmt->stmt == NULL);
+
+  const char *sqlx;
+  size_t n;
+  char *s, *pre;
+
+  if (stmt->conn->cfg.cache_sql) {
+    s = strndup(sql, len);
+    if (!s) {
+      _stmt_malloc_fail(stmt);
+      return SQL_ERROR;
+    }
+    pre = stmt->sql;
+    stmt->sql = s;
+
+    sqlx = s;
+    n = strlen(s);
+  } else {
+    sqlx = sql;
+    n = len;
+  }
+
+  SQLRETURN sr = _stmt_prepare(stmt, sqlx, n);
+
+  if (stmt->conn->cfg.cache_sql) {
+    if (sql_succeeded(sr)) {
+      TOD_SAFE_FREE(pre);
+    } else {
+      stmt->sql = pre;
+      free(s);
+    }
+  }
+
+  return sr;
 }
 
 SQLRETURN stmt_get_num_params(
@@ -2131,15 +2171,25 @@ SQLRETURN stmt_bind_param(
 
   if (ValueType == SQL_C_DEFAULT) {
     switch (ParameterType) {
-      case SQL_INTEGER:     vt = SQL_C_SLONG;      break;
-      case SQL_BIGINT:      vt = SQL_C_SBIGINT;    break;
-      case SQL_VARCHAR:     vt = SQL_C_CHAR;       break;
-      case SQL_WVARCHAR:    vt = SQL_C_WCHAR;      break;
+      case SQL_INTEGER:
+        vt = SQL_C_SLONG;
+        break;
+      case SQL_BIGINT:
+        vt = SQL_C_SBIGINT;
+        break;
+      case SQL_VARCHAR:
+        vt = SQL_C_CHAR;
+        break;
+      case SQL_WVARCHAR:
+        vt = SQL_C_WCHAR;
+        break;
       default:
-                            stmt_append_err_format(stmt, "HY000", 0,
-                                "no default sql_c_data type for `%s[%d]`",
-                                sql_data_type(ParameterType), ParameterType);
-                            return SQL_ERROR;
+        {
+          stmt_append_err_format(stmt, "HY000", 0,
+              "no default sql_c_data type for `%s[%d]`",
+              sql_data_type(ParameterType), ParameterType);
+          return SQL_ERROR;
+        }
     }
   }
 
@@ -2355,7 +2405,7 @@ static SQLRETURN _stmt_bind_param_tsdb(stmt_t *stmt, int i_param)
 
   int r = TAOS_stmt_bind_single_param_batch(stmt->stmt, mb, i_param);
   if (r) {
-    stmt_append_err(stmt, "HY000", r, TAOS_stmt_errstr(stmt->stmt));
+    stmt_append_err_format(stmt, "HY000", r, "Param[#%d,%s] for [%s]: %s", i_param+1, taos_data_type(mb->buffer_type), stmt->sql, TAOS_stmt_errstr(stmt->stmt));
     return SQL_ERROR;
   }
 
@@ -2566,6 +2616,7 @@ static SQLRETURN _stmt_bind_param_with_sql_c_sbigint(stmt_t *stmt, int i_param)
         _stmt_malloc_fail(stmt);
         return SQL_ERROR;
       }
+      value->allocated = 1;
       // check if taosc support data-conversion
       value->is_null             = 0;
       value->length              = n;
@@ -2576,6 +2627,67 @@ static SQLRETURN _stmt_bind_param_with_sql_c_sbigint(stmt_t *stmt, int i_param)
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "converstion to `%s[%d]` from `SQL_C_SBIGINT` not implemented yet",
+          taos_data_type(taos_type), taos_type);
+      return SQL_ERROR;
+  }
+
+  return _stmt_bind_param_tsdb(stmt, i_param);
+}
+
+static SQLRETURN _stmt_bind_param_with_sql_c_double(stmt_t *stmt, int i_param)
+{
+  descriptor_t *APD = stmt_APD(stmt);
+  descriptor_t *IPD = stmt_IPD(stmt);
+
+  desc_record_t *IPD_record = IPD->records + i_param;
+  desc_record_t *APD_record = APD->records + i_param;
+
+  SQLPOINTER    data_base = APD_record->DESC_DATA_PTR;
+  SQLLEN       *len_base  = APD_record->DESC_OCTET_LENGTH_PTR;
+  (void)data_base;
+  (void)len_base;
+
+  double val = *(double*)data_base;
+
+  SQLSMALLINT ParameterType = IPD_record->DESC_TYPE;
+  switch (ParameterType) {
+    case SQL_VARCHAR:
+      break;
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "parameter type of `%s[%d]` not implemented yet",
+          sql_data_type(ParameterType), ParameterType);
+      return SQL_ERROR;
+  }
+
+  TAOS_MULTI_BIND *mb        = stmt->params.mbs    + i_param;
+  param_value_t   *value     = stmt->params.values + i_param;
+
+  char buf[64];
+  int n;
+
+  int taos_type = IPD_record->taos_type;
+  switch (taos_type) {
+    case TSDB_DATA_TYPE_VARCHAR:
+      n = snprintf(buf, sizeof(buf), "%g", val);
+      OA_NIY(n >= 0 && (size_t)n < sizeof(buf));
+      if (value->allocated) TOD_SAFE_FREE(value->ptr);
+      value->ptr = strdup(buf);
+      if (!value->ptr) {
+        _stmt_malloc_fail(stmt);
+        return SQL_ERROR;
+      }
+      value->allocated = 1;
+      // check if taosc support data-conversion
+      value->is_null             = 0;
+      value->length              = n;
+      value->inited              = 1;
+      mb->buffer_type            = taos_type;
+      mb->buffer                 = value->ptr;
+      break;
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "converstion to `%s[%d]` from `SQL_C_DOUBLE` not implemented yet",
           taos_data_type(taos_type), taos_type);
       return SQL_ERROR;
   }
@@ -2698,6 +2810,8 @@ static SQLRETURN _stmt_bind_param(stmt_t *stmt, int i_param)
       return _stmt_bind_param_with_sql_c_slong(stmt, i_param);
     case SQL_C_SBIGINT:
       return _stmt_bind_param_with_sql_c_sbigint(stmt, i_param);
+    case SQL_C_DOUBLE:
+      return _stmt_bind_param_with_sql_c_double(stmt, i_param);
     case SQL_C_CHAR:
       return _stmt_bind_param_with_sql_c_char(stmt, i_param);
     default:

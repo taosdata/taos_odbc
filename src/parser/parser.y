@@ -71,6 +71,10 @@
       if (!param) break;                                             \
       param->conn_str.tinyint_to_smallint = 1;                       \
     } while (0)
+    #define SET_CACHE_SQL() do {                                     \
+      if (!param) break;                                             \
+      param->conn_str.cache_sql = 1;                                 \
+    } while (0)
 }
 
 /* Bison declarations. */
@@ -91,7 +95,7 @@
 %union { parser_token_t token; }
 %union { char c; }
 
-%token DSN UID PWD DRIVER SERVER LEGACY FMT_TIME NODE
+%token DSN UID PWD DRIVER SERVER LEGACY FMT_TIME NODE CACHE_SQL
 %token <token> ID VALUE FQDN DIGITS
 
  /* %nterm <str>   args */ // non-terminal `input` use `str` to store
@@ -134,6 +138,7 @@ attribute:
 | LEGACY                          { SET_LEGACY(); }
 | FMT_TIME                        { SET_FMT_TIME(); }
 | NODE                            { SET_NODE(); }
+| CACHE_SQL                       { SET_CACHE_SQL(); }
 ;
 
 %%

@@ -62,22 +62,23 @@ do {                                              \
 %x FQDN
 %x COLON
 
-SP       [ \t]
-LN       "\r\n"|"\n\r"|[\f\r\n]
-DSN      (?i:dsn)
-UID      (?i:uid)
-PWD      (?i:pwd)
-DRIVER   (?i:driver)
-SERVER   (?i:server)
-LEGACY   (?i:legacy)
-FMT_TIME (?i:fmt_time)
-NODE     (?i:node)
-FQDN     [-[:alnum:]]+((\.[-[:alnum:]]+)+)*(\.)?
-ID       [^\[\]{}(),;?*=!@[:space:]]+
-VALUE    [^\[\]{}(),;?*=!@[:space:]]+
-VALUEX   [^{}[:space:]][^{}]*[^{}[:space:]]
+SP            [ \t]
+LN            "\r\n"|"\n\r"|[\f\r\n]
+DSN           (?i:dsn)
+UID           (?i:uid)
+PWD           (?i:pwd)
+DRIVER        (?i:driver)
+SERVER        (?i:server)
+LEGACY        (?i:legacy)
+FMT_TIME      (?i:fmt_time)
+NODE          (?i:node)
+CACHE_SQL     (?i:cache_sql)
+FQDN          [-[:alnum:]]+((\.[-[:alnum:]]+)+)*(\.)?
+ID            [^\[\]{}(),;?*=!@[:space:]]+
+VALUE         [^\[\]{}(),;?*=!@[:space:]]+
+VALUEX        [^{}[:space:]][^{}]*[^{}[:space:]]
 
-DIGITS   [[:digit:]]+
+DIGITS        [[:digit:]]+
 %%
 
 <<EOF>> { int state = TOP_STATE();
@@ -92,6 +93,7 @@ DIGITS   [[:digit:]]+
 {LEGACY}      { R(); C(); return MKT(LEGACY); }
 {FMT_TIME}    { R(); C(); return MKT(FMT_TIME); }
 {NODE}        { R(); C(); return MKT(NODE); }
+{CACHE_SQL}   { R(); C(); return MKT(NODE); }
 {DIGITS}      { R(); SET_STR(); C(); return MKT(DIGITS); }
 {ID}          { R(); SET_STR(); C(); return MKT(ID); }
 "="           { R(); PUSH(EQ); C(); return *yytext; }

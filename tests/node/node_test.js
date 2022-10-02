@@ -16,25 +16,158 @@ async function connectToDatabase(conn_str) {
 }
 
 async function execute(conn_str, sql) {
+  var r = -1;
+  const conn = await odbc.connect(conn_str);
   try {
-    const conn = await odbc.connect(conn_str);
     const result = await conn.query(sql);
     // console.log(result);
     // const cursor = await conn.query(sql, {cursor: true, fetchSize: 1});
     // const result = await cursor.fetch();
     // console.log(result);
     // await cursor.close();
-    // await conn.close();
-    return 0;
+    r = 0;
   } catch (error) {
     console.error(error);
-    return -1;
   }
+
+  await conn.close();
+  return r;
 }
 
-async function case1(conn_str) {
+function stringify(v) {
+  // NOTE: https://github.com/GoogleChromeLabs/jsbi/issues/30
+  //       `Do not know how to serialize a BigInt`
+  var result = JSON.stringify(v, (key, value) =>
+      typeof value === 'bigint'
+      ? value.toString()
+      : value);
+
+  return result;
+}
+
+function stringify_by_key(v, ks) {
+  var result = JSON.stringify(v, (key, value) =>
+      ks.includes(key)
+      ? value.toString()
+      : value);
+  return result;
+}
+
+async function cursor_collect(cursor, fetch_once) {
+  var rows = [];
+  while (!cursor.noData) {
+    var result = await cursor.fetch();
+    var i = 0;
+    while (result[i]) {
+      rows.push(result[i]);
+      ++i;
+    }
+    if (fetch_once) break;
+  }
+
+  return rows;
+}
+
+async function rs_collect(rs) {
+  var rows = [];
+  var i = 0;
+  while (rs[i]) {
+    rows.push(rs[i]);
+    ++i;
+  }
+
+  return rows;
+}
+
+async function conn_exec_check(conn, sql, fetch_size, exp, fetch_once) {
+  var rows;
+  if (fetch_size > 0) {
+    var cursor = await conn.query(sql, {cursor: true, fetchSize: fetch_size});
+    rows = await cursor_collect(cursor, fetch_once);
+    await cursor.close();
+  } else {
+    var result = await conn.query(sql);
+    rows = await rs_collect(result);
+  }
+  assert.equal(stringify(rows), exp);
+  return 0;
+}
+
+async function conn_ins_check(conn, sql, binds) {
+  var r = -1;
+  const stmt = await conn.createStatement();
+
   try {
-    const conn = await odbc.connect(conn_str);
+    await stmt.prepare(sql);
+    await stmt.bind(binds);
+    await stmt.execute();
+    r = 0;
+  } catch (error) {
+    assert(0, error);
+  }
+
+  await stmt.close();
+
+  return r;
+}
+
+async function stmt_bind_exec_check(stmt, params, result) {
+  var r = -1;
+  try {
+    await stmt.bind(params);
+    var rs = await stmt.execute();
+    if (result && rs) result.push(rs);
+    r = 0;
+  } catch (error) {
+    assert(0, error);
+  }
+
+  return r;
+}
+
+async function conn_prepare_ins_check(conn, sql, params) {
+  var r = -1;
+  var stmt = await conn.createStatement();
+
+  try {
+    await stmt.prepare(sql);
+    r = await stmt_bind_exec_check(stmt, params);
+  } catch (error) {
+    assert(0, error);
+  }
+
+  await stmt.close();
+
+  return r;
+}
+
+async function conn_prepare_exec_check(conn, sql, params, expx) {
+  var r = -1;
+  var stmt = await conn.createStatement();
+
+  try {
+    await stmt.prepare(sql);
+    await stmt.bind(params);
+    var result = await stmt.execute();
+    {
+      var resultx = stringify(result);
+      assert.equal(resultx, expx);
+    }
+    r = 0;
+  } catch (error) {
+    console.error(error);
+  }
+
+  await stmt.close();
+
+  return r;
+}
+
+
+async function case1(conn_str) {
+  var r = -1;
+  const conn = await odbc.connect(conn_str);
+  try {
     await conn.query('show databases');
     await conn.query('drop database if exists foo');
     await conn.query('create database if not exists foo');
@@ -49,63 +182,27 @@ async function case1(conn_str) {
     var exp = [
         {ts:'2022-09-11 09:57:28.752', name:'name1', age:20, sex:'male', text:'中国人'},
         {ts:'2022-09-11 09:57:29.753', name:'name2', age:30, sex:'female', text:'苏州人'},
-        {ts:'2022-09-11 09:57:30.754', name:'name3', age:null, sex:null, text:null}];
-    {
-      var cursor = await conn.query('select * from foo.t' , {cursor: true, fetchSize: 3});
-      var result = await cursor.fetch();
-      await cursor.close();
-      var rows = [result[0], result[1], result[2]];
-      assert.equal(JSON.stringify(rows), JSON.stringify(exp));
-    }
+        {ts:'2022-09-11 09:57:30.754', name:'name3', age:null, sex:null, text:null},
+    ];
 
-    {
-      var result = await conn.query('select * from foo.t');
-      var rows = [result[0], result[1], result[2]];
-      assert.equal(JSON.stringify(rows), JSON.stringify(exp));
-    }
+    assert.equal(await conn_exec_check(conn, 'select * from foo.t', 3, stringify_by_key(exp, [])), 0);
+    assert.equal(await conn_exec_check(conn, 'select * from foo.t', 0, stringify_by_key(exp, [])), 0);
+    assert.equal(await conn_exec_check(conn, 'select * from foo.t', 1, stringify_by_key(exp, [])), 0);
+    assert.equal(await conn_exec_check(conn, 'select * from foo.t', 2, stringify_by_key(exp, [])), 0);
+    assert.equal(await conn_exec_check(conn, 'select * from foo.t', 200, stringify_by_key(exp, [])), 0);
 
-    {
-      var cursor = await conn.query('select * from foo.t' , {cursor: true, fetchSize: 1});
-      var result = await cursor.fetch();
-      assert.equal(JSON.stringify(result[0]), JSON.stringify(exp[0]));
-
-      result = await cursor.fetch();
-      assert.equal(JSON.stringify(result[0]), JSON.stringify(exp[1]));
-
-      result = await cursor.fetch();
-      assert.equal(JSON.stringify(result[0]), JSON.stringify(exp[2]));
-
-      result = await cursor.fetch();
-      assert.equal(result[0], undefined);
-
-      await cursor.close();
-    }
-
-    {
-      var cursor = await conn.query('select * from foo.t' , {cursor: true, fetchSize: 2});
-      var result = await cursor.fetch();
-      assert.equal(JSON.stringify(result[0]), JSON.stringify(exp[0]));
-      assert.equal(JSON.stringify(result[1]), JSON.stringify(exp[1]));
-
-      result = await cursor.fetch();
-      assert.equal(JSON.stringify(result[0]), JSON.stringify(exp[2]));
-
-      result = await cursor.fetch();
-      assert.equal(result[0], undefined);
-
-      await cursor.close();
-    }
-
-    await conn.close();
-    return 0;
+    r = 0;
   } catch (error) {
     console.error(error);
-    return -1;
   }
+
+  await conn.close();
+
+  return r;
 }
 
 async function case2(conn_str) {
-  var r = 0;
+  var r = -1;
   const conn = await odbc.connect(conn_str);
 
   try {
@@ -121,39 +218,20 @@ async function case2(conn_str) {
     await conn.query('insert into t (ts, v) values (1662861450754, 1662871450754)');
     await conn.query('select * from t');
 
-    const stmt = await conn.createStatement();
+    var exp = [
+      {ts:'2022-09-11 09:57:28.752', v:'2022-09-11 12:44:08.752'},
+      {ts:'2022-09-11 09:57:29.753', v:'2022-09-11 12:44:09.753'},
+      {ts:'2022-09-11 09:57:30.754', v:'2022-09-11 12:44:10.754'},
+      {ts:'2022-09-11 09:57:31.755', v:'2022-09-11 12:44:11.755'},
+    ];
 
-    try {
-      await stmt.prepare('insert into t values (?, ?)');
-      await stmt.bind(
-        [1662861451755, 1662871451755]
-      );
-      const result = await stmt.execute();
-    } catch (error) {
-      console.error(error);
-      r = -1;
-    }
+    assert.equal(await conn_ins_check(conn, 'insert into t values (?, ?)', [1662861451755, 1662871451755], []), 0);
+    assert.equal(await conn_exec_check(conn, 'select v from t where ts = 1662861451755', 0, stringify_by_key([{v:'2022-09-11 12:44:11.755'}], [])), 0);
+    assert.equal(await conn_exec_check(conn, 'select * from t', 4, stringify_by_key(exp, [])), 0);
 
-    await stmt.close();
-
-    if (r == 0) {
-      var exp = [
-          {ts:'2022-09-11 09:57:28.752', v:'2022-09-11 12:44:08.752'},
-          {ts:'2022-09-11 09:57:29.753', v:'2022-09-11 12:44:09.753'},
-          {ts:'2022-09-11 09:57:30.754', v:'2022-09-11 12:44:10.754'},
-          {ts:'2022-09-11 09:57:31.755', v:'2022-09-11 12:44:11.755'},
-      ];
-      {
-        var cursor = await conn.query('select * from t' , {cursor: true, fetchSize: 5});
-        var result = await cursor.fetch();
-        await cursor.close();
-        var rows = [result[0], result[1], result[2], result[3]];
-        assert.equal(JSON.stringify(rows), JSON.stringify(exp));
-      }
-    }
+    r = 0;
   } catch (error) {
     console.error(error);
-    r = -1;
   }
 
   await conn.close();
@@ -161,7 +239,7 @@ async function case2(conn_str) {
 }
 
 async function case3(conn_str) {
-  var r = 0;
+  var r = -1;
   const conn = await odbc.connect(conn_str);
 
   try {
@@ -177,39 +255,19 @@ async function case3(conn_str) {
     await conn.query('insert into t (ts, v) values (1662861450754, "name3")');
     await conn.query('select * from t');
 
-    const stmt = await conn.createStatement();
+    var exp = [
+      {ts:'2022-09-11 09:57:28.752', v:'name1'},
+      {ts:'2022-09-11 09:57:29.753', v:'name2'},
+      {ts:'2022-09-11 09:57:30.754', v:'name3'},
+      {ts:'2022-09-11 09:57:31.755', v:'name4'},
+    ];
 
-    try {
-      await stmt.prepare('insert into t values (?, ?)');
-      await stmt.bind(
-        [1662861451755, 'name4']
-      );
-      const result = await stmt.execute();
-    } catch (error) {
-      console.error(error);
-      r = -1;
-    }
+    assert.equal(await conn_prepare_ins_check(conn, 'insert into t values(?, ?)', [1662861451755, 'name4']), 0);
+    assert.equal(await conn_exec_check(conn, 'select * from t', 5, stringify_by_key(exp, [])), 0);
 
-    await stmt.close();
-
-    if (r == 0) {
-      var exp = [
-          {ts:'2022-09-11 09:57:28.752', v:'name1'},
-          {ts:'2022-09-11 09:57:29.753', v:'name2'},
-          {ts:'2022-09-11 09:57:30.754', v:'name3'},
-          {ts:'2022-09-11 09:57:31.755', v:'name4'},
-      ];
-      {
-        var cursor = await conn.query('select * from t' , {cursor: true, fetchSize: 5});
-        var result = await cursor.fetch();
-        await cursor.close();
-        var rows = [result[0], result[1], result[2], result[3]];
-        assert.equal(JSON.stringify(rows), JSON.stringify(exp));
-      }
-    }
+    r = 0;
   } catch (error) {
-    console.error(error);
-    r = -1;
+    assert(0, error);
   }
 
   await conn.close();
@@ -217,7 +275,7 @@ async function case3(conn_str) {
 }
 
 async function case4(conn_str) {
-  var r = 0;
+  var r = -1;
   const conn = await odbc.connect(conn_str);
 
   try {
@@ -233,39 +291,18 @@ async function case4(conn_str) {
     await conn.query('insert into t (ts, v) values (1662861450754, 3)');
     await conn.query('select * from t');
 
-    const stmt = await conn.createStatement();
-
-    try {
-      await stmt.prepare('insert into t values (?, ?)');
-      await stmt.bind(
-        [1662861451755, 4]
-      );
-      const result = await stmt.execute();
-    } catch (error) {
-      console.error(error);
-      r = -1;
-    }
-
-    await stmt.close();
-
-    if (r == 0) {
-      var exp = [
+    var exp = [
       {ts:'2022-09-11 09:57:28.752', v:1},
       {ts:'2022-09-11 09:57:29.753', v:2},
       {ts:'2022-09-11 09:57:30.754', v:3},
       {ts:'2022-09-11 09:57:31.755', v:4},
-      ];
-      {
-        var cursor = await conn.query('select * from t' , {cursor: true, fetchSize: 5});
-        var result = await cursor.fetch();
-        await cursor.close();
-        var rows = [result[0], result[1], result[2], result[3]];
-        assert.equal(JSON.stringify(rows), JSON.stringify(exp));
-      }
-    }
+    ];
+    assert.equal(await conn_prepare_ins_check(conn, 'insert into t values(?, ?)', [1662861451755, 4]), 0);
+    assert.equal(await conn_exec_check(conn, 'select * from t', 5, stringify_by_key(exp, [])), 0);
+
+    r = 0;
   } catch (error) {
     console.error(error);
-    r = -1;
   }
 
   await conn.close();
@@ -273,7 +310,7 @@ async function case4(conn_str) {
 }
 
 async function case5(conn_str) {
-  var r = 0;
+  var r = -1;
   const conn = await odbc.connect(conn_str);
 
   try {
@@ -303,86 +340,56 @@ async function case5(conn_str) {
 
     try {
       await stmt.prepare('insert into t values (?,?,?,?,?)');
-      await stmt.bind(
-        [1662861451755, 'name4', 40, 'male', '外星人'],
-      );
-      result = await stmt.execute();
-      {
-        var cursor = await conn.query('select * from t' , {cursor: true, fetchSize: 4});
-        var result = await cursor.fetch();
-        await cursor.close();
-        var rows = [result[0], result[1], result[2], result[3]];
-        var exp = [exps[0], exps[1], exps[2], exps[3]];
-        assert.equal(JSON.stringify(rows), JSON.stringify(exp));
-      }
+      assert.equal(await stmt_bind_exec_check(stmt, [1662861451755, 'name4', 40, 'male', '外星人']), 0);
+      assert.equal(await conn_exec_check(conn, 'select * from t', 4, stringify_by_key([exps[0],exps[1],exps[2],exps[3]], []), 1), 0);
+      assert.equal(await stmt_bind_exec_check(stmt, ['1662861452756', '12345', 50, 'female', '类地人']), 0);
+      assert.equal(await conn_exec_check(conn, 'select * from t', 5, stringify_by_key([exps[0],exps[1],exps[2],exps[3],exps[4]], []), 1), 0);
+      assert.equal(await stmt_bind_exec_check(stmt, ['1662861453757', null, null, null, null]), 0);
+      assert.equal(await conn_exec_check(conn, 'select * from t', 6, stringify_by_key([exps[0],exps[1],exps[2],exps[3],exps[4],exps[5]], []), 1), 0);
 
-      await stmt.bind(
-        ['1662861452756', '12345', 50, 'female', '类地人'],
-      );
-      result = await stmt.execute();
-      {
-        var cursor = await conn.query('select * from t' , {cursor: true, fetchSize: 5});
-        var result = await cursor.fetch();
-        await cursor.close();
-        var rows = [result[0], result[1], result[2], result[3], result[4]];
-        var exp = [exps[0], exps[1], exps[2], exps[3], exps[4]];
-        assert.equal(JSON.stringify(rows), JSON.stringify(exp));
-      }
-
-      await stmt.bind(
-        ['1662861453757', null, null, null, null],
-      );
-      result = await stmt.execute();
-      {
-        var cursor = await conn.query('select * from t', {cursor: true, fetchSize: 6});
-        var result = await cursor.fetch();
-        await cursor.close();
-        var rows = [result[0], result[1], result[2], result[3], result[4], result[5]];
-        var exp = [exps[0], exps[1], exps[2], exps[3], exps[4], exps[5]];
-        assert.equal(JSON.stringify(rows), JSON.stringify(exp));
-      }
-
+      r = 0;
     } catch (error) {
-      console.error(error);
-      r = -1;
+      assert(0, error);
     }
 
     await stmt.close();
 
     if (r == 0) {
+      r = -1;
       stmt = await conn.createStatement();
 
       try {
         await stmt.prepare('select * from t where text = ?');
-        await stmt.bind(
-            ['苏州人']
-            );
-        result = await stmt.execute();
+
+        var rs = [];
+        assert.equal(await stmt_bind_exec_check(stmt, ['苏州人'], rs), 0);
+        result = rs[0];
         {
           var rows = [result[0]];
           var exp = [exps[1]];
-          assert.equal(JSON.stringify(rows), JSON.stringify(exp));
+          assert.equal(stringify(rows), stringify_by_key(exp, []));
         }
 
-        await stmt.bind(
-            ['中国人']
-            );
-        result = await stmt.execute();
+        // TODO: seems like memory leakage here!!!
+        //       need to check with raw-c-test-case
+        rs = [];
+        assert.equal(await stmt_bind_exec_check(stmt, ['中国人'], rs), 0);
+        result = rs[0];
         {
           var rows = [result[0]];
           var exp = [exps[0]];
-          assert.equal(JSON.stringify(rows), JSON.stringify(exp));
+          assert.equal(stringify(rows), stringify_by_key(exp, []));
         }
+        r = 0;
       } catch (error) {
-        console.error(error);
-        r = -1;
+        assert(0, error);
       }
 
       await stmt.close();
+      r = 0;
     }
   } catch (error) {
-    console.error(error);
-    r = -1;
+    assert(0, error);
   }
 
   await conn.close();
@@ -402,119 +409,56 @@ async function case6(conn_str) {
     await conn.query('create table if not exists t (ts timestamp, name varchar(5), age int, sex varchar(8), text nchar(3), bi bigint, f float, d double, bin binary(10), si smallint, ti tinyint, b bool)');
     // FIXME: why `binary` maps to `TSDB_DATA_TYPE_VARCHAR` rather than `TSDB_DATA_TYPE_VARBINARY`
     //        check with 'desc foo.t' in taos shell
-    await conn.query('select * from t');
+    // FIXME: bigint, smallint, tinyint seemly results in memory leakage
+    // await conn.query('select * from t');
+    // await conn.query('select ts, name, age, sex, text, bi, f, d, bin, si, ti, b from t');
     await conn.query('insert into t (ts, name, age, sex, text, bi, f, d, bin, si, ti, b) values (1662861448752, "name1", 20, "male", "中国人", 1234567890123, 1.23, 3.45, "def", -32767, -127, 1)');
-    // await conn.query('insert into t (ts, name, age, sex, text) values (1662861449753, "name2", 30, "female", "苏州人")');
-    // await conn.query('insert into t (ts, name, age, sex, text) values (1662861450754, "name3", null, null, null)');
+    // // await conn.query('insert into t (ts, name, age, sex, text) values (1662861449753, "name2", 30, "female", "苏州人")');
+    // // await conn.query('insert into t (ts, name, age, sex, text) values (1662861450754, "name3", null, null, null)');
     var result = await conn.query('select * from t');
     var exp = [
       {ts:'2022-09-11 09:57:28.752', name:'name1', age:20, sex:'male', text:'中国人', bi:1234567890123, f:1.23, d:3.45, bin:'def', si:-32767, ti:-127, b:1},
     ];
+    var expx = stringify_by_key(exp, ['bi', 'b']);
     // NOTE: https://github.com/GoogleChromeLabs/jsbi/issues/30
     //       `Do not know how to serialize a BigInt`
-    var resultx = JSON.stringify(result, (key, value) =>
-            typeof value === 'bigint'
-                ? value.toString()
-                : value)
-    var expx = JSON.stringify(exp, (key, value) =>
-            key === 'bi'
-                ? value.toString()
-                : key === 'b'
-                      ? value.toString()
-                      : value);
+    var resultx = stringify(result);
     assert.equal(resultx, expx);
 
-    // var exps = [
-    //     {ts:'2022-09-11 09:57:28.752', name:'name1', age:20, sex:'male', text:'中国人'},
-    //     {ts:'2022-09-11 09:57:29.753', name:'name2', age:30, sex:'female', text:'苏州人'},
-    //     {ts:'2022-09-11 09:57:30.754', name:'name3', age:null, sex:null, text:null},
-    //     {ts:'2022-09-11 09:57:31.755', name:'name4', age:40, sex:'male', text:'外星人'},
-    //     {ts:'2022-09-11 09:57:32.756', name:'12345', age:50, sex:'female', text:'类地人'},
-    //     {ts:'2022-09-11 09:57:33.757', name:null, age:null, sex:null, text:null},
-    //     {ts:'2022-09-11 09:57:34.758', name:'54321', age:60, sex:'unknown', text:'测试人'},
-    // ];
+    var exps = [
+        {ts:'2022-09-11 09:57:28.752', name:'name1', age:20, sex:'male', text:'中国人'},
+        {ts:'2022-09-11 09:57:29.753', name:'name2', age:30, sex:'female', text:'苏州人'},
+        {ts:'2022-09-11 09:57:30.754', name:'name3', age:null, sex:null, text:null},
+        {ts:'2022-09-11 09:57:31.755', name:'name4', age:40, sex:'male', text:'外星人'},
+        {ts:'2022-09-11 09:57:32.756', name:'12345', age:50, sex:'female', text:'类地人'},
+        {ts:'2022-09-11 09:57:33.757', name:null, age:null, sex:null, text:null},
+        {ts:'2022-09-11 09:57:34.758', name:'54321', age:60, sex:'unknown', text:'测试人'},
+    ];
 
-    // stmt = await conn.createStatement();
+    // NOTE: taosc: because there's no param-meta info for non-insert-statement
+    //       taos_odbc has to fall-back to TSDB_DATA_TYPE_VARCHAR/SQL_VARCHAR pair in SQLDescribeParam,
+    //       and returns SQL_VARCHAR to application, such as node.odbc
+    assert.equal(await conn_prepare_exec_check(conn, 'select * from foo.t where name = ?', ['name1'], expx), 0);
+    assert.equal(await conn_prepare_exec_check(conn, 'select * from foo.t where age = ?', [20], expx), 0);
+    assert.equal(await conn_prepare_exec_check(conn, 'select * from foo.t where age = ?', ['20'], expx), 0);
+    assert.equal(await conn_prepare_exec_check(conn, 'select * from foo.t where text = ?', ['中国人'], expx), 0);
+    assert.equal(await conn_prepare_exec_check(conn, 'select * from foo.t where bi = ?', [1234567890123], expx), 0);
+    assert.equal(await conn_prepare_exec_check(conn, 'select * from foo.t where bi = ?', ['1234567890123'], expx), 0);
+    assert.equal(await conn_prepare_exec_check(conn, 'select * from foo.t where f = ?', [1.23], expx), 0);
+    assert.equal(await conn_prepare_exec_check(conn, 'select * from foo.t where f = ?', ['1.23'], expx), 0);
+    assert.equal(await conn_prepare_exec_check(conn, 'select * from foo.t where d = ?', [3.45], expx), 0);
+    assert.equal(await conn_prepare_exec_check(conn, 'select * from foo.t where d = ?', ['3.45'], expx), 0);
+    assert.equal(await conn_prepare_exec_check(conn, 'select * from foo.t where d = ?', [3.45e+0], expx), 0);
+    assert.equal(await conn_prepare_exec_check(conn, 'select * from foo.t where d = ?', ['3.45e+0'], expx), 0);
+    assert.equal(await conn_prepare_exec_check(conn, 'select * from foo.t where d = ?', [345e-2], expx), 0);
+    assert.equal(await conn_prepare_exec_check(conn, 'select * from foo.t where d = ?', ['345e-2'], expx), 0);
+    // taosc: this would fail `Invalid timestamp format`
+    assert.equal(await conn_prepare_exec_check(conn, 'select * from foo.t where ts = ?', ['1662861448752'], expx), -1);
+    // taosc: this would fail `Invalid timestamp format`
+    assert.equal(await conn_prepare_exec_check(conn, 'select * from foo.t where ts = ?', [1662861448752], expx), -1);
+    // taosc: but this goes as expected
+    assert.equal(await conn_prepare_exec_check(conn, 'select * from foo.t where ts = ?', ['2022-09-11 09:57:28.752'], expx), 0);
 
-    // try {
-    //   await stmt.prepare('insert into t values (?,?,?,?,?)');
-    //   await stmt.bind(
-    //     [1662861451755, 'name4', 40, 'male', '外星人'],
-    //   );
-    //   result = await stmt.execute();
-    //   {
-    //     var cursor = await conn.query('select * from t' , {cursor: true, fetchSize: 4});
-    //     var result = await cursor.fetch();
-    //     await cursor.close();
-    //     var rows = [result[0], result[1], result[2], result[3]];
-    //     var exp = [exps[0], exps[1], exps[2], exps[3]];
-    //     assert.equal(JSON.stringify(rows), JSON.stringify(exp));
-    //   }
-
-    //   await stmt.bind(
-    //     ['1662861452756', '12345', 50, 'female', '类地人'],
-    //   );
-    //   result = await stmt.execute();
-    //   {
-    //     var cursor = await conn.query('select * from t' , {cursor: true, fetchSize: 5});
-    //     var result = await cursor.fetch();
-    //     await cursor.close();
-    //     var rows = [result[0], result[1], result[2], result[3], result[4]];
-    //     var exp = [exps[0], exps[1], exps[2], exps[3], exps[4]];
-    //     assert.equal(JSON.stringify(rows), JSON.stringify(exp));
-    //   }
-
-    //   await stmt.bind(
-    //     ['1662861453757', null, null, null, null],
-    //   );
-    //   result = await stmt.execute();
-    //   {
-    //     var cursor = await conn.query('select * from t', {cursor: true, fetchSize: 6});
-    //     var result = await cursor.fetch();
-    //     await cursor.close();
-    //     var rows = [result[0], result[1], result[2], result[3], result[4], result[5]];
-    //     var exp = [exps[0], exps[1], exps[2], exps[3], exps[4], exps[5]];
-    //     assert.equal(JSON.stringify(rows), JSON.stringify(exp));
-    //   }
-
-    // } catch (error) {
-    //   console.error(error);
-    //   r = -1;
-    // }
-
-    // await stmt.close();
-
-    // if (r == 0) {
-    //   stmt = await conn.createStatement();
-
-    //   try {
-    //     await stmt.prepare('select * from t where text = ?');
-    //     await stmt.bind(
-    //         ['苏州人']
-    //         );
-    //     result = await stmt.execute();
-    //     {
-    //       var rows = [result[0]];
-    //       var exp = [exps[1]];
-    //       assert.equal(JSON.stringify(rows), JSON.stringify(exp));
-    //     }
-
-    //     await stmt.bind(
-    //         ['中国人']
-    //         );
-    //     result = await stmt.execute();
-    //     {
-    //       var rows = [result[0]];
-    //       var exp = [exps[0]];
-    //       assert.equal(JSON.stringify(rows), JSON.stringify(exp));
-    //     }
-    //   } catch (error) {
-    //     console.error(error);
-    //     r = -1;
-    //   }
-
-    //   await stmt.close();
-    // }
   } catch (error) {
     console.error(error);
     r = -1;
@@ -525,8 +469,9 @@ async function case6(conn_str) {
 }
 
 async function case0(conn_str) {
+  var r = -1;
+  const conn = await odbc.connect(conn_str);
   try {
-    const conn = await odbc.connect(conn_str);
     await conn.query('show databases');
     await conn.query('drop database if exists foo');
     await conn.query('create database if not exists foo');
@@ -542,79 +487,33 @@ async function case0(conn_str) {
         {ts:'2022-09-11 09:57:28.752', name:'name1', age:20, sex:'male', text:'中国人'},
         {ts:'2022-09-11 09:57:29.753', name:'name2', age:30, sex:'female', text:'苏州人'},
         {ts:'2022-09-11 09:57:30.754', name:'name3', age:null, sex:null, text:null}];
-    {
-      var cursor = await conn.query('select * from foo.t where name="name1"' , {cursor: true, fetchSize: 1});
-      var result = await cursor.fetch();
-      await cursor.close();
-      var rows = [result[0]];
-      assert.equal(JSON.stringify(rows), JSON.stringify([exp[0]]));
-    }
-    {
-      var cursor = await conn.query('select * from foo.t' , {cursor: true, fetchSize: 3});
-      var result = await cursor.fetch();
-      await cursor.close();
-      var rows = [result[0], result[1], result[2]];
-      assert.equal(JSON.stringify(rows), JSON.stringify(exp));
-    }
+    assert.equal(await conn_exec_check(conn, 'select * from foo.t', 1, stringify_by_key([exp[0]], []), 1), 0);
+    assert.equal(await conn_exec_check(conn, 'select * from foo.t', 3, stringify_by_key(exp, []), 1), 0);
+    assert.equal(await conn_exec_check(conn, 'select * from foo.t', 0, stringify_by_key(exp, [])), 0);
+    assert.equal(await conn_exec_check(conn, 'select * from foo.t', 2, stringify_by_key([exp[0],exp[1]], []), 1), 0);
 
-    {
-      var result = await conn.query('select * from foo.t');
-      var rows = [result[0], result[1], result[2]];
-      assert.equal(JSON.stringify(rows), JSON.stringify(exp));
-    }
-
-    {
-      var cursor = await conn.query('select * from foo.t' , {cursor: true, fetchSize: 1});
-      var result = await cursor.fetch();
-      assert.equal(JSON.stringify(result[0]), JSON.stringify(exp[0]));
-
-      result = await cursor.fetch();
-      assert.equal(JSON.stringify(result[0]), JSON.stringify(exp[1]));
-
-      result = await cursor.fetch();
-      assert.equal(JSON.stringify(result[0]), JSON.stringify(exp[2]));
-
-      result = await cursor.fetch();
-      await cursor.close();
-      assert.equal(result[0], undefined);
-    }
-
-    {
-      var cursor = await conn.query('select * from foo.t' , {cursor: true, fetchSize: 2});
-      var result = await cursor.fetch();
-      assert.equal(JSON.stringify(result[0]), JSON.stringify(exp[0]));
-      assert.equal(JSON.stringify(result[1]), JSON.stringify(exp[1]));
-
-      result = await cursor.fetch();
-      assert.equal(JSON.stringify(result[0]), JSON.stringify(exp[2]));
-
-      result = await cursor.fetch();
-      await cursor.close();
-      assert.equal(result[0], undefined);
-    }
-
-    await conn.close();
-    return 0;
+    r = 0;
   } catch (error) {
-    console.error(error);
-    return -1;
+    assert(0, error);
   }
+  await conn.close();
+  return r;
 }
 
 async function do_test_cases() {
-  assert.equal(await connectToDatabase('DSN=xTAOS_ODBC_DSN;NODE'),-1);
-  assert.equal(await connectToDatabase('DSN=TAOS_ODBC_DSN;NODE'),0);
-  assert.equal(await execute('DSN=TAOS_ODBC_DSN', 'show databases;NODE'),0);
-  // assert.equal(await execute('DSN=TAOS_ODBC_DSN', 'select ts, name from foo.t;NODE'),0);
-  // assert.equal(await execute('DSN=TAOS_ODBC_DSN; LEGACY', 'select * from foo.t;NODE'),-1);
-  assert.equal(await execute('DSN=TAOS_ODBC_DSN', 'xshow databases;NODE'),-1);
-  assert.equal(await case1('DSN=TAOS_ODBC_DSN;NODE'),0);
-  assert.equal(await case2('DSN=TAOS_ODBC_DSN;NODE'),0);
-  assert.equal(await case3('DSN=TAOS_ODBC_DSN;NODE'),0);
-  assert.equal(await case4('DSN=TAOS_ODBC_DSN;NODE'),0);
-  assert.equal(await case0('DSN=TAOS_ODBC_DSN;NODE'),0);
-  assert.equal(await case5('DSN=TAOS_ODBC_DSN;NODE'),0);
-  assert.equal(await case6('DSN=TAOS_ODBC_DSN;NODE'),0);
+  assert.equal(await connectToDatabase('DSN=xTAOS_ODBC_DSN;NODE;CACHE_SQL'),-1);
+  assert.equal(await connectToDatabase('DSN=TAOS_ODBC_DSN;NODE;CACHE_SQL'),0);
+  assert.equal(await execute('DSN=TAOS_ODBC_DSN', 'show databases'),0);
+  // // assert.equal(await execute('DSN=TAOS_ODBC_DSN', 'select ts, name from foo.t'),0);
+  // // assert.equal(await execute('DSN=TAOS_ODBC_DSN; LEGACY', 'select * from foo.t'),-1);
+  assert.equal(await execute('DSN=TAOS_ODBC_DSN', 'xshow databases'),-1);
+  assert.equal(await case1('DSN=TAOS_ODBC_DSN;NODE;CACHE_SQL'),0);
+  assert.equal(await case2('DSN=TAOS_ODBC_DSN;NODE;CACHE_SQL'),0);
+  assert.equal(await case3('DSN=TAOS_ODBC_DSN;NODE;CACHE_SQL'),0);
+  assert.equal(await case4('DSN=TAOS_ODBC_DSN;NODE;CACHE_SQL'),0);
+  assert.equal(await case0('DSN=TAOS_ODBC_DSN;NODE;CACHE_SQL'),0);
+  assert.equal(await case5('DSN=TAOS_ODBC_DSN;NODE;CACHE_SQL'),0);
+  assert.equal(await case6('DSN=TAOS_ODBC_DSN;NODE;CACHE_SQL'),0);
 
   return 0;
 }

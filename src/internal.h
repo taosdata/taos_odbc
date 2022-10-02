@@ -328,6 +328,8 @@ struct stmt_s {
   stmt_attrs_t               attrs;
   col_t                      current_for_get_data;
 
+  char                      *sql;
+
   TAOS_STMT                 *stmt;
   int                        nr_params;
   params_t                   params;

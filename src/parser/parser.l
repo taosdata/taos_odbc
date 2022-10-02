@@ -71,6 +71,7 @@ DRIVER   (?i:driver)
 SERVER   (?i:server)
 LEGACY   (?i:legacy)
 FMT_TIME (?i:fmt_time)
+NODE     (?i:node)
 FQDN     [-[:alnum:]]+((\.[-[:alnum:]]+)+)*(\.)?
 ID       [^\[\]{}(),;?*=!@[:space:]]+
 VALUE    [^\[\]{}(),;?*=!@[:space:]]+
@@ -90,6 +91,7 @@ DIGITS   [[:digit:]]+
 {SERVER}      { R(); PUSH(SERVER); C(); return MKT(SERVER); }
 {LEGACY}      { R(); C(); return MKT(LEGACY); }
 {FMT_TIME}    { R(); C(); return MKT(FMT_TIME); }
+{NODE}        { R(); C(); return MKT(NODE); }
 {DIGITS}      { R(); SET_STR(); C(); return MKT(DIGITS); }
 {ID}          { R(); SET_STR(); C(); return MKT(ID); }
 "="           { R(); PUSH(EQ); C(); return *yytext; }

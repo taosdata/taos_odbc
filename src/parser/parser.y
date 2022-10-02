@@ -67,6 +67,10 @@
       if (!param) break;                                             \
       param->conn_str.fmt_time = 1;                                  \
     } while (0)
+    #define SET_NODE() do {                                          \
+      if (!param) break;                                             \
+      param->conn_str.tinyint_to_smallint = 1;                       \
+    } while (0)
 }
 
 /* Bison declarations. */
@@ -87,7 +91,7 @@
 %union { parser_token_t token; }
 %union { char c; }
 
-%token DSN UID PWD DRIVER SERVER LEGACY FMT_TIME
+%token DSN UID PWD DRIVER SERVER LEGACY FMT_TIME NODE
 %token <token> ID VALUE FQDN DIGITS
 
  /* %nterm <str>   args */ // non-terminal `input` use `str` to store
@@ -129,6 +133,7 @@ attribute:
 | SERVER '=' FQDN ':' DIGITS      { SET_FQDN_PORT($3, $5); }
 | LEGACY                          { SET_LEGACY(); }
 | FMT_TIME                        { SET_FMT_TIME(); }
+| NODE                            { SET_NODE(); }
 ;
 
 %%

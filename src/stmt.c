@@ -581,7 +581,13 @@ SQLRETURN stmt_describe_col(stmt_t *stmt,
   if (NullablePtr) *NullablePtr = SQL_NULLABLE_UNKNOWN;
   switch (p->type) {
     case TSDB_DATA_TYPE_TINYINT:
-      if (DataTypePtr)      *DataTypePtr   = SQL_TINYINT;
+      if (DataTypePtr) {
+        if (stmt->conn->cfg.tinyint_to_smallint) {
+          *DataTypePtr   = SQL_SMALLINT;
+        } else {
+          *DataTypePtr   = SQL_TINYINT;
+        }
+      }
       if (ColumnSizePtr)    *ColumnSizePtr = 3;
       break;
     case TSDB_DATA_TYPE_SMALLINT:
@@ -622,6 +628,10 @@ SQLRETURN stmt_describe_col(stmt_t *stmt,
     case TSDB_DATA_TYPE_NCHAR:
       if (DataTypePtr)      *DataTypePtr   = SQL_WVARCHAR;
       if (ColumnSizePtr)    *ColumnSizePtr = p->bytes;
+      break;
+    case TSDB_DATA_TYPE_BOOL:
+      if (DataTypePtr)      *DataTypePtr   = SQL_BIT;
+      if (ColumnSizePtr)    *ColumnSizePtr = 1;
       break;
     default:
       OA(0, "`%s[%d]` for Column `%s[#%d]` not implemented yet", taos_data_type(p->type), p->type, p->name, ColumnNumber);
@@ -807,6 +817,14 @@ SQLRETURN stmt_bind_col(stmt_t *stmt,
       record->DESC_CONCISE_TYPE      = TargetType;
       record->element_size_in_column_wise = record->DESC_LENGTH;
       break;
+    case SQL_C_SBIGINT:
+      record->DESC_LENGTH            = 8;
+      record->DESC_PRECISION         = 0;
+      record->DESC_SCALE             = 0;
+      record->DESC_TYPE              = TargetType;
+      record->DESC_CONCISE_TYPE      = TargetType;
+      record->element_size_in_column_wise = record->DESC_LENGTH;
+      break;
     case SQL_C_DOUBLE:
       record->DESC_LENGTH            = 8;
       record->DESC_PRECISION         = 0;
@@ -853,6 +871,16 @@ static SQLRETURN _stmt_get_data_len(stmt_t *stmt, int row, int col, const char *
 {
   TAOS_FIELD *field = stmt->fields + col;
   switch(field->type) {
+    case TSDB_DATA_TYPE_BOOL:
+      if (TAOS_is_null(stmt->res, row, col)) {
+        *data = NULL;
+        *len = 0;
+      } else {
+        unsigned char *base = (unsigned char*)stmt->rows[col];
+        base += row;
+        *data = (const char*)base;
+        *len = sizeof(*base);
+      } break;
     case TSDB_DATA_TYPE_TINYINT:
       if (TAOS_is_null(stmt->res, row, col)) {
         *data = NULL;
@@ -959,6 +987,97 @@ static SQLRETURN _stmt_get_data_len(stmt_t *stmt, int row, int col, const char *
   return SQL_SUCCESS;
 }
 
+static int _stmt_bind_conv_tsdb_tinyint_to_sql_c_utinyint(stmt_t *stmt, const char *data, int len, char *dest, int dlen)
+{
+  (void)stmt;
+
+  OA_NIY(len == sizeof(int8_t));
+
+  int8_t v = *(int8_t*)data;
+
+  OD("v: [%d]", v);
+
+  size_t outbytes = dlen;
+  OA_NIY(outbytes == sizeof(int8_t));
+
+  // FIXME: check signness?
+  *(int8_t*)dest = v;
+
+  return outbytes;
+}
+
+static SQLRETURN _stmt_get_conv_to_sql_c_utinyint(stmt_t *stmt, tsdb_to_sql_c_f *conv, int taos_type)
+{
+  (void)conv;
+  switch (taos_type) {
+    case TSDB_DATA_TYPE_TINYINT:
+      *conv = _stmt_bind_conv_tsdb_tinyint_to_sql_c_utinyint;
+      break;
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "converstion from `%s[%d]` to `SQL_C_UTINYINT` not implemented yet",
+          taos_data_type(taos_type), taos_type);
+      return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
+}
+
+static int _stmt_bind_conv_tsdb_tinyint_to_sql_c_short(stmt_t *stmt, const char *data, int len, char *dest, int dlen)
+{
+  (void)stmt;
+
+  OA_NIY(len == sizeof(int8_t));
+
+  int8_t v = *(int8_t*)data;
+
+  OD("v: [%d]", v);
+
+  size_t outbytes = dlen;
+  OA_NIY(outbytes == sizeof(int16_t));
+
+  *(int16_t*)dest = v;
+
+  return outbytes;
+}
+
+static int _stmt_bind_conv_tsdb_smallint_to_sql_c_short(stmt_t *stmt, const char *data, int len, char *dest, int dlen)
+{
+  (void)stmt;
+
+  OA_NIY(len == sizeof(int16_t));
+
+  int16_t v = *(int16_t*)data;
+
+  OD("v: [%d]", v);
+
+  size_t outbytes = dlen;
+  OA_NIY(outbytes == sizeof(int16_t));
+
+  *(int16_t*)dest = v;
+
+  return outbytes;
+}
+
+static SQLRETURN _stmt_get_conv_to_sql_c_short(stmt_t *stmt, tsdb_to_sql_c_f *conv, int taos_type)
+{
+  switch (taos_type) {
+    case TSDB_DATA_TYPE_TINYINT:
+      *conv = _stmt_bind_conv_tsdb_tinyint_to_sql_c_short;
+      break;
+    case TSDB_DATA_TYPE_SMALLINT:
+      *conv = _stmt_bind_conv_tsdb_smallint_to_sql_c_short;
+      break;
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "converstion from `%s[%d]` to `SQL_C_SHORT` not implemented yet",
+          taos_data_type(taos_type), taos_type);
+      return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
+}
+
 static int _stmt_bind_conv_tsdb_int_to_sql_c_slong(stmt_t *stmt, const char *data, int len, char *dest, int dlen)
 {
   (void)stmt;
@@ -986,6 +1105,40 @@ static SQLRETURN _stmt_get_conv_to_sql_c_slong(stmt_t *stmt, tsdb_to_sql_c_f *co
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "converstion from `%s[%d]` to `SQL_C_SLONG` not implemented yet",
+          taos_data_type(taos_type), taos_type);
+      return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
+}
+
+static int _stmt_bind_conv_tsdb_bigint_to_sql_c_sbigint(stmt_t *stmt, const char *data, int len, char *dest, int dlen)
+{
+  (void)stmt;
+
+  OA_NIY(len == sizeof(int64_t));
+
+  int64_t v = *(int64_t*)data;
+
+  OD("v: [%ld]", v);
+
+  size_t outbytes = dlen;
+  OA_NIY(outbytes == sizeof(int64_t));
+
+  *(int64_t*)dest = v;
+
+  return outbytes;
+}
+
+static SQLRETURN _stmt_get_conv_to_sql_c_sbigint(stmt_t *stmt, tsdb_to_sql_c_f *conv, int taos_type)
+{
+  switch (taos_type) {
+    case TSDB_DATA_TYPE_BIGINT:
+      *conv = _stmt_bind_conv_tsdb_bigint_to_sql_c_sbigint;
+      break;
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "converstion from `%s[%d]` to `SQL_C_SBIGINT` not implemented yet",
           taos_data_type(taos_type), taos_type);
       return SQL_ERROR;
   }
@@ -1050,6 +1203,25 @@ static int _stmt_bind_conv_tsdb_timestamp_to_sql_c_char(stmt_t *stmt, const char
   return nn;
 }
 
+static int _stmt_bind_conv_tsdb_bool_to_sql_c_char(stmt_t *stmt, const char *data, int len, char *dest, int dlen)
+{
+  (void)stmt;
+
+  OA_NIY(len == sizeof(int8_t));
+
+  int8_t v = *(int8_t*)data ? 1 : 0;
+
+  char *outbuf = (char*)dest;
+  size_t outbytes = dlen;
+
+  OD("[%d]", v);
+
+  int nn = snprintf(outbuf, outbytes, "%d", v);
+  OA_NIY(nn >= 0 && (size_t)nn < outbytes);
+
+  return nn;
+}
+
 static int _stmt_bind_conv_tsdb_int_to_sql_c_char(stmt_t *stmt, const char *data, int len, char *dest, int dlen)
 {
   (void)stmt;
@@ -1083,6 +1255,26 @@ static int _stmt_bind_conv_tsdb_bigint_to_sql_c_char(stmt_t *stmt, const char *d
   OD("[%ld]", v);
 
   int nn = snprintf(outbuf, outbytes, "%ld", v);
+  OA_NIY(nn >= 0 && (size_t)nn < outbytes);
+
+  return nn;
+}
+
+static int _stmt_bind_conv_tsdb_float_to_sql_c_char(stmt_t *stmt, const char *data, int len, char *dest, int dlen)
+{
+  (void)stmt;
+
+  OA_NIY(len == sizeof(float));
+
+  // FIXME: memory alignment?
+  float v = *(float*)data;
+
+  char *outbuf = (char*)dest;
+  size_t outbytes = dlen;
+
+  OD("[%g]", v);
+
+  int nn = snprintf(outbuf, outbytes, "%g", v);
   OA_NIY(nn >= 0 && (size_t)nn < outbytes);
 
   return nn;
@@ -1128,11 +1320,17 @@ static SQLRETURN _stmt_get_conv_to_sql_c_char(stmt_t *stmt, tsdb_to_sql_c_f *con
     case TSDB_DATA_TYPE_TIMESTAMP:
       *conv = _stmt_bind_conv_tsdb_timestamp_to_sql_c_char;
       break;
+    case TSDB_DATA_TYPE_BOOL:
+      *conv = _stmt_bind_conv_tsdb_bool_to_sql_c_char;
+      break;
     case TSDB_DATA_TYPE_INT:
       *conv = _stmt_bind_conv_tsdb_int_to_sql_c_char;
       break;
     case TSDB_DATA_TYPE_BIGINT:
       *conv = _stmt_bind_conv_tsdb_bigint_to_sql_c_char;
+      break;
+    case TSDB_DATA_TYPE_FLOAT:
+      *conv = _stmt_bind_conv_tsdb_float_to_sql_c_char;
       break;
     case TSDB_DATA_TYPE_VARCHAR:
       *conv = _stmt_bind_conv_tsdb_varchar_to_sql_c_char;
@@ -1272,8 +1470,14 @@ static SQLRETURN _stmt_get_conv_to_sql_c_wchar(stmt_t *stmt, tsdb_to_sql_c_f *co
 static SQLRETURN _stmt_get_conv_from_tsdb_to_sql_c(stmt_t *stmt, tsdb_to_sql_c_f *conv, int taos_type, SQLSMALLINT TargetType)
 {
   switch (TargetType) {
+    case SQL_C_UTINYINT:
+      return _stmt_get_conv_to_sql_c_utinyint(stmt, conv, taos_type);
+    case SQL_C_SHORT:
+      return _stmt_get_conv_to_sql_c_short(stmt, conv, taos_type);
     case SQL_C_SLONG:
       return _stmt_get_conv_to_sql_c_slong(stmt, conv, taos_type);
+    case SQL_C_SBIGINT:
+      return _stmt_get_conv_to_sql_c_sbigint(stmt, conv, taos_type);
     case SQL_C_DOUBLE:
       return _stmt_get_conv_to_sql_c_double(stmt, conv, taos_type);
     case SQL_C_CHAR:
@@ -1337,7 +1541,6 @@ static SQLRETURN _stmt_fill_rowset(stmt_t *stmt, int i_row, int i_col)
   const char *data;
   int len;
   sr = _stmt_get_data_len(stmt, i_row + stmt->rowset.i_row, i_col, &data, &len);
-  OA_NIY(sql_succeeded(sr));
   if (!sql_succeeded(sr)) return SQL_ERROR;
 
   if (!data) {

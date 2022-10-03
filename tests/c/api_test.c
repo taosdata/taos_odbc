@@ -543,6 +543,8 @@ static int do_sql_driver_conns(SQLHANDLE connh)
   CHK2(test_sql_driver_conn, connh, "Driver={TAOS_ODBC_DRIVER};Server=127.0.0.1:6030", 0);
   CHK2(test_sql_driver_conn, connh, "DSN=TAOS_ODBC_DSN", 0);
   CHK2(test_sql_driver_conn, connh, "Driver={TAOS_ODBC_DRIVER};DB=what", -1);
+  CHK2(test_sql_driver_conn, connh, "DSN=TAOS_ODBC_DSN;Server=127.0.0.1:6030", 0);
+  CHK2(test_sql_driver_conn, connh, "DSN=TAOS_ODBC_DSN;Server=127.0.0.1:6666", -1);
 
   return 0;
 }

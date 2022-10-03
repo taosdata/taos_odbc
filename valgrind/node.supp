@@ -2517,4 +2517,26 @@
    fun:_ZN4node5StartEiPPc
    fun:(below main)
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   write(buf)
+   fun:__libc_write
+   fun:write
+   fun:uv__writev
+   fun:uv__try_write.isra.5
+   fun:uv__write
+   fun:uv__write
+   fun:uv_write2
+   fun:uv_write
+   fun:cliSend
+   fun:cliHandleReq
+   fun:cliAsyncCb
+   fun:uv__async_io.part.1
+   fun:uv__io_poll
+   fun:uv_run
+   fun:cliWorkThread
+   fun:start_thread
+   fun:clone
+}
 

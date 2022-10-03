@@ -67,6 +67,7 @@ LN            "\r\n"|"\n\r"|[\f\r\n]
 DSN           (?i:dsn)
 UID           (?i:uid)
 PWD           (?i:pwd)
+DB            (?i:db)
 DRIVER        (?i:driver)
 SERVER        (?i:server)
 LEGACY        (?i:legacy)
@@ -88,6 +89,7 @@ DIGITS        [[:digit:]]+
 {DSN}         { R(); C(); return MKT(DSN); }
 {UID}         { R(); C(); return MKT(UID); }
 {PWD}         { R(); C(); return MKT(PWD); }
+{DB}          { R(); C(); return MKT(DB); }
 {DRIVER}      { R(); C(); return MKT(DRIVER); }
 {SERVER}      { R(); PUSH(SERVER); C(); return MKT(SERVER); }
 {LEGACY}      { R(); C(); return MKT(LEGACY); }

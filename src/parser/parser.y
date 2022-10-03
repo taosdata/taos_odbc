@@ -37,6 +37,11 @@
       TOD_SAFE_FREE(param->conn_str.uid);                            \
       param->conn_str.uid = strndup(_v.text, _v.leng);               \
     } while (0)
+    #define SET_DB(_v) do {                                          \
+      if (!param) break;                                             \
+      TOD_SAFE_FREE(param->conn_str.db);                             \
+      param->conn_str.db = strndup(_v.text, _v.leng);                \
+    } while (0)
     #define SET_PWD(_v) do {                                         \
       if (!param) break;                                             \
       TOD_SAFE_FREE(param->conn_str.pwd);                            \
@@ -95,7 +100,7 @@
 %union { parser_token_t token; }
 %union { char c; }
 
-%token DSN UID PWD DRIVER SERVER LEGACY FMT_TIME NODE CACHE_SQL
+%token DSN UID PWD DRIVER SERVER LEGACY FMT_TIME NODE CACHE_SQL DB
 %token <token> ID VALUE FQDN DIGITS
 
  /* %nterm <str>   args */ // non-terminal `input` use `str` to store
@@ -122,6 +127,7 @@ attribute:
 | UID
 | UID '='
 | UID '=' VALUE                   { SET_UID($3); }
+| DB '=' VALUE                    { SET_DB($3); }
 | PWD
 | PWD '='
 | PWD '=' VALUE                   { SET_PWD($3); }

@@ -231,61 +231,6 @@ SQLRETURN SQLSetEnvAttr(
   return do_env_set_attr(EnvironmentHandle, Attribute, ValuePtr, StringLength);
 }
 
-static SQLRETURN do_conn_get_info_dbms_name(
-    conn_t         *conn,
-    char           *buf,
-    size_t          sz,
-    SQLSMALLINT    *StringLengthPtr)
-{
-  const char *name;
-  int r = conn_get_dbms_name(conn, &name);
-  if (r) return SQL_ERROR;
-
-  int n = snprintf(buf, sz, "%s", name);
-  *StringLengthPtr = n;
-
-  return SQL_SUCCESS;
-}
-
-static SQLRETURN do_conn_get_info_driver_name(
-    conn_t         *conn,
-    char           *buf,
-    size_t          sz,
-    SQLSMALLINT    *StringLengthPtr)
-{
-  const char *name;
-  int r = conn_get_driver_name(conn, &name);
-  if (r) return SQL_ERROR;
-
-  int n = snprintf(buf, sz, "%s", name);
-  *StringLengthPtr = n;
-
-  return SQL_SUCCESS;
-}
-
-static SQLRETURN do_conn_get_info(
-    conn_t         *conn,
-    SQLUSMALLINT    InfoType,
-    SQLPOINTER      InfoValuePtr,
-    SQLSMALLINT     BufferLength,
-    SQLSMALLINT    *StringLengthPtr)
-{
-  (void)InfoType;
-  (void)InfoValuePtr;
-  (void)BufferLength;
-  (void)StringLengthPtr;
-  switch (InfoType) {
-    case SQL_DBMS_NAME:
-      return do_conn_get_info_dbms_name(conn, (char*)InfoValuePtr, (size_t)BufferLength, StringLengthPtr);
-    case SQL_DRIVER_NAME:
-      return do_conn_get_info_driver_name(conn, (char*)InfoValuePtr, (size_t)BufferLength, StringLengthPtr);
-    case SQL_CURSOR_COMMIT_BEHAVIOR:
-      return SQL_ERROR;
-    default:
-      return SQL_ERROR;
-  }
-}
-
 SQLRETURN SQL_API SQLGetInfo(
     SQLHDBC         ConnectionHandle,
     SQLUSMALLINT    InfoType,
@@ -297,7 +242,7 @@ SQLRETURN SQL_API SQLGetInfo(
 
   errs_clr(&((conn_t*)ConnectionHandle)->errs);
 
-  return do_conn_get_info((conn_t*)ConnectionHandle, InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+  return conn_get_info((conn_t*)ConnectionHandle, InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
 }
 
 static SQLRETURN do_env_end_tran(
@@ -753,5 +698,26 @@ SQLRETURN SQL_API SQLConnect(
       ServerName, NameLength1,
       UserName, NameLength2,
       Authentication, NameLength3);
+}
+
+SQLRETURN SQL_API SQLColAttribute(
+    SQLHSTMT        StatementHandle,
+    SQLUSMALLINT    ColumnNumber,
+    SQLUSMALLINT    FieldIdentifier,
+    SQLPOINTER      CharacterAttributePtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr,
+    SQLLEN         *NumericAttributePtr)
+{
+    (void)StatementHandle;
+    (void)ColumnNumber;
+    (void)FieldIdentifier;
+    (void)CharacterAttributePtr;
+    (void)BufferLength;
+    (void)StringLengthPtr;
+    (void)NumericAttributePtr;
+
+    OA_NIY(0);
+    return SQL_ERROR;
 }
 

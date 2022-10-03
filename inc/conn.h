@@ -21,8 +21,9 @@ struct connection_cfg_s {
 
   unsigned int           legacy:1;
   unsigned int           fmt_time:1;
-  // NOTE: this is to hack node.odbc, which maps SQL_TINYINT to SQL_C_UTINYINT
-  unsigned int           tinyint_to_smallint:1;
+  // NOTE: 1.this is to hack node.odbc, which maps SQL_TINYINT to SQL_C_UTINYINT
+  //       2.node.odbc does not call SQLGetInfo/SQLColAttribute to get signess of integers
+  unsigned int           unsigned_promotion:1;
   unsigned int           cache_sql:1;
 };
 
@@ -91,6 +92,13 @@ SQLRETURN conn_connect(
     SQLSMALLINT    NameLength2,
     SQLCHAR       *Authentication,
     SQLSMALLINT    NameLength3) FA_HIDDEN;
+
+SQLRETURN conn_get_info(
+    conn_t         *conn,
+    SQLUSMALLINT    InfoType,
+    SQLPOINTER      InfoValuePtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr) FA_HIDDEN;
 
 EXTERN_C_END
 

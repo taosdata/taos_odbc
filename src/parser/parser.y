@@ -74,7 +74,7 @@
     } while (0)
     #define SET_NODE() do {                                          \
       if (!param) break;                                             \
-      param->conn_str.tinyint_to_smallint = 1;                       \
+      param->conn_str.unsigned_promotion = 1;                        \
     } while (0)
     #define SET_CACHE_SQL() do {                                     \
       if (!param) break;                                             \

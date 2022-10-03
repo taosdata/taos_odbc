@@ -265,7 +265,7 @@ static SQLRETURN _conn_connect( conn_t *conn)
 
   int r;
   r = SQLGetPrivateProfileString((LPCSTR)conn->cfg.dsn, "NODE", (LPCSTR)"0", (LPSTR)buf, sizeof(buf), NULL);
-  if (r == 1 && buf[0] == '1') conn->cfg.tinyint_to_smallint = 1;
+  if (r == 1 && buf[0] == '1') conn->cfg.unsigned_promotion = 1;
 
   if (!conn->cfg.pwd) {
     buf[0] = '\0';
@@ -325,5 +325,68 @@ SQLRETURN conn_connect(
   }
 
   return _conn_connect(conn);
+}
+
+static SQLRETURN do_conn_get_info_dbms_name(
+    conn_t         *conn,
+    char           *buf,
+    size_t          sz,
+    SQLSMALLINT    *StringLengthPtr)
+{
+  const char *name;
+  int r = conn_get_dbms_name(conn, &name);
+  if (r) return SQL_ERROR;
+
+  int n = snprintf(buf, sz, "%s", name);
+  *StringLengthPtr = n;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN do_conn_get_info_driver_name(
+    conn_t         *conn,
+    char           *buf,
+    size_t          sz,
+    SQLSMALLINT    *StringLengthPtr)
+{
+  const char *name;
+  int r = conn_get_driver_name(conn, &name);
+  if (r) return SQL_ERROR;
+
+  int n = snprintf(buf, sz, "%s", name);
+  *StringLengthPtr = n;
+
+  return SQL_SUCCESS;
+}
+
+SQLRETURN conn_get_info(
+    conn_t         *conn,
+    SQLUSMALLINT    InfoType,
+    SQLPOINTER      InfoValuePtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr)
+{
+  switch (InfoType) {
+    case SQL_DBMS_NAME:
+      return do_conn_get_info_dbms_name(conn, (char*)InfoValuePtr, (size_t)BufferLength, StringLengthPtr);
+    case SQL_DRIVER_NAME:
+      return do_conn_get_info_driver_name(conn, (char*)InfoValuePtr, (size_t)BufferLength, StringLengthPtr);
+    case SQL_CURSOR_COMMIT_BEHAVIOR:
+      *(SQLUSMALLINT*)InfoValuePtr = 0; // TODO:
+      return SQL_ERROR;
+    case SQL_TXN_ISOLATION_OPTION:
+      *(SQLUINTEGER*)InfoValuePtr = 0; // TODO:
+      return SQL_SUCCESS;
+    case SQL_GETDATA_EXTENSIONS:
+      *(SQLUINTEGER*)InfoValuePtr = SQL_GD_ANY_COLUMN | SQL_GD_ANY_ORDER /* | SQL_GD_BLOCK */ | SQL_GD_BOUND /* | SQL_GD_OUTPUT_PARAMS */;
+      return SQL_SUCCESS;
+    case SQL_MAX_COLUMN_NAME_LEN:
+      *(SQLUSMALLINT*)InfoValuePtr = 64;
+      return SQL_SUCCESS;
+    default:
+      OA(0, "`%s[%d]` not implemented yet", sql_info_type(InfoType), InfoType);
+      conn_append_err_format(conn, "HY000", 0, "`%s[%d]` not implemented yet", sql_info_type(InfoType), InfoType);
+      return SQL_ERROR;
+  }
 }
 

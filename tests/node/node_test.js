@@ -406,18 +406,27 @@ async function case6(conn_str) {
     await conn.query('create database if not exists foo');
     await conn.query('use foo');
     await conn.query('drop table if exists t');
-    await conn.query('create table if not exists t (ts timestamp, name varchar(5), age int, sex varchar(8), text nchar(3), bi bigint, f float, d double, bin binary(10), si smallint, ti tinyint, b bool)');
+    await conn.query(`
+    create table if not exists t (
+    ts timestamp, name varchar(5), age int, sex varchar(8), text nchar(3),
+    bi bigint, f float, d double, bin binary(10), si smallint, ti tinyint, b bool,
+    tu tinyint unsigned, su smallint unsigned, iu int unsigned
+    )
+    `);
     // FIXME: why `binary` maps to `TSDB_DATA_TYPE_VARCHAR` rather than `TSDB_DATA_TYPE_VARBINARY`
     //        check with 'desc foo.t' in taos shell
     // FIXME: bigint, smallint, tinyint seemly results in memory leakage
     // await conn.query('select * from t');
     // await conn.query('select ts, name, age, sex, text, bi, f, d, bin, si, ti, b from t');
-    await conn.query('insert into t (ts, name, age, sex, text, bi, f, d, bin, si, ti, b) values (1662861448752, "name1", 20, "male", "中国人", 1234567890123, 1.23, 3.45, "def", -32767, -127, 1)');
+    await conn.query(`
+    insert into t (ts, name, age, sex, text, bi, f, d, bin, si, ti, b, tu, su, iu)
+    values (1662861448752, "name1", 20, "male", "中国人", 1234567890123, 1.23, 3.45, "def", -32767, -127, 1, 130, 41234, 4123456789)
+    `);
     // // await conn.query('insert into t (ts, name, age, sex, text) values (1662861449753, "name2", 30, "female", "苏州人")');
     // // await conn.query('insert into t (ts, name, age, sex, text) values (1662861450754, "name3", null, null, null)');
     var result = await conn.query('select * from t');
     var exp = [
-      {ts:'2022-09-11 09:57:28.752', name:'name1', age:20, sex:'male', text:'中国人', bi:1234567890123, f:1.23, d:3.45, bin:'def', si:-32767, ti:-127, b:1},
+      {ts:'2022-09-11 09:57:28.752', name:'name1', age:20, sex:'male', text:'中国人', bi:1234567890123, f:1.23, d:3.45, bin:'def', si:-32767, ti:-127, b:1, tu:130, su:41234, iu:'4123456789'},
     ];
     var expx = stringify_by_key(exp, ['bi', 'b']);
     // NOTE: https://github.com/GoogleChromeLabs/jsbi/issues/30

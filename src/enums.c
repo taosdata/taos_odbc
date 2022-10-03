@@ -142,6 +142,9 @@ const char *sql_info_type(SQLUSMALLINT v)
     CASE(SQL_DBMS_NAME);
     CASE(SQL_DRIVER_NAME);
     CASE(SQL_CURSOR_COMMIT_BEHAVIOR);
+    CASE(SQL_TXN_ISOLATION_OPTION);
+    CASE(SQL_GETDATA_EXTENSIONS);
+    CASE(SQL_MAX_COLUMN_NAME_LEN);
     default:
     return "SQL_unknown";
   }

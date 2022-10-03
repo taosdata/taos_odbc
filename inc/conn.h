@@ -83,6 +83,15 @@ SQLRETURN conn_alloc_stmt(conn_t *conn, SQLHANDLE *OutputHandle) FA_HIDDEN;
 
 SQLRETURN conn_alloc_desc(conn_t *conn, SQLHANDLE *OutputHandle) FA_HIDDEN;
 
+SQLRETURN conn_connect(
+    conn_t        *conn,
+    SQLCHAR       *ServerName,
+    SQLSMALLINT    NameLength1,
+    SQLCHAR       *UserName,
+    SQLSMALLINT    NameLength2,
+    SQLCHAR       *Authentication,
+    SQLSMALLINT    NameLength3) FA_HIDDEN;
+
 EXTERN_C_END
 
 #endif //  _conn_h_

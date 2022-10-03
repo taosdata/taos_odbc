@@ -4,6 +4,7 @@
 #include "desc.h"
 #include "parser.h"
 
+#include <odbcinst.h>
 #include <string.h>
 
 #define _conn_malloc_fail(_conn)             \
@@ -101,10 +102,11 @@ SQLRETURN conn_free(conn_t *conn)
   return SQL_SUCCESS;
 }
 
-static SQLRETURN conn_connect(conn_t *conn, const connection_cfg_t *cfg)
+static SQLRETURN _do_conn_connect(conn_t *conn)
 {
   OA_ILE(conn);
   OA_ILE(conn->taos == NULL);
+  const connection_cfg_t *cfg = &conn->cfg;
 
   if (cfg->legacy) {
     conn_append_err_format(conn, "HY000", 0, "`LEGACY` specified in `connection string`, but not implemented yet");
@@ -113,8 +115,7 @@ static SQLRETURN conn_connect(conn_t *conn, const connection_cfg_t *cfg)
 
   conn->fmt_time = cfg->fmt_time;
 
-  // conn->taos = TAOS_connect(cfg->ip, cfg->uid, cfg->pwd, cfg->db, cfg->port);
-  conn->taos = TAOS_connect("localhost", "root", "taosdata", NULL, 6030);
+  conn->taos = TAOS_connect(cfg->ip, cfg->uid, cfg->pwd, cfg->db, cfg->port);
   if (!conn->taos) {
     conn_append_err(conn, "HY000", TAOS_errno(NULL), TAOS_errstr(NULL));
     return SQL_ERROR;
@@ -152,7 +153,9 @@ SQLRETURN conn_driver_connect(
       break;
     }
 
-    sr = conn_connect(conn, &param.conn_str);
+    connection_cfg_transfer(&param.conn_str, &conn->cfg);
+
+    sr = _do_conn_connect(conn);
     if (!sql_succeeded(sr)) break;
 
     if (OutConnectionString) {
@@ -178,7 +181,6 @@ SQLRETURN conn_driver_connect(
       }
     }
 
-    connection_cfg_transfer(&param.conn_str, &conn->cfg);
     parser_param_release(&param);
     return SQL_SUCCESS;
   } while (0);
@@ -254,5 +256,74 @@ SQLRETURN conn_alloc_desc(conn_t *conn, SQLHANDLE *OutputHandle)
   }
   *OutputHandle = (SQLHANDLE)desc;
   return SQL_SUCCESS;
+}
+
+static SQLRETURN _conn_connect( conn_t *conn)
+{
+  char buf[1024];
+  buf[0] = '\0';
+
+  int r;
+  r = SQLGetPrivateProfileString((LPCSTR)conn->cfg.dsn, "NODE", (LPCSTR)"0", (LPSTR)buf, sizeof(buf), NULL);
+  if (r == 1 && buf[0] == '1') conn->cfg.tinyint_to_smallint = 1;
+
+  if (!conn->cfg.pwd) {
+    buf[0] = '\0';
+    r = SQLGetPrivateProfileString((LPCSTR)conn->cfg.dsn, "PWD", (LPCSTR)"", (LPSTR)buf, sizeof(buf), NULL);
+    if (buf[0]) {
+      conn->cfg.pwd = strdup(buf);
+      if (!conn->cfg.pwd) {
+        _conn_malloc_fail(conn);
+        return SQL_ERROR;
+      }
+    }
+  }
+
+  if (!conn->cfg.uid) {
+    buf[0] = '\0';
+    r = SQLGetPrivateProfileString((LPCSTR)conn->cfg.dsn, "UID", (LPCSTR)"", (LPSTR)buf, sizeof(buf), NULL);
+    if (buf[0]) {
+      conn->cfg.uid = strdup(buf);
+      if (!conn->cfg.uid) {
+        _conn_malloc_fail(conn);
+        return SQL_ERROR;
+      }
+    }
+  }
+
+  return _do_conn_connect(conn);
+}
+
+SQLRETURN conn_connect(
+    conn_t        *conn,
+    SQLCHAR       *ServerName,
+    SQLSMALLINT    NameLength1,
+    SQLCHAR       *UserName,
+    SQLSMALLINT    NameLength2,
+    SQLCHAR       *Authentication,
+    SQLSMALLINT    NameLength3)
+{
+  connection_cfg_release(&conn->cfg);
+  conn->cfg.dsn = strndup((const char*)ServerName, NameLength1);
+  if (!conn->cfg.dsn) {
+    _conn_malloc_fail(conn);
+    return SQL_ERROR;
+  }
+  if (UserName) {
+    conn->cfg.uid = strndup((const char*)UserName, NameLength2);
+    if (!conn->cfg.uid) {
+      _conn_malloc_fail(conn);
+      return SQL_ERROR;
+    }
+  }
+  if (Authentication) {
+    conn->cfg.pwd = strndup((const char*)Authentication, NameLength3);
+    if (!conn->cfg.pwd) {
+      _conn_malloc_fail(conn);
+      return SQL_ERROR;
+    }
+  }
+
+  return _conn_connect(conn);
 }
 

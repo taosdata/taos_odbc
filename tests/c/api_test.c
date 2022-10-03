@@ -492,8 +492,52 @@ again:
 }
 
 __attribute__((unused))
+static int test_sql_conn(SQLHANDLE connh, const char *dsn, const char *uid, const char *pwd)
+{
+  SQLRETURN r;
+
+  CALL_ODBC(r, SQL_HANDLE_DBC, connh, SQLConnect(connh, (SQLCHAR*)dsn, SQL_NTS, (SQLCHAR*)uid, SQL_NTS, (SQLCHAR*)pwd, SQL_NTS));
+  if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
+
+  do {
+// #define LOOPING
+#ifdef LOOPING        /* { */
+again:
+#endif                /* } */
+    r = do_conn_get_info(connh);
+#ifdef LOOPING        /* { */
+    if (r == 0) goto again;
+#endif                /* } */
+
+    if (r) break;
+
+// #define LOOPING
+#ifdef LOOPING        /* { */
+again:
+#endif                /* } */
+    r = do_sql_stmt(connh);
+#ifdef LOOPING        /* { */
+    if (r == 0) goto again;
+#endif                /* } */
+  } while (0);
+
+  SQLDisconnect(connh);
+
+  return r ? -1 : 0;
+}
+
+__attribute__((unused))
 static int do_sql_driver_conns(SQLHANDLE connh)
 {
+  CHK4(test_sql_conn, connh, "TAOS_ODBC_DSN", NULL, NULL, 0);
+  CHK4(test_sql_conn, connh, "TAOS_ODBC_DSN", "root", "taosdata", 0);
+  CHK4(test_sql_conn, connh, "TAOS_ODBC_DSN", "root", NULL, 0);
+  CHK4(test_sql_conn, connh, "TAOS_ODBC_DSN", NULL, "taosdata", 0);
+  CHK4(test_sql_conn, connh, "TAOS_ODBC_DSN", "root", "", -1);
+  CHK4(test_sql_conn, connh, "TAOS_ODBC_DSN", "", "taosdata", -1);
+  CHK4(test_sql_conn, connh, "TAOS_ODBC_DSN", "", "", -1);
+  CHK4(test_sql_conn, connh, "TAOS_ODBC_DSN", "", NULL, -1);
+  CHK4(test_sql_conn, connh, "TAOS_ODBC_DSN", NULL, "", -1);
   CHK2(test_sql_driver_conn, connh, "bad", -1);
   CHK2(test_sql_driver_conn, connh, "DSN=NOT_EXIST", -1);
   CHK2(test_sql_driver_conn, connh, "Driver={TAOS_ODBC_DRIVER};Server=127.0.0.1:6030", 0);

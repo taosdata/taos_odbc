@@ -735,3 +735,23 @@ SQLRETURN SQL_API SQLExecute(
   return stmt_execute((stmt_t*)StatementHandle);
 }
 
+SQLRETURN SQL_API SQLConnect(
+    SQLHDBC        ConnectionHandle,
+    SQLCHAR       *ServerName,
+    SQLSMALLINT    NameLength1,
+    SQLCHAR       *UserName,
+    SQLSMALLINT    NameLength2,
+    SQLCHAR       *Authentication,
+    SQLSMALLINT    NameLength3)
+{
+  if (NameLength1 == SQL_NTS) NameLength1 = strlen((const char*)ServerName);
+  if (UserName       && NameLength2 == SQL_NTS) NameLength2 = strlen((const char*)UserName);
+  if (Authentication && NameLength3 == SQL_NTS) NameLength3 = strlen((const char*)Authentication);
+
+  return conn_connect(
+      (conn_t*)ConnectionHandle,
+      ServerName, NameLength1,
+      UserName, NameLength2,
+      Authentication, NameLength3);
+}
+

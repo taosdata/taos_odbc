@@ -70,9 +70,7 @@ PWD           (?i:pwd)
 DB            (?i:db)
 DRIVER        (?i:driver)
 SERVER        (?i:server)
-LEGACY        (?i:legacy)
-FMT_TIME      (?i:fmt_time)
-NODE          (?i:node)
+UNSIGNED_PROMOTION          (?i:unsigned_promotion)
 CACHE_SQL     (?i:cache_sql)
 FQDN          [-[:alnum:]]+((\.[-[:alnum:]]+)+)*(\.)?
 ID            [^\[\]{}(),;?*=!@[:space:]]+
@@ -92,10 +90,8 @@ DIGITS        [[:digit:]]+
 {DB}          { R(); C(); return MKT(DB); }
 {DRIVER}      { R(); C(); return MKT(DRIVER); }
 {SERVER}      { R(); PUSH(SERVER); C(); return MKT(SERVER); }
-{LEGACY}      { R(); C(); return MKT(LEGACY); }
-{FMT_TIME}    { R(); C(); return MKT(FMT_TIME); }
-{NODE}        { R(); C(); return MKT(NODE); }
-{CACHE_SQL}   { R(); C(); return MKT(NODE); }
+{UNSIGNED_PROMOTION}        { R(); C(); return MKT(UNSIGNED_PROMOTION); }
+{CACHE_SQL}   { R(); C(); return MKT(CACHE_SQL); }
 {DIGITS}      { R(); SET_STR(); C(); return MKT(DIGITS); }
 {ID}          { R(); SET_STR(); C(); return MKT(ID); }
 "="           { R(); PUSH(EQ); C(); return *yytext; }
@@ -108,6 +104,7 @@ DIGITS        [[:digit:]]+
 "="       { R(); CHG(SERVER_EQ); C(); return *yytext; }
 {SP}      { R(); C(); } /* eat */
 {LN}      { R(); L(); } /* eat */
+";"       { R(); POP(); C(); return *yytext; }
 .         { R(); C(); return *yytext; } /* let bison to handle */
 }
 
@@ -139,7 +136,9 @@ DIGITS        [[:digit:]]+
 {SP}      { R(); C(); } /* eat */
 {LN}      { R(); L(); } /* eat */
 "{"       { R(); CHG(CURLY); C(); return *yytext; }       /* "}" */
+{DIGITS}  { R(); POP(); SET_STR(); C(); return MKT(DIGITS); }
 {VALUE}   { R(); POP(); SET_STR(); C(); return MKT(VALUE); }
+";"       { R(); POP(); C(); return *yytext; }
 .         { R(); C(); return *yytext; } /* let bison to handle */
 }
 

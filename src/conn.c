@@ -108,20 +108,106 @@ static SQLRETURN _do_conn_connect(conn_t *conn)
   OA_ILE(conn->taos == NULL);
   const connection_cfg_t *cfg = &conn->cfg;
 
-  if (cfg->legacy) {
-    conn_append_err_format(conn, "HY000", 0, "`LEGACY` specified in `connection string`, but not implemented yet");
-    return SQL_ERROR;
-  }
-
-  conn->fmt_time = cfg->fmt_time;
-
   conn->taos = TAOS_connect(cfg->ip, cfg->uid, cfg->pwd, cfg->db, cfg->port);
   if (!conn->taos) {
-    conn_append_err(conn, "HY000", TAOS_errno(NULL), TAOS_errstr(NULL));
+    char buf[1024];
+    buffer_t buffer = {};
+    buffer.buf = buf;
+    buffer.cap = sizeof(buf);
+    buffer.nr  = 0;
+    buffer_sprintf(&buffer, "taos_odbc://");
+    if (cfg->uid) buffer_sprintf(&buffer, "%s:*@", cfg->uid);
+    if (cfg->ip) {
+      if (cfg->port) buffer_sprintf(&buffer, "%s:%d", cfg->ip, cfg->port);
+      else           buffer_sprintf(&buffer, "%s", cfg->ip);
+    } else {
+      buffer_sprintf(&buffer, "localhost");
+    }
+    if (cfg->db) buffer_sprintf(&buffer, "/%s", cfg->db);
+
+    conn_append_err_format(conn, "HY000", TAOS_errno(NULL), "target:[%s][%s]", buffer.buf, TAOS_errstr(NULL));
     return SQL_ERROR;
   }
 
   return SQL_SUCCESS;
+}
+
+static void _conn_fill_out_connection_str(
+    conn_t         *conn,
+    SQLCHAR        *OutConnectionString,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLength2Ptr)
+{
+  char *p = (char*)OutConnectionString;
+  if (BufferLength > 0) *p = '\0';
+  size_t count = 0;
+  int n = 0;
+
+  buffer_t buffer = {};
+  buffer.buf = p;
+  buffer.cap = BufferLength;
+  buffer.nr = 0;
+  if (conn->cfg.driver) {
+    n = buffer_sprintf(&buffer, "Driver={%s};", conn->cfg.driver);
+  } else {
+    n = buffer_sprintf(&buffer, "DSN=%s;", conn->cfg.dsn);
+  }
+  if (n>0) count += n;
+
+  if (conn->cfg.uid) {
+    n = buffer_sprintf(&buffer, "UID=%s;", conn->cfg.uid);
+  } else {
+    n = buffer_sprintf(&buffer, "UID=;");
+  }
+  if (n>0) count += n;
+
+  if (conn->cfg.pwd) {
+    n = buffer_sprintf(&buffer, "PWD=*;");
+  } else {
+    n = buffer_sprintf(&buffer, "PWD=;");
+  }
+  if (n>0) count += n;
+
+  if (conn->cfg.ip) {
+    if (conn->cfg.port) {
+      n = buffer_sprintf(&buffer, "Server=%s:%d;", conn->cfg.ip, conn->cfg.port);
+    } else {
+      n = buffer_sprintf(&buffer, "Server=%s;", conn->cfg.ip);
+    }
+  } else {
+    n = buffer_sprintf(&buffer, "Server=;");
+  }
+  if (n>0) count += n;
+
+  if (conn->cfg.db) {
+    n = buffer_sprintf(&buffer, "DB=%s;", conn->cfg.db);
+  } else {
+    n = buffer_sprintf(&buffer, "DB=;");
+  }
+  if (n>0) count += n;
+
+  if (conn->cfg.unsigned_promotion) {
+    n = buffer_sprintf(&buffer, "UNSIGNED_PROMOTION=1;");
+  } else {
+    n = buffer_sprintf(&buffer, "UNSIGNED_PROMOTION=;");
+  }
+  if (n>0) count += n;
+
+  if (conn->cfg.cache_sql) {
+    n = buffer_sprintf(&buffer, "CACHE_SQL=1;");
+  } else {
+    n = buffer_sprintf(&buffer, "CACHE_SQL=;");
+  }
+  if (n>0) count += n;
+
+  if (buffer.nr+1 == buffer.cap) {
+    char *x = buffer.buf + buffer.nr;
+    for (int i=0; i<3 && x>buffer.buf; ++i, --x) x[-1] = '.';
+  }
+
+  if (StringLength2Ptr) {
+    *StringLength2Ptr = count;
+  }
 }
 
 SQLRETURN conn_driver_connect(
@@ -139,8 +225,8 @@ SQLRETURN conn_driver_connect(
   }
 
   parser_param_t param = {};
-  // param.debug_flex = 1;
-  // param.debug_bison = 1;
+  param.debug_flex  = env_get_debug_flex(conn->env);
+  param.debug_bison = env_get_debug_bison(conn->env);
 
   if (StringLength1 == SQL_NTS) StringLength1 = strlen((const char*)InConnectionString);
   int r = parser_parse((const char*)InConnectionString, StringLength1, &param);
@@ -148,7 +234,13 @@ SQLRETURN conn_driver_connect(
 
   do {
     if (r) {
-      conn_append_err_format(conn, "HY000", 0, "bad syntax for connection string: [%.*s]", StringLength1, InConnectionString);
+      conn_append_err_format(
+        conn, "HY000", 0,
+        "bad syntax for connection string: [%.*s][(%d,%d)->(%d,%d): %s]",
+        StringLength1, InConnectionString,
+        param.row0, param.col0, param.row1, param.col1,
+        param.errmsg);
+
       sr = SQL_ERROR;
       break;
     }
@@ -158,28 +250,7 @@ SQLRETURN conn_driver_connect(
     sr = _do_conn_connect(conn);
     if (!sql_succeeded(sr)) break;
 
-    if (OutConnectionString) {
-      int n;
-      if (StringLength1 > BufferLength) {
-        n = BufferLength;
-      } else {
-        n = StringLength1;
-      }
-
-      strncpy((char*)OutConnectionString, (const char*)InConnectionString, n);
-      if (n<BufferLength) {
-        OutConnectionString[n] = '\0';
-      } else if (BufferLength>0) {
-        OutConnectionString[BufferLength-1] = '\0';
-      }
-      if (StringLength2Ptr) {
-        *StringLength2Ptr = strlen((const char*)OutConnectionString);
-      }
-    } else {
-      if (StringLength2Ptr) {
-        *StringLength2Ptr = 0;
-      }
-    }
+    _conn_fill_out_connection_str(conn, OutConnectionString, BufferLength, StringLength2Ptr);
 
     parser_param_release(&param);
     return SQL_SUCCESS;
@@ -264,7 +335,7 @@ static SQLRETURN _conn_connect( conn_t *conn)
   buf[0] = '\0';
 
   int r;
-  r = SQLGetPrivateProfileString((LPCSTR)conn->cfg.dsn, "NODE", (LPCSTR)"0", (LPSTR)buf, sizeof(buf), NULL);
+  r = SQLGetPrivateProfileString((LPCSTR)conn->cfg.dsn, "UNSIGNED_PROMOTION", (LPCSTR)"0", (LPSTR)buf, sizeof(buf), NULL);
   if (r == 1 && buf[0] == '1') conn->cfg.unsigned_promotion = 1;
 
   if (!conn->cfg.pwd) {

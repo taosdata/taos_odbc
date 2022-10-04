@@ -64,21 +64,15 @@
       param->conn_str.ip = strndup(_v.text, _v.leng);                \
       param->conn_str.port = strtol(_p.text, NULL, 10);              \
     } while (0)
-    #define SET_LEGACY() do {                                        \
+    #define SET_UNSIGNED_PROMOTION(_s, _n) do {                      \
       if (!param) break;                                             \
-      param->conn_str.legacy = 1;                                    \
+      OA_NIY(_s[_n] == '\0');                                        \
+      param->conn_str.unsigned_promotion = atoi(_s);                 \
     } while (0)
-    #define SET_FMT_TIME() do {                                      \
+    #define SET_CACHE_SQL(_s, _n) do {                               \
       if (!param) break;                                             \
-      param->conn_str.fmt_time = 1;                                  \
-    } while (0)
-    #define SET_NODE() do {                                          \
-      if (!param) break;                                             \
-      param->conn_str.unsigned_promotion = 1;                        \
-    } while (0)
-    #define SET_CACHE_SQL() do {                                     \
-      if (!param) break;                                             \
-      param->conn_str.cache_sql = 1;                                 \
+      OA_NIY(_s[_n] == '\0');                                        \
+      param->conn_str.cache_sql = atoi(_s);                          \
     } while (0)
 }
 
@@ -100,7 +94,7 @@
 %union { parser_token_t token; }
 %union { char c; }
 
-%token DSN UID PWD DRIVER SERVER LEGACY FMT_TIME NODE CACHE_SQL DB
+%token DSN UID PWD DRIVER SERVER UNSIGNED_PROMOTION CACHE_SQL DB
 %token <token> ID VALUE FQDN DIGITS
 
  /* %nterm <str>   args */ // non-terminal `input` use `str` to store
@@ -127,6 +121,8 @@ attribute:
 | UID
 | UID '='
 | UID '=' VALUE                   { SET_UID($3); }
+| DB
+| DB '='
 | DB '=' VALUE                    { SET_DB($3); }
 | PWD
 | PWD '='
@@ -141,10 +137,12 @@ attribute:
 | SERVER '=' FQDN                 { SET_FQDN($3); }
 | SERVER '=' FQDN ':'             { SET_FQDN($3); }
 | SERVER '=' FQDN ':' DIGITS      { SET_FQDN_PORT($3, $5); }
-| LEGACY                          { SET_LEGACY(); }
-| FMT_TIME                        { SET_FMT_TIME(); }
-| NODE                            { SET_NODE(); }
-| CACHE_SQL                       { SET_CACHE_SQL(); }
+| UNSIGNED_PROMOTION              { SET_UNSIGNED_PROMOTION("1", 1); }
+| UNSIGNED_PROMOTION '='          { SET_UNSIGNED_PROMOTION("1", 1); }
+| UNSIGNED_PROMOTION '=' DIGITS   { SET_UNSIGNED_PROMOTION($3.text, $3.leng); }
+| CACHE_SQL                       { SET_CACHE_SQL("1", 1); }
+| CACHE_SQL '='                   { SET_CACHE_SQL("1", 1); }
+| CACHE_SQL '=' DIGITS            { SET_CACHE_SQL($3.text, $3.leng); }
 ;
 
 %%
@@ -164,7 +162,7 @@ yyerror(
   (void)param;
   (void)errmsg;
 
-  fprintf(stderr, "(%d,%d)->(%d,%d): %s",
+  fprintf(stderr, "(%d,%d)->(%d,%d): %s\n",
       yylloc->first_line, yylloc->first_column,
       yylloc->last_line, yylloc->last_column - 1,
       errmsg);

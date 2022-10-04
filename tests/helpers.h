@@ -37,10 +37,11 @@
 #define diagnostic(_HandleType, _Handle)                                             \
   do {                                                                               \
     SQLCHAR _sqlState[6];                                                            \
-    SQLINTEGER _nativeErrno;                                                         \
+    SQLINTEGER _nativeErrno = 0;                                                     \
     SQLCHAR _messageText[1024];                                                      \
-    SQLSMALLINT _textLength;                                                         \
-    SQLRETURN _sr;                                                                   \
+    _messageText[0] = '\0';                                                          \
+    SQLSMALLINT _textLength = 0;                                                     \
+    SQLRETURN _sr = SQL_SUCCESS;                                                     \
     for (SQLSMALLINT _i=1; _i>=1; ++_i) {                                            \
       _sr = SQLGetDiagRec(_HandleType, _Handle, _i,                                  \
           _sqlState, &_nativeErrno,                                                  \

@@ -84,7 +84,7 @@ struct err_s {
   const char                 *estr;
   SQLCHAR                     sql_state[6];
 
-  char                        buf[256];
+  char                        buf[1024];
 
   struct tod_list_head        node;
 };
@@ -184,6 +184,10 @@ struct env_s {
   atomic_int          conns;
 
   errs_t              errs;
+
+  unsigned int        debug:1;
+  unsigned int        debug_flex:1;
+  unsigned int        debug_bison:1;
 };
 
 typedef struct desc_header_s                  desc_header_t;

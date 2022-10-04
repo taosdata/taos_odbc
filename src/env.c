@@ -4,6 +4,10 @@
 
 #include <pthread.h>
 
+static unsigned int         _taos_odbc_debug       = 0;
+static unsigned int         _taos_odbc_debug_flex  = 0;
+static unsigned int         _taos_odbc_debug_bison = 0;
+
 static void _exit_routine(void)
 {
   TAOS_cleanup();
@@ -11,6 +15,9 @@ static void _exit_routine(void)
 
 static void _init_once(void)
 {
+  if (getenv("TAOS_ODBC_DEBUG"))       _taos_odbc_debug       = 1;
+  if (getenv("TAOS_ODBC_DEBUG_FLEX"))  _taos_odbc_debug_flex  = 1;
+  if (getenv("TAOS_ODBC_DEBUG_BISON")) _taos_odbc_debug_bison = 1;
   OA(0==TAOS_init(), "taos_init failed");
   atexit(_exit_routine);
 }
@@ -21,6 +28,10 @@ static int env_init(env_t *env)
   pthread_once(&once, _init_once);
 
   // TODO:
+
+  env->debug       = _taos_odbc_debug;
+  env->debug_flex  = _taos_odbc_debug_flex;
+  env->debug_bison = _taos_odbc_debug_bison;
 
   errs_init(&env->errs);
 
@@ -35,6 +46,26 @@ static void env_release(env_t *env)
   OA_ILE(conns == 0);
   errs_release(&env->errs);
   return;
+}
+
+int tod_get_debug(void)
+{
+  return !!_taos_odbc_debug;
+}
+
+int env_get_debug(env_t *env)
+{
+  return !!env->debug;
+}
+
+int env_get_debug_flex(env_t *env)
+{
+  return !!env->debug_flex;
+}
+
+int env_get_debug_bison(env_t *env)
+{
+  return !!env->debug_bison;
 }
 
 env_t* env_create(void)

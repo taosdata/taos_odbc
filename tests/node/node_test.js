@@ -510,19 +510,19 @@ async function case0(conn_str) {
 }
 
 async function do_test_cases() {
-  assert.equal(await connectToDatabase('DSN=xTAOS_ODBC_DSN;NODE;CACHE_SQL'),-1);
-  assert.equal(await connectToDatabase('DSN=TAOS_ODBC_DSN;NODE;CACHE_SQL'),0);
+  assert.equal(await connectToDatabase('DSN=xTAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL'),-1);
+  assert.equal(await connectToDatabase('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL'),0);
   assert.equal(await execute('DSN=TAOS_ODBC_DSN', 'show databases'),0);
   // // assert.equal(await execute('DSN=TAOS_ODBC_DSN', 'select ts, name from foo.t'),0);
   // // assert.equal(await execute('DSN=TAOS_ODBC_DSN; LEGACY', 'select * from foo.t'),-1);
   assert.equal(await execute('DSN=TAOS_ODBC_DSN', 'xshow databases'),-1);
-  assert.equal(await case1('DSN=TAOS_ODBC_DSN;NODE;CACHE_SQL'),0);
-  assert.equal(await case2('DSN=TAOS_ODBC_DSN;NODE;CACHE_SQL'),0);
-  assert.equal(await case3('DSN=TAOS_ODBC_DSN;NODE;CACHE_SQL'),0);
-  assert.equal(await case4('DSN=TAOS_ODBC_DSN;NODE;CACHE_SQL'),0);
-  assert.equal(await case0('DSN=TAOS_ODBC_DSN;NODE;CACHE_SQL'),0);
-  assert.equal(await case5('DSN=TAOS_ODBC_DSN;NODE;CACHE_SQL'),0);
-  assert.equal(await case6('DSN=TAOS_ODBC_DSN;NODE;CACHE_SQL'),0);
+  assert.equal(await case1('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL'),0);
+  assert.equal(await case2('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL'),0);
+  assert.equal(await case3('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL'),0);
+  assert.equal(await case4('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL'),0);
+  assert.equal(await case0('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL'),0);
+  assert.equal(await case5('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL'),0);
+  assert.equal(await case6('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL'),0);
 
   return 0;
 }

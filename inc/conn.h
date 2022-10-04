@@ -19,8 +19,6 @@ struct connection_cfg_s {
   char                  *db;
   int                    port;
 
-  unsigned int           legacy:1;
-  unsigned int           fmt_time:1;
   // NOTE: 1.this is to hack node.odbc, which maps SQL_TINYINT to SQL_C_UTINYINT
   //       2.node.odbc does not call SQLGetInfo/SQLColAttribute to get signess of integers
   unsigned int           unsigned_promotion:1;

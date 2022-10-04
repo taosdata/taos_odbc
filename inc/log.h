@@ -9,9 +9,11 @@
 
 EXTERN_C_BEGIN
 
+int tod_get_debug(void) FA_HIDDEN;
+
 #define OD(_fmt, ...)                                                \
   do {                                                               \
-    if (getenv("TAOS_ODBC_DEBUG") == NULL) break;                    \
+    if (!tod_get_debug()) break;                                     \
     fprintf(stderr, "%s[%d]:%s(): " _fmt "\n",                       \
                     basename((char*)__FILE__), __LINE__, __func__,   \
                     ##__VA_ARGS__);                                  \

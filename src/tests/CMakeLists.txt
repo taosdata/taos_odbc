@@ -2,7 +2,7 @@ add_executable(basic basic.c)
 
 target_link_libraries(basic taos_odbc_a)
 target_include_directories(basic PRIVATE
-    ${CMAKE_SOURCE_DIR}/inc)
+    ${INTERNAL_INC_PATH})
 
 add_dependencies(basic taos_odbc_a)
 

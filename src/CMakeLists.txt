@@ -1,3 +1,5 @@
+set(INTERNAL_INC_PATH ${CMAKE_CURRENT_SOURCE_DIR}/inc)
+
 add_subdirectory(parser)
 add_subdirectory(utils)
 
@@ -11,7 +13,7 @@ list(APPEND odbc_SOURCES stmt.c)
 
 add_library(odbc_obj OBJECT ${odbc_SOURCES})
 target_include_directories(odbc_obj PRIVATE
-    ${CMAKE_SOURCE_DIR}/inc
+    ${INTERNAL_INC_PATH}
     ${ODBC_INCLUDE_DIRECTORY}
     ${ODBCINST_INCLUDE_DIRECTORY})
 set_property(TARGET odbc_obj PROPERTY POSITION_INDEPENDENT_CODE 1)

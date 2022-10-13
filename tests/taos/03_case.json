@@ -80,22 +80,28 @@
       },{
         "sql":"insert into t (ts, name) values (1662861448751, 'foo')"
       },{
-        "xsql":"insert into t (ts, name) values (?, ?)",
+        "sql":"insert into t (ts, name) values (?, ?)",
         "executes": [
           {
-            "params": [{"timestamp":1662961548751},"great"]
+            "params": [{"timestamp":1662961548651},"great"]
           },{
-            "params": [{"timestamp":1662961468752},"wall"]
+            "params": [{"timestamp":1662961468652},"wall"]
           },{
             "params": [{"timestamp":1662961478753},null]
           },{
             "params": [{"timestamp":1665185796610},"6610"]
           },{
-            "params": [{"bigint":1662961478754},"bigint"]
+            "params": [{"bigint":   1662961478754},"bigint"]
           },{
-            "params": [1662961478755,"wrong"]
+            "params": [             1662961478755,"wrong"]
           }
         ]
+      },{
+        "sql":"select name from t where name is not null",
+        "rs": [["foo"],["wall"],["bigint"],["wrong"],["great"],["6610"],["name1"],["name2"]]
+      },{
+        "sql":"select name from t",
+        "rs": [["foo"],["wall"],[null],["bigint"],["wrong"],["great"],["6610"],["name1"],["name2"]]
       }
     ]
   }

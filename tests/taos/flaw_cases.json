@@ -1,7 +1,7 @@
 [
   {
     "comments": "taosc flaw: memleakage",
-    "xconn": {},
+    "conn": {},
     "xsqls": [
       "show databases",
       "drop database if exists foo",
@@ -126,7 +126,7 @@
     "comments": "won't work if it's for normal table",
     "comments": "and will result in memleakage",
     "cooments": "root cause: taosc: taos_stmt_set_tbname only works if the tablename is subtable",
-    "xconn": {},
+    "conn": {},
     "xsqls": [
       "drop database if exists foo",
       "create database foo",

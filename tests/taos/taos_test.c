@@ -561,6 +561,13 @@ static const char* json_object_get_string(cJSON *json, const char *key)
   return cJSON_GetStringValue(val);
 }
 
+static int json_get_number(cJSON *json, double *v)
+{
+  if (!cJSON_IsNumber(json)) return -1;
+  if (v) *v = cJSON_GetNumberValue(json);
+  return 0;
+}
+
 static int json_object_get_number(cJSON *json, const char *key, double *v)
 {
   cJSON *val = NULL;
@@ -802,12 +809,8 @@ struct executes_ctx_s {
 
   buffers_t   buffers;
 
-  char        null;
-  char        non_null;
-
   const char         *subtbl;
   TAOS_FIELD_E       *tags;
-  TAOS_MULTI_BIND    *tag_mbs;
   int                 nr_tags;
   TAOS_FIELD_E       *cols;
   int                 nr_cols;
@@ -822,10 +825,6 @@ static void executes_ctx_release_tags(executes_ctx_t *ctx)
   if (ctx->tags) {
     free(ctx->tags);
     ctx->tags = NULL;
-  }
-  if (ctx->tag_mbs) {
-    free(ctx->tag_mbs);
-    ctx->tag_mbs = NULL;
   }
   ctx->nr_tags = 0;
   ctx->tags_described = 0;
@@ -983,6 +982,8 @@ static int _store_param_val_by_mb_as_tsdb_timestamp(executes_ctx_t *ctx, cJSON *
   (void)ctx;
   double d;
   int r = json_object_get_number(param, "timestamp", &d);
+  if (r) r = json_object_get_number(param, "bigint", &d);
+  if (r) r = json_get_number(param, &d);
   if (r) {
     char *t1 = cJSON_PrintUnformatted(param);
     E("#(%d,%d) parameter marker of [%d]%s, but got ==%s==", irow+1, iparam+1, mb->buffer_type, CALL_taos_data_type(mb->buffer_type), t1);
@@ -1094,6 +1095,14 @@ static int _store_param_val_by_mb_as_tsdb_varchar(executes_ctx_t *ctx, cJSON *pa
 
 static int _store_param_val_by_mb(executes_ctx_t *ctx, cJSON *param, int irow, int iparam, TAOS_MULTI_BIND *mb)
 {
+  if (cJSON_IsNull(param)) {
+    char    *is_null  = (char*)mb->is_null;
+    is_null    += irow;
+
+    *is_null   = 1;
+    return 0;
+  }
+
   switch (mb->buffer_type) {
     case TSDB_DATA_TYPE_TIMESTAMP:
       return _store_param_val_by_mb_as_tsdb_timestamp(ctx, param, iparam, mb, irow);
@@ -1591,8 +1600,6 @@ static int _run_executes(TAOS *taos, const char *sql, cJSON *executes)
   executes_ctx_t ctx = {};
   ctx.taos     = taos;
   ctx.sql      = sql;
-  ctx.null     = 1;
-  ctx.non_null = 0;
 
   r = _run_executes_by_ctx(&ctx, executes);
 

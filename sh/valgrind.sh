@@ -6,6 +6,7 @@ _path_to_valgrind=${_path_to_this_file}/../valgrind
 
 valgrind --leak-check=full                                                \
          --show-leak-kinds=all                                            \
+         --show-reachable=no                                              \
          --num-callers=100                                                \
          --exit-on-first-error=no                                         \
          --error-exitcode=1                                               \

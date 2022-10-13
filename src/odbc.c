@@ -222,7 +222,7 @@ static SQLRETURN do_env_set_attr(
   }
 }
 
-SQLRETURN SQLSetEnvAttr(
+SQLRETURN SQL_API SQLSetEnvAttr(
     SQLHENV      EnvironmentHandle,
     SQLINTEGER   Attribute,
     SQLPOINTER   ValuePtr,
@@ -457,7 +457,7 @@ SQLRETURN SQL_API SQLFetch(
   return stmt_fetch((stmt_t*)StatementHandle);
 }
 
-SQLRETURN SQLFreeStmt(
+SQLRETURN SQL_API SQLFreeStmt(
     SQLHSTMT       StatementHandle,
     SQLUSMALLINT   Option)
 {

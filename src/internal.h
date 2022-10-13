@@ -17,69 +17,6 @@
 
 EXTERN_C_BEGIN
 
-#define D_APPLY0(_func)                                 ({ OD("%s", #_func); _func(); })
-#define D_APPLY1(_func, _v1)                            ({ OD("%s", #_func); _func(_v1); })
-#define D_APPLY2(_func, _v1, _v2)                       ({ OD("%s", #_func); _func(_v1, _v2); })
-#define D_APPLY3(_func, _v1, _v2, _v3)                  ({ OD("%s", #_func); _func(_v1, _v2, _v3); })
-#define D_APPLY4(_func, _v1, _v2, _v3, _v4)             ({ OD("%s", #_func); _func(_v1, _v2, _v3, _v4); })
-#define D_APPLY5(_func, _v1, _v2, _v3, _v4, _v5)        ({ OD("%s", #_func); _func(_v1, _v2, _v3, _v4, _v5); })
-
-/*
-#define TAOS_get_server_info(_taos)                                D_APPLY1(taos_get_server_info, _taos)
-#define TAOS_get_client_info(_taos)                                D_APPLY1(taos_get_client_info, _taos)
-
-#define TAOS_init()                                                D_APPLY0(taos_init)
-#define TAOS_cleanup()                                             D_APPLY0(taos_cleanup)
-
-#define TAOS_data_type(_taos_type)                                 D_APPLY1(taos_data_type, _taos_type)
-
-#define TAOS_affected_rows(_res)                                   D_APPLY1(taos_affected_rows, _res)
-#define TAOS_field_count(_res)                                     D_APPLY1(taos_field_count, _res)
-#define TAOS_result_precision(_res)                                D_APPLY1(taos_result_precision, _res)
-#define TAOS_is_null(_res, _row, _col)                             D_APPLY3(taos_is_null, _res, _row, _col)
-#define TAOS_get_column_data_offset(_res, _col)                    D_APPLY2(taos_get_column_data_offset, _res, _col)
-#define TAOS_fetch_block(_res, _rows)                              D_APPLY2(taos_fetch_block, _res, _rows)
-#define TAOS_fetch_lengths(_res)                                   D_APPLY1(taos_fetch_lengths, _res)
-
-#define TAOS_num_fields(_result)                                   D_APPLY1(taos_num_fields, _result)
-#define TAOS_fetch_fields(_result)                                 D_APPLY1(taos_fetch_fields, _result)
-#define TAOS_fetch_row(_result)                                    D_APPLY1(taos_fetch_row, _result)
-#define TAOS_print_row(_temp, _row, _fields, _num_fields)          D_APPLY4(taos_print_row, _temp, _row, _fields, _num_fields)
-#define TAOS_query(_taos, _sql)     ({const char *__sql = _sql; OD("sql: [%s]", __sql); D_APPLY2(taos_query, _taos, __sql); })
-#define TAOS_errno(_result)                                        D_APPLY1(taos_errno, _result)
-#define TAOS_errstr(_result)                                       D_APPLY1(taos_errstr, _result)
-#define TAOS_free_result(_result)                                  D_APPLY1(taos_free_result, _result)
-#define TAOS_stmt_is_insert(_stmt, _isInsert)                      D_APPLY2(taos_stmt_is_insert, _stmt, _isInsert)
-#define TAOS_stmt_errstr(_result)                                  D_APPLY1(taos_stmt_errstr, _result)
-#define TAOS_stmt_num_params(_stmt, _num)                          D_APPLY2(taos_stmt_num_params, _stmt, _num)
-#define TAOS_stmt_affected_rows(_stmt)                             D_APPLY1(taos_stmt_affected_rows, _stmt)
-#define TAOS_stmt_affected_rows_once(_stmt)                        D_APPLY1(taos_stmt_affected_rows_once, _stmt)
-#define TAOS_stmt_use_result(_stmt)                                D_APPLY1(taos_stmt_use_result, _stmt)
-#define TAOS_stmt_get_param(_stmt, _i, _fieldType, _fieldBytes)    D_APPLY4(taos_stmt_get_param, _stmt, _i, _fieldType, _fieldBytes)
-#define TAOS_stmt_get_tag_fields(_stmt, _fieldNum, _pFields)       D_APPLY3(taos_stmt_get_tag_fields, _stmt, _fieldNum, _pFields)
-#define TAOS_stmt_get_col_fields(_stmt, _fieldNum, _pFields)       D_APPLY3(taos_stmt_get_col_fields, _stmt, _fieldNum, _pFields)
-#define TAOS_stmt_bind_param_batch(_stmt, _bind)                   D_APPLY2(taos_stmt_bind_param_batch, _stmt, _bind)
-#define TAOS_stmt_bind_single_param_batch(_stmt, _bind, _i)        D_APPLY3(taos_stmt_bind_single_param_batch, _stmt, _bind, _i)
-#define TAOS_stmt_bind_param(_stmt, _bind)                         D_APPLY2(taos_stmt_bind_param, _stmt, _bind)
-#define TAOS_stmt_set_tbname(_stmt, _tblName)                      D_APPLY2(taos_stmt_set_tbname, _stmt, _tblName)
-#define TAOS_stmt_set_tags(_stmt, _pTags)                          D_APPLY2(taos_stmt_set_tags, _stmt, _pTags)
-#define TAOS_stmt_set_tbname_tags(_stmt, _tblName, _pTags)         D_APPLY3(taos_stmt_set_tbname_tags, _stmt, _tblName, _pTags)
-#define TAOS_stmt_prepare(_stmt, _sql, _len)                 \
-  ({                                                         \
-   const char *__sql = _sql;                                 \
-   int __len = _len;                                         \
-   OD("sql: [%.*s]",__len, __sql);                           \
-   D_APPLY3(taos_stmt_prepare, _stmt, __sql, __len);         \
-   })
-
-#define TAOS_stmt_add_batch(_stmt)                                 D_APPLY1(taos_stmt_add_batch, _stmt)
-#define TAOS_stmt_execute(_stmt)                                   D_APPLY1(taos_stmt_execute, _stmt)
-#define TAOS_stmt_init(_stmt)                                      D_APPLY1(taos_stmt_init, _stmt)
-#define TAOS_stmt_close(_stmt)                                     D_APPLY1(taos_stmt_close, _stmt)
-#define TAOS_connect(_host, _uid, _pwd, _db, _port)                D_APPLY5(taos_connect, _host, _uid, _pwd, _db, _port)
-#define TAOS_close(_stmt)                                          D_APPLY1(taos_close, _stmt)
-*/
-
 typedef struct err_s             err_t;
 typedef struct errs_s            errs_t;
 

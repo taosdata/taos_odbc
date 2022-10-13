@@ -1513,10 +1513,12 @@ static int executes_ctx_prepare_stmt(executes_ctx_t *ctx)
     if (e == TSDB_CODE_TSC_STMT_TBNAME_ERROR) {
       // insert into ? ... will result in TSDB_CODE_TSC_STMT_TBNAME_ERROR
       ctx->subtbl_required = 1;
+      W("this is believed an subtbl insert statement");
       r = 0;
     } else if (e == TSDB_CODE_TSC_STMT_API_ERROR) {
       // insert into t ... and t is normal tablename, will result in TSDB_CODE_TSC_STMT_API_ERROR
       ctx->subtbl_required = 0;
+      W("this is believed an non-subtbl insert statement");
       r = 0;
     }
   }

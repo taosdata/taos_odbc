@@ -4,7 +4,6 @@ add_subdirectory(parser)
 add_subdirectory(utils)
 
 list(APPEND odbc_SOURCES desc.c)
-list(APPEND odbc_SOURCES enums.c)
 list(APPEND odbc_SOURCES env.c)
 list(APPEND odbc_SOURCES errs.c)
 list(APPEND odbc_SOURCES conn.c)
@@ -22,12 +21,14 @@ set_property(TARGET odbc_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
 # set(CMAKE_REQUIRED_LINK_OPTIONS ${ODBC_LINK_OPTIONS} ${ODBCINST_LINK_OPTIONS})
 
 add_library(taos_odbc_a STATIC
+    $<TARGET_OBJECTS:common_obj>
     $<TARGET_OBJECTS:odbc_obj>
     $<TARGET_OBJECTS:utils_obj>
     $<TARGET_OBJECTS:parser_obj>)
 target_link_libraries(taos_odbc_a pthread taos odbcinst)
 
 add_library(taos_odbc SHARED
+    $<TARGET_OBJECTS:common_obj>
     $<TARGET_OBJECTS:odbc_obj>
     $<TARGET_OBJECTS:utils_obj>
     $<TARGET_OBJECTS:parser_obj>)

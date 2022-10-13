@@ -43,6 +43,7 @@ check_odbc_requirement()
 
 include_directories(inc)
 
+add_subdirectory(common)
 add_subdirectory(src)
 add_subdirectory(templates)
 add_subdirectory(tests)

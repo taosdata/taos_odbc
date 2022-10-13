@@ -108,7 +108,7 @@ static SQLRETURN _do_conn_connect(conn_t *conn)
   OA_ILE(conn->taos == NULL);
   const connection_cfg_t *cfg = &conn->cfg;
 
-  conn->taos = TAOS_connect(cfg->ip, cfg->uid, cfg->pwd, cfg->db, cfg->port);
+  conn->taos = CALL_taos_connect(cfg->ip, cfg->uid, cfg->pwd, cfg->db, cfg->port);
   if (!conn->taos) {
     char buf[1024];
     buffer_t buffer = {};
@@ -125,7 +125,7 @@ static SQLRETURN _do_conn_connect(conn_t *conn)
     }
     if (cfg->db) buffer_sprintf(&buffer, "/%s", cfg->db);
 
-    conn_append_err_format(conn, "HY000", TAOS_errno(NULL), "target:[%s][%s]", buffer.buf, TAOS_errstr(NULL));
+    conn_append_err_format(conn, "HY000", CALL_taos_errno(NULL), "target:[%s][%s]", buffer.buf, CALL_taos_errstr(NULL));
     return SQL_ERROR;
   }
 
@@ -264,7 +264,7 @@ void conn_disconnect(conn_t *conn)
 {
   OA_ILE(conn);
   OA_ILE(conn->taos);
-  TAOS_close(conn->taos);
+  CALL_taos_close(conn->taos);
   conn->taos = NULL;
   connection_cfg_release(&conn->cfg);
 }
@@ -273,7 +273,7 @@ int conn_get_dbms_name(conn_t *conn, const char **name)
 {
   OA_ILE(conn);
   OA_ILE(conn->taos);
-  const char *server = TAOS_get_server_info(conn->taos);
+  const char *server = CALL_taos_get_server_info(conn->taos);
   *name = server;
   return 0;
 }
@@ -281,7 +281,7 @@ int conn_get_dbms_name(conn_t *conn, const char **name)
 int conn_get_driver_name(conn_t *conn, const char **name)
 {
   OA_ILE(conn);
-  const char *client = TAOS_get_client_info();
+  const char *client = CALL_taos_get_client_info();
   *name = client;
   return 0;
 }

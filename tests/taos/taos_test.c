@@ -8,6 +8,8 @@
 #include <math.h>
 #include <string.h>
 
+#define LOG_IMPL(fmt, ...) fprintf(stderr, fmt, ##__VA_ARGS__)
+
 #define LOG_CALL(fmt, ...)        D("" fmt " ...", ##__VA_ARGS__)
 #define LOG_FINI(r, fmt, ...) do {                                             \
   if (r) {                                                                     \

@@ -137,7 +137,7 @@ static int stmt_init(stmt_t *stmt, conn_t *conn)
 static void stmt_release_result(stmt_t *stmt)
 {
   if (stmt->res) {
-    if (stmt->res_is_from_taos_query) TAOS_free_result(stmt->res);
+    if (stmt->res_is_from_taos_query) CALL_taos_free_result(stmt->res);
 
     stmt->res_is_from_taos_query = 0;
     stmt->res = NULL;
@@ -155,7 +155,7 @@ static void stmt_release_result(stmt_t *stmt)
 static void stmt_release_stmt(stmt_t *stmt)
 {
   if (stmt->stmt) {
-    int r = TAOS_stmt_close(stmt->stmt);
+    int r = CALL_taos_stmt_close(stmt->stmt);
     OA_NIY(r == 0);
     stmt->stmt = NULL;
   }
@@ -341,18 +341,18 @@ static SQLRETURN _stmt_post_exec(stmt_t *stmt)
 {
   int e;
   const char *estr;
-  e = TAOS_errno(stmt->res);
-  estr = TAOS_errstr(stmt->res);
+  e = CALL_taos_errno(stmt->res);
+  estr = CALL_taos_errstr(stmt->res);
 
   if (e) {
     stmt_append_err(stmt, "HY000", e, estr);
     return SQL_ERROR;
   } else if (stmt->res) {
-    stmt->time_precision = TAOS_result_precision(stmt->res);
-    stmt->affected_row_count = TAOS_affected_rows(stmt->res);
-    stmt->col_count = TAOS_field_count(stmt->res);
+    stmt->time_precision = CALL_taos_result_precision(stmt->res);
+    stmt->affected_row_count = CALL_taos_affected_rows(stmt->res);
+    stmt->col_count = CALL_taos_field_count(stmt->res);
     if (stmt->col_count > 0) {
-      stmt->fields = TAOS_fetch_fields(stmt->res);
+      stmt->fields = CALL_taos_fetch_fields(stmt->res);
     }
     stmt_reset_current_for_get_data(stmt);
   }
@@ -397,16 +397,16 @@ static SQLRETURN _stmt_exec_direct_sql(stmt_t *stmt, const char *sql)
   TAOS *taos = stmt->conn->taos;
 
   if (!stmt->stmt) {
-    stmt->res = TAOS_query(taos, sql);
+    stmt->res = CALL_taos_query(taos, sql);
     stmt->res_is_from_taos_query = stmt->res ? 1 : 0;
   } else {
     OA_NIY(0);
-    int r = TAOS_stmt_execute(stmt->stmt);
+    int r = CALL_taos_stmt_execute(stmt->stmt);
     if (r) {
-      stmt_append_err(stmt, "HY000", r, TAOS_stmt_errstr(stmt->stmt));
+      stmt_append_err(stmt, "HY000", r, CALL_taos_stmt_errstr(stmt->stmt));
       return SQL_ERROR;
     }
-    stmt->res = TAOS_stmt_use_result(stmt->stmt);
+    stmt->res = CALL_taos_stmt_use_result(stmt->stmt);
     stmt->res_is_from_taos_query = 0;
   }
 
@@ -899,7 +899,7 @@ static SQLRETURN _stmt_get_data_len(stmt_t *stmt, int row, int col, const char *
   TAOS_FIELD *field = stmt->fields + col;
   switch(field->type) {
     case TSDB_DATA_TYPE_BOOL:
-      if (TAOS_is_null(stmt->res, row, col)) {
+      if (CALL_taos_is_null(stmt->res, row, col)) {
         *data = NULL;
         *len = 0;
       } else {
@@ -909,7 +909,7 @@ static SQLRETURN _stmt_get_data_len(stmt_t *stmt, int row, int col, const char *
         *len = sizeof(*base);
       } break;
     case TSDB_DATA_TYPE_TINYINT:
-      if (TAOS_is_null(stmt->res, row, col)) {
+      if (CALL_taos_is_null(stmt->res, row, col)) {
         *data = NULL;
         *len = 0;
       } else {
@@ -919,7 +919,7 @@ static SQLRETURN _stmt_get_data_len(stmt_t *stmt, int row, int col, const char *
         *len = sizeof(*base);
       } break;
     case TSDB_DATA_TYPE_UTINYINT:
-      if (TAOS_is_null(stmt->res, row, col)) {
+      if (CALL_taos_is_null(stmt->res, row, col)) {
         *data = NULL;
         *len = 0;
       } else {
@@ -929,7 +929,7 @@ static SQLRETURN _stmt_get_data_len(stmt_t *stmt, int row, int col, const char *
         *len = sizeof(*base);
       } break;
     case TSDB_DATA_TYPE_SMALLINT:
-      if (TAOS_is_null(stmt->res, row, col)) {
+      if (CALL_taos_is_null(stmt->res, row, col)) {
         *data = NULL;
         *len = 0;
       } else {
@@ -939,7 +939,7 @@ static SQLRETURN _stmt_get_data_len(stmt_t *stmt, int row, int col, const char *
         *len = sizeof(*base);
       } break;
     case TSDB_DATA_TYPE_USMALLINT:
-      if (TAOS_is_null(stmt->res, row, col)) {
+      if (CALL_taos_is_null(stmt->res, row, col)) {
         *data = NULL;
         *len = 0;
       } else {
@@ -949,7 +949,7 @@ static SQLRETURN _stmt_get_data_len(stmt_t *stmt, int row, int col, const char *
         *len = sizeof(*base);
       } break;
     case TSDB_DATA_TYPE_INT:
-      if (TAOS_is_null(stmt->res, row, col)) {
+      if (CALL_taos_is_null(stmt->res, row, col)) {
         *data = NULL;
         *len = 0;
       } else {
@@ -959,7 +959,7 @@ static SQLRETURN _stmt_get_data_len(stmt_t *stmt, int row, int col, const char *
         *len = sizeof(*base);
       } break;
     case TSDB_DATA_TYPE_UINT:
-      if (TAOS_is_null(stmt->res, row, col)) {
+      if (CALL_taos_is_null(stmt->res, row, col)) {
         *data = NULL;
         *len = 0;
       } else {
@@ -969,7 +969,7 @@ static SQLRETURN _stmt_get_data_len(stmt_t *stmt, int row, int col, const char *
         *len = sizeof(*base);
       } break;
     case TSDB_DATA_TYPE_BIGINT:
-      if (TAOS_is_null(stmt->res, row, col)) {
+      if (CALL_taos_is_null(stmt->res, row, col)) {
         *data = NULL;
         *len = 0;
       } else {
@@ -979,7 +979,7 @@ static SQLRETURN _stmt_get_data_len(stmt_t *stmt, int row, int col, const char *
         *len = sizeof(*base);
       } break;
     case TSDB_DATA_TYPE_FLOAT:
-      if (TAOS_is_null(stmt->res, row, col)) {
+      if (CALL_taos_is_null(stmt->res, row, col)) {
         *data = NULL;
         *len = 0;
       } else {
@@ -989,7 +989,7 @@ static SQLRETURN _stmt_get_data_len(stmt_t *stmt, int row, int col, const char *
         *len = sizeof(*base);
       } break;
     case TSDB_DATA_TYPE_DOUBLE:
-      if (TAOS_is_null(stmt->res, row, col)) {
+      if (CALL_taos_is_null(stmt->res, row, col)) {
         *data = NULL;
         *len = 0;
       } else {
@@ -999,7 +999,7 @@ static SQLRETURN _stmt_get_data_len(stmt_t *stmt, int row, int col, const char *
         *len = sizeof(*base);
       } break;
     case TSDB_DATA_TYPE_VARCHAR: {
-      int *offsets = TAOS_get_column_data_offset(stmt->res, col);
+      int *offsets = CALL_taos_get_column_data_offset(stmt->res, col);
       OA_ILE(offsets);
       if (offsets[row] == -1) {
         *data = NULL;
@@ -1020,7 +1020,7 @@ static SQLRETURN _stmt_get_data_len(stmt_t *stmt, int row, int col, const char *
       *len = sizeof(*base);
     } break;
     case TSDB_DATA_TYPE_NCHAR: {
-      int *offsets = TAOS_get_column_data_offset(stmt->res, col);
+      int *offsets = CALL_taos_get_column_data_offset(stmt->res, col);
       OA_ILE(offsets);
       if (offsets[row] == -1) {
         *data = NULL;
@@ -1691,13 +1691,13 @@ SQLRETURN stmt_fetch(stmt_t *stmt)
   if (stmt->rowset.i_row + row_array_size >= (SQLULEN)stmt->nr_rows) {
     rowset_reset(&stmt->rowset);
 
-    int nr_rows = TAOS_fetch_block(stmt->res, &rows);
+    int nr_rows = CALL_taos_fetch_block(stmt->res, &rows);
     if (nr_rows == 0) return SQL_NO_DATA;
     stmt->rows = rows;          // column-wise
     stmt->nr_rows = nr_rows;
     stmt->rowset.i_row = 0;
 
-    stmt->lengths = TAOS_fetch_lengths(stmt->res);
+    stmt->lengths = CALL_taos_fetch_lengths(stmt->res);
     OA_NIY(stmt->lengths);
   } else {
     stmt->rowset.i_row += row_array_size;
@@ -2038,22 +2038,22 @@ SQLRETURN stmt_get_data(
 
 SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
 {
-  stmt->stmt = TAOS_stmt_init(stmt->conn->taos);
+  stmt->stmt = CALL_taos_stmt_init(stmt->conn->taos);
   if (!stmt->stmt) {
-    stmt_append_err(stmt, "HY000", TAOS_errno(NULL), TAOS_errstr(NULL));
+    stmt_append_err(stmt, "HY000", CALL_taos_errno(NULL), CALL_taos_errstr(NULL));
     return SQL_ERROR;
   }
 
   int r;
-  r = TAOS_stmt_prepare(stmt->stmt, sql, len);
+  r = CALL_taos_stmt_prepare(stmt->stmt, sql, len);
   OA_NIY(r == 0);
 
   int32_t isInsert = 0;
-  r = TAOS_stmt_is_insert(stmt->stmt, &isInsert);
+  r = CALL_taos_stmt_is_insert(stmt->stmt, &isInsert);
   isInsert = !!isInsert;
 
   if (r) {
-    stmt_append_err(stmt, "HY000", r, TAOS_stmt_errstr(stmt->stmt));
+    stmt_append_err(stmt, "HY000", r, CALL_taos_stmt_errstr(stmt->stmt));
     stmt_release_stmt(stmt);
 
     return SQL_ERROR;
@@ -2062,9 +2062,9 @@ SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
   stmt->is_insert_stmt = isInsert;
 
   int nr_params = 0;
-  r = TAOS_stmt_num_params(stmt->stmt, &nr_params);
+  r = CALL_taos_stmt_num_params(stmt->stmt, &nr_params);
   if (r) {
-    stmt_append_err(stmt, "HY000", r, TAOS_stmt_errstr(stmt->stmt));
+    stmt_append_err(stmt, "HY000", r, CALL_taos_stmt_errstr(stmt->stmt));
     stmt_release_stmt(stmt);
 
     return SQL_ERROR;
@@ -2076,7 +2076,7 @@ SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
   } else {
     // int fieldNum = 0;
     // TAOS_FIELD_E* pFields = NULL;
-    // r = TAOS_stmt_get_col_fields(stmt->stmt, &fieldNum, &pFields);
+    // r = CALL_taos_stmt_get_col_fields(stmt->stmt, &fieldNum, &pFields);
     // if (r) {
     //   stmt_append_err_format(stmt, "HY000", r, "prepared statement for `INSERT` failed: %s", taos_stmt_errstr(stmt->stmt));
     //   stmt_release_stmt(stmt);
@@ -2150,10 +2150,10 @@ SQLRETURN stmt_describe_param(
   OA_NIY(idx < stmt->nr_params);
   int type;
   int bytes;
-  r = TAOS_stmt_get_param(stmt->stmt, idx, &type, &bytes);
+  r = CALL_taos_stmt_get_param(stmt->stmt, idx, &type, &bytes);
   if (r) {
     if (stmt->is_insert_stmt) {
-      stmt_append_err(stmt, "HY000", r, TAOS_stmt_errstr(stmt->stmt));
+      stmt_append_err(stmt, "HY000", r, CALL_taos_stmt_errstr(stmt->stmt));
       return SQL_ERROR;
     }
     // FIXME: return SQL_VARCHAR and hard-coded parameters for the moment
@@ -2258,7 +2258,7 @@ SQLRETURN stmt_bind_param(
   int type;
   int bytes;
   int r = 0;
-  r = TAOS_stmt_get_param(stmt->stmt, ParameterNumber-1, &type, &bytes);
+  r = CALL_taos_stmt_get_param(stmt->stmt, ParameterNumber-1, &type, &bytes);
   if (r) {
     if (stmt->is_insert_stmt) {
       stmt_append_err(stmt, "HY000", r, taos_stmt_errstr(stmt->stmt));
@@ -2459,14 +2459,14 @@ SQLRETURN stmt_bind_param(
       0,                                                              \
       "`%s` to `%s` for param `%d` not supported yet by taos",        \
       sql_c_data_type(_param_bind->ValueType),                        \
-      TAOS_data_type(_param_bind->taos_type),                         \
+      CALL_taos_data_type(_param_bind->taos_type),                         \
       _param_bind->ParameterNumber)
 
 #define _stmt_param_bind_fail(_stmt, _param_bind, _r)     \
   stmt_append_err(_stmt,                                  \
     "HY000",                                              \
     _r,                                                   \
-    TAOS_stmt_errstr(_stmt->stmt))
+    CALL_taos_stmt_errstr(_stmt->stmt))
 
 static SQLRETURN _stmt_sql_c_char_to_tsdb_timestamp(stmt_t *stmt, const char *s, int64_t *timestamp)
 {
@@ -2521,9 +2521,9 @@ static SQLRETURN _stmt_bind_param_tsdb(stmt_t *stmt, int i_param)
   // TODO: currently only one row of parameters to bind
   mb->num = 1;
 
-  int r = TAOS_stmt_bind_single_param_batch(stmt->stmt, mb, i_param);
+  int r = CALL_taos_stmt_bind_single_param_batch(stmt->stmt, mb, i_param);
   if (r) {
-    stmt_append_err_format(stmt, "HY000", r, "Param[#%d,%s] for [%s]: %s", i_param+1, taos_data_type(mb->buffer_type), stmt->sql, TAOS_stmt_errstr(stmt->stmt));
+    stmt_append_err_format(stmt, "HY000", r, "Param[#%d,%s] for [%s]: %s", i_param+1, taos_data_type(mb->buffer_type), stmt->sql, CALL_taos_stmt_errstr(stmt->stmt));
     return SQL_ERROR;
   }
 
@@ -2964,9 +2964,9 @@ static SQLRETURN _stmt_pre_exec_prepare_params(stmt_t *stmt)
     if (!sql_succeeded(sr)) return SQL_ERROR;
   }
 
-  int r = TAOS_stmt_add_batch(stmt->stmt);
+  int r = CALL_taos_stmt_add_batch(stmt->stmt);
   if (r) {
-    stmt_append_err(stmt, "HY000", r, TAOS_stmt_errstr(stmt->stmt));
+    stmt_append_err(stmt, "HY000", r, CALL_taos_stmt_errstr(stmt->stmt));
     return SQL_ERROR;
   }
 
@@ -2998,12 +2998,12 @@ SQLRETURN stmt_execute(
   if (!sql_succeeded(sr)) return sr;
 
   int r = 0;
-  r = TAOS_stmt_execute(stmt->stmt);
+  r = CALL_taos_stmt_execute(stmt->stmt);
   if (r) {
-    stmt_append_err(stmt, "HY000", r, TAOS_stmt_errstr(stmt->stmt));
+    stmt_append_err(stmt, "HY000", r, CALL_taos_stmt_errstr(stmt->stmt));
     return SQL_ERROR;
   }
-  stmt->res = TAOS_stmt_use_result(stmt->stmt);
+  stmt->res = CALL_taos_stmt_use_result(stmt->stmt);
   stmt->res_is_from_taos_query = 0;
 
   return _stmt_post_exec(stmt);

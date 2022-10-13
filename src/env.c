@@ -10,7 +10,7 @@ static unsigned int         _taos_odbc_debug_bison = 0;
 
 static void _exit_routine(void)
 {
-  TAOS_cleanup();
+  CALL_taos_cleanup();
 }
 
 static void _init_once(void)
@@ -18,7 +18,7 @@ static void _init_once(void)
   if (getenv("TAOS_ODBC_DEBUG"))       _taos_odbc_debug       = 1;
   if (getenv("TAOS_ODBC_DEBUG_FLEX"))  _taos_odbc_debug_flex  = 1;
   if (getenv("TAOS_ODBC_DEBUG_BISON")) _taos_odbc_debug_bison = 1;
-  OA(0==TAOS_init(), "taos_init failed");
+  OA(0==CALL_taos_init(), "taos_init failed");
   atexit(_exit_routine);
 }
 

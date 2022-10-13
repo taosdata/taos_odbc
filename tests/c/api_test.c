@@ -13,6 +13,7 @@
 #include <string.h>
 #include <taos.h>
 
+#define LOG_IMPL(fmt, ...) fprintf(stderr, fmt, ##__VA_ARGS__)
 
 #define TEST_CASE_BEG(_func)                                \
   D("test case: %s...", _func)

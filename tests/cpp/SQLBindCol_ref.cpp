@@ -8,6 +8,7 @@
 #include <string.h>
 #include <wchar.h>
 
+#define LOG_IMPL(fmt, ...) fprintf(stderr, fmt, ##__VA_ARGS__)
 
 static int _encode(
     const char *fromcode, char **inbuf, size_t *inbytesleft,

@@ -1,6 +1,8 @@
 #ifndef _helpers_h_
 #define _helpers_h_
 
+#include "macros.h"
+
 #include <libgen.h>
 #include <stdio.h>
 
@@ -10,6 +12,8 @@
 #include <stdlib.h>
 #define ABORT_OR_THROW abort()
 #endif                     /* } */
+
+EXTERN_C_BEGIN
 
 static inline const char* color_red(void)
 {
@@ -31,34 +35,36 @@ static inline const char* color_reset(void)
   return "\033[0m";
 }
 
-#define LOGI(_file, _line, _func, _fmt, ...)                  \
-  fprintf(stderr, "I:%s[%d]:%s(): " _fmt "\n",                \
-      basename((char*)_file), _line, _func,                   \
+// NOTE: user of this header file can NOT use macors here-after until they implement `LOG_IMPL`
+
+#define LOGI(_file, _line, _func, _fmt, ...)           \
+  LOG_IMPL("I:%s[%d]:%s(): " _fmt "\n",                \
+      basename((char*)_file), _line, _func,            \
       ##__VA_ARGS__)
 
 #define LOG LOGI
 
-#define LOGD(_file, _line, _func, _fmt, ...)                  \
-  fprintf(stderr, "D:%s[%d]:%s(): " _fmt "\n",                \
-      basename((char*)_file), _line, _func,                   \
+#define LOGD(_file, _line, _func, _fmt, ...)           \
+  LOG_IMPL("D:%s[%d]:%s(): " _fmt "\n",                \
+      basename((char*)_file), _line, _func,            \
       ##__VA_ARGS__)
 
-#define LOGW(_file, _line, _func, _fmt, ...)                  \
-  fprintf(stderr, "%sW%s:%s[%d]:%s(): " _fmt "\n",            \
-      color_yellow(), color_reset(),                          \
-      basename((char*)_file), _line, _func,                   \
+#define LOGW(_file, _line, _func, _fmt, ...)           \
+  LOG_IMPL("%sW%s:%s[%d]:%s(): " _fmt "\n",            \
+      color_yellow(), color_reset(),                   \
+      basename((char*)_file), _line, _func,            \
       ##__VA_ARGS__)
 
-#define LOGE(_file, _line, _func, _fmt, ...)                  \
-  fprintf(stderr, "%sE%s:%s[%d]:%s(): " _fmt "\n",            \
-      color_red(), color_reset(),                             \
-      basename((char*)_file), _line, _func,                   \
+#define LOGE(_file, _line, _func, _fmt, ...)           \
+  LOG_IMPL("%sE%s:%s[%d]:%s(): " _fmt "\n",            \
+      color_red(), color_reset(),                      \
+      basename((char*)_file), _line, _func,            \
       ##__VA_ARGS__)
 
-#define LOGA(_file, _line, _func, _fmt, ...)                  \
-  fprintf(stderr, "%sA%s:%s[%d]:%s(): " _fmt "\n",            \
-      color_red(), color_reset(),                             \
-      basename((char*)_file), _line, _func,                   \
+#define LOGA(_file, _line, _func, _fmt, ...)           \
+  LOG_IMPL("%sA%s:%s[%d]:%s(): " _fmt "\n",            \
+      color_red(), color_reset(),                      \
+      basename((char*)_file), _line, _func,            \
       ##__VA_ARGS__)
 
 #define D(_fmt, ...) LOGD(__FILE__, __LINE__, __func__, _fmt, ##__VA_ARGS__)
@@ -91,6 +97,8 @@ static inline const char* color_reset(void)
   }                                                                     \
   D("%s => %ssuccess%s", #_statement, color_green(), color_reset());    \
 } while (0)
+
+EXTERN_C_END
 
 #endif // _helpers_h_
 

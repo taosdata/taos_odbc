@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <time.h>
 
+#define LOG_IMPL(fmt, ...) fprintf(stderr, fmt, ##__VA_ARGS__)
+
 static int create_connection(SQLHANDLE *penv, SQLHANDLE *pdbc, const char *conn_str, const char *dsn, const char *uid, const char *pwd)
 {
   SQLRETURN sr;

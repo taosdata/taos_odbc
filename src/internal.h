@@ -9,6 +9,8 @@
 #include "list.h"
 #include "stmt.h"
 
+#include "taos_helpers.h"
+
 #include <stdatomic.h>
 
 #include <taos.h>
@@ -22,6 +24,7 @@ EXTERN_C_BEGIN
 #define D_APPLY4(_func, _v1, _v2, _v3, _v4)             ({ OD("%s", #_func); _func(_v1, _v2, _v3, _v4); })
 #define D_APPLY5(_func, _v1, _v2, _v3, _v4, _v5)        ({ OD("%s", #_func); _func(_v1, _v2, _v3, _v4, _v5); })
 
+/*
 #define TAOS_get_server_info(_taos)                                D_APPLY1(taos_get_server_info, _taos)
 #define TAOS_get_client_info(_taos)                                D_APPLY1(taos_get_client_info, _taos)
 
@@ -75,6 +78,7 @@ EXTERN_C_BEGIN
 #define TAOS_stmt_close(_stmt)                                     D_APPLY1(taos_stmt_close, _stmt)
 #define TAOS_connect(_host, _uid, _pwd, _db, _port)                D_APPLY5(taos_connect, _host, _uid, _pwd, _db, _port)
 #define TAOS_close(_stmt)                                          D_APPLY1(taos_close, _stmt)
+*/
 
 typedef struct err_s             err_t;
 typedef struct errs_s            errs_t;

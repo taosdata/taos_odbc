@@ -57,6 +57,23 @@
   D("taos_close(taos:%p) => void", _taos); \
 })
 
+#define CALL_taos_get_server_info(taos) ({                \
+  TAOS *_taos = taos;                                     \
+  D("taos_get_server_info(taos:%p) ...", _taos);          \
+  const char *_info = taos_get_server_info(_taos);        \
+  diag_res(NULL);                                         \
+  D("taos_get_server_info(taos:%p) => %s", _taos, _info); \
+  _info;                                                  \
+})
+
+#define CALL_taos_get_client_info() ({                \
+  D("taos_get_client_info() ...");                    \
+  const char *_info = taos_get_client_info();         \
+  diag_res(NULL);                                     \
+  D("taos_get_client_info() => %s", _info);           \
+  _info;                                              \
+})
+
 #define CALL_taos_query(taos, sql) ({                             \
   TAOS *_taos = taos;                                             \
   const char *_sql = sql;                                         \
@@ -165,8 +182,47 @@
   D("taos_fetch_fields(res:%p) ...", _res);                \
   TAOS_FIELD *_record = taos_fetch_fields(_res);           \
   diag_res(_res);                                          \
-  D("taos_fetch_fields(res:%p) => %p", _res, _res);        \
+  D("taos_fetch_fields(res:%p) => %p", _res, _record);     \
   _record;                                                 \
+})
+
+#define CALL_taos_is_null(res, row, col) ({                                                   \
+  TAOS_RES *_res = res;                                                                       \
+  int32_t   _row = row;                                                                       \
+  int32_t   _col = col;                                                                       \
+  D("taos_is_null(res:%p, row:%d, col:%d) ...", _res, _row, _col);                            \
+  bool _b = taos_is_null(_res, _row, _col);                                                   \
+  diag_res(_res);                                                                             \
+  D("taos_is_null(res:%p, row:%d, col:%d) => %s", _res, _row, _col, _b ? "true" : "false");   \
+  _b;                                                                                         \
+})
+
+#define CALL_taos_fetch_block(res, rows) ({                                    \
+  TAOS_RES *_res  = res;                                                       \
+  TAOS_ROW *_rows = rows;                                                      \
+  D("taos_fetch_block(res:%p, rows:%p) ...", _res, _rows);                     \
+  int _n = taos_fetch_block(_res, _rows);                                      \
+  diag_res(_res);                                                              \
+  D("taos_fetch_block(res:%p, rows:%p) => %d", _res, _rows, _n);               \
+  _n;                                                                          \
+})
+
+#define CALL_taos_result_precision(res) ({                 \
+  TAOS_RES *_res = res;                                    \
+  D("taos_result_precision(res:%p) ...", _res);            \
+  int _r = taos_result_precision(_res);                    \
+  diag_res(_res);                                          \
+  D("taos_result_precision(res:%p) => %d", _res, _r);      \
+  _r;                                                      \
+})
+
+#define CALL_taos_field_count(res) ({                    \
+  TAOS_RES *_res = res;                                  \
+  D("taos_field_count(res:%p) ...", _res);               \
+  int _n = taos_field_count(_res);                       \
+  diag_res(_res);                                        \
+  D("taos_field_count(res:%p) => %d", _res, _n);         \
+  _n;                                                    \
 })
 
 #define CALL_taos_num_fields(res) ({                     \
@@ -178,10 +234,19 @@
   _n;                                                    \
 })
 
+#define CALL_taos_affected_rows(res) ({                  \
+  TAOS_RES *_res = res;                                  \
+  D("taos_affected_rows(res:%p) ...", _res);             \
+  int _n = taos_affected_rows(_res);                     \
+  diag_res(_res);                                        \
+  D("taos_affected_rows(res:%p) => %d", _res, _n);       \
+  _n;                                                    \
+})
+
 #define CALL_taos_fetch_lengths(res) ({                   \
   TAOS_RES *_res = res;                                   \
   D("taos_fetch_lengths(res:%p) ...", _res);              \
-  int *lengths = taos_fetch_lengths(_res);                \
+  int *_lengths = taos_fetch_lengths(_res);               \
   diag_res(_res);                                         \
   D("taos_fetch_lengths(res:%p) => %p", _res, _lengths);  \
   _lengths;                                               \
@@ -346,10 +411,10 @@
   _r;                                                                                                                    \
 })
 
-#define CALL_taos_errno       taos_errno
-#define CALL_taos_errstr      taos_errstr
-#define CALL_taos_stmt_errstr taos_stmt_errstr
-#define CALL_taos_data_type   taos_data_type
+#define CALL_taos_errno                taos_errno
+#define CALL_taos_errstr               taos_errstr
+#define CALL_taos_stmt_errstr          taos_stmt_errstr
+#define CALL_taos_data_type            taos_data_type
 
 #endif // _taos_helpers_h_
 

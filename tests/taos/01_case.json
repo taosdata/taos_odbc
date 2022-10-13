@@ -1,0 +1,29 @@
+[
+  {
+    "conn": {}
+  },{
+    "conn": { "ip": "localhost" }
+  },{
+    "conn": { "ip": "foo.bar" },
+    "positive": false
+  },{
+    "conn": { "ip": "127.0.0.1" }
+  },{
+    "conn": { "uid": "root" }
+  },{
+    "conn": { "uid": "xroot" },
+    "positive": false
+  },{
+    "conn": { "pwd": "taosdata" }
+  },{
+    "conn": { "pwd": "xtaosdata" },
+    "positive": false
+  },{
+    "conn": { "port": 6030 }
+  },{
+    "conn": { "port": 5030 },
+    "positive": false
+  },{
+  }
+]
+

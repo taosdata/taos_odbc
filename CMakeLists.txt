@@ -26,6 +26,16 @@ if(NOT HAVE_TAOS)
   message(FATAL_ERROR "`taos.h` is required but not found")
 endif()
 
+include(ExternalProject)
+set(CJSON_INSTALL_PATH $ENV{HOME}/.taos_odbc/.install)
+ExternalProject_Add(cjson
+    GIT_REPOSITORY https://github.com/taosdata-contrib/cJSON.git
+    GIT_TAG v1.7.15
+    GIT_SHALLOW TRUE
+    PREFIX "$ENV{HOME}/.taos_odbc/cjson"
+    CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${CJSON_INSTALL_PATH}"
+    )
+
 include(CTest)
 include(cmake/macros.cmake)
 

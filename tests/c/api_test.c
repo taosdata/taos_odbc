@@ -1,4 +1,4 @@
-#include "../helpers.h"
+#include "../odbc_helpers.h"
 
 #include <assert.h>
 #include <dlfcn.h>
@@ -79,21 +79,6 @@
     r = _func(_v1, _v2, _v3, _v4);                                                                 \
     TEST_CASE_END(#_func "(" #_v1 "," #_v2 "," #_v3 "," #_v4 "," #_exp ")", _exp);                 \
   }
-
-static inline const char* color_red(void)
-{
-  return "\033[1;31m";
-}
-
-static inline const char* color_green(void)
-{
-  return "\033[1;32m";
-}
-
-static inline const char* color_reset(void)
-{
-  return "\033[0m";
-}
 
 static void _diagnostic(
   SQLSMALLINT handleType, SQLHANDLE handle,

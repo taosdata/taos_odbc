@@ -2074,14 +2074,14 @@ SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
 
   if (!isInsert) {
   } else {
-    int fieldNum = 0;
-    TAOS_FIELD_E* pFields = NULL;
-    r = TAOS_stmt_get_col_fields(stmt->stmt, &fieldNum, &pFields);
-    if (r) {
-      stmt_append_err_format(stmt, "HY000", r, "prepared statement for `INSERT` failed: %s", taos_stmt_errstr(stmt->stmt));
-      stmt_release_stmt(stmt);
-      return SQL_ERROR;
-    }
+    // int fieldNum = 0;
+    // TAOS_FIELD_E* pFields = NULL;
+    // r = TAOS_stmt_get_col_fields(stmt->stmt, &fieldNum, &pFields);
+    // if (r) {
+    //   stmt_append_err_format(stmt, "HY000", r, "prepared statement for `INSERT` failed: %s", taos_stmt_errstr(stmt->stmt));
+    //   stmt_release_stmt(stmt);
+    //   return SQL_ERROR;
+    // }
   }
 
   return SQL_SUCCESS;

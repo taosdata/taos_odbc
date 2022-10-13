@@ -1,0 +1,154 @@
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   write(buf)
+   fun:__libc_write
+   fun:write
+   fun:uv__writev
+   fun:uv__try_write
+   fun:uv__write
+   fun:uv_write2
+   fun:uv_write
+   fun:cliSend
+   fun:cliConnCb
+   fun:uv__stream_connect
+   fun:uv__stream_io
+   fun:uv__io_poll
+   fun:uv_run
+   fun:cliWorkThread
+   fun:start_thread
+   fun:clone
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   write(buf)
+   fun:__libc_write
+   fun:write
+   fun:uv__writev
+   fun:uv__try_write
+   fun:uv__write
+   fun:uv_write2
+   fun:uv_write
+   fun:cliSend
+   fun:cliHandleReq
+   fun:cliAsyncCb
+   fun:uv__async_io
+   fun:uv__io_poll
+   fun:uv_run
+   fun:cliWorkThread
+   fun:start_thread
+   fun:clone
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:hbThreadFunc
+   fun:start_thread
+   fun:clone
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Param
+   write(buf)
+   fun:__libc_write
+   fun:write
+   fun:uv__writev
+   fun:uv__try_write.isra.5
+   fun:uv__write
+   fun:uv__write
+   fun:uv_write2
+   fun:uv_write
+   fun:cliSend
+   fun:cliHandleReq
+   fun:cliAsyncCb
+   fun:uv__async_io.part.1
+   fun:uv__io_poll
+   fun:uv_run
+   fun:cliWorkThread
+   fun:start_thread
+   fun:clone
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:checkTimestamp
+   fun:parseOneRow
+   fun:parseValues
+   fun:parseValuesClause
+   fun:parseInsertBody
+   fun:parseInsertSql
+   fun:qParseSql
+   fun:parseSql
+   fun:stmtParseSql
+   fun:stmtGetParamNum
+   fun:taos_stmt_num_params
+   fun:_stmt_prepare
+   fun:stmt_prepare
+   fun:SQLPrepare
+   fun:SQLPrepare
+   fun:_ZN18PrepareAsyncWorker7ExecuteEv
+   fun:worker
+   fun:start_thread
+   fun:clone
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:checkTimestamp
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:valueNodeCopy
+   fun:nodesCloneNode
+   fun:operatorNodeCopy
+   fun:nodesCloneNode
+   fun:getQueryTimeRange
+   fun:translateWhere
+   fun:translateSelectFrom
+   fun:translateSelect
+   fun:translateQuery
+   fun:translate
+   fun:qStmtParseQuerySql
+   fun:stmtBindBatch
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:taosHashInit
+   fun:parseInsertSql
+   fun:qParseSql
+   fun:parseSql
+   fun:stmtParseSql
+   fun:stmtGetTagFields
+   fun:taos_stmt_get_tag_fields
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:setBoundColumnInfo
+   fun:createDataBlock
+   fun:getDataBlockFromList
+   fun:parseInsertBody
+   fun:parseInsertSql
+   fun:qParseSql
+   fun:parseSql
+   fun:stmtParseSql
+   fun:stmtSetTbName
+   fun:taos_stmt_set_tbname
+}
+
+

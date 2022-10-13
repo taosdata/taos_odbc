@@ -1,12 +1,3 @@
-include(ExternalProject)
-ExternalProject_Add(cjson
-    GIT_REPOSITORY https://github.com/taosdata-contrib/cJSON.git
-    GIT_TAG v1.7.15
-    GIT_SHALLOW TRUE
-    PREFIX "$ENV{HOME}/.taos_odbc/cjson"
-    CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=$ENV{HOME}/.taos_odbc/.install"
-    )
-
 add_subdirectory(parser)
 add_subdirectory(utils)
 
@@ -38,7 +29,7 @@ add_library(taos_odbc SHARED
     $<TARGET_OBJECTS:odbc_obj>
     $<TARGET_OBJECTS:utils_obj>
     $<TARGET_OBJECTS:parser_obj>)
-add_dependencies(taos_odbc cjson)
+# add_dependencies(taos_odbc cjson)
 target_link_libraries(taos_odbc pthread taos odbcinst)
 
 set_target_properties(taos_odbc PROPERTIES

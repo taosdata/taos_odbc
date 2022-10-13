@@ -1,0 +1,66 @@
+[
+  {
+    "conn": {},
+    "sqls": [
+      "show databases",
+      "drop database if exists foo",
+      "create database foo",
+      "use foo",
+      "create table t(ts timestamp,name varchar(20),age int,sex varchar(10),birth timestamp,text nchar(3),f float,d double)",
+      "insert into t(ts,name,age,sex,birth,text,f,d) values (now+0s,'name1',10,'male',1665025866843,'中国人',1.23,2.34)",
+      "insert into t(ts,name,age,sex,birth,text,f,d) values (now+1s,'name2',20,'female',1655125866843,'苏州人',3.45,4.56)",
+      "select * from t",
+      {
+        "sql":"insert into t (ts, name) values (now, ?)",
+        "executes": [
+          {
+            "params": [{"timestamp":1662961478755},"none0"]
+          }
+        ]
+      },{
+        "sql":"select ts, name from t where ts = 16678900134 and name = ?",
+        "executes": [
+          {
+            "params": ["none0"],
+            "positive": true
+          }
+        ]
+      },{
+        "sql":"select name from t where name = ?",
+        "executes": [
+          {
+            "params": ["name2"],
+            "rs": [[["name2"]]],
+            "positive": true
+          }
+        ]
+      },{
+        "sql":"select ts, name from t where ts = 16678900134",
+        "executes": [
+          {
+            "params": ["none0"],
+            "positive": false
+          }
+        ]
+      },{
+        "sql":"insert into t (ts, name) values (now, 'xyz')",
+        "executes": [
+          {
+            "params": [{"timestamp":1662861478799}, "nonex"],
+            "positive": true
+          }
+        ]
+      },{
+        "sql":"insert into t (ts, name) values (now, ?)",
+        "executes": [
+          {
+            "params": [],
+            "positive": false
+          }
+        ]
+      }
+    ]
+  }
+]
+
+

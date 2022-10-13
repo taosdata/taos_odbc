@@ -9,11 +9,10 @@ valgrind --leak-check=full                                                \
          --num-callers=100                                                \
          --exit-on-first-error=no                                         \
          --error-exitcode=1                                               \
-         --suppressions=${_path_to_valgrind}/valgrind.supp                \
-         --suppressions=${_path_to_valgrind}/unixodbc.supp                \
-         --suppressions=${_path_to_valgrind}/rust.supp                    \
-         --suppressions=${_path_to_valgrind}/node.supp                    \
          --suppressions=/usr/lib/x86_64-linux-gnu/valgrind/default.supp   \
+         --suppressions=${_path_to_valgrind}/taos.supp                    \
+         --suppressions=${_path_to_valgrind}/node.supp                    \
          --gen-suppressions=all                                           \
+         --track-origins=yes                                              \
          "$@"
 

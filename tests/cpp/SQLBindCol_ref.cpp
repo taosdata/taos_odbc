@@ -1,6 +1,6 @@
 // SQLBindCol_ref.cpp
 
-#include "../helpers.h"
+#include "../odbc_helpers.h"
 
 #include <errno.h>
 #include <iconv.h>

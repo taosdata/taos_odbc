@@ -1,14 +1,7 @@
-#include "../helpers.h"
+#include "../odbc_helpers.h"
 
 #include <stdlib.h>
 #include <time.h>
-
-#define CHECK(_statement) do {           \
-  if (_statement) {                      \
-    D("failed: [%s]", #_statement);      \
-    return 1;                            \
-  }                                      \
-} while (0)
 
 static int create_connection(SQLHANDLE *penv, SQLHANDLE *pdbc, const char *conn_str, const char *dsn, const char *uid, const char *pwd)
 {

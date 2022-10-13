@@ -1,7 +1,5 @@
 #include "enums.h"
 
-#include "log.h"
-
 const char *sql_c_data_type(SQLSMALLINT v)
 {
 #define CASE(_x) case _x: return #_x

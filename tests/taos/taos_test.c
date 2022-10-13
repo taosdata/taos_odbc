@@ -1,4 +1,4 @@
-#include "../taos_helpers.h"
+#include "taos_helpers.h"
 
 #include "cjson/cJSON.h"
 

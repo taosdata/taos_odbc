@@ -41,7 +41,9 @@ include(cmake/macros.cmake)
 
 check_odbc_requirement()
 
-add_subdirectory(tests)
+include_directories(inc)
+
 add_subdirectory(src)
 add_subdirectory(templates)
+add_subdirectory(tests)
 

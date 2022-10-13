@@ -1,4 +1,4 @@
-#include "../odbc_helpers.h"
+#include "odbc_helpers.h"
 
 #include <assert.h>
 #include <dlfcn.h>

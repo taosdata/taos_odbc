@@ -1,7 +1,6 @@
 add_executable(SQLBindCol       SQLBindCol_ref.cpp)
 
-target_link_libraries(SQLBindCol odbc dl taos)
-add_dependencies(SQLBindCol taos_odbc)
+target_link_libraries(SQLBindCol odbc)
 
 add_test(NAME SQLBindCol
     COMMAND SQLBindCol)

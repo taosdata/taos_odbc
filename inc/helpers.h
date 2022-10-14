@@ -6,6 +6,11 @@
 #include <libgen.h>
 #include <stdio.h>
 
+// NOTE: you can use you own `LOG_IMPL` implementation by defining it before including this header file `helpers.h`
+#ifndef LOG_IMPL
+#define LOG_IMPL(...)          fprintf(stderr, ##__VA_ARGS__)
+#endif
+
 #ifdef __cplusplus         /* { */
 #define ABORT_OR_THROW throw int(1)
 #else                      /* }{ */
@@ -34,8 +39,6 @@ static inline const char* color_reset(void)
 {
   return "\033[0m";
 }
-
-// NOTE: user of this header file can NOT use macors here-after until they implement `LOG_IMPL`
 
 #define LOGI(_file, _line, _func, _fmt, ...)           \
   LOG_IMPL("I:%s[%d]:%s(): " _fmt "\n",                \

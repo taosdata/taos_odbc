@@ -3,6 +3,11 @@
 
 #include "macros.h"
 
+#define LOG_IMPL(fmt, ...) do {                  \
+  if (!tod_get_debug()) break;                   \
+  fprintf(stderr, fmt, ##__VA_ARGS__);           \
+} while (0)
+
 #include "helpers.h"
 
 #include <stdio.h>
@@ -11,11 +16,6 @@
 EXTERN_C_BEGIN
 
 int tod_get_debug(void) FA_HIDDEN;
-
-#define LOG_IMPL(fmt, ...) do {                  \
-  if (!tod_get_debug()) break;                   \
-  fprintf(stderr, fmt, ##__VA_ARGS__);           \
-} while (0)
 
 #define OD                        D
 

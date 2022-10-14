@@ -1,8 +1,9 @@
 #include "enums.h"
 
+#define CASE(_x) case _x: return #_x
+
 const char *sql_c_data_type(SQLSMALLINT v)
 {
-#define CASE(_x) case _x: return #_x
   switch (v) {
     CASE(SQL_C_CHAR);
     CASE(SQL_C_TINYINT);
@@ -44,12 +45,10 @@ const char *sql_c_data_type(SQLSMALLINT v)
     default:
     return "SQL_C_unknown";
   }
-#undef CASE
 }
 
 const char *sql_data_type(SQLSMALLINT v)
 {
-#define CASE(_x) case _x: return #_x
   switch (v) {
     CASE(SQL_CHAR);
     CASE(SQL_VARCHAR);
@@ -93,12 +92,10 @@ const char *sql_data_type(SQLSMALLINT v)
     default:
     return "SQL_TYPE_unknown";
   }
-#undef CASE
 }
 
 const char *sql_handle_type(SQLSMALLINT v)
 {
-#define CASE(_x) case _x: return #_x
   switch (v) {
     CASE(SQL_HANDLE_ENV);
     CASE(SQL_HANDLE_DBC);
@@ -106,23 +103,19 @@ const char *sql_handle_type(SQLSMALLINT v)
     default:
     return "SQL_HANDLE_unknown";
   }
-#undef CASE
 }
 
 const char *sql_driver_completion(SQLUSMALLINT v)
 {
-#define CASE(_x) case _x: return #_x
   switch (v) {
     CASE(SQL_DRIVER_NOPROMPT);
     default:
     return "SQL_DRIVER_unknown";
   }
-#undef CASE
 }
 
 const char *sql_odbc_version(SQLINTEGER v)
 {
-#define CASE(_x) case _x: return #_x
   switch (v) {
     CASE(SQL_OV_ODBC3);
     CASE(SQL_OV_ODBC3_80);
@@ -130,12 +123,10 @@ const char *sql_odbc_version(SQLINTEGER v)
     default:
     return "SQL_OV_unknown";
   }
-#undef CASE
 }
 
 const char *sql_info_type(SQLUSMALLINT v)
 {
-#define CASE(_x) case _x: return #_x
   switch (v) {
     CASE(SQL_DBMS_NAME);
     CASE(SQL_DRIVER_NAME);
@@ -146,36 +137,30 @@ const char *sql_info_type(SQLUSMALLINT v)
     default:
     return "SQL_unknown";
   }
-#undef CASE
 }
 
 const char *sql_completion_type(SQLSMALLINT v)
 {
-#define CASE(_x) case _x: return #_x
   switch (v) {
     CASE(SQL_COMMIT);
     CASE(SQL_ROLLBACK);
     default:
     return "SQL_unknown";
   }
-#undef CASE
 }
 
 const char *sql_connection_attr(SQLINTEGER v)
 {
-#define CASE(_x) case _x: return #_x
   switch (v) {
     CASE(SQL_ATTR_CONNECTION_TIMEOUT);
     CASE(SQL_ATTR_LOGIN_TIMEOUT);
     default:
     return "SQL_ATTR_unknown";
   }
-#undef CASE
 }
 
 const char *sql_cursor_type(SQLULEN v)
 {
-#define CASE(_x) case _x: return #_x
   switch (v) {
     CASE(SQL_CURSOR_FORWARD_ONLY);
     CASE(SQL_CURSOR_STATIC);
@@ -184,12 +169,10 @@ const char *sql_cursor_type(SQLULEN v)
     default:
     return "SQL_CURSOR_unknown";
   }
-#undef CASE
 }
 
 const char *sql_statement_attr(SQLINTEGER v)
 {
-#define CASE(_x) case _x: return #_x
   switch (v) {
     CASE(SQL_ATTR_CURSOR_TYPE);
     CASE(SQL_ATTR_ROW_ARRAY_SIZE);
@@ -199,12 +182,10 @@ const char *sql_statement_attr(SQLINTEGER v)
     default:
     return "SQL_ATTR_unknown";
   }
-#undef CASE
 }
 
 const char *sql_free_statement_option(SQLUSMALLINT v)
 {
-#define CASE(_x) case _x: return #_x
   switch (v) {
     CASE(SQL_CLOSE);
     CASE(SQL_DROP);
@@ -213,6 +194,33 @@ const char *sql_free_statement_option(SQLUSMALLINT v)
     default:
     return "SQL_unknown";
   }
-#undef CASE
+}
+
+const char *sql_return_type(SQLRETURN v)
+{
+  switch (v) {
+    CASE(SQL_SUCCESS);
+    CASE(SQL_SUCCESS_WITH_INFO);
+    CASE(SQL_NEED_DATA);
+    CASE(SQL_STILL_EXECUTING);
+    CASE(SQL_ERROR);
+    CASE(SQL_NO_DATA);
+    CASE(SQL_INVALID_HANDLE);
+    CASE(SQL_PARAM_DATA_AVAILABLE);
+    default:
+    return "SQL_unknown";
+  }
+}
+
+const char *sql_env_attr(SQLINTEGER v)
+{
+  switch (v) {
+    CASE(SQL_ATTR_CONNECTION_POOLING);
+    CASE(SQL_ATTR_CP_MATCH);
+    CASE(SQL_ATTR_ODBC_VERSION);
+    CASE(SQL_ATTR_OUTPUT_NTS);
+    default:
+    return "SQL_ATTR_unknown";
+  }
 }
 

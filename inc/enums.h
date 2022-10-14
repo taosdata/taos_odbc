@@ -18,6 +18,8 @@ const char *sql_connection_attr(SQLINTEGER v) FA_HIDDEN;
 const char *sql_cursor_type(SQLULEN v) FA_HIDDEN;
 const char *sql_statement_attr(SQLINTEGER v) FA_HIDDEN;
 const char *sql_free_statement_option(SQLUSMALLINT v) FA_HIDDEN;
+const char *sql_return_type(SQLRETURN v) FA_HIDDEN;
+const char *sql_env_attr(SQLINTEGER v) FA_HIDDEN;
 
 EXTERN_C_END
 

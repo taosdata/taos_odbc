@@ -18,10 +18,14 @@ add_test(NAME edge_cases_test
 add_test(NAME Vedge_cases_test
     COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/edge_cases_test)
 
-add_executable(odbc_test odbc_test.c)
-add_dependencies(odbc_test cjson)
+add_executable(odbc_test
+    $<TARGET_OBJECTS:common_obj>
+    odbc_test.c)
+add_dependencies(odbc_test ex_cjson)
 
-target_link_libraries(odbc_test odbc)
+target_include_directories(odbc_test PRIVATE ${CJSON_INSTALL_PATH}/include)
+target_link_directories(odbc_test PRIVATE ${CJSON_INSTALL_PATH}/lib)
+target_link_libraries(odbc_test odbc cjson)
 
 add_test(NAME odbc_test
     COMMAND odbc_test)

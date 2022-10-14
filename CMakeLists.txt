@@ -28,7 +28,7 @@ endif()
 
 include(ExternalProject)
 set(CJSON_INSTALL_PATH $ENV{HOME}/.taos_odbc/.install)
-ExternalProject_Add(cjson
+ExternalProject_Add(ex_cjson
     GIT_REPOSITORY https://github.com/taosdata-contrib/cJSON.git
     GIT_TAG v1.7.15
     GIT_SHALLOW TRUE

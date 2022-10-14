@@ -101,6 +101,15 @@ static inline const char* color_reset(void)
   D("%s => %ssuccess%s", #_statement, color_green(), color_reset());    \
 } while (0)
 
+#define LOG_CALL(fmt, ...)        D("" fmt " ...", ##__VA_ARGS__)
+#define LOG_FINI(r, fmt, ...) do {                                             \
+  if (r) {                                                                     \
+    D("" fmt " => %sfailure%s", ##__VA_ARGS__, color_red(), color_reset());    \
+  } else {                                                                     \
+    D("" fmt " => %ssuccess%s", ##__VA_ARGS__, color_green(), color_reset());  \
+  }                                                                            \
+} while (0)
+
 EXTERN_C_END
 
 #endif // _helpers_h_

@@ -1,4 +1,6 @@
-add_executable(api_test api_test.c)
+add_executable(api_test
+    $<TARGET_OBJECTS:common_obj>
+    api_test.c)
 
 target_link_libraries(api_test odbc dl)
 

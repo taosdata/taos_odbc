@@ -1,5 +1,7 @@
 #include "odbc_helpers.h"
 
+#include "enums.h"
+
 #include <assert.h>
 #include <dlfcn.h>
 #include <errno.h>
@@ -234,8 +236,6 @@ static int _sql_stmt_get_long_data(SQLHANDLE stmth, SQLSMALLINT ColumnCount)
 __attribute__((unused))
 static int _sql_stmt_get_data(SQLHANDLE stmth, SQLSMALLINT ColumnCount)
 {
-  SQLHANDLE hstmt = stmth;
-
   char buf[1024];
   int i = 1;
   for (i=1; i<=ColumnCount; ++i) {
@@ -246,7 +246,7 @@ static int _sql_stmt_get_data(SQLHANDLE stmth, SQLSMALLINT ColumnCount)
     SQLLEN         StrLen_or_Ind;
 
     buf[0] = '\0';
-    SQLRETURN r = CALL_STMT(SQLGetData(stmth, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, &StrLen_or_Ind));
+    SQLRETURN r = CALL_SQLGetData(stmth, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, &StrLen_or_Ind);
     if (r != SQL_SUCCESS) break;
     if (StrLen_or_Ind == SQL_NULL_DATA) {
       D("Column[#%d]: [[null]]", i);
@@ -255,11 +255,11 @@ static int _sql_stmt_get_data(SQLHANDLE stmth, SQLSMALLINT ColumnCount)
 
     D("Column[#%d]: [%s]", i, buf);
 
-    r = CALL_STMT(SQLGetData(stmth, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, &StrLen_or_Ind));
-    if (r != SQL_NO_DATA) break;
+    r = CALL_SQLGetData(stmth, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, &StrLen_or_Ind);
+    if (FAILED(r)) break;
 
-    r = CALL_STMT(SQLGetData(stmth, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, &StrLen_or_Ind));
-    if (r != SQL_NO_DATA) break;
+    r = CALL_SQLGetData(stmth, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, &StrLen_or_Ind);
+    if (FAILED(r)) break;
   }
 
   if (i <= ColumnCount) return -1;
@@ -276,23 +276,18 @@ static int test_sql_stmt_execute_direct(SQLHANDLE stmth, const char *statement)
   SQLSMALLINT ColumnCount;
   int rr;
 
-  r = CALL_STMT(SQLExecDirect(stmth, (SQLCHAR*)statement, strlen(statement)));
+  r = CALL_SQLExecDirect(stmth, (SQLCHAR*)statement, strlen(statement));
   if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
 
-  r = CALL_STMT(SQLNumResultCols(stmth, &ColumnCount));
+  r = CALL_SQLNumResultCols(stmth, &ColumnCount);
   if (FAILED(r)) return -1;
 
-  r = CALL_STMT(SQLFetch(stmth));
+  r = CALL_SQLFetch(stmth);
   if (r == SQL_NO_DATA) return 0;
 
   rr = _sql_stmt_get_data(stmth, ColumnCount);
   if (rr == 0) {
-    if (ColumnCount > 1) {
-      rr = _sql_stmt_get_data(stmth, ColumnCount);
-    } else {
-      rr = _sql_stmt_get_data(stmth, ColumnCount);
-      rr = !rr;
-    }
+    rr = _sql_stmt_get_data(stmth, ColumnCount);
   }
 
   CALL_STMT(SQLCloseCursor(stmth));

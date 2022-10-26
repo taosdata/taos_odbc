@@ -322,5 +322,43 @@
    fun:_ZN4node5StartEiPPc
    fun:(below main)
 }
-
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:_Znam
+   fun:_ZN15ODBCAsyncWorker13GetODBCErrorsEsPv
+   fun:_ZN15BindAsyncWorker7ExecuteEv
+   fun:worker
+   fun:start_thread
+   fun:clone
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:_Znwm
+   fun:_ZN12v8_inspector8String16C1EPKtm
+   fun:_ZN12v8_inspector10toString16ERKNS_10StringViewE
+   fun:_ZN12v8_inspector16InspectedContextC1EPNS_15V8InspectorImplERKNS_13V8ContextInfoEi
+   fun:_ZN12v8_inspector15V8InspectorImpl14contextCreatedERKNS_13V8ContextInfoE
+   fun:_ZN4node9inspector5Agent5StartERKSsRKNS_12DebugOptionsESt10shared_ptrINS_15ExclusiveAccessINS_8HostPortENS_9MutexBaseINS_16LibuvMutexTraitsEEEEEEb
+   fun:_ZN4node11Environment19InitializeInspectorESt10unique_ptrINS_9inspector21ParentInspectorHandleESt14default_deleteIS3_EE
+   fun:_ZN4node16NodeMainInstance21CreateMainEnvironmentEPi
+   fun:_ZN4node16NodeMainInstance3RunEv
+   fun:_ZN4node5StartEiPPc
+   fun:(below main)
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:_Znam
+   fun:_ZN15ODBCAsyncWorker13GetODBCErrorsEsPv
+   fun:Execute
+   fun:_ZN15BindAsyncWorker7ExecuteEv
+   fun:worker
+   fun:start_thread
+   fun:clone
+}
 

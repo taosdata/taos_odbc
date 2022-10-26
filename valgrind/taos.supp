@@ -136,6 +136,50 @@
 {
    <insert_a_suppression_name_here>
    Memcheck:Leak
+   match-leak-kinds: indirect
+   fun:malloc
+   fun:taosMemoryMalloc
+   fun:taosArrayInit
+   fun:taosHashInit
+   fun:parseInsertSql
+   fun:qParseSql
+   fun:parseSql
+   fun:stmtParseSql
+   fun:stmtGetTagFields
+   fun:taos_stmt_get_tag_fields
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: indirect
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:taosArrayInit
+   fun:taosHashInit
+   fun:parseInsertSql
+   fun:qParseSql
+   fun:parseSql
+   fun:stmtParseSql
+   fun:stmtGetTagFields
+   fun:taos_stmt_get_tag_fields
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: indirect
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:taosHashInit
+   fun:parseInsertSql
+   fun:qParseSql
+   fun:parseSql
+   fun:stmtParseSql
+   fun:stmtGetTagFields
+   fun:taos_stmt_get_tag_fields
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
    match-leak-kinds: definite
    fun:calloc
    fun:taosMemoryCalloc
@@ -150,5 +194,44 @@
    fun:stmtSetTbName
    fun:taos_stmt_set_tbname
 }
-
+{
+   # taosc: inproper use of memcpy
+   <insert_a_suppression_name_here>
+   Memcheck:Addr1
+   fun:memmove
+   fun:rpcOpen
+   fun:openTransporter
+   fun:taos_connect_internal
+   fun:taos_connect
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: indirect
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:setBoundColumnInfo
+   fun:parseUsingClause
+   fun:parseInsertBody
+   fun:parseInsertSql
+   fun:qParseSql
+   fun:parseSql
+   fun:stmtParseSql
+   fun:stmtSetTbName
+   fun:taos_stmt_set_tbname
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   fun:taosMemoryMalloc
+   fun:parseInsertBody
+   fun:parseInsertSql
+   fun:qParseSql
+   fun:parseSql
+   fun:stmtParseSql
+   fun:stmtSetTbName
+   fun:taos_stmt_set_tbname
+}
 

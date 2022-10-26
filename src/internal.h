@@ -137,10 +137,10 @@ typedef struct desc_header_s                  desc_header_t;
 struct desc_header_s {
   // header fields settable by SQLSetStmtAttr
   SQLULEN             DESC_ARRAY_SIZE;
-  SQLUSMALLINT       *DESC_STATUS_PTR;
+  SQLUSMALLINT       *DESC_ARRAY_STATUS_PTR;
   SQLULEN            *DESC_BIND_OFFSET_PTR;
   SQLULEN             DESC_BIND_TYPE;
-  SQLULEN            *DESC_ROWS_FETCHED_PTR;
+  SQLULEN            *DESC_ROWS_PROCESSED_PTR;
 
   // header fields else
   SQLUSMALLINT        DESC_COUNT;
@@ -166,6 +166,15 @@ struct desc_record_s {
 
   int                           taos_type;
   int                           taos_bytes;
+
+  void                         *buffer;
+  int32_t                      *length;
+  char                         *is_null;
+  SQLRETURN (*create_buffer_array)(stmt_t *stmt, desc_record_t *record, int rows, TAOS_MULTI_BIND *mb);
+  SQLRETURN (*create_length_array)(stmt_t *stmt, desc_record_t *record, int rows, TAOS_MULTI_BIND *mb);
+
+  SQLRETURN (*convf)(stmt_t *stmt, char *src, SQLLEN len, desc_record_t *APD_record, desc_record_t *IPD_record, char *dst, int32_t *length);
+
 };
 
 struct descriptor_s {
@@ -278,8 +287,20 @@ struct stmt_s {
   char                      *sql;
 
   TAOS_STMT                 *stmt;
+  // for non-insert-parameterized-statement
   int                        nr_params;
   params_t                   params;
+
+  // for insert-parameterized-statement
+  char                      *subtbl;
+  int                        nr_tag_fields;
+  TAOS_FIELD_E              *tag_fields;
+  int                        nr_col_fields;
+  TAOS_FIELD_E              *col_fields;
+
+  TAOS_MULTI_BIND           *mbs;
+  size_t                     cap_mbs;
+  size_t                     nr_mbs;
 
   TAOS_RES                  *res;
   SQLLEN                     affected_row_count;
@@ -293,8 +314,10 @@ struct stmt_s {
 
   rowset_t                   rowset;
 
+  unsigned int               prepared:1;
   unsigned int               is_insert_stmt:1;
   unsigned int               res_is_from_taos_query:1;
+  unsigned int               subtbl_required:1;
 };
 
 EXTERN_C_END

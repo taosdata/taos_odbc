@@ -265,6 +265,8 @@ fn _do_test_cases_in_env(env: &Environment<Odbc3>) {
 
   let conn = env.connect_with_connection_string("DSN=TAOS_ODBC_DSN").unwrap();
   do_test_cases_in_conn(&conn);
+
+  // assert_eq!(0, 1);
 }
 
 #[cfg(test)]

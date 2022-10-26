@@ -13,6 +13,7 @@ valgrind --leak-check=full                                                \
          --suppressions=/usr/lib/x86_64-linux-gnu/valgrind/default.supp   \
          --suppressions=${_path_to_valgrind}/taos.supp                    \
          --suppressions=${_path_to_valgrind}/node.supp                    \
+         --suppressions=${_path_to_valgrind}/mysql.supp                   \
          --gen-suppressions=all                                           \
          --track-origins=yes                                              \
          "$@"

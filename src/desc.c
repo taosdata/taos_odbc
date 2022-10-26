@@ -88,10 +88,10 @@ SQLRETURN desc_free(desc_t *desc)
 static void desc_header_init(desc_header_t *header)
 {
   header->DESC_ARRAY_SIZE                = 1;
-  header->DESC_STATUS_PTR                = NULL;
+  header->DESC_ARRAY_STATUS_PTR          = NULL;
   header->DESC_BIND_OFFSET_PTR           = NULL;
   header->DESC_BIND_TYPE                 = SQL_BIND_BY_COLUMN;
-  header->DESC_ROWS_FETCHED_PTR          = NULL;
+  header->DESC_ROWS_PROCESSED_PTR        = NULL;
 
   header->DESC_COUNT                     = 0;
 }

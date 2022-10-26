@@ -497,7 +497,9 @@ static int test_mysql_case1(void)
           A(SUCCEEDED(rc), "");
           rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"drop table if exists t", SQL_NTS));
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"create table if not exists t (name varchar(20), age int, sex varchar(8), text varchar(30))", SQL_NTS));
+          rc = CALL_STMT(SQLExecDirect(hstmt,
+            (SQLCHAR*)"create table if not exists t (name varchar(20), age int, sex varchar(8), text varchar(30),"
+                      "f float, d double, si smallint, ti tinyint, b bool)", SQL_NTS));
           A(SUCCEEDED(rc), "");
           rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"select * from t", SQL_NTS));
           A(SUCCEEDED(rc), "");
@@ -515,6 +517,27 @@ static int test_mysql_case1(void)
 
           rc = CALL_STMT(SQLNumResultCols(hstmt, &ColumnCount));
           A(SUCCEEDED(rc), "");
+
+          for (int i=1; i<=ColumnCount; ++i) {
+            char buf[1024]; buf[0] = '\0';
+            SQLUSMALLINT   ColumnNumber         = i;
+            SQLCHAR *      ColumnName           = (SQLCHAR*)buf;
+            SQLSMALLINT    BufferLength         = sizeof(buf);
+            SQLSMALLINT    NameLength;
+            SQLSMALLINT    DataType;
+            SQLULEN        ColumnSize;
+            SQLSMALLINT    DecimalDigits;
+            SQLSMALLINT    Nullable;
+
+            rc = CALL_STMT(SQLDescribeCol(hstmt, ColumnNumber, ColumnName, BufferLength, &NameLength, &DataType, &ColumnSize, &DecimalDigits, &Nullable));
+            D("ColumnNumber:%d", ColumnNumber);
+            D("ColumnName:%s", ColumnName);
+            D("NameLength:%d", NameLength);
+            D("DataType:%s", sql_data_type(DataType));
+            D("ColumnSize:%ld", ColumnSize);
+            D("DecimalDigits:%d", DecimalDigits);
+            D("Nullable:%s", sql_nullable(Nullable));
+          }
 
           for (int i = -1; i <= 16; ++i ) {
             const char fill = 'X';
@@ -793,9 +816,9 @@ static int test_mysql_case1(void)
   return r ? 1 : 0;
 }
 
-int main()
+int main(int argc, char *argv[])
 {
-  if (1) {
+  if (argc == 1 || strcmp(argv[1], "mysql")) {
     if (test_case1()) return 1;
     if (test_case2()) return 1;
     if (test_case3()) return 1;

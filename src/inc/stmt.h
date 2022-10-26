@@ -13,14 +13,8 @@ stmt_t* stmt_unref(stmt_t *stmt) FA_HIDDEN;
 SQLRETURN stmt_free(stmt_t *stmt) FA_HIDDEN;
 
 SQLRETURN stmt_exec_direct(stmt_t *stmt, const char *sql, int len) FA_HIDDEN;
-SQLRETURN stmt_set_row_array_size(stmt_t *stmt, SQLULEN row_array_size) FA_HIDDEN;
-SQLRETURN stmt_set_row_status_ptr(stmt_t *stmt, SQLUSMALLINT *row_status_ptr) FA_HIDDEN;
 int stmt_get_row_count(stmt_t *stmt, SQLLEN *row_count_ptr) FA_HIDDEN;
 int stmt_get_col_count(stmt_t *stmt, SQLSMALLINT *col_count_ptr) FA_HIDDEN;
-SQLRETURN stmt_set_row_bind_type(stmt_t *stmt, SQLULEN row_bind_type) FA_HIDDEN;
-SQLRETURN stmt_set_rows_fetched_ptr(stmt_t *stmt, SQLULEN *rows_fetched_ptr) FA_HIDDEN;
-SQLRETURN stmt_set_max_length(stmt_t *stmt, SQLULEN max_length) FA_HIDDEN;
-SQLRETURN stmt_set_row_bind_offset_ptr(stmt_t *stmt, SQLULEN *row_bind_offset_ptr) FA_HIDDEN;
 
 SQLRETURN stmt_describe_col(stmt_t *stmt,
     SQLUSMALLINT   ColumnNumber,
@@ -96,8 +90,7 @@ SQLRETURN stmt_reset_params(
 void stmt_dissociate_APD(stmt_t *stmt) FA_HIDDEN;
 void stmt_dissociate_ARD(stmt_t *stmt) FA_HIDDEN;
 
-SQLRETURN stmt_set_param_desc(stmt_t *stmt, SQLPOINTER ValuePtr) FA_HIDDEN;
-SQLRETURN stmt_set_row_desc(stmt_t *stmt, SQLPOINTER ValuePtr) FA_HIDDEN;
+SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr, SQLINTEGER StringLength) FA_HIDDEN;
 
 EXTERN_C_END
 

@@ -224,6 +224,11 @@ SQLRETURN conn_driver_connect(
     return SQL_ERROR;
   }
 
+  if (conn->taos) {
+    conn_append_err(conn, "HY000", 0, "Already connected");
+    return SQL_ERROR;
+  }
+
   parser_param_t param = {};
   param.debug_flex  = env_get_debug_flex(conn->env);
   param.debug_bison = env_get_debug_bison(conn->env);
@@ -264,6 +269,10 @@ void conn_disconnect(conn_t *conn)
 {
   OA_ILE(conn);
   OA_ILE(conn->taos);
+
+  int stmts = atomic_load(&conn->stmts);
+  OA_ILE(stmts == 0);
+
   CALL_taos_close(conn->taos);
   conn->taos = NULL;
   connection_cfg_release(&conn->cfg);
@@ -374,6 +383,11 @@ SQLRETURN conn_connect(
     SQLCHAR       *Authentication,
     SQLSMALLINT    NameLength3)
 {
+  if (conn->taos) {
+    conn_append_err(conn, "HY000", 0, "Already connected");
+    return SQL_ERROR;
+  }
+
   connection_cfg_release(&conn->cfg);
   conn->cfg.dsn = strndup((const char*)ServerName, NameLength1);
   if (!conn->cfg.dsn) {

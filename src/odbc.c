@@ -317,28 +317,6 @@ SQLRETURN SQL_API SQLSetConnectAttr(
   }
 }
 
-static SQLRETURN do_stmt_set_cursor_type(
-    stmt_t       *stmt,
-    SQLULEN       cursor_type)
-{
-  (void)stmt;
-  switch (cursor_type) {
-    case SQL_CURSOR_FORWARD_ONLY:
-      return SQL_SUCCESS;
-    case SQL_CURSOR_STATIC:
-      return SQL_SUCCESS;
-    case SQL_CURSOR_KEYSET_DRIVEN:
-      OD("");
-      return SQL_ERROR;
-    case SQL_CURSOR_DYNAMIC:
-      OD("");
-      return SQL_ERROR;
-    default:
-      OD("");
-      return SQL_ERROR;
-  }
-}
-
 SQLRETURN SQL_API SQLSetStmtAttr(
     SQLHSTMT      StatementHandle,
     SQLINTEGER    Attribute,
@@ -351,30 +329,7 @@ SQLRETURN SQL_API SQLSetStmtAttr(
 
   errs_clr(&stmt->errs);
 
-  (void)StringLength;
-
-  switch (Attribute) {
-    case SQL_ATTR_CURSOR_TYPE:
-      return do_stmt_set_cursor_type(stmt, (SQLULEN)ValuePtr);
-    case SQL_ATTR_ROW_ARRAY_SIZE:
-      return stmt_set_row_array_size(stmt, (SQLULEN)ValuePtr);
-    case SQL_ATTR_ROW_STATUS_PTR:
-      return stmt_set_row_status_ptr(stmt, (SQLUSMALLINT*)ValuePtr);
-    case SQL_ATTR_ROW_BIND_TYPE:
-      return stmt_set_row_bind_type(stmt, (SQLULEN)ValuePtr);
-    case SQL_ATTR_ROWS_FETCHED_PTR:
-      return stmt_set_rows_fetched_ptr(stmt, (SQLULEN*)ValuePtr);
-    case SQL_ATTR_MAX_LENGTH:
-      return stmt_set_max_length(stmt, (SQLULEN)ValuePtr);
-    case SQL_ATTR_ROW_BIND_OFFSET_PTR:
-      return stmt_set_row_bind_offset_ptr(stmt, (SQLULEN*)ValuePtr);
-    case SQL_ATTR_APP_ROW_DESC:
-      return stmt_set_row_desc(stmt, ValuePtr);
-    case SQL_ATTR_APP_PARAM_DESC:
-      return stmt_set_param_desc(stmt, ValuePtr);
-    default:
-      return SQL_ERROR;
-  }
+  return stmt_set_attr(stmt, Attribute, ValuePtr, StringLength);
 }
 
 SQLRETURN SQL_API SQLRowCount(

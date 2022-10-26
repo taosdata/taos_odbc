@@ -92,7 +92,7 @@ static inline TAOS_STMT* call_taos_stmt_init(const char *file, int line, const c
 
 static inline int call_taos_stmt_prepare(const char *file, int line, const char *func, TAOS_STMT *stmt, const char *sql, unsigned long length)
 {
-  int n = length ? length : (sql ? strlen(sql) : 0);
+  int n = (int)(length ? length : (sql ? strlen(sql) : 0));
   LOGD(file, line, func, "taos_stmt_prepare(stmt:%p,sql:%.*s,length:%ld) ...", stmt, n, sql, length);
   int r = taos_stmt_prepare(stmt, sql, length);
   diag_stmt(stmt);
@@ -180,6 +180,8 @@ static inline int call_taos_stmt_num_params(const char *file, int line, const ch
 
 static inline int call_taos_stmt_get_param(const char *file, int line, const char *func, TAOS_STMT *stmt, int idx, int *type, int *bytes)
 {
+  if (type) *type = 0;
+  if (bytes) *bytes = 0;
   LOGD(file, line, func, "taos_stmt_get_param(stmt:%p,idx:%d,type:%p,bytes:%p) ...", stmt, idx, type, bytes);
   int r = taos_stmt_get_param(stmt, idx, type, bytes);
   diag_stmt(stmt);

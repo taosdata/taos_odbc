@@ -856,21 +856,21 @@ static int _bind_mb_by_param(executes_ctx_t *ctx, cJSON *param, int istart, int 
   return -1;
 }
 
-static int _run_execute_row_rs_mbs(executes_ctx_t *ctx, cJSON *start, int istart, cJSON *rs, TAOS_MULTI_BIND *mb)
+static int _run_execute_row_rs_mbs(executes_ctx_t *ctx, cJSON *start, int istart, cJSON *rs, TAOS_MULTI_BIND *mbs)
 {
   (void)rs;
 
   int r = 0;
   for (int i=0; i<ctx->nums; ++i) {
+    TAOS_MULTI_BIND *mb = mbs + i;
     cJSON *param = cJSON_GetArrayItem(start, i);
     r = _bind_mb_by_param(ctx, param, istart, i, mb);
-    if (r) break;
-
-    r = CALL_taos_stmt_bind_single_param_batch(ctx->stmt, mb, i);
     if (r) break;
   }
   if (r) return -1;
 
+  r = CALL_taos_stmt_bind_param_batch(ctx->stmt, mbs);
+  if (r) return -1;
   r = CALL_taos_stmt_add_batch(ctx->stmt);
   if (r) return -1;
 
@@ -1494,8 +1494,6 @@ static int flaw_case_under_stmt(TAOS_STMT *stmt, int *tagNum, TAOS_FIELD_E **tag
   colbinds[0].length         = NULL;                  // correct me if i am wrong here
   colbinds[0].is_null        = NULL;                  // correct me if i am wrong here
   colbinds[0].num            = 1;
-  r = CALL_taos_stmt_bind_single_param_batch(stmt, &colbinds[0], 0);
-  if (r) return -1;
 
   if ((*cols)[1].type != TSDB_DATA_TYPE_INT) {
     // this shall not happen!!!
@@ -1508,9 +1506,9 @@ static int flaw_case_under_stmt(TAOS_STMT *stmt, int *tagNum, TAOS_FIELD_E **tag
   colbinds[1].length         = NULL;                  // correct me if i am wrong here
   colbinds[1].is_null        = NULL;                  // correct me if i am wrong here
   colbinds[1].num            = 1;
-  r = CALL_taos_stmt_bind_single_param_batch(stmt, &colbinds[1], 1);
-  if (r) return -1;
 
+  r = CALL_taos_stmt_bind_param_batch(stmt, colbinds);
+  if (r) return -1;
   r = CALL_taos_stmt_add_batch(stmt);
   if (r) return -1;
 

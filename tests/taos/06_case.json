@@ -18,6 +18,51 @@
           }
         ]
       },{
+        "sql":"select name from t where age = ?",
+        "executes": [
+          {
+            "params": [10],
+            "rs": [[["name1"]]],
+            "positive": true
+          }
+        ]
+      },{
+        "sql":"select name from t where age < ?",
+        "executes": [
+          {
+            "params": [11],
+            "rs": [[["name1"]]],
+            "positive": true
+          }
+        ]
+      },{
+        "sql":"select name from t where age > ?",
+        "executes": [
+          {
+            "params": [9],
+            "rs": [[["name1"],["name2"]]],
+            "positive": true
+          }
+        ]
+      },{
+        "sql":"select name from t where age = ? and name = ?",
+        "executes": [
+          {
+            "params": [10,"name1"],
+            "rs": [[["name1"]]],
+            "positive": true
+          }
+        ]
+      },{
+        "sql":"select name from t where age > ? and age < ?",
+        "executes": [
+          {
+            "params": [9,11],
+            "rs": [[["name1"]]],
+            "positive": true
+          }
+        ]
+      },{
         "sql":"select ts, name from t where ts = 16678900134 and name = ?",
         "executes": [
           {

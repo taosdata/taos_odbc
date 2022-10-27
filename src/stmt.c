@@ -419,14 +419,28 @@ static descriptor_t* stmt_IPD(stmt_t *stmt)
   return &stmt->IPD;
 }
 
+static descriptor_t* stmt_IRD(stmt_t *stmt)
+{
+  return &stmt->IRD;
+}
+
 static descriptor_t* stmt_ARD(stmt_t *stmt)
 {
   return stmt->current_ARD;
 }
 
-SQLULEN* stmt_get_rows_fetched_ptr(stmt_t *stmt)
+static SQLRETURN _stmt_set_rows_fetched_ptr(stmt_t *stmt, SQLULEN *rows_fetched_ptr)
 {
-  descriptor_t *desc = stmt_ARD(stmt);
+  descriptor_t *desc = stmt_IRD(stmt);
+  desc_header_t *header = &desc->header;
+  header->DESC_ROWS_PROCESSED_PTR = rows_fetched_ptr;
+
+  return SQL_SUCCESS;
+}
+
+static SQLULEN* _stmt_get_rows_fetched_ptr(stmt_t *stmt)
+{
+  descriptor_t *desc = stmt_IRD(stmt);
   desc_header_t *header = &desc->header;
   return header->DESC_ROWS_PROCESSED_PTR;
 }
@@ -438,7 +452,7 @@ static SQLRETURN _stmt_exec_direct_sql(stmt_t *stmt, const char *sql)
   OA_ILE(stmt->conn->taos);
   OA_ILE(sql);
 
-  if (stmt_get_rows_fetched_ptr(stmt)) *stmt_get_rows_fetched_ptr(stmt) = 0;
+  if (_stmt_get_rows_fetched_ptr(stmt)) *_stmt_get_rows_fetched_ptr(stmt) = 0;
   rowset_reset(&stmt->rowset);
   stmt_release_result(stmt);
   params_reset(&stmt->params);
@@ -524,6 +538,13 @@ static SQLRETURN _stmt_set_row_array_size(stmt_t *stmt, SQLULEN row_array_size)
   return SQL_SUCCESS;
 }
 
+static SQLULEN _stmt_get_row_array_size(stmt_t *stmt)
+{
+  descriptor_t *desc = stmt_ARD(stmt);
+  desc_header_t *header = &desc->header;
+  return header->DESC_ARRAY_SIZE;
+}
+
 static SQLRETURN _stmt_set_paramset_size(stmt_t *stmt, SQLULEN paramset_size)
 {
   if (paramset_size == 0) {
@@ -545,35 +566,42 @@ static SQLRETURN _stmt_set_paramset_size(stmt_t *stmt, SQLULEN paramset_size)
   return SQL_SUCCESS;
 }
 
-SQLULEN stmt_get_row_array_size(stmt_t *stmt)
-{
-  descriptor_t *desc = stmt_ARD(stmt);
-  desc_header_t *header = &desc->header;
-  return header->DESC_ARRAY_SIZE;
-}
+// static SQLULEN _stmt_get_paramset_size(stmt_t *stmt)
+// {
+//   descriptor_t *desc = stmt_APD(stmt);
+//   desc_header_t *header = &desc->header;
+//   return header->DESC_ARRAY_SIZE;
+// }
 
 static SQLRETURN _stmt_set_row_status_ptr(stmt_t *stmt, SQLUSMALLINT *row_status_ptr)
 {
-  descriptor_t *desc = stmt_ARD(stmt);
+  descriptor_t *desc = stmt_IRD(stmt);
   desc_header_t *header = &desc->header;
   header->DESC_ARRAY_STATUS_PTR = row_status_ptr;
   return SQL_SUCCESS;
 }
 
+SQLUSMALLINT* stmt_get_row_status_ptr(stmt_t *stmt)
+{
+  descriptor_t *desc = stmt_IRD(stmt);
+  desc_header_t *header = &desc->header;
+  return header->DESC_ARRAY_STATUS_PTR;
+}
+
 static SQLRETURN _stmt_set_param_status_ptr(stmt_t *stmt, SQLUSMALLINT *param_status_ptr)
 {
-  descriptor_t *desc = stmt_ARD(stmt);
+  descriptor_t *desc = stmt_IPD(stmt);
   desc_header_t *header = &desc->header;
   header->DESC_ARRAY_STATUS_PTR = param_status_ptr;
   return SQL_SUCCESS;
 }
 
-SQLUSMALLINT* stmt_get_row_status_ptr(stmt_t *stmt)
-{
-  descriptor_t *desc = stmt_ARD(stmt);
-  desc_header_t *header = &desc->header;
-  return header->DESC_ARRAY_STATUS_PTR;
-}
+// static SQLUSMALLINT* _stmt_get_param_status_ptr(stmt_t *stmt)
+// {
+//   descriptor_t *desc = stmt_IPD(stmt);
+//   desc_header_t *header = &desc->header;
+//   return header->DESC_ARRAY_STATUS_PTR;
+// }
 
 int stmt_get_row_count(stmt_t *stmt, SQLLEN *row_count_ptr)
 {
@@ -601,6 +629,13 @@ static SQLRETURN _stmt_set_row_bind_type(stmt_t *stmt, SQLULEN row_bind_type)
   return SQL_SUCCESS;
 }
 
+// static SQLULEN stmt_get_row_bind_type(stmt_t *stmt)
+// {
+//   descriptor_t *desc = stmt_ARD(stmt);
+//   desc_header_t *header = &desc->header;
+//   return header->DESC_BIND_TYPE;
+// }
+
 static SQLRETURN _stmt_set_param_bind_type(stmt_t *stmt, SQLULEN param_bind_type)
 {
   if (param_bind_type != SQL_BIND_BY_COLUMN) {
@@ -615,30 +650,28 @@ static SQLRETURN _stmt_set_param_bind_type(stmt_t *stmt, SQLULEN param_bind_type
   return SQL_SUCCESS;
 }
 
-SQLULEN stmt_get_row_bind_type(stmt_t *stmt)
-{
-  descriptor_t *desc = stmt_ARD(stmt);
-  desc_header_t *header = &desc->header;
-  return header->DESC_BIND_TYPE;
-}
-
-static SQLRETURN _stmt_set_rows_fetched_ptr(stmt_t *stmt, SQLULEN *rows_fetched_ptr)
-{
-  descriptor_t *desc = stmt_ARD(stmt);
-  desc_header_t *header = &desc->header;
-  header->DESC_ROWS_PROCESSED_PTR = rows_fetched_ptr;
-
-  return SQL_SUCCESS;
-}
+// static SQLULEN _stmt_get_param_bind_type(stmt_t *stmt)
+// {
+//   descriptor_t *desc = stmt_APD(stmt);
+//   desc_header_t *header = &desc->header;
+//   return header->DESC_BIND_TYPE;
+// }
 
 static SQLRETURN _stmt_set_params_processed_ptr(stmt_t *stmt, SQLULEN *params_processed_ptr)
 {
-  descriptor_t *desc = stmt_ARD(stmt);
+  descriptor_t *desc = stmt_IPD(stmt);
   desc_header_t *header = &desc->header;
   header->DESC_ROWS_PROCESSED_PTR = params_processed_ptr;
 
   return SQL_SUCCESS;
 }
+
+// static SQLULEN* _stmt_get_params_processed_ptr(stmt_t *stmt)
+// {
+//   descriptor_t *desc = stmt_IPD(stmt);
+//   desc_header_t *header = &desc->header;
+//   return header->DESC_ROWS_PROCESSED_PTR;
+// }
 
 static SQLRETURN _stmt_set_max_length(stmt_t *stmt, SQLULEN max_length)
 {
@@ -658,6 +691,13 @@ static SQLRETURN _stmt_set_row_bind_offset_ptr(stmt_t *stmt, SQLULEN *row_bind_o
 
   return SQL_SUCCESS;
 }
+
+// static SQLULEN* _stmt_get_row_bind_offset_ptr(stmt_t *stmt)
+// {
+//   descriptor_t *desc = stmt_ARD(stmt);
+//   desc_header_t *header = &desc->header;
+//   return header->DESC_BIND_OFFSET_PTR;
+// }
 
 SQLRETURN stmt_describe_col(stmt_t *stmt,
     SQLUSMALLINT   ColumnNumber,
@@ -1787,7 +1827,7 @@ static SQLRETURN _stmt_fill_rowset(stmt_t *stmt, int i_row, int i_col)
 
 SQLRETURN stmt_fetch(stmt_t *stmt)
 {
-  SQLULEN row_array_size = stmt_get_row_array_size(stmt);
+  SQLULEN row_array_size = _stmt_get_row_array_size(stmt);
   OA_NIY(row_array_size > 0);
 
   SQLRETURN sr = SQL_SUCCESS;
@@ -1811,12 +1851,16 @@ SQLRETURN stmt_fetch(stmt_t *stmt)
 
   stmt_reset_current_for_get_data(stmt);
 
-  descriptor_t *desc = stmt_ARD(stmt);
-  desc_header_t *header = &desc->header;
-  OA_NIY(desc->cap >= header->DESC_COUNT);
-  for (int i_col = 0; (size_t)i_col < desc->cap; ++i_col) {
-    if (i_col >= header->DESC_COUNT) continue;
-    desc_record_t *record = desc->records + i_col;
+  descriptor_t *ARD = stmt_ARD(stmt);
+  desc_header_t *ARD_header = &ARD->header;
+
+  descriptor_t *IRD = stmt_IRD(stmt);
+  desc_header_t *IRD_header = &IRD->header;
+
+  OA_NIY(ARD->cap >= ARD_header->DESC_COUNT);
+  for (int i_col = 0; (size_t)i_col < ARD->cap; ++i_col) {
+    if (i_col >= ARD_header->DESC_COUNT) continue;
+    desc_record_t *record = ARD->records + i_col;
     if (record->DESC_DATA_PTR == NULL) continue;
 
     TAOS_FIELD *field = stmt->fields + i_col;
@@ -1828,23 +1872,23 @@ SQLRETURN stmt_fetch(stmt_t *stmt)
     if (!sql_succeeded(sr)) return SQL_ERROR;
   }
 
-  if (header->DESC_BIND_TYPE != SQL_BIND_BY_COLUMN) {
+  if (ARD_header->DESC_BIND_TYPE != SQL_BIND_BY_COLUMN) {
     stmt_append_err(stmt, "HY000", 0, "only `SQL_BIND_BY_COLUMN` is supported now");
     return SQL_ERROR;
   }
 
-  if (header->DESC_ROWS_PROCESSED_PTR) *header->DESC_ROWS_PROCESSED_PTR = 0;
+  if (IRD_header->DESC_ROWS_PROCESSED_PTR) *IRD_header->DESC_ROWS_PROCESSED_PTR = 0;
 
   for (int i_row = 0; (SQLULEN)i_row<row_array_size; ++i_row) {
     if (i_row + stmt->rowset.i_row >= stmt->nr_rows) break;
 
-    for (int i_col = 0; (size_t)i_col < desc->cap; ++i_col) {
+    for (int i_col = 0; (size_t)i_col < ARD->cap; ++i_col) {
       sr = _stmt_fill_rowset(stmt, i_row, i_col);
       if (sr == SQL_ERROR) return SQL_ERROR;
     }
 
-    if (header->DESC_ARRAY_STATUS_PTR) header->DESC_ARRAY_STATUS_PTR[i_row] = SQL_ROW_SUCCESS;
-    if (header->DESC_ROWS_PROCESSED_PTR) *header->DESC_ROWS_PROCESSED_PTR += 1;
+    if (IRD_header->DESC_ARRAY_STATUS_PTR) IRD_header->DESC_ARRAY_STATUS_PTR[i_row] = SQL_ROW_SUCCESS;
+    if (IRD_header->DESC_ROWS_PROCESSED_PTR) *IRD_header->DESC_ROWS_PROCESSED_PTR += 1;
   }
 
   return SQL_SUCCESS;
@@ -3979,7 +4023,7 @@ SQLRETURN stmt_execute(stmt_t *stmt)
     return SQL_ERROR;
   }
 
-  if (stmt_get_rows_fetched_ptr(stmt)) *stmt_get_rows_fetched_ptr(stmt) = 0;
+  if (_stmt_get_rows_fetched_ptr(stmt)) *_stmt_get_rows_fetched_ptr(stmt) = 0;
   rowset_reset(&stmt->rowset);
   // column-binds remain valid among executes
   stmt_release_result(stmt);

@@ -1,0 +1,37 @@
+[
+  {
+    "conn": {"dsn": "TAOS_ODBC_DSN"},
+    "sqls": [
+      "drop table if exists foo.t",
+      "create table foo.t(ts timestamp,name varchar(20))",
+      {
+        "sql":"insert into foo.t (ts, name) values (?, ?)",
+        "executes": [
+          {
+            "params": [
+              [{"timestamp":1662961548650},             "great"]
+            ]
+          },{
+            "params": [
+              [{"timestamp":"2022-09-12 13:45:48.652"}, "wall"]
+            ]
+          },{
+            "params": [
+              ["2022-09-12 13:45:48.654", "bar"]
+            ]
+          }
+        ]
+      },{
+        "sql":"select count(*) from foo.t",
+        "rs": [[3]]
+      },{
+        "sql":"select count(*) from foo.t where ts = 1662961548652",
+        "rs": [[1]]
+      },{
+        "sql":"select count(*) from foo.t where ts = 1662961548654",
+        "rs": [[1]]
+      }
+    ]
+  }
+]
+

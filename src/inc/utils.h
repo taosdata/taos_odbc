@@ -4,6 +4,7 @@
 #include "macros.h"
 
 #include <stdlib.h>
+#include <time.h>
 
 EXTERN_C_BEGIN
 
@@ -35,6 +36,7 @@ struct buffer_s {
   _n;                                                     \
 })
 
+char *tod_strptime(const char *s, const char *format, struct tm *tm) FA_HIDDEN;
 
 EXTERN_C_END
 

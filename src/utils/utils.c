@@ -1,6 +1,9 @@
+#define _XOPEN_SOURCE
+
 #include "../internal.h"
 
 #include <string.h>
+#include <time.h>
 
 static_pool_t* static_pool_create(size_t cap)
 {
@@ -53,5 +56,10 @@ unsigned char* static_pool_calloc_align(static_pool_t *pool, size_t sz, size_t a
   if (p) memset(p, 0, sz);
 
   return p;
+}
+
+char *tod_strptime(const char *s, const char *format, struct tm *tm)
+{
+  return strptime(s, format, tm);
 }
 

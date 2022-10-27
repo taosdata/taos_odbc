@@ -4,6 +4,14 @@
 
 #include <stdint.h>
 
+typedef struct conn_arg_s             conn_arg_t;
+struct conn_arg_s {
+  const char *dsn;
+  const char *uid;
+  const char *pwd;
+  const char *connstr;
+};
+
 static int _connect(SQLHANDLE hconn, const char *dsn, const char *uid, const char *pwd)
 {
   SQLRETURN sr = SQL_SUCCESS;
@@ -81,6 +89,47 @@ static int cmp_double_against_val(SQLHANDLE hstmt, SQLSMALLINT iColumn, const cJ
   SQLLEN StrLen_or_Ind = 0;
 
   sr = CALL_SQLGetData(hstmt, iColumn+1, SQL_C_DOUBLE, &v, sizeof(v), &StrLen_or_Ind);
+  if (FAILED(sr)) return -1;
+  if (StrLen_or_Ind == SQL_NO_TOTAL) {
+    E("not implemented yet");
+    return -1;
+  }
+  if (StrLen_or_Ind == SQL_NULL_DATA) {
+    E("not implemented yet");
+    return -1;
+  }
+
+  cJSON *j = cJSON_CreateNumber(v);
+  bool eq = cJSON_Compare(j, val, true);
+  cJSON_Delete(j);
+  if (eq) return 0;
+
+  if (cJSON_IsNumber(val)) {
+    double dl = v;
+    double dr = val->valuedouble;
+    char lbuf[64]; snprintf(lbuf, sizeof(lbuf), "%lg", dl);
+    char rbuf[64]; snprintf(rbuf, sizeof(rbuf), "%lg", dr);
+    if (strcmp(lbuf, rbuf) == 0) return 0;
+    else D("%s <> %s", lbuf, rbuf);
+  } else {
+    char *t1 = cJSON_PrintUnformatted(j);
+    char *t2 = cJSON_PrintUnformatted(val);
+    E("==%s== <> ==%s==", t1, t2);
+    free(t1);
+    free(t2);
+  }
+
+  return -1;
+}
+
+static int cmp_i64_against_val(SQLHANDLE hstmt, SQLSMALLINT iColumn, const cJSON *val)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  SQLINTEGER v = 0;
+  SQLLEN StrLen_or_Ind = 0;
+
+  sr = CALL_SQLGetData(hstmt, iColumn+1, SQL_C_SLONG, &v, sizeof(v), &StrLen_or_Ind);
   if (FAILED(sr)) return -1;
   if (StrLen_or_Ind == SQL_NO_TOTAL) {
     E("not implemented yet");
@@ -313,6 +362,10 @@ static int record_cmp_row(SQLHANDLE hstmt, SQLSMALLINT ColumnCount, const cJSON 
         break;
       case SQL_INTEGER:
         r = cmp_i32_against_val(hstmt, i, val);
+        if (r) return -1;
+        break;
+      case SQL_BIGINT:
+        r = cmp_i64_against_val(hstmt, i, val);
         if (r) return -1;
         break;
       case SQL_TYPE_TIMESTAMP:
@@ -574,6 +627,15 @@ static int _conv_from_json_to_str(cJSON *src, char *dst, int bytes, int *nr_requ
   }
   if (cJSON_IsObject(src)) {
     cJSON *j;
+    j = cJSON_GetObjectItem(src, "timestamp");
+    if (j) {
+      if (cJSON_IsNull(j)) {
+        *nr_required = sizeof(double);
+        *strlen_or_ind = SQL_NULL_DATA;
+        return 0;
+      }
+      return _conv_from_json_to_str(j, dst, bytes, nr_required, strlen_or_ind);
+    }
     j = cJSON_GetObjectItem(src, "str");
     if (j) {
       if (cJSON_IsNull(j)) {
@@ -831,12 +893,12 @@ static int _run_execute_params_rs(executes_ctx_t *ctx, cJSON *params, cJSON *rs)
     switch (ValueType) {
       case SQL_C_CHAR:
         sr = CALL_SQLBindParameter(ctx->hstmt, i+1, SQL_PARAM_INPUT, ValueType,
-            DataType, bytes, 0, ctx->params.arrays[i], buffer_length, ctx->params.strlen_or_inds[i]);
+            DataType, bytes, DecimalDigits, ctx->params.arrays[i], buffer_length, ctx->params.strlen_or_inds[i]);
         if (FAILED(sr)) return -1;
         break;
       case SQL_C_DOUBLE:
         sr = CALL_SQLBindParameter(ctx->hstmt, i+1, SQL_PARAM_INPUT, ValueType,
-            DataType, bytes, 0, ctx->params.arrays[i], buffer_length, ctx->params.strlen_or_inds[i]);
+            DataType, bytes, DecimalDigits, ctx->params.arrays[i], buffer_length, ctx->params.strlen_or_inds[i]);
         if (FAILED(sr)) return -1;
         break;
       default:
@@ -1009,7 +1071,7 @@ static int run_case_under_conn(SQLHANDLE hconn, cJSON *json)
   return r;
 }
 
-static int run_case(SQLHANDLE hconn, cJSON *json)
+static int run_case(SQLHANDLE hconn, cJSON *json, conn_arg_t *conn_arg)
 {
   (void)hconn;
 
@@ -1019,6 +1081,13 @@ static int run_case(SQLHANDLE hconn, cJSON *json)
   const char *uid     = json_object_get_string(json, "conn/uid");
   const char *pwd     = json_object_get_string(json, "conn/pwd");
   const char *connstr = json_object_get_string(json, "conn/connstr");
+
+  if (!dsn && !connstr) {
+    dsn = conn_arg->dsn;
+    uid = conn_arg->uid;
+    pwd = conn_arg->pwd;
+    connstr = conn_arg->connstr;
+  }
 
   if (dsn) {
     r = _connect(hconn, dsn, uid, pwd);
@@ -1040,7 +1109,7 @@ static int run_case(SQLHANDLE hconn, cJSON *json)
   return r;
 }
 
-static int run_json_file(SQLHANDLE hconn, cJSON *json)
+static int run_json_file(SQLHANDLE hconn, cJSON *json, conn_arg_t *conn_arg)
 {
   int r = 0;
 
@@ -1063,7 +1132,7 @@ static int run_json_file(SQLHANDLE hconn, cJSON *json)
 
     LOG_CALL("%s case[#%d]", positive ? "positive" : "negative", i+1);
 
-    r = run_case(hconn, json_case);
+    r = run_case(hconn, json_case, conn_arg);
 
     r = !(!r ^ !positive);
     LOG_FINI(r, "%s case[#%d]", positive ? "positive" : "negative", i+1);
@@ -1074,7 +1143,7 @@ static int run_json_file(SQLHANDLE hconn, cJSON *json)
   return r;
 }
 
-static int try_and_run_file(SQLHANDLE hconn, const char *file)
+static int try_and_run_file(SQLHANDLE hconn, const char *file, conn_arg_t *conn_arg)
 {
   int r = 0;
   cJSON *json = load_json_file(file, NULL, 0);
@@ -1083,14 +1152,14 @@ static int try_and_run_file(SQLHANDLE hconn, const char *file)
   const char *base = basename((char*)file);
 
   LOG_CALL("case %s", base);
-  r = run_json_file(hconn, json);
+  r = run_json_file(hconn, json, conn_arg);
   LOG_FINI(r, "case %s", base);
 
   cJSON_Delete(json);
   return r;
 }
 
-static int try_and_run(SQLHANDLE hconn, cJSON *json_test_case, const char *path)
+static int try_and_run(SQLHANDLE hconn, cJSON *json_test_case, const char *path, conn_arg_t *conn_arg)
 {
   const char *s = json_to_string(json_test_case);
   if (!s) {
@@ -1107,10 +1176,10 @@ static int try_and_run(SQLHANDLE hconn, cJSON *json_test_case, const char *path)
     return -1;
   }
 
-  return try_and_run_file(hconn, buf);
+  return try_and_run_file(hconn, buf, conn_arg);
 }
 
-static int load_and_run(SQLHANDLE hconn, const char *json_test_cases_file)
+static int load_and_run(SQLHANDLE hconn, const char *json_test_cases_file, conn_arg_t *conn_arg)
 {
   int r = 0;
 
@@ -1128,14 +1197,14 @@ static int load_and_run(SQLHANDLE hconn, const char *json_test_cases_file)
     }
     cJSON *guess = cJSON_GetArrayItem(json_test_cases, 0);
     if (!cJSON_IsString(guess)) {
-      r = try_and_run_file(hconn, json_test_cases_file);
+      r = try_and_run_file(hconn, json_test_cases_file, conn_arg);
       break;
     }
     for (int i=0; i>=0; ++i) {
       cJSON *json_test_case = NULL;
       if (json_get_by_item(json_test_cases, i, &json_test_case)) break;
       if (!json_test_case) break;
-      r = try_and_run(hconn, json_test_case, path);
+      r = try_and_run(hconn, json_test_case, path, conn_arg);
       if (r) break;
     }
   } while (0);
@@ -1150,6 +1219,35 @@ static int process_by_args_conn(int argc, char *argv[], SQLHANDLE hconn)
   (void)argc;
   (void)argv;
 
+  conn_arg_t conn_arg = {};
+
+  for (int i=1; i<argc; ++i) {
+    if (strcmp(argv[i], "--dsn") == 0) {
+      ++i;
+      if (i>=argc) break;
+      conn_arg.dsn = argv[i];
+      continue;
+    }
+    if (strcmp(argv[i], "--uid") == 0) {
+      ++i;
+      if (i>=argc) break;
+      conn_arg.uid = argv[i];
+      continue;
+    }
+    if (strcmp(argv[i], "--pwd") == 0) {
+      ++i;
+      if (i>=argc) break;
+      conn_arg.pwd = argv[i];
+      continue;
+    }
+    if (strcmp(argv[i], "--connstr") == 0) {
+      ++i;
+      if (i>=argc) break;
+      conn_arg.connstr = argv[i];
+      continue;
+    }
+  }
+
   int r = 0;
   const char *json_test_cases_file = getenv("ODBC_TEST_CASES");
   if (!json_test_cases_file) {
@@ -1158,7 +1256,7 @@ static int process_by_args_conn(int argc, char *argv[], SQLHANDLE hconn)
   }
 
   LOG_CALL("load_and_run(%s)", json_test_cases_file);
-  r = load_and_run(hconn, json_test_cases_file);
+  r = load_and_run(hconn, json_test_cases_file, &conn_arg);
   LOG_FINI(r, "load_and_run(%s)", json_test_cases_file);
   return r;
 }

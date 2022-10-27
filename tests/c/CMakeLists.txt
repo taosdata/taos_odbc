@@ -35,3 +35,11 @@ add_test(NAME odbc_test
 add_test(NAME Vodbc_test
     COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/odbc_test)
 
+if (ENABLE_MYSQL_TEST)
+  add_test(NAME mysql_odbc_test
+      COMMAND odbc_test --dsn MYSQL_ODBC_DSN)
+
+  add_test(NAME Vmysql_odbc_test
+      COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/odbc_test --dsn MYSQL_ODBC_DSN)
+endif ()
+

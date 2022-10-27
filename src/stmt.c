@@ -2074,6 +2074,25 @@ static SQLRETURN _stmt_get_data_fill_sql_c_double_with_tsdb_double(
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_get_data_fill_sql_c_slong_with_tsdb_bigint(
+    stmt_t        *stmt,
+    SQLPOINTER     TargetValuePtr,
+    SQLLEN         BufferLength,
+    SQLLEN        *StrLen_or_IndPtr)
+{
+  (void)BufferLength;
+
+  col_t *current = &stmt->current_for_get_data;
+  const char *data = current->data;
+  int len = current->len;
+  OA_NIY(len == sizeof(int64_t));
+  int64_t v = *(int64_t*)data;
+  if (StrLen_or_IndPtr) *StrLen_or_IndPtr = sizeof(int32_t);
+  *(int32_t*)TargetValuePtr = (int32_t)v;
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_get_data_fill_sql_c_slong_with_tsdb_int(
     stmt_t        *stmt,
     SQLPOINTER     TargetValuePtr,
@@ -2211,6 +2230,9 @@ static SQLRETURN _stmt_get_data_fill_fn_by_target_sql_c_slong(stmt_t *stmt, stmt
   switch (taos_type) {
     case TSDB_DATA_TYPE_INT:
       *fill = _stmt_get_data_fill_sql_c_slong_with_tsdb_int;
+      break;
+    case TSDB_DATA_TYPE_BIGINT:
+      *fill = _stmt_get_data_fill_sql_c_slong_with_tsdb_bigint;
       break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
@@ -2684,8 +2706,7 @@ SQLRETURN _stmt_describe_param_by_field(
     case TSDB_DATA_TYPE_TIMESTAMP:
       if (DataTypePtr)      *DataTypePtr      = SQL_TYPE_TIMESTAMP;
       if (ParameterSizePtr) *ParameterSizePtr = 20 + *DecimalDigitsPtr;
-      // if (DecimalDigitsPtr) *DecimalDigitsPtr = (stmt->time_precision + 1) * 3;
-      if (DecimalDigitsPtr) *DecimalDigitsPtr = field->precision;
+      if (DecimalDigitsPtr) *DecimalDigitsPtr = (field->precision + 1) * 3;
       if (NullablePtr)      *NullablePtr      = SQL_NULLABLE_UNKNOWN;
       break;
     case TSDB_DATA_TYPE_NCHAR:
@@ -2933,12 +2954,13 @@ static SQLRETURN _stmt_create_is_null_array(stmt_t *stmt, desc_record_t *record,
 }
 
 static SQLRETURN _stmt_conv_sql_c_double_to_tsdb_float(stmt_t *stmt, char *src, SQLLEN len,
-    desc_record_t *APD_record, desc_record_t *IPD_record, char *dst, int32_t *length)
+    desc_record_t *APD_record, desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
 {
   (void)stmt;
   (void)len;
   (void)APD_record;
   (void)IPD_record;
+  (void)field;
   (void)length;
 
   double v = *(double*)src;
@@ -2949,12 +2971,13 @@ static SQLRETURN _stmt_conv_sql_c_double_to_tsdb_float(stmt_t *stmt, char *src, 
 }
 
 static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_bool(stmt_t *stmt, char *src, SQLLEN len,
-    desc_record_t *APD_record, desc_record_t *IPD_record, char *dst, int32_t *length)
+    desc_record_t *APD_record, desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
 {
   (void)stmt;
   (void)len;
   (void)APD_record;
   (void)IPD_record;
+  (void)field;
   (void)length;
 
   int64_t v = *(int64_t*)src;
@@ -2964,11 +2987,12 @@ static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_bool(stmt_t *stmt, char *src, 
 }
 
 static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_tinyint(stmt_t *stmt, char *src, SQLLEN len,
-    desc_record_t *APD_record, desc_record_t *IPD_record, char *dst, int32_t *length)
+    desc_record_t *APD_record, desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
 {
   (void)len;
   (void)APD_record;
   (void)IPD_record;
+  (void)field;
   (void)length;
 
   int64_t v = *(int64_t*)src;
@@ -2982,11 +3006,12 @@ static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_tinyint(stmt_t *stmt, char *sr
 }
 
 static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_smallint(stmt_t *stmt, char *src, SQLLEN len,
-    desc_record_t *APD_record, desc_record_t *IPD_record, char *dst, int32_t *length)
+    desc_record_t *APD_record, desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
 {
   (void)len;
   (void)APD_record;
   (void)IPD_record;
+  (void)field;
   (void)length;
 
   int64_t v = *(int64_t*)src;
@@ -2999,12 +3024,147 @@ static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_smallint(stmt_t *stmt, char *s
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_sql_c_char_to_tsdb_timestamp(stmt_t *stmt, const char *s, int64_t *timestamp)
+{
+  char *end;
+  errno = 0;
+  long int v = strtol(s, &end, 0);
+  int e = errno;
+  if (e == ERANGE && (v == LONG_MAX || v == LONG_MIN)) {
+    stmt_append_err_format(stmt,
+        "HY000",
+        0,
+        "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed: [%d] %s",
+        e, strerror(e));
+    return SQL_ERROR;
+  }
+  if (e != 0) {
+    stmt_append_err_format(stmt,
+        "HY000",
+        0,
+        "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed: [%d] %s",
+        e, strerror(e));
+    return SQL_ERROR;
+  }
+  if (end == s) {
+    stmt_append_err(stmt,
+        "HY000",
+        0,
+        "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed: no digits at all");
+    return SQL_ERROR;
+  }
+  if (end && *end) {
+    stmt_append_err_format(stmt,
+        "HY000",
+        0,
+        "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed: string following digits[%s]",
+        end);
+    return SQL_ERROR;
+  }
+
+  *timestamp = v;
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_conv_sql_c_char_to_tsdb_timestamp(stmt_t *stmt, char *src, SQLLEN len,
+    desc_record_t *APD_record, desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
+{
+  (void)APD_record;
+  (void)IPD_record;
+  (void)length;
+
+  SQLRETURN sr = SQL_SUCCESS;
+
+  if (len == SQL_NTS) len = strlen(src);
+
+  int64_t v = 0;
+
+  char *p;
+  const char *format = "%Y-%m-%d %H:%M:%S";
+  struct tm t = {};
+  time_t tt;
+  p = tod_strptime(src, format, &t);
+  tt = mktime(&t);
+  v = tt;
+  if (!p) {
+    // TODO: precision
+    sr = _stmt_sql_c_char_to_tsdb_timestamp(stmt, src, &v);
+    if (sr == SQL_ERROR) return SQL_ERROR;
+  } else if (*p) {
+    if (*p != '.') {
+      stmt_append_err_format(stmt, "HY000", 0, "bad timestamp, [%.*s]", (int)len, src);
+      return SQL_ERROR;
+    }
+    const char *s = NULL;
+    switch (field->precision) {
+      case 0: s = "`ms`"; break;
+      case 1: s = "`us`"; break;
+      case 2: s = "`ns`"; break;
+      default:
+              stmt_append_err(stmt, "HY000", 0, "internal logic error");
+              return SQL_ERROR;
+    }
+    int n = len - (p-src);
+    if (n == 4) {
+      if (field->precision != 0) {
+        stmt_append_err_format(stmt, "HY000", 0, "%s timestamp expected, but got [%.*s]", s, (int)len, src);
+        return SQL_ERROR;
+      }
+      char *end = NULL;
+      long int x = strtol(p+1, &end, 10);
+      if (end && end-p!=4) {
+        stmt_append_err_format(stmt, "HY000", 0, "bad timestamp, [%.*s]", (int)len, src);
+        return SQL_ERROR;
+      }
+      v *= 1000;
+      v += x;
+    } else if (n == 7) {
+      if (field->precision != 1) {
+        stmt_append_err_format(stmt, "HY000", 0, "%s timestamp expected, but got [%.*s]", s, (int)len, src);
+        return SQL_ERROR;
+      }
+      char *end = NULL;
+      long int x = strtol(p+1, &end, 10);
+      if (end && end-p!=7) {
+        stmt_append_err_format(stmt, "HY000", 0, "bad timestamp, [%.*s]", (int)len, src);
+        return SQL_ERROR;
+      }
+      v *= 1000000;
+      v += x;
+    } else if (n == 10) {
+      if (field->precision != 1) {
+        stmt_append_err_format(stmt, "HY000", 0, "%s timestamp expected, but got [%.*s]", s, (int)len, src);
+        return SQL_ERROR;
+      }
+      char *end = NULL;
+      long int x = strtol(p+1, &end, 10);
+      if (end && end-p!=10) {
+        stmt_append_err_format(stmt, "HY000", 0, "bad timestamp, [%.*s]", (int)len, src);
+        return SQL_ERROR;
+      }
+      v *= 1000000000;
+      v += x;
+    } else {
+      stmt_append_err_format(stmt, "HY000", 0, "bad timestamp, [%.*s]", (int)len, src);
+      return SQL_ERROR;
+    }
+  } else {
+    // TODO: precision
+    stmt_append_err_format(stmt, "HY000", 0, "bad timestamp, [%.*s]", (int)len, src);
+    return SQL_ERROR;
+  }
+
+  *(int64_t*)dst = v;
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_conv_sql_c_double_to_tsdb_timestamp(stmt_t *stmt, char *src, SQLLEN len,
-    desc_record_t *APD_record, desc_record_t *IPD_record, char *dst, int32_t *length)
+    desc_record_t *APD_record, desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
 {
   (void)len;
   (void)APD_record;
   (void)IPD_record;
+  (void)field;
   (void)length;
 
   double v = *(double*)src;
@@ -3018,11 +3178,12 @@ static SQLRETURN _stmt_conv_sql_c_double_to_tsdb_timestamp(stmt_t *stmt, char *s
 }
 
 static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_int(stmt_t *stmt, char *src, SQLLEN len,
-    desc_record_t *APD_record, desc_record_t *IPD_record, char *dst, int32_t *length)
+    desc_record_t *APD_record, desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
 {
   (void)len;
   (void)APD_record;
   (void)IPD_record;
+  (void)field;
   (void)length;
 
   int64_t v = *(int64_t*)src;
@@ -3036,10 +3197,11 @@ static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_int(stmt_t *stmt, char *src, S
 }
 
 static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_varchar(stmt_t *stmt, char *src, SQLLEN len,
-    desc_record_t *APD_record, desc_record_t *IPD_record, char *dst, int32_t *length)
+    desc_record_t *APD_record, desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
 {
   (void)len;
   (void)APD_record;
+  (void)field;
 
   int64_t v = *(int64_t*)src;
   char buf[128];
@@ -3061,10 +3223,11 @@ static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_varchar(stmt_t *stmt, char *sr
 }
 
 static SQLRETURN _stmt_conv_sql_c_double_to_tsdb_varchar(stmt_t *stmt, char *src, SQLLEN len,
-    desc_record_t *APD_record, desc_record_t *IPD_record, char *dst, int32_t *length)
+    desc_record_t *APD_record, desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
 {
   (void)len;
   (void)APD_record;
+  (void)field;
 
   double v = *(double*)src;
   char buf[128];
@@ -3348,6 +3511,11 @@ SQLRETURN stmt_bind_param(
               ParameterNumber, CALL_taos_data_type(field.type), sql_data_type(ParameterType));
           return SQL_ERROR;
         }
+        if (IPD_record->DESC_TYPE==SQL_DATETIME && IPD_record->DESC_CONCISE_TYPE==SQL_TYPE_TIMESTAMP && IPD_record->DESC_PRECISION != (field.precision + 1) * 3) {
+          stmt_append_err_format(stmt, "HY000", 0, "#%d parameter precision [%d] expected, but got [%d] ",
+              ParameterNumber, (field.precision + 1) * 3, IPD_record->DESC_PRECISION);
+          return SQL_ERROR;
+        }
         mb->buffer_type             = field.type;
         mb->buffer                  = APD_record->DESC_DATA_PTR;
         mb->buffer_length           = sizeof(int64_t);
@@ -3356,6 +3524,11 @@ SQLRETURN stmt_bind_param(
         if (ValueType == SQL_C_SBIGINT) break;
         if (ValueType == SQL_C_DOUBLE) {
           APD_record->convf               = _stmt_conv_sql_c_double_to_tsdb_timestamp;
+          APD_record->create_buffer_array = _stmt_create_tsdb_timestamp_array;
+          break;
+        }
+        if (ValueType == SQL_C_CHAR) {
+          APD_record->convf               = _stmt_conv_sql_c_char_to_tsdb_timestamp;
           APD_record->create_buffer_array = _stmt_create_tsdb_timestamp_array;
           break;
         }
@@ -3597,67 +3770,6 @@ SQLRETURN stmt_bind_param(
   return SQL_SUCCESS;
 }
 
-#define _stmt_conv_bounded_param_fail(_stmt, _param_bind)             \
-  OD("ColumnSize[%ld]; DecimalDigits[%d]; BufferLength[%ld]",         \
-      _param_bind->ColumnSize,                                        \
-      _param_bind->DecimalDigits,                                     \
-      _param_bind->BufferLength);                                     \
-  stmt_append_err_format(_stmt,                                       \
-      "HY000",                                                        \
-      0,                                                              \
-      "`%s` to `%s` for param `%d` not supported yet by taos",        \
-      sql_c_data_type(_param_bind->ValueType),                        \
-      CALL_taos_data_type(_param_bind->taos_type),                    \
-      _param_bind->ParameterNumber)
-
-#define _stmt_param_bind_fail(_stmt, _param_bind, _r)     \
-  stmt_append_err(_stmt,                                  \
-    "HY000",                                              \
-    _r,                                                   \
-    CALL_taos_stmt_errstr(_stmt->stmt))
-
-//static SQLRETURN _stmt_sql_c_char_to_tsdb_timestamp(stmt_t *stmt, const char *s, int64_t *timestamp)
-//{
-//  char *end;
-//  errno = 0;
-//  long int v = strtol(s, &end, 0);
-//  int e = errno;
-//  if (e == ERANGE && (v == LONG_MAX || v == LONG_MIN)) {
-//    stmt_append_err_format(stmt,
-//        "HY000",
-//        0,
-//        "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed: [%d] %s",
-//        e, strerror(e));
-//    return SQL_ERROR;
-//  }
-//  if (e != 0) {
-//    stmt_append_err_format(stmt,
-//        "HY000",
-//        0,
-//        "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed: [%d] %s",
-//        e, strerror(e));
-//    return SQL_ERROR;
-//  }
-//  if (end == s) {
-//    stmt_append_err(stmt,
-//        "HY000",
-//        0,
-//        "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed: no digits at all");
-//    return SQL_ERROR;
-//  }
-//  if (end && *end) {
-//    stmt_append_err_format(stmt,
-//        "HY000",
-//        0,
-//        "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed: string following digits[%s]",
-//        end);
-//    return SQL_ERROR;
-//  }
-//
-//  *timestamp = v;
-//  return SQL_SUCCESS;
-//}
-
 static SQLRETURN _stmt_pre_exec_prepare_params(stmt_t *stmt)
 {
   int r = 0;
@@ -3771,7 +3883,14 @@ static SQLRETURN _stmt_pre_exec_prepare_params(stmt_t *stmt)
       if (APD_record->convf) {
         char *buffer_dst = (char*)mb->buffer;
         buffer_dst += mb->buffer_length * irow;
-        sr = APD_record->convf(stmt, base, len, APD_record, IPD_record, buffer_dst, length_dst);
+        if (stmt->is_insert_stmt) {
+          TAOS_FIELD_E field = {};
+          sr = _stmt_get_tag_or_col_field(stmt, i_param, &field);
+          if (sr == SQL_ERROR) return SQL_ERROR;
+          sr = APD_record->convf(stmt, base, len, APD_record, IPD_record, &field, buffer_dst, length_dst);
+        } else {
+          sr = APD_record->convf(stmt, base, len, APD_record, IPD_record, NULL, buffer_dst, length_dst);
+        }
         if (sr == SQL_ERROR) return SQL_ERROR;
       } else {
         if (length_dst) {

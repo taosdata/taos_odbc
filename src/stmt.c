@@ -774,46 +774,47 @@ SQLRETURN stmt_describe_col(stmt_t *stmt,
   return sr;
 }
 
-//static SQLRETURN _stmt_calc_bytes(stmt_t *stmt,
-//    const char *fromcode, const char *s, size_t len,
-//    const char *tocode, size_t *bytes)
-//{
-//  iconv_t cd = iconv_open(tocode, fromcode);
-//  if ((size_t)cd == (size_t)-1) {
-//    stmt_append_err_format(stmt, "HY000", 0,
-//        "[iconv] No character set conversion found for `%s` to `%s`: [%d] %s",
-//        fromcode, tocode, errno, strerror(errno));
-//    return SQL_ERROR;
-//  }
-//
-//  SQLRETURN sr = SQL_SUCCESS;
-//
-//  char * inbuf = (char*)s;
-//  size_t inbytes = len;
-//
-//  *bytes = 0;
-//  while (inbytes>0) {
-//    char buf[2];
-//    char *outbuf = buf;
-//    size_t outbytes = sizeof(buf);
-//    size_t sz = iconv(cd, &inbuf, &inbytes, &outbuf, &outbytes);
-//    *bytes += (sizeof(buf) - outbytes);
-//    if (sz == (size_t)-1) {
-//      int e = errno;
-//      if (e == E2BIG) continue;
-//      stmt_append_err_format(stmt, "HY000", 0,
-//          "[iconv] Character set conversion for `%s` to `%s` failed: [%d] %s",
-//          fromcode, tocode, e, strerror(e));
-//      sr = SQL_ERROR;
-//      break;
-//    }
-//    if (inbytes == 0) break;
-//  }
-//
-//  iconv_close(cd);
-//
-//  return sr;
-//}
+static SQLRETURN _stmt_calc_bytes(stmt_t *stmt,
+    const char *fromcode, const char *s, size_t len,
+    const char *tocode, size_t *bytes)
+{
+  iconv_t cd = iconv_open(tocode, fromcode);
+  if ((size_t)cd == (size_t)-1) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "[iconv] No character set conversion found for `%s` to `%s`: [%d] %s",
+        fromcode, tocode, errno, strerror(errno));
+    return SQL_ERROR;
+  }
+
+  SQLRETURN sr = SQL_SUCCESS;
+
+  char * inbuf = (char*)s;
+  size_t inbytes = len;
+
+  *bytes = 0;
+  while (inbytes>0) {
+    OD("inbytes: %ld", inbytes);
+    char buf[1024];
+    char *outbuf = buf;
+    size_t outbytes = sizeof(buf);
+    size_t sz = iconv(cd, &inbuf, &inbytes, &outbuf, &outbytes);
+    *bytes += (sizeof(buf) - outbytes);
+    if (sz == (size_t)-1) {
+      int e = errno;
+      if (e == E2BIG) continue;
+      stmt_append_err_format(stmt, "HY000", 0,
+          "[iconv] Character set conversion for `%s` to `%s` failed: [%d] %s",
+          fromcode, tocode, e, strerror(e));
+      sr = SQL_ERROR;
+      break;
+    }
+    if (inbytes == 0) break;
+  }
+
+  iconv_close(cd);
+
+  return sr;
+}
 
 static SQLRETURN _stmt_encode(stmt_t *stmt,
     const char *fromcode, char **inbuf, size_t *inbytesleft,
@@ -3776,9 +3777,33 @@ static SQLRETURN _stmt_pre_exec_prepare_params(stmt_t *stmt)
         if (length_dst) {
           if (mb->buffer_type == TSDB_DATA_TYPE_VARCHAR && APD_record->DESC_TYPE==SQL_C_CHAR) {
             if (len == SQL_NTS) len = strnlen(base, APD_record->DESC_OCTET_LENGTH);
+            if (stmt->is_insert_stmt) {
+              TAOS_FIELD_E field = {};
+              sr = _stmt_get_tag_or_col_field(stmt, i_param, &field);
+              if (sr == SQL_ERROR) return SQL_ERROR;
+
+              if (len > field.bytes - 2) {
+                stmt_append_err_format(stmt, "HY000", 0, "#%d param [%.*s] too long [%d]", i_param+1, (int)len, base, field.bytes - 2);
+                return SQL_ERROR;
+              }
+            }
+
             *length_dst = len;
           } else if (mb->buffer_type == TSDB_DATA_TYPE_NCHAR && APD_record->DESC_TYPE==SQL_C_CHAR) {
             if (len == SQL_NTS) len = strnlen(base, APD_record->DESC_OCTET_LENGTH);
+            if (stmt->is_insert_stmt) {
+              TAOS_FIELD_E field = {};
+              sr = _stmt_get_tag_or_col_field(stmt, i_param, &field);
+              if (sr == SQL_ERROR) return SQL_ERROR;
+
+              size_t nr_bytes = 0;
+              sr = _stmt_calc_bytes(stmt, "UTF8", base, len, "UCS4", &nr_bytes);
+              if (sr == SQL_ERROR) return SQL_ERROR;
+              if (nr_bytes > (size_t)field.bytes - 2) {
+                stmt_append_err_format(stmt, "HY000", 0, "#%d param [%.*s] too long [%d]", i_param+1, (int)len, base, (field.bytes-2)/4);
+                return SQL_ERROR;
+              }
+            }
             *length_dst = len;
           } else {
             stmt_append_err_format(stmt, "HY000", 0, "#%d param, not implemented yet", i_param+1);

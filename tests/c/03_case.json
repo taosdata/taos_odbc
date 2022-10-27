@@ -136,6 +136,109 @@
         "rs": [["foo"],[null],["wall"],["great"],["name1"],["name2"]]
       }
     ]
+  },{
+    "conn": {"dsn": "TAOS_ODBC_DSN"},
+    "sqls": [
+      "show databases",
+      "drop database if exists foo",
+      "create database foo",
+      "use foo",
+      "create table t(ts timestamp,name varchar(5))",
+      "select * from t",
+      {
+        "sql":"insert into t (ts, name) values (?, ?)",
+        "executes": [
+          {
+            "params": [
+              [{"timestamp":1662961548650},"great"],
+              [{"timestamp":1662961468651},{"str":null}],
+              [{"timestamp":1662961468652},"wall"]
+            ]
+          }
+        ]
+      },{
+        "sql":"select name from t where name is not null",
+        "rs": [["wall"],["great"]]
+      },{
+        "sql":"select name from t",
+        "rs": [[null],["wall"],["great"]]
+      }
+    ]
+  },{
+    "conn": {"dsn": "TAOS_ODBC_DSN"},
+    "sqls": [
+      "show databases",
+      "drop database if exists foo",
+      "create database foo",
+      "use foo",
+      "create table t(ts timestamp,name varchar(4))",
+      "select * from t",
+      {
+        "comments": "test varchar truncation-check",
+        "sql":"insert into t (ts, name) values (?, ?)",
+        "executes": [
+          {
+            "params": [
+              [{"timestamp":1662961548650},"great"],
+              [{"timestamp":1662961468651},{"str":null}],
+              [{"timestamp":1662961468652},"wall"]
+            ],
+            "positive":false
+          }
+        ]
+      }
+    ]
+  },{
+    "conn": {"dsn": "TAOS_ODBC_DSN"},
+    "sqls": [
+      "show databases",
+      "drop database if exists foo",
+      "create database foo",
+      "use foo",
+      "create table t(ts timestamp,name nchar(5))",
+      "select * from t",
+      {
+        "sql":"insert into t (ts, name) values (?, ?)",
+        "executes": [
+          {
+            "params": [
+              [{"timestamp":1662961548650},"江苏苏州"],
+              [{"timestamp":1662961468651},{"str":null}],
+              [{"timestamp":1662961468652},"江苏连云港"]
+            ]
+          }
+        ]
+      },{
+        "sql":"select name from t where name is not null",
+        "rs": [["江苏连云港"],["江苏苏州"]]
+      },{
+        "sql":"select name from t",
+        "rs": [[null],["江苏连云港"],["江苏苏州"]]
+      }
+    ]
+  },{
+    "conn": {"dsn": "TAOS_ODBC_DSN"},
+    "sqls": [
+      "show databases",
+      "drop database if exists foo",
+      "create database foo",
+      "use foo",
+      "create table t(ts timestamp,name nchar(4))",
+      "select * from t",
+      {
+        "sql":"insert into t (ts, name) values (?, ?)",
+        "executes": [
+          {
+            "params": [
+              [{"timestamp":1662961548650},"江苏苏州"],
+              [{"timestamp":1662961468651},{"str":null}],
+              [{"timestamp":1662961468652},"江苏连云港"]
+            ],
+            "positive":false
+          }
+        ]
+      }
+    ]
   }
 ]
 

@@ -253,7 +253,10 @@ static int cmp_wvarchar_against_val(SQLHANDLE hstmt, SQLSMALLINT iColumn, SQLULE
     return -1;
   }
   if (StrLen_or_Ind == SQL_NULL_DATA) {
-    E("not implemented yet");
+    if (cJSON_IsNull(val)) return 0;
+    char *t1 = cJSON_PrintUnformatted(val);
+    E("differ: null <> %s", t1);
+    free(t1);
     return -1;
   }
   if ((size_t)StrLen_or_Ind >= sizeof(buf)) {

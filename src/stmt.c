@@ -2954,11 +2954,10 @@ static SQLRETURN _stmt_create_is_null_array(stmt_t *stmt, desc_record_t *record,
 }
 
 static SQLRETURN _stmt_conv_sql_c_double_to_tsdb_float(stmt_t *stmt, char *src, SQLLEN len,
-    desc_record_t *APD_record, desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
+    desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
 {
   (void)stmt;
   (void)len;
-  (void)APD_record;
   (void)IPD_record;
   (void)field;
   (void)length;
@@ -2971,11 +2970,10 @@ static SQLRETURN _stmt_conv_sql_c_double_to_tsdb_float(stmt_t *stmt, char *src, 
 }
 
 static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_bool(stmt_t *stmt, char *src, SQLLEN len,
-    desc_record_t *APD_record, desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
+    desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
 {
   (void)stmt;
   (void)len;
-  (void)APD_record;
   (void)IPD_record;
   (void)field;
   (void)length;
@@ -2987,10 +2985,9 @@ static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_bool(stmt_t *stmt, char *src, 
 }
 
 static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_tinyint(stmt_t *stmt, char *src, SQLLEN len,
-    desc_record_t *APD_record, desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
+    desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
 {
   (void)len;
-  (void)APD_record;
   (void)IPD_record;
   (void)field;
   (void)length;
@@ -3006,10 +3003,9 @@ static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_tinyint(stmt_t *stmt, char *sr
 }
 
 static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_smallint(stmt_t *stmt, char *src, SQLLEN len,
-    desc_record_t *APD_record, desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
+    desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
 {
   (void)len;
-  (void)APD_record;
   (void)IPD_record;
   (void)field;
   (void)length;
@@ -3067,9 +3063,8 @@ static SQLRETURN _stmt_sql_c_char_to_tsdb_timestamp(stmt_t *stmt, const char *s,
 }
 
 static SQLRETURN _stmt_conv_sql_c_char_to_tsdb_timestamp(stmt_t *stmt, char *src, SQLLEN len,
-    desc_record_t *APD_record, desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
+    desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
 {
-  (void)APD_record;
   (void)IPD_record;
   (void)length;
 
@@ -3159,10 +3154,9 @@ static SQLRETURN _stmt_conv_sql_c_char_to_tsdb_timestamp(stmt_t *stmt, char *src
 }
 
 static SQLRETURN _stmt_conv_sql_c_double_to_tsdb_timestamp(stmt_t *stmt, char *src, SQLLEN len,
-    desc_record_t *APD_record, desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
+    desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
 {
   (void)len;
-  (void)APD_record;
   (void)IPD_record;
   (void)field;
   (void)length;
@@ -3178,10 +3172,9 @@ static SQLRETURN _stmt_conv_sql_c_double_to_tsdb_timestamp(stmt_t *stmt, char *s
 }
 
 static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_int(stmt_t *stmt, char *src, SQLLEN len,
-    desc_record_t *APD_record, desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
+    desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
 {
   (void)len;
-  (void)APD_record;
   (void)IPD_record;
   (void)field;
   (void)length;
@@ -3197,10 +3190,9 @@ static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_int(stmt_t *stmt, char *src, S
 }
 
 static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_varchar(stmt_t *stmt, char *src, SQLLEN len,
-    desc_record_t *APD_record, desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
+    desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
 {
   (void)len;
-  (void)APD_record;
   (void)field;
 
   int64_t v = *(int64_t*)src;
@@ -3223,10 +3215,9 @@ static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_varchar(stmt_t *stmt, char *sr
 }
 
 static SQLRETURN _stmt_conv_sql_c_double_to_tsdb_varchar(stmt_t *stmt, char *src, SQLLEN len,
-    desc_record_t *APD_record, desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
+    desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length)
 {
   (void)len;
-  (void)APD_record;
   (void)field;
 
   double v = *(double*)src;
@@ -3887,9 +3878,9 @@ static SQLRETURN _stmt_pre_exec_prepare_params(stmt_t *stmt)
           TAOS_FIELD_E field = {};
           sr = _stmt_get_tag_or_col_field(stmt, i_param, &field);
           if (sr == SQL_ERROR) return SQL_ERROR;
-          sr = APD_record->convf(stmt, base, len, APD_record, IPD_record, &field, buffer_dst, length_dst);
+          sr = APD_record->convf(stmt, base, len, IPD_record, &field, buffer_dst, length_dst);
         } else {
-          sr = APD_record->convf(stmt, base, len, APD_record, IPD_record, NULL, buffer_dst, length_dst);
+          sr = APD_record->convf(stmt, base, len, IPD_record, NULL, buffer_dst, length_dst);
         }
         if (sr == SQL_ERROR) return SQL_ERROR;
       } else {

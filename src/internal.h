@@ -149,6 +149,18 @@ struct desc_header_s {
 typedef int (*tsdb_to_sql_c_f)(stmt_t *stmt, const char *data, int len, char *dest, int dlen);
 
 typedef struct desc_record_s                  desc_record_t;
+
+typedef struct sql_c_to_tsdb_meta_s                sql_c_to_tsdb_meta_t;
+
+struct sql_c_to_tsdb_meta_s {
+  char          *src_base;
+  SQLLEN         src_len;
+  desc_record_t *IPD_record;
+  TAOS_FIELD_E  *field;
+  char          *dst_base;
+  int32_t       *dst_len;
+};
+
 struct desc_record_s {
   SQLSMALLINT                   DESC_TYPE;
   SQLSMALLINT                   DESC_CONCISE_TYPE;
@@ -173,8 +185,7 @@ struct desc_record_s {
   SQLRETURN (*create_buffer_array)(stmt_t *stmt, desc_record_t *record, int rows, TAOS_MULTI_BIND *mb);
   SQLRETURN (*create_length_array)(stmt_t *stmt, desc_record_t *record, int rows, TAOS_MULTI_BIND *mb);
 
-  SQLRETURN (*convf)(stmt_t *stmt, char *src, SQLLEN len, desc_record_t *IPD_record, TAOS_FIELD_E *field, char *dst, int32_t *length);
-
+  SQLRETURN (*convf)(stmt_t *stmt, sql_c_to_tsdb_meta_t *meta);
 };
 
 struct descriptor_s {
@@ -288,15 +299,15 @@ struct stmt_s {
 
   TAOS_STMT                 *stmt;
   // for non-insert-parameterized-statement
-  int                        nr_params;
   params_t                   params;
+  int                        nr_params;
 
   // for insert-parameterized-statement
   char                      *subtbl;
-  int                        nr_tag_fields;
   TAOS_FIELD_E              *tag_fields;
-  int                        nr_col_fields;
+  int                        nr_tag_fields;
   TAOS_FIELD_E              *col_fields;
+  int                        nr_col_fields;
 
   TAOS_MULTI_BIND           *mbs;
   size_t                     cap_mbs;

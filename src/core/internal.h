@@ -75,20 +75,6 @@ struct errs_s {
 #define sql_succeeded(_sr) ({ SQLRETURN __sr = _sr; (__sr==SQL_SUCCESS || __sr==SQL_SUCCESS_WITH_INFO); })
 
 
-typedef struct static_pool_s                   static_pool_t;
-struct static_pool_s {
-  size_t                        cap;
-  size_t                        nr;
-};
-
-static_pool_t* static_pool_create(size_t cap) FA_HIDDEN;
-void static_pool_destroy(static_pool_t *pool) FA_HIDDEN;
-void static_pool_reset(static_pool_t *pool) FA_HIDDEN;
-unsigned char* static_pool_malloc(static_pool_t *pool, size_t sz) FA_HIDDEN;
-unsigned char* static_pool_calloc(static_pool_t *pool, size_t sz) FA_HIDDEN;
-unsigned char* static_pool_malloc_align(static_pool_t *pool, size_t sz, size_t align) FA_HIDDEN;
-unsigned char* static_pool_calloc_align(static_pool_t *pool, size_t sz, size_t align) FA_HIDDEN;
-
 struct env_s {
   atomic_int          refc;
 

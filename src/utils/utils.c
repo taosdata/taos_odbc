@@ -1,9 +1,14 @@
 #define _XOPEN_SOURCE
 
-#include "../internal.h"
+#include "utils.h"
 
 #include <string.h>
 #include <time.h>
+
+struct static_pool_s {
+  size_t                        cap;
+  size_t                        nr;
+};
 
 static_pool_t* static_pool_create(size_t cap)
 {

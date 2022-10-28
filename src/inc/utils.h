@@ -38,6 +38,17 @@ struct buffer_s {
 
 char *tod_strptime(const char *s, const char *format, struct tm *tm) FA_HIDDEN;
 
+typedef struct static_pool_s                   static_pool_t;
+
+static_pool_t* static_pool_create(size_t cap) FA_HIDDEN;
+void static_pool_destroy(static_pool_t *pool) FA_HIDDEN;
+void static_pool_reset(static_pool_t *pool) FA_HIDDEN;
+unsigned char* static_pool_malloc(static_pool_t *pool, size_t sz) FA_HIDDEN;
+unsigned char* static_pool_calloc(static_pool_t *pool, size_t sz) FA_HIDDEN;
+unsigned char* static_pool_malloc_align(static_pool_t *pool, size_t sz, size_t align) FA_HIDDEN;
+unsigned char* static_pool_calloc_align(static_pool_t *pool, size_t sz, size_t align) FA_HIDDEN;
+
+
 EXTERN_C_END
 
 #endif // _utils_h_

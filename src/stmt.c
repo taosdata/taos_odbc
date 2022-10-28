@@ -3797,7 +3797,6 @@ static SQLRETURN _stmt_param_prepare_subtbl(stmt_t *stmt)
   int r = 0;
 
   descriptor_t *APD = stmt_APD(stmt);
-  desc_header_t *APD_header = &APD->header;
   desc_record_t *APD_record = APD->records + 0;
 
   if (APD_record->DESC_TYPE != SQL_C_CHAR) {
@@ -3822,16 +3821,52 @@ static SQLRETURN _stmt_param_prepare_subtbl(stmt_t *stmt)
     return SQL_ERROR;
   }
 
-  for (size_t irow = 1; irow < APD_header->DESC_ARRAY_SIZE; ++irow) {
-    stmt_append_err(stmt, "HY000", 0, "not implemented yet");
-    return SQL_ERROR;
-  }
-
   r = CALL_taos_stmt_set_tbname(stmt->stmt, stmt->subtbl);
   if (r) {
     stmt_append_err(stmt, "HY000", CALL_taos_errno(NULL), CALL_taos_stmt_errstr(stmt->stmt));
     return SQL_ERROR;
   }
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_param_check_subtbl_or_tag(stmt_t *stmt, int irow, int i_param)
+{
+  char *base0;
+  SQLLEN length0;
+  int is_null0;
+  _stmt_param_get(stmt, 0, i_param, &base0, &length0, &is_null0);
+
+  char *base;
+  SQLLEN length;
+  int is_null;
+  _stmt_param_get(stmt, irow, i_param, &base, &length, &is_null);
+
+  if (is_null0 != is_null) {
+    stmt_append_err_format(stmt, "HY000", 0, "null-flag differs at (%d,%d)", irow+1, i_param+1);
+    return SQL_ERROR;
+  }
+
+  descriptor_t *APD = stmt_APD(stmt);
+  desc_record_t *APD_record = APD->records + i_param;
+
+  switch (APD_record->DESC_TYPE) {
+    case SQL_C_CHAR:
+      if (length0 == SQL_NTS) length0 = strlen(base0);
+      if (length == SQL_NTS) length = strlen(base);
+      if (length != length0) {
+        stmt_append_err_format(stmt, "HY000", 0, "param at (%d,%d) differs, ==%.*s <> %.*s==", irow+1, i_param+1, (int)length, base, (int)length0, base0);
+        return SQL_ERROR;
+      }
+      if (strncmp(base, base0, length)) {
+        stmt_append_err_format(stmt, "HY000", 0, "param at (%d,%d) differs, ==%.*s <> %.*s==", irow+1, i_param+1, (int)length, base, (int)length0, base0);
+        return SQL_ERROR;
+      }
+      break;
+    default:
+      stmt_append_err_format(stmt, "HY000", 0, "#%d param [%s] not implemented yet", i_param+1, sql_c_data_type(APD_record->DESC_TYPE));
+      return SQL_ERROR;
+  }
+
   return SQL_SUCCESS;
 }
 
@@ -3847,19 +3882,16 @@ static SQLRETURN _stmt_param_process(stmt_t *stmt, int irow, int i_param)
   desc_record_t *APD_record = APD->records + i_param;
   desc_record_t *IPD_record = IPD->records + i_param;
 
-  if (i_param < (!!stmt->subtbl_required) + stmt->nr_tag_fields) {
-    if (irow) {
-      stmt_append_err(stmt, "HY000", 0, "not implemented yet");
-      return SQL_ERROR;
-    }
-  }
-
   char   *src_base;
   SQLLEN  src_len;
   int     src_is_null;
   _stmt_param_get(stmt, irow, i_param, &src_base, &src_len, &src_is_null);
 
   if (APD_record->DESC_TYPE==SQL_C_CHAR && src_len == SQL_NTS) src_len = strlen(src_base);
+
+  if (irow>0 && i_param < (!!stmt->subtbl_required) + stmt->nr_tag_fields) {
+    return _stmt_param_check_subtbl_or_tag(stmt, irow, i_param);
+  }
 
   char     *dst_base;
   int32_t  *dst_len;

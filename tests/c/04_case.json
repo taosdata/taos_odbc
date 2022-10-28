@@ -2,6 +2,7 @@
   {
     "conn": {"dsn": "TAOS_ODBC_DSN"},
     "sqls": [
+      "create database if not exists foo",
       "drop table if exists foo.t",
       "create table foo.t(ts timestamp,name varchar(20))",
       {

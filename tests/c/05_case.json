@@ -1,0 +1,46 @@
+[
+  {
+    "conn": {"dsn": "TAOS_ODBC_DSN"},
+    "sqls": [
+      "create database if not exists foo",
+      "use foo",
+      "drop table if exists st",
+      "create table st (ts timestamp, age double) tags (name varchar(20))",
+      {
+        "sql":"insert into ? using st tags (?) values (?, ?)",
+        "executes": [
+          {
+            "params": [
+              ["suzhou", "suzhou", {"timestamp":1662961548650}, 20]
+            ]
+          }
+        ]
+      },{
+        "sql":"select * from st",
+        "rs": [[1662961548650,20,"suzhou"]]
+      },
+      "drop table if exists st",
+      "create table st (ts timestamp, age double) tags (name varchar(20))",
+      {
+        "sql":"insert into ? using st tags (?) values (?, ?)",
+        "executes": [
+          {
+            "params": [
+              ["suzhou", "suzhou", {"timestamp":1662961548650}, 20],
+              ["suzhou", "suzhou", {"timestamp":1662961548651}, 21],
+              ["suzhou", "suzhou", {"timestamp":1662961548652}, 22]
+            ]
+          }
+        ]
+      },{
+        "sql":"select * from st",
+        "rs": [
+          [1662961548650,20,"suzhou"],
+          [1662961548651,21,"suzhou"],
+          [1662961548652,22,"suzhou"]
+        ]
+      }
+    ]
+  }
+]
+

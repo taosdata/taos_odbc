@@ -39,13 +39,32 @@ struct errs_s {
 
 #define conn_data_source(_conn) _conn->cfg.dsn ? _conn->cfg.dsn : (_conn->cfg.driver ? _conn->cfg.driver : "")
 
-#define env_append_err(_env, _sql_state, _e, _estr)              \
-  errs_append(&_env->errs, "", _sql_state, _e, _estr)
+#define env_append_err(_env, _sql_state, _e, _estr) errs_append(&_env->errs, "", _sql_state, _e, _estr)
+
+#define env_append_err_format(_env, _sql_state, _e, _fmt, ...) errs_append_format(&_env->errs, "", _sql_state, _e, _fmt, ##__VA_ARGS__)
+
+#define env_oom(_env)                                 \
+  ({                                                  \
+    env_t *__env = _env;                              \
+    errs_oom(&__env->errs, "");                       \
+  })
 
 #define conn_append_err(_conn, _sql_state, _e, _estr)                                \
   ({                                                                                 \
     conn_t *__conn = _conn;                                                          \
     errs_append(&__conn->errs, conn_data_source(__conn), _sql_state, _e, _estr);     \
+  })
+
+#define conn_append_err_format(_conn, _sql_state, _e, _fmt, ...)                                      \
+  ({                                                                                                  \
+    conn_t *__conn = _conn;                                                                           \
+    errs_append_format(&__conn->errs, conn_data_source(__conn), _sql_state, _e, _fmt, ##__VA_ARGS__); \
+  })
+
+#define conn_oom(_conn)                                  \
+  ({                                                     \
+    conn_t *__conn = _conn;                              \
+    errs_oom(&__conn->errs, conn_data_source(__conn));   \
   })
 
 #define stmt_append_err(_stmt, _sql_state, _e, _estr)                                \
@@ -55,20 +74,17 @@ struct errs_s {
     errs_append(&__stmt->errs, conn_data_source(__conn), _sql_state, _e, _estr);     \
   })
 
-#define env_append_err_format(_env, _sql_state, _e, _fmt, ...)                \
-  errs_append_format(&_env->errs, "", _sql_state, _e, _fmt, ##__VA_ARGS__)
-
-#define conn_append_err_format(_conn, _sql_state, _e, _fmt, ...)                                      \
-  ({                                                                                                  \
-    conn_t *__conn = _conn;                                                                           \
-    errs_append_format(&__conn->errs, conn_data_source(__conn), _sql_state, _e, _fmt, ##__VA_ARGS__); \
-  })
-
 #define stmt_append_err_format(_stmt, _sql_state, _e, _fmt, ...)                                      \
   ({                                                                                                  \
     stmt_t *__stmt = _stmt;                                                                           \
     conn_t *__conn = __stmt->conn;                                                                    \
     errs_append_format(&__stmt->errs, conn_data_source(__conn), _sql_state, _e, _fmt, ##__VA_ARGS__); \
+  })
+
+#define stmt_oom(_stmt)                                        \
+  ({                                                           \
+    stmt_t *__stmt = _stmt;                                    \
+    errs_oom(&__stmt->errs, conn_data_source(__stmt->conn));   \
   })
 
 

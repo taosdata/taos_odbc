@@ -195,6 +195,7 @@ SQLRETURN SQL_API SQLEndTran(
 
   switch (HandleType) {
     case SQL_HANDLE_ENV:
+      OA_NIY(0);
       env_clr_errs((env_t*)Handle);
       return env_end_tran((env_t*)Handle, CompletionType);
     case SQL_HANDLE_DBC:

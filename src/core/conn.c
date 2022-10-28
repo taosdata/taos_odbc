@@ -7,12 +7,6 @@
 #include <odbcinst.h>
 #include <string.h>
 
-#define _conn_malloc_fail(_conn)             \
-  conn_append_err(_conn,                     \
-    "HY001",                                 \
-    0,                                       \
-    "memory allocation failure");
-
 static void _conn_init(conn_t *conn, env_t *env)
 {
   conn->env = env_ref(env);
@@ -45,7 +39,7 @@ conn_t* conn_create(env_t *env)
 {
   conn_t *conn = (conn_t*)calloc(1, sizeof(*conn));
   if (!conn) {
-    env_append_err(env, "HY000", 0, "Memory allocation failure");
+    env_oom(env);
     return NULL;
   }
 
@@ -75,15 +69,21 @@ conn_t* conn_unref(conn_t *conn)
 
 SQLRETURN conn_free(conn_t *conn)
 {
+  int outstandings = atomic_load(&conn->outstandings);
+  if (outstandings) {
+    conn_append_err_format(conn, "HY000", 0, "General error:%d outstandings still active", outstandings);
+    return SQL_ERROR;
+  }
+
   int stmts = atomic_load(&conn->stmts);
   if (stmts) {
-    conn_append_err_format(conn, "HY000", 0, "#%d statements are still allocated", stmts);
+    conn_append_err_format(conn, "HY000", 0, "General error:%d statements are still outstanding", stmts);
     return SQL_ERROR;
   }
 
   int descs = atomic_load(&conn->descs);
   if (descs) {
-    conn_append_err_format(conn, "HY000", 0, "#%d descriptors are still allocated", descs);
+    conn_append_err_format(conn, "HY000", 0, "General error:%d descriptors are still outstanding", descs);
     return SQL_ERROR;
   }
 
@@ -113,7 +113,7 @@ static SQLRETURN _do_conn_connect(conn_t *conn)
     }
     if (cfg->db) buffer_sprintf(&buffer, "/%s", cfg->db);
 
-    conn_append_err_format(conn, "HY000", CALL_taos_errno(NULL), "target:[%s][%s]", buffer.buf, CALL_taos_errstr(NULL));
+    conn_append_err_format(conn, "08001", CALL_taos_errno(NULL), "Client unable to establish connection:[%s][%s]", buffer.buf, CALL_taos_errstr(NULL));
     return SQL_ERROR;
   }
 
@@ -208,21 +208,20 @@ SQLRETURN conn_driver_connect(
     SQLSMALLINT    *StringLength2Ptr,
     SQLUSMALLINT    DriverCompletion)
 {
+  (void)WindowHandle;
+
   switch (DriverCompletion) {
     case SQL_DRIVER_NOPROMPT:
       break;
     default:
-      conn_append_err_format(conn, "HY000", 0, "[%s] not supported yet", sql_driver_completion(DriverCompletion));
+      conn_append_err_format(conn, "HY000", 0,
+          "General error:`%s[%d/0x%x]` not supported yet",
+          sql_driver_completion(DriverCompletion), DriverCompletion, DriverCompletion);
       return SQL_ERROR;
   }
 
-  if (WindowHandle) {
-    conn_append_err(conn, "HY000", 0, "Interactive connect not supported yet");
-    return SQL_ERROR;
-  }
-
   if (conn->taos) {
-    conn_append_err(conn, "HY000", 0, "Already connected");
+    conn_append_err(conn, "HY000", 0, "General error:Already connected");
     return SQL_ERROR;
   }
 
@@ -238,7 +237,7 @@ SQLRETURN conn_driver_connect(
     if (r) {
       conn_append_err_format(
         conn, "HY000", 0,
-        "bad syntax for connection string: [%.*s][(%d,%d)->(%d,%d): %s]",
+        "General error:bad syntax for connection string:[%.*s][(%d,%d)->(%d,%d):%s]",
         StringLength1, InConnectionString,
         param.row0, param.col0, param.row1, param.col1,
         param.errmsg);
@@ -286,10 +285,28 @@ static void _get_driver_name(const char **name)
   if (name) *name = client;
 }
 
+static SQLRETURN _conn_commit(conn_t *conn)
+{
+  int outstandings = atomic_load(&conn->outstandings);
+  if (outstandings == 0) {
+    conn_append_err_format(conn, "01000", 0, "General warning:no outstanding connection");
+    return SQL_SUCCESS_WITH_INFO;
+  }
+
+  conn_append_err_format(conn, "25S02", 0, "Transaction is still active");
+  return SQL_ERROR;
+}
+
 static int _conn_rollback(conn_t *conn)
 {
   int outstandings = atomic_load(&conn->outstandings);
-  return outstandings == 0 ? 0 : -1;
+  if (outstandings == 0) {
+    conn_append_err_format(conn, "01000", 0, "General warning:no outstandings");
+    return SQL_SUCCESS_WITH_INFO;
+  }
+
+  conn_append_err_format(conn, "25S01", 0, "Transaction state unknown");
+  return SQL_ERROR;
 }
 
 SQLRETURN conn_get_diag_rec(
@@ -339,7 +356,7 @@ static SQLRETURN _conn_connect( conn_t *conn)
     if (buf[0]) {
       conn->cfg.pwd = strdup(buf);
       if (!conn->cfg.pwd) {
-        _conn_malloc_fail(conn);
+        conn_oom(conn);
         return SQL_ERROR;
       }
     }
@@ -351,7 +368,7 @@ static SQLRETURN _conn_connect( conn_t *conn)
     if (buf[0]) {
       conn->cfg.uid = strdup(buf);
       if (!conn->cfg.uid) {
-        _conn_malloc_fail(conn);
+        conn_oom(conn);
         return SQL_ERROR;
       }
     }
@@ -370,7 +387,7 @@ SQLRETURN conn_connect(
     SQLSMALLINT    NameLength3)
 {
   if (conn->taos) {
-    conn_append_err(conn, "HY000", 0, "Already connected");
+    conn_append_err(conn, "HY000", 0, "General error:Already connected");
     return SQL_ERROR;
   }
 
@@ -382,21 +399,21 @@ SQLRETURN conn_connect(
   if (ServerName) {
     conn->cfg.dsn = strndup((const char*)ServerName, NameLength1);
     if (!conn->cfg.dsn) {
-      _conn_malloc_fail(conn);
+      conn_oom(conn);
       return SQL_ERROR;
     }
   }
   if (UserName) {
     conn->cfg.uid = strndup((const char*)UserName, NameLength2);
     if (!conn->cfg.uid) {
-      _conn_malloc_fail(conn);
+      conn_oom(conn);
       return SQL_ERROR;
     }
   }
   if (Authentication) {
     conn->cfg.pwd = strndup((const char*)Authentication, NameLength3);
     if (!conn->cfg.pwd) {
-      _conn_malloc_fail(conn);
+      conn_oom(conn);
       return SQL_ERROR;
     }
   }
@@ -460,7 +477,7 @@ SQLRETURN conn_get_info(
       *(SQLUSMALLINT*)InfoValuePtr = 64;
       return SQL_SUCCESS;
     default:
-      conn_append_err_format(conn, "HY000", 0, "`%s[%d]` not implemented yet", sql_info_type(InfoType), InfoType);
+      conn_append_err_format(conn, "HY000", 0, "General error:`%s[%d/0x%x]` not implemented yet", sql_info_type(InfoType), InfoType, InfoType);
       return SQL_ERROR;
   }
 }
@@ -470,11 +487,12 @@ SQLRETURN conn_end_tran(
     SQLSMALLINT   CompletionType)
 {
   switch (CompletionType) {
+    case SQL_COMMIT:
+      return _conn_commit(conn);
     case SQL_ROLLBACK:
-      if (_conn_rollback(conn)) return SQL_ERROR;
-      return SQL_SUCCESS;
+      return _conn_rollback(conn);
     default:
-      conn_append_err_format(conn, "HY000", 0, "`%s`[0x%x/%d] not supported yet", sql_completion_type(CompletionType), CompletionType, CompletionType);
+      conn_append_err_format(conn, "HY000", 0, "General error:[DM]logic error");
       return SQL_ERROR;
   }
 }
@@ -490,14 +508,18 @@ SQLRETURN conn_set_attr(
   switch (Attribute) {
     case SQL_ATTR_CONNECTION_TIMEOUT:
       if (0 == (SQLUINTEGER)(uintptr_t)ValuePtr) return SQL_SUCCESS;
-      conn_append_err_format(conn, "01S02", 0, "%u for `SQL_ATTR_CONNECTION_TIMEOUT` is required but not supported yet", (SQLUINTEGER)(uintptr_t)ValuePtr);
+      conn_append_err_format(conn, "01S02", 0,
+          "Option value changed:`%u for `SQL_ATTR_CONNECTION_TIMEOUT` is substituted by `0`",
+          (SQLUINTEGER)(uintptr_t)ValuePtr);
       return SQL_SUCCESS_WITH_INFO;
     case SQL_ATTR_LOGIN_TIMEOUT:
       if (0 == (SQLUINTEGER)(uintptr_t)ValuePtr) return SQL_SUCCESS;
-      conn_append_err_format(conn, "01S02", 0, "%u for `SQL_ATTR_LOGIN_TIMEOUT` is required but not supported yet", (SQLUINTEGER)(uintptr_t)ValuePtr);
+      conn_append_err_format(conn, "01S02", 0,
+          "Option value changed:`%u for `SQL_ATTR_LOGIN_TIMEOUT` is substituted by `0`",
+          (SQLUINTEGER)(uintptr_t)ValuePtr);
       return SQL_SUCCESS_WITH_INFO;
     default:
-      conn_append_err_format(conn, "HY000", 0, "`%s`[0x%x/%d] not supported yet", sql_connection_attr(Attribute), Attribute, Attribute);
+      conn_append_err_format(conn, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_connection_attr(Attribute), Attribute, Attribute);
       return SQL_ERROR;
   }
 }

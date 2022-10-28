@@ -11,12 +11,6 @@
 #include <time.h>
 #include <wchar.h>
 
-#define _stmt_malloc_fail(_stmt)             \
-  stmt_append_err(_stmt,                     \
-    "HY001",                                 \
-    0,                                       \
-    "memory allocation failure");
-
 static void col_reset(col_t *col)
 {
   if (col->buf) col->buf[0] = '\0';
@@ -336,7 +330,7 @@ stmt_t* stmt_create(conn_t *conn)
 {
   stmt_t *stmt = (stmt_t*)calloc(1, sizeof(*stmt));
   if (!stmt) {
-    conn_append_err(conn, "HY000", 0, "Memory allocation failure");
+    conn_oom(conn);
     return NULL;
   }
 
@@ -464,7 +458,7 @@ static SQLRETURN _stmt_exec_direct(stmt_t *stmt, const char *sql, int len)
     } else {
       p = strndup(p, len);
       if (!p) {
-        _stmt_malloc_fail(stmt);
+        stmt_oom(stmt);
         return SQL_ERROR;
       }
     }
@@ -793,7 +787,7 @@ static SQLRETURN _stmt_calc_bytes(stmt_t *stmt,
   iconv_t cd = iconv_open(tocode, fromcode);
   if ((size_t)cd == (size_t)-1) {
     stmt_append_err_format(stmt, "HY000", 0,
-        "[iconv] No character set conversion found for `%s` to `%s`: [%d] %s",
+        "[iconv] No character set conversion found for `%s` to `%s`:[%d]%s",
         fromcode, tocode, errno, strerror(errno));
     return SQL_ERROR;
   }
@@ -805,7 +799,7 @@ static SQLRETURN _stmt_calc_bytes(stmt_t *stmt,
 
   *bytes = 0;
   while (inbytes>0) {
-    OD("inbytes: %ld", inbytes);
+    OD("inbytes:%ld", inbytes);
     char buf[1024];
     char *outbuf = buf;
     size_t outbytes = sizeof(buf);
@@ -815,7 +809,7 @@ static SQLRETURN _stmt_calc_bytes(stmt_t *stmt,
       int e = errno;
       if (e == E2BIG) continue;
       stmt_append_err_format(stmt, "HY000", 0,
-          "[iconv] Character set conversion for `%s` to `%s` failed: [%d] %s",
+          "[iconv] Character set conversion for `%s` to `%s` failed:[%d]%s",
           fromcode, tocode, e, strerror(e));
       sr = SQL_ERROR;
       break;
@@ -835,7 +829,7 @@ static SQLRETURN _stmt_encode(stmt_t *stmt,
   iconv_t cd = iconv_open(tocode, fromcode);
   if ((size_t)cd == (size_t)-1) {
     stmt_append_err_format(stmt, "HY000", 0,
-        "[iconv] No character set conversion found for `%s` to `%s`: [%d] %s",
+        "[iconv] No character set conversion found for `%s` to `%s`:[%d]%s",
         fromcode, tocode, errno, strerror(errno));
     return SQL_ERROR;
   }
@@ -847,13 +841,13 @@ static SQLRETURN _stmt_encode(stmt_t *stmt,
   iconv_close(cd);
   if (*inbytesleft > 0) {
     stmt_append_err_format(stmt, "01004", 0,
-        "[iconv] Character set conversion for `%s` to `%s` results in string truncation, #%ld out of #%ld bytes consumed, #%ld out of #%ld bytes converted: [%d] %s",
+        "[iconv] Character set conversion for `%s` to `%s` results in string truncation, #%ld out of #%ld bytes consumed, #%ld out of #%ld bytes converted:[%d]%s",
         fromcode, tocode, inbytes - *inbytesleft, inbytes, outbytes - * outbytesleft, outbytes, e, strerror(e));
     return SQL_SUCCESS_WITH_INFO;
   }
   if (sz == (size_t)-1) {
     stmt_append_err_format(stmt, "HY000", 0,
-        "[iconv] Character set conversion for `%s` to `%s` failed: [%d] %s",
+        "[iconv] Character set conversion for `%s` to `%s` failed:[%d]%s",
         fromcode, tocode, e, strerror(e));
     return SQL_ERROR;
   }
@@ -927,7 +921,7 @@ SQLRETURN stmt_bind_col(stmt_t *stmt,
     size_t cap = (ColumnNumber + 15) / 16 * 16;
     desc_record_t *records = (desc_record_t*)realloc(desc->records, sizeof(*records) * cap);
     if (!records) {
-      _stmt_malloc_fail(stmt);
+      stmt_oom(stmt);
       return SQL_ERROR;
     }
     desc->records = records;
@@ -1170,7 +1164,7 @@ static int _stmt_bind_conv_tsdb_tinyint_to_sql_c_utinyint(stmt_t *stmt, const ch
 
   int8_t v = *(int8_t*)data;
 
-  OD("v: [%d]", v);
+  OD("v:[%d]", v);
 
   size_t outbytes = dlen;
   OA_NIY(outbytes == sizeof(int8_t));
@@ -1189,7 +1183,7 @@ static int _stmt_bind_conv_tsdb_utinyint_to_sql_c_utinyint(stmt_t *stmt, const c
 
   uint8_t v = *(uint8_t*)data;
 
-  OD("v: [%u]", v);
+  OD("v:[%u]", v);
 
   size_t outbytes = dlen;
   OA_NIY(outbytes == sizeof(uint8_t));
@@ -1228,7 +1222,7 @@ static int _stmt_bind_conv_tsdb_tinyint_to_sql_c_short(stmt_t *stmt, const char 
 
   int8_t v = *(int8_t*)data;
 
-  OD("v: [%d]", v);
+  OD("v:[%d]", v);
 
   size_t outbytes = dlen;
   OA_NIY(outbytes == sizeof(int16_t));
@@ -1246,7 +1240,7 @@ static int _stmt_bind_conv_tsdb_smallint_to_sql_c_short(stmt_t *stmt, const char
 
   int16_t v = *(int16_t*)data;
 
-  OD("v: [%d]", v);
+  OD("v:[%d]", v);
 
   size_t outbytes = dlen;
   OA_NIY(outbytes == sizeof(int16_t));
@@ -1283,7 +1277,7 @@ static int _stmt_bind_conv_tsdb_int_to_sql_c_slong(stmt_t *stmt, const char *dat
 
   int32_t v = *(int32_t*)data;
 
-  OD("v: [%d]", v);
+  OD("v:[%d]", v);
 
   size_t outbytes = dlen;
   OA_NIY(outbytes == sizeof(int32_t));
@@ -1301,7 +1295,7 @@ static int _stmt_bind_conv_tsdb_usmallint_to_sql_c_slong(stmt_t *stmt, const cha
 
   uint16_t v = *(uint16_t*)data;
 
-  OD("v: [%u]", v);
+  OD("v:[%u]", v);
 
   size_t outbytes = dlen;
   OA_NIY(outbytes == sizeof(int32_t));
@@ -1338,7 +1332,7 @@ static int _stmt_bind_conv_tsdb_bigint_to_sql_c_sbigint(stmt_t *stmt, const char
 
   int64_t v = *(int64_t*)data;
 
-  OD("v: [%ld]", v);
+  OD("v:[%ld]", v);
 
   size_t outbytes = dlen;
   OA_NIY(outbytes == sizeof(int64_t));
@@ -1356,7 +1350,7 @@ static int _stmt_bind_conv_tsdb_uint_to_sql_c_sbigint(stmt_t *stmt, const char *
 
   uint32_t v = *(uint32_t*)data;
 
-  OD("v: [%u]", v);
+  OD("v:[%u]", v);
 
   size_t outbytes = dlen;
   OA_NIY(outbytes == sizeof(int64_t));
@@ -1393,7 +1387,7 @@ static int _stmt_bind_conv_tsdb_double_to_sql_c_double(stmt_t *stmt, const char 
 
   double v = *(double*)data;
 
-  OD("v: [%g]", v);
+  OD("v:[%g]", v);
 
   size_t outbytes = dlen;
   OA_NIY(outbytes == sizeof(double));
@@ -1989,7 +1983,7 @@ static SQLRETURN _stmt_get_data_fill_sql_c_char_with_tsdb_timestamp(
 
     int r = _stmt_get_data_reinit_current_with_buf(stmt, buf, n);
     if (r) {
-      _stmt_malloc_fail(stmt);
+      stmt_oom(stmt);
       return SQL_ERROR;
     }
   }
@@ -2016,7 +2010,7 @@ static SQLRETURN _stmt_get_data_fill_sql_c_char_with_tsdb_int(
 
     int r = _stmt_get_data_reinit_current_with_buf(stmt, buf, n);
     if (r) {
-      _stmt_malloc_fail(stmt);
+      stmt_oom(stmt);
       return SQL_ERROR;
     }
   }
@@ -2043,7 +2037,7 @@ static SQLRETURN _stmt_get_data_fill_sql_c_char_with_tsdb_bigint(
 
     int r = _stmt_get_data_reinit_current_with_buf(stmt, buf, n);
     if (r) {
-      _stmt_malloc_fail(stmt);
+      stmt_oom(stmt);
       return SQL_ERROR;
     }
   }
@@ -2527,7 +2521,7 @@ SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
 
   SQLSMALLINT n = _stmt_get_count_of_tsdb_params(stmt);
   if (n <= 0) {
-    stmt_append_err(stmt, "HY000", 0, "taosc: statement-without-parameter-placemarker not allowed to be prepared");
+    stmt_append_err(stmt, "HY000", 0, "taosc:statement-without-parameter-placemarker not allowed to be prepared");
     return SQL_ERROR;
   }
 
@@ -2535,7 +2529,7 @@ SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
     size_t cap = (n + 15) / 16 * 16;
     TAOS_MULTI_BIND *mbs = (TAOS_MULTI_BIND*)realloc(stmt->mbs, sizeof(*mbs) * cap);
     if (!mbs) {
-      _stmt_malloc_fail(stmt);
+      stmt_oom(stmt);
       return SQL_ERROR;
     }
     stmt->mbs = mbs;
@@ -2585,7 +2579,7 @@ SQLRETURN stmt_prepare(stmt_t *stmt,
   if (stmt->conn->cfg.cache_sql) {
     s = strndup(sql, len);
     if (!s) {
-      _stmt_malloc_fail(stmt);
+      stmt_oom(stmt);
       return SQL_ERROR;
     }
     pre = stmt->sql;
@@ -2737,7 +2731,7 @@ SQLRETURN _stmt_describe_param_by_field(
       if (ParameterSizePtr)    *ParameterSizePtr = (bytes - 2) / 4;
       break;
     default:
-      stmt_append_err_format(stmt, "HY000", 0, "#%d param: `%s[%d]` not implemented yet", ParameterNumber, taos_data_type(type), type);
+      stmt_append_err_format(stmt, "HY000", 0, "#%d param:`%s[%d]` not implemented yet", ParameterNumber, taos_data_type(type), type);
       return SQL_ERROR;
   }
 
@@ -2846,7 +2840,7 @@ static SQLRETURN _stmt_create_tsdb_timestamp_array(stmt_t *stmt, desc_record_t *
 
   record->buffer = malloc(sizeof(int64_t) * rows);
   if (!record->buffer) {
-    _stmt_malloc_fail(stmt);
+    stmt_oom(stmt);
     return SQL_ERROR;
   }
 
@@ -2861,7 +2855,7 @@ static SQLRETURN _stmt_create_tsdb_int_array(stmt_t *stmt, desc_record_t *record
 
   record->buffer = malloc(sizeof(int32_t) * rows);
   if (!record->buffer) {
-    _stmt_malloc_fail(stmt);
+    stmt_oom(stmt);
     return SQL_ERROR;
   }
 
@@ -2876,7 +2870,7 @@ static SQLRETURN _stmt_create_tsdb_smallint_array(stmt_t *stmt, desc_record_t *r
 
   record->buffer = malloc(sizeof(int16_t) * rows);
   if (!record->buffer) {
-    _stmt_malloc_fail(stmt);
+    stmt_oom(stmt);
     return SQL_ERROR;
   }
 
@@ -2891,7 +2885,7 @@ static SQLRETURN _stmt_create_tsdb_tinyint_array(stmt_t *stmt, desc_record_t *re
 
   record->buffer = malloc(sizeof(int8_t) * rows);
   if (!record->buffer) {
-    _stmt_malloc_fail(stmt);
+    stmt_oom(stmt);
     return SQL_ERROR;
   }
 
@@ -2906,7 +2900,7 @@ static SQLRETURN _stmt_create_tsdb_bool_array(stmt_t *stmt, desc_record_t *recor
 
   record->buffer = malloc(sizeof(int8_t) * rows);
   if (!record->buffer) {
-    _stmt_malloc_fail(stmt);
+    stmt_oom(stmt);
     return SQL_ERROR;
   }
 
@@ -2921,7 +2915,7 @@ static SQLRETURN _stmt_create_tsdb_float_array(stmt_t *stmt, desc_record_t *reco
 
   record->buffer = malloc(sizeof(float) * rows);
   if (!record->buffer) {
-    _stmt_malloc_fail(stmt);
+    stmt_oom(stmt);
     return SQL_ERROR;
   }
 
@@ -2936,7 +2930,7 @@ static SQLRETURN _stmt_create_tsdb_varchar_array(stmt_t *stmt, desc_record_t *re
 
   record->buffer = malloc(mb->buffer_length * rows);
   if (!record->buffer) {
-    _stmt_malloc_fail(stmt);
+    stmt_oom(stmt);
     return SQL_ERROR;
   }
 
@@ -2951,7 +2945,7 @@ static SQLRETURN _stmt_create_length_array(stmt_t *stmt, desc_record_t *record, 
 
   record->length = (int32_t*)malloc(sizeof(int32_t) * rows);
   if (!record->length) {
-    _stmt_malloc_fail(stmt);
+    stmt_oom(stmt);
     return SQL_ERROR;
   }
 
@@ -2966,7 +2960,7 @@ static SQLRETURN _stmt_create_is_null_array(stmt_t *stmt, desc_record_t *record,
 
   record->is_null = (char*)malloc(sizeof(char) * rows);
   if (!record->is_null) {
-    _stmt_malloc_fail(stmt);
+    stmt_oom(stmt);
     return SQL_ERROR;
   }
 
@@ -3030,7 +3024,7 @@ static SQLRETURN _stmt_sql_c_char_to_tsdb_timestamp(stmt_t *stmt, const char *s,
     stmt_append_err_format(stmt,
         "HY000",
         0,
-        "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed: [%d] %s",
+        "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed:[%d]%s",
         e, strerror(e));
     return SQL_ERROR;
   }
@@ -3038,7 +3032,7 @@ static SQLRETURN _stmt_sql_c_char_to_tsdb_timestamp(stmt_t *stmt, const char *s,
     stmt_append_err_format(stmt,
         "HY000",
         0,
-        "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed: [%d] %s",
+        "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed:[%d]%s",
         e, strerror(e));
     return SQL_ERROR;
   }
@@ -3046,14 +3040,14 @@ static SQLRETURN _stmt_sql_c_char_to_tsdb_timestamp(stmt_t *stmt, const char *s,
     stmt_append_err(stmt,
         "HY000",
         0,
-        "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed: no digits at all");
+        "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed:no digits at all");
     return SQL_ERROR;
   }
   if (end && *end) {
     stmt_append_err_format(stmt,
         "HY000",
         0,
-        "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed: string following digits[%s]",
+        "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed:string following digits[%s]",
         end);
     return SQL_ERROR;
   }
@@ -3283,7 +3277,7 @@ SQLRETURN stmt_bind_param(
     size_t cap = (ParameterNumber + 15) / 16 * 16;
     desc_record_t *records = (desc_record_t*)realloc(APD->records, sizeof(*records) * cap);
     if (!records) {
-      _stmt_malloc_fail(stmt);
+      stmt_oom(stmt);
       return SQL_ERROR;
     }
     APD->records = records;
@@ -3370,7 +3364,7 @@ SQLRETURN stmt_bind_param(
     size_t cap = (ParameterNumber + 15) / 16 * 16;
     desc_record_t *records = (desc_record_t*)realloc(IPD->records, sizeof(*records) * cap);
     if (!records) {
-      _stmt_malloc_fail(stmt);
+      stmt_oom(stmt);
       return SQL_ERROR;
     }
     IPD->records = records;
@@ -3799,7 +3793,7 @@ static SQLRETURN _stmt_param_prepare_subtbl(stmt_t *stmt)
   TOD_SAFE_FREE(stmt->subtbl);
   stmt->subtbl = strndup(base, length);
   if (!stmt->subtbl) {
-    _stmt_malloc_fail(stmt);
+    stmt_oom(stmt);
     return SQL_ERROR;
   }
 
@@ -3983,7 +3977,7 @@ static SQLRETURN _stmt_pre_exec_prepare_params(stmt_t *stmt)
 
   if (APD_header->DESC_COUNT > 0) {
     if (params_realloc(&stmt->params, APD_header->DESC_COUNT)) {
-      _stmt_malloc_fail(stmt);
+      stmt_oom(stmt);
       return SQL_ERROR;
     }
   }

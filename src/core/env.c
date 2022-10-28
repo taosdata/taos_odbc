@@ -112,7 +112,7 @@ SQLRETURN env_free(env_t *env)
 {
   int conns = atomic_load(&env->conns);
   if (conns) {
-    env_append_err_format(env, "HY000", 0, "#%d connections are still connected or allocated", conns);
+    env_append_err_format(env, "HY000", 0, "General error:%d connections are still connected or allocated", conns);
     return SQL_ERROR;
   }
 
@@ -120,10 +120,28 @@ SQLRETURN env_free(env_t *env)
   return SQL_SUCCESS;
 }
 
-static int _env_rollback(env_t *env)
+static SQLRETURN _env_commit(env_t *env)
 {
   int conns = atomic_load(&env->conns);
-  return conns == 0 ? 0 : -1;
+  if (conns == 0) {
+    env_append_err_format(env, "01000", 0, "General warning:no outstanding connection");
+    return SQL_SUCCESS_WITH_INFO;
+  }
+
+  env_append_err_format(env, "25S02", 0, "Transaction is still active");
+  return SQL_ERROR;
+}
+
+static SQLRETURN _env_rollback(env_t *env)
+{
+  int conns = atomic_load(&env->conns);
+  if (conns == 0) {
+    env_append_err_format(env, "01000", 0, "General warning:no outstanding connection");
+    return SQL_SUCCESS_WITH_INFO;
+  }
+
+  env_append_err_format(env, "25S01", 0, "Transaction state unknown");
+  return SQL_ERROR;
 }
 
 SQLRETURN env_get_diag_rec(
@@ -144,8 +162,9 @@ static SQLRETURN _env_set_odbc_version(env_t *env, SQLINTEGER odbc_version)
     case SQL_OV_ODBC3:
       return SQL_SUCCESS;
     default:
-      env_append_err_format(env, "HY000", 0, "`%s`[0x%x/%d] not supported yet", sql_odbc_version(odbc_version), odbc_version, odbc_version);
-      return SQL_ERROR;
+      env_append_err_format(env, "01S02", 0,
+          "Option value changed:`%s[0x%x/%d]` is substituted by `SQL_OV_ODBC3`", sql_odbc_version(odbc_version), odbc_version, odbc_version);
+      return SQL_SUCCESS_WITH_INFO;
   }
 }
 
@@ -162,8 +181,8 @@ SQLRETURN env_set_attr(
       return _env_set_odbc_version(env, (SQLINTEGER)(size_t)ValuePtr);
 
     default:
-      env_append_err_format(env, "HY000", 0, "`%s`[0x%x/%d] not supported yet", sql_env_attr(Attribute), Attribute, Attribute);
-      return SQL_ERROR;
+      env_append_err_format(env, "01S02", 0, "Optional value changed:`%s[0x%x/%d]` is substituted by default", sql_env_attr(Attribute), Attribute, Attribute);
+      return SQL_SUCCESS_WITH_INFO;
   }
 }
 
@@ -171,12 +190,11 @@ SQLRETURN env_end_tran(env_t *env, SQLSMALLINT CompletionType)
 {
   switch (CompletionType) {
     case SQL_COMMIT:
-      return SQL_SUCCESS;
+      return _env_commit(env);
     case SQL_ROLLBACK:
-      if (_env_rollback(env)) return SQL_ERROR;
-      return SQL_SUCCESS;
+      return _env_rollback(env);
     default:
-      env_append_err_format(env, "HY000", 0, "`%s`[0x%x/%d] not supported yet", sql_completion_type(CompletionType), CompletionType, CompletionType);
+      env_append_err_format(env, "HY000", 0, "General error:[DM]logic error");
       return SQL_ERROR;
   }
 }

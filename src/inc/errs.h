@@ -34,6 +34,8 @@ SQLRETURN errs_get_diag_rec_x(
     errs_append(_errs, _data_source, _sql_state, _e, _buf);                   \
   })
 
+#define errs_oom(_errs, _data_source) errs_append(_errs, _data_source, "HY001", 0, "Memory allocation error")
+
 #define errs_clr(_errs) errs_clr_x(_errs)
 
 #define errs_release(_errs) errs_release_x(_errs)

@@ -31,7 +31,7 @@ desc_t* desc_create(conn_t *conn)
 {
   desc_t *desc = (desc_t*)calloc(1, sizeof(*desc));
   if (!desc) {
-    conn_append_err(conn, "HY000", 0, "Memory allocation failure");
+    conn_oom(conn);
     return NULL;
   }
 

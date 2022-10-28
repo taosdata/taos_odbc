@@ -331,6 +331,21 @@ static inline SQLRETURN call_SQLExecute(const char *file, int line, const char *
   return sr;
 }
 
+static inline SQLRETURN call_SQLEndTran(const char *file, int line, const char *func,
+    SQLSMALLINT   HandleType,
+    SQLHANDLE     Handle,
+    SQLSMALLINT   CompletionType)
+{
+  LOGD(file, line, func, "SQLEndTran(HandleType:%s,Handle:%p,CompletionType:%s) ...",
+      sql_handle_type(HandleType), Handle, sql_completion_type(CompletionType));
+  SQLRETURN sr = SQLEndTran(HandleType, Handle, CompletionType);
+  diag(sr, SQL_HANDLE_STMT, Handle);
+  LOGD(file, line, func, "SQLEndTran(HandleType:%s,Handle:%p,CompletionType:%s) => %s",
+      sql_handle_type(HandleType), Handle, sql_completion_type(CompletionType),
+      sql_return_type(sr));
+  return sr;
+}
+
 
 #define CALL_SQLAllocHandle(...)                   call_SQLAllocHandle(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLFreeHandle(...)                    call_SQLFreeHandle(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
@@ -349,6 +364,7 @@ static inline SQLRETURN call_SQLExecute(const char *file, int line, const char *
 #define CALL_SQLBindParameter(...)                 call_SQLBindParameter(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLSetStmtAttr(...)                   call_SQLSetStmtAttr(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLExecute(...)                       call_SQLExecute(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
+#define CALL_SQLEndTran(...)                       call_SQLEndTran(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 
 #endif // _odbc_helper_h_
 

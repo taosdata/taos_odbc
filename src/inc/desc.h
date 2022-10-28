@@ -17,6 +17,8 @@ SQLRETURN desc_free(desc_t *desc) FA_HIDDEN;
 void descriptor_init(descriptor_t *descriptor) FA_HIDDEN;
 void descriptor_release(descriptor_t *descriptor) FA_HIDDEN;
 
+void descriptor_release_field_arrays(descriptor_t *APD) FA_HIDDEN;
+
 EXTERN_C_END
 
 #endif //  _desc_h_

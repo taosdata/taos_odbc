@@ -52,6 +52,7 @@ conn_t* conn_create(env_t *env) FA_HIDDEN;
 conn_t* conn_ref(conn_t *conn) FA_HIDDEN;
 conn_t* conn_unref(conn_t *conn) FA_HIDDEN;
 SQLRETURN conn_free(conn_t *conn) FA_HIDDEN;
+void conn_clr_errs(conn_t *conn) FA_HIDDEN;
 
 SQLRETURN conn_driver_connect(
     conn_t         *conn,
@@ -60,14 +61,10 @@ SQLRETURN conn_driver_connect(
     SQLSMALLINT     StringLength1,
     SQLCHAR        *OutConnectionString,
     SQLSMALLINT     BufferLength,
-    SQLSMALLINT    *StringLength2Ptr) FA_HIDDEN;
+    SQLSMALLINT    *StringLength2Ptr,
+    SQLUSMALLINT    DriverCompletion) FA_HIDDEN;
 
 void conn_disconnect(conn_t *conn) FA_HIDDEN;
-
-int conn_get_dbms_name(conn_t *conn, const char **name) FA_HIDDEN;
-int conn_get_driver_name(conn_t *conn, const char **name) FA_HIDDEN;
-
-int conn_rollback(conn_t *conn) FA_HIDDEN;
 
 SQLRETURN conn_get_diag_rec(
     conn_t         *conn,
@@ -97,6 +94,16 @@ SQLRETURN conn_get_info(
     SQLPOINTER      InfoValuePtr,
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr) FA_HIDDEN;
+
+SQLRETURN conn_end_tran(
+    conn_t       *conn,
+    SQLSMALLINT   CompletionType) FA_HIDDEN;
+
+SQLRETURN conn_set_attr(
+    conn_t       *conn,
+    SQLINTEGER    Attribute,
+    SQLPOINTER    ValuePtr,
+    SQLINTEGER    StringLength) FA_HIDDEN;
 
 EXTERN_C_END
 

@@ -13,7 +13,7 @@
     0,                                       \
     "memory allocation failure");
 
-static int conn_init(conn_t *conn, env_t *env)
+static void _conn_init(conn_t *conn, env_t *env)
 {
   conn->env = env_ref(env);
   int prev = atomic_fetch_add(&env->conns, 1);
@@ -22,11 +22,9 @@ static int conn_init(conn_t *conn, env_t *env)
   errs_init(&conn->errs);
 
   conn->refc = 1;
-
-  return 0;
 }
 
-static void conn_release(conn_t *conn)
+static void _conn_release(conn_t *conn)
 {
   OA_ILE(conn->taos == NULL);
 
@@ -45,27 +43,19 @@ static void conn_release(conn_t *conn)
 
 conn_t* conn_create(env_t *env)
 {
-  OA_ILE(env);
-
   conn_t *conn = (conn_t*)calloc(1, sizeof(*conn));
   if (!conn) {
     env_append_err(env, "HY000", 0, "Memory allocation failure");
     return NULL;
   }
 
-  int r = conn_init(conn, env);
-  if (r) {
-    conn_release(conn);
-    env_append_err(env, "HY000", 0, "Memory allocation failure");
-    return NULL;
-  }
+  _conn_init(conn, env);
 
   return conn;
 }
 
 conn_t* conn_ref(conn_t *conn)
 {
-  OA_ILE(conn);
   int prev = atomic_fetch_add(&conn->refc, 1);
   OA_ILE(prev>0);
   return conn;
@@ -73,12 +63,11 @@ conn_t* conn_ref(conn_t *conn)
 
 conn_t* conn_unref(conn_t *conn)
 {
-  OA_ILE(conn);
   int prev = atomic_fetch_sub(&conn->refc, 1);
   if (prev>1) return conn;
   OA_ILE(prev==1);
 
-  conn_release(conn);
+  _conn_release(conn);
   free(conn);
 
   return NULL;
@@ -104,7 +93,6 @@ SQLRETURN conn_free(conn_t *conn)
 
 static SQLRETURN _do_conn_connect(conn_t *conn)
 {
-  OA_ILE(conn);
   OA_ILE(conn->taos == NULL);
   const connection_cfg_t *cfg = &conn->cfg;
 
@@ -217,8 +205,17 @@ SQLRETURN conn_driver_connect(
     SQLSMALLINT     StringLength1,
     SQLCHAR        *OutConnectionString,
     SQLSMALLINT     BufferLength,
-    SQLSMALLINT    *StringLength2Ptr)
+    SQLSMALLINT    *StringLength2Ptr,
+    SQLUSMALLINT    DriverCompletion)
 {
+  switch (DriverCompletion) {
+    case SQL_DRIVER_NOPROMPT:
+      break;
+    default:
+      conn_append_err_format(conn, "HY000", 0, "[%s] not supported yet", sql_driver_completion(DriverCompletion));
+      return SQL_ERROR;
+  }
+
   if (WindowHandle) {
     conn_append_err(conn, "HY000", 0, "Interactive connect not supported yet");
     return SQL_ERROR;
@@ -246,7 +243,6 @@ SQLRETURN conn_driver_connect(
         param.row0, param.col0, param.row1, param.col1,
         param.errmsg);
 
-      sr = SQL_ERROR;
       break;
     }
 
@@ -267,35 +263,30 @@ SQLRETURN conn_driver_connect(
 
 void conn_disconnect(conn_t *conn)
 {
-  OA_ILE(conn);
-  OA_ILE(conn->taos);
-
   int stmts = atomic_load(&conn->stmts);
   OA_ILE(stmts == 0);
 
-  CALL_taos_close(conn->taos);
-  conn->taos = NULL;
+  if (conn->taos) {
+    CALL_taos_close(conn->taos);
+    conn->taos = NULL;
+  }
   connection_cfg_release(&conn->cfg);
 }
 
-int conn_get_dbms_name(conn_t *conn, const char **name)
+static void _conn_get_dbms_name(conn_t *conn, const char **name)
 {
-  OA_ILE(conn);
   OA_ILE(conn->taos);
   const char *server = CALL_taos_get_server_info(conn->taos);
-  *name = server;
-  return 0;
+  if (name) *name = server;
 }
 
-int conn_get_driver_name(conn_t *conn, const char **name)
+static void _get_driver_name(const char **name)
 {
-  OA_ILE(conn);
   const char *client = CALL_taos_get_client_info();
-  *name = client;
-  return 0;
+  if (name) *name = client;
 }
 
-int conn_rollback(conn_t *conn)
+static int _conn_rollback(conn_t *conn)
 {
   int outstandings = atomic_load(&conn->outstandings);
   return outstandings == 0 ? 0 : -1;
@@ -318,10 +309,7 @@ SQLRETURN conn_alloc_stmt(conn_t *conn, SQLHANDLE *OutputHandle)
   *OutputHandle = SQL_NULL_HANDLE;
 
   stmt_t *stmt = stmt_create(conn);
-  if (stmt == NULL) {
-    _conn_malloc_fail(conn);
-    return SQL_ERROR;
-  }
+  if (stmt == NULL) return SQL_ERROR;
 
   *OutputHandle = (SQLHANDLE)stmt;
   return SQL_SUCCESS;
@@ -330,10 +318,8 @@ SQLRETURN conn_alloc_stmt(conn_t *conn, SQLHANDLE *OutputHandle)
 SQLRETURN conn_alloc_desc(conn_t *conn, SQLHANDLE *OutputHandle)
 {
   desc_t *desc = desc_create(conn);
-  if (!desc) {
-    _conn_malloc_fail(conn);
-    return SQL_ERROR;
-  }
+  if (!desc) return SQL_ERROR;
+
   *OutputHandle = (SQLHANDLE)desc;
   return SQL_SUCCESS;
 }
@@ -388,11 +374,17 @@ SQLRETURN conn_connect(
     return SQL_ERROR;
   }
 
+  if (NameLength1 == SQL_NTS) NameLength1 = ServerName ? strlen((const char*)ServerName) : 0;
+  if (NameLength2 == SQL_NTS) NameLength2 = UserName ? strlen((const char*)UserName) : 0;
+  if (NameLength3 == SQL_NTS) NameLength3 = Authentication ? strlen((const char*)Authentication) : 0;
+
   connection_cfg_release(&conn->cfg);
-  conn->cfg.dsn = strndup((const char*)ServerName, NameLength1);
-  if (!conn->cfg.dsn) {
-    _conn_malloc_fail(conn);
-    return SQL_ERROR;
+  if (ServerName) {
+    conn->cfg.dsn = strndup((const char*)ServerName, NameLength1);
+    if (!conn->cfg.dsn) {
+      _conn_malloc_fail(conn);
+      return SQL_ERROR;
+    }
   }
   if (UserName) {
     conn->cfg.uid = strndup((const char*)UserName, NameLength2);
@@ -412,34 +404,33 @@ SQLRETURN conn_connect(
   return _conn_connect(conn);
 }
 
-static SQLRETURN do_conn_get_info_dbms_name(
+static SQLRETURN _conn_get_info_dbms_name(
     conn_t         *conn,
     char           *buf,
     size_t          sz,
     SQLSMALLINT    *StringLengthPtr)
 {
   const char *name;
-  int r = conn_get_dbms_name(conn, &name);
-  if (r) return SQL_ERROR;
+  _conn_get_dbms_name(conn, &name);
 
   int n = snprintf(buf, sz, "%s", name);
-  *StringLengthPtr = n;
+  if (StringLengthPtr) *StringLengthPtr = n;
 
   return SQL_SUCCESS;
 }
 
-static SQLRETURN do_conn_get_info_driver_name(
+static SQLRETURN _conn_get_info_driver_name(
     conn_t         *conn,
     char           *buf,
     size_t          sz,
     SQLSMALLINT    *StringLengthPtr)
 {
+  (void)conn;
   const char *name;
-  int r = conn_get_driver_name(conn, &name);
-  if (r) return SQL_ERROR;
+  _get_driver_name(&name);
 
   int n = snprintf(buf, sz, "%s", name);
-  *StringLengthPtr = n;
+  if (StringLengthPtr) *StringLengthPtr = n;
 
   return SQL_SUCCESS;
 }
@@ -453,9 +444,9 @@ SQLRETURN conn_get_info(
 {
   switch (InfoType) {
     case SQL_DBMS_NAME:
-      return do_conn_get_info_dbms_name(conn, (char*)InfoValuePtr, (size_t)BufferLength, StringLengthPtr);
+      return _conn_get_info_dbms_name(conn, (char*)InfoValuePtr, (size_t)BufferLength, StringLengthPtr);
     case SQL_DRIVER_NAME:
-      return do_conn_get_info_driver_name(conn, (char*)InfoValuePtr, (size_t)BufferLength, StringLengthPtr);
+      return _conn_get_info_driver_name(conn, (char*)InfoValuePtr, (size_t)BufferLength, StringLengthPtr);
     case SQL_CURSOR_COMMIT_BEHAVIOR:
       *(SQLUSMALLINT*)InfoValuePtr = 0; // TODO:
       return SQL_ERROR;
@@ -469,9 +460,50 @@ SQLRETURN conn_get_info(
       *(SQLUSMALLINT*)InfoValuePtr = 64;
       return SQL_SUCCESS;
     default:
-      OA(0, "`%s[%d]` not implemented yet", sql_info_type(InfoType), InfoType);
       conn_append_err_format(conn, "HY000", 0, "`%s[%d]` not implemented yet", sql_info_type(InfoType), InfoType);
       return SQL_ERROR;
   }
+}
+
+SQLRETURN conn_end_tran(
+    conn_t       *conn,
+    SQLSMALLINT   CompletionType)
+{
+  switch (CompletionType) {
+    case SQL_ROLLBACK:
+      if (_conn_rollback(conn)) return SQL_ERROR;
+      return SQL_SUCCESS;
+    default:
+      conn_append_err_format(conn, "HY000", 0, "`%s`[0x%x/%d] not supported yet", sql_completion_type(CompletionType), CompletionType, CompletionType);
+      return SQL_ERROR;
+  }
+}
+
+SQLRETURN conn_set_attr(
+    conn_t       *conn,
+    SQLINTEGER    Attribute,
+    SQLPOINTER    ValuePtr,
+    SQLINTEGER    StringLength)
+{
+  (void)StringLength;
+
+  switch (Attribute) {
+    case SQL_ATTR_CONNECTION_TIMEOUT:
+      if (0 == (SQLUINTEGER)(uintptr_t)ValuePtr) return SQL_SUCCESS;
+      conn_append_err_format(conn, "01S02", 0, "%u for `SQL_ATTR_CONNECTION_TIMEOUT` is required but not supported yet", (SQLUINTEGER)(uintptr_t)ValuePtr);
+      return SQL_SUCCESS_WITH_INFO;
+    case SQL_ATTR_LOGIN_TIMEOUT:
+      if (0 == (SQLUINTEGER)(uintptr_t)ValuePtr) return SQL_SUCCESS;
+      conn_append_err_format(conn, "01S02", 0, "%u for `SQL_ATTR_LOGIN_TIMEOUT` is required but not supported yet", (SQLUINTEGER)(uintptr_t)ValuePtr);
+      return SQL_SUCCESS_WITH_INFO;
+    default:
+      conn_append_err_format(conn, "HY000", 0, "`%s`[0x%x/%d] not supported yet", sql_connection_attr(Attribute), Attribute, Attribute);
+      return SQL_ERROR;
+  }
+}
+
+void conn_clr_errs(conn_t *conn)
+{
+  errs_clr(&conn->errs);
 }
 

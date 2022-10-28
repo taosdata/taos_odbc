@@ -14,11 +14,11 @@ env_t* env_ref(env_t *env) FA_HIDDEN;
 env_t* env_unref(env_t *env) FA_HIDDEN;
 SQLRETURN env_free(env_t *env) FA_HIDDEN;
 
+void env_clr_errs(env_t *env) FA_HIDDEN;
+
 int env_get_debug(env_t *env) FA_HIDDEN;
 int env_get_debug_flex(env_t *env) FA_HIDDEN;
 int env_get_debug_bison(env_t *env) FA_HIDDEN;
-
-int env_rollback(env_t *env) FA_HIDDEN;
 
 SQLRETURN env_get_diag_rec(
     env_t          *env,
@@ -28,6 +28,16 @@ SQLRETURN env_get_diag_rec(
     SQLCHAR        *MessageText,
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *TextLengthPtr) FA_HIDDEN;
+
+SQLRETURN env_set_attr(
+    env_t       *env,
+    SQLINTEGER   Attribute,
+    SQLPOINTER   ValuePtr,
+    SQLINTEGER   StringLength) FA_HIDDEN;
+
+SQLRETURN env_end_tran(env_t *env, SQLSMALLINT CompletionType) FA_HIDDEN;
+
+SQLRETURN env_alloc_conn(env_t *env, SQLHANDLE *OutputHandle) FA_HIDDEN;
 
 EXTERN_C_END
 

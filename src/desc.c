@@ -2,7 +2,7 @@
 
 #include "desc.h"
 
-static int desc_init(desc_t *desc, conn_t *conn)
+static void _desc_init(desc_t *desc, conn_t *conn)
 {
   desc->conn = conn_ref(conn);
   int prev = atomic_fetch_add(&conn->descs, 1);
@@ -12,11 +12,9 @@ static int desc_init(desc_t *desc, conn_t *conn)
   INIT_TOD_LIST_HEAD(&desc->associated_stmts_as_APD);
 
   desc->refc = 1;
-
-  return 0;
 }
 
-static void desc_release(desc_t *desc)
+static void _desc_release(desc_t *desc)
 {
   int prev = atomic_fetch_sub(&desc->conn->descs, 1);
   OA_ILE(prev >= 1);
@@ -31,16 +29,13 @@ static void desc_release(desc_t *desc)
 
 desc_t* desc_create(conn_t *conn)
 {
-  OA_ILE(conn);
-
   desc_t *desc = (desc_t*)calloc(1, sizeof(*desc));
-  if (!desc) return NULL;
-
-  int r = desc_init(desc, conn);
-  if (r) {
-    desc_release(desc);
+  if (!desc) {
+    conn_append_err(conn, "HY000", 0, "Memory allocation failure");
     return NULL;
   }
+
+  _desc_init(desc, conn);
 
   return desc;
 }
@@ -55,12 +50,11 @@ desc_t* desc_ref(desc_t *desc)
 
 desc_t* desc_unref(desc_t *desc)
 {
-  OA_ILE(desc);
   int prev = atomic_fetch_sub(&desc->refc, 1);
   if (prev>1) return desc;
   OA_ILE(prev==1);
 
-  desc_release(desc);
+  _desc_release(desc);
   free(desc);
 
   return NULL;
@@ -68,9 +62,6 @@ desc_t* desc_unref(desc_t *desc)
 
 SQLRETURN desc_free(desc_t *desc)
 {
-  OA_ILE(desc);
-  OA_ILE(desc->conn);
-
   stmt_t *p, *n;
   tod_list_for_each_entry_safe(p, n, &desc->associated_stmts_as_ARD, associated_ARD_node) {
     stmt_dissociate_ARD(p);
@@ -85,7 +76,7 @@ SQLRETURN desc_free(desc_t *desc)
   return SQL_SUCCESS;
 }
 
-static void desc_header_init(desc_header_t *header)
+static void _desc_header_init(desc_header_t *header)
 {
   header->DESC_ARRAY_SIZE                = 1;
   header->DESC_ARRAY_STATUS_PTR          = NULL;
@@ -103,6 +94,18 @@ void descriptor_release(descriptor_t *desc)
 
 void descriptor_init(descriptor_t *desc)
 {
-  desc_header_init(&desc->header);
+  _desc_header_init(&desc->header);
+}
+
+void descriptor_release_field_arrays(descriptor_t *APD)
+{
+  desc_header_t *APD_header = &APD->header;
+
+  for (SQLUSMALLINT i=0; i<APD_header->DESC_COUNT; ++i) {
+    desc_record_t *record = APD->records + i;
+    TOD_SAFE_FREE(record->buffer);
+    TOD_SAFE_FREE(record->length);
+    TOD_SAFE_FREE(record->is_null);
+  }
 }
 

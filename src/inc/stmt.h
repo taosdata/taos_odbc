@@ -11,10 +11,11 @@ stmt_t* stmt_create(conn_t *conn) FA_HIDDEN;
 stmt_t* stmt_ref(stmt_t *stmt) FA_HIDDEN;
 stmt_t* stmt_unref(stmt_t *stmt) FA_HIDDEN;
 SQLRETURN stmt_free(stmt_t *stmt) FA_HIDDEN;
+void stmt_clr_errs(stmt_t *stmt) FA_HIDDEN;
 
 SQLRETURN stmt_exec_direct(stmt_t *stmt, const char *sql, int len) FA_HIDDEN;
-int stmt_get_row_count(stmt_t *stmt, SQLLEN *row_count_ptr) FA_HIDDEN;
-int stmt_get_col_count(stmt_t *stmt, SQLSMALLINT *col_count_ptr) FA_HIDDEN;
+SQLRETURN stmt_get_row_count(stmt_t *stmt, SQLLEN *row_count_ptr) FA_HIDDEN;
+SQLRETURN stmt_get_col_count(stmt_t *stmt, SQLSMALLINT *col_count_ptr) FA_HIDDEN;
 
 SQLRETURN stmt_describe_col(stmt_t *stmt,
     SQLUSMALLINT   ColumnNumber,
@@ -34,8 +35,6 @@ SQLRETURN stmt_bind_col(stmt_t *stmt,
 
 SQLRETURN stmt_fetch(stmt_t *stmt) FA_HIDDEN;
 
-int stmt_close_cursor(stmt_t *stmt) FA_HIDDEN;
-
 SQLRETURN stmt_get_diag_rec(
     stmt_t         *stmt,
     SQLSMALLINT     RecNumber,
@@ -53,7 +52,10 @@ SQLRETURN stmt_get_data(
     SQLLEN         BufferLength,
     SQLLEN        *StrLen_or_IndPtr) FA_HIDDEN;
 
-SQLRETURN stmt_prepare(stmt_t *stmt, const char *sql, size_t len) FA_HIDDEN;
+SQLRETURN stmt_prepare(stmt_t *stmt,
+    SQLCHAR      *StatementText,
+    SQLINTEGER    TextLength) FA_HIDDEN;
+
 SQLRETURN stmt_get_num_params(
     stmt_t         *stmt,
     SQLSMALLINT    *ParameterCountPtr) FA_HIDDEN;
@@ -81,16 +83,12 @@ SQLRETURN stmt_bind_param(
 SQLRETURN stmt_execute(
     stmt_t         *stmt) FA_HIDDEN;
 
-SQLRETURN stmt_unbind_cols(
-    stmt_t         *stmt) FA_HIDDEN;
-
-SQLRETURN stmt_reset_params(
-    stmt_t         *stmt) FA_HIDDEN;
-
 void stmt_dissociate_APD(stmt_t *stmt) FA_HIDDEN;
 void stmt_dissociate_ARD(stmt_t *stmt) FA_HIDDEN;
 
 SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr, SQLINTEGER StringLength) FA_HIDDEN;
+
+SQLRETURN stmt_free_stmt(stmt_t *stmt, SQLUSMALLINT Option) FA_HIDDEN;
 
 EXTERN_C_END
 

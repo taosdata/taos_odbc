@@ -101,7 +101,7 @@ static int params_realloc(params_t *params, size_t cap)
   return 0;
 }
 
-static void stmt_release_descriptors(stmt_t *stmt)
+static void _stmt_release_descriptors(stmt_t *stmt)
 {
   descriptor_release(&stmt->APD);
   descriptor_release(&stmt->IPD);
@@ -109,7 +109,7 @@ static void stmt_release_descriptors(stmt_t *stmt)
   descriptor_release(&stmt->IRD);
 }
 
-static void stmt_init_descriptors(stmt_t *stmt)
+static void _stmt_init_descriptors(stmt_t *stmt)
 {
   descriptor_init(&stmt->APD);
   descriptor_init(&stmt->IPD);
@@ -120,45 +120,43 @@ static void stmt_init_descriptors(stmt_t *stmt)
   stmt->current_ARD = &stmt->ARD;
 }
 
-static int stmt_init(stmt_t *stmt, conn_t *conn)
+static void _stmt_init(stmt_t *stmt, conn_t *conn)
 {
   stmt->conn = conn_ref(conn);
   int prev = atomic_fetch_add(&conn->stmts, 1);
   OA_ILE(prev >= 0);
 
   errs_init(&stmt->errs);
-  stmt_init_descriptors(stmt);
+  _stmt_init_descriptors(stmt);
 
   stmt->refc = 1;
-
-  return 0;
 }
 
-static void stmt_release_result(stmt_t *stmt)
+static void _stmt_release_result(stmt_t *stmt)
 {
-  if (stmt->res) {
-    if (stmt->res_is_from_taos_query) CALL_taos_free_result(stmt->res);
+  if (!stmt->res) return;
 
-    stmt->res_is_from_taos_query = 0;
-    stmt->res = NULL;
-    stmt->affected_row_count = 0;
-    stmt->col_count = 0;
-    stmt->fields = NULL;
-    stmt->lengths = NULL;
-    stmt->time_precision = 0;
+  if (stmt->res_is_from_taos_query) CALL_taos_free_result(stmt->res);
 
-    stmt->rows = NULL;
-    stmt->nr_rows = 0;
-  }
+  stmt->res_is_from_taos_query = 0;
+  stmt->res = NULL;
+  stmt->affected_row_count = 0;
+  stmt->col_count = 0;
+  stmt->fields = NULL;
+  stmt->lengths = NULL;
+  stmt->time_precision = 0;
+
+  stmt->rows = NULL;
+  stmt->nr_rows = 0;
 }
 
-static void stmt_release_stmt(stmt_t *stmt)
+static void _stmt_release_stmt(stmt_t *stmt)
 {
-  if (stmt->stmt) {
-    int r = CALL_taos_stmt_close(stmt->stmt);
-    OA_NIY(r == 0);
-    stmt->stmt = NULL;
-  }
+  if (!stmt->stmt) return;
+
+  int r = CALL_taos_stmt_close(stmt->stmt);
+  OA_NIY(r == 0);
+  stmt->stmt = NULL;
 }
 
 void stmt_dissociate_ARD(stmt_t *stmt)
@@ -171,7 +169,7 @@ void stmt_dissociate_ARD(stmt_t *stmt)
   stmt->current_ARD = &stmt->ARD;
 }
 
-static SQLRETURN stmt_associate_ARD(stmt_t *stmt, desc_t *desc)
+static SQLRETURN _stmt_associate_ARD(stmt_t *stmt, desc_t *desc)
 {
   if (stmt->associated_ARD == desc) return SQL_SUCCESS;
 
@@ -191,25 +189,11 @@ static SQLRETURN stmt_associate_ARD(stmt_t *stmt, desc_t *desc)
   return SQL_SUCCESS;
 }
 
-static void _stmt_release_field_arrays_in_APD(stmt_t *stmt, descriptor_t *APD)
-{
-  (void)stmt;
-
-  desc_header_t *APD_header = &APD->header;
-
-  for (SQLUSMALLINT i=0; i<APD_header->DESC_COUNT; ++i) {
-    desc_record_t *record = APD->records + i;
-    TOD_SAFE_FREE(record->buffer);
-    TOD_SAFE_FREE(record->length);
-    TOD_SAFE_FREE(record->is_null);
-  }
-}
-
 void stmt_dissociate_APD(stmt_t *stmt)
 {
   if (stmt->associated_APD == NULL) return;
 
-  _stmt_release_field_arrays_in_APD(stmt, &stmt->associated_APD->descriptor);
+  descriptor_release_field_arrays(&stmt->associated_APD->descriptor);
 
   tod_list_del(&stmt->associated_APD_node);
   desc_unref(stmt->associated_APD);
@@ -217,7 +201,7 @@ void stmt_dissociate_APD(stmt_t *stmt)
   stmt->current_APD = &stmt->APD;
 }
 
-static SQLRETURN stmt_associate_APD(stmt_t *stmt, desc_t *desc)
+static SQLRETURN _stmt_associate_APD(stmt_t *stmt, desc_t *desc)
 {
   if (stmt->associated_APD == desc) return SQL_SUCCESS;
 
@@ -250,7 +234,7 @@ static SQLRETURN _stmt_set_row_desc(stmt_t *stmt, SQLPOINTER ValuePtr)
     return SQL_ERROR;
   }
 
-  return stmt_associate_ARD(stmt, desc);
+  return _stmt_associate_ARD(stmt, desc);
 }
 
 static SQLRETURN _stmt_set_param_desc(stmt_t *stmt, SQLPOINTER ValuePtr)
@@ -266,22 +250,22 @@ static SQLRETURN _stmt_set_param_desc(stmt_t *stmt, SQLPOINTER ValuePtr)
     return SQL_ERROR;
   }
 
-  return stmt_associate_APD(stmt, desc);
+  return _stmt_associate_APD(stmt, desc);
 }
 
-static void stmt_reset_current_for_get_data(stmt_t *stmt)
+static void _stmt_reset_current_for_get_data(stmt_t *stmt)
 {
   col_t *col = &stmt->current_for_get_data;
   col_reset(col);
 }
 
-static void stmt_release_current_for_get_data(stmt_t *stmt)
+static void _stmt_release_current_for_get_data(stmt_t *stmt)
 {
   col_t *col = &stmt->current_for_get_data;
   col_release(col);
 }
 
-static void stmt_release_tag_fields(stmt_t *stmt)
+static void _stmt_release_tag_fields(stmt_t *stmt)
 {
   if (stmt->tag_fields) {
     free(stmt->tag_fields);
@@ -290,7 +274,7 @@ static void stmt_release_tag_fields(stmt_t *stmt)
   stmt->nr_tag_fields = 0;
 }
 
-static void stmt_release_col_fields(stmt_t *stmt)
+static void _stmt_release_col_fields(stmt_t *stmt)
 {
   if (stmt->col_fields) {
     free(stmt->col_fields);
@@ -299,21 +283,21 @@ static void stmt_release_col_fields(stmt_t *stmt)
   stmt->nr_col_fields = 0;
 }
 
-static descriptor_t* stmt_APD(stmt_t *stmt)
+static descriptor_t* _stmt_APD(stmt_t *stmt)
 {
   return stmt->current_APD;
 }
 
 static void _stmt_release_field_arrays(stmt_t *stmt)
 {
-  descriptor_t *APD = stmt_APD(stmt);
-  _stmt_release_field_arrays_in_APD(stmt, APD);
+  descriptor_t *APD = _stmt_APD(stmt);
+  descriptor_release_field_arrays(APD);
 }
 
-static void stmt_release(stmt_t *stmt)
+static void _stmt_release(stmt_t *stmt)
 {
   rowset_release(&stmt->rowset);
-  stmt_release_result(stmt);
+  _stmt_release_result(stmt);
 
   _stmt_release_field_arrays(stmt);
 
@@ -321,21 +305,21 @@ static void stmt_release(stmt_t *stmt)
 
   params_release(&stmt->params);
 
-  stmt_release_stmt(stmt);
+  _stmt_release_stmt(stmt);
 
   stmt_dissociate_ARD(stmt);
 
-  stmt_release_current_for_get_data(stmt);
+  _stmt_release_current_for_get_data(stmt);
 
   int prev = atomic_fetch_sub(&stmt->conn->stmts, 1);
   OA_ILE(prev >= 1);
   conn_unref(stmt->conn);
   stmt->conn = NULL;
 
-  stmt_release_descriptors(stmt);
+  _stmt_release_descriptors(stmt);
 
-  stmt_release_tag_fields(stmt);
-  stmt_release_col_fields(stmt);
+  _stmt_release_tag_fields(stmt);
+  _stmt_release_col_fields(stmt);
   TOD_SAFE_FREE(stmt->mbs);
   stmt->cap_mbs = 0;
   stmt->nr_mbs = 0;
@@ -350,23 +334,19 @@ static void stmt_release(stmt_t *stmt)
 
 stmt_t* stmt_create(conn_t *conn)
 {
-  OA_ILE(conn);
-
   stmt_t *stmt = (stmt_t*)calloc(1, sizeof(*stmt));
-  if (!stmt) return NULL;
-
-  int r = stmt_init(stmt, conn);
-  if (r) {
-    stmt_release(stmt);
+  if (!stmt) {
+    conn_append_err(conn, "HY000", 0, "Memory allocation failure");
     return NULL;
   }
+
+  _stmt_init(stmt, conn);
 
   return stmt;
 }
 
 stmt_t* stmt_ref(stmt_t *stmt)
 {
-  OA_ILE(stmt);
   int prev = atomic_fetch_add(&stmt->refc, 1);
   OA_ILE(prev>0);
   return stmt;
@@ -374,12 +354,11 @@ stmt_t* stmt_ref(stmt_t *stmt)
 
 stmt_t* stmt_unref(stmt_t *stmt)
 {
-  OA_ILE(stmt);
   int prev = atomic_fetch_sub(&stmt->refc, 1);
   if (prev>1) return stmt;
   OA_ILE(prev==1);
 
-  stmt_release(stmt);
+  _stmt_release(stmt);
   free(stmt);
 
   return NULL;
@@ -408,30 +387,30 @@ static SQLRETURN _stmt_post_exec(stmt_t *stmt)
     if (stmt->col_count > 0) {
       stmt->fields = CALL_taos_fetch_fields(stmt->res);
     }
-    stmt_reset_current_for_get_data(stmt);
+    _stmt_reset_current_for_get_data(stmt);
   }
 
   return SQL_SUCCESS;
 }
 
-static descriptor_t* stmt_IPD(stmt_t *stmt)
+static descriptor_t* _stmt_IPD(stmt_t *stmt)
 {
   return &stmt->IPD;
 }
 
-static descriptor_t* stmt_IRD(stmt_t *stmt)
+static descriptor_t* _stmt_IRD(stmt_t *stmt)
 {
   return &stmt->IRD;
 }
 
-static descriptor_t* stmt_ARD(stmt_t *stmt)
+static descriptor_t* _stmt_ARD(stmt_t *stmt)
 {
   return stmt->current_ARD;
 }
 
 static SQLRETURN _stmt_set_rows_fetched_ptr(stmt_t *stmt, SQLULEN *rows_fetched_ptr)
 {
-  descriptor_t *desc = stmt_IRD(stmt);
+  descriptor_t *desc = _stmt_IRD(stmt);
   desc_header_t *header = &desc->header;
   header->DESC_ROWS_PROCESSED_PTR = rows_fetched_ptr;
 
@@ -440,21 +419,20 @@ static SQLRETURN _stmt_set_rows_fetched_ptr(stmt_t *stmt, SQLULEN *rows_fetched_
 
 static SQLULEN* _stmt_get_rows_fetched_ptr(stmt_t *stmt)
 {
-  descriptor_t *desc = stmt_IRD(stmt);
+  descriptor_t *desc = _stmt_IRD(stmt);
   desc_header_t *header = &desc->header;
   return header->DESC_ROWS_PROCESSED_PTR;
 }
 
 static SQLRETURN _stmt_exec_direct_sql(stmt_t *stmt, const char *sql)
 {
-  OA_ILE(stmt);
   OA_ILE(stmt->conn);
   OA_ILE(stmt->conn->taos);
   OA_ILE(sql);
 
   if (_stmt_get_rows_fetched_ptr(stmt)) *_stmt_get_rows_fetched_ptr(stmt) = 0;
   rowset_reset(&stmt->rowset);
-  stmt_release_result(stmt);
+  _stmt_release_result(stmt);
   params_reset(&stmt->params);
 
   TAOS *taos = stmt->conn->taos;
@@ -501,10 +479,8 @@ static SQLRETURN _stmt_exec_direct(stmt_t *stmt, const char *sql, int len)
 
 SQLRETURN stmt_exec_direct(stmt_t *stmt, const char *sql, int len)
 {
-  OA_ILE(stmt);
   OA_ILE(stmt->conn);
   OA_ILE(stmt->conn->taos);
-  OA_ILE(sql);
 
   int prev = atomic_fetch_add(&stmt->conn->outstandings, 1);
   OA_ILE(prev >= 0);
@@ -527,7 +503,7 @@ static SQLRETURN _stmt_set_row_array_size(stmt_t *stmt, SQLULEN row_array_size)
     return SQL_ERROR;
   }
 
-  descriptor_t *desc = stmt_ARD(stmt);
+  descriptor_t *desc = _stmt_ARD(stmt);
   desc_header_t *header = &desc->header;
   header->DESC_ARRAY_SIZE = row_array_size;
 
@@ -536,7 +512,7 @@ static SQLRETURN _stmt_set_row_array_size(stmt_t *stmt, SQLULEN row_array_size)
 
 static SQLULEN _stmt_get_row_array_size(stmt_t *stmt)
 {
-  descriptor_t *desc = stmt_ARD(stmt);
+  descriptor_t *desc = _stmt_ARD(stmt);
   desc_header_t *header = &desc->header;
   return header->DESC_ARRAY_SIZE;
 }
@@ -555,7 +531,7 @@ static SQLRETURN _stmt_set_paramset_size(stmt_t *stmt, SQLULEN paramset_size)
     }
   }
 
-  descriptor_t *desc = stmt_APD(stmt);
+  descriptor_t *desc = _stmt_APD(stmt);
   desc_header_t *header = &desc->header;
   header->DESC_ARRAY_SIZE = paramset_size;
 
@@ -564,14 +540,14 @@ static SQLRETURN _stmt_set_paramset_size(stmt_t *stmt, SQLULEN paramset_size)
 
 // static SQLULEN _stmt_get_paramset_size(stmt_t *stmt)
 // {
-//   descriptor_t *desc = stmt_APD(stmt);
+//   descriptor_t *desc = _stmt_APD(stmt);
 //   desc_header_t *header = &desc->header;
 //   return header->DESC_ARRAY_SIZE;
 // }
 
 static SQLRETURN _stmt_set_row_status_ptr(stmt_t *stmt, SQLUSMALLINT *row_status_ptr)
 {
-  descriptor_t *desc = stmt_IRD(stmt);
+  descriptor_t *desc = _stmt_IRD(stmt);
   desc_header_t *header = &desc->header;
   header->DESC_ARRAY_STATUS_PTR = row_status_ptr;
   return SQL_SUCCESS;
@@ -579,14 +555,14 @@ static SQLRETURN _stmt_set_row_status_ptr(stmt_t *stmt, SQLUSMALLINT *row_status
 
 SQLUSMALLINT* stmt_get_row_status_ptr(stmt_t *stmt)
 {
-  descriptor_t *desc = stmt_IRD(stmt);
+  descriptor_t *desc = _stmt_IRD(stmt);
   desc_header_t *header = &desc->header;
   return header->DESC_ARRAY_STATUS_PTR;
 }
 
 static SQLRETURN _stmt_set_param_status_ptr(stmt_t *stmt, SQLUSMALLINT *param_status_ptr)
 {
-  descriptor_t *desc = stmt_IPD(stmt);
+  descriptor_t *desc = _stmt_IPD(stmt);
   desc_header_t *header = &desc->header;
   header->DESC_ARRAY_STATUS_PTR = param_status_ptr;
   return SQL_SUCCESS;
@@ -594,21 +570,21 @@ static SQLRETURN _stmt_set_param_status_ptr(stmt_t *stmt, SQLUSMALLINT *param_st
 
 // static SQLUSMALLINT* _stmt_get_param_status_ptr(stmt_t *stmt)
 // {
-//   descriptor_t *desc = stmt_IPD(stmt);
+//   descriptor_t *desc = _stmt_IPD(stmt);
 //   desc_header_t *header = &desc->header;
 //   return header->DESC_ARRAY_STATUS_PTR;
 // }
 
-int stmt_get_row_count(stmt_t *stmt, SQLLEN *row_count_ptr)
+SQLRETURN stmt_get_row_count(stmt_t *stmt, SQLLEN *row_count_ptr)
 {
-  *row_count_ptr = stmt->affected_row_count;
-  return 0;
+  if (row_count_ptr) *row_count_ptr = stmt->affected_row_count;
+  return SQL_SUCCESS;
 }
 
-int stmt_get_col_count(stmt_t *stmt, SQLSMALLINT *col_count_ptr)
+SQLRETURN stmt_get_col_count(stmt_t *stmt, SQLSMALLINT *col_count_ptr)
 {
-  *col_count_ptr = stmt->col_count;
-  return 0;
+  if (col_count_ptr) *col_count_ptr = stmt->col_count;
+  return SQL_SUCCESS;
 }
 
 static SQLRETURN _stmt_set_row_bind_type(stmt_t *stmt, SQLULEN row_bind_type)
@@ -618,7 +594,7 @@ static SQLRETURN _stmt_set_row_bind_type(stmt_t *stmt, SQLULEN row_bind_type)
     return SQL_ERROR;
   }
 
-  descriptor_t *desc = stmt_ARD(stmt);
+  descriptor_t *desc = _stmt_ARD(stmt);
   desc_header_t *header = &desc->header;
   header->DESC_BIND_TYPE = row_bind_type;
 
@@ -627,7 +603,7 @@ static SQLRETURN _stmt_set_row_bind_type(stmt_t *stmt, SQLULEN row_bind_type)
 
 // static SQLULEN stmt_get_row_bind_type(stmt_t *stmt)
 // {
-//   descriptor_t *desc = stmt_ARD(stmt);
+//   descriptor_t *desc = _stmt_ARD(stmt);
 //   desc_header_t *header = &desc->header;
 //   return header->DESC_BIND_TYPE;
 // }
@@ -639,7 +615,7 @@ static SQLRETURN _stmt_set_param_bind_type(stmt_t *stmt, SQLULEN param_bind_type
     return SQL_ERROR;
   }
 
-  descriptor_t *desc = stmt_APD(stmt);
+  descriptor_t *desc = _stmt_APD(stmt);
   desc_header_t *header = &desc->header;
   header->DESC_BIND_TYPE = param_bind_type;
 
@@ -648,14 +624,14 @@ static SQLRETURN _stmt_set_param_bind_type(stmt_t *stmt, SQLULEN param_bind_type
 
 // static SQLULEN _stmt_get_param_bind_type(stmt_t *stmt)
 // {
-//   descriptor_t *desc = stmt_APD(stmt);
+//   descriptor_t *desc = _stmt_APD(stmt);
 //   desc_header_t *header = &desc->header;
 //   return header->DESC_BIND_TYPE;
 // }
 
 static SQLRETURN _stmt_set_params_processed_ptr(stmt_t *stmt, SQLULEN *params_processed_ptr)
 {
-  descriptor_t *desc = stmt_IPD(stmt);
+  descriptor_t *desc = _stmt_IPD(stmt);
   desc_header_t *header = &desc->header;
   header->DESC_ROWS_PROCESSED_PTR = params_processed_ptr;
 
@@ -664,7 +640,7 @@ static SQLRETURN _stmt_set_params_processed_ptr(stmt_t *stmt, SQLULEN *params_pr
 
 // static SQLULEN* _stmt_get_params_processed_ptr(stmt_t *stmt)
 // {
-//   descriptor_t *desc = stmt_IPD(stmt);
+//   descriptor_t *desc = _stmt_IPD(stmt);
 //   desc_header_t *header = &desc->header;
 //   return header->DESC_ROWS_PROCESSED_PTR;
 // }
@@ -681,7 +657,7 @@ static SQLRETURN _stmt_set_max_length(stmt_t *stmt, SQLULEN max_length)
 
 static SQLRETURN _stmt_set_row_bind_offset_ptr(stmt_t *stmt, SQLULEN *row_bind_offset_ptr)
 {
-  descriptor_t *desc = stmt_ARD(stmt);
+  descriptor_t *desc = _stmt_ARD(stmt);
   desc_header_t *header = &desc->header;
   header->DESC_BIND_OFFSET_PTR = row_bind_offset_ptr;
 
@@ -690,7 +666,7 @@ static SQLRETURN _stmt_set_row_bind_offset_ptr(stmt_t *stmt, SQLULEN *row_bind_o
 
 // static SQLULEN* _stmt_get_row_bind_offset_ptr(stmt_t *stmt)
 // {
-//   descriptor_t *desc = stmt_ARD(stmt);
+//   descriptor_t *desc = _stmt_ARD(stmt);
 //   desc_header_t *header = &desc->header;
 //   return header->DESC_BIND_OFFSET_PTR;
 // }
@@ -945,7 +921,7 @@ SQLRETURN stmt_bind_col(stmt_t *stmt,
     SQLLEN         BufferLength,
     SQLLEN        *StrLen_or_IndPtr)
 {
-  descriptor_t *desc = stmt_ARD(stmt);
+  descriptor_t *desc = _stmt_ARD(stmt);
   desc_header_t *header = &desc->header;
   if (ColumnNumber >= desc->cap) {
     size_t cap = (ColumnNumber + 15) / 16 * 16;
@@ -1786,7 +1762,7 @@ static SQLRETURN _stmt_fill_rowset(stmt_t *stmt, int i_row, int i_col)
 {
   SQLRETURN sr;
 
-  descriptor_t *desc = stmt_ARD(stmt);
+  descriptor_t *desc = _stmt_ARD(stmt);
   desc_header_t *header = &desc->header;
 
   if (i_col >= header->DESC_COUNT) return SQL_SUCCESS;
@@ -1845,12 +1821,12 @@ SQLRETURN stmt_fetch(stmt_t *stmt)
     stmt->rowset.i_row += row_array_size;
   }
 
-  stmt_reset_current_for_get_data(stmt);
+  _stmt_reset_current_for_get_data(stmt);
 
-  descriptor_t *ARD = stmt_ARD(stmt);
+  descriptor_t *ARD = _stmt_ARD(stmt);
   desc_header_t *ARD_header = &ARD->header;
 
-  descriptor_t *IRD = stmt_IRD(stmt);
+  descriptor_t *IRD = _stmt_IRD(stmt);
   desc_header_t *IRD_header = &IRD->header;
 
   OA_NIY(ARD->cap >= ARD_header->DESC_COUNT);
@@ -1890,10 +1866,9 @@ SQLRETURN stmt_fetch(stmt_t *stmt)
   return SQL_SUCCESS;
 }
 
-int stmt_close_cursor(stmt_t *stmt)
+static void _stmt_close_cursor(stmt_t *stmt)
 {
   (void)stmt;
-  return 0;
 }
 
 SQLRETURN stmt_get_diag_rec(
@@ -2487,7 +2462,7 @@ SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
 
   if (r) {
     stmt_append_err(stmt, "HY000", r, CALL_taos_stmt_errstr(stmt->stmt));
-    stmt_release_stmt(stmt);
+    _stmt_release_stmt(stmt);
 
     return SQL_ERROR;
   }
@@ -2539,7 +2514,7 @@ SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
     r = CALL_taos_stmt_num_params(stmt->stmt, &nr_params);
     if (r) {
       stmt_append_err(stmt, "HY000", r, CALL_taos_stmt_errstr(stmt->stmt));
-      stmt_release_stmt(stmt);
+      _stmt_release_stmt(stmt);
 
       return SQL_ERROR;
     }
@@ -2578,8 +2553,8 @@ SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
 static void _stmt_unprepare(stmt_t *stmt)
 {
   _stmt_release_field_arrays(stmt);
-  stmt_release_tag_fields(stmt);
-  stmt_release_col_fields(stmt);
+  _stmt_release_tag_fields(stmt);
+  _stmt_release_col_fields(stmt);
   stmt->nr_params = 0;
   stmt->is_insert_stmt = 0;
   stmt->subtbl_required = 0;
@@ -2589,10 +2564,17 @@ static void _stmt_unprepare(stmt_t *stmt)
   stmt->prepared = 0;
 }
 
-SQLRETURN stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
+SQLRETURN stmt_prepare(stmt_t *stmt,
+    SQLCHAR      *StatementText,
+    SQLINTEGER    TextLength)
 {
   OA_NIY(stmt->res == NULL);
   OA_NIY(stmt->stmt == NULL);
+
+  const char *sql = (const char*)StatementText;
+
+  size_t len = TextLength;
+  if (TextLength == SQL_NTS) len = strlen(sql);
 
   _stmt_unprepare(stmt);
 
@@ -3295,7 +3277,7 @@ SQLRETURN stmt_bind_param(
     }
   }
 
-  descriptor_t *APD = stmt_APD(stmt);
+  descriptor_t *APD = _stmt_APD(stmt);
   desc_header_t *APD_header = &APD->header;
   if (ParameterNumber > APD->cap) {
     size_t cap = (ParameterNumber + 15) / 16 * 16;
@@ -3309,7 +3291,7 @@ SQLRETURN stmt_bind_param(
   }
 
   desc_record_t *APD_record = APD->records + ParameterNumber - 1;
-  _stmt_release_field_arrays_in_APD(stmt, APD);
+  descriptor_release_field_arrays(APD);
   memset(APD_record, 0, sizeof(*APD_record));
 
   switch (ValueType) {
@@ -3382,7 +3364,7 @@ SQLRETURN stmt_bind_param(
   APD_record->DESC_OCTET_LENGTH_PTR    = StrLen_or_IndPtr;
 
   ////////////////
-  descriptor_t *IPD = stmt_IPD(stmt);
+  descriptor_t *IPD = _stmt_IPD(stmt);
   desc_header_t *IPD_header = &IPD->header;
   if (ParameterNumber >= IPD->cap) {
     size_t cap = (ParameterNumber + 15) / 16 * 16;
@@ -3760,7 +3742,7 @@ SQLRETURN stmt_bind_param(
 
 static void _stmt_param_get(stmt_t *stmt, int irow, int i_param, char **base, SQLLEN *length, int *is_null)
 {
-  descriptor_t *APD = stmt_APD(stmt);
+  descriptor_t *APD = _stmt_APD(stmt);
   desc_record_t *APD_record = APD->records + i_param;
 
   char *buffer = (char*)APD_record->DESC_DATA_PTR;
@@ -3796,7 +3778,7 @@ static SQLRETURN _stmt_param_prepare_subtbl(stmt_t *stmt)
 {
   int r = 0;
 
-  descriptor_t *APD = stmt_APD(stmt);
+  descriptor_t *APD = _stmt_APD(stmt);
   desc_record_t *APD_record = APD->records + 0;
 
   if (APD_record->DESC_TYPE != SQL_C_CHAR) {
@@ -3846,7 +3828,7 @@ static SQLRETURN _stmt_param_check_subtbl_or_tag(stmt_t *stmt, int irow, int i_p
     return SQL_ERROR;
   }
 
-  descriptor_t *APD = stmt_APD(stmt);
+  descriptor_t *APD = _stmt_APD(stmt);
   desc_record_t *APD_record = APD->records + i_param;
 
   switch (APD_record->DESC_TYPE) {
@@ -3874,8 +3856,8 @@ static SQLRETURN _stmt_param_process(stmt_t *stmt, int irow, int i_param)
 {
   SQLRETURN sr = SQL_SUCCESS;
 
-  descriptor_t *APD = stmt_APD(stmt);
-  descriptor_t *IPD = stmt_IPD(stmt);
+  descriptor_t *APD = _stmt_APD(stmt);
+  descriptor_t *IPD = _stmt_IPD(stmt);
 
   TAOS_MULTI_BIND *mb = stmt->mbs + i_param;
 
@@ -3959,7 +3941,7 @@ static SQLRETURN _stmt_param_prepare_mb(stmt_t *stmt, int i_param)
 {
   SQLRETURN sr = SQL_SUCCESS;
 
-  descriptor_t *APD = stmt_APD(stmt);
+  descriptor_t *APD = _stmt_APD(stmt);
   desc_header_t *APD_header = &APD->header;
   TAOS_MULTI_BIND *mb = stmt->mbs + i_param;
 
@@ -3990,9 +3972,9 @@ static SQLRETURN _stmt_pre_exec_prepare_params(stmt_t *stmt)
   int r = 0;
   SQLRETURN sr = SQL_SUCCESS;
 
-  descriptor_t *APD = stmt_APD(stmt);
+  descriptor_t *APD = _stmt_APD(stmt);
   desc_header_t *APD_header = &APD->header;
-  descriptor_t *IPD = stmt_IPD(stmt);
+  descriptor_t *IPD = _stmt_IPD(stmt);
   desc_header_t *IPD_header = &IPD->header;
   if (APD_header->DESC_COUNT != IPD_header->DESC_COUNT) {
     stmt_append_err(stmt, "HY000", 0, "internal logic error, DESC_COUNT of APD/IPD differs");
@@ -4075,9 +4057,9 @@ SQLRETURN stmt_execute(stmt_t *stmt)
 
   SQLRETURN sr = SQL_SUCCESS;
 
-  descriptor_t *APD = stmt_APD(stmt);
+  descriptor_t *APD = _stmt_APD(stmt);
   desc_header_t *APD_header = &APD->header;
-  descriptor_t *IPD = stmt_IPD(stmt);
+  descriptor_t *IPD = _stmt_IPD(stmt);
   desc_header_t *IPD_header = &IPD->header;
 
   SQLSMALLINT n = _stmt_get_count_of_tsdb_params(stmt);
@@ -4092,7 +4074,7 @@ SQLRETURN stmt_execute(stmt_t *stmt)
   if (_stmt_get_rows_fetched_ptr(stmt)) *_stmt_get_rows_fetched_ptr(stmt) = 0;
   rowset_reset(&stmt->rowset);
   // column-binds remain valid among executes
-  stmt_release_result(stmt);
+  _stmt_release_result(stmt);
 
   sr = _stmt_pre_exec(stmt);
   if (!sql_succeeded(sr)) return sr;
@@ -4109,30 +4091,25 @@ SQLRETURN stmt_execute(stmt_t *stmt)
   return _stmt_post_exec(stmt);
 }
 
-SQLRETURN stmt_unbind_cols(
-    stmt_t         *stmt)
+static void _stmt_unbind_cols(stmt_t *stmt)
 {
-  descriptor_t *desc = stmt_ARD(stmt);
+  descriptor_t *desc = _stmt_ARD(stmt);
   desc_header_t *header = &desc->header;
   header->DESC_COUNT = 0;
   memset(desc->records, 0, sizeof(*desc->records) * desc->cap);
-  return SQL_SUCCESS;
 }
 
-SQLRETURN stmt_reset_params(
-    stmt_t         *stmt)
+static void _stmt_reset_params(stmt_t *stmt)
 {
   params_reset(&stmt->params);
 
-  descriptor_t *APD = stmt_APD(stmt);
+  descriptor_t *APD = _stmt_APD(stmt);
   desc_header_t *APD_header = &APD->header;
   APD_header->DESC_COUNT = 0;
 
-  descriptor_t *IPD = stmt_IPD(stmt);
+  descriptor_t *IPD = _stmt_IPD(stmt);
   desc_header_t *IPD_header = &IPD->header;
   IPD_header->DESC_COUNT = 0;
-
-  return SQL_SUCCESS;
 }
 
 static SQLRETURN _stmt_set_cursor_type(stmt_t *stmt, SQLULEN cursor_type)
@@ -4183,8 +4160,31 @@ SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr,
     case SQL_ATTR_APP_PARAM_DESC:
       return _stmt_set_param_desc(stmt, ValuePtr);
     default:
-      stmt_append_err_format(stmt, "HYC00", 0, "`%s` not supported yet", sql_stmt_attr(Attribute));
+      stmt_append_err_format(stmt, "HYC00", 0, "`%s[0x%x/%d]` not supported yet", sql_stmt_attr(Attribute), Attribute, Attribute);
       return SQL_ERROR;
   }
+}
+
+SQLRETURN stmt_free_stmt(stmt_t *stmt, SQLUSMALLINT Option)
+{
+  switch (Option) {
+    case SQL_CLOSE:
+      _stmt_close_cursor(stmt);
+      return SQL_SUCCESS;
+    case SQL_UNBIND:
+      _stmt_unbind_cols(stmt);
+      return SQL_SUCCESS;
+    case SQL_RESET_PARAMS:
+      _stmt_reset_params(stmt);
+      return SQL_SUCCESS;
+    default:
+      stmt_append_err_format(stmt, "HYC00", 0, "`%s[0x%x/%d]` not supported yet", sql_free_statement_option(Option), Option, Option);
+      return SQL_ERROR;
+  }
+}
+
+void stmt_clr_errs(stmt_t *stmt)
+{
+  errs_clr(&stmt->errs);
 }
 

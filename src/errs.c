@@ -1,8 +1,7 @@
+#include "errs.h"
 #include "internal.h"
 
 #include <string.h>
-
-#include <sqlext.h>
 
 void errs_init(errs_t *errs)
 {

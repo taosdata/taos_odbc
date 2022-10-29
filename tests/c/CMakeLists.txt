@@ -10,7 +10,9 @@ add_test(NAME api_test
 add_test(NAME Vapi_test
     COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/api_test)
 
-add_executable(edge_cases_test edge_cases_test.c)
+add_executable(edge_cases_test
+    $<TARGET_OBJECTS:common_obj>
+    edge_cases_test.c)
 
 target_link_libraries(edge_cases_test odbc)
 

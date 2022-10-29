@@ -351,13 +351,10 @@ SQLRETURN SQL_API SQLGetDiagRec(
 
   switch (HandleType) {
     case SQL_HANDLE_ENV:
-      env_clr_errs((env_t*)Handle);
       return env_get_diag_rec((env_t*)Handle, RecNumber, SQLState, NativeErrorPtr, MessageText, BufferLength, TextLengthPtr);
     case SQL_HANDLE_DBC:
-      conn_clr_errs((conn_t*)Handle);
       return conn_get_diag_rec((conn_t*)Handle, RecNumber, SQLState, NativeErrorPtr, MessageText, BufferLength, TextLengthPtr);
     case SQL_HANDLE_STMT:
-      stmt_clr_errs((stmt_t*)Handle);
       return stmt_get_diag_rec((stmt_t*)Handle, RecNumber, SQLState, NativeErrorPtr, MessageText, BufferLength, TextLengthPtr);
     default:
       return SQL_ERROR;
@@ -366,25 +363,25 @@ SQLRETURN SQL_API SQLGetDiagRec(
   return SQL_ERROR;
 }
 
-// SQLRETURN SQL_API SQLGetDiagField(
-//     SQLSMALLINT     HandleType,
-//     SQLHANDLE       Handle,
-//     SQLSMALLINT     RecNumber,
-//     SQLSMALLINT     DiagIdentifier,
-//     SQLPOINTER      DiagInfoPtr,
-//     SQLSMALLINT     BufferLength,
-//     SQLSMALLINT    *StringLengthPtr)
-// {
-//   if (Handle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
-//
-//   (void)HandleType;
-//   (void)RecNumber;
-//   (void)DiagIdentifier;
-//   (void)DiagInfoPtr;
-//   (void)BufferLength;
-//   (void)StringLengthPtr;
-//   OA_NIY(0);
-// }
+SQLRETURN SQL_API SQLGetDiagField(
+    SQLSMALLINT     HandleType,
+    SQLHANDLE       Handle,
+    SQLSMALLINT     RecNumber,
+    SQLSMALLINT     DiagIdentifier,
+    SQLPOINTER      DiagInfoPtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr)
+{
+  if (Handle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  (void)HandleType;
+  (void)RecNumber;
+  (void)DiagIdentifier;
+  (void)DiagInfoPtr;
+  (void)BufferLength;
+  (void)StringLengthPtr;
+  OA_NIY(0);
+}
 
 SQLRETURN SQL_API SQLGetData(
     SQLHSTMT       StatementHandle,
@@ -517,24 +514,24 @@ SQLRETURN SQL_API SQLConnect(
       Authentication, NameLength3);
 }
 
-// SQLRETURN SQL_API SQLColAttribute(
-//     SQLHSTMT        StatementHandle,
-//     SQLUSMALLINT    ColumnNumber,
-//     SQLUSMALLINT    FieldIdentifier,
-//     SQLPOINTER      CharacterAttributePtr,
-//     SQLSMALLINT     BufferLength,
-//     SQLSMALLINT    *StringLengthPtr,
-//     SQLLEN         *NumericAttributePtr)
-// {
-//     (void)StatementHandle;
-//     (void)ColumnNumber;
-//     (void)FieldIdentifier;
-//     (void)CharacterAttributePtr;
-//     (void)BufferLength;
-//     (void)StringLengthPtr;
-//     (void)NumericAttributePtr;
-//
-//     OA_NIY(0);
-//     return SQL_ERROR;
-// }
+SQLRETURN SQL_API SQLColAttribute(
+    SQLHSTMT        StatementHandle,
+    SQLUSMALLINT    ColumnNumber,
+    SQLUSMALLINT    FieldIdentifier,
+    SQLPOINTER      CharacterAttributePtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr,
+    SQLLEN         *NumericAttributePtr)
+{
+    (void)StatementHandle;
+    (void)ColumnNumber;
+    (void)FieldIdentifier;
+    (void)CharacterAttributePtr;
+    (void)BufferLength;
+    (void)StringLengthPtr;
+    (void)NumericAttributePtr;
+
+    OA_NIY(0);
+    return SQL_ERROR;
+}
 

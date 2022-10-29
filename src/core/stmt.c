@@ -2468,7 +2468,7 @@ SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
         stmt->subtbl_required = 0;
         stmt_append_err(stmt, "HY000", r, "General error:this is believed an non-subtbl insert statement");
         sr = _stmt_describe_cols(stmt);
-        if (sr == SQL_ERROR) return sr;
+        if (sr == SQL_ERROR) return SQL_ERROR;
         r = 0;
       }
       free(tag_fields);
@@ -2477,7 +2477,7 @@ SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
       TOD_SAFE_FREE(stmt->tag_fields);
       stmt->tag_fields    = tag_fields;
       sr = _stmt_describe_cols(stmt);
-      if (sr == SQL_ERROR) return sr;
+      if (sr == SQL_ERROR) return SQL_ERROR;
     }
   } else {
     int nr_params = 0;
@@ -2532,54 +2532,6 @@ static void _stmt_unprepare(stmt_t *stmt)
   stmt->nr_mbs = 0;
 
   stmt->prepared = 0;
-}
-
-SQLRETURN stmt_prepare(stmt_t *stmt,
-    SQLCHAR      *StatementText,
-    SQLINTEGER    TextLength)
-{
-  OA_NIY(stmt->res == NULL);
-  OA_NIY(stmt->stmt == NULL);
-
-  const char *sql = (const char*)StatementText;
-
-  size_t len = TextLength;
-  if (TextLength == SQL_NTS) len = strlen(sql);
-
-  _stmt_unprepare(stmt);
-
-  const char *sqlx;
-  size_t n;
-  char *s, *pre;
-
-  if (stmt->conn->cfg.cache_sql) {
-    s = strndup(sql, len);
-    if (!s) {
-      stmt_oom(stmt);
-      return SQL_ERROR;
-    }
-    pre = stmt->sql;
-    stmt->sql = s;
-
-    sqlx = s;
-    n = strlen(s);
-  } else {
-    sqlx = sql;
-    n = len;
-  }
-
-  SQLRETURN sr = _stmt_prepare(stmt, sqlx, n);
-
-  if (stmt->conn->cfg.cache_sql) {
-    if (sql_succeeded(sr)) {
-      TOD_SAFE_FREE(pre);
-    } else {
-      stmt->sql = pre;
-      free(s);
-    }
-  }
-
-  return sr;
 }
 
 static SQLRETURN _stmt_get_tag_or_col_field(stmt_t *stmt, int iparam, TAOS_FIELD_E *field)
@@ -3188,242 +3140,18 @@ static SQLRETURN _stmt_conv_sql_c_double_to_tsdb_varchar(stmt_t *stmt, sql_c_to_
   return SQL_SUCCESS;
 }
 
-SQLRETURN stmt_bind_param(
-    stmt_t         *stmt,
-    SQLUSMALLINT    ParameterNumber,
-    SQLSMALLINT     InputOutputType,
-    SQLSMALLINT     ValueType,
-    SQLSMALLINT     ParameterType,
-    SQLULEN         ColumnSize,
-    SQLSMALLINT     DecimalDigits,
-    SQLPOINTER      ParameterValuePtr,
-    SQLLEN          BufferLength,
-    SQLLEN         *StrLen_or_IndPtr)
+static SQLRETURN _stmt_param_check_and_prepare(stmt_t *stmt, SQLUSMALLINT ParameterNumber)
 {
-  int r = 0;
-
   SQLRETURN sr = SQL_SUCCESS;
 
-  SQLSMALLINT n = _stmt_get_count_of_tsdb_params(stmt);
-  if (ParameterNumber == 0) {
-    stmt_append_err(stmt, "HY000", 0, "General error:bookmark column not supported yet");
-    return SQL_ERROR;
-  }
-  if (ParameterNumber > n) {
-    stmt_append_err_format(stmt, "07009", 0, "Invalid descriptor index:#%d param", ParameterNumber);
-    return SQL_ERROR;
-  }
-
-  switch (InputOutputType) {
-    case SQL_PARAM_INPUT:
-      break;
-    case SQL_PARAM_INPUT_OUTPUT:
-      break;
-    case SQL_PARAM_OUTPUT:
-      stmt_append_err(stmt, "HY000", 0, "SQL_PARAM_OUTPUT not supported yet by taos");
-      return SQL_ERROR;
-    case SQL_PARAM_INPUT_OUTPUT_STREAM:
-      stmt_append_err(stmt, "HY000", 0, "SQL_PARAM_INPUT_OUTPUT_STREAM not supported yet by taos");
-      return SQL_ERROR;
-    case SQL_PARAM_OUTPUT_STREAM:
-      stmt_append_err(stmt, "HY000", 0, "SQL_PARAM_OUTPUT_STREAM not supported yet by taos");
-      return SQL_ERROR;
-    default:
-      stmt_append_err(stmt, "HY000", 0, "unknown InputOutputType for `SQLBindParameter`");
-      return SQL_ERROR;
-  }
-
-  if (stmt->is_insert_stmt) {
-    if (!stmt->subtbl_required) {
-      if (stmt->tag_fields) {
-        stmt_append_err(stmt, "HY000", 0, "not implemented yet");
-        return SQL_ERROR;
-      }
-      if (ParameterNumber > stmt->nr_col_fields) {
-        stmt_append_err_format(stmt, "HY000", r, "#%d col field out of range [%d parameter markers in total]", ParameterNumber, stmt->nr_col_fields);
-        return SQL_ERROR;
-      }
-    }
-  } else {
-    if (ParameterNumber > stmt->nr_params) {
-      stmt_append_err_format(stmt, "HY000", r, "#%d parameter out of range [%d parameter markers in total]", ParameterNumber, stmt->nr_params);
-      return SQL_ERROR;
-    }
-  }
-
   descriptor_t *APD = _stmt_APD(stmt);
-  desc_header_t *APD_header = &APD->header;
-  if (ParameterNumber > APD->cap) {
-    size_t cap = (ParameterNumber + 15) / 16 * 16;
-    desc_record_t *records = (desc_record_t*)realloc(APD->records, sizeof(*records) * cap);
-    if (!records) {
-      stmt_oom(stmt);
-      return SQL_ERROR;
-    }
-    APD->records = records;
-    APD->cap     = cap;
-  }
-
   desc_record_t *APD_record = APD->records + ParameterNumber - 1;
-  descriptor_release_field_arrays(APD);
-  memset(APD_record, 0, sizeof(*APD_record));
+  SQLSMALLINT ValueType = APD_record->DESC_CONCISE_TYPE;
+  SQLLEN BufferLength = APD_record->DESC_OCTET_LENGTH;
 
-  switch (ValueType) {
-    case SQL_C_UTINYINT:
-      APD_record->DESC_LENGTH            = 1;
-      APD_record->DESC_PRECISION         = 0;
-      APD_record->DESC_SCALE             = 0;
-      APD_record->DESC_TYPE              = ValueType;
-      APD_record->DESC_CONCISE_TYPE      = ValueType;
-      APD_record->element_size_in_column_wise = APD_record->DESC_LENGTH;
-      break;
-    case SQL_C_SHORT:
-      APD_record->DESC_LENGTH            = 2;
-      APD_record->DESC_PRECISION         = 0;
-      APD_record->DESC_SCALE             = 0;
-      APD_record->DESC_TYPE              = ValueType;
-      APD_record->DESC_CONCISE_TYPE      = ValueType;
-      APD_record->element_size_in_column_wise = APD_record->DESC_LENGTH;
-      break;
-    case SQL_C_SLONG:
-      APD_record->DESC_LENGTH            = 4;
-      APD_record->DESC_PRECISION         = 0;
-      APD_record->DESC_SCALE             = 0;
-      APD_record->DESC_TYPE              = ValueType;
-      APD_record->DESC_CONCISE_TYPE      = ValueType;
-      APD_record->element_size_in_column_wise = APD_record->DESC_LENGTH;
-      break;
-    case SQL_C_SBIGINT:
-      APD_record->DESC_LENGTH            = 8;
-      APD_record->DESC_PRECISION         = 0;
-      APD_record->DESC_SCALE             = 0;
-      APD_record->DESC_TYPE              = ValueType;
-      APD_record->DESC_CONCISE_TYPE      = ValueType;
-      APD_record->element_size_in_column_wise = APD_record->DESC_LENGTH;
-      break;
-    case SQL_C_DOUBLE:
-      APD_record->DESC_LENGTH            = 8;
-      APD_record->DESC_PRECISION         = 0;
-      APD_record->DESC_SCALE             = 0;
-      APD_record->DESC_TYPE              = ValueType;
-      APD_record->DESC_CONCISE_TYPE      = ValueType;
-      APD_record->element_size_in_column_wise = APD_record->DESC_LENGTH;
-      break;
-    case SQL_C_CHAR:
-      APD_record->DESC_LENGTH            = 0; // FIXME:
-      APD_record->DESC_PRECISION         = 0;
-      APD_record->DESC_SCALE             = 0;
-      APD_record->DESC_TYPE              = ValueType;
-      APD_record->DESC_CONCISE_TYPE      = ValueType;
-      APD_record->element_size_in_column_wise = BufferLength;
-      break;
-    case SQL_C_WCHAR:
-      APD_record->DESC_LENGTH            = 0; // FIXME:
-      APD_record->DESC_PRECISION         = 0;
-      APD_record->DESC_SCALE             = 0;
-      APD_record->DESC_TYPE              = ValueType;
-      APD_record->DESC_CONCISE_TYPE      = ValueType;
-      APD_record->element_size_in_column_wise = BufferLength;
-      break;
-    default:
-      stmt_append_err_format(stmt, "HY000", 0,
-          "General error:#%d Parameter converstion from `%s[0x%x/%d]` not implemented yet",
-          ParameterNumber, sql_c_data_type(ValueType), ValueType, ValueType);
-      return SQL_ERROR;
-  }
-
-  APD_record->DESC_OCTET_LENGTH        = BufferLength;
-  APD_record->DESC_DATA_PTR            = ParameterValuePtr;
-  APD_record->DESC_INDICATOR_PTR       = StrLen_or_IndPtr;
-  APD_record->DESC_OCTET_LENGTH_PTR    = StrLen_or_IndPtr;
-
-  ////////////////
   descriptor_t *IPD = _stmt_IPD(stmt);
-  desc_header_t *IPD_header = &IPD->header;
-  if (ParameterNumber >= IPD->cap) {
-    size_t cap = (ParameterNumber + 15) / 16 * 16;
-    desc_record_t *records = (desc_record_t*)realloc(IPD->records, sizeof(*records) * cap);
-    if (!records) {
-      stmt_oom(stmt);
-      return SQL_ERROR;
-    }
-    IPD->records = records;
-    IPD->cap     = cap;
-  }
-
   desc_record_t *IPD_record = IPD->records + ParameterNumber - 1;
-  memset(IPD_record, 0, sizeof(*IPD_record));
-
-  switch (ParameterType) {
-    case SQL_TYPE_TIMESTAMP:
-      IPD_record->DESC_PARAMETER_TYPE           = InputOutputType;
-      IPD_record->DESC_TYPE                     = SQL_DATETIME;
-      IPD_record->DESC_CONCISE_TYPE             = ParameterType;
-      IPD_record->DESC_LENGTH                   = ColumnSize;
-      IPD_record->DESC_PRECISION                = DecimalDigits;
-      break;
-    case SQL_REAL:
-      IPD_record->DESC_PARAMETER_TYPE           = InputOutputType;
-      IPD_record->DESC_TYPE                     = ParameterType;
-      IPD_record->DESC_CONCISE_TYPE             = ParameterType;
-      IPD_record->DESC_LENGTH                   = 0;
-      IPD_record->DESC_PRECISION                = 0;
-      break;
-    case SQL_DOUBLE:
-      IPD_record->DESC_PARAMETER_TYPE           = InputOutputType;
-      IPD_record->DESC_TYPE                     = ParameterType;
-      IPD_record->DESC_CONCISE_TYPE             = ParameterType;
-      IPD_record->DESC_LENGTH                   = 0;
-      IPD_record->DESC_PRECISION                = 0;
-      break;
-    case SQL_INTEGER:
-      IPD_record->DESC_PARAMETER_TYPE           = InputOutputType;
-      IPD_record->DESC_TYPE                     = ParameterType;
-      IPD_record->DESC_CONCISE_TYPE             = ParameterType;
-      IPD_record->DESC_LENGTH                   = 0;
-      IPD_record->DESC_PRECISION                = 0;
-      break;
-    case SQL_TINYINT:
-      IPD_record->DESC_PARAMETER_TYPE           = InputOutputType;
-      IPD_record->DESC_TYPE                     = ParameterType;
-      IPD_record->DESC_CONCISE_TYPE             = ParameterType;
-      IPD_record->DESC_LENGTH                   = 0;
-      IPD_record->DESC_PRECISION                = 0;
-      break;
-    case SQL_SMALLINT:
-      IPD_record->DESC_PARAMETER_TYPE           = InputOutputType;
-      IPD_record->DESC_TYPE                     = ParameterType;
-      IPD_record->DESC_CONCISE_TYPE             = ParameterType;
-      IPD_record->DESC_LENGTH                   = 0;
-      IPD_record->DESC_PRECISION                = 0;
-      break;
-    case SQL_BIGINT:
-      IPD_record->DESC_PARAMETER_TYPE           = InputOutputType;
-      IPD_record->DESC_TYPE                     = ParameterType;
-      IPD_record->DESC_CONCISE_TYPE             = ParameterType;
-      IPD_record->DESC_LENGTH                   = 0;
-      IPD_record->DESC_PRECISION                = 0;
-      break;
-    case SQL_VARCHAR:
-      IPD_record->DESC_PARAMETER_TYPE           = InputOutputType;
-      IPD_record->DESC_TYPE                     = ParameterType;
-      IPD_record->DESC_CONCISE_TYPE             = ParameterType;
-      IPD_record->DESC_LENGTH                   = ColumnSize;
-      IPD_record->DESC_PRECISION                = 0;
-      break;
-    case SQL_WVARCHAR:
-      IPD_record->DESC_PARAMETER_TYPE           = InputOutputType;
-      IPD_record->DESC_TYPE                     = ParameterType;
-      IPD_record->DESC_CONCISE_TYPE             = ParameterType;
-      IPD_record->DESC_LENGTH                   = ColumnSize;
-      IPD_record->DESC_PRECISION                = 0;
-      break;
-    default:
-      stmt_append_err_format(stmt, "HY000", 0,
-          "General error:#%d Parameter converstion from `%s[0x%x/%d]` not implemented yet",
-          ParameterNumber, sql_data_type(ParameterType), ParameterType, ParameterType);
-      return SQL_ERROR;
-  }
+  SQLSMALLINT ParameterType = IPD_record->DESC_CONCISE_TYPE;
 
   int tsdb_type;
   int tsdb_bytes;
@@ -3437,9 +3165,6 @@ SQLRETURN stmt_bind_param(
   }
   IPD_record->taos_type  = tsdb_type;
   IPD_record->taos_bytes = tsdb_bytes;
-
-  if (ParameterNumber > APD_header->DESC_COUNT) APD_header->DESC_COUNT = ParameterNumber;
-  if (ParameterNumber > IPD_header->DESC_COUNT) IPD_header->DESC_COUNT = ParameterNumber;
 
   TAOS_MULTI_BIND *mb = stmt->mbs + ParameterNumber - 1;
 
@@ -3710,6 +3435,279 @@ SQLRETURN stmt_bind_param(
         return SQL_ERROR;
     }
   }
+
+  return SQL_SUCCESS;
+}
+
+SQLRETURN stmt_prepare(stmt_t *stmt,
+    SQLCHAR      *StatementText,
+    SQLINTEGER    TextLength)
+{
+  OA_NIY(stmt->res == NULL);
+  OA_NIY(stmt->stmt == NULL);
+
+  _stmt_unprepare(stmt);
+
+  const char *sql = (const char*)StatementText;
+
+  size_t len = TextLength;
+  if (TextLength == SQL_NTS) len = strlen(sql);
+
+  const char *sqlx;
+  size_t n;
+  char *s, *pre;
+
+  if (stmt->conn->cfg.cache_sql) {
+    s = strndup(sql, len);
+    if (!s) {
+      stmt_oom(stmt);
+      return SQL_ERROR;
+    }
+    pre = stmt->sql;
+    stmt->sql = s;
+
+    sqlx = s;
+    n = strlen(s);
+  } else {
+    sqlx = sql;
+    n = len;
+  }
+
+  SQLRETURN sr = _stmt_prepare(stmt, sqlx, n);
+
+  if (stmt->conn->cfg.cache_sql) {
+    if (sql_succeeded(sr)) {
+      TOD_SAFE_FREE(pre);
+    } else {
+      stmt->sql = pre;
+      free(s);
+    }
+  }
+
+  return sr;
+}
+
+SQLRETURN stmt_bind_param(
+    stmt_t         *stmt,
+    SQLUSMALLINT    ParameterNumber,
+    SQLSMALLINT     InputOutputType,
+    SQLSMALLINT     ValueType,
+    SQLSMALLINT     ParameterType,
+    SQLULEN         ColumnSize,
+    SQLSMALLINT     DecimalDigits,
+    SQLPOINTER      ParameterValuePtr,
+    SQLLEN          BufferLength,
+    SQLLEN         *StrLen_or_IndPtr)
+{
+  if (ParameterNumber == 0) {
+    stmt_append_err(stmt, "HY000", 0, "General error:bookmark column not supported yet");
+    return SQL_ERROR;
+  }
+
+  descriptor_t *APD = _stmt_APD(stmt);
+  desc_header_t *APD_header = &APD->header;
+
+  if (ParameterNumber > APD_header->DESC_COUNT+1) {
+    stmt_append_err(stmt, "HY000", 0, "General error:not implemented yet");
+    return SQL_ERROR;
+  }
+
+  switch (InputOutputType) {
+    case SQL_PARAM_INPUT:
+      break;
+    case SQL_PARAM_INPUT_OUTPUT:
+      break;
+    case SQL_PARAM_OUTPUT:
+      stmt_append_err(stmt, "HY000", 0, "SQL_PARAM_OUTPUT not supported yet by taos");
+      return SQL_ERROR;
+    case SQL_PARAM_INPUT_OUTPUT_STREAM:
+      stmt_append_err(stmt, "HY000", 0, "SQL_PARAM_INPUT_OUTPUT_STREAM not supported yet by taos");
+      return SQL_ERROR;
+    case SQL_PARAM_OUTPUT_STREAM:
+      stmt_append_err(stmt, "HY000", 0, "SQL_PARAM_OUTPUT_STREAM not supported yet by taos");
+      return SQL_ERROR;
+    default:
+      stmt_append_err(stmt, "HY000", 0, "unknown InputOutputType for `SQLBindParameter`");
+      return SQL_ERROR;
+  }
+
+  if (ParameterNumber > APD->cap) {
+    size_t cap = (ParameterNumber + 15) / 16 * 16;
+    desc_record_t *records = (desc_record_t*)realloc(APD->records, sizeof(*records) * cap);
+    if (!records) {
+      stmt_oom(stmt);
+      return SQL_ERROR;
+    }
+    APD->records = records;
+    APD->cap     = cap;
+  }
+
+  desc_record_t *APD_record = APD->records + ParameterNumber - 1;
+  descriptor_release_field_arrays(APD);
+  memset(APD_record, 0, sizeof(*APD_record));
+
+  switch (ValueType) {
+    case SQL_C_UTINYINT:
+      APD_record->DESC_LENGTH            = 1;
+      APD_record->DESC_PRECISION         = 0;
+      APD_record->DESC_SCALE             = 0;
+      APD_record->DESC_TYPE              = ValueType;
+      APD_record->DESC_CONCISE_TYPE      = ValueType;
+      APD_record->element_size_in_column_wise = APD_record->DESC_LENGTH;
+      break;
+    case SQL_C_SHORT:
+      APD_record->DESC_LENGTH            = 2;
+      APD_record->DESC_PRECISION         = 0;
+      APD_record->DESC_SCALE             = 0;
+      APD_record->DESC_TYPE              = ValueType;
+      APD_record->DESC_CONCISE_TYPE      = ValueType;
+      APD_record->element_size_in_column_wise = APD_record->DESC_LENGTH;
+      break;
+    case SQL_C_SLONG:
+      APD_record->DESC_LENGTH            = 4;
+      APD_record->DESC_PRECISION         = 0;
+      APD_record->DESC_SCALE             = 0;
+      APD_record->DESC_TYPE              = ValueType;
+      APD_record->DESC_CONCISE_TYPE      = ValueType;
+      APD_record->element_size_in_column_wise = APD_record->DESC_LENGTH;
+      break;
+    case SQL_C_SBIGINT:
+      APD_record->DESC_LENGTH            = 8;
+      APD_record->DESC_PRECISION         = 0;
+      APD_record->DESC_SCALE             = 0;
+      APD_record->DESC_TYPE              = ValueType;
+      APD_record->DESC_CONCISE_TYPE      = ValueType;
+      APD_record->element_size_in_column_wise = APD_record->DESC_LENGTH;
+      break;
+    case SQL_C_DOUBLE:
+      APD_record->DESC_LENGTH            = 8;
+      APD_record->DESC_PRECISION         = 0;
+      APD_record->DESC_SCALE             = 0;
+      APD_record->DESC_TYPE              = ValueType;
+      APD_record->DESC_CONCISE_TYPE      = ValueType;
+      APD_record->element_size_in_column_wise = APD_record->DESC_LENGTH;
+      break;
+    case SQL_C_CHAR:
+      APD_record->DESC_LENGTH            = 0; // FIXME:
+      APD_record->DESC_PRECISION         = 0;
+      APD_record->DESC_SCALE             = 0;
+      APD_record->DESC_TYPE              = ValueType;
+      APD_record->DESC_CONCISE_TYPE      = ValueType;
+      APD_record->element_size_in_column_wise = BufferLength;
+      break;
+    case SQL_C_WCHAR:
+      APD_record->DESC_LENGTH            = 0; // FIXME:
+      APD_record->DESC_PRECISION         = 0;
+      APD_record->DESC_SCALE             = 0;
+      APD_record->DESC_TYPE              = ValueType;
+      APD_record->DESC_CONCISE_TYPE      = ValueType;
+      APD_record->element_size_in_column_wise = BufferLength;
+      break;
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:#%d Parameter converstion from `%s[0x%x/%d]` not implemented yet",
+          ParameterNumber, sql_c_data_type(ValueType), ValueType, ValueType);
+      return SQL_ERROR;
+  }
+
+  OA_ILE(APD_record->DESC_CONCISE_TYPE == ValueType);
+
+  APD_record->DESC_OCTET_LENGTH        = BufferLength;
+  APD_record->DESC_DATA_PTR            = ParameterValuePtr;
+  APD_record->DESC_INDICATOR_PTR       = StrLen_or_IndPtr;
+  APD_record->DESC_OCTET_LENGTH_PTR    = StrLen_or_IndPtr;
+
+  descriptor_t *IPD = _stmt_IPD(stmt);
+  desc_header_t *IPD_header = &IPD->header;
+  if (ParameterNumber >= IPD->cap) {
+    size_t cap = (ParameterNumber + 15) / 16 * 16;
+    desc_record_t *records = (desc_record_t*)realloc(IPD->records, sizeof(*records) * cap);
+    if (!records) {
+      stmt_oom(stmt);
+      return SQL_ERROR;
+    }
+    IPD->records = records;
+    IPD->cap     = cap;
+  }
+
+  desc_record_t *IPD_record = IPD->records + ParameterNumber - 1;
+  memset(IPD_record, 0, sizeof(*IPD_record));
+
+  switch (ParameterType) {
+    case SQL_TYPE_TIMESTAMP:
+      IPD_record->DESC_PARAMETER_TYPE           = InputOutputType;
+      IPD_record->DESC_TYPE                     = SQL_DATETIME;
+      IPD_record->DESC_CONCISE_TYPE             = ParameterType;
+      IPD_record->DESC_LENGTH                   = ColumnSize;
+      IPD_record->DESC_PRECISION                = DecimalDigits;
+      break;
+    case SQL_REAL:
+      IPD_record->DESC_PARAMETER_TYPE           = InputOutputType;
+      IPD_record->DESC_TYPE                     = ParameterType;
+      IPD_record->DESC_CONCISE_TYPE             = ParameterType;
+      IPD_record->DESC_LENGTH                   = 0;
+      IPD_record->DESC_PRECISION                = 0;
+      break;
+    case SQL_DOUBLE:
+      IPD_record->DESC_PARAMETER_TYPE           = InputOutputType;
+      IPD_record->DESC_TYPE                     = ParameterType;
+      IPD_record->DESC_CONCISE_TYPE             = ParameterType;
+      IPD_record->DESC_LENGTH                   = 0;
+      IPD_record->DESC_PRECISION                = 0;
+      break;
+    case SQL_INTEGER:
+      IPD_record->DESC_PARAMETER_TYPE           = InputOutputType;
+      IPD_record->DESC_TYPE                     = ParameterType;
+      IPD_record->DESC_CONCISE_TYPE             = ParameterType;
+      IPD_record->DESC_LENGTH                   = 0;
+      IPD_record->DESC_PRECISION                = 0;
+      break;
+    case SQL_TINYINT:
+      IPD_record->DESC_PARAMETER_TYPE           = InputOutputType;
+      IPD_record->DESC_TYPE                     = ParameterType;
+      IPD_record->DESC_CONCISE_TYPE             = ParameterType;
+      IPD_record->DESC_LENGTH                   = 0;
+      IPD_record->DESC_PRECISION                = 0;
+      break;
+    case SQL_SMALLINT:
+      IPD_record->DESC_PARAMETER_TYPE           = InputOutputType;
+      IPD_record->DESC_TYPE                     = ParameterType;
+      IPD_record->DESC_CONCISE_TYPE             = ParameterType;
+      IPD_record->DESC_LENGTH                   = 0;
+      IPD_record->DESC_PRECISION                = 0;
+      break;
+    case SQL_BIGINT:
+      IPD_record->DESC_PARAMETER_TYPE           = InputOutputType;
+      IPD_record->DESC_TYPE                     = ParameterType;
+      IPD_record->DESC_CONCISE_TYPE             = ParameterType;
+      IPD_record->DESC_LENGTH                   = 0;
+      IPD_record->DESC_PRECISION                = 0;
+      break;
+    case SQL_VARCHAR:
+      IPD_record->DESC_PARAMETER_TYPE           = InputOutputType;
+      IPD_record->DESC_TYPE                     = ParameterType;
+      IPD_record->DESC_CONCISE_TYPE             = ParameterType;
+      IPD_record->DESC_LENGTH                   = ColumnSize;
+      IPD_record->DESC_PRECISION                = 0;
+      break;
+    case SQL_WVARCHAR:
+      IPD_record->DESC_PARAMETER_TYPE           = InputOutputType;
+      IPD_record->DESC_TYPE                     = ParameterType;
+      IPD_record->DESC_CONCISE_TYPE             = ParameterType;
+      IPD_record->DESC_LENGTH                   = ColumnSize;
+      IPD_record->DESC_PRECISION                = 0;
+      break;
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:#%d Parameter converstion from `%s[0x%x/%d]` not implemented yet",
+          ParameterNumber, sql_data_type(ParameterType), ParameterType, ParameterType);
+      return SQL_ERROR;
+  }
+
+  OA_ILE(IPD_record->DESC_CONCISE_TYPE == ParameterType);
+
+  if (ParameterNumber > APD_header->DESC_COUNT) APD_header->DESC_COUNT = ParameterNumber;
+  if (ParameterNumber > IPD_header->DESC_COUNT) IPD_header->DESC_COUNT = ParameterNumber;
 
   return SQL_SUCCESS;
 }
@@ -4024,7 +4022,6 @@ static SQLRETURN _stmt_pre_exec(stmt_t *stmt)
 
 SQLRETURN stmt_execute(stmt_t *stmt)
 {
-  OA_ILE(stmt);
   OA_ILE(stmt->conn);
   OA_ILE(stmt->conn->taos);
   OA_ILE(stmt->stmt);
@@ -4033,16 +4030,20 @@ SQLRETURN stmt_execute(stmt_t *stmt)
 
   descriptor_t *APD = _stmt_APD(stmt);
   desc_header_t *APD_header = &APD->header;
-  descriptor_t *IPD = _stmt_IPD(stmt);
-  desc_header_t *IPD_header = &IPD->header;
 
   SQLSMALLINT n = _stmt_get_count_of_tsdb_params(stmt);
-  if (APD_header->DESC_COUNT != n ||
-      IPD_header->DESC_COUNT != n)
-  {
-    stmt_append_err_format(stmt, "HY000", 0, "General error:%d parameter placeholders, but %d/%d parameters bound",
-        n, APD_header->DESC_COUNT, IPD_header->DESC_COUNT);
+  if (APD_header->DESC_COUNT < n) {
+    stmt_append_err_format(stmt, "07002", 0,
+        "COUNT field incorrect:%d parameter markers required, but only %d parameters bound",
+        n, APD_header->DESC_COUNT);
     return SQL_ERROR;
+  }
+
+  for (int i=0; i<n; ++i) {
+    if (i >= APD_header->DESC_COUNT) break;
+    SQLUSMALLINT ParameterNumber = i + 1;
+    sr = _stmt_param_check_and_prepare(stmt, ParameterNumber);
+    if (sr == SQL_ERROR) return SQL_ERROR;
   }
 
   if (_stmt_get_rows_fetched_ptr(stmt)) *_stmt_get_rows_fetched_ptr(stmt) = 0;

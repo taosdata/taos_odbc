@@ -10,40 +10,6 @@
 #define SUCCEEDED(_sr) ({ SQLRETURN __sr = _sr; (__sr == SQL_SUCCESS) || (__sr == SQL_SUCCESS_WITH_INFO); })
 #define FAILED(_sr) !SUCCEEDED(_sr)
 
-#define diagnostic(_HandleType, _Handle)                                             \
-  do {                                                                               \
-    SQLCHAR _sqlState[6];                                                            \
-    SQLINTEGER _nativeErrno = 0;                                                     \
-    SQLCHAR _messageText[1024];                                                      \
-    _messageText[0] = '\0';                                                          \
-    SQLSMALLINT _textLength = 0;                                                     \
-    SQLRETURN _sr = SQL_SUCCESS;                                                     \
-    for (SQLSMALLINT _i=1; _i>=1; ++_i) {                                            \
-      _sr = SQLGetDiagRec(_HandleType, _Handle, _i,                                  \
-          _sqlState, &_nativeErrno,                                                  \
-          _messageText, sizeof(_messageText), &_textLength);                         \
-      if (_sr == SQL_NO_DATA) break;                                                 \
-      if (_sr == SQL_ERROR) break;                                                   \
-      if (_textLength == SQL_NTS)                                                    \
-        D("[%s][%d]: %s", _sqlState, _nativeErrno, _messageText);                    \
-      else                                                                           \
-        D("[%s][%d]: %.*s", _sqlState, _nativeErrno, _textLength, _messageText);     \
-    }                                                                                \
-  } while (0)
-
-#define CALL(_handletype, _handle, _statement)            \
-  ({                                                      \
-    D("%s...", #_statement);                              \
-    SQLRETURN _sr = _statement;                           \
-    diagnostic(_handletype, _handle);                     \
-    D("%s => %d", #_statement, _sr);                      \
-    _sr;                                                  \
-  })
-
-#define CALL_ENV(_statement) CALL(SQL_HANDLE_ENV, henv, _statement)
-#define CALL_DBC(_statement) CALL(SQL_HANDLE_DBC, hdbc, _statement)
-#define CALL_STMT(_statement) CALL(SQL_HANDLE_STMT, hstmt, _statement)
-
 static inline void diag(SQLRETURN sr, SQLSMALLINT HandleType, SQLHANDLE Handle)
 {
   do {
@@ -346,6 +312,75 @@ static inline SQLRETURN call_SQLEndTran(const char *file, int line, const char *
   return sr;
 }
 
+static inline SQLRETURN call_SQLFreeStmt(const char *file, int line, const char *func,
+    SQLHSTMT       StatementHandle,
+    SQLUSMALLINT   Option)
+{
+  LOGD(file, line, func, "SQLFreeStmt(StatementHandle:%p, Option:%s) ...",
+      StatementHandle, sql_free_statement_option(Option));
+  SQLRETURN sr = SQLFreeStmt(StatementHandle, Option);
+  LOGD(file, line, func, "SQLFreeStmt(StatementHandle:%p, Option:%s) => %s",
+      StatementHandle, sql_free_statement_option(Option), sql_return_type(sr));
+  return sr;
+}
+
+static inline SQLRETURN call_SQLCloseCursor(const char *file, int line, const char *func,
+    SQLHSTMT StatementHandle)
+{
+  LOGD(file, line, func, "SQLCloseCursor(StatementHandle:%p) ...", StatementHandle);
+  SQLRETURN sr = SQLCloseCursor(StatementHandle);
+  diag(sr, SQL_HANDLE_STMT, StatementHandle);
+  LOGD(file, line, func, "SQLCloseCursor(StatementHandle:%p) => %s", StatementHandle, sql_return_type(sr));
+  return sr;
+}
+
+static inline SQLRETURN call_SQLSetConnectAttr(const char *file, int line, const char *func,
+    SQLHDBC ConnectionHandle, SQLINTEGER Attribute, SQLPOINTER ValuePtr, SQLINTEGER StringLength)
+{
+  LOGD(file, line, func, "SQLSetConnectAttr(ConnectionHandle:%p,Attribute:%s,ValuePtr:%p,StringLength:%d) ...",
+      ConnectionHandle, sql_stmt_attr(Attribute), ValuePtr, StringLength);
+  SQLRETURN sr = SQLSetConnectAttr(ConnectionHandle, Attribute, ValuePtr, StringLength);
+  diag(sr, SQL_HANDLE_STMT, ConnectionHandle);
+  LOGD(file, line, func, "SQLSetConnectAttr(ConnectionHandle:%p,Attribute:%s,ValuePtr:%p,StringLength:%d) => %s",
+      ConnectionHandle, sql_conn_attr(Attribute), ValuePtr, StringLength, sql_return_type(sr));
+  return sr;
+}
+
+static inline SQLRETURN call_SQLBindCol(const char *file, int line, const char *func,
+    SQLHSTMT StatementHandle, SQLUSMALLINT ColumnNumber, SQLSMALLINT TargetType, SQLPOINTER TargetValuePtr,
+    SQLLEN BufferLength, SQLLEN *StrLen_or_IndPtr)
+{
+  LOGD(file, line, func, "SQLBindCol(StatementHandle:%p,ColumnNumber:%d,TargetType:%s,"
+      "TargetValuePtr:%p,BufferLength:%ld,StrLen_or_IndPtr:%p) ...",
+      StatementHandle, ColumnNumber, sql_c_data_type(TargetType),
+      TargetValuePtr, BufferLength, StrLen_or_IndPtr);
+  SQLRETURN sr = SQLBindCol(StatementHandle, ColumnNumber, TargetType,
+      TargetValuePtr, BufferLength, StrLen_or_IndPtr);
+  diag(sr, SQL_HANDLE_STMT, StatementHandle);
+  LOGD(file, line, func, "SQLBindCol(StatementHandle:%p,ColumnNumber:%d,TargetType:%s,"
+      "TargetValuePtr:%p,BufferLength:%ld,StrLen_or_IndPtr:%p) => %s",
+      StatementHandle, ColumnNumber, sql_c_data_type(TargetType),
+      TargetValuePtr, BufferLength, StrLen_or_IndPtr,
+      sql_return_type(sr));
+  return sr;
+}
+
+static inline SQLRETURN call_SQLDescribeColW(const char *file, int line, const char *func,
+    SQLHSTMT StatementHandle, SQLUSMALLINT ColumnNumber, SQLWCHAR *ColumnName, SQLSMALLINT BufferLength,
+    SQLSMALLINT *NameLengthPtr, SQLSMALLINT *DataTypePtr, SQLULEN *ColumnSizePtr, SQLSMALLINT *DecimalDigitsPtr, SQLSMALLINT *NullablePtr)
+{
+  LOGD(file, line, func, "SQLDescribeColW(StatementHandle:%p,ColumnNumber:%d,ColumnName:%p,BufferLength:%d,"
+      "NameLengthPtr:%p,DataTypePtr:%p,ColumnSizePtr:%p,DecimalDigitsPtr:%p,NullablePtr:%p) ...",
+      StatementHandle, ColumnNumber, ColumnName, BufferLength, NameLengthPtr, DataTypePtr, ColumnSizePtr, DecimalDigitsPtr, NullablePtr);
+  SQLRETURN sr = SQLDescribeColW(StatementHandle, ColumnNumber, ColumnName, BufferLength, NameLengthPtr,
+      DataTypePtr, ColumnSizePtr, DecimalDigitsPtr, NullablePtr);
+  diag(sr, SQL_HANDLE_STMT, StatementHandle);
+  LOGD(file, line, func, "SQLDescribeColW(StatementHandle:%p,ColumnNumber:%d,ColumnName:%p,BufferLength:%d,"
+      "NameLengthPtr:%p,DataTypePtr:%p,ColumnSizePtr:%p,DecimalDigitsPtr:%p,NullablePtr:%p) => %s",
+      StatementHandle, ColumnNumber, ColumnName, BufferLength, NameLengthPtr, DataTypePtr, ColumnSizePtr, DecimalDigitsPtr, NullablePtr,
+      sql_return_type(sr));
+  return sr;
+}
 
 #define CALL_SQLAllocHandle(...)                   call_SQLAllocHandle(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLFreeHandle(...)                    call_SQLFreeHandle(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
@@ -365,6 +400,11 @@ static inline SQLRETURN call_SQLEndTran(const char *file, int line, const char *
 #define CALL_SQLSetStmtAttr(...)                   call_SQLSetStmtAttr(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLExecute(...)                       call_SQLExecute(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLEndTran(...)                       call_SQLEndTran(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
+#define CALL_SQLFreeStmt(...)                      call_SQLFreeStmt(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
+#define CALL_SQLCloseCursor(...)                   call_SQLCloseCursor(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
+#define CALL_SQLSetConnectAttr(...)                call_SQLSetConnectAttr(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
+#define CALL_SQLBindCol(...)                       call_SQLBindCol(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
+#define CALL_SQLDescribeColW(...)                  call_SQLDescribeColW(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 
 #endif // _odbc_helper_h_
 

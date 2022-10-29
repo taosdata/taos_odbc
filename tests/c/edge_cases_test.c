@@ -8,23 +8,23 @@ static int create_connection(SQLHANDLE *penv, SQLHANDLE *pdbc, const char *conn_
   SQLRETURN sr;
   SQLHANDLE henv, hdbc;
 
-  sr = CALL(SQL_HANDLE_ENV, henv, SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &henv));
+  sr = CALL_SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &henv);
   if (henv == SQL_NULL_HANDLE) goto fail_henv;
 
-  sr = CALL_ENV(SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, 0));
+  sr = CALL_SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, 0);
   if (FAILED(sr)) goto fail_odbc_version;
 
-  sr = CALL_ENV(SQLAllocHandle(SQL_HANDLE_DBC, henv, &hdbc));
+  sr = CALL_SQLAllocHandle(SQL_HANDLE_DBC, henv, &hdbc);
   if (hdbc == SQL_NULL_HANDLE) goto fail_hdbc;
 
   if (!conn_str) {
-    sr = CALL_DBC(SQLConnect(hdbc, (SQLCHAR*)dsn, SQL_NTS, (SQLCHAR*)uid, SQL_NTS, (SQLCHAR*)pwd, SQL_NTS));
+    sr = CALL_SQLConnect(hdbc, (SQLCHAR*)dsn, SQL_NTS, (SQLCHAR*)uid, SQL_NTS, (SQLCHAR*)pwd, SQL_NTS);
     if (FAILED(sr)) goto fail_connect;
   } else {
      SQLSMALLINT StringLength2 = 0;
      char buf[1024];
      buf[0] = '\0';
-     sr = CALL_DBC(SQLDriverConnect(hdbc, 0, (SQLCHAR*)conn_str, SQL_NTS, (SQLCHAR*)buf, sizeof(buf), &StringLength2, SQL_DRIVER_NOPROMPT));
+     sr = CALL_SQLDriverConnect(hdbc, 0, (SQLCHAR*)conn_str, SQL_NTS, (SQLCHAR*)buf, sizeof(buf), &StringLength2, SQL_DRIVER_NOPROMPT);
      D("driver completed connection string: [%s]", buf);
      if (FAILED(sr)) goto fail_connect;
   }
@@ -50,7 +50,7 @@ static int create_statement(SQLHANDLE *pstmt, SQLHANDLE hdbc)
   SQLRETURN sr;
   SQLHANDLE hstmt;
 
-  sr = CALL_DBC(SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt));
+  sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt);
   if (FAILED(sr)) goto fail_hstmt;
 
   *pstmt = hstmt;
@@ -68,7 +68,7 @@ static int test_connect(const char *conn_str, const char *dsn, const char *uid, 
   int r = create_connection(&henv, &hdbc, conn_str, dsn, uid, pwd);
   if (r) return -1;
 
-  sr = CALL_DBC(SQLDisconnect(hdbc));
+  sr = CALL_SQLDisconnect(hdbc);
   if (FAILED(sr)) r = -1;
 
   SQLFreeHandle(SQL_HANDLE_DBC, hdbc);
@@ -81,11 +81,11 @@ static int test_direct_exec(SQLHANDLE hstmt, const char *sql)
 {
   SQLRETURN sr;
 
-  sr = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS));
+  sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
   if (FAILED(sr)) return -1;
 
   if (rand() % 2) {
-    sr = CALL_STMT(SQLFreeStmt(hstmt, SQL_CLOSE));
+    sr = CALL_SQLFreeStmt(hstmt, SQL_CLOSE);
     if (FAILED(sr)) return -1;
   }
 
@@ -121,14 +121,14 @@ static int test_execute(SQLHANDLE hstmt, const char *sql)
 {
   SQLRETURN sr;
 
-  sr = CALL_STMT(SQLPrepare(hstmt, (SQLCHAR*)sql, SQL_NTS));
+  sr = CALL_SQLPrepare(hstmt, (SQLCHAR*)sql, SQL_NTS);
   if (FAILED(sr)) return -1;
 
-  sr = CALL_STMT(SQLExecute(hstmt));
+  sr = CALL_SQLExecute(hstmt);
   if (FAILED(sr)) return -1;
 
   if (rand() % 2) {
-    sr = CALL_STMT(SQLFreeStmt(hstmt, SQL_CLOSE));
+    sr = CALL_SQLFreeStmt(hstmt, SQL_CLOSE);
     if (FAILED(sr)) return -1;
   }
 
@@ -238,7 +238,7 @@ int main(int argc, char *argv[])
 
   r = test_queries(hdbc);
 
-  sr = CALL_DBC(SQLDisconnect(hdbc));
+  sr = CALL_SQLDisconnect(hdbc);
   if (FAILED(sr)) r = 1;
 
   SQLFreeHandle(SQL_HANDLE_DBC, hdbc);

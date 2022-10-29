@@ -149,7 +149,7 @@ const char *sql_completion_type(SQLSMALLINT v)
   }
 }
 
-const char *sql_connection_attr(SQLINTEGER v)
+const char *sql_conn_attr(SQLINTEGER v)
 {
   switch (v) {
     CASE(SQL_ATTR_CONNECTION_TIMEOUT);
@@ -168,19 +168,6 @@ const char *sql_cursor_type(SQLULEN v)
     CASE(SQL_CURSOR_DYNAMIC);
     default:
     return "SQL_CURSOR_unknown";
-  }
-}
-
-const char *sql_statement_attr(SQLINTEGER v)
-{
-  switch (v) {
-    CASE(SQL_ATTR_CURSOR_TYPE);
-    CASE(SQL_ATTR_ROW_ARRAY_SIZE);
-    CASE(SQL_ATTR_ROW_STATUS_PTR);
-    CASE(SQL_ATTR_ROW_BIND_TYPE);
-    CASE(SQL_ATTR_ROWS_FETCHED_PTR);
-    default:
-    return "SQL_ATTR_unknown";
   }
 }
 

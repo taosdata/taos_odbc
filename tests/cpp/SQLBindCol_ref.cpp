@@ -56,61 +56,61 @@ static int test_case1(void)
   A(SUCCEEDED(rc), "");
 
   try {
-    rc = CALL_ENV(SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER*)SQL_OV_ODBC3, 0));
+    rc = CALL_SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER*)SQL_OV_ODBC3, 0);
     A(SUCCEEDED(rc), "");
 
-    rc = CALL_ENV(SQLAllocHandle(SQL_HANDLE_DBC, henv, &hdbc));
+    rc = CALL_SQLAllocHandle(SQL_HANDLE_DBC, henv, &hdbc);
     A(SUCCEEDED(rc), "");
 
     try {
-      rc = CALL_DBC(SQLSetConnectAttr(hdbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, 0));
+      rc = CALL_SQLSetConnectAttr(hdbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, 0);
       A(SUCCEEDED(rc), "");
 
       // Connect to data source
-      rc = CALL_DBC(SQLDriverConnect(hdbc, NULL,
+      rc = CALL_SQLDriverConnect(hdbc, NULL,
             (SQLCHAR*) "DSN=TAOS_ODBC_DSN", SQL_NTS,
             NULL, 0, NULL,
-            SQL_DRIVER_NOPROMPT));
+            SQL_DRIVER_NOPROMPT);
       A(SUCCEEDED(rc), "");
 
       // Allocate statement handle
       try {
-        rc = CALL_DBC(SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt));
+        rc = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt);
         A(SUCCEEDED(rc), "");
 
         try {
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"show databases", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"show databases", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"xshow databases", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"xshow databases", SQL_NTS);
           A(FAILED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"show databases", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"show databases", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"drop database if exists foo", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"drop database if exists foo", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"create database if not exists foo", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"create database if not exists foo", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"use foo", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"use foo", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"drop table if exists t", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"drop table if exists t", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"create table if not exists t (ts timestamp, name varchar(20), age int, sex varchar(8), text nchar(3))", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"create table if not exists t (ts timestamp, name varchar(20), age int, sex varchar(8), text nchar(3))", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"select * from t", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"select * from t", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861448752, 'name1', 20, 'male', '中国人')", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861448752, 'name1', 20, 'male', '中国人')", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861449753, 'name2', 30, 'female', '苏州人')", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861449753, 'name2', 30, 'female', '苏州人')", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861450754, 'name3', null, null, null)", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861450754, 'name3', null, null, null)", SQL_NTS);
           A(SUCCEEDED(rc), "");
 
           for (size_t pos = 1; pos <= 5; ++pos ) {
-            rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"SELECT * FROM t", SQL_NTS));
+            rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"SELECT * FROM t", SQL_NTS);
             A(SUCCEEDED(rc), "");
 
             SQLSMALLINT ColumnCount;
 
-            rc = CALL_STMT(SQLNumResultCols(hstmt, &ColumnCount));
+            rc = CALL_SQLNumResultCols(hstmt, &ColumnCount);
             A(SUCCEEDED(rc), "");
 
             for (int i = -1; i <= 16; ++i ) {
@@ -126,7 +126,7 @@ static int test_case1(void)
               SQLSMALLINT    DecimalDigits;
               SQLSMALLINT    Nullable;
 
-              rc = CALL_STMT(SQLDescribeCol(hstmt, ColumnNumber, ColumnName, BufferLength, &NameLength, &DataType, &ColumnSize, &DecimalDigits, &Nullable));
+              rc = CALL_SQLDescribeCol(hstmt, ColumnNumber, ColumnName, BufferLength, &NameLength, &DataType, &ColumnSize, &DecimalDigits, &Nullable);
               if (i<0) {
                 A(FAILED(rc), "");
               } else {
@@ -148,14 +148,14 @@ static int test_case1(void)
             SQLLEN cbName = 0;
             const char * const p = (const char*)&Name[0];
             const size_t bytes = 48;
-            rc = CALL_STMT(SQLFreeStmt(hstmt, SQL_UNBIND));
+            rc = CALL_SQLFreeStmt(hstmt, SQL_UNBIND);
             A(SUCCEEDED(rc), "");
-            rc = CALL_STMT(SQLBindCol(hstmt, pos, SQL_C_WCHAR, Name, bytes/*sizeof(Name)*/, &cbName));
+            rc = CALL_SQLBindCol(hstmt, pos, SQL_C_WCHAR, Name, bytes/*sizeof(Name)*/, &cbName);
             A(SUCCEEDED(rc), "");
 
             for (int i=0 ; ; i++) {
               memset(Name, '\x01', sizeof(Name));
-              rc = CALL_STMT(SQLFetch(hstmt));
+              rc = CALL_SQLFetch(hstmt);
               if (rc == SQL_NO_DATA) break;
               A(SUCCEEDED(rc), "");
               char buf[1024];
@@ -216,56 +216,56 @@ static int test_case2(void)
   A(SUCCEEDED(rc), "");
 
   try {
-    rc = CALL_ENV(SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER*)SQL_OV_ODBC3, 0));
+    rc = CALL_SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER*)SQL_OV_ODBC3, 0);
     A(SUCCEEDED(rc), "");
 
-    rc = CALL_ENV(SQLAllocHandle(SQL_HANDLE_DBC, henv, &hdbc));
+    rc = CALL_SQLAllocHandle(SQL_HANDLE_DBC, henv, &hdbc);
     A(SUCCEEDED(rc), "");
 
     try {
-      rc = CALL_DBC(SQLSetConnectAttr(hdbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, 0));
+      rc = CALL_SQLSetConnectAttr(hdbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, 0);
       A(SUCCEEDED(rc), "");
 
       // Connect to data source
-      rc = CALL_DBC(SQLDriverConnect(hdbc, NULL,
+      rc = CALL_SQLDriverConnect(hdbc, NULL,
             (SQLCHAR*) "DSN=TAOS_ODBC_DSN", SQL_NTS,
             NULL, 0, NULL,
-            SQL_DRIVER_NOPROMPT));
+            SQL_DRIVER_NOPROMPT);
       A(SUCCEEDED(rc), "");
 
       // Allocate statement handle
       try {
-        rc = CALL_DBC(SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt));
+        rc = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt);
         A(SUCCEEDED(rc), "");
 
         try {
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"show databases", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"show databases", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"xshow databases", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"xshow databases", SQL_NTS);
           A(FAILED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"show databases", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"show databases", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"drop database if exists foo", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"drop database if exists foo", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"create database if not exists foo", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"create database if not exists foo", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"use foo", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"use foo", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"drop table if exists t", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"drop table if exists t", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"create table if not exists t (ts timestamp, name varchar(20), age int, sex varchar(8), text nchar(3))", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"create table if not exists t (ts timestamp, name varchar(20), age int, sex varchar(8), text nchar(3))", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"select * from t", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"select * from t", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861448752, 'name1', 20, 'male', '中国人')", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861448752, 'name1', 20, 'male', '中国人')", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861449753, 'name2', 30, 'female', '苏州人')", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861449753, 'name2', 30, 'female', '苏州人')", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861450754, 'name3', null, null, null)", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861450754, 'name3', null, null, null)", SQL_NTS);
           A(SUCCEEDED(rc), "");
 
           for (size_t pos = 1; pos <= 5; ++pos ) {
-            rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"SELECT * FROM t", SQL_NTS));
+            rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"SELECT * FROM t", SQL_NTS);
             A(SUCCEEDED(rc), "");
 
             const char *exp[][5] = {
@@ -278,14 +278,14 @@ static int test_case2(void)
             SQLLEN cbName = 0;
             const char * const p = (const char*)&Name[0];
             const size_t bytes = 24;
-            rc = CALL_STMT(SQLFreeStmt(hstmt, SQL_UNBIND));
+            rc = CALL_SQLFreeStmt(hstmt, SQL_UNBIND);
             A(SUCCEEDED(rc), "");
-            rc = CALL_STMT(SQLBindCol(hstmt, pos, SQL_C_CHAR, Name, bytes/*sizeof(Name)*/, &cbName));
+            rc = CALL_SQLBindCol(hstmt, pos, SQL_C_CHAR, Name, bytes/*sizeof(Name)*/, &cbName);
             A(SUCCEEDED(rc), "");
 
             for (int i=0 ; ; i++) {
               memset(Name, 'x', sizeof(Name));
-              rc = CALL_STMT(SQLFetch(hstmt));
+              rc = CALL_SQLFetch(hstmt);
               if (rc == SQL_NO_DATA) break;
               A(SUCCEEDED(rc), "");
               char buf[1024];
@@ -337,56 +337,56 @@ static int test_case3(void)
   A(SUCCEEDED(rc), "");
 
   try {
-    rc = CALL_ENV(SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER*)SQL_OV_ODBC3, 0));
+    rc = CALL_SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER*)SQL_OV_ODBC3, 0);
     A(SUCCEEDED(rc), "");
 
-    rc = CALL_ENV(SQLAllocHandle(SQL_HANDLE_DBC, henv, &hdbc));
+    rc = CALL_SQLAllocHandle(SQL_HANDLE_DBC, henv, &hdbc);
     A(SUCCEEDED(rc), "");
 
     try {
-      rc = CALL_DBC(SQLSetConnectAttr(hdbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, 0));
+      rc = CALL_SQLSetConnectAttr(hdbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, 0);
       A(SUCCEEDED(rc), "");
 
       // Connect to data source
-      rc = CALL_DBC(SQLDriverConnect(hdbc, NULL,
+      rc = CALL_SQLDriverConnect(hdbc, NULL,
             (SQLCHAR*) "DSN=TAOS_ODBC_DSN", SQL_NTS,
             NULL, 0, NULL,
-            SQL_DRIVER_NOPROMPT));
+            SQL_DRIVER_NOPROMPT);
       A(SUCCEEDED(rc), "");
 
       // Allocate statement handle
       try {
-        rc = CALL_DBC(SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt));
+        rc = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt);
         A(SUCCEEDED(rc), "");
 
         try {
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"show databases", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"show databases", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"xshow databases", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"xshow databases", SQL_NTS);
           A(FAILED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"show databases", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"show databases", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"drop database if exists foo", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"drop database if exists foo", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"create database if not exists foo", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"create database if not exists foo", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"use foo", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"use foo", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"drop table if exists t", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"drop table if exists t", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"create table if not exists t (ts timestamp, name varchar(20), age int, sex varchar(8), text nchar(3))", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"create table if not exists t (ts timestamp, name varchar(20), age int, sex varchar(8), text nchar(3))", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"select * from t", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"select * from t", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861448752, 'name1', 20, 'male', '中国人')", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861448752, 'name1', 20, 'male', '中国人')", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861449753, 'name2', 30, 'female', '苏州人')", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861449753, 'name2', 30, 'female', '苏州人')", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861450754, 'name3', null, null, null)", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861450754, 'name3', null, null, null)", SQL_NTS);
           A(SUCCEEDED(rc), "");
 
           for (size_t pos = 1; pos <= 5; ++pos ) {
-            rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"SELECT * FROM t", SQL_NTS));
+            rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"SELECT * FROM t", SQL_NTS);
             A(SUCCEEDED(rc), "");
 
             const char *exp[][5] = {
@@ -399,14 +399,14 @@ static int test_case3(void)
             SQLLEN cbName = 0;
             const char * const p = (const char*)&Name[0];
             const size_t bytes = 24;
-            rc = CALL_STMT(SQLFreeStmt(hstmt, SQL_UNBIND));
+            rc = CALL_SQLFreeStmt(hstmt, SQL_UNBIND);
             A(SUCCEEDED(rc), "");
-            rc = CALL_STMT(SQLBindCol(hstmt, pos, SQL_C_CHAR, Name, bytes/*sizeof(Name)*/, &cbName));
+            rc = CALL_SQLBindCol(hstmt, pos, SQL_C_CHAR, Name, bytes/*sizeof(Name)*/, &cbName);
             A(SUCCEEDED(rc), "");
 
             for (int i=0 ; ; i++) {
               memset(Name, 'x', sizeof(Name));
-              rc = CALL_STMT(SQLFetch(hstmt));
+              rc = CALL_SQLFetch(hstmt);
               if (rc == SQL_NO_DATA) break;
               A(SUCCEEDED(rc), "");
               char buf[1024];
@@ -460,62 +460,62 @@ static int test_mysql_case1(void)
   A(SUCCEEDED(rc), "");
 
   try {
-    rc = CALL_ENV(SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER*)SQL_OV_ODBC3, 0));
+    rc = CALL_SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER*)SQL_OV_ODBC3, 0);
     A(SUCCEEDED(rc), "");
 
-    rc = CALL_ENV(SQLAllocHandle(SQL_HANDLE_DBC, henv, &hdbc));
+    rc = CALL_SQLAllocHandle(SQL_HANDLE_DBC, henv, &hdbc);
     A(SUCCEEDED(rc), "");
 
     try {
-      rc = CALL_DBC(SQLSetConnectAttr(hdbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, 0));
+      rc = CALL_SQLSetConnectAttr(hdbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, 0);
       A(SUCCEEDED(rc), "");
 
       // Connect to data source
-      rc = CALL_DBC(SQLDriverConnect(hdbc, NULL,
+      rc = CALL_SQLDriverConnect(hdbc, NULL,
             (SQLCHAR*) "Driver={MySQL ODBC 8.0}; UID=root; PWD=taosdata;", SQL_NTS,
             NULL, 0, NULL,
-            SQL_DRIVER_NOPROMPT));
+            SQL_DRIVER_NOPROMPT);
       A(SUCCEEDED(rc), "");
 
       // Allocate statement handle
       try {
-        rc = CALL_DBC(SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt));
+        rc = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt);
         A(SUCCEEDED(rc), "");
 
         try {
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"show databases", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"show databases", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"xshow databases", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"xshow databases", SQL_NTS);
           A(FAILED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"show databases", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"show databases", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"drop database if exists foo", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"drop database if exists foo", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"create database if not exists foo", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"create database if not exists foo", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"use foo", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"use foo", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"drop table if exists t", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"drop table if exists t", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt,
+          rc = CALL_SQLExecDirect(hstmt,
             (SQLCHAR*)"create table if not exists t (name varchar(20), age int, sex varchar(8), text varchar(30),"
-                      "f float, d double, si smallint, ti tinyint, b bool)", SQL_NTS));
+                      "f float, d double, si smallint, ti tinyint, b bool)", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"select * from t", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"select * from t", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (name, age, sex, text) values ('name1', 20, 'male', '中国人')", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (name, age, sex, text) values ('name1', 20, 'male', '中国人')", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (name, age, sex, text) values ('name2', 30, 'female', '苏州人')", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (name, age, sex, text) values ('name2', 30, 'female', '苏州人')", SQL_NTS);
           A(SUCCEEDED(rc), "");
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (name, age, sex, text) values ('name3', null, null, null)", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (name, age, sex, text) values ('name3', null, null, null)", SQL_NTS);
           A(SUCCEEDED(rc), "");
 
           SQLSMALLINT ColumnCount;
 
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"SELECT * FROM t", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"SELECT * FROM t", SQL_NTS);
           A(SUCCEEDED(rc), "");
 
-          rc = CALL_STMT(SQLNumResultCols(hstmt, &ColumnCount));
+          rc = CALL_SQLNumResultCols(hstmt, &ColumnCount);
           A(SUCCEEDED(rc), "");
 
           for (int i=1; i<=ColumnCount; ++i) {
@@ -529,7 +529,7 @@ static int test_mysql_case1(void)
             SQLSMALLINT    DecimalDigits;
             SQLSMALLINT    Nullable;
 
-            rc = CALL_STMT(SQLDescribeCol(hstmt, ColumnNumber, ColumnName, BufferLength, &NameLength, &DataType, &ColumnSize, &DecimalDigits, &Nullable));
+            rc = CALL_SQLDescribeCol(hstmt, ColumnNumber, ColumnName, BufferLength, &NameLength, &DataType, &ColumnSize, &DecimalDigits, &Nullable);
             D("ColumnNumber:%d", ColumnNumber);
             D("ColumnName:%s", ColumnName);
             D("NameLength:%d", NameLength);
@@ -552,7 +552,7 @@ static int test_mysql_case1(void)
             SQLSMALLINT    DecimalDigits;
             SQLSMALLINT    Nullable;
 
-            rc = CALL_STMT(SQLDescribeCol(hstmt, ColumnNumber, ColumnName, BufferLength, &NameLength, &DataType, &ColumnSize, &DecimalDigits, &Nullable));
+            rc = CALL_SQLDescribeCol(hstmt, ColumnNumber, ColumnName, BufferLength, &NameLength, &DataType, &ColumnSize, &DecimalDigits, &Nullable);
             if (i<0) {
               A(FAILED(rc), "");
             } else {
@@ -580,7 +580,7 @@ static int test_mysql_case1(void)
 
             if (BufferLength==0) continue;
             if (BufferLength==1) continue;
-            rc = CALL_STMT(SQLDescribeColW(hstmt, ColumnNumber, ColumnName, BufferLength, &NameLength, &DataType, &ColumnSize, &DecimalDigits, &Nullable));
+            rc = CALL_SQLDescribeColW(hstmt, ColumnNumber, ColumnName, BufferLength, &NameLength, &DataType, &ColumnSize, &DecimalDigits, &Nullable);
             if (i<0) {
               A(FAILED(rc), "");
             } else {
@@ -599,7 +599,7 @@ static int test_mysql_case1(void)
           }
 
           if (1) {
-            rc = CALL_STMT(SQLFetch(hstmt));
+            rc = CALL_SQLFetch(hstmt);
             A(SUCCEEDED(rc), "");
 
             const char fill = 'X';
@@ -613,17 +613,17 @@ static int test_mysql_case1(void)
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = -1;
-            rc = CALL_STMT(SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind));
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
             A(FAILED(rc), "");
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = -1;
-            rc = CALL_STMT(SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind));
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
             A(FAILED(rc), "");
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 0;
-            rc = CALL_STMT(SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind));
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
             A(SUCCEEDED(rc), "");
             for (int ch=0; ch<6; ++ch) {
               D("BufferLength[%ld]; ch[%d]; [0x%02x],[0x%02x]; StrLen_or_Ind[%ld]", BufferLength, ch, (unsigned char)buf[ch*2], (unsigned char)buf[ch*2+1], StrLen_or_Ind);
@@ -632,7 +632,7 @@ static int test_mysql_case1(void)
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 0;
-            rc = CALL_STMT(SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind));
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
             A(SUCCEEDED(rc), "");
             for (int ch=0; ch<6; ++ch) {
               D("BufferLength[%ld]; ch[%d]; [0x%02x],[0x%02x]; StrLen_or_Ind[%ld]", BufferLength, ch, (unsigned char)buf[ch*2], (unsigned char)buf[ch*2+1], StrLen_or_Ind);
@@ -641,7 +641,7 @@ static int test_mysql_case1(void)
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 1;
-            rc = CALL_STMT(SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind));
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
             A(SUCCEEDED(rc), "");
             for (int ch=0; ch<6; ++ch) {
               D("BufferLength[%ld]; ch[%d]; [0x%02x],[0x%02x]; StrLen_or_Ind[%ld]", BufferLength, ch, (unsigned char)buf[ch*2], (unsigned char)buf[ch*2+1], StrLen_or_Ind);
@@ -650,7 +650,7 @@ static int test_mysql_case1(void)
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 1;
-            rc = CALL_STMT(SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind));
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
             A(SUCCEEDED(rc), "");
             for (int ch=0; ch<6; ++ch) {
               D("BufferLength[%ld]; ch[%d]; [0x%02x],[0x%02x]; StrLen_or_Ind[%ld]", BufferLength, ch, (unsigned char)buf[ch*2], (unsigned char)buf[ch*2+1], StrLen_or_Ind);
@@ -659,7 +659,7 @@ static int test_mysql_case1(void)
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 2;
-            rc = CALL_STMT(SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind));
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
             A(SUCCEEDED(rc), "");
             for (int ch=0; ch<6; ++ch) {
               D("BufferLength[%ld]; ch[%d]; [0x%02x],[0x%02x]; StrLen_or_Ind[%ld]", BufferLength, ch, (unsigned char)buf[ch*2], (unsigned char)buf[ch*2+1], StrLen_or_Ind);
@@ -668,7 +668,7 @@ static int test_mysql_case1(void)
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 2;
-            rc = CALL_STMT(SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind));
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
             A(SUCCEEDED(rc), "");
             for (int ch=0; ch<6; ++ch) {
               D("BufferLength[%ld]; ch[%d]; [0x%02x],[0x%02x]; StrLen_or_Ind[%ld]", BufferLength, ch, (unsigned char)buf[ch*2], (unsigned char)buf[ch*2+1], StrLen_or_Ind);
@@ -677,7 +677,7 @@ static int test_mysql_case1(void)
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 2;
-            rc = CALL_STMT(SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind));
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
             A(SUCCEEDED(rc), "");
             for (int ch=0; ch<6; ++ch) {
               D("BufferLength[%ld]; ch[%d]; [0x%02x],[0x%02x]; StrLen_or_Ind[%ld]", BufferLength, ch, (unsigned char)buf[ch*2], (unsigned char)buf[ch*2+1], StrLen_or_Ind);
@@ -686,7 +686,7 @@ static int test_mysql_case1(void)
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 2;
-            rc = CALL_STMT(SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind));
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
             A(SUCCEEDED(rc), "");
             for (int ch=0; ch<6; ++ch) {
               D("BufferLength[%ld]; ch[%d]; [0x%02x],[0x%02x]; StrLen_or_Ind[%ld]", BufferLength, ch, (unsigned char)buf[ch*2], (unsigned char)buf[ch*2+1], StrLen_or_Ind);
@@ -695,7 +695,7 @@ static int test_mysql_case1(void)
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 2;
-            rc = CALL_STMT(SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind));
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
             A(SUCCEEDED(rc), "");
             for (int ch=0; ch<6; ++ch) {
               D("BufferLength[%ld]; ch[%d]; [0x%02x],[0x%02x]; StrLen_or_Ind[%ld]", BufferLength, ch, (unsigned char)buf[ch*2], (unsigned char)buf[ch*2+1], StrLen_or_Ind);
@@ -704,7 +704,7 @@ static int test_mysql_case1(void)
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 2;
-            rc = CALL_STMT(SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind));
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
             A(SUCCEEDED(rc), "");
             for (int ch=0; ch<6; ++ch) {
               D("BufferLength[%ld]; ch[%d]; [0x%02x],[0x%02x]; StrLen_or_Ind[%ld]", BufferLength, ch, (unsigned char)buf[ch*2], (unsigned char)buf[ch*2+1], StrLen_or_Ind);
@@ -713,7 +713,7 @@ static int test_mysql_case1(void)
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 2;
-            rc = CALL_STMT(SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind));
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
             A(SUCCEEDED(rc), "");
             for (int ch=0; ch<6; ++ch) {
               D("BufferLength[%ld]; ch[%d]; [0x%02x],[0x%02x]; StrLen_or_Ind[%ld]", BufferLength, ch, (unsigned char)buf[ch*2], (unsigned char)buf[ch*2+1], StrLen_or_Ind);
@@ -722,7 +722,7 @@ static int test_mysql_case1(void)
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 2;
-            rc = CALL_STMT(SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind));
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
             A(SUCCEEDED(rc), "");
             for (int ch=0; ch<6; ++ch) {
               D("BufferLength[%ld]; ch[%d]; [0x%02x],[0x%02x]; StrLen_or_Ind[%ld]", BufferLength, ch, (unsigned char)buf[ch*2], (unsigned char)buf[ch*2+1], StrLen_or_Ind);
@@ -731,7 +731,7 @@ static int test_mysql_case1(void)
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 2;
-            rc = CALL_STMT(SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind));
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
             A(SUCCEEDED(rc), "");
             for (int ch=0; ch<6; ++ch) {
               D("BufferLength[%ld]; ch[%d]; [0x%02x],[0x%02x]; StrLen_or_Ind[%ld]", BufferLength, ch, (unsigned char)buf[ch*2], (unsigned char)buf[ch*2+1], StrLen_or_Ind);
@@ -740,21 +740,21 @@ static int test_mysql_case1(void)
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 2;
-            rc = CALL_STMT(SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind));
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
             A(rc == SQL_NO_DATA, "");
           }
 
-          rc = CALL_STMT(SQLCloseCursor(hstmt));
+          rc = CALL_SQLCloseCursor(hstmt);
           A(SUCCEEDED(rc), "");
 
-          rc = CALL_STMT(SQLExecDirect(hstmt, (SQLCHAR*)"SELECT * FROM t", SQL_NTS));
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"SELECT * FROM t", SQL_NTS);
           A(SUCCEEDED(rc), "");
 
-          rc = CALL_STMT(SQLNumResultCols(hstmt, &ColumnCount));
+          rc = CALL_SQLNumResultCols(hstmt, &ColumnCount);
           A(SUCCEEDED(rc), "");
 
           for (int i=0; i<3; ++i) {
-            rc = CALL_STMT(SQLFetch(hstmt));
+            rc = CALL_SQLFetch(hstmt);
             A(SUCCEEDED(rc), "");
 
             for (int j=1; j<ColumnCount; ++j) {
@@ -769,7 +769,7 @@ static int test_mysql_case1(void)
                 SQLLEN         BufferLength     = k;
                 SQLLEN         StrLen_or_Ind;
 
-                rc = CALL_STMT(SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind));
+                rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
                 if (rc == SQL_NO_DATA) continue;
                 if (BufferLength < 0) { A(FAILED(rc), ""); continue; }
                 A(SUCCEEDED(rc), "i/j/k:[%d/%d/%d]", i, j, k);

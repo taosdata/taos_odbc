@@ -519,7 +519,7 @@ SQLRETURN conn_set_attr(
           (SQLUINTEGER)(uintptr_t)ValuePtr);
       return SQL_SUCCESS_WITH_INFO;
     default:
-      conn_append_err_format(conn, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_connection_attr(Attribute), Attribute, Attribute);
+      conn_append_err_format(conn, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_conn_attr(Attribute), Attribute, Attribute);
       return SQL_ERROR;
   }
 }

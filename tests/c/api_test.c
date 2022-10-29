@@ -191,8 +191,6 @@ static int _sql_stmt_get_long_data_by_col(SQLHANDLE stmth, SQLSMALLINT ColumnNum
 
   char *p = buf;
 
-  SQLHANDLE hstmt = stmth;
-
   SQLUSMALLINT   Col_or_Param_Num    = ColumnNumber;
   SQLSMALLINT    TargetType          = SQL_C_CHAR;
   SQLPOINTER     TargetValuePtr      = (SQLPOINTER)p;
@@ -200,7 +198,7 @@ static int _sql_stmt_get_long_data_by_col(SQLHANDLE stmth, SQLSMALLINT ColumnNum
   SQLLEN         StrLen_or_Ind;
 
   while (1) {
-    SQLRETURN r = CALL_STMT(SQLGetData(stmth, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, &StrLen_or_Ind));
+    SQLRETURN r = CALL_SQLGetData(stmth, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, &StrLen_or_Ind);
     if (r == SQL_NO_DATA) break;
     if (SUCCEEDED(r)) {
       if (StrLen_or_Ind == SQL_NULL_DATA) {
@@ -270,8 +268,6 @@ static int _sql_stmt_get_data(SQLHANDLE stmth, SQLSMALLINT ColumnCount)
 __attribute__((unused))
 static int test_sql_stmt_execute_direct(SQLHANDLE stmth, const char *statement)
 {
-  SQLHANDLE hstmt = stmth;
-
   SQLRETURN r;
   SQLSMALLINT ColumnCount;
   int rr;
@@ -290,17 +286,17 @@ static int test_sql_stmt_execute_direct(SQLHANDLE stmth, const char *statement)
     rr = _sql_stmt_get_data(stmth, ColumnCount);
   }
 
-  CALL_STMT(SQLCloseCursor(stmth));
+  CALL_SQLCloseCursor(stmth);
 
   if (rr) return -1;
 
-  r = CALL_STMT(SQLExecDirect(stmth, (SQLCHAR*)statement, strlen(statement)));
+  r = CALL_SQLExecDirect(stmth, (SQLCHAR*)statement, strlen(statement));
   if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
 
-  r = CALL_STMT(SQLNumResultCols(stmth, &ColumnCount));
+  r = CALL_SQLNumResultCols(stmth, &ColumnCount);
   if (FAILED(r)) return -1;
 
-  r = CALL_STMT(SQLFetch(stmth));
+  r = CALL_SQLFetch(stmth);
   if (r == SQL_NO_DATA) return 0;
 
   rr = _sql_stmt_get_long_data(stmth, ColumnCount);
@@ -312,7 +308,7 @@ static int test_sql_stmt_execute_direct(SQLHANDLE stmth, const char *statement)
     }
   }
 
-  CALL_STMT(SQLCloseCursor(stmth));
+  CALL_SQLCloseCursor(stmth);
 
   return rr ? -1 : 0;
 }

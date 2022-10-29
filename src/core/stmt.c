@@ -539,7 +539,7 @@ static SQLRETURN _stmt_set_paramset_size(stmt_t *stmt, SQLULEN paramset_size)
   }
 
   if (paramset_size != 1) {
-    if (!stmt->is_insert_stmt) {
+    if (stmt->prepared && !stmt->is_insert_stmt) {
       stmt_append_err(stmt, "HY000", 0, "General error:taosc currently does not support batch execution for non-insert-statement");
       return SQL_ERROR;
     }
@@ -3467,8 +3467,10 @@ SQLRETURN stmt_prepare(stmt_t *stmt,
     SQLCHAR      *StatementText,
     SQLINTEGER    TextLength)
 {
-  OA_NIY(stmt->res == NULL);
   OA_NIY(stmt->stmt == NULL);
+
+  rowset_reset(&stmt->rowset);
+  _stmt_release_result(stmt);
 
   _stmt_unprepare(stmt);
 
@@ -3987,6 +3989,13 @@ static SQLRETURN _stmt_pre_exec_prepare_params(stmt_t *stmt)
   if (APD_header->DESC_ARRAY_SIZE <= 0) {
     stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error, DESC_ARRAY_SIZE[%ld] invalid", APD_header->DESC_ARRAY_SIZE);
     return SQL_ERROR;
+  }
+
+  if (APD_header->DESC_ARRAY_SIZE > 1) {
+    if (!stmt->is_insert_stmt) {
+      stmt_append_err(stmt, "HY000", 0, "General error:taosc currently does not support batch execution for non-insert-statement");
+      return SQL_ERROR;
+    }
   }
 
   if (IPD_header->DESC_ROWS_PROCESSED_PTR) *IPD_header->DESC_ROWS_PROCESSED_PTR = 0;

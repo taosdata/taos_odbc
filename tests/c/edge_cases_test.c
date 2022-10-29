@@ -141,33 +141,6 @@ static int test_direct_executes(SQLHANDLE hstmt)
   return 0;
 }
 
-static int test_execute(SQLHANDLE hstmt, const char *sql)
-{
-  SQLRETURN sr;
-
-  sr = CALL_SQLPrepare(hstmt, (SQLCHAR*)sql, SQL_NTS);
-  if (FAILED(sr)) return -1;
-
-  sr = CALL_SQLExecute(hstmt);
-  if (FAILED(sr)) return -1;
-
-  if (rand() % 2) {
-    sr = CALL_SQLFreeStmt(hstmt, SQL_CLOSE);
-    if (FAILED(sr)) return -1;
-  }
-
-  return 0;
-}
-
-static int test_executes(SQLHANDLE hstmt)
-{
-  CHECK(test_execute(hstmt, "insert into t (ts, name, age, sex, text) values (1662861448752, 'name1', 20, 'male', '中国人')"));
-  // CHECK(test_execute(hstmt, "insert into t (ts, name, age, sex, text) values (1662861449753, 'name2', 30, 'female', '苏州人')"));
-  // CHECK(test_execute(hstmt, "insert into t (ts, name, age, sex, text) values (1662861450754, 'name3', null, null, null)"));
-
-  return 0;
-}
-
 static int test_queries(SQLHANDLE hdbc)
 {
   SQLHANDLE hstmt;
@@ -181,17 +154,127 @@ static int test_queries(SQLHANDLE hdbc)
   do {
     r = test_direct_executes(hstmt);
     if (r) break;
-
-    if (1) break;
-
-    r = test_executes(hstmt);
-    if (r) break;
   } while (0);
 
 end:
   SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
 
   return r;
+}
+
+static int test_bind_array_of_params(SQLHANDLE hdbc)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+  SQLHANDLE hstmt;
+
+  int r = create_statement(&hstmt, hdbc);
+  if (r) return -1;
+
+  do {
+    r = test_direct_exec(hstmt, "create database if not exists foo");
+    if (r) break;
+    r = test_direct_exec(hstmt, "use foo");
+    if (r) break;
+    r = test_direct_exec(hstmt, "drop table if exists t");
+    if (r) break;
+    r = test_direct_exec(hstmt, "create table t (ts timestamp, name varchar(10))");
+    if (r) break;
+
+#define DESC_LEN     (10+1)
+#define ARRAY_SIZE   (2)
+
+    SQLBIGINT      TsArray[ARRAY_SIZE];
+    SQLLEN         TsIndArray[ARRAY_SIZE];
+
+    SQLCHAR        NameArray[ARRAY_SIZE][DESC_LEN];
+    SQLLEN         NameLenOrIndArray[ARRAY_SIZE];
+
+    SQLUSMALLINT   ParamStatusArray[ARRAY_SIZE];
+    SQLULEN        ParamsProcessed;
+
+    memset(TsIndArray, 0, sizeof(TsIndArray));
+    memset(NameLenOrIndArray, 0, sizeof(NameLenOrIndArray));
+
+    // Set the SQL_ATTR_PARAM_BIND_TYPE statement attribute to use
+    // column-wise binding.
+    sr = CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAM_BIND_TYPE, SQL_PARAM_BIND_BY_COLUMN, 0);
+    if (FAILED(sr)) break;
+
+    // Specify the number of elements in each parameter array.
+    sr = CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAMSET_SIZE, (SQLPOINTER)ARRAY_SIZE, 0);
+    if (FAILED(sr)) break;
+
+    // Specify an array in which to return the status of each set of
+    // parameters.
+    sr = CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAM_STATUS_PTR, ParamStatusArray, 0);
+    if (FAILED(sr)) break;
+
+    // Specify an SQLUINTEGER value in which to return the number of sets of
+    // parameters processed.
+    sr = CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAMS_PROCESSED_PTR, &ParamsProcessed, 0);
+    if (FAILED(sr)) break;
+
+    // Bind the parameters in column-wise fashion.
+    sr = CALL_SQLBindParameter(hstmt, 1, SQL_PARAM_INPUT, SQL_C_SBIGINT, SQL_TYPE_TIMESTAMP, 20+3, 3, TsArray, 0, TsIndArray);
+    if (FAILED(sr)) break;
+    sr = CALL_SQLBindParameter(hstmt, 2, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, DESC_LEN - 1, 0, NameArray, DESC_LEN, NameLenOrIndArray);
+    if (FAILED(sr)) break;
+
+    // Set ts, name
+    for (size_t i = 0; i < ARRAY_SIZE; i++) {
+      TsArray[i] = 1662861448752 + i;
+      snprintf((char*)(NameArray[i]), sizeof(NameArray[i]), "name%ld", i);
+      NameLenOrIndArray[i] = SQL_NTS;
+      TsIndArray[i] = 0;
+    }
+
+    const char *sql = "insert into t (ts,name) values (?,?)";
+    if (1) {
+      sr = CALL_SQLPrepare(hstmt, (SQLCHAR*)sql, SQL_NTS);
+      if (FAILED(sr)) break;
+
+      sr = CALL_SQLExecute(hstmt);
+      if (FAILED(sr)) break;
+    } else {
+      // Execute the statement.
+      // NOTE: still looking for a way to make taosc compatible with both parameterised and non-parameterised statement
+      sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
+      if (FAILED(sr)) break;
+    }
+
+    r = 0;
+
+    // Check to see which sets of parameters were processed successfully.
+    for (size_t i = 0; i < ParamsProcessed; i++) {
+      printf("Parameter Set  Status\n");
+      printf("-------------  -------------\n");
+      switch (ParamStatusArray[i]) {
+        case SQL_PARAM_SUCCESS:
+        case SQL_PARAM_SUCCESS_WITH_INFO:
+          printf("%13ld  Success\n", i);
+          break;
+
+        case SQL_PARAM_ERROR:
+          printf("%13ld  Error\n", i);
+          r = -1;
+          break;
+
+        case SQL_PARAM_UNUSED:
+          printf("%13ld  Not processed\n", i);
+          r = -1;
+          break;
+
+        case SQL_PARAM_DIAG_UNAVAILABLE:
+          printf("%13ld  Unknown\n", i);
+          r = -1;
+          break;
+      }
+    }
+  } while (0);
+
+  CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+
+  return (r || FAILED(sr)) ? -1 : 0;
 }
 
 int main(int argc, char *argv[])
@@ -260,7 +343,13 @@ int main(int argc, char *argv[])
   r = create_connection(&henv, &hdbc, conn_str, dsn, uid, pwd);
   if (r) return 1;
 
-  r = test_queries(hdbc);
+  do {
+    r = test_queries(hdbc);
+    if (r) break;
+
+    r = test_bind_array_of_params(hdbc);
+  } while (0);
+
 
   sr = CALL_SQLDisconnect(hdbc);
   if (FAILED(sr)) r = 1;

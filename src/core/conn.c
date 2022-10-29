@@ -509,13 +509,13 @@ SQLRETURN conn_set_attr(
     case SQL_ATTR_CONNECTION_TIMEOUT:
       if (0 == (SQLUINTEGER)(uintptr_t)ValuePtr) return SQL_SUCCESS;
       conn_append_err_format(conn, "01S02", 0,
-          "Option value changed:`%u for `SQL_ATTR_CONNECTION_TIMEOUT` is substituted by `0`",
+          "Option value changed:`%u` for `SQL_ATTR_CONNECTION_TIMEOUT` is substituted by `0`",
           (SQLUINTEGER)(uintptr_t)ValuePtr);
       return SQL_SUCCESS_WITH_INFO;
     case SQL_ATTR_LOGIN_TIMEOUT:
       if (0 == (SQLUINTEGER)(uintptr_t)ValuePtr) return SQL_SUCCESS;
       conn_append_err_format(conn, "01S02", 0,
-          "Option value changed:`%u for `SQL_ATTR_LOGIN_TIMEOUT` is substituted by `0`",
+          "Option value changed:`%u` for `SQL_ATTR_LOGIN_TIMEOUT` is substituted by `0`",
           (SQLUINTEGER)(uintptr_t)ValuePtr);
       return SQL_SUCCESS_WITH_INFO;
     default:

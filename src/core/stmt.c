@@ -167,9 +167,14 @@ static SQLRETURN _stmt_associate_ARD(stmt_t *stmt, desc_t *desc)
 {
   if (stmt->associated_ARD == desc) return SQL_SUCCESS;
 
+  if (desc->conn != stmt->conn) {
+    stmt_append_err(stmt, "HY024", 0, "Invalid attribute value:descriptor not on the same connection as that of the statement");
+    return SQL_ERROR;
+  }
+
   // FIXME:
   if (stmt->associated_APD == desc) {
-    stmt_append_err(stmt, "HY024", 0, "descriptor already associated as statement's APD");
+    stmt_append_err(stmt, "HY024", 0, "Invalid attribute value:descriptor already associated as statement's APD");
     return SQL_ERROR;
   }
 
@@ -199,9 +204,14 @@ static SQLRETURN _stmt_associate_APD(stmt_t *stmt, desc_t *desc)
 {
   if (stmt->associated_APD == desc) return SQL_SUCCESS;
 
+  if (desc->conn != stmt->conn) {
+    stmt_append_err(stmt, "HY024", 0, "Invalid attribute value:descriptor not on the same connection as that of the statement");
+    return SQL_ERROR;
+  }
+
   // FIXME:
   if (stmt->associated_ARD == desc) {
-    stmt_append_err(stmt, "HY024", 0, "descriptor already associated as statement's ARD");
+    stmt_append_err(stmt, "HY024", 0, "Invalid attribute value:descriptor already associated as statement's ARD");
     return SQL_ERROR;
   }
 
@@ -223,11 +233,6 @@ static SQLRETURN _stmt_set_row_desc(stmt_t *stmt, SQLPOINTER ValuePtr)
   }
 
   desc_t *desc = (desc_t*)(SQLHANDLE)ValuePtr;
-  if (desc->conn != stmt->conn) {
-    stmt_append_err(stmt, "HY024", 0, "descriptor allocated on the connection other than that of the statement which is to be associated with");
-    return SQL_ERROR;
-  }
-
   return _stmt_associate_ARD(stmt, desc);
 }
 
@@ -239,11 +244,6 @@ static SQLRETURN _stmt_set_param_desc(stmt_t *stmt, SQLPOINTER ValuePtr)
   }
 
   desc_t *desc = (desc_t*)(SQLHANDLE)ValuePtr;
-  if (desc->conn != stmt->conn) {
-    stmt_append_err(stmt, "HY024", 0, "descriptor allocated on the connection other than that of the statement which is to be associated with");
-    return SQL_ERROR;
-  }
-
   return _stmt_associate_APD(stmt, desc);
 }
 
@@ -372,7 +372,7 @@ static SQLRETURN _stmt_post_exec(stmt_t *stmt)
   estr = CALL_taos_errstr(stmt->res);
 
   if (e) {
-    stmt_append_err(stmt, "HY000", e, estr);
+    stmt_append_err_format(stmt, "HY000", e, "General error:[taosc]%s", estr);
     return SQL_ERROR;
   } else if (stmt->res) {
     stmt->time_precision = CALL_taos_result_precision(stmt->res);
@@ -432,7 +432,7 @@ static SQLRETURN _stmt_exec_direct_sql(stmt_t *stmt, const char *sql)
   TAOS *taos = stmt->conn->taos;
 
   if (stmt->stmt) {
-    stmt_append_err(stmt, "HY000", 0, "not implemented yet");
+    stmt_append_err(stmt, "HY000", 0, "General error:not implemented yet");
     return SQL_ERROR;
   }
 
@@ -488,13 +488,9 @@ SQLRETURN stmt_exec_direct(stmt_t *stmt, const char *sql, int len)
 
 static SQLRETURN _stmt_set_row_array_size(stmt_t *stmt, SQLULEN row_array_size)
 {
-  // if (row_array_size != 1) {
-  //   stmt_append_err_format(stmt, "01S02", 0, "`SQL_ATTR_ROW_ARRAY_SIZE[%ld]` other than `1` is not supported yet", row_array_size);
-  //   return SQL_SUCCESS_WITH_INFO;
-  // }
   if (row_array_size == 0) {
-    stmt_append_err(stmt, "01S02", 0, "invalid value for `SQL_ATTR_ROW_ARRAY_SIZE`");
-    return SQL_ERROR;
+    stmt_append_err(stmt, "01S02", 0, "Option value changed:`0` for `SQL_ATTR_ROW_ARRAY_SIZE` is substituted by current value");
+    return SQL_SUCCESS_WITH_INFO;
   }
 
   descriptor_t *desc = _stmt_ARD(stmt);
@@ -514,13 +510,13 @@ static SQLULEN _stmt_get_row_array_size(stmt_t *stmt)
 static SQLRETURN _stmt_set_paramset_size(stmt_t *stmt, SQLULEN paramset_size)
 {
   if (paramset_size == 0) {
-    stmt_append_err(stmt, "01S02", 0, "invalid value for `SQL_ATTR_PARAMSET_ARRAY_SIZE`");
-    return SQL_ERROR;
+    stmt_append_err(stmt, "01S02", 0, "Option value changed:`0` for `SQL_ATTR_PARAMSET_SIZE` is substituted by current value");
+    return SQL_SUCCESS_WITH_INFO;
   }
 
   if (paramset_size != 1) {
     if (!stmt->is_insert_stmt) {
-      stmt_append_err_format(stmt, "HYC00", 0, "`SQL_ATTR_PARAMSET_SIZE[%ld]` other than `1` is not supported yet", paramset_size);
+      stmt_append_err(stmt, "HY000", 0, "General error:taosc currently does not support batch execution for non-insert-statement");
       return SQL_ERROR;
     }
   }
@@ -584,7 +580,7 @@ SQLRETURN stmt_get_col_count(stmt_t *stmt, SQLSMALLINT *col_count_ptr)
 static SQLRETURN _stmt_set_row_bind_type(stmt_t *stmt, SQLULEN row_bind_type)
 {
   if (row_bind_type != SQL_BIND_BY_COLUMN) {
-    stmt_append_err(stmt, "HY000", 0, "only `SQL_BIND_BY_COLUMN` is supported now");
+    stmt_append_err(stmt, "HY000", 0, "General error:only `SQL_BIND_BY_COLUMN` is supported now");
     return SQL_ERROR;
   }
 
@@ -605,7 +601,7 @@ static SQLRETURN _stmt_set_row_bind_type(stmt_t *stmt, SQLULEN row_bind_type)
 static SQLRETURN _stmt_set_param_bind_type(stmt_t *stmt, SQLULEN param_bind_type)
 {
   if (param_bind_type != SQL_BIND_BY_COLUMN) {
-    stmt_append_err(stmt, "HY000", 0, "only `SQL_BIND_BY_COLUMN` is supported now");
+    stmt_append_err(stmt, "HY000", 0, "General error:only `SQL_BIND_BY_COLUMN` is supported now");
     return SQL_ERROR;
   }
 
@@ -642,7 +638,7 @@ static SQLRETURN _stmt_set_params_processed_ptr(stmt_t *stmt, SQLULEN *params_pr
 static SQLRETURN _stmt_set_max_length(stmt_t *stmt, SQLULEN max_length)
 {
   if (max_length != 0) {
-    stmt_append_err(stmt, "01S02", 0, "`SQL_ATTR_MAX_LENGTH` of non-zero is not supported");
+    stmt_append_err(stmt, "01S02", 0, "Option value changed:`%u` for `SQL_ATTR_MAX_LENGTH` is substituted by `0`");
     return SQL_SUCCESS_WITH_INFO;
   }
   // stmt->attrs.ATTR_MAX_LENGTH = max_length;
@@ -675,22 +671,15 @@ SQLRETURN stmt_describe_col(stmt_t *stmt,
     SQLSMALLINT   *DecimalDigitsPtr,
     SQLSMALLINT   *NullablePtr)
 {
+  // NOTE: DM to make sure ColumnNumber is valid
   TAOS_FIELD *p = stmt->fields + ColumnNumber - 1;
-  SQLRETURN sr = SQL_SUCCESS;
 
   if (DecimalDigitsPtr) *DecimalDigitsPtr = 0;
   if (NullablePtr)      *NullablePtr      = SQL_NULLABLE_UNKNOWN;
 
   int n;
   n = snprintf((char*)ColumnName, BufferLength, "%s", p->name);
-  if (NameLengthPtr) {
-    *NameLengthPtr = n;
-  }
-
-  if (n >= BufferLength) {
-    stmt_append_err_format(stmt, "01004", 0, "String right truncated for Column `%s[#%d]`", p->name, ColumnNumber);
-    sr = SQL_SUCCESS_WITH_INFO;
-  }
+  if (NameLengthPtr) *NameLengthPtr = n;
 
   if (NullablePtr) *NullablePtr = SQL_NULLABLE_UNKNOWN;
   switch (p->type) {
@@ -772,12 +761,16 @@ SQLRETURN stmt_describe_col(stmt_t *stmt,
       if (ColumnSizePtr)    *ColumnSizePtr = 1;
       break;
     default:
-      OA(0, "`%s[%d]` for Column `%s[#%d]` not implemented yet", taos_data_type(p->type), p->type, p->name, ColumnNumber);
-      stmt_append_err_format(stmt, "HY000", 0, "`%s[%d]` for Column `%s[#%d]` not implemented yet", taos_data_type(p->type), p->type, p->name, ColumnNumber);
+      stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d]` for Column `%s[#%d]` not implemented yet", taos_data_type(p->type), p->type, p->name, ColumnNumber);
       return SQL_ERROR;
   }
 
-  return sr;
+  if (n >= BufferLength) {
+    stmt_append_err_format(stmt, "01004", 0, "String data, right truncated:Column `%s[#%d]` truncated to [%s]", p->name, ColumnNumber, ColumnName);
+    return SQL_SUCCESS_WITH_INFO;
+  }
+
+  return SQL_SUCCESS;
 }
 
 static SQLRETURN _stmt_calc_bytes(stmt_t *stmt,
@@ -787,7 +780,7 @@ static SQLRETURN _stmt_calc_bytes(stmt_t *stmt,
   iconv_t cd = iconv_open(tocode, fromcode);
   if ((size_t)cd == (size_t)-1) {
     stmt_append_err_format(stmt, "HY000", 0,
-        "[iconv] No character set conversion found for `%s` to `%s`:[%d]%s",
+        "General error:[iconv]No character set conversion found for `%s` to `%s`:[%d]%s",
         fromcode, tocode, errno, strerror(errno));
     return SQL_ERROR;
   }
@@ -799,7 +792,6 @@ static SQLRETURN _stmt_calc_bytes(stmt_t *stmt,
 
   *bytes = 0;
   while (inbytes>0) {
-    OD("inbytes:%ld", inbytes);
     char buf[1024];
     char *outbuf = buf;
     size_t outbytes = sizeof(buf);
@@ -809,7 +801,7 @@ static SQLRETURN _stmt_calc_bytes(stmt_t *stmt,
       int e = errno;
       if (e == E2BIG) continue;
       stmt_append_err_format(stmt, "HY000", 0,
-          "[iconv] Character set conversion for `%s` to `%s` failed:[%d]%s",
+          "General error:[iconv]Character set conversion for `%s` to `%s` failed:[%d]%s",
           fromcode, tocode, e, strerror(e));
       sr = SQL_ERROR;
       break;
@@ -829,7 +821,7 @@ static SQLRETURN _stmt_encode(stmt_t *stmt,
   iconv_t cd = iconv_open(tocode, fromcode);
   if ((size_t)cd == (size_t)-1) {
     stmt_append_err_format(stmt, "HY000", 0,
-        "[iconv] No character set conversion found for `%s` to `%s`:[%d]%s",
+        "General:[iconv]No character set conversion found for `%s` to `%s`:[%d]%s",
         fromcode, tocode, errno, strerror(errno));
     return SQL_ERROR;
   }
@@ -841,20 +833,20 @@ static SQLRETURN _stmt_encode(stmt_t *stmt,
   iconv_close(cd);
   if (*inbytesleft > 0) {
     stmt_append_err_format(stmt, "01004", 0,
-        "[iconv] Character set conversion for `%s` to `%s` results in string truncation, #%ld out of #%ld bytes consumed, #%ld out of #%ld bytes converted:[%d]%s",
+        "String data, right truncated:[iconv]Character set conversion for `%s` to `%s`, #%ld out of #%ld bytes consumed, #%ld out of #%ld bytes converted:[%d]%s",
         fromcode, tocode, inbytes - *inbytesleft, inbytes, outbytes - * outbytesleft, outbytes, e, strerror(e));
     return SQL_SUCCESS_WITH_INFO;
   }
   if (sz == (size_t)-1) {
     stmt_append_err_format(stmt, "HY000", 0,
-        "[iconv] Character set conversion for `%s` to `%s` failed:[%d]%s",
+        "General error:[iconv]Character set conversion for `%s` to `%s` failed:[%d]%s",
         fromcode, tocode, e, strerror(e));
     return SQL_ERROR;
   }
   if (sz > 0) {
     // FIXME: what actually means when sz > 0???
-    stmt_append_err_format(stmt, "HY000", 0,
-        "[iconv] Character set conversion for `%s` to `%s` succeeded with #[%ld] of nonreversible characters converted",
+    stmt_append_err_format(stmt, "01000", 0,
+        "General warning:[iconv]Character set conversion for `%s` to `%s` succeeded with #%ld of nonreversible characters converted",
         fromcode, tocode, sz);
     return SQL_SUCCESS_WITH_INFO;
   }
@@ -990,8 +982,8 @@ SQLRETURN stmt_bind_col(stmt_t *stmt,
       break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
-          "converstion to `%s[%d]` not implemented yet",
-          sql_c_data_type(TargetType), TargetType);
+          "General error:#%d Column converstion to `%s[0x%x/%d]` not implemented yet",
+          ColumnNumber, sql_c_data_type(TargetType), TargetType, TargetType);
       return SQL_ERROR;
       break;
   }
@@ -1148,8 +1140,8 @@ static SQLRETURN _stmt_get_data_len(stmt_t *stmt, int row, int col, const char *
     } break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
-          "`%s[%d]` not implemented yet",
-          taos_data_type(field->type), field->type);
+          "General error:#%d Column[%s] conversion from `%s[0x%x/%d]` not implemented yet",
+          col+1, field->name, taos_data_type(field->type), field->type, field->type);
       return SQL_ERROR;
   }
 
@@ -1206,8 +1198,8 @@ static SQLRETURN _stmt_get_conv_to_sql_c_utinyint(stmt_t *stmt, tsdb_to_sql_c_f 
       break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
-          "converstion from `%s[%d]` to `SQL_C_UTINYINT` not implemented yet",
-          taos_data_type(taos_type), taos_type);
+          "General error:Column converstion from `%s[0x%x/%d]` to `SQL_C_UTINYINT` not implemented yet",
+          taos_data_type(taos_type), taos_type, taos_type);
       return SQL_ERROR;
   }
 
@@ -1221,8 +1213,6 @@ static int _stmt_bind_conv_tsdb_tinyint_to_sql_c_short(stmt_t *stmt, const char 
   OA_NIY(len == sizeof(int8_t));
 
   int8_t v = *(int8_t*)data;
-
-  OD("v:[%d]", v);
 
   size_t outbytes = dlen;
   OA_NIY(outbytes == sizeof(int16_t));
@@ -1239,8 +1229,6 @@ static int _stmt_bind_conv_tsdb_smallint_to_sql_c_short(stmt_t *stmt, const char
   OA_NIY(len == sizeof(int16_t));
 
   int16_t v = *(int16_t*)data;
-
-  OD("v:[%d]", v);
 
   size_t outbytes = dlen;
   OA_NIY(outbytes == sizeof(int16_t));
@@ -1261,8 +1249,8 @@ static SQLRETURN _stmt_get_conv_to_sql_c_short(stmt_t *stmt, tsdb_to_sql_c_f *co
       break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
-          "converstion from `%s[%d]` to `SQL_C_SHORT` not implemented yet",
-          taos_data_type(taos_type), taos_type);
+          "General error:Column converstion from `%s[0x%x/%d]` to `SQL_C_SHORT` not implemented yet",
+          taos_data_type(taos_type), taos_type, taos_type);
       return SQL_ERROR;
   }
 
@@ -1276,8 +1264,6 @@ static int _stmt_bind_conv_tsdb_int_to_sql_c_slong(stmt_t *stmt, const char *dat
   OA_NIY(len == sizeof(int32_t));
 
   int32_t v = *(int32_t*)data;
-
-  OD("v:[%d]", v);
 
   size_t outbytes = dlen;
   OA_NIY(outbytes == sizeof(int32_t));
@@ -1294,8 +1280,6 @@ static int _stmt_bind_conv_tsdb_usmallint_to_sql_c_slong(stmt_t *stmt, const cha
   OA_NIY(len == sizeof(uint16_t));
 
   uint16_t v = *(uint16_t*)data;
-
-  OD("v:[%u]", v);
 
   size_t outbytes = dlen;
   OA_NIY(outbytes == sizeof(int32_t));
@@ -1316,8 +1300,8 @@ static SQLRETURN _stmt_get_conv_to_sql_c_slong(stmt_t *stmt, tsdb_to_sql_c_f *co
       break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
-          "converstion from `%s[%d]` to `SQL_C_SLONG` not implemented yet",
-          taos_data_type(taos_type), taos_type);
+          "General error:Column converstion from `%s[0x%x/%d]` to `SQL_C_SLONG` not implemented yet",
+          taos_data_type(taos_type), taos_type, taos_type);
       return SQL_ERROR;
   }
 
@@ -1331,8 +1315,6 @@ static int _stmt_bind_conv_tsdb_bigint_to_sql_c_sbigint(stmt_t *stmt, const char
   OA_NIY(len == sizeof(int64_t));
 
   int64_t v = *(int64_t*)data;
-
-  OD("v:[%ld]", v);
 
   size_t outbytes = dlen;
   OA_NIY(outbytes == sizeof(int64_t));
@@ -1349,8 +1331,6 @@ static int _stmt_bind_conv_tsdb_uint_to_sql_c_sbigint(stmt_t *stmt, const char *
   OA_NIY(len == sizeof(uint32_t));
 
   uint32_t v = *(uint32_t*)data;
-
-  OD("v:[%u]", v);
 
   size_t outbytes = dlen;
   OA_NIY(outbytes == sizeof(int64_t));
@@ -1371,8 +1351,8 @@ static SQLRETURN _stmt_get_conv_to_sql_c_sbigint(stmt_t *stmt, tsdb_to_sql_c_f *
       break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
-          "converstion from `%s[%d]` to `SQL_C_SBIGINT` not implemented yet",
-          taos_data_type(taos_type), taos_type);
+          "General error:converstion from `%s[0x%x/%d]` to `SQL_C_SBIGINT` not implemented yet",
+          taos_data_type(taos_type), taos_type, taos_type);
       return SQL_ERROR;
   }
 
@@ -1405,8 +1385,8 @@ static SQLRETURN _stmt_get_conv_to_sql_c_double(stmt_t *stmt, tsdb_to_sql_c_f *c
       break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
-          "converstion from `%s[%d]` to `SQL_C_DOUBLE` not implemented yet",
-          taos_data_type(taos_type), taos_type);
+          "General error:Column converstion from `%s[0x%x/%d]` to `SQL_C_DOUBLE` not implemented yet",
+          taos_data_type(taos_type), taos_type, taos_type);
       return SQL_ERROR;
   }
 
@@ -1572,11 +1552,9 @@ static SQLRETURN _stmt_get_conv_to_sql_c_char(stmt_t *stmt, tsdb_to_sql_c_f *con
       *conv = _stmt_bind_conv_tsdb_nchar_to_sql_c_char;
       break;
     default:
-      OD("converstion from `%s[%d]` to `SQL_C_CHAR` not implemented yet",
-          taos_data_type(taos_type), taos_type);
       stmt_append_err_format(stmt, "HY000", 0,
-          "converstion from `%s[%d]` to `SQL_C_CHAR` not implemented yet",
-          taos_data_type(taos_type), taos_type);
+          "General error:converstion from `%s[0x%x/%d]` to `SQL_C_CHAR` not implemented yet",
+          taos_data_type(taos_type), taos_type, taos_type);
       return SQL_ERROR;
   }
 
@@ -1692,8 +1670,8 @@ static SQLRETURN _stmt_get_conv_to_sql_c_wchar(stmt_t *stmt, tsdb_to_sql_c_f *co
       break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
-          "converstion from `%s[%d]` to `SQL_C_WCHAR` not implemented yet",
-          taos_data_type(taos_type), taos_type);
+          "General error:Column converstion from `%s[0x%x/%d]` to `SQL_C_WCHAR` not implemented yet",
+          taos_data_type(taos_type), taos_type, taos_type);
       return SQL_ERROR;
   }
 
@@ -1718,9 +1696,9 @@ static SQLRETURN _stmt_get_conv_from_tsdb_to_sql_c(stmt_t *stmt, tsdb_to_sql_c_f
     case SQL_C_WCHAR:
       return _stmt_get_conv_to_sql_c_wchar(stmt, conv, taos_type);
     default:
-      stmt_append_err_format(stmt, "07006", 0,
-          "converstion to `%s[%d]` not implemented yet",
-          sql_c_data_type(TargetType), TargetType);
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:Column converstion to `%s[0x%x/%d]` not implemented yet",
+          sql_c_data_type(TargetType), TargetType, TargetType);
       return SQL_ERROR;
   }
 
@@ -1839,7 +1817,7 @@ SQLRETURN stmt_fetch(stmt_t *stmt)
   }
 
   if (ARD_header->DESC_BIND_TYPE != SQL_BIND_BY_COLUMN) {
-    stmt_append_err(stmt, "HY000", 0, "only `SQL_BIND_BY_COLUMN` is supported now");
+    stmt_append_err(stmt, "HY000", 0, "General error:only `SQL_BIND_BY_COLUMN` is supported now");
     return SQL_ERROR;
   }
 
@@ -1903,11 +1881,8 @@ static SQLRETURN _stmt_get_data_fill_sql_c_char_with_buf(
     }
   }
   if (n >= BufferLength) {
-    if (BufferLength == 0) {
-      stmt_append_err_format(stmt, "01004", 0, "Data buffer supplied is too small to hold the null-termination character for Column_or_Param[#%d]", current->i_col + 1);
-      return SQL_SUCCESS_WITH_INFO;
-    }
     if (StrLen_or_IndPtr) *StrLen_or_IndPtr = n;
+    stmt_append_err_format(stmt, "01004", 0, "String data, right truncated:#%d Column_or_Param[%.*s]", current->i_col + 1, len, data);
     return SQL_SUCCESS_WITH_INFO;
   } else {
     if (StrLen_or_IndPtr) *StrLen_or_IndPtr = n;
@@ -2182,8 +2157,8 @@ static SQLRETURN _stmt_get_data_fill_fn_by_target_sql_c_char(stmt_t *stmt, stmt_
       break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
-          "converstion from `%s[%d]` to `SQL_C_CHAR` not implemented yet",
-          taos_data_type(taos_type), taos_type);
+          "General error:Column converstion from `%s[0x%x/%d]` to `SQL_C_CHAR` not implemented yet",
+          taos_data_type(taos_type), taos_type, taos_type);
       return SQL_ERROR;
   }
 
@@ -2202,8 +2177,8 @@ static SQLRETURN _stmt_get_data_fill_fn_by_target_sql_c_float(stmt_t *stmt, stmt
       break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
-          "converstion from `%s[%d]` to `SQL_C_FLOAT` not implemented yet",
-          taos_data_type(taos_type), taos_type);
+          "General error:Column converstion from `%s[0x%x/%d]` to `SQL_C_FLOAT` not implemented yet",
+          taos_data_type(taos_type), taos_type, taos_type);
       return SQL_ERROR;
   }
 
@@ -2222,8 +2197,8 @@ static SQLRETURN _stmt_get_data_fill_fn_by_target_sql_c_double(stmt_t *stmt, stm
       break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
-          "converstion from `%s[%d]` to `SQL_C_DOUBLE` not implemented yet",
-          taos_data_type(taos_type), taos_type);
+          "General error:Column converstion from `%s[0x%x/%d]` to `SQL_C_DOUBLE` not implemented yet",
+          taos_data_type(taos_type), taos_type, taos_type);
       return SQL_ERROR;
   }
 
@@ -2245,8 +2220,8 @@ static SQLRETURN _stmt_get_data_fill_fn_by_target_sql_c_slong(stmt_t *stmt, stmt
       break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
-          "converstion from `%s[%d]` to `SQL_C_SLONG` not implemented yet",
-          taos_data_type(taos_type), taos_type);
+          "General error:Column converstion from `%s[0x%x/%d]` to `SQL_C_SLONG` not implemented yet",
+          taos_data_type(taos_type), taos_type, taos_type);
       return SQL_ERROR;
   }
 
@@ -2268,8 +2243,8 @@ static SQLRETURN _stmt_get_data_fill_fn_by_target_sql_c_sbigint(stmt_t *stmt, st
       break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
-          "converstion from `%s[%d]` to `SQL_C_SBIGINT` not implemented yet",
-          taos_data_type(taos_type), taos_type);
+          "General error:Column converstion from `%s[0x%x/%d]` to `SQL_C_SBIGINT` not implemented yet",
+          taos_data_type(taos_type), taos_type, taos_type);
       return SQL_ERROR;
   }
 
@@ -2291,7 +2266,7 @@ SQLRETURN stmt_get_data(
   if (StrLen_or_IndPtr) StrLen_or_IndPtr[0] = SQL_NO_TOTAL;
 
   if (Col_or_Param_Num < 1 || Col_or_Param_Num > stmt->col_count) {
-    stmt_append_err(stmt, "07009", 0, "The value specified for the argument `Col_or_Param_Num` is out of range");
+    stmt_append_err_format(stmt, "07009", 0, "Invalid descriptor index:#%d Col_or_Param", Col_or_Param_Num);
     return SQL_ERROR;
   }
 
@@ -2315,7 +2290,8 @@ SQLRETURN stmt_get_data(
     current->TargetType = TargetType;
   } else {
     if (current->TargetType != TargetType) {
-      stmt_append_err_format(stmt, "HY000", 0, "TargetType changes in successive SQLGetData call for Column_or_Param[#%d]", Col_or_Param_Num);
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:TargetType changes in successive SQLGetData call for #%d Column_or_Param", Col_or_Param_Num);
       return SQL_ERROR;
     }
   }
@@ -2324,7 +2300,7 @@ SQLRETURN stmt_get_data(
       StrLen_or_IndPtr[0/*stmt->rowset.i_row*/] = SQL_NULL_DATA;
       return SQL_SUCCESS;
     }
-    stmt_append_err_format(stmt, "22002", 0, "Indicator variable required but not supplied for Column_or_Param[#%d]", Col_or_Param_Num);
+    stmt_append_err_format(stmt, "22002", 0, "Indicator variable required but not supplied:#%d Column_or_Param", Col_or_Param_Num);
     return SQL_ERROR;
   }
 
@@ -2373,8 +2349,8 @@ SQLRETURN stmt_get_data(
       break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
-          "converstion to `%s[%d]` not implemented yet",
-          sql_c_data_type(TargetType), TargetType);
+          "General error:Column converstion to `%s[0x%x/%d]` not implemented yet",
+          sql_c_data_type(TargetType), TargetType, TargetType);
       return SQL_ERROR;
   }
 
@@ -2391,7 +2367,7 @@ static SQLRETURN _stmt_describe_tags(stmt_t *stmt)
   TAOS_FIELD_E *tags = NULL;
   r = CALL_taos_stmt_get_tag_fields(stmt->stmt, &tagNum, &tags);
   if (r) {
-    stmt_append_err(stmt, "HY000", CALL_taos_errno(NULL), CALL_taos_errstr(NULL));
+    stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_errstr(NULL));
     return SQL_ERROR;
   }
   stmt->nr_tag_fields = tagNum;
@@ -2408,7 +2384,7 @@ static SQLRETURN _stmt_describe_cols(stmt_t *stmt)
   TAOS_FIELD_E *cols = NULL;
   r = CALL_taos_stmt_get_col_fields(stmt->stmt, &colNum, &cols);
   if (r) {
-    stmt_append_err(stmt, "HY000", CALL_taos_errno(NULL), CALL_taos_errstr(NULL));
+    stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_errstr(NULL));
     return SQL_ERROR;
   }
   stmt->nr_col_fields = colNum;
@@ -2440,13 +2416,13 @@ SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
 
   stmt->stmt = CALL_taos_stmt_init(stmt->conn->taos);
   if (!stmt->stmt) {
-    stmt_append_err(stmt, "HY000", CALL_taos_errno(NULL), CALL_taos_errstr(NULL));
+    stmt_append_err_format(stmt, "HY000", CALL_taos_errno(NULL), "General error:[taosc]%s", CALL_taos_errstr(NULL));
     return SQL_ERROR;
   }
 
   r = CALL_taos_stmt_prepare(stmt->stmt, sql, len);
   if (r) {
-    stmt_append_err(stmt, "HY000", CALL_taos_errno(NULL), CALL_taos_errstr(NULL));
+    stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_errstr(NULL));
     return SQL_ERROR;
   }
 
@@ -2455,7 +2431,7 @@ SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
   isInsert = !!isInsert;
 
   if (r) {
-    stmt_append_err(stmt, "HY000", r, CALL_taos_stmt_errstr(stmt->stmt));
+    stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->stmt));
     _stmt_release_stmt(stmt);
 
     return SQL_ERROR;
@@ -2474,7 +2450,7 @@ SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
 
         r = CALL_taos_stmt_set_tbname(stmt->stmt, "__hard_coded_fake_name__");
         if (r) {
-          stmt_append_err(stmt, "HY000", CALL_taos_errno(NULL), CALL_taos_stmt_errstr(stmt->stmt));
+          stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->stmt));
           return SQL_ERROR;
         }
 
@@ -2490,7 +2466,7 @@ SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
       } else if (e == TSDB_CODE_TSC_STMT_API_ERROR) {
         // insert into t ... and t is normal tablename, will result in TSDB_CODE_TSC_STMT_API_ERROR
         stmt->subtbl_required = 0;
-        stmt_append_err(stmt, "HY000", r, "this is believed an non-subtbl insert statement");
+        stmt_append_err(stmt, "HY000", r, "General error:this is believed an non-subtbl insert statement");
         sr = _stmt_describe_cols(stmt);
         if (sr == SQL_ERROR) return sr;
         r = 0;
@@ -2507,7 +2483,7 @@ SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
     int nr_params = 0;
     r = CALL_taos_stmt_num_params(stmt->stmt, &nr_params);
     if (r) {
-      stmt_append_err(stmt, "HY000", r, CALL_taos_stmt_errstr(stmt->stmt));
+      stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->stmt));
       _stmt_release_stmt(stmt);
 
       return SQL_ERROR;
@@ -2521,7 +2497,7 @@ SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
 
   SQLSMALLINT n = _stmt_get_count_of_tsdb_params(stmt);
   if (n <= 0) {
-    stmt_append_err(stmt, "HY000", 0, "taosc:statement-without-parameter-placemarker not allowed to be prepared");
+    stmt_append_err(stmt, "HY000", 0, "General error:statement-without-parameter-placemarker not allowed to be prepared");
     return SQL_ERROR;
   }
 
@@ -2731,7 +2707,8 @@ SQLRETURN _stmt_describe_param_by_field(
       if (ParameterSizePtr)    *ParameterSizePtr = (bytes - 2) / 4;
       break;
     default:
-      stmt_append_err_format(stmt, "HY000", 0, "#%d param:`%s[%d]` not implemented yet", ParameterNumber, taos_data_type(type), type);
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:#%d param:`%s[0x%x/%d]` not implemented yet", ParameterNumber, taos_data_type(type), type, type);
       return SQL_ERROR;
   }
 
@@ -2752,18 +2729,20 @@ SQLRETURN stmt_describe_param(
   int bytes = 0;
 
   if (ParameterNumber == 0) {
-    stmt_append_err(stmt, "HY000", 0, "bookmark column not supported yet");
+    stmt_append_err(stmt, "HY000", 0, "General error:bookmark column not supported yet");
     return SQL_ERROR;
   }
 
   if (stmt->is_insert_stmt) {
     TAOS_FIELD_E *field = NULL;
     if (stmt->subtbl_required) {
-      SQLUSMALLINT nr_total = 1 + stmt->nr_tag_fields + stmt->nr_col_fields;
-      if (ParameterNumber > nr_total) {
-        stmt_append_err_format(stmt, "HY000", r, "#%d parameter field out of range [%d parameter markers in total]", ParameterNumber, nr_total);
-        return SQL_ERROR;
-      }
+      // NOTE: DM to make sure ParameterNumber is valid
+      // SQLUSMALLINT nr_total = 1 + stmt->nr_tag_fields + stmt->nr_col_fields;
+      // if (ParameterNumber > nr_total) {
+      //   stmt_append_err_format(stmt, "HY000", 0,
+      //       "General error:#%d parameter field out of range [%d parameter markers in total]", ParameterNumber, nr_total);
+      //   return SQL_ERROR;
+      // }
       if (ParameterNumber == 1) {
         *DataTypePtr = SQL_VARCHAR;
         *ParameterSizePtr = 1024; // TODO: check taos-doc for max length of subtable name
@@ -2776,10 +2755,12 @@ SQLRETURN stmt_describe_param(
         field = stmt->col_fields + ParameterNumber - 1 - 1 - stmt->nr_tag_fields;
       }
     } else {
-      if (ParameterNumber > stmt->nr_col_fields) {
-        stmt_append_err_format(stmt, "HY000", r, "#%d col field out of range [%d parameter markers in total]", ParameterNumber, stmt->nr_col_fields);
-        return SQL_ERROR;
-      }
+      // NOTE: DM to make sure ParameterNumber is valid
+      // if (ParameterNumber > stmt->nr_col_fields) {
+      //   stmt_append_err_format(stmt, "HY000", 0,
+      //       "General error:#%d param field out of range [%d parameter markers in total]", ParameterNumber, stmt->nr_col_fields);
+      //   return SQL_ERROR;
+      // }
       field = stmt->col_fields + ParameterNumber - 1;
     }
     return _stmt_describe_param_by_field(stmt, ParameterNumber, DataTypePtr, ParameterSizePtr, DecimalDigitsPtr, NullablePtr, field);
@@ -2792,11 +2773,12 @@ SQLRETURN stmt_describe_param(
     if (ParameterSizePtr)  *ParameterSizePtr  = 1024;
     if (DecimalDigitsPtr)  *DecimalDigitsPtr  = 0;
     if (NullablePtr)       *NullablePtr       = SQL_NULLABLE_UNKNOWN;
-    stmt_append_err(stmt, "HY000", 0, "Arbitrary `SQL_VARCHAR(1024)` is chosen to return because of taos lacking parm-desc for non-insert-statement");
+    stmt_append_err(stmt, "01000", 0,
+        "General warning:Arbitrary `SQL_VARCHAR(1024)` is chosen to return because of taos lacking parm-desc for non-insert-statement");
     return SQL_SUCCESS_WITH_INFO;
   }
 
-  stmt_append_err(stmt, "HY000", 0, "not implemented yet");
+  stmt_append_err(stmt, "HY000", 0, "General error:not implemented yet");
   return SQL_ERROR;
 }
 
@@ -2821,15 +2803,11 @@ static SQLRETURN _stmt_guess_taos_data_type(
       *taos_bytes = sizeof(int32_t);
       break;
     default:
-      stmt_append_err_format(stmt,
-        "HY000",
-        0,
-        "unable to guess taos-data-type for `%s[%d]`",
+      stmt_append_err_format(stmt, "HY000", 0,
+        "General error:unable to guess taos-data-type for `%s[%d]`",
         sql_data_type(ParameterType), ParameterType);
       return SQL_ERROR;
   }
-
-  *taos_bytes = 0;
 
   return SQL_SUCCESS_WITH_INFO;
 }
@@ -2994,7 +2972,7 @@ static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_tinyint(stmt_t *stmt, sql_c_to
 {
   int64_t v = *(int64_t*)meta->src_base;
   if (v > SCHAR_MAX || v < SCHAR_MIN) {
-    stmt_append_err_format(stmt, "HY000", 0, "int8 over/underflow, [%ld]", v);
+    stmt_append_err_format(stmt, "22003", 0, "Numeric value out of range:tinyint is required, but got ==[%ld]==", v);
     return SQL_ERROR;
   }
   *(int8_t*)meta->dst_base = v;
@@ -3006,7 +2984,7 @@ static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_smallint(stmt_t *stmt, sql_c_t
 {
   int64_t v = *(int64_t*)meta->src_base;
   if (v > SHRT_MAX || v < SHRT_MIN) {
-    stmt_append_err_format(stmt, "HY000", 0, "int16 over/underflow, [%ld]", v);
+    stmt_append_err_format(stmt, "22003", 0, "Numeric value out of range:smallint is required, but got ==[%ld]==", v);
     return SQL_ERROR;
   }
   *(int16_t*)meta->dst_base = v;
@@ -3021,33 +2999,31 @@ static SQLRETURN _stmt_sql_c_char_to_tsdb_timestamp(stmt_t *stmt, const char *s,
   long int v = strtol(s, &end, 0);
   int e = errno;
   if (e == ERANGE && (v == LONG_MAX || v == LONG_MIN)) {
-    stmt_append_err_format(stmt,
-        "HY000",
-        0,
-        "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed:[%d]%s",
-        e, strerror(e));
+    stmt_append_err_format(stmt, "22008", 0,
+        "Datetime field overflow:timestamp is required, but got ==[%s]==", s);
+    stmt_append_err_format(stmt, "HY000", e,
+        "General error:[strtol]%s", strerror(e));
     return SQL_ERROR;
   }
   if (e != 0) {
-    stmt_append_err_format(stmt,
-        "HY000",
-        0,
-        "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed:[%d]%s",
-        e, strerror(e));
+    stmt_append_err_format(stmt, "22007", 0,
+        "Invalid datetime format:timestamp is required, but got ==[%s]==", s);
+    stmt_append_err_format(stmt, "HY000", e,
+        "General error:[strtol]%s", strerror(e));
     return SQL_ERROR;
   }
   if (end == s) {
-    stmt_append_err(stmt,
-        "HY000",
-        0,
-        "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed:no digits at all");
+    stmt_append_err_format(stmt, "22007", 0,
+        "Invalid datetime format:timestamp is required, but got ==[%s]==", s);
+    stmt_append_err_format(stmt, "HY000", e,
+        "General error:no digits at all");
     return SQL_ERROR;
   }
   if (end && *end) {
-    stmt_append_err_format(stmt,
-        "HY000",
-        0,
-        "convertion from `SQL_C_CHAR` to `TSDB_DATA_TYPE_TIMESTAMP` failed:string following digits[%s]",
+    stmt_append_err_format(stmt, "22007", 0,
+        "Invalid datetime format:timestamp is required, but got ==[%s]==", s);
+    stmt_append_err_format(stmt, "HY000", e,
+        "General error:string following digits[%s]",
         end);
     return SQL_ERROR;
   }
@@ -3080,65 +3056,65 @@ static SQLRETURN _stmt_conv_sql_c_char_to_tsdb_timestamp(stmt_t *stmt, sql_c_to_
     if (sr == SQL_ERROR) return SQL_ERROR;
   } else if (*p) {
     if (*p != '.') {
-      stmt_append_err_format(stmt, "HY000", 0, "bad timestamp, [%.*s]", (int)len, src);
+      stmt_append_err_format(stmt, "22007", 0,
+          "Invalid datetime format:timestamp is required, but got ==[%.*s]==", (int)len, src);
       return SQL_ERROR;
-    }
-    const char *s = NULL;
-    switch (meta->field->precision) {
-      case 0: s = "`ms`"; break;
-      case 1: s = "`us`"; break;
-      case 2: s = "`ns`"; break;
-      default:
-              stmt_append_err(stmt, "HY000", 0, "internal logic error");
-              return SQL_ERROR;
     }
     int n = len - (p-src);
     if (n == 4) {
       if (meta->field->precision != 0) {
-        stmt_append_err_format(stmt, "HY000", 0, "%s timestamp expected, but got [%.*s]", s, (int)len, src);
+        stmt_append_err_format(stmt, "22007", 0,
+            "Invalid datetime format:`ms` timestamp is required, but got ==[%.*s]==", (int)len, src);
         return SQL_ERROR;
       }
       char *end = NULL;
       long int x = strtol(p+1, &end, 10);
       if (end && end-p!=4) {
-        stmt_append_err_format(stmt, "HY000", 0, "bad timestamp, [%.*s]", (int)len, src);
+        stmt_append_err_format(stmt, "22007", 0,
+            "Invalid datetime format:`ms` timestamp is required, but got ==[%.*s]==", (int)len, src);
         return SQL_ERROR;
       }
       v *= 1000;
       v += x;
     } else if (n == 7) {
       if (meta->field->precision != 1) {
-        stmt_append_err_format(stmt, "HY000", 0, "%s timestamp expected, but got [%.*s]", s, (int)len, src);
+        stmt_append_err_format(stmt, "22007", 0,
+            "Invalid datetime format:`us` timestamp is required, but got ==[%.*s]==", (int)len, src);
         return SQL_ERROR;
       }
       char *end = NULL;
       long int x = strtol(p+1, &end, 10);
       if (end && end-p!=7) {
-        stmt_append_err_format(stmt, "HY000", 0, "bad timestamp, [%.*s]", (int)len, src);
+        stmt_append_err_format(stmt, "22007", 0,
+            "Invalid datetime format:`us` timestamp is required, but got ==[%.*s]==", (int)len, src);
         return SQL_ERROR;
       }
       v *= 1000000;
       v += x;
     } else if (n == 10) {
       if (meta->field->precision != 1) {
-        stmt_append_err_format(stmt, "HY000", 0, "%s timestamp expected, but got [%.*s]", s, (int)len, src);
+        stmt_append_err_format(stmt, "22007", 0,
+            "Invalid datetime format:`ns` timestamp is required, but got ==[%.*s]==", (int)len, src);
         return SQL_ERROR;
       }
       char *end = NULL;
       long int x = strtol(p+1, &end, 10);
       if (end && end-p!=10) {
-        stmt_append_err_format(stmt, "HY000", 0, "bad timestamp, [%.*s]", (int)len, src);
+        stmt_append_err_format(stmt, "22007", 0,
+            "Invalid datetime format:`ns` timestamp is required, but got ==[%.*s]==", (int)len, src);
         return SQL_ERROR;
       }
       v *= 1000000000;
       v += x;
     } else {
-      stmt_append_err_format(stmt, "HY000", 0, "bad timestamp, [%.*s]", (int)len, src);
+      stmt_append_err_format(stmt, "22007", 0,
+          "Invalid datetime format:timestamp is required, but got ==[%.*s]==", (int)len, src);
       return SQL_ERROR;
     }
   } else {
     // TODO: precision
-    stmt_append_err_format(stmt, "HY000", 0, "bad timestamp, [%.*s]", (int)len, src);
+    stmt_append_err_format(stmt, "22007", 0,
+        "Invalid datetime format:timestamp is required, but got ==[%.*s]==", (int)len, src);
     return SQL_ERROR;
   }
 
@@ -3150,7 +3126,7 @@ static SQLRETURN _stmt_conv_sql_c_double_to_tsdb_timestamp(stmt_t *stmt, sql_c_t
 {
   double v = *(double*)meta->src_base;
   if (v > INT64_MAX || v < INT64_MIN) {
-    stmt_append_err_format(stmt, "HY000", 0, "int64over/underflow, [%lg]", v);
+    stmt_append_err_format(stmt, "22003", 0, "Numeric value out of range:bigint is required, but got ==[%lg]==", v);
     return SQL_ERROR;
   }
   *(int64_t*)meta->dst_base = v;
@@ -3162,7 +3138,7 @@ static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_int(stmt_t *stmt, sql_c_to_tsd
 {
   int64_t v = *(int64_t*)meta->src_base;
   if (v > INT_MAX || v < INT_MIN) {
-    stmt_append_err_format(stmt, "HY000", 0, "int32 over/underflow, [%ld]", v);
+    stmt_append_err_format(stmt, "22003", 0, "Numeric value out of range:int is required, but got ==[%ld]==", v);
     return SQL_ERROR;
   }
   *(int32_t*)meta->dst_base = v;
@@ -3176,12 +3152,12 @@ static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_varchar(stmt_t *stmt, sql_c_to
   char buf[128];
   int n = snprintf(buf, sizeof(buf), "%ld", v);
   if (n<0 || (size_t)n>=sizeof(buf)) {
-    stmt_append_err(stmt, "HY000", 0, "internal logic error");
+    stmt_append_err(stmt, "HY000", 0, "General error:internal logic error");
     return SQL_ERROR;
   }
 
   if ((size_t)n > meta->IPD_record->DESC_LENGTH) {
-    stmt_append_err_format(stmt, "HY000", 0, "varchar too long, [%ld,%ld]", v, meta->IPD_record->DESC_LENGTH);
+    stmt_append_err_format(stmt, "22001", 0, "String data, right truncation:[%ld] truncated to [%s]", v, buf);
     return SQL_ERROR;
   }
 
@@ -3197,12 +3173,12 @@ static SQLRETURN _stmt_conv_sql_c_double_to_tsdb_varchar(stmt_t *stmt, sql_c_to_
   char buf[128];
   int n = snprintf(buf, sizeof(buf), "%lg", v);
   if (n<0 || (size_t)n>=sizeof(buf)) {
-    stmt_append_err(stmt, "HY000", 0, "internal logic error");
+    stmt_append_err(stmt, "HY000", 0, "General error:internal logic error");
     return SQL_ERROR;
   }
 
   if ((size_t)n > meta->IPD_record->DESC_LENGTH) {
-    stmt_append_err_format(stmt, "HY000", 0, "varchar too long, [%lg,%ld]", v, meta->IPD_record->DESC_LENGTH);
+    stmt_append_err_format(stmt, "22001", 0, "String data, right truncation:[%lg] truncated to [%s]", v, buf);
     return SQL_ERROR;
   }
 
@@ -3229,8 +3205,12 @@ SQLRETURN stmt_bind_param(
   SQLRETURN sr = SQL_SUCCESS;
 
   SQLSMALLINT n = _stmt_get_count_of_tsdb_params(stmt);
-  if (ParameterNumber == 0 || ParameterNumber > n) {
-    stmt_append_err_format(stmt, "HY000", 0, "#%d parameter specified but %d params in total", ParameterNumber, n);
+  if (ParameterNumber == 0) {
+    stmt_append_err(stmt, "HY000", 0, "General error:bookmark column not supported yet");
+    return SQL_ERROR;
+  }
+  if (ParameterNumber > n) {
+    stmt_append_err_format(stmt, "07009", 0, "Invalid descriptor index:#%d param", ParameterNumber);
     return SQL_ERROR;
   }
 
@@ -3347,8 +3327,8 @@ SQLRETURN stmt_bind_param(
       break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
-          "converstion from `%s[%d]` not implemented yet",
-          sql_c_data_type(ValueType), ValueType);
+          "General error:#%d Parameter converstion from `%s[0x%x/%d]` not implemented yet",
+          ParameterNumber, sql_c_data_type(ValueType), ValueType, ValueType);
       return SQL_ERROR;
   }
 
@@ -3440,8 +3420,8 @@ SQLRETURN stmt_bind_param(
       break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
-          "converstion from `%s[%d]` not implemented yet",
-          sql_data_type(ParameterType), ParameterType);
+          "General error:#%d Parameter converstion from `%s[0x%x/%d]` not implemented yet",
+          ParameterNumber, sql_data_type(ParameterType), ParameterType, ParameterType);
       return SQL_ERROR;
   }
 
@@ -3471,12 +3451,12 @@ SQLRETURN stmt_bind_param(
     switch (field.type) {
       case TSDB_DATA_TYPE_TIMESTAMP:
         if (ParameterType != SQL_TYPE_TIMESTAMP) {
-          stmt_append_err_format(stmt, "HY000", 0, "#%d parameter [%s] is expected, but got [%s] ",
+          stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter [%s] is expected, but got [%s] ",
               ParameterNumber, CALL_taos_data_type(field.type), sql_data_type(ParameterType));
           return SQL_ERROR;
         }
         if (IPD_record->DESC_TYPE==SQL_DATETIME && IPD_record->DESC_CONCISE_TYPE==SQL_TYPE_TIMESTAMP && IPD_record->DESC_PRECISION != (field.precision + 1) * 3) {
-          stmt_append_err_format(stmt, "HY000", 0, "#%d parameter precision [%d] expected, but got [%d] ",
+          stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter precision [%d] expected, but got [%d] ",
               ParameterNumber, (field.precision + 1) * 3, IPD_record->DESC_PRECISION);
           return SQL_ERROR;
         }
@@ -3496,13 +3476,13 @@ SQLRETURN stmt_bind_param(
           APD_record->create_buffer_array = _stmt_create_tsdb_timestamp_array;
           break;
         }
-        stmt_append_err_format(stmt, "HY000", 0, "#%d parameter [%s] is expected, but got [%s] ",
+        stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter [%s] is expected, but got [%s] ",
             ParameterNumber, CALL_taos_data_type(field.type), sql_c_data_type(ValueType));
         return SQL_ERROR;
         break;
       case TSDB_DATA_TYPE_VARCHAR:
         if (ParameterType != SQL_VARCHAR) {
-          stmt_append_err_format(stmt, "HY000", 0, "#%d parameter [%s] is expected, but got [%s] ",
+          stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter [%s] is expected, but got [%s] ",
               ParameterNumber, CALL_taos_data_type(field.type), sql_data_type(ParameterType));
           return SQL_ERROR;
         }
@@ -3515,13 +3495,13 @@ SQLRETURN stmt_bind_param(
           APD_record->create_length_array = _stmt_create_length_array;
           break;
         }
-        stmt_append_err_format(stmt, "HY000", 0, "#%d parameter [%s] is expected, but got [%s] ",
+        stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter [%s] is expected, but got [%s] ",
             ParameterNumber, CALL_taos_data_type(field.type), sql_c_data_type(ValueType));
         return SQL_ERROR;
         break;
       case TSDB_DATA_TYPE_NCHAR:
         if (ParameterType != SQL_WVARCHAR) {
-          stmt_append_err_format(stmt, "HY000", 0, "#%d parameter [%s] is expected, but got [%s] ",
+          stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter [%s] is expected, but got [%s] ",
               ParameterNumber, CALL_taos_data_type(field.type), sql_data_type(ParameterType));
           return SQL_ERROR;
         }
@@ -3534,13 +3514,13 @@ SQLRETURN stmt_bind_param(
           APD_record->create_length_array = _stmt_create_length_array;
           break;
         }
-        stmt_append_err_format(stmt, "HY000", 0, "#%d parameter [%s] is expected, but got [%s] ",
+        stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter [%s] is expected, but got [%s] ",
             ParameterNumber, CALL_taos_data_type(field.type), sql_c_data_type(ValueType));
         return SQL_ERROR;
         break;
       case TSDB_DATA_TYPE_INT:
         if (ParameterType != SQL_INTEGER) {
-          stmt_append_err_format(stmt, "HY000", 0, "#%d parameter [%s] is expected, but got [%s] ",
+          stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter [%s] is expected, but got [%s] ",
               ParameterNumber, CALL_taos_data_type(field.type), sql_data_type(ParameterType));
           return SQL_ERROR;
         }
@@ -3555,13 +3535,13 @@ SQLRETURN stmt_bind_param(
           APD_record->create_buffer_array = _stmt_create_tsdb_int_array;
           break;
         }
-        stmt_append_err_format(stmt, "HY000", 0, "#%d parameter [%s] is expected, but got [%s] ",
+        stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter [%s] is expected, but got [%s] ",
             ParameterNumber, CALL_taos_data_type(field.type), sql_c_data_type(ValueType));
         return SQL_ERROR;
         break;
       case TSDB_DATA_TYPE_SMALLINT:
         if (ParameterType != SQL_SMALLINT) {
-          stmt_append_err_format(stmt, "HY000", 0, "#%d parameter [%s] is expected, but got [%s] ",
+          stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter [%s] is expected, but got [%s] ",
               ParameterNumber, CALL_taos_data_type(field.type), sql_data_type(ParameterType));
           return SQL_ERROR;
         }
@@ -3575,13 +3555,13 @@ SQLRETURN stmt_bind_param(
           APD_record->create_buffer_array = _stmt_create_tsdb_smallint_array;
           break;
         }
-        stmt_append_err_format(stmt, "HY000", 0, "#%d parameter [%s] is expected, but got [%s] ",
+        stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter [%s] is expected, but got [%s] ",
             ParameterNumber, CALL_taos_data_type(field.type), sql_c_data_type(ValueType));
         return SQL_ERROR;
         break;
       case TSDB_DATA_TYPE_TINYINT:
         if (ParameterType != SQL_TINYINT) {
-          stmt_append_err_format(stmt, "HY000", 0, "#%d parameter [%s] is expected, but got [%s] ",
+          stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter [%s] is expected, but got [%s] ",
               ParameterNumber, CALL_taos_data_type(field.type), sql_data_type(ParameterType));
           return SQL_ERROR;
         }
@@ -3595,13 +3575,13 @@ SQLRETURN stmt_bind_param(
           APD_record->create_buffer_array = _stmt_create_tsdb_tinyint_array;
           break;
         }
-        stmt_append_err_format(stmt, "HY000", 0, "#%d parameter [%s] is expected, but got [%s] ",
+        stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter [%s] is expected, but got [%s] ",
             ParameterNumber, CALL_taos_data_type(field.type), sql_c_data_type(ValueType));
         return SQL_ERROR;
         break;
       case TSDB_DATA_TYPE_BOOL:
         if (ParameterType != SQL_TINYINT) {
-          stmt_append_err_format(stmt, "HY000", 0, "#%d parameter [%s] is expected, but got [%s] ",
+          stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter [%s] is expected, but got [%s] ",
               ParameterNumber, CALL_taos_data_type(field.type), sql_data_type(ParameterType));
           return SQL_ERROR;
         }
@@ -3615,13 +3595,13 @@ SQLRETURN stmt_bind_param(
           APD_record->create_buffer_array = _stmt_create_tsdb_bool_array;
           break;
         }
-        stmt_append_err_format(stmt, "HY000", 0, "#%d parameter [%s] is expected, but got [%s] ",
+        stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter [%s] is expected, but got [%s] ",
             ParameterNumber, CALL_taos_data_type(field.type), sql_c_data_type(ValueType));
         return SQL_ERROR;
         break;
       case TSDB_DATA_TYPE_BIGINT:
         if (ParameterType != SQL_BIGINT) {
-          stmt_append_err_format(stmt, "HY000", 0, "#%d parameter [%s] is expected, but got [%s] ",
+          stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter [%s] is expected, but got [%s] ",
               ParameterNumber, CALL_taos_data_type(field.type), sql_data_type(ParameterType));
           return SQL_ERROR;
         }
@@ -3631,13 +3611,13 @@ SQLRETURN stmt_bind_param(
         mb->length                  = NULL;
         mb->is_null                 = NULL;
         if (ValueType == SQL_C_SBIGINT) break;
-        stmt_append_err_format(stmt, "HY000", 0, "#%d parameter [%s] is expected, but got [%s] ",
+        stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter [%s] is expected, but got [%s] ",
             ParameterNumber, CALL_taos_data_type(field.type), sql_c_data_type(ValueType));
         return SQL_ERROR;
         break;
       case TSDB_DATA_TYPE_FLOAT:
         if (ParameterType != SQL_REAL) {
-          stmt_append_err_format(stmt, "HY000", 0, "#%d parameter [%s] is expected, but got [%s] ",
+          stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter [%s] is expected, but got [%s] ",
               ParameterNumber, CALL_taos_data_type(field.type), sql_data_type(ParameterType));
           return SQL_ERROR;
         }
@@ -3652,13 +3632,13 @@ SQLRETURN stmt_bind_param(
           APD_record->create_buffer_array = _stmt_create_tsdb_float_array;
           break;
         }
-        stmt_append_err_format(stmt, "HY000", 0, "#%d parameter [%s] is expected, but got [%s] ",
+        stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter [%s] is expected, but got [%s] ",
             ParameterNumber, CALL_taos_data_type(field.type), sql_c_data_type(ValueType));
         return SQL_ERROR;
         break;
       case TSDB_DATA_TYPE_DOUBLE:
         if (ParameterType != SQL_DOUBLE) {
-          stmt_append_err_format(stmt, "HY000", 0, "#%d parameter [%s] is expected, but got [%s] ",
+          stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter [%s] is expected, but got [%s] ",
               ParameterNumber, CALL_taos_data_type(field.type), sql_data_type(ParameterType));
           return SQL_ERROR;
         }
@@ -3668,12 +3648,12 @@ SQLRETURN stmt_bind_param(
         mb->length                  = NULL;
         mb->is_null                 = NULL;
         if (ValueType == SQL_C_DOUBLE) break;
-        stmt_append_err_format(stmt, "HY000", 0, "#%d parameter [%s] is expected, but got [%s] ",
+        stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter [%s] is expected, but got [%s] ",
             ParameterNumber, CALL_taos_data_type(field.type), sql_c_data_type(ValueType));
         return SQL_ERROR;
         break;
       default:
-        stmt_append_err_format(stmt, "HY000", 0, "#%d parameter [%s] not implemented yet", ParameterNumber, CALL_taos_data_type(field.type));
+        stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter [%s] not implemented yet", ParameterNumber, CALL_taos_data_type(field.type));
         return SQL_ERROR;
     }
   } else {
@@ -3702,7 +3682,7 @@ SQLRETURN stmt_bind_param(
           APD_record->create_buffer_array = _stmt_create_tsdb_varchar_array;
           break;
         }
-        stmt_append_err_format(stmt, "HY000", 0, "#%d parameter [%s] is expected, but got [%s] ",
+        stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter [%s] is expected, but got [%s] ",
             ParameterNumber, sql_data_type(ParameterType), sql_c_data_type(ValueType));
         return SQL_ERROR;
       case SQL_INTEGER:
@@ -3712,7 +3692,7 @@ SQLRETURN stmt_bind_param(
         mb->length                  = NULL;
         mb->is_null                 = NULL;
         if (ValueType == SQL_C_SLONG) break;
-        stmt_append_err_format(stmt, "HY000", 0, "#%d parameter [%s] is expected, but got [%s] ",
+        stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter [%s] is expected, but got [%s] ",
             ParameterNumber, sql_data_type(ParameterType), sql_c_data_type(ValueType));
         return SQL_ERROR;
       case SQL_BIGINT:
@@ -3722,11 +3702,11 @@ SQLRETURN stmt_bind_param(
         mb->length                  = NULL;
         mb->is_null                 = NULL;
         if (ValueType == SQL_C_SBIGINT) break;
-        stmt_append_err_format(stmt, "HY000", 0, "#%d parameter [%s] is expected, but got [%s] ",
+        stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter [%s] is expected, but got [%s] ",
             ParameterNumber, sql_data_type(ParameterType), sql_c_data_type(ValueType));
         return SQL_ERROR;
       default:
-        stmt_append_err_format(stmt, "HY000", 0, "#%d parameter [%s] not implemented yet", ParameterNumber, sql_data_type(ParameterType));
+        stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter [%s] not implemented yet", ParameterNumber, sql_data_type(ParameterType));
         return SQL_ERROR;
     }
   }
@@ -3777,7 +3757,7 @@ static SQLRETURN _stmt_param_prepare_subtbl(stmt_t *stmt)
 
   if (APD_record->DESC_TYPE != SQL_C_CHAR) {
     stmt_append_err_format(stmt, "HY000", 0,
-        "the first parameter for subtbl-insert-statement must be `SQL_C_CHAR`, but got ==%s==", 
+        "General error:the first parameter for subtbl-insert-statement must be `SQL_C_CHAR`, but got ==%s==", 
         sql_c_data_type(APD_record->DESC_TYPE));
     return SQL_ERROR;
   }
@@ -3787,7 +3767,7 @@ static SQLRETURN _stmt_param_prepare_subtbl(stmt_t *stmt)
   _stmt_param_get(stmt, 0, 0, &base, &length, &is_null);
 
   if (is_null) {
-    stmt_append_err(stmt, "HY000", 0, "the first parameter for subtbl-insert-statement must not be null");
+    stmt_append_err(stmt, "HY000", 0, "General error:the first parameter for subtbl-insert-statement must not be null");
     return SQL_ERROR;
   }
   TOD_SAFE_FREE(stmt->subtbl);
@@ -3799,7 +3779,7 @@ static SQLRETURN _stmt_param_prepare_subtbl(stmt_t *stmt)
 
   r = CALL_taos_stmt_set_tbname(stmt->stmt, stmt->subtbl);
   if (r) {
-    stmt_append_err(stmt, "HY000", CALL_taos_errno(NULL), CALL_taos_stmt_errstr(stmt->stmt));
+    stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->stmt));
     return SQL_ERROR;
   }
   return SQL_SUCCESS;
@@ -3818,7 +3798,7 @@ static SQLRETURN _stmt_param_check_subtbl_or_tag(stmt_t *stmt, int irow, int i_p
   _stmt_param_get(stmt, irow, i_param, &base, &length, &is_null);
 
   if (is_null0 != is_null) {
-    stmt_append_err_format(stmt, "HY000", 0, "null-flag differs at (%d,%d)", irow+1, i_param+1);
+    stmt_append_err_format(stmt, "HY000", 0, "General error:null-flag differs at (%d,%d)", irow+1, i_param+1);
     return SQL_ERROR;
   }
 
@@ -3830,16 +3810,16 @@ static SQLRETURN _stmt_param_check_subtbl_or_tag(stmt_t *stmt, int irow, int i_p
       if (length0 == SQL_NTS) length0 = strlen(base0);
       if (length == SQL_NTS) length = strlen(base);
       if (length != length0) {
-        stmt_append_err_format(stmt, "HY000", 0, "param at (%d,%d) differs, ==%.*s <> %.*s==", irow+1, i_param+1, (int)length, base, (int)length0, base0);
+        stmt_append_err_format(stmt, "HY000", 0, "General error:param at (%d,%d) differs, ==%.*s <> %.*s==", irow+1, i_param+1, (int)length, base, (int)length0, base0);
         return SQL_ERROR;
       }
       if (strncmp(base, base0, length)) {
-        stmt_append_err_format(stmt, "HY000", 0, "param at (%d,%d) differs, ==%.*s <> %.*s==", irow+1, i_param+1, (int)length, base, (int)length0, base0);
+        stmt_append_err_format(stmt, "HY000", 0, "General error:param at (%d,%d) differs, ==%.*s <> %.*s==", irow+1, i_param+1, (int)length, base, (int)length0, base0);
         return SQL_ERROR;
       }
       break;
     default:
-      stmt_append_err_format(stmt, "HY000", 0, "#%d param [%s] not implemented yet", i_param+1, sql_c_data_type(APD_record->DESC_TYPE));
+      stmt_append_err_format(stmt, "HY000", 0, "General error:#%d param [%s] not implemented yet", i_param+1, sql_c_data_type(APD_record->DESC_TYPE));
       return SQL_ERROR;
   }
 
@@ -3910,7 +3890,7 @@ static SQLRETURN _stmt_param_process(stmt_t *stmt, int irow, int i_param)
 
     if (mb->buffer_type == TSDB_DATA_TYPE_VARCHAR) {
       if (src_len > field.bytes - 2) {
-        stmt_append_err_format(stmt, "HY000", 0, "#%d param [%.*s] too long [%d]", i_param+1, (int)src_len, src_base, field.bytes - 2);
+        stmt_append_err_format(stmt, "HY000", 0, "General error:#%d param [%.*s] too long [%d]", i_param+1, (int)src_len, src_base, field.bytes - 2);
         return SQL_ERROR;
       }
     } else if (mb->buffer_type == TSDB_DATA_TYPE_NCHAR) {
@@ -3918,11 +3898,11 @@ static SQLRETURN _stmt_param_process(stmt_t *stmt, int irow, int i_param)
       sr = _stmt_calc_bytes(stmt, "UTF8", src_base, src_len, "UCS4", &nr_bytes);
       if (sr == SQL_ERROR) return SQL_ERROR;
       if (nr_bytes > (size_t)field.bytes - 2) {
-        stmt_append_err_format(stmt, "HY000", 0, "#%d param [%.*s] too long [%d]", i_param+1, (int)src_len, src_base, (field.bytes-2)/4);
+        stmt_append_err_format(stmt, "HY000", 0, "General error:#%d param [%.*s] too long [%d]", i_param+1, (int)src_len, src_base, (field.bytes-2)/4);
         return SQL_ERROR;
       }
     } else {
-      stmt_append_err_format(stmt, "HY000", 0, "#%d param, not implemented yet", i_param+1);
+      stmt_append_err_format(stmt, "HY000", 0, "General error:#%d param, not implemented yet", i_param+1);
       return SQL_ERROR;
     }
   }
@@ -3971,7 +3951,7 @@ static SQLRETURN _stmt_pre_exec_prepare_params(stmt_t *stmt)
   descriptor_t *IPD = _stmt_IPD(stmt);
   desc_header_t *IPD_header = &IPD->header;
   if (APD_header->DESC_COUNT != IPD_header->DESC_COUNT) {
-    stmt_append_err(stmt, "HY000", 0, "internal logic error, DESC_COUNT of APD/IPD differs");
+    stmt_append_err(stmt, "HY000", 0, "General error:internal logic error, DESC_COUNT of APD/IPD differs");
     return SQL_ERROR;
   }
 
@@ -3983,7 +3963,7 @@ static SQLRETURN _stmt_pre_exec_prepare_params(stmt_t *stmt)
   }
 
   if (APD_header->DESC_ARRAY_SIZE <= 0) {
-    stmt_append_err_format(stmt, "HY000", 0, "internal logic error, DESC_ARRAY_SIZE[%ld] invalid", APD_header->DESC_ARRAY_SIZE);
+    stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error, DESC_ARRAY_SIZE[%ld] invalid", APD_header->DESC_ARRAY_SIZE);
     return SQL_ERROR;
   }
 
@@ -4013,20 +3993,20 @@ static SQLRETURN _stmt_pre_exec_prepare_params(stmt_t *stmt)
     TAOS_MULTI_BIND *mbs = stmt->mbs + (!!stmt->subtbl_required);
     r = CALL_taos_stmt_set_tags(stmt->stmt, mbs);
     if (r) {
-      stmt_append_err(stmt, "HY000", CALL_taos_errno(NULL), CALL_taos_stmt_errstr(stmt->stmt));
+      stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->stmt));
       return SQL_ERROR;
     }
   }
 
   r = CALL_taos_stmt_bind_param_batch(stmt->stmt, stmt->mbs + (!!stmt->subtbl_required) + stmt->nr_tag_fields);
   if (r) {
-    stmt_append_err(stmt, "HY000", CALL_taos_errno(NULL), CALL_taos_stmt_errstr(stmt->stmt));
+    stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->stmt));
     return SQL_ERROR;
   }
 
   r = CALL_taos_stmt_add_batch(stmt->stmt);
   if (r) {
-    stmt_append_err(stmt, "HY000", r, CALL_taos_stmt_errstr(stmt->stmt));
+    stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->stmt));
     return SQL_ERROR;
   }
 
@@ -4060,7 +4040,7 @@ SQLRETURN stmt_execute(stmt_t *stmt)
   if (APD_header->DESC_COUNT != n ||
       IPD_header->DESC_COUNT != n)
   {
-    stmt_append_err_format(stmt, "HY000", 0, "%d parameter placeholders, but %d/%d parameters bound",
+    stmt_append_err_format(stmt, "HY000", 0, "General error:%d parameter placeholders, but %d/%d parameters bound",
         n, APD_header->DESC_COUNT, IPD_header->DESC_COUNT);
     return SQL_ERROR;
   }
@@ -4076,7 +4056,7 @@ SQLRETURN stmt_execute(stmt_t *stmt)
   int r = 0;
   r = CALL_taos_stmt_execute(stmt->stmt);
   if (r) {
-    stmt_append_err(stmt, "HY000", r, CALL_taos_stmt_errstr(stmt->stmt));
+    stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->stmt));
     return SQL_ERROR;
   }
   stmt->res = CALL_taos_stmt_use_result(stmt->stmt);
@@ -4111,13 +4091,13 @@ static SQLRETURN _stmt_set_cursor_type(stmt_t *stmt, SQLULEN cursor_type)
   (void)stmt;
   switch (cursor_type) {
     case SQL_CURSOR_FORWARD_ONLY:
-      stmt_append_err_format(stmt, "01000", 0, "`SQL_CURSOR_FORWARD_ONLY` for `SQL_ATTR_CURSOR_TYPE` not fully implemented yet");
+      stmt_append_err_format(stmt, "01000", 0, "General warning:`SQL_CURSOR_FORWARD_ONLY` for `SQL_ATTR_CURSOR_TYPE` not fully implemented yet");
       return SQL_SUCCESS_WITH_INFO;
     case SQL_CURSOR_STATIC:
-      stmt_append_err_format(stmt, "01000", 0, "`SQL_CURSOR_STATIC` for `SQL_ATTR_CURSOR_TYPE` not fully implemented yet");
+      stmt_append_err_format(stmt, "01000", 0, "General warning:`SQL_CURSOR_STATIC` for `SQL_ATTR_CURSOR_TYPE` not fully implemented yet");
       return SQL_SUCCESS_WITH_INFO;
     default:
-      stmt_append_err_format(stmt, "HYC00", 0, "`%s` for `SQL_ATTR_CURSOR_TYPE` not supported yet", sql_cursor_type(cursor_type));
+      stmt_append_err_format(stmt, "HY000", 0, "General error:`%s` for `SQL_ATTR_CURSOR_TYPE` not supported yet", sql_cursor_type(cursor_type));
       return SQL_ERROR;
   }
 }
@@ -4154,7 +4134,7 @@ SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr,
     case SQL_ATTR_APP_PARAM_DESC:
       return _stmt_set_param_desc(stmt, ValuePtr);
     default:
-      stmt_append_err_format(stmt, "HYC00", 0, "`%s[0x%x/%d]` not supported yet", sql_stmt_attr(Attribute), Attribute, Attribute);
+      stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_stmt_attr(Attribute), Attribute, Attribute);
       return SQL_ERROR;
   }
 }
@@ -4172,7 +4152,7 @@ SQLRETURN stmt_free_stmt(stmt_t *stmt, SQLUSMALLINT Option)
       _stmt_reset_params(stmt);
       return SQL_SUCCESS;
     default:
-      stmt_append_err_format(stmt, "HYC00", 0, "`%s[0x%x/%d]` not supported yet", sql_free_statement_option(Option), Option, Option);
+      stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_free_statement_option(Option), Option, Option);
       return SQL_ERROR;
   }
 }

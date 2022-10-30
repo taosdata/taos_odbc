@@ -31,12 +31,16 @@ target_link_libraries(SQLBindCol odbc)
 add_test(NAME SQLBindCol
     COMMAND SQLBindCol)
 
-add_test(NAME VSQLBindCol
-    COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/SQLBindCol)
+if(HAVE_VALGRIND)
+  add_test(NAME VSQLBindCol
+      COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/SQLBindCol)
+endif()
 
 add_test(NAME mySQLBindCol
     COMMAND SQLBindCol mysql)
 
-add_test(NAME VmySQLBindCol
-    COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/SQLBindCol mysql)
+if(HAVE_VALGRIND)
+  add_test(NAME VmySQLBindCol
+      COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/SQLBindCol mysql)
+endif()
 

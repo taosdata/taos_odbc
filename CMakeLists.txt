@@ -38,32 +38,10 @@ else()
   message(FATAL_ERROR "Not ported on `${CMAKE_SYSTEM_NAME}`")
 endif()
 
-find_library(TAOS NAMES taos)
-if(${TAOS} STREQUAL TAOS-NOTFOUND)
-  message(FATAL_ERROR "`libtaos.so` is required but not found")
-endif()
-
-include(CheckSymbolExists)
-set(CMAKE_REQUIRED_LIBRARIES taos)
-check_symbol_exists(taos_init "taos.h" HAVE_TAOS)
-if(NOT HAVE_TAOS)
-  message(FATAL_ERROR "`taos.h` is required but not found")
-endif()
-
-include(ExternalProject)
-set(CJSON_INSTALL_PATH $ENV{HOME}/.taos_odbc/.install)
-ExternalProject_Add(ex_cjson
-    GIT_REPOSITORY https://github.com/taosdata-contrib/cJSON.git
-    GIT_TAG v1.7.15
-    GIT_SHALLOW TRUE
-    PREFIX "$ENV{HOME}/.taos_odbc/cjson"
-    CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${CJSON_INSTALL_PATH}"
-    )
-
 include(CTest)
 include(cmake/macros.cmake)
 
-check_odbc_requirement()
+check_requirements()
 
 include_directories(inc)
 

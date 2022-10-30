@@ -31,8 +31,10 @@ target_link_libraries(api_test odbc dl)
 add_test(NAME api_test
     COMMAND api_test)
 
-add_test(NAME Vapi_test
-    COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/api_test)
+if(HAVE_VALGRIND)
+  add_test(NAME Vapi_test
+      COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/api_test)
+endif()
 
 add_executable(edge_cases_test
     $<TARGET_OBJECTS:common_obj>
@@ -43,8 +45,10 @@ target_link_libraries(edge_cases_test odbc)
 add_test(NAME edge_cases_test
     COMMAND edge_cases_test)
 
-add_test(NAME Vedge_cases_test
-    COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/edge_cases_test)
+if(HAVE_VALGRIND)
+  add_test(NAME Vedge_cases_test
+      COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/edge_cases_test)
+endif()
 
 add_executable(odbc_test
     $<TARGET_OBJECTS:common_obj>
@@ -58,14 +62,18 @@ target_link_libraries(odbc_test odbc cjson)
 add_test(NAME odbc_test
     COMMAND odbc_test)
 
-add_test(NAME Vodbc_test
-    COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/odbc_test)
+if(HAVE_VALGRIND)
+  add_test(NAME Vodbc_test
+      COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/odbc_test)
+endif()
 
 if (ENABLE_MYSQL_TEST)
   add_test(NAME mysql_odbc_test
       COMMAND odbc_test --dsn MYSQL_ODBC_DSN)
 
-  add_test(NAME Vmysql_odbc_test
-      COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/odbc_test --dsn MYSQL_ODBC_DSN)
+  if(HAVE_VALGRIND)
+    add_test(NAME Vmysql_odbc_test
+        COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/odbc_test --dsn MYSQL_ODBC_DSN)
+  endif()
 endif ()
 

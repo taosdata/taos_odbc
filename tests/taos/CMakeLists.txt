@@ -33,6 +33,8 @@ target_link_libraries(taos_test cjson taos)
 add_test(NAME taos_test
     COMMAND taos_test)
 
-add_test(NAME Vtaos_test
-    COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/taos_test)
+if(HAVE_VALGRIND)
+  add_test(NAME Vtaos_test
+      COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/taos_test)
+endif()
 

@@ -1,5 +1,5 @@
 # ODBC Driver for TDengine TAOS 3.0 #
-
+English | [简体中文](README.cn.md)
 - **on-going implementation of ODBC driver for TAOS 3.0**
 - **currently exported ODBC functions are**:
 ```

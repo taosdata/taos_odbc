@@ -87,6 +87,34 @@ pushd build >/dev/null && ctest --output-on-failure && echo -=Done=-; popd >/dev
 - `ctest --help` or `man ctest`
 - `valgrind --help` or `man valgrind`
 
+### Layout of source code, directories only
+```
+<root>
+├── cmake
+├── common
+├── examples
+├── inc
+├── samples
+├── sh
+├── src
+│   ├── core
+│   ├── inc
+│   ├── parser
+│   ├── tests
+│   └── utils
+├── templates
+├── tests
+│   ├── c
+│   ├── cpp
+│   ├── node
+│   ├── rust
+│   │   └── main
+│   │       └── src
+│   └── taos
+├── tools
+└── valgrind
+```
+
 ## TDengine references
 - https://tdengine.com
 - https://github.com/taosdata/TDengine

@@ -87,6 +87,34 @@ pushd build >/dev/null && ctest --output-on-failure && echo -=Done=-; popd >/dev
 - `ctest --help` or `man ctest`
 - `valgrind --help` or `man valgrind`
 
+### 源代码目录结构
+```
+<root>
+├── cmake
+├── common
+├── examples
+├── inc
+├── samples
+├── sh
+├── src
+│   ├── core
+│   ├── inc
+│   ├── parser
+│   ├── tests
+│   └── utils
+├── templates
+├── tests
+│   ├── c
+│   ├── cpp
+│   ├── node
+│   ├── rust
+│   │   └── main
+│   │       └── src
+│   └── taos
+├── tools
+└── valgrind
+```
+
 ## TDengine 引用及出处
 - https://tdengine.com
 - https://github.com/taosdata/TDengine

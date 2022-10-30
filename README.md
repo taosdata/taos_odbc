@@ -45,8 +45,12 @@ SQLSetStmtAttr
 - iconv, should've been already included in libc
 - valgrind, if you wish to debug and profile executables, such as detecting potential memory leakages
 - node, if you wish to enable nodejs-test-cases
+  - node odbc, 2.4.4 or above, https://www.npmjs.com/package/odbc
 - rust, if you wish to enable rust-test-cases
-
+  - odbc, 0.17.0 or above, https://docs.rs/odbc/latest/odbc/
+  - env_logger, 0.8.2 or above, https://docs.rs/env_logger/latest/env_logger/
+  - json
+  
 ### Installing TDengine TAOS 3.0
 - please visit https://tdengine.com
 

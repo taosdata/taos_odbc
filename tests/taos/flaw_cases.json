@@ -212,6 +212,55 @@
         "positive": true
       }
     ]
+  },{
+    "comments": "insert into xsuzhou using st tags ('ysuzhou') values (1665226861289, 100)",
+    "comments": "there's no parameter placeholder marker, but prepare-bind-execute still works, except you only bind cols but not subtbl nor tags",
+    "comments": "better not use this",
+    "conn": {},
+    "sqls": [
+      "drop database if exists foo",
+      "create database foo",
+      "use foo",
+      "create stable st (ts timestamp, age int) tags (name varchar(20))",
+      {
+        "sql": "insert into xsuzhou using st tags ('ysuzhou') values (1665226861289, 100)",
+        "executes": [
+          {
+            "params": [[{"timestamp":1665226961295}, {"int":200}]]
+          }
+        ]
+      },{
+        "sql": "select count(*) from st",
+        "rs": [[2]],
+        "positive": true
+      }
+    ]
+  },{
+    "comments": "insert into ? using st tags (?) values (1665226861289, 100)",
+    "comments": "subtbl-tags as placeholder",
+    "comments": "very much weird, although rarely in practice, taosc API seemly exposes no clue to let application know which part the placeholder belongs to",
+    "conn": {},
+    "sqls": [
+      "drop database if exists foo",
+      "create database foo",
+      "use foo",
+      "create stable st (ts timestamp, age int) tags (name varchar(20))",
+      "insert into suzhou using st tags ('suzhou') values (1665226861288, 1)",
+      {
+        "comments": "this will fail",
+        "sql": "insert into ? using st tags (?) values (1665226861289, 100)",
+        "executes": [
+          {
+            "params": [["suzhou", "suzhou"]],
+            "positive": false
+          }
+        ]
+      },{
+        "sql": "select count(*) from st",
+        "rs": [[1]],
+        "positive": true
+      }
+    ]
   }
 ]
 

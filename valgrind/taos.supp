@@ -290,4 +290,19 @@
    fun:stmtSetTbName
    fun:taos_stmt_set_tbname
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:insCheckTimestamp
+   fun:parseOneRow
+   fun:parseValues
+   fun:parseValuesClause
+   fun:parseInsertBody
+   fun:parseInsertSql
+   fun:qParseSql
+   fun:parseSql
+   fun:stmtParseSql
+   fun:stmtSetTbName
+   fun:taos_stmt_set_tbname
+}
 

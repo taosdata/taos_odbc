@@ -70,12 +70,12 @@ pushd debug >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases O
 ```
 
 ### Test with TAOS_ODBC_DEBUG
-in case when some test cases fail and you wish to more debug info, such as when and how taos_xxx API is called under the hood, you can
+in case when some test cases fail and you wish to have more debug info, such as when and how taos_xxx API is called under the hood, you can
 ```
 pushd debug >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases ODBC_TEST_CASES=$(pwd)/../tests/c/odbc_test.cases TAOS_ODBC_DEBUG= ctest --output-on-failure && echo -=Done=-; popd >/dev/null
 ```
 
-### To simplify you daily life
+### To make your daily life better
 ```
 export TAOS_TEST_CASES=$(pwd)/tests/taos/taos_test.cases
 export ODBC_TEST_CASES=$(pwd)/tests/c/odbc_test.cases

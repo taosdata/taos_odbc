@@ -36,11 +36,13 @@ if(HAVE_VALGRIND)
       COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/SQLBindCol)
 endif()
 
-add_test(NAME mySQLBindCol
-    COMMAND SQLBindCol mysql)
+if(ENABLE_MYSQL_TEST)
+  add_test(NAME mySQLBindCol
+      COMMAND SQLBindCol mysql)
 
-if(HAVE_VALGRIND)
-  add_test(NAME VmySQLBindCol
-      COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/SQLBindCol mysql)
+  if(HAVE_VALGRIND)
+    add_test(NAME VmySQLBindCol
+        COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/SQLBindCol mysql)
+  endif()
 endif()
 

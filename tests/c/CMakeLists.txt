@@ -67,7 +67,7 @@ if(HAVE_VALGRIND)
       COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/odbc_test)
 endif()
 
-if (ENABLE_MYSQL_TEST)
+if(ENABLE_MYSQL_TEST)
   add_test(NAME mysql_odbc_test
       COMMAND odbc_test --dsn MYSQL_ODBC_DSN)
 
@@ -75,5 +75,5 @@ if (ENABLE_MYSQL_TEST)
     add_test(NAME Vmysql_odbc_test
         COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/odbc_test --dsn MYSQL_ODBC_DSN)
   endif()
-endif ()
+endif()
 

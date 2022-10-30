@@ -1,7 +1,6 @@
-# ODBC Driver #
+# ODBC Driver for TDengine TAOS 3.0 #
 
 - **on-going implementation of ODBC driver for TAOS 3.0**
-
 - **currently exported ODBC functions are**:
 ```
 SQLAllocHandle
@@ -32,11 +31,8 @@ SQLSetConnectAttr
 SQLSetEnvAttr
 SQLSetStmtAttr
 ```
-
 - **enable ODBC-aware software to communicate with TAOS, at this very beginning, we support linux only**
-
 - **enable any programming language with ODBC-bindings/ODBC-plugings to communicate with TAOS, potentially**
-
 - **still going on**...
 
 ### Supported platform
@@ -51,9 +47,13 @@ SQLSetStmtAttr
 - node, if you wish to enable nodejs-test-cases
 - rust, if you wish to enable rust-test-cases
 
-### Building under Linux, use Ubuntu as example
+### Installing prerequisites if you wish
 ```
 sudo apt install flex bison unixodbc unixodbc-dev && echo -=Done=-
+```
+
+### Building under Linux, use Ubuntu as example
+```
 rm -rf build && cmake -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build && sudo cmake --install build && echo -=Done=-
 ```
 
@@ -61,6 +61,32 @@ rm -rf build && cmake -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build &
 ```
 pushd build >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases ODBC_TEST_CASES=$(pwd)/../tests/c/odbc_test.cases ctest --output-on-failure && echo -=Done=-; popd >/dev/null
 ```
+
+### Test with TAOS_ODBC_DEBUG
+in case when some test cases fail and you wish to more debug info, such as when and how taos_xxx API is called under the hood, you can
+```
+pushd build >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases ODBC_TEST_CASES=$(pwd)/../tests/c/odbc_test.cases TAOS_ODBC_DEBUG= ctest --output-on-failure && echo -=Done=-; popd >/dev/null
+```
+
+### To simplify you daily life
+```
+export TAOS_TEST_CASES=$(pwd)/tests/taos/taos_test.cases
+export ODBC_TEST_CASES=$(pwd)/tests/c/odbc_test.cases
+export TAOS_ODBC_DEBUG=
+```
+and then, you can
+```
+pushd build >/dev/null && ctest --output-on-failure && echo -=Done=-; popd >/dev/null
+```
+
+### Tips
+- `cmake --help` or `man cmake`
+- `ctest --help` or `man ctest`
+- `valgrind --help` or `man valgrind`
+
+## TDengine references
+- https://tdengine.com
+- https://github.com/taosdata/TDengine
 
 ## ODBC references
 - https://learn.microsoft.com/en-us/sql/odbc/reference/introduction-to-odbc?view=sql-server-ver16

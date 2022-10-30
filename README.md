@@ -50,7 +50,7 @@ SQLSetStmtAttr
   - odbc, 0.17.0 or above, https://docs.rs/odbc/latest/odbc/
   - env_logger, 0.8.2 or above, https://docs.rs/env_logger/latest/env_logger/
   - json
-  
+
 ### Installing TDengine TAOS 3.0
 - please visit https://tdengine.com
 

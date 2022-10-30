@@ -45,7 +45,11 @@ SQLSetStmtAttr
 - iconv, 应该不需要单独安装了，基本上libc都已经内建了
 - valgrind, 如果您想对程序进行性能分析及内存泄漏探查的话
 - node, 如果您想同时跑nodejs测试程序的话
+  - node odbc, 2.4.4 或以上, https://www.npmjs.com/package/odbc
 - rust, 如果您想同时跑rust测试程序的话
+  - odbc, 0.17.0 或以上, https://docs.rs/odbc/latest/odbc/
+  - env_logger, 0.8.2 或以上, https://docs.rs/env_logger/latest/env_logger/
+  - json
 
 ### 安装TDengine TAOS
 - 请参考TDengine官方说明，https://tdengine.com

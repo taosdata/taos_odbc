@@ -234,4 +234,60 @@
    fun:stmtSetTbName
    fun:taos_stmt_set_tbname
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:insCheckTimestamp
+   fun:parseOneRow
+   fun:parseValues
+   fun:parseValuesClause
+   fun:parseInsertBody
+   fun:parseInsertSql
+   fun:qParseSql
+   fun:parseSql
+   fun:stmtParseSql
+   fun:stmtGetTagFields
+   fun:taos_stmt_get_tag_fields
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:insCheckTimestamp
+   fun:qBindStmtColsValue
+   fun:stmtBindBatch
+   fun:taos_stmt_bind_param_batch
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: indirect
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:insSetBoundColumnInfo
+   fun:parseUsingClause
+   fun:parseInsertBody
+   fun:parseInsertSql
+   fun:qParseSql
+   fun:parseSql
+   fun:stmtParseSql
+   fun:stmtSetTbName
+   fun:taos_stmt_set_tbname
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:insSetBoundColumnInfo
+   fun:createDataBlock
+   fun:insGetDataBlockFromList
+   fun:parseInsertBody
+   fun:parseInsertSql
+   fun:qParseSql
+   fun:parseSql
+   fun:stmtParseSql
+   fun:stmtSetTbName
+   fun:taos_stmt_set_tbname
+}
 

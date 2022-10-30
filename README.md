@@ -55,7 +55,7 @@ SQLSetStmtAttr
 sudo apt install flex bison unixodbc unixodbc-dev && echo -=Done=-
 ```
 
-### Building and Installing, use Ubuntu as an example
+### Building and Installing, use Ubuntu 20.04 as an example
 ```
 rm -rf build && cmake -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build && sudo cmake --install build && echo -=Done=-
 ```

@@ -1,7 +1,7 @@
-# ODBC Driver for TDengine TAOS 3.0 #
+# TDengine TAOS 3.0 ODBC 驱动#
 
-- **on-going implementation of ODBC driver for TAOS 3.0**
-- **currently exported ODBC functions are**:
+- **开发中的TAOS 3.0 ODBC驱动**
+- **目前驱动中已经导出的SQLxxx函数如下**:
 ```
 SQLAllocHandle
 SQLBindCol
@@ -31,67 +31,67 @@ SQLSetConnectAttr
 SQLSetEnvAttr
 SQLSetStmtAttr
 ```
-- **enable ODBC-aware software to communicate with TAOS, at this very beginning, we support linux only**
-- **enable any programming language with ODBC-bindings/ODBC-plugings to communicate with TAOS, potentially**
-- **still going on**...
+- **ODBC应用程序将可以利用该驱动实现对TAOS时序数据库的操作，但是，目前该驱动只有Linux平台的实现**
+- **相信，任何具有ODBC-绑定/插件的编程语言、框架，利用该驱动，也可实现对TAOS时序数据库的操作**
+- **持续开发中**...
 
-### Supported platform
+### (目前)支持的平台
 - Linux
 
-### Requirements
-- flex, 2.6.4 or above
-- bison, 3.5.1 or above
-- odbc driver manager, such as unixodbc(2.3.6 or above) in linux
-- iconv, should've been already included in libc
-- valgrind, if you wish to debug and profile executables, such as detecting potential memory leakages
-- node, if you wish to enable nodejs-test-cases
-- rust, if you wish to enable rust-test-cases
+### 所需的依赖
+- flex, 2.6.4 或以上
+- bison, 3.5.1 或以上
+- odbc 驱动管理器, 例如Linux平台上的unixodbc(2.3.6 或以上)
+- iconv, 应该不需要单独安装了，基本上libc都已经内建了
+- valgrind, 如果您想对程序进行性能分析及内存泄漏探查的话
+- node, 如果您想同时跑nodejs测试程序的话
+- rust, 如果您想同时跑rust测试程序的话
 
-### Installing TDengine TAOS 3.0
-- please visit https://tdengine.com
+### 安装TDengine TAOS
+- 请参考TDengine官方说明，https://tdengine.com
 
-### Installing prerequisites, use Ubuntu 20.04 as an example
+### 安装必需的依赖项，以Ubuntu 20.04为例
 ```
 sudo apt install flex bison unixodbc unixodbc-dev && echo -=Done=-
 ```
 
-### Building and Installing, use Ubuntu as an example
+### 编译及安装, 以Ubuntu 20.04为例
 ```
 rm -rf build && cmake -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build && sudo cmake --install build && echo -=Done=-
 ```
 
-### Test
+### 测试
 ```
 pushd build >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases ODBC_TEST_CASES=$(pwd)/../tests/c/odbc_test.cases ctest --output-on-failure && echo -=Done=-; popd >/dev/null
 ```
 
-### Test with TAOS_ODBC_DEBUG
-in case when some test cases fail and you wish to more debug info, such as when and how taos_xxx API is called under the hood, you can
+### 带上TAOS_ODBC_DEBUG环境变量进行测试
+当测试程序出现失败的时候，你可能期望看到更多的调试信息，那么你可以这样
 ```
 pushd build >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases ODBC_TEST_CASES=$(pwd)/../tests/c/odbc_test.cases TAOS_ODBC_DEBUG= ctest --output-on-failure && echo -=Done=-; popd >/dev/null
 ```
 
-### To simplify you daily life
+### 让每天的生活简单一点
 ```
 export TAOS_TEST_CASES=$(pwd)/tests/taos/taos_test.cases
 export ODBC_TEST_CASES=$(pwd)/tests/c/odbc_test.cases
 export TAOS_ODBC_DEBUG=
 ```
-and then, you can
+或者，你也可以这样
 ```
 pushd build >/dev/null && ctest --output-on-failure && echo -=Done=-; popd >/dev/null
 ```
 
-### Tips
+### 小提示
 - `cmake --help` or `man cmake`
 - `ctest --help` or `man ctest`
 - `valgrind --help` or `man valgrind`
 
-## TDengine references
+## TDengine 引用及出处
 - https://tdengine.com
 - https://github.com/taosdata/TDengine
 
-## ODBC references
+## ODBC 引用及出处
 - https://learn.microsoft.com/en-us/sql/odbc/reference/introduction-to-odbc?view=sql-server-ver16
 - https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/odbc-api-reference?view=sql-server-ver16
 

@@ -56,9 +56,13 @@ SQLSetStmtAttr
 sudo apt install flex bison unixodbc unixodbc-dev && echo -=Done=-
 rm -rf build && cmake -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build && sudo cmake --install build && echo -=Done=-
 ```
+
 ### Test
+```
 pushd build >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases ODBC_TEST_CASES=$(pwd)/../tests/c/odbc_test.cases ctest --output-on-failure && echo -=Done=-; popd >/dev/null
+```
 
 ## ODBC references
 - https://learn.microsoft.com/en-us/sql/odbc/reference/introduction-to-odbc?view=sql-server-ver16
 - https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/odbc-api-reference?view=sql-server-ver16
+

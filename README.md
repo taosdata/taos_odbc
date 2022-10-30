@@ -57,7 +57,7 @@ sudo apt install flex bison unixodbc unixodbc-dev && echo -=Done=-
 
 ### Building and Installing, use Ubuntu 20.04 as an example
 ```
-rm -rf debug && cmake -B debug -DCMAKE_BUILD_TYPE=Debug && cmake --debug debug && sudo cmake --install debug && echo -=Done=-
+rm -rf debug && cmake -B debug -DCMAKE_BUILD_TYPE=Debug && cmake --build debug && sudo cmake --install debug && echo -=Done=-
 ```
 
 ### Test

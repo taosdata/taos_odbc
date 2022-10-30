@@ -57,7 +57,7 @@ sudo apt install flex bison unixodbc unixodbc-dev && echo -=Done=-
 
 ### 编译及安装, 以Ubuntu 20.04为例
 ```
-rm -rf debug && cmake -B debug -DCMAKE_BUILD_TYPE=Debug && cmake --debug debug && sudo cmake --install debug && echo -=Done=-
+rm -rf debug && cmake -B debug -DCMAKE_BUILD_TYPE=Debug && cmake --build debug && sudo cmake --install debug && echo -=Done=-
 ```
 
 ### 测试

@@ -59,6 +59,7 @@ SQLRETURN errs_get_diag_rec_x(
   })
 
 #define errs_oom(_errs, _data_source) errs_append(_errs, _data_source, "HY001", 0, "Memory allocation error")
+#define errs_niy(_errs, _data_source) errs_append(_errs, _data_source, "HY000", 0, "General error:Not implemented yet")
 
 #define errs_clr(_errs) errs_clr_x(_errs)
 

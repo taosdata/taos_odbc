@@ -91,6 +91,18 @@ struct errs_s {
     errs_oom(&__conn->errs, conn_data_source(__conn));   \
   })
 
+#define conn_niy(_conn)                                        \
+  ({                                                           \
+    conn_t *__conn = _conn;                                    \
+    errs_niy(&__conn->errs, conn_data_source(__conn));         \
+  })
+
+#define conn_nsy(_conn)                                        \
+  ({                                                           \
+    conn_t *__conn = _conn;                                    \
+    errs_nsy(&__conn->errs, conn_data_source(__conn));         \
+  })
+
 #define stmt_append_err(_stmt, _sql_state, _e, _estr)                                \
   ({                                                                                 \
     stmt_t *__stmt = _stmt;                                                          \
@@ -110,6 +122,19 @@ struct errs_s {
     stmt_t *__stmt = _stmt;                                    \
     errs_oom(&__stmt->errs, conn_data_source(__stmt->conn));   \
   })
+
+#define stmt_niy(_stmt)                                        \
+  ({                                                           \
+    stmt_t *__stmt = _stmt;                                    \
+    errs_niy(&__stmt->errs, conn_data_source(__stmt->conn));   \
+  })
+
+#define stmt_nsy(_stmt)                                        \
+  ({                                                           \
+    stmt_t *__stmt = _stmt;                                    \
+    errs_nsy(&__stmt->errs, conn_data_source(__stmt->conn));   \
+  })
+
 
 
 #define sql_succeeded(_sr) ({ SQLRETURN __sr = _sr; (__sr==SQL_SUCCESS || __sr==SQL_SUCCESS_WITH_INFO); })

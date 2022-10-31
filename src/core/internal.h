@@ -44,6 +44,23 @@
 
 EXTERN_C_BEGIN
 
+// <TDengine/ include/util/tdef.h
+// ...
+// #define TSDB_NODE_NAME_LEN  64
+// #define TSDB_TABLE_NAME_LEN 193  // it is a null-terminated string
+// #define TSDB_TOPIC_NAME_LEN 193  // it is a null-terminated string
+// #define TSDB_CGROUP_LEN     193  // it is a null-terminated string
+// #define TSDB_DB_NAME_LEN    65
+// #define TSDB_DB_FNAME_LEN   (TSDB_ACCT_ID_LEN + TSDB_DB_NAME_LEN + TSDB_NAME_DELIMITER_LEN)
+// ...
+// #define TSDB_COL_NAME_LEN        65
+// ...
+
+#define MAX_CATALOG_NAME_LEN        64
+#define MAX_SCHEMA_NAME_LEN         64
+#define MAX_TABLE_NAME_LEN         192
+#define MAX_COLUMN_NAME_LEN         64
+
 typedef struct err_s             err_t;
 
 struct err_s {

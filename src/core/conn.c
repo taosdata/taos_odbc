@@ -498,7 +498,16 @@ SQLRETURN conn_get_info(
       *(SQLUINTEGER*)InfoValuePtr = SQL_GD_ANY_COLUMN | SQL_GD_ANY_ORDER /* | SQL_GD_BLOCK */ | SQL_GD_BOUND /* | SQL_GD_OUTPUT_PARAMS */;
       return SQL_SUCCESS;
     case SQL_MAX_COLUMN_NAME_LEN:
-      *(SQLUSMALLINT*)InfoValuePtr = 64;
+      *(SQLUSMALLINT*)InfoValuePtr = MAX_COLUMN_NAME_LEN;
+      return SQL_SUCCESS;
+    case SQL_MAX_CATALOG_NAME_LEN:
+      *(SQLUSMALLINT*)InfoValuePtr = MAX_CATALOG_NAME_LEN;
+      return SQL_SUCCESS;
+    case SQL_MAX_SCHEMA_NAME_LEN:
+      *(SQLUSMALLINT*)InfoValuePtr = MAX_SCHEMA_NAME_LEN;
+      return SQL_SUCCESS;
+    case SQL_MAX_TABLE_NAME_LEN:
+      *(SQLUSMALLINT*)InfoValuePtr = MAX_TABLE_NAME_LEN;
       return SQL_SUCCESS;
     default:
       conn_append_err_format(conn, "HY000", 0, "General error:`%s[%d/0x%x]` not implemented yet", sql_info_type(InfoType), InfoType, InfoType);

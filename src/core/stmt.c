@@ -1840,6 +1840,7 @@ SQLRETURN stmt_fetch(stmt_t *stmt)
   for (int i_col = 0; (size_t)i_col < ARD->cap; ++i_col) {
     if (i_col >= ARD_header->DESC_COUNT) continue;
     desc_record_t *record = ARD->records + i_col;
+    if (!record->bound) continue;
     if (record->DESC_DATA_PTR == NULL) continue;
 
     TAOS_FIELD *field = stmt->fields + i_col;

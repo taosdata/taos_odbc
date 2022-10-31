@@ -917,12 +917,12 @@ static int _run_execute_params_rs(executes_ctx_t *ctx, cJSON *params, cJSON *rs)
     switch (ValueType) {
       case SQL_C_CHAR:
         sr = CALL_SQLBindParameter(ctx->hstmt, i+1, SQL_PARAM_INPUT, ValueType,
-            DataType, bytes, DecimalDigits, ctx->params.arrays[i], buffer_length, ctx->params.strlen_or_inds[i]);
+            DataType, ParameterSize, DecimalDigits, ctx->params.arrays[i], buffer_length, ctx->params.strlen_or_inds[i]);
         if (FAILED(sr)) return -1;
         break;
       case SQL_C_DOUBLE:
         sr = CALL_SQLBindParameter(ctx->hstmt, i+1, SQL_PARAM_INPUT, ValueType,
-            DataType, bytes, DecimalDigits, ctx->params.arrays[i], buffer_length, ctx->params.strlen_or_inds[i]);
+            DataType, ParameterSize, DecimalDigits, ctx->params.arrays[i], buffer_length, ctx->params.strlen_or_inds[i]);
         if (FAILED(sr)) return -1;
         break;
       default:

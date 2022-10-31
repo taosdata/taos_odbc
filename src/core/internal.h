@@ -167,8 +167,6 @@ struct desc_header_s {
 
 typedef int (*tsdb_to_sql_c_f)(stmt_t *stmt, const char *data, int len, char *dest, int dlen);
 
-typedef struct desc_record_s                  desc_record_t;
-
 typedef struct sql_c_to_tsdb_meta_s                sql_c_to_tsdb_meta_t;
 
 struct sql_c_to_tsdb_meta_s {
@@ -205,6 +203,8 @@ struct desc_record_s {
   SQLRETURN (*create_length_array)(stmt_t *stmt, desc_record_t *record, int rows, TAOS_MULTI_BIND *mb);
 
   SQLRETURN (*convf)(stmt_t *stmt, sql_c_to_tsdb_meta_t *meta);
+
+  unsigned int                  bound:1;
 };
 
 struct descriptor_s {

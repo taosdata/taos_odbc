@@ -121,15 +121,21 @@ void descriptor_init(descriptor_t *desc)
   _desc_header_init(&desc->header);
 }
 
-void descriptor_release_field_arrays(descriptor_t *APD)
+void descriptor_reclaim_buffers(descriptor_t *APD)
 {
   desc_header_t *APD_header = &APD->header;
 
   for (SQLUSMALLINT i=0; i<APD_header->DESC_COUNT; ++i) {
     desc_record_t *record = APD->records + i;
-    TOD_SAFE_FREE(record->buffer);
-    TOD_SAFE_FREE(record->length);
-    TOD_SAFE_FREE(record->is_null);
+    desc_record_reclaim_buffers(record);
+    record->bound = 0;
   }
+}
+
+void desc_record_reclaim_buffers(desc_record_t *record)
+{
+  TOD_SAFE_FREE(record->buffer);
+  TOD_SAFE_FREE(record->length);
+  TOD_SAFE_FREE(record->is_null);
 }
 

@@ -216,7 +216,7 @@ void stmt_dissociate_APD(stmt_t *stmt)
 {
   if (stmt->associated_APD == NULL) return;
 
-  descriptor_release_field_arrays(&stmt->associated_APD->descriptor);
+  descriptor_reclaim_buffers(&stmt->associated_APD->descriptor);
 
   tod_list_del(&stmt->associated_APD_node);
   desc_unref(stmt->associated_APD);
@@ -309,7 +309,7 @@ static descriptor_t* _stmt_APD(stmt_t *stmt)
 static void _stmt_release_field_arrays(stmt_t *stmt)
 {
   descriptor_t *APD = _stmt_APD(stmt);
-  descriptor_release_field_arrays(APD);
+  descriptor_reclaim_buffers(APD);
 }
 
 static void _stmt_release(stmt_t *stmt)
@@ -428,18 +428,18 @@ static descriptor_t* _stmt_ARD(stmt_t *stmt)
 
 static SQLRETURN _stmt_set_rows_fetched_ptr(stmt_t *stmt, SQLULEN *rows_fetched_ptr)
 {
-  descriptor_t *desc = _stmt_IRD(stmt);
-  desc_header_t *header = &desc->header;
-  header->DESC_ROWS_PROCESSED_PTR = rows_fetched_ptr;
+  descriptor_t *IRD = _stmt_IRD(stmt);
+  desc_header_t *IRD_header = &IRD->header;
+  IRD_header->DESC_ROWS_PROCESSED_PTR = rows_fetched_ptr;
 
   return SQL_SUCCESS;
 }
 
 static SQLULEN* _stmt_get_rows_fetched_ptr(stmt_t *stmt)
 {
-  descriptor_t *desc = _stmt_IRD(stmt);
-  desc_header_t *header = &desc->header;
-  return header->DESC_ROWS_PROCESSED_PTR;
+  descriptor_t *IRD = _stmt_IRD(stmt);
+  desc_header_t *IRD_header = &IRD->header;
+  return IRD_header->DESC_ROWS_PROCESSED_PTR;
 }
 
 static SQLRETURN _stmt_exec_direct_sql(stmt_t *stmt, const char *sql)
@@ -456,7 +456,7 @@ static SQLRETURN _stmt_exec_direct_sql(stmt_t *stmt, const char *sql)
   TAOS *taos = stmt->conn->taos;
 
   if (stmt->stmt) {
-    stmt_append_err(stmt, "HY000", 0, "General error:not implemented yet");
+    stmt_niy(stmt);
     return SQL_ERROR;
   }
 
@@ -517,18 +517,18 @@ static SQLRETURN _stmt_set_row_array_size(stmt_t *stmt, SQLULEN row_array_size)
     return SQL_SUCCESS_WITH_INFO;
   }
 
-  descriptor_t *desc = _stmt_ARD(stmt);
-  desc_header_t *header = &desc->header;
-  header->DESC_ARRAY_SIZE = row_array_size;
+  descriptor_t *ARD = _stmt_ARD(stmt);
+  desc_header_t *ARD_header = &ARD->header;
+  ARD_header->DESC_ARRAY_SIZE = row_array_size;
 
   return SQL_SUCCESS;
 }
 
 static SQLULEN _stmt_get_row_array_size(stmt_t *stmt)
 {
-  descriptor_t *desc = _stmt_ARD(stmt);
-  desc_header_t *header = &desc->header;
-  return header->DESC_ARRAY_SIZE;
+  descriptor_t *ARD = _stmt_ARD(stmt);
+  desc_header_t *ARD_header = &ARD->header;
+  return ARD_header->DESC_ARRAY_SIZE;
 }
 
 static SQLRETURN _stmt_set_paramset_size(stmt_t *stmt, SQLULEN paramset_size)
@@ -545,48 +545,48 @@ static SQLRETURN _stmt_set_paramset_size(stmt_t *stmt, SQLULEN paramset_size)
     }
   }
 
-  descriptor_t *desc = _stmt_APD(stmt);
-  desc_header_t *header = &desc->header;
-  header->DESC_ARRAY_SIZE = paramset_size;
+  descriptor_t *APD = _stmt_APD(stmt);
+  desc_header_t *APD_header = &APD->header;
+  APD_header->DESC_ARRAY_SIZE = paramset_size;
 
   return SQL_SUCCESS;
 }
 
 // static SQLULEN _stmt_get_paramset_size(stmt_t *stmt)
 // {
-//   descriptor_t *desc = _stmt_APD(stmt);
-//   desc_header_t *header = &desc->header;
-//   return header->DESC_ARRAY_SIZE;
+//   descriptor_t *APD = _stmt_APD(stmt);
+//   desc_header_t *APD_header = &APD->header;
+//   return APD_header->DESC_ARRAY_SIZE;
 // }
 
 static SQLRETURN _stmt_set_row_status_ptr(stmt_t *stmt, SQLUSMALLINT *row_status_ptr)
 {
-  descriptor_t *desc = _stmt_IRD(stmt);
-  desc_header_t *header = &desc->header;
-  header->DESC_ARRAY_STATUS_PTR = row_status_ptr;
+  descriptor_t *IRD = _stmt_IRD(stmt);
+  desc_header_t *IRD_header = &IRD->header;
+  IRD_header->DESC_ARRAY_STATUS_PTR = row_status_ptr;
   return SQL_SUCCESS;
 }
 
 SQLUSMALLINT* stmt_get_row_status_ptr(stmt_t *stmt)
 {
-  descriptor_t *desc = _stmt_IRD(stmt);
-  desc_header_t *header = &desc->header;
-  return header->DESC_ARRAY_STATUS_PTR;
+  descriptor_t *IRD = _stmt_IRD(stmt);
+  desc_header_t *IRD_header = &IRD->header;
+  return IRD_header->DESC_ARRAY_STATUS_PTR;
 }
 
 static SQLRETURN _stmt_set_param_status_ptr(stmt_t *stmt, SQLUSMALLINT *param_status_ptr)
 {
-  descriptor_t *desc = _stmt_IPD(stmt);
-  desc_header_t *header = &desc->header;
-  header->DESC_ARRAY_STATUS_PTR = param_status_ptr;
+  descriptor_t *IPD = _stmt_IPD(stmt);
+  desc_header_t *IPD_header = &IPD->header;
+  IPD_header->DESC_ARRAY_STATUS_PTR = param_status_ptr;
   return SQL_SUCCESS;
 }
 
 // static SQLUSMALLINT* _stmt_get_param_status_ptr(stmt_t *stmt)
 // {
-//   descriptor_t *desc = _stmt_IPD(stmt);
-//   desc_header_t *header = &desc->header;
-//   return header->DESC_ARRAY_STATUS_PTR;
+//   descriptor_t *IPD = _stmt_IPD(stmt);
+//   desc_header_t *IPD_header = &IPD->header;
+//   return IPD_header->DESC_ARRAY_STATUS_PTR;
 // }
 
 SQLRETURN stmt_get_row_count(stmt_t *stmt, SQLLEN *row_count_ptr)
@@ -608,18 +608,18 @@ static SQLRETURN _stmt_set_row_bind_type(stmt_t *stmt, SQLULEN row_bind_type)
     return SQL_ERROR;
   }
 
-  descriptor_t *desc = _stmt_ARD(stmt);
-  desc_header_t *header = &desc->header;
-  header->DESC_BIND_TYPE = row_bind_type;
+  descriptor_t *ARD = _stmt_ARD(stmt);
+  desc_header_t *ARD_header = &ARD->header;
+  ARD_header->DESC_BIND_TYPE = row_bind_type;
 
   return SQL_SUCCESS;
 }
 
 // static SQLULEN stmt_get_row_bind_type(stmt_t *stmt)
 // {
-//   descriptor_t *desc = _stmt_ARD(stmt);
-//   desc_header_t *header = &desc->header;
-//   return header->DESC_BIND_TYPE;
+//   descriptor_t *ARD = _stmt_ARD(stmt);
+//   desc_header_t *ARD_header = &ARD->header;
+//   return ARD_header->DESC_BIND_TYPE;
 // }
 
 static SQLRETURN _stmt_set_param_bind_type(stmt_t *stmt, SQLULEN param_bind_type)
@@ -629,34 +629,34 @@ static SQLRETURN _stmt_set_param_bind_type(stmt_t *stmt, SQLULEN param_bind_type
     return SQL_ERROR;
   }
 
-  descriptor_t *desc = _stmt_APD(stmt);
-  desc_header_t *header = &desc->header;
-  header->DESC_BIND_TYPE = param_bind_type;
+  descriptor_t *APD = _stmt_APD(stmt);
+  desc_header_t *APD_header = &APD->header;
+  APD_header->DESC_BIND_TYPE = param_bind_type;
 
   return SQL_SUCCESS;
 }
 
 // static SQLULEN _stmt_get_param_bind_type(stmt_t *stmt)
 // {
-//   descriptor_t *desc = _stmt_APD(stmt);
-//   desc_header_t *header = &desc->header;
-//   return header->DESC_BIND_TYPE;
+//   descriptor_t *APD = _stmt_APD(stmt);
+//   desc_header_t *APD_header = &APD->header;
+//   return APD_header->DESC_BIND_TYPE;
 // }
 
 static SQLRETURN _stmt_set_params_processed_ptr(stmt_t *stmt, SQLULEN *params_processed_ptr)
 {
-  descriptor_t *desc = _stmt_IPD(stmt);
-  desc_header_t *header = &desc->header;
-  header->DESC_ROWS_PROCESSED_PTR = params_processed_ptr;
+  descriptor_t *IPD = _stmt_IPD(stmt);
+  desc_header_t *IPD_header = &IPD->header;
+  IPD_header->DESC_ROWS_PROCESSED_PTR = params_processed_ptr;
 
   return SQL_SUCCESS;
 }
 
 // static SQLULEN* _stmt_get_params_processed_ptr(stmt_t *stmt)
 // {
-//   descriptor_t *desc = _stmt_IPD(stmt);
-//   desc_header_t *header = &desc->header;
-//   return header->DESC_ROWS_PROCESSED_PTR;
+//   descriptor_t *IPD = _stmt_IPD(stmt);
+//   desc_header_t *IPD_header = &IPD->header;
+//   return IPD_header->DESC_ROWS_PROCESSED_PTR;
 // }
 
 static SQLRETURN _stmt_set_max_length(stmt_t *stmt, SQLULEN max_length)
@@ -671,18 +671,18 @@ static SQLRETURN _stmt_set_max_length(stmt_t *stmt, SQLULEN max_length)
 
 static SQLRETURN _stmt_set_row_bind_offset_ptr(stmt_t *stmt, SQLULEN *row_bind_offset_ptr)
 {
-  descriptor_t *desc = _stmt_ARD(stmt);
-  desc_header_t *header = &desc->header;
-  header->DESC_BIND_OFFSET_PTR = row_bind_offset_ptr;
+  descriptor_t *ARD = _stmt_ARD(stmt);
+  desc_header_t *ARD_header = &ARD->header;
+  ARD_header->DESC_BIND_OFFSET_PTR = row_bind_offset_ptr;
 
   return SQL_SUCCESS;
 }
 
 // static SQLULEN* _stmt_get_row_bind_offset_ptr(stmt_t *stmt)
 // {
-//   descriptor_t *desc = _stmt_ARD(stmt);
-//   desc_header_t *header = &desc->header;
-//   return header->DESC_BIND_OFFSET_PTR;
+//   descriptor_t *ARD = _stmt_ARD(stmt);
+//   desc_header_t *ARD_header = &ARD->header;
+//   return ARD_header->DESC_BIND_OFFSET_PTR;
 // }
 
 SQLRETURN stmt_describe_col(stmt_t *stmt,
@@ -931,78 +931,88 @@ SQLRETURN stmt_bind_col(stmt_t *stmt,
     SQLLEN         BufferLength,
     SQLLEN        *StrLen_or_IndPtr)
 {
-  descriptor_t *desc = _stmt_ARD(stmt);
-  desc_header_t *header = &desc->header;
-  if (ColumnNumber >= desc->cap) {
+  if (ColumnNumber == 0) {
+    stmt_append_err(stmt, "HY000", 0, "General error:bookmark column not supported yet");
+    return SQL_ERROR;
+  }
+
+  descriptor_t *ARD = _stmt_ARD(stmt);
+  desc_header_t *ARD_header = &ARD->header;
+
+  if (ColumnNumber >= ARD->cap) {
     size_t cap = (ColumnNumber + 15) / 16 * 16;
-    desc_record_t *records = (desc_record_t*)realloc(desc->records, sizeof(*records) * cap);
+    desc_record_t *records = (desc_record_t*)realloc(ARD->records, sizeof(*records) * cap);
     if (!records) {
       stmt_oom(stmt);
       return SQL_ERROR;
     }
-    desc->records = records;
-    desc->cap     = cap;
+    for (size_t i = ARD->cap; i<cap; ++i) {
+      desc_record_t *record = records + i;
+      memset(record, 0, sizeof(*record));
+    }
+    ARD->records = records;
+    ARD->cap     = cap;
   }
 
-  desc_record_t *record = desc->records + ColumnNumber - 1;
-  memset(record, 0, sizeof(*record));
+  desc_record_t *ARD_record = ARD->records + ColumnNumber - 1;
+  memset(ARD_record, 0, sizeof(*ARD_record));
 
   switch (TargetType) {
     case SQL_C_UTINYINT:
-      record->DESC_LENGTH            = 1;
-      record->DESC_PRECISION         = 0;
-      record->DESC_SCALE             = 0;
-      record->DESC_TYPE              = TargetType;
-      record->DESC_CONCISE_TYPE      = TargetType;
-      record->element_size_in_column_wise = record->DESC_LENGTH;
+      ARD_record->DESC_LENGTH            = 1;
+      ARD_record->DESC_PRECISION         = 0;
+      ARD_record->DESC_SCALE             = 0;
+      ARD_record->DESC_TYPE              = TargetType;
+      ARD_record->DESC_CONCISE_TYPE      = TargetType;
+      ARD_record->element_size_in_column_wise = ARD_record->DESC_LENGTH;
       break;
     case SQL_C_SHORT:
-      record->DESC_LENGTH            = 2;
-      record->DESC_PRECISION         = 0;
-      record->DESC_SCALE             = 0;
-      record->DESC_TYPE              = TargetType;
-      record->DESC_CONCISE_TYPE      = TargetType;
-      record->element_size_in_column_wise = record->DESC_LENGTH;
+      ARD_record->DESC_LENGTH            = 2;
+      ARD_record->DESC_PRECISION         = 0;
+      ARD_record->DESC_SCALE             = 0;
+      ARD_record->DESC_TYPE              = TargetType;
+      ARD_record->DESC_CONCISE_TYPE      = TargetType;
+      ARD_record->element_size_in_column_wise = ARD_record->DESC_LENGTH;
       break;
     case SQL_C_SLONG:
-      record->DESC_LENGTH            = 4;
-      record->DESC_PRECISION         = 0;
-      record->DESC_SCALE             = 0;
-      record->DESC_TYPE              = TargetType;
-      record->DESC_CONCISE_TYPE      = TargetType;
-      record->element_size_in_column_wise = record->DESC_LENGTH;
+      ARD_record->DESC_LENGTH            = 4;
+      ARD_record->DESC_PRECISION         = 0;
+      ARD_record->DESC_SCALE             = 0;
+      ARD_record->DESC_TYPE              = TargetType;
+      ARD_record->DESC_CONCISE_TYPE      = TargetType;
+      ARD_record->element_size_in_column_wise = ARD_record->DESC_LENGTH;
       break;
     case SQL_C_SBIGINT:
-      record->DESC_LENGTH            = 8;
-      record->DESC_PRECISION         = 0;
-      record->DESC_SCALE             = 0;
-      record->DESC_TYPE              = TargetType;
-      record->DESC_CONCISE_TYPE      = TargetType;
-      record->element_size_in_column_wise = record->DESC_LENGTH;
+      ARD_record->DESC_LENGTH            = 8;
+      ARD_record->DESC_PRECISION         = 0;
+      ARD_record->DESC_SCALE             = 0;
+      ARD_record->DESC_TYPE              = TargetType;
+      ARD_record->DESC_CONCISE_TYPE      = TargetType;
+      ARD_record->element_size_in_column_wise = ARD_record->DESC_LENGTH;
       break;
     case SQL_C_DOUBLE:
-      record->DESC_LENGTH            = 8;
-      record->DESC_PRECISION         = 0;
-      record->DESC_SCALE             = 0;
-      record->DESC_TYPE              = TargetType;
-      record->DESC_CONCISE_TYPE      = TargetType;
-      record->element_size_in_column_wise = record->DESC_LENGTH;
+      ARD_record->DESC_LENGTH            = 8;
+      ARD_record->DESC_PRECISION         = 0;
+      ARD_record->DESC_SCALE             = 0;
+      ARD_record->DESC_TYPE              = TargetType;
+      ARD_record->DESC_CONCISE_TYPE      = TargetType;
+      ARD_record->element_size_in_column_wise = ARD_record->DESC_LENGTH;
       break;
     case SQL_C_CHAR:
-      record->DESC_LENGTH            = 0; // FIXME:
-      record->DESC_PRECISION         = 0;
-      record->DESC_SCALE             = 0;
-      record->DESC_TYPE              = TargetType;
-      record->DESC_CONCISE_TYPE      = TargetType;
-      record->element_size_in_column_wise = BufferLength;
+      ARD_record->DESC_LENGTH            = 0; // FIXME:
+      ARD_record->DESC_PRECISION         = 0;
+      ARD_record->DESC_SCALE             = 0;
+      ARD_record->DESC_TYPE              = TargetType;
+      ARD_record->DESC_CONCISE_TYPE      = TargetType;
+      ARD_record->element_size_in_column_wise = BufferLength;
       break;
     case SQL_C_WCHAR:
-      record->DESC_LENGTH            = 0; // FIXME:
-      record->DESC_PRECISION         = 0;
-      record->DESC_SCALE             = 0;
-      record->DESC_TYPE              = TargetType;
-      record->DESC_CONCISE_TYPE      = TargetType;
-      record->element_size_in_column_wise = BufferLength;
+      ARD_record->DESC_LENGTH            = 0; // FIXME:
+      ARD_record->DESC_PRECISION         = 0;
+      ARD_record->DESC_SCALE             = 0;
+      ARD_record->DESC_TYPE              = TargetType;
+      ARD_record->DESC_CONCISE_TYPE      = TargetType;
+      ARD_record->element_size_in_column_wise = BufferLength;
       break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
@@ -1012,13 +1022,14 @@ SQLRETURN stmt_bind_col(stmt_t *stmt,
       break;
   }
 
-  record->DESC_OCTET_LENGTH        = BufferLength;
-  record->DESC_DATA_PTR            = TargetValuePtr;
-  record->DESC_INDICATOR_PTR       = StrLen_or_IndPtr;
-  record->DESC_OCTET_LENGTH_PTR    = StrLen_or_IndPtr;
+  ARD_record->DESC_OCTET_LENGTH        = BufferLength;
+  ARD_record->DESC_DATA_PTR            = TargetValuePtr;
+  ARD_record->DESC_INDICATOR_PTR       = StrLen_or_IndPtr;
+  ARD_record->DESC_OCTET_LENGTH_PTR    = StrLen_or_IndPtr;
 
-  if (ColumnNumber > header->DESC_COUNT) header->DESC_COUNT = ColumnNumber;
+  if (ColumnNumber > ARD_header->DESC_COUNT) ARD_header->DESC_COUNT = ColumnNumber;
 
+  ARD_record->bound = 1;
   return SQL_SUCCESS;
 }
 
@@ -1758,20 +1769,20 @@ static SQLRETURN _stmt_fill_rowset(stmt_t *stmt, int i_row, int i_col)
 {
   SQLRETURN sr;
 
-  descriptor_t *desc = _stmt_ARD(stmt);
-  desc_header_t *header = &desc->header;
+  descriptor_t *ARD = _stmt_ARD(stmt);
+  desc_header_t *ARD_header = &ARD->header;
 
-  if (i_col >= header->DESC_COUNT) return SQL_SUCCESS;
+  if (i_col >= ARD_header->DESC_COUNT) return SQL_SUCCESS;
 
-  desc_record_t *record = desc->records + i_col;
-  if (record->DESC_DATA_PTR == NULL) return SQL_SUCCESS;
+  desc_record_t *ARD_record = ARD->records + i_col;
+  if (ARD_record->DESC_DATA_PTR == NULL) return SQL_SUCCESS;
 
-  char *base = record->DESC_DATA_PTR;
-  if (header->DESC_BIND_OFFSET_PTR) base += *header->DESC_BIND_OFFSET_PTR;
+  char *base = ARD_record->DESC_DATA_PTR;
+  if (ARD_header->DESC_BIND_OFFSET_PTR) base += *ARD_header->DESC_BIND_OFFSET_PTR;
 
-  char *dest = base + record->element_size_in_column_wise * i_row;
-  char *ptr = record->DESC_DATA_PTR;
-  dest = _stmt_get_address(stmt, ptr, record->element_size_in_column_wise, i_row, header);
+  char *dest = base + ARD_record->element_size_in_column_wise * i_row;
+  char *ptr = ARD_record->DESC_DATA_PTR;
+  dest = _stmt_get_address(stmt, ptr, ARD_record->element_size_in_column_wise, i_row, ARD_header);
 
   const char *data;
   int len;
@@ -1779,16 +1790,16 @@ static SQLRETURN _stmt_fill_rowset(stmt_t *stmt, int i_row, int i_col)
   if (!sql_succeeded(sr)) return SQL_ERROR;
 
   if (!data) {
-    _stmt_set_len_or_ind(stmt, i_row, header, record, SQL_NULL_DATA);
+    _stmt_set_len_or_ind(stmt, i_row, ARD_header, ARD_record, SQL_NULL_DATA);
     OD("null");
     return SQL_SUCCESS;
   }
 
-  int bytes = record->conv(stmt, data, len, dest, record->DESC_OCTET_LENGTH);
+  int bytes = ARD_record->conv(stmt, data, len, dest, ARD_record->DESC_OCTET_LENGTH);
   OA_NIY(bytes >= 0);
   if (bytes < 0) return SQL_ERROR;
 
-  _stmt_set_len_or_ind(stmt, i_row, header, record, bytes);
+  _stmt_set_len_or_ind(stmt, i_row, ARD_header, ARD_record, bytes);
 
   return SQL_SUCCESS;
 }
@@ -2546,7 +2557,6 @@ SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
 
 static void _stmt_unprepare(stmt_t *stmt)
 {
-  _stmt_release_field_arrays(stmt);
   _stmt_release_tag_fields(stmt);
   _stmt_release_col_fields(stmt);
   stmt->nr_params = 0;
@@ -3177,6 +3187,12 @@ static SQLRETURN _stmt_param_check_and_prepare(stmt_t *stmt, SQLUSMALLINT Parame
   desc_record_t *IPD_record = IPD->records + ParameterNumber - 1;
   SQLSMALLINT ParameterType = IPD_record->DESC_CONCISE_TYPE;
 
+  if (!APD_record->bound || !IPD_record->bound) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:#%d parameter not bound yet",
+        ParameterNumber);
+    return SQL_ERROR;
+  }
+
   int tsdb_type;
   int tsdb_bytes;
   if (stmt->is_insert_stmt) {
@@ -3533,7 +3549,7 @@ SQLRETURN stmt_bind_param(
   descriptor_t *APD = _stmt_APD(stmt);
   desc_header_t *APD_header = &APD->header;
 
-  if (ParameterNumber > APD_header->DESC_COUNT+1) {
+  if (0 && ParameterNumber > APD_header->DESC_COUNT+1) {
     stmt_append_err(stmt, "HY000", 0, "General error:not implemented yet");
     return SQL_ERROR;
   }
@@ -3564,13 +3580,16 @@ SQLRETURN stmt_bind_param(
       stmt_oom(stmt);
       return SQL_ERROR;
     }
+    for (size_t i = APD->cap; i<cap; ++i) {
+      desc_record_t *record = records + i;
+      memset(record, 0, sizeof(*record));
+    }
     APD->records = records;
     APD->cap     = cap;
   }
 
   desc_record_t *APD_record = APD->records + ParameterNumber - 1;
-  descriptor_release_field_arrays(APD);
-  memset(APD_record, 0, sizeof(*APD_record));
+  APD_record->bound = 0;
 
   switch (ValueType) {
     case SQL_C_UTINYINT:
@@ -3651,6 +3670,10 @@ SQLRETURN stmt_bind_param(
     if (!records) {
       stmt_oom(stmt);
       return SQL_ERROR;
+    }
+    for (size_t i = IPD->cap; i<cap; ++i) {
+      desc_record_t *record = records + i;
+      memset(record, 0, sizeof(*record));
     }
     IPD->records = records;
     IPD->cap     = cap;
@@ -3734,6 +3757,9 @@ SQLRETURN stmt_bind_param(
 
   if (ParameterNumber > APD_header->DESC_COUNT) APD_header->DESC_COUNT = ParameterNumber;
   if (ParameterNumber > IPD_header->DESC_COUNT) IPD_header->DESC_COUNT = ParameterNumber;
+
+  APD_record->bound = 1;
+  IPD_record->bound = 1;
 
   return SQL_SUCCESS;
 }
@@ -4053,12 +4079,8 @@ static SQLRETURN _stmt_pre_exec(stmt_t *stmt)
   return SQL_SUCCESS;
 }
 
-SQLRETURN stmt_execute(stmt_t *stmt)
+SQLRETURN _stmt_execute(stmt_t *stmt)
 {
-  OA_ILE(stmt->conn);
-  OA_ILE(stmt->conn->taos);
-  OA_ILE(stmt->stmt);
-
   SQLRETURN sr = SQL_SUCCESS;
 
   descriptor_t *APD = _stmt_APD(stmt);
@@ -4099,12 +4121,32 @@ SQLRETURN stmt_execute(stmt_t *stmt)
   return _stmt_post_exec(stmt);
 }
 
+SQLRETURN stmt_execute(stmt_t *stmt)
+{
+  OA_ILE(stmt->conn);
+  OA_ILE(stmt->conn->taos);
+  OA_ILE(stmt->stmt);
+
+  SQLRETURN sr = _stmt_execute(stmt);
+
+  // TODO: optimize, lazy-reclaim-until-necessary
+  descriptor_t *APD = _stmt_APD(stmt);
+  desc_header_t *APD_header = &APD->header;
+
+  for (size_t i = 0; i < APD_header->DESC_COUNT; ++i) {
+    desc_record_t *APD_record = APD->records + i;
+    desc_record_reclaim_buffers(APD_record);
+  }
+
+  return sr;
+}
+
 static void _stmt_unbind_cols(stmt_t *stmt)
 {
-  descriptor_t *desc = _stmt_ARD(stmt);
-  desc_header_t *header = &desc->header;
-  header->DESC_COUNT = 0;
-  memset(desc->records, 0, sizeof(*desc->records) * desc->cap);
+  descriptor_t *ARD = _stmt_ARD(stmt);
+  desc_header_t *ARD_header = &ARD->header;
+  ARD_header->DESC_COUNT = 0;
+  memset(ARD->records, 0, sizeof(*ARD->records) * ARD->cap);
 }
 
 static void _stmt_reset_params(stmt_t *stmt)

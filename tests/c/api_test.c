@@ -105,60 +105,6 @@
     TEST_CASE_END(#_func "(" #_v1 "," #_v2 "," #_v3 "," #_v4 "," #_exp ")", _exp);                 \
   }
 
-static void _diagnostic(
-  SQLSMALLINT handleType, SQLHANDLE handle,
-  const char *file, int line, const char *func)
-{
-  SQLRETURN _r;
-  SQLSMALLINT _RecNumber = 0;
-  SQLCHAR _SQLState[10];
-  SQLINTEGER _NativeError;
-  SQLCHAR _MessageText[1024];
-  SQLSMALLINT _BufferLength = sizeof(_MessageText);
-  SQLSMALLINT _TextLength;
-
-  while (1) {
-    _NativeError = 0;
-    _SQLState[0] = '\0';
-    _MessageText[0] = '\0';
-    _TextLength = 0;
-    ++_RecNumber;
-    _r = SQLGetDiagRec(handleType, handle, _RecNumber, _SQLState, &_NativeError, _MessageText, _BufferLength, &_TextLength);
-    if (_r == SQL_NO_DATA) break;
-    if (_r == SQL_SUCCESS || _r == SQL_SUCCESS_WITH_INFO) {
-      LOG(file, line, func, "RecNumber: %d", _RecNumber);
-      LOG(file, line, func, "SQLState: %s", _SQLState);
-      LOG(file, line, func, "NativeError: %d", _NativeError);
-      LOG(file, line, func, "MessageText: %s", _MessageText);
-      LOG(file, line, func, "TextLength: %d", _TextLength);
-      continue;
-    }
-
-    assert(_r != SQL_INVALID_HANDLE);
-    assert(_r != SQL_ERROR);
-    assert(0);
-    break;
-  }
-}
-
-#define CALL_ODBC(_r, _handleType, _handle, _fc)                                      \
-  do {                                                                                \
-    const char *_s;                                                                   \
-    _r = _fc;                                                                         \
-    if (_r == SQL_SUCCESS) break;                                                     \
-    if (_r == SQL_ERROR) {                                                            \
-      _s = "failed";                                                                  \
-    } else if (_r == SQL_SUCCESS_WITH_INFO) {                                         \
-      _s = "succeeded with info";                                                     \
-    } else if (_r == SQL_NO_DATA) {                                                   \
-      _s = "no data returned";                                                        \
-    } else {                                                                          \
-      D("%s: unknown result", #_fc);                                                  \
-    }                                                                                 \
-    D("%s: %s", #_fc, _s);                                                            \
-    _diagnostic(_handleType, _handle, __FILE__, __LINE__, __func__);                  \
-  } while (0)
-
 #define MATCH(a, b)  (!!(a) == !!(b))
 
 __attribute__((unused))
@@ -386,7 +332,7 @@ static int do_sql_stmt_execute_direct_prepare(SQLHANDLE stmth)
   // SQL_TIMESTAMP_STRUCT ts = {};
   // SQLLEN cbOrderDate;
 
-  // CALL_ODBC(r, SQL_HANDLE_STMT, stmth, SQLBindParameter(stmth, 1, SQL_PARAM_INPUT, SQL_C_TYPE_TIMESTAMP, SQL_TYPE_TIMESTAMP, sizeof(ts), 0, &ts, 0, &cbOrderDate));
+  // r = CALL_SQLBindParameter(stmth, 1, SQL_PARAM_INPUT, SQL_C_TYPE_TIMESTAMP, SQL_TYPE_TIMESTAMP, sizeof(ts), 0, &ts, 0, &cbOrderDate);
   // D("input: ipar: %d", 1);
   // D("input: fParamType: %d", SQL_PARAM_INPUT);
   // D("input: fCType: %d", SQL_C_TYPE_TIMESTAMP);
@@ -408,7 +354,7 @@ static int do_sql_stmt(SQLHANDLE connh)
   SQLRETURN r;
   SQLHANDLE stmth;
 
-  CALL_ODBC(r, SQL_HANDLE_DBC, connh, SQLAllocHandle(SQL_HANDLE_STMT, connh, &stmth));
+  r = CALL_SQLAllocHandle(SQL_HANDLE_STMT, connh, &stmth);
   if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
 
   do {
@@ -431,15 +377,15 @@ static int do_conn_get_info(SQLHANDLE connh)
 
   char buf[1024];
 
-  CALL_ODBC(r, SQL_HANDLE_DBC, connh, SQLGetInfo(connh, SQL_DRIVER_NAME, buf, sizeof(buf), &StringLength));
+  r = CALL_SQLGetInfo(connh, SQL_DRIVER_NAME, buf, sizeof(buf), &StringLength);
   if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
   D("SQL_DRIVER_NAME: %s", buf);
 
-  CALL_ODBC(r, SQL_HANDLE_DBC, connh, SQLGetInfo(connh, SQL_DBMS_NAME, buf, sizeof(buf), &StringLength));
+  r = CALL_SQLGetInfo(connh, SQL_DBMS_NAME, buf, sizeof(buf), &StringLength);
   if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
   D("SQL_DBMS_NAME: %s", buf);
 
-  CALL_ODBC(r, SQL_HANDLE_DBC, connh, SQLGetInfo(connh, SQL_DM_VER, buf, sizeof(buf), &StringLength));
+  r = CALL_SQLGetInfo(connh, SQL_DM_VER, buf, sizeof(buf), &StringLength);
   if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
   D("SQL_DM_VER: %s", buf);
 
@@ -460,7 +406,7 @@ static int test_sql_driver_conn(SQLHANDLE connh, const char *conn_str)
 
   OutConnectionString[0] = '\0';
 
-  CALL_ODBC(r, SQL_HANDLE_DBC, connh, SQLDriverConnect(connh, WindowHandle, InConnectionString, StringLength1, OutConnectionString, BufferLength, &StringLength2, DriverCompletion));
+  r = CALL_SQLDriverConnect(connh, WindowHandle, InConnectionString, StringLength1, OutConnectionString, BufferLength, &StringLength2, DriverCompletion);
   if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
 
   do {
@@ -495,7 +441,7 @@ static int test_sql_conn(SQLHANDLE connh, const char *dsn, const char *uid, cons
 {
   SQLRETURN r;
 
-  CALL_ODBC(r, SQL_HANDLE_DBC, connh, SQLConnect(connh, (SQLCHAR*)dsn, SQL_NTS, (SQLCHAR*)uid, SQL_NTS, (SQLCHAR*)pwd, SQL_NTS));
+  r = CALL_SQLConnect(connh, (SQLCHAR*)dsn, SQL_NTS, (SQLCHAR*)uid, SQL_NTS, (SQLCHAR*)pwd, SQL_NTS);
   if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
 
   do {
@@ -554,7 +500,7 @@ static int do_sql_alloc_conn(SQLHANDLE envh)
   SQLRETURN r;
   SQLHANDLE connh;
 
-  CALL_ODBC(r, SQL_HANDLE_ENV, envh, SQLAllocHandle(SQL_HANDLE_DBC, envh, &connh));
+  r = CALL_SQLAllocHandle(SQL_HANDLE_DBC, envh, &connh);
   if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
 
 // #define LOOPING
@@ -582,7 +528,7 @@ static int test_sql_alloc_env(void)
     return -1;
   }
 
-  CALL_ODBC(r, SQL_HANDLE_ENV, envh, SQLSetEnvAttr(envh, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, 0));
+  r = CALL_SQLSetEnvAttr(envh, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, 0);
   if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
 
 // #define LOOPING

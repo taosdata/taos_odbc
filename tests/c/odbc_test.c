@@ -22,18 +22,23 @@
  * SOFTWARE.
  */
 
+#define _XOPEN_SOURCE
+#include <time.h>
+
 #include "odbc_helpers.h"
 
 #include "../test_helper.h"
 
+#include <stdarg.h>
 #include <stdint.h>
 
 typedef struct conn_arg_s             conn_arg_t;
 struct conn_arg_s {
-  const char *dsn;
-  const char *uid;
-  const char *pwd;
-  const char *connstr;
+  const char      *dsn;
+  const char      *uid;
+  const char      *pwd;
+  const char      *connstr;
+  unsigned int     non_taos:1;
 };
 
 static int _connect(SQLHANDLE hconn, const char *dsn, const char *uid, const char *pwd)
@@ -1095,16 +1100,27 @@ static int run_case_under_conn(SQLHANDLE hconn, cJSON *json)
   return r;
 }
 
-static int run_case(SQLHANDLE hconn, cJSON *json, conn_arg_t *conn_arg)
+static int run_case(SQLHANDLE hconn, cJSON *json, conn_arg_t *conn_arg, int *bypassed)
 {
   (void)hconn;
 
+  *bypassed = 0;
+
   int r = 0;
 
-  const char *dsn     = json_object_get_string(json, "conn/dsn");
-  const char *uid     = json_object_get_string(json, "conn/uid");
-  const char *pwd     = json_object_get_string(json, "conn/pwd");
-  const char *connstr = json_object_get_string(json, "conn/connstr");
+  const char *dsn       = json_object_get_string(json, "conn/dsn");
+  const char *uid       = json_object_get_string(json, "conn/uid");
+  const char *pwd       = json_object_get_string(json, "conn/pwd");
+  const char *connstr   = json_object_get_string(json, "conn/connstr");
+  double v = 0;
+  json_object_get_number(json, "conn/non_taos", &v);
+  int non_taos = (int)v;
+
+  if (!!conn_arg->non_taos != !!non_taos) {
+    W("test case bypassed because of `non_taos` does not match");
+    *bypassed = 1;
+    return 0;
+  }
 
   if (!dsn && !connstr) {
     dsn = conn_arg->dsn;
@@ -1156,10 +1172,16 @@ static int run_json_file(SQLHANDLE hconn, cJSON *json, conn_arg_t *conn_arg)
 
     LOG_CALL("%s case[#%d]", positive ? "positive" : "negative", i+1);
 
-    r = run_case(hconn, json_case, conn_arg);
+    int bypass = 0;
+    r = run_case(hconn, json_case, conn_arg, &bypass);
 
-    r = !(!r ^ !positive);
-    LOG_FINI(r, "%s case[#%d]", positive ? "positive" : "negative", i+1);
+    if (bypass) {
+      LOG_FINI(r, "%s case[#%d]: bypassed", positive ? "positive" : "negative", i+1);
+      r = 0;
+    } else {
+      r = !(!r ^ !positive);
+      LOG_FINI(r, "%s case[#%d]", positive ? "positive" : "negative", i+1);
+    }
 
     if (r) break;
   }
@@ -1270,6 +1292,10 @@ static int process_by_args_conn(int argc, char *argv[], SQLHANDLE hconn)
       conn_arg.connstr = argv[i];
       continue;
     }
+    if (strcmp(argv[i], "--non-taos") == 0) {
+      conn_arg.non_taos = 1;
+      continue;
+    }
   }
 
   int r = 0;
@@ -1302,6 +1328,404 @@ static int process_by_args_env(int argc, char *argv[], SQLHANDLE henv)
   return r;
 }
 
+static int test_exec_direct(SQLHANDLE hconn, const char *sql)
+{
+  int r = 0;
+  SQLRETURN sr = SQL_SUCCESS;
+
+  SQLHANDLE hstmt = SQL_NULL_HANDLE;
+
+  sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
+  if (FAILED(sr)) return -1;
+
+  do {
+    sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
+    if (FAILED(sr)) break;
+  } while (0);
+
+  CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+
+  return (r || FAILED(sr)) ? -1 : 0;
+}
+
+static int select_count(SQLHANDLE hconn, const char *sql, size_t *count)
+{
+  int r = 0;
+  SQLRETURN sr = SQL_SUCCESS;
+
+  SQLHANDLE hstmt = SQL_NULL_HANDLE;
+
+  sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
+  if (FAILED(sr)) return -1;
+
+  do {
+    sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
+    if (FAILED(sr)) break;
+
+    *count = 0;
+    while (1) {
+      sr = CALL_SQLFetch(hstmt);
+      if (sr == SQL_ERROR) break;
+      if (sr == SQL_NO_DATA) {
+        sr = SQL_SUCCESS;
+        break;
+      }
+      *count += 1;
+    }
+  } while (0);
+
+  CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+
+  return (r || FAILED(sr)) ? -1 : 0;
+}
+
+static int test_case1(SQLHANDLE hconn)
+{
+  int r = 0;
+
+  r = test_exec_direct(hconn, "drop table if exists t");
+  if (r) return -1;
+
+  r = test_exec_direct(hconn, "create table t (ts timestamp, bi bigint)");
+  if (r) return -1;
+
+  r = test_exec_direct(hconn, "insert into t (ts, bi) values ('2022-10-12 13:14:15', 34)");
+  if (r) return -1;
+
+  size_t count;
+  r = select_count(hconn, "select * from t where ts = '2022-10-12 13:14:15'", &count);
+  if (r) return -1;
+  if (count != 1) {
+    E("1 expected, but got ==%ld==", count);
+    return -1;
+  }
+
+  r = select_count(hconn, "select * from t where bi = 34", &count);
+  if (r) return -1;
+  if (count != 1) {
+    E("1 expected, but got ==%ld==", count);
+    return -1;
+  }
+
+  return 0;
+}
+
+static int test_case2(SQLHANDLE hconn)
+{
+  int r = 0;
+
+  r = test_exec_direct(hconn, "drop table if exists t");
+  if (r) return -1;
+
+  r = test_exec_direct(hconn, "create table t (ts timestamp, bi bigint)");
+  if (r) return -1;
+
+  const char *fmt = "%Y-%m-%d %H:%M:%S";
+  const char *ts = "2022-10-12 13:14:15";
+  int64_t bi = 34;
+  struct tm tm = {};
+  strptime(ts, fmt, &tm);
+  time_t tt = mktime(&tm);
+
+#define COUNT 128
+
+  for (size_t i=0; i<COUNT; ++i) {
+    char s[64];
+    strftime(s, sizeof(s), fmt, &tm);
+
+    char sql[128];
+    snprintf(sql, sizeof(sql), "insert into t (ts, bi) values ('%s', %ld)", s, bi);
+
+    r = test_exec_direct(hconn, sql);
+    if (r) return -1;
+
+    ++tt;
+    localtime_r(&tt, &tm);
+    ++bi;
+  }
+
+  size_t count;
+  r = select_count(hconn, "select * from t where ts = '2022-10-12 13:14:15'", &count);
+  if (r) return -1;
+  if (count != 1) {
+    E("1 expected, but got ==%ld==", count);
+    return -1;
+  }
+
+  r = select_count(hconn, "select * from t", &count);
+  if (r) return -1;
+  if (count != COUNT) {
+    E("%d expected, but got ==%ld==", COUNT, count);
+    return -1;
+  }
+
+#undef COUNT
+
+  return 0;
+}
+
+static int select_count_with_col_bind(SQLHANDLE hconn, const char *sql, size_t *count)
+{
+  int r = 0;
+  SQLRETURN sr = SQL_SUCCESS;
+
+  SQLHANDLE hstmt = SQL_NULL_HANDLE;
+
+  sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
+  if (FAILED(sr)) return -1;
+
+  SQLCHAR ts[128];
+  int64_t bi;
+  do {
+    sr = CALL_SQLBindCol(hstmt, 1, SQL_C_CHAR, &ts, sizeof(ts), NULL);
+    if (FAILED(sr)) break;
+
+    sr = CALL_SQLBindCol(hstmt, 2, SQL_C_SBIGINT, &bi, 0, NULL);
+    if (FAILED(sr)) break;
+
+    sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
+    if (FAILED(sr)) break;
+
+    *count = 0;
+    while (1) {
+      sr = CALL_SQLFetch(hstmt);
+      if (sr == SQL_ERROR) break;
+      if (sr == SQL_NO_DATA) {
+        sr = SQL_SUCCESS;
+        break;
+      }
+      *count += 1;
+    }
+  } while (0);
+
+  CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+
+  return (r || FAILED(sr)) ? -1 : 0;
+}
+
+static int test_case3(SQLHANDLE hconn)
+{
+  int r = 0;
+
+  r = test_exec_direct(hconn, "drop table if exists t");
+  if (r) return -1;
+
+  r = test_exec_direct(hconn, "create table t (ts timestamp, bi bigint)");
+  if (r) return -1;
+
+  const char *fmt = "%Y-%m-%d %H:%M:%S";
+  const char *ts = "2022-10-12 13:14:15";
+  int64_t bi = 34;
+  struct tm tm = {};
+  strptime(ts, fmt, &tm);
+  time_t tt = mktime(&tm);
+
+#define COUNT 20
+
+  for (size_t i=0; i<COUNT; ++i) {
+    char s[64];
+    strftime(s, sizeof(s), fmt, &tm);
+
+    char sql[128];
+    snprintf(sql, sizeof(sql), "insert into t (ts, bi) values ('%s', %ld)", s, bi);
+
+    r = test_exec_direct(hconn, sql);
+    if (r) return -1;
+
+    ++tt;
+    localtime_r(&tt, &tm);
+    ++bi;
+  }
+
+  size_t count;
+  r = select_count_with_col_bind(hconn, "select * from t where ts = '2022-10-12 13:14:15'", &count);
+  if (r) return -1;
+  if (count != 1) {
+    E("1 expected, but got ==%ld==", count);
+    return -1;
+  }
+
+  r = select_count_with_col_bind(hconn, "select * from t", &count);
+  if (r) return -1;
+  if (count != COUNT) {
+    E("%d expected, but got ==%ld==", COUNT, count);
+    return -1;
+  }
+
+#undef COUNT
+
+  return 0;
+}
+
+static int select_count_with_col_bind_array(SQLHANDLE hconn, const char *sql, size_t *count)
+{
+  int r = 0;
+  SQLRETURN sr = SQL_SUCCESS;
+
+  SQLHANDLE hstmt = SQL_NULL_HANDLE;
+
+  sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
+  if (FAILED(sr)) return -1;
+
+#define ARRAY_SIZE 8
+  SQLCHAR ts[ARRAY_SIZE][128];
+  SQLLEN ts_ind[ARRAY_SIZE];
+  int64_t bi[ARRAY_SIZE];
+  SQLLEN bi_ind[ARRAY_SIZE];
+  SQLUSMALLINT status[ARRAY_SIZE];
+  SQLUINTEGER nr_rows;
+  do {
+    sr = CALL_SQLBindCol(hstmt, 1, SQL_C_CHAR, &ts[0][0], sizeof(ts[0]), ts_ind);
+    if (FAILED(sr)) break;
+
+    sr = CALL_SQLBindCol(hstmt, 2, SQL_C_SBIGINT, &bi, 0, bi_ind);
+    if (FAILED(sr)) break;
+
+    sr = CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_ROW_ARRAY_SIZE, (SQLPOINTER)ARRAY_SIZE, 0);
+    if (FAILED(sr)) break;
+    sr = CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_ROW_STATUS_PTR, status, 0);
+    if (FAILED(sr)) break;
+    sr = CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_ROWS_FETCHED_PTR, &nr_rows, 0);
+    if (FAILED(sr)) break;
+
+    sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
+    if (FAILED(sr)) break;
+
+    *count = 0;
+    while (1) {
+      // sr = /*CALL_*/SQLFetchScroll(hstmt, SQL_FETCH_NEXT, 0);
+      sr = /*CALL_*/SQLFetch(hstmt);
+      if (sr == SQL_ERROR) break;
+      if (sr == SQL_NO_DATA) {
+        sr = SQL_SUCCESS;
+        break;
+      }
+      *count += nr_rows;
+    }
+  } while (0);
+
+#undef ARRAY_SIZE
+
+  CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+
+  return (r || FAILED(sr)) ? -1 : 0;
+}
+
+static int test_case4(SQLHANDLE hconn)
+{
+  int r = 0;
+
+  r = test_exec_direct(hconn, "drop table if exists t");
+  if (r) return -1;
+
+  r = test_exec_direct(hconn, "create table t (ts timestamp, bi bigint)");
+  if (r) return -1;
+
+  const char *fmt = "%Y-%m-%d %H:%M:%S";
+  const char *ts = "2022-10-12 13:14:15";
+  int64_t bi = 34;
+  struct tm tm = {};
+  strptime(ts, fmt, &tm);
+  time_t tt = mktime(&tm);
+
+#define COUNT 20
+
+  for (size_t i=0; i<COUNT; ++i) {
+    char s[64];
+    strftime(s, sizeof(s), fmt, &tm);
+
+    char sql[128];
+    snprintf(sql, sizeof(sql), "insert into t (ts, bi) values ('%s', %ld)", s, bi);
+
+    r = test_exec_direct(hconn, sql);
+    if (r) return -1;
+
+    ++tt;
+    localtime_r(&tt, &tm);
+    ++bi;
+  }
+
+  size_t count;
+  r = select_count_with_col_bind_array(hconn, "select * from t where ts = '2022-10-12 13:14:15'", &count);
+  if (r) return -1;
+  if (count != 1) {
+    E("1 expected, but got ==%ld==", count);
+    return -1;
+  }
+
+  r = select_count_with_col_bind_array(hconn, "select * from t", &count);
+  if (r) return -1;
+  if (count != COUNT) {
+    E("%d expected, but got ==%ld==", COUNT, count);
+    return -1;
+  }
+
+#undef COUNT
+
+  return 0;
+}
+
+static int test_hard_coded(SQLHANDLE henv, const char *dsn, const char *uid, const char *pwd, const char *connstr, int non_taos)
+{
+  (void)non_taos;
+
+  int r = 0;
+  SQLRETURN sr = SQL_SUCCESS;
+
+  SQLHANDLE hconn = SQL_NULL_HANDLE;
+  sr = CALL_SQLAllocHandle(SQL_HANDLE_DBC, henv, &hconn);
+  if (FAILED(sr)) return -1;
+
+  do {
+    if (dsn) {
+      r = _connect(hconn, dsn, uid, pwd);
+      if (r) break;
+    } else {
+      r = _driver_connect(hconn, connstr);
+      if (r) break;
+    }
+
+    do {
+      test_exec_direct(hconn, "create database if not exists foo");
+      test_exec_direct(hconn, "use foo");
+
+      r = test_case1(hconn);
+      if (r) break;
+
+      r = test_case2(hconn);
+      if (r) break;
+
+      r = test_case3(hconn);
+      if (r) break;
+
+      r = test_case4(hconn);
+      if (r) break;
+    } while (0);
+
+    CALL_SQLDisconnect(hconn);
+  } while (0);
+
+  CALL_SQLFreeHandle(SQL_HANDLE_DBC, hconn);
+
+  return (r || FAILED(sr)) ? -1 : 0;
+}
+
+static int test_hard_coded_cases(SQLHANDLE henv)
+{
+  int r = 0;
+
+  r = test_hard_coded(henv, "MYSQL_ODBC_DSN", "root", "taosdata", NULL, 0);
+  if (r) return -1;
+
+  r = test_hard_coded(henv, NULL, NULL, NULL, "Driver={SQLite3};Database=/tmp/foo.sqlite3", 0);
+  if (r) return -1;
+
+  r = test_hard_coded(henv, "TAOS_ODBC_DSN", NULL, NULL, NULL, 0);
+  if (r) return -1;
+
+  return 0;
+}
+
 int main(int argc, char *argv[])
 {
   int r = 0;
@@ -1315,6 +1739,10 @@ int main(int argc, char *argv[])
   do {
     sr = CALL_SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, 0);
     if (FAILED(sr)) { r = -1; break; }
+
+    // hard_coded_test_cases
+    r = test_hard_coded_cases(henv);
+    if (r) break;
 
     r = process_by_args_env(argc, argv, henv);
   } while (0);

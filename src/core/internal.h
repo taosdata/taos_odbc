@@ -213,9 +213,10 @@ struct desc_record_s {
   int                           taos_type;
   int                           taos_bytes;
 
-  void                         *buffer;
-  int32_t                      *length;
-  char                         *is_null;
+  buf_t                         data_buffer;
+  buf_t                         len_buffer;
+  buf_t                         ind_buffer;
+
   SQLRETURN (*create_buffer_array)(stmt_t *stmt, desc_record_t *record, int rows, TAOS_MULTI_BIND *mb);
   SQLRETURN (*create_length_array)(stmt_t *stmt, desc_record_t *record, int rows, TAOS_MULTI_BIND *mb);
 

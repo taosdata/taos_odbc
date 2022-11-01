@@ -72,6 +72,23 @@ unsigned char* static_pool_calloc(static_pool_t *pool, size_t sz) FA_HIDDEN;
 unsigned char* static_pool_malloc_align(static_pool_t *pool, size_t sz, size_t align) FA_HIDDEN;
 unsigned char* static_pool_calloc_align(static_pool_t *pool, size_t sz, size_t align) FA_HIDDEN;
 
+typedef struct buf_s               buf_t;
+struct buf_s {
+  char               *base;
+  size_t              cap;
+};
+
+void buf_release(buf_t *buf) FA_HIDDEN;
+void* buf_realloc(buf_t *buf, size_t sz) FA_HIDDEN;
+
+typedef struct buffers_s           buffers_t;
+struct buffers_s {
+  buf_t             **bufs;
+  size_t              cap;
+};
+
+void buffers_release(buffers_t *buffers) FA_HIDDEN;
+void* buffers_realloc(buffers_t *buffers, size_t idx, size_t sz) FA_HIDDEN;
 
 EXTERN_C_END
 

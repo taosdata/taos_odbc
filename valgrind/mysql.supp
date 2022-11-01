@@ -8,4 +8,20 @@
    fun:SQLExecDirect
    fun:SQLExecDirect
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:_Z9my_mallocjmi
+   fun:_ZN9file_info16RegisterFilenameEiPKcNS_8OpenTypeE
+   fun:_Z7my_openPKcii
+   obj:/usr/lib/x86_64-linux-gnu/odbc/libmyodbc8a.so
+   obj:/usr/lib/x86_64-linux-gnu/odbc/libmyodbc8a.so
+   fun:__pthread_once_slow
+   fun:_ZSt9call_onceIRFvvEJEEvRSt9once_flagOT_DpOT0_
+   fun:_Z22my_charset_get_by_nameP17MY_CHARSET_LOADERPKcji
+   fun:_Z21get_charset_by_csnamePKcji
+   fun:_Z11myodbc_initv
+}
 

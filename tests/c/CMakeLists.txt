@@ -77,3 +77,19 @@ if(ENABLE_MYSQL_TEST)
   endif()
 endif()
 
+if(ENABLE_SQLITE3_TEST)
+  add_executable(sqlite3_test
+      $<TARGET_OBJECTS:common_obj>
+      sqlite3_test.c)
+
+  target_link_libraries(sqlite3_test odbc)
+
+  add_test(NAME sqlite3_test
+      COMMAND sqlite3_test)
+
+  if(HAVE_VALGRIND)
+    add_test(NAME Vsqlite3_test
+        COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/sqlite3_test)
+  endif()
+endif()
+

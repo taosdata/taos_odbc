@@ -1346,17 +1346,15 @@ static SQLRETURN _stmt_get_conv_to_sql_c_slong(stmt_t *stmt, tsdb_to_sql_c_f *co
 static int _stmt_bind_conv_tsdb_bigint_to_sql_c_sbigint(stmt_t *stmt, const char *data, int len, char *dest, int dlen)
 {
   (void)stmt;
+  (void)dlen;
 
   OA_NIY(len == sizeof(int64_t));
 
   int64_t v = *(int64_t*)data;
 
-  size_t outbytes = dlen;
-  OA_NIY(outbytes == sizeof(int64_t));
-
   *(int64_t*)dest = v;
 
-  return outbytes;
+  return len;
 }
 
 static int _stmt_bind_conv_tsdb_uint_to_sql_c_sbigint(stmt_t *stmt, const char *data, int len, char *dest, int dlen)
@@ -2803,135 +2801,117 @@ static SQLRETURN _stmt_guess_taos_data_type(
 
 static SQLRETURN _stmt_create_tsdb_timestamp_array(stmt_t *stmt, desc_record_t *record, int rows, TAOS_MULTI_BIND *mb)
 {
-  TOD_SAFE_FREE(record->buffer);
-
-  record->buffer = malloc(sizeof(int64_t) * rows);
-  if (!record->buffer) {
+  void *p = buf_realloc(&record->data_buffer, sizeof(int64_t) * rows);
+  if (!p) {
     stmt_oom(stmt);
     return SQL_ERROR;
   }
 
-  mb->buffer = record->buffer;
+  mb->buffer = p;
 
   return SQL_SUCCESS;
 }
 
 static SQLRETURN _stmt_create_tsdb_int_array(stmt_t *stmt, desc_record_t *record, int rows, TAOS_MULTI_BIND *mb)
 {
-  TOD_SAFE_FREE(record->buffer);
-
-  record->buffer = malloc(sizeof(int32_t) * rows);
-  if (!record->buffer) {
+  void *p = buf_realloc(&record->data_buffer, sizeof(int32_t) * rows);
+  if (!p) {
     stmt_oom(stmt);
     return SQL_ERROR;
   }
 
-  mb->buffer = record->buffer;
+  mb->buffer = p;
 
   return SQL_SUCCESS;
 }
 
 static SQLRETURN _stmt_create_tsdb_smallint_array(stmt_t *stmt, desc_record_t *record, int rows, TAOS_MULTI_BIND *mb)
 {
-  TOD_SAFE_FREE(record->buffer);
-
-  record->buffer = malloc(sizeof(int16_t) * rows);
-  if (!record->buffer) {
+  void *p = buf_realloc(&record->data_buffer, sizeof(int16_t) * rows);
+  if (!p) {
     stmt_oom(stmt);
     return SQL_ERROR;
   }
 
-  mb->buffer = record->buffer;
+  mb->buffer = p;
 
   return SQL_SUCCESS;
 }
 
 static SQLRETURN _stmt_create_tsdb_tinyint_array(stmt_t *stmt, desc_record_t *record, int rows, TAOS_MULTI_BIND *mb)
 {
-  TOD_SAFE_FREE(record->buffer);
-
-  record->buffer = malloc(sizeof(int8_t) * rows);
-  if (!record->buffer) {
+  void *p = buf_realloc(&record->data_buffer, sizeof(int8_t) * rows);
+  if (!p) {
     stmt_oom(stmt);
     return SQL_ERROR;
   }
 
-  mb->buffer = record->buffer;
+  mb->buffer = p;
 
   return SQL_SUCCESS;
 }
 
 static SQLRETURN _stmt_create_tsdb_bool_array(stmt_t *stmt, desc_record_t *record, int rows, TAOS_MULTI_BIND *mb)
 {
-  TOD_SAFE_FREE(record->buffer);
-
-  record->buffer = malloc(sizeof(int8_t) * rows);
-  if (!record->buffer) {
+  void *p = buf_realloc(&record->data_buffer, sizeof(int8_t) * rows);
+  if (!p) {
     stmt_oom(stmt);
     return SQL_ERROR;
   }
 
-  mb->buffer = record->buffer;
+  mb->buffer = p;
 
   return SQL_SUCCESS;
 }
 
 static SQLRETURN _stmt_create_tsdb_float_array(stmt_t *stmt, desc_record_t *record, int rows, TAOS_MULTI_BIND *mb)
 {
-  TOD_SAFE_FREE(record->buffer);
-
-  record->buffer = malloc(sizeof(float) * rows);
-  if (!record->buffer) {
+  void *p = buf_realloc(&record->data_buffer, sizeof(float) * rows);
+  if (!p) {
     stmt_oom(stmt);
     return SQL_ERROR;
   }
 
-  mb->buffer = record->buffer;
+  mb->buffer = p;
 
   return SQL_SUCCESS;
 }
 
 static SQLRETURN _stmt_create_tsdb_varchar_array(stmt_t *stmt, desc_record_t *record, int rows, TAOS_MULTI_BIND *mb)
 {
-  TOD_SAFE_FREE(record->buffer);
-
-  record->buffer = malloc(mb->buffer_length * rows);
-  if (!record->buffer) {
+  void *p = buf_realloc(&record->data_buffer, mb->buffer_length * rows);
+  if (!p) {
     stmt_oom(stmt);
     return SQL_ERROR;
   }
 
-  mb->buffer = record->buffer;
+  mb->buffer = p;
 
   return SQL_SUCCESS;
 }
 
 static SQLRETURN _stmt_create_length_array(stmt_t *stmt, desc_record_t *record, int rows, TAOS_MULTI_BIND *mb)
 {
-  TOD_SAFE_FREE(record->length);
-
-  record->length = (int32_t*)malloc(sizeof(int32_t) * rows);
-  if (!record->length) {
+  void *p = buf_realloc(&record->len_buffer, sizeof(int32_t) * rows);
+  if (!p) {
     stmt_oom(stmt);
     return SQL_ERROR;
   }
 
-  mb->length = record->length;
+  mb->length = p;
 
   return SQL_SUCCESS;
 }
 
 static SQLRETURN _stmt_create_is_null_array(stmt_t *stmt, desc_record_t *record, int rows, TAOS_MULTI_BIND *mb)
 {
-  TOD_SAFE_FREE(record->is_null);
-
-  record->is_null = (char*)malloc(sizeof(char) * rows);
-  if (!record->is_null) {
+  void *p = buf_realloc(&record->ind_buffer, sizeof(char) * rows);
+  if (!p) {
     stmt_oom(stmt);
     return SQL_ERROR;
   }
 
-  mb->is_null = record->is_null;
+  mb->is_null = p;
 
   return SQL_SUCCESS;
 }
@@ -3486,7 +3466,7 @@ SQLRETURN stmt_prepare(stmt_t *stmt,
     SQLCHAR      *StatementText,
     SQLINTEGER    TextLength)
 {
-  OA_NIY(stmt->stmt == NULL);
+  // OA_NIY(stmt->stmt == NULL);
 
   rowset_reset(&stmt->rowset);
   _stmt_release_result(stmt);
@@ -4073,15 +4053,6 @@ SQLRETURN stmt_execute(stmt_t *stmt)
   OA_ILE(stmt->stmt);
 
   SQLRETURN sr = _stmt_execute(stmt);
-
-  // TODO: optimize, lazy-reclaim-until-necessary
-  descriptor_t *APD = _stmt_APD(stmt);
-  desc_header_t *APD_header = &APD->header;
-
-  for (size_t i = 0; i < APD_header->DESC_COUNT; ++i) {
-    desc_record_t *APD_record = APD->records + i;
-    desc_record_reclaim_buffers(APD_record);
-  }
 
   return sr;
 }

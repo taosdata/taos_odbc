@@ -92,3 +92,60 @@ char *tod_strptime(const char *s, const char *format, struct tm *tm)
   return strptime(s, format, tm);
 }
 
+void buf_release(buf_t *buf)
+{
+  if (buf->base) {
+    free(buf->base);
+    buf->base = NULL;
+  }
+  buf->cap = 0;
+}
+
+void* buf_realloc(buf_t *buf, size_t sz)
+{
+  if (buf->cap >= sz) return buf->base;
+
+  size_t cap = (sz + 1 + 15) / 16 * 16;
+
+  char *p = (char*)realloc(buf->base, cap);
+  if (!p) return NULL;
+
+  buf->base = p;
+  buf->cap  = cap;
+  buf->base[sz] = '\0';
+
+  return buf->base;
+}
+
+void buffers_release(buffers_t *buffers)
+{
+  for (size_t i=0; i<buffers->cap; ++i) {
+    buf_t *buf = buffers->bufs[i];
+    buf_release(buf);
+    free(buf);
+    buffers->bufs[i] = NULL;
+  }
+  free(buffers->bufs);
+  buffers->bufs = NULL;
+  buffers->cap = 0;
+}
+
+void* buffers_realloc(buffers_t *buffers, size_t idx, size_t sz)
+{
+  if (idx >= buffers->cap) {
+    size_t cap = (idx + 1 + 15) / 16 * 16;
+    buf_t **bufs = (buf_t**)realloc(buffers->bufs, sizeof(*bufs) * cap);
+    if (!bufs) return NULL;
+    for (size_t i = buffers->cap; i < cap; ++i) {
+      bufs[i] = NULL;
+    }
+    buffers->bufs = bufs;
+    buffers->cap = cap;
+  }
+
+  void *p = buf_realloc(buffers->bufs[idx], sz);
+  if (!p) return NULL;
+
+  return p;
+}
+

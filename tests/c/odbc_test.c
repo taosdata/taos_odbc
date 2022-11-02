@@ -1670,6 +1670,131 @@ static int test_case4(SQLHANDLE hconn, int non_taos, const size_t dataset, const
   return 0;
 }
 
+static int _dump_rs_to_sql_c_char(SQLHANDLE hstmt, SQLSMALLINT ColumnCount)
+{
+  int r = 0;
+  SQLRETURN sr = SQL_SUCCESS;
+
+  for (SQLSMALLINT i=0; i<ColumnCount; ++i) {
+    char buf[1024];
+    SQLSMALLINT NameLength;
+    SQLSMALLINT DataType;
+    SQLULEN ColumnSize;
+    SQLSMALLINT DecimalDigits;
+    SQLSMALLINT Nullable;
+    sr = CALL_SQLDescribeCol(hstmt, i+1, (SQLCHAR*)buf, sizeof(buf), &NameLength, &DataType, &ColumnSize, &DecimalDigits, &Nullable);
+    if (FAILED(sr)) break;
+  }
+  if (FAILED(sr)) return -1;
+
+  while (1) {
+    sr = CALL_SQLFetch(hstmt);
+    if (sr == SQL_ERROR) break;
+    if (sr == SQL_NO_DATA) {
+      sr = SQL_SUCCESS;
+      break;
+    }
+    for (SQLSMALLINT i=0; i<ColumnCount; ++i) {
+      char buf[1024];
+      SQLLEN ind;
+      sr = CALL_SQLGetData(hstmt, i+1, SQL_C_CHAR, (SQLPOINTER)buf, sizeof(buf), &ind);
+      if (FAILED(sr)) break;
+      D("Column[%d]: ==%s==", i+1, ind == SQL_NULL_DATA ? "(null)" : buf);
+    }
+  }
+
+  return (r || FAILED(sr)) ? -1 : 0;
+}
+
+static int test_case5(SQLHANDLE hconn)
+{
+  int r = 0;
+  SQLRETURN sr = SQL_SUCCESS;
+
+  SQLHANDLE hstmt = SQL_NULL_HANDLE;
+
+  sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
+  if (FAILED(sr)) return -1;
+
+  const char *CatalogName;
+  const char *SchemaName;
+  const char *TableName;
+  const char *TableType;
+
+  do {
+    CatalogName = "%";
+    SchemaName = "";
+    TableName = "";
+    TableType = "";
+    sr = CALL_SQLTables(hstmt,
+      (SQLCHAR*)CatalogName, strlen(CatalogName),
+      (SQLCHAR*)SchemaName,  strlen(SchemaName),
+      (SQLCHAR*)TableName,   strlen(TableName),
+      (SQLCHAR*)TableType,   strlen(TableType));
+    if (FAILED(sr)) break;
+
+    SQLSMALLINT ColumnCount;
+    sr = CALL_SQLNumResultCols(hstmt, &ColumnCount);
+    if (FAILED(sr)) break;
+
+    if (ColumnCount <= 0) {
+      E("result columns expected, but got ==%d==", ColumnCount);
+      r = -1;
+      break;
+    }
+
+    r = _dump_rs_to_sql_c_char(hstmt, ColumnCount);
+    if (r) break;
+
+    // CatalogName = "";
+    // SchemaName = "%";
+    // TableName = "";
+    // TableType = "";
+    // sr = CALL_SQLTables(hstmt,
+    //   (SQLCHAR*)CatalogName, strlen(CatalogName),
+    //   (SQLCHAR*)SchemaName,  strlen(SchemaName),
+    //   (SQLCHAR*)TableName,   strlen(TableName),
+    //   (SQLCHAR*)TableType,   strlen(TableType));
+    // if (FAILED(sr)) break;
+
+    // r = _dump_rs_to_sql_c_char(hstmt, ColumnCount);
+    // if (r) break;
+
+    CatalogName = "";
+    SchemaName = "";
+    TableName = "";
+    TableType = "%";
+    sr = CALL_SQLTables(hstmt,
+      (SQLCHAR*)CatalogName, strlen(CatalogName),
+      (SQLCHAR*)SchemaName,  strlen(SchemaName),
+      (SQLCHAR*)TableName,   strlen(TableName),
+      (SQLCHAR*)TableType,   strlen(TableType));
+    if (FAILED(sr)) break;
+
+    r = _dump_rs_to_sql_c_char(hstmt, ColumnCount);
+    if (r) break;
+
+    CatalogName = "";
+    SchemaName = "";
+    TableName = "%";
+    TableType = "'TABLE'";
+    sr = CALL_SQLTables(hstmt,
+      (SQLCHAR*)CatalogName, strlen(CatalogName),
+      (SQLCHAR*)SchemaName,  strlen(SchemaName),
+      (SQLCHAR*)TableName,   strlen(TableName),
+      (SQLCHAR*)TableType,   strlen(TableType));
+    if (FAILED(sr)) break;
+
+    r = _dump_rs_to_sql_c_char(hstmt, ColumnCount);
+    if (r) break;
+
+  } while (0);
+
+  CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+
+  return (r || FAILED(sr)) ? -1 : 0;
+}
+
 static int test_hard_coded(SQLHANDLE henv, const char *dsn, const char *uid, const char *pwd, const char *connstr, int non_taos)
 {
   (void)non_taos;
@@ -1710,6 +1835,9 @@ static int test_hard_coded(SQLHANDLE henv, const char *dsn, const char *uid, con
         r = test_case4(hconn, non_taos, 5000, 4000);
         if (r) break;
       }
+
+      r = test_case5(hconn);
+      if (r) break;
     } while (0);
 
     CALL_SQLDisconnect(hconn);
@@ -1730,7 +1858,7 @@ static int test_hard_coded_cases(SQLHANDLE henv)
   r = test_hard_coded(henv, NULL, NULL, NULL, "Driver={SQLite3};Database=/tmp/foo.sqlite3", 1);
   if (r) return -1;
 
-  r = test_hard_coded(henv, "TAOS_ODBC_DSN", NULL, NULL, NULL, 0);
+  if (0) r = test_hard_coded(henv, "TAOS_ODBC_DSN", NULL, NULL, NULL, 0);
   if (r) return -1;
 
   return 0;

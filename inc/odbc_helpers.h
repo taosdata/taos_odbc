@@ -167,10 +167,23 @@ static inline SQLRETURN call_SQLDescribeCol(const char *file, int line, const ch
   SQLRETURN sr = SQLDescribeCol(StatementHandle, ColumnNumber, ColumnName, BufferLength, NameLengthPtr,
       DataTypePtr, ColumnSizePtr, DecimalDigitsPtr, NullablePtr);
   diag(sr, SQL_HANDLE_STMT, StatementHandle);
-  LOGD(file, line, func, "SQLDescribeCol(StatementHandle:%p,ColumnNumber:%d,ColumnName:%p,BufferLength:%d,"
-      "NameLengthPtr:%p,DataTypePtr:%p,ColumnSizePtr:%p,DecimalDigitsPtr:%p,NullablePtr:%p) => %s",
-      StatementHandle, ColumnNumber, ColumnName, BufferLength, NameLengthPtr, DataTypePtr, ColumnSizePtr, DecimalDigitsPtr, NullablePtr,
-      sql_return_type(sr));
+  if (sr == SQL_ERROR) {
+    LOGD(file, line, func, "SQLDescribeCol(StatementHandle:%p,ColumnNumber:%d,ColumnName:%p,BufferLength:%d,"
+        "NameLengthPtr:%p,DataTypePtr:%p,ColumnSizePtr:%p,DecimalDigitsPtr:%p,NullablePtr:%p) => %s",
+        StatementHandle, ColumnNumber, ColumnName, BufferLength,
+        NameLengthPtr, DataTypePtr, ColumnSizePtr, DecimalDigitsPtr, NullablePtr,
+        sql_return_type(sr));
+  } else {
+    LOGD(file, line, func, "SQLDescribeCol(StatementHandle:%p,ColumnNumber:%d,ColumnName:%p(%s),BufferLength:%d,"
+        "NameLengthPtr:%p(%d),DataTypePtr:%p(%s),ColumnSizePtr:%p(%ld),DecimalDigitsPtr:%p(%d),NullablePtr:%p(%d)) => %s",
+        StatementHandle, ColumnNumber, ColumnName, (const char*)ColumnName, BufferLength,
+        NameLengthPtr, NameLengthPtr ? *NameLengthPtr : 0,
+        DataTypePtr, DataTypePtr ? sql_data_type(*DataTypePtr) : "",
+        ColumnSizePtr, ColumnSizePtr ? *ColumnSizePtr : 0,
+        DecimalDigitsPtr, DecimalDigitsPtr ? *DecimalDigitsPtr : 0,
+        NullablePtr, NullablePtr ? *NullablePtr : 0,
+        sql_return_type(sr));
+  }
   return sr;
 }
 

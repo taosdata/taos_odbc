@@ -1,6 +1,6 @@
-# ODBC Driver for TDengine TAOS 3.0 #
+# ODBC Driver for TDengine 3.0 (TAOS) #
 English | [简体中文](README.cn.md)
-- **on-going implementation of ODBC driver for TAOS 3.0**
+- **on-going implementation of ODBC driver for TDengine 3.0 (TAOS)**
 - **currently exported ODBC functions are**:
 ```
 SQLAllocHandle
@@ -31,8 +31,8 @@ SQLSetConnectAttr
 SQLSetEnvAttr
 SQLSetStmtAttr
 ```
-- **enable ODBC-aware software to communicate with TAOS, at this very beginning, we support linux only**
-- **enable any programming language with ODBC-bindings/ODBC-plugings to communicate with TAOS, potentially**
+- **enable ODBC-aware software to communicate with TDengine, at this very beginning, we support linux only**
+- **enable any programming language with ODBC-bindings/ODBC-plugings to communicate with TDengine, potentially**
 - **still going on**...
 
 ### Supported platform
@@ -51,7 +51,7 @@ SQLSetStmtAttr
   - env_logger, 0.8.2 or above, https://docs.rs/env_logger/latest/env_logger/
   - json
 
-### Installing TDengine TAOS 3.0
+### Installing TDengine 3.0
 - please visit https://tdengine.com
 
 ### Installing prerequisites, use Ubuntu 20.04 as an example

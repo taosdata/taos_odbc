@@ -1,7 +1,7 @@
-# TDengine TAOS 3.0 ODBC 驱动 #
+# TDengine 3.0 TAOS ODBC 驱动 #
 [English](README.md) | 简体中文
 
-- **开发中的TAOS 3.0 ODBC驱动**
+- **开发中的TDengine 3.0 TAOS ODBC驱动**
 - **目前驱动中已经导出的SQLxxx函数如下**:
 ```
 SQLAllocHandle
@@ -32,8 +32,8 @@ SQLSetConnectAttr
 SQLSetEnvAttr
 SQLSetStmtAttr
 ```
-- **ODBC应用程序将可以利用该驱动实现对TAOS时序数据库的操作，但是，目前该驱动只有Linux平台的实现**
-- **相信，任何具有ODBC-绑定/插件的编程语言、框架，利用该驱动，也可实现对TAOS时序数据库的操作**
+- **ODBC应用程序将可以利用该驱动实现对TDengine时序数据库的操作，但是，目前该驱动只有Linux平台的实现**
+- **相信，任何具有ODBC-绑定/插件的编程语言、框架，利用该驱动，也可实现对TDengine时序数据库的操作**
 - **持续开发中**...
 
 ### (目前)支持的平台
@@ -52,7 +52,7 @@ SQLSetStmtAttr
   - env_logger, 0.8.2 或以上, https://docs.rs/env_logger/latest/env_logger/
   - json
 
-### 安装TDengine TAOS
+### 安装TDengine 3.0
 - 请参考TDengine官方说明，https://tdengine.com
 
 ### 安装必需的依赖项，以Ubuntu 20.04为例

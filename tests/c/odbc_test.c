@@ -1557,7 +1557,7 @@ static int test_case3(SQLHANDLE hconn)
   return 0;
 }
 
-static int select_count_with_col_bind_array(SQLHANDLE hconn, const char *sql, size_t *count)
+static int select_count_with_col_bind_array(SQLHANDLE hconn, const char *sql, size_t array_size, size_t *count, size_t *batches)
 {
   int r = 0;
   SQLRETURN sr = SQL_SUCCESS;
@@ -1575,13 +1575,18 @@ static int select_count_with_col_bind_array(SQLHANDLE hconn, const char *sql, si
   SQLUSMALLINT status[ARRAY_SIZE];
   SQLUINTEGER nr_rows;
   do {
+    if (array_size > ARRAY_SIZE) {
+      E("array_size[%ld] too large [%d]", array_size, ARRAY_SIZE);
+      r = -1;
+      break;
+    }
     sr = CALL_SQLBindCol(hstmt, 1, SQL_C_CHAR, &ts[0][0], sizeof(ts[0]), ts_ind);
     if (FAILED(sr)) break;
 
     sr = CALL_SQLBindCol(hstmt, 2, SQL_C_SBIGINT, &bi, 0, bi_ind);
     if (FAILED(sr)) break;
 
-    sr = CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_ROW_ARRAY_SIZE, (SQLPOINTER)ARRAY_SIZE, 0);
+    sr = CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_ROW_ARRAY_SIZE, (SQLPOINTER)array_size, 0);
     if (FAILED(sr)) break;
     sr = CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_ROW_STATUS_PTR, status, 0);
     if (FAILED(sr)) break;
@@ -1591,16 +1596,18 @@ static int select_count_with_col_bind_array(SQLHANDLE hconn, const char *sql, si
     sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
     if (FAILED(sr)) break;
 
+    *batches = 0;
     *count = 0;
     while (1) {
-      // sr = /*CALL_*/SQLFetchScroll(hstmt, SQL_FETCH_NEXT, 0);
-      sr = /*CALL_*/SQLFetch(hstmt);
+      sr = CALL_SQLFetch(hstmt);
       if (sr == SQL_ERROR) break;
       if (sr == SQL_NO_DATA) {
         sr = SQL_SUCCESS;
         break;
       }
+      D("nr_rows: %d, array_size: %ld", nr_rows, array_size);
       *count += nr_rows;
+      ++*batches;
     }
   } while (0);
 
@@ -1646,17 +1653,30 @@ static int test_case4(SQLHANDLE hconn)
   }
 
   size_t count;
-  r = select_count_with_col_bind_array(hconn, "select * from t where ts = '2022-10-12 13:14:15'", &count);
+  size_t batches;
+  size_t array_size;
+  array_size = 1;
+  r = select_count_with_col_bind_array(hconn, "select * from t", array_size, &count, &batches);
   if (r) return -1;
-  if (count != 1) {
-    E("1 expected, but got ==%ld==", count);
+  if (count != COUNT) {
+    E("%d in total expected, but got ==%ld==", COUNT, count);
+    return -1;
+  }
+  if (batches != COUNT) {
+    E("%d batches expected, but got ==%ld==", COUNT, batches);
     return -1;
   }
 
-  r = select_count_with_col_bind_array(hconn, "select * from t", &count);
+  array_size = 3;
+  r = select_count_with_col_bind_array(hconn, "select * from t", array_size, &count, &batches);
   if (r) return -1;
   if (count != COUNT) {
-    E("%d expected, but got ==%ld==", COUNT, count);
+    E("%d in total expected, but got ==%ld==", COUNT, count);
+    return -1;
+  }
+
+  if (batches != (COUNT + array_size - 1) / array_size) {
+    E("batches[%ld] shall not be equal to batches[%ld]", (COUNT + array_size - 1) / array_size, batches);
     return -1;
   }
 

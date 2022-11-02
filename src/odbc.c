@@ -348,6 +348,20 @@ SQLRETURN SQL_API SQLFetch(
   return stmt_fetch(stmt);
 }
 
+SQLRETURN SQL_API SQLFetchScroll(
+    SQLHSTMT      StatementHandle,
+    SQLSMALLINT   FetchOrientation,
+    SQLLEN        FetchOffset)
+{
+  if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  stmt_t *stmt = (stmt_t*)StatementHandle;
+
+  stmt_clr_errs(stmt);
+
+  return stmt_fetch_scroll(stmt, FetchOrientation, FetchOffset);
+}
+
 SQLRETURN SQL_API SQLFreeStmt(
     SQLHSTMT       StatementHandle,
     SQLUSMALLINT   Option)

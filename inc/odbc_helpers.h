@@ -460,6 +460,18 @@ static inline SQLRETURN call_SQLGetInfo(const char *file, int line, const char *
   return sr;
 }
 
+static inline SQLRETURN call_SQLFetchScroll(const char *file, int line, const char *func,
+    SQLHSTMT StatementHandle, SQLSMALLINT FetchOrientation, SQLLEN FetchOffset)
+{
+  LOGD(file, line, func, "SQLFetchScroll(StatementHandle:%p,FetchOrientation:%s,FetchOffset:%ld) ...",
+      StatementHandle, sql_fetch_orientation(FetchOrientation), FetchOffset);
+  SQLRETURN sr = SQLFetchScroll(StatementHandle, FetchOrientation, FetchOffset);
+  diag(sr, SQL_HANDLE_STMT, StatementHandle);
+  LOGD(file, line, func, "SQLFetchScroll(StatementHandle:%p,FetchOrientation:%s,FetchOffset:%ld) => %s",
+      StatementHandle, sql_fetch_orientation(FetchOrientation), FetchOffset, sql_return_type(sr));
+  return sr;
+}
+
 #define CALL_SQLAllocHandle(...)                   call_SQLAllocHandle(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLFreeHandle(...)                    call_SQLFreeHandle(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLSetEnvAttr(...)                    call_SQLSetEnvAttr(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
@@ -485,6 +497,7 @@ static inline SQLRETURN call_SQLGetInfo(const char *file, int line, const char *
 #define CALL_SQLDescribeColW(...)                  call_SQLDescribeColW(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLTables(...)                        call_SQLTables(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLGetInfo(...)                       call_SQLGetInfo(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
+#define CALL_SQLFetchScroll(...)                   call_SQLFetchScroll(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 
 #endif // _odbc_helper_h_
 

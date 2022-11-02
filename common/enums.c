@@ -303,3 +303,18 @@ const char *sql_nullable(SQLSMALLINT v)
   }
 }
 
+const char *sql_fetch_orientation(SQLSMALLINT v)
+{
+  switch (v) {
+    CASE(SQL_FETCH_NEXT);
+    CASE(SQL_FETCH_PRIOR);
+    CASE(SQL_FETCH_FIRST);
+    CASE(SQL_FETCH_LAST);
+    CASE(SQL_FETCH_ABSOLUTE);
+    CASE(SQL_FETCH_RELATIVE);
+    CASE(SQL_FETCH_BOOKMARK);
+    default:
+    return "SQL_FETCH_unknown";
+  }
+}
+

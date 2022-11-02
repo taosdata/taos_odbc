@@ -1802,7 +1802,7 @@ static SQLRETURN _stmt_fill_rowset(stmt_t *stmt, int i_row, int i_col)
   return SQL_SUCCESS;
 }
 
-SQLRETURN stmt_fetch(stmt_t *stmt)
+SQLRETURN _stmt_fetch(stmt_t *stmt)
 {
   SQLULEN row_array_size = _stmt_get_row_array_size(stmt);
   OA_NIY(row_array_size > 0);
@@ -1870,6 +1870,27 @@ SQLRETURN stmt_fetch(stmt_t *stmt)
   }
 
   return SQL_SUCCESS;
+}
+
+SQLRETURN stmt_fetch_scroll(stmt_t *stmt,
+    SQLSMALLINT   FetchOrientation,
+    SQLLEN        FetchOffset)
+{
+  switch (FetchOrientation) {
+    case SQL_FETCH_NEXT:
+      (void)FetchOffset;
+      return _stmt_fetch(stmt);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:[%s] not implemented yet",
+          sql_fetch_orientation(FetchOrientation));
+      return SQL_ERROR;
+  }
+}
+
+SQLRETURN stmt_fetch(stmt_t *stmt)
+{
+  return _stmt_fetch(stmt);
 }
 
 static void _stmt_close_cursor(stmt_t *stmt)
@@ -4080,13 +4101,12 @@ static void _stmt_reset_params(stmt_t *stmt)
 
 static SQLRETURN _stmt_set_cursor_type(stmt_t *stmt, SQLULEN cursor_type)
 {
-  (void)stmt;
   switch (cursor_type) {
     case SQL_CURSOR_FORWARD_ONLY:
-      stmt_append_err_format(stmt, "01000", 0, "General warning:`SQL_CURSOR_FORWARD_ONLY` for `SQL_ATTR_CURSOR_TYPE` not fully implemented yet");
-      return SQL_SUCCESS_WITH_INFO;
+      return SQL_SUCCESS;
     case SQL_CURSOR_STATIC:
-      stmt_append_err_format(stmt, "01000", 0, "General warning:`SQL_CURSOR_STATIC` for `SQL_ATTR_CURSOR_TYPE` not fully implemented yet");
+      stmt_append_err_format(stmt, "01000", 0,
+          "General warning:`SQL_CURSOR_STATIC` not fully implemented yet, so `SQL_CURSOR_FORWARD_ONLY` is used as instead");
       return SQL_SUCCESS_WITH_INFO;
     default:
       stmt_append_err_format(stmt, "HY000", 0, "General error:`%s` for `SQL_ATTR_CURSOR_TYPE` not supported yet", sql_cursor_type(cursor_type));

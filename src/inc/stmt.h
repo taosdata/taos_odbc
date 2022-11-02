@@ -59,6 +59,10 @@ SQLRETURN stmt_bind_col(stmt_t *stmt,
 
 SQLRETURN stmt_fetch(stmt_t *stmt) FA_HIDDEN;
 
+SQLRETURN stmt_fetch_scroll(stmt_t *stmt,
+    SQLSMALLINT   FetchOrientation,
+    SQLLEN        FetchOffset) FA_HIDDEN;
+
 SQLRETURN stmt_get_diag_rec(
     stmt_t         *stmt,
     SQLSMALLINT     RecNumber,

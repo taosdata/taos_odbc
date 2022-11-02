@@ -1814,6 +1814,8 @@ SQLRETURN _stmt_fetch(stmt_t *stmt)
   if (stmt->rowset.i_row + row_array_size >= (SQLULEN)stmt->nr_rows) {
     rowset_reset(&stmt->rowset);
 
+    // TODO:
+    // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlfetch-function?view=sql-server-ver16#positioning-the-cursor
     int nr_rows = CALL_taos_fetch_block(stmt->res, &rows);
     if (nr_rows == 0) return SQL_NO_DATA;
     stmt->rows = rows;          // column-wise

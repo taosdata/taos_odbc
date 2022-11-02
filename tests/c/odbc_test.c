@@ -1660,6 +1660,7 @@ static int test_case4(SQLHANDLE hconn, int non_taos, const size_t dataset, const
   }
   if (batches != (dataset + array_size - 1) / array_size) {
     // TODO: SQLFetch for taos-odbc is still not fully implemented yet
+    // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlfetch-function?view=sql-server-ver16#positioning-the-cursor
     if (non_taos) {
       E("%ld in total, batches[%ld] expected, but got ==%ld==", count, (dataset + array_size - 1) / array_size, batches);
       return -1;

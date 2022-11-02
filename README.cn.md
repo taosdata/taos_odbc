@@ -17,13 +17,13 @@ SQLEndTran
 SQLExecDirect
 SQLExecute
 SQLFetch
+SQLFetchScroll
 SQLFreeHandle
 SQLFreeStmt
 SQLGetData
 SQLGetDiagField
 SQLGetDiagRec
 SQLGetInfo
-SQLGetPrivateProfileString
 SQLNumParams
 SQLNumResultCols
 SQLPrepare

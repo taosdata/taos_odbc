@@ -90,6 +90,11 @@ struct buffers_s {
 void buffers_release(buffers_t *buffers) FA_HIDDEN;
 void* buffers_realloc(buffers_t *buffers, size_t idx, size_t sz) FA_HIDDEN;
 
+typedef struct wildex_s           wildex_t;
+int wildcomp(wildex_t **pwild, const char *wildex) FA_HIDDEN;
+int wildexec(wildex_t *wild, const char *str) FA_HIDDEN;
+void wildfree(wildex_t *wild) FA_HIDDEN;
+
 EXTERN_C_END
 
 #endif // _utils_h_

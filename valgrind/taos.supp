@@ -305,4 +305,18 @@
    fun:stmtSetTbName
    fun:taos_stmt_set_tbname
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:taosHashInit
+   fun:parseInsertSql
+   fun:qParseSql
+   fun:parseSql
+   fun:stmtParseSql
+   fun:stmtGetTagFields
+   fun:taos_stmt_get_tag_fields
+}
 

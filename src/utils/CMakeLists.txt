@@ -23,6 +23,7 @@
 ###############################################################################
 
 set(utils_SOURCES
+    auxiliary.c
     utils.c)
 
 add_library(utils_obj OBJECT ${utils_SOURCES})

@@ -25,10 +25,11 @@
 #include "conn.h"
 #include "env.h"
 #include "parser.h"
+#include "utils.h"
 
 #include <string.h>
 
-int main(void)
+static int test_case1(void)
 {
   env_t *env = env_create();
 
@@ -60,8 +61,74 @@ int main(void)
     const char *s = connection_strs[i];
     int r = parser_parse(s, strlen(s), &param);
     parser_param_release(&param);
-    if (r) return 1;
+    if (r) return -1;
   }
+
+  return 0;
+}
+
+static int _wildcard_match(const char *ex, const char *str)
+{
+  int r;
+  wildex_t *wild = NULL;
+
+  r = wildcomp(&wild, ex);
+  if (r) {
+    E("failed to compile wildcard `%s`", ex);
+    return -1;
+  }
+
+  r = wildexec(wild, str);
+  if (r) E("`%s` does not match by `%s`", str, ex);
+
+  wildfree(wild);
+
+  return r ? -1 : 0;
+}
+
+static int test_case2(void)
+{
+  int r = 0;
+
+  r = _wildcard_match("hello", "hello");
+  if (r) return -1;
+
+  r = _wildcard_match("%", "hello");
+  if (r) return -1;
+
+  r = _wildcard_match("%%%%%%%%%%%%%%%%", "hello");
+  if (r) return -1;
+
+  r = _wildcard_match("_", "h");
+  if (r) return -1;
+
+  r = _wildcard_match("_____", "hello");
+  if (r) return -1;
+
+  r = _wildcard_match("_%lo", "hello");
+  if (r) return -1;
+
+  r = _wildcard_match("_%l%o", "hello");
+  if (r) return -1;
+
+  r = _wildcard_match("_%el%o", "hello");
+  if (r) return -1;
+
+  r = _wildcard_match("_%ll%o", "hello");
+  if (r) return -1;
+
+  return 0;
+}
+
+int main(void)
+{
+  int r = 0;
+
+  r = test_case1();
+  if (r) return 1;
+
+  r = test_case2();
+  if (r) return 1;
 
   return 0;
 }

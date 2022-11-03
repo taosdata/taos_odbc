@@ -118,6 +118,16 @@ SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr,
 
 SQLRETURN stmt_free_stmt(stmt_t *stmt, SQLUSMALLINT Option) FA_HIDDEN;
 
+SQLRETURN stmt_tables(stmt_t *stmt,
+    SQLCHAR       *CatalogName,
+    SQLSMALLINT    NameLength1,
+    SQLCHAR       *SchemaName,
+    SQLSMALLINT    NameLength2,
+    SQLCHAR       *TableName,
+    SQLSMALLINT    NameLength3,
+    SQLCHAR       *TableType,
+    SQLSMALLINT    NameLength4) FA_HIDDEN;
+
 EXTERN_C_END
 
 #endif //  _stmt_h_

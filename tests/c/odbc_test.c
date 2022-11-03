@@ -1721,19 +1721,45 @@ static int test_case5(SQLHANDLE hconn)
   const char *TableName;
   const char *TableType;
 
+  SQLSMALLINT ColumnCount;
+
   do {
     CatalogName = "%";
     SchemaName = "";
     TableName = "";
     TableType = "";
+
     sr = CALL_SQLTables(hstmt,
-      (SQLCHAR*)CatalogName, strlen(CatalogName),
-      (SQLCHAR*)SchemaName,  strlen(SchemaName),
-      (SQLCHAR*)TableName,   strlen(TableName),
-      (SQLCHAR*)TableType,   strlen(TableType));
+      (SQLCHAR*)CatalogName, SQL_NTS/*strlen(CatalogName)*/,
+      (SQLCHAR*)SchemaName,  SQL_NTS/*strlen(SchemaName)*/,
+      (SQLCHAR*)TableName,   SQL_NTS/*strlen(TableName)*/,
+      (SQLCHAR*)TableType,   SQL_NTS/*strlen(TableType)*/);
     if (FAILED(sr)) break;
 
-    SQLSMALLINT ColumnCount;
+    sr = CALL_SQLNumResultCols(hstmt, &ColumnCount);
+    if (FAILED(sr)) break;
+
+    if (ColumnCount <= 0) {
+      E("result columns expected, but got ==%d==", ColumnCount);
+      r = -1;
+      break;
+    }
+
+    r = _dump_rs_to_sql_c_char(hstmt, ColumnCount);
+    if (r) break;
+
+    CatalogName = NULL;
+    SchemaName = NULL;
+    TableName = NULL;
+    TableType = NULL;
+
+    sr = CALL_SQLTables(hstmt,
+      (SQLCHAR*)CatalogName, SQL_NTS/*strlen(CatalogName)*/,
+      (SQLCHAR*)SchemaName,  SQL_NTS/*strlen(SchemaName)*/,
+      (SQLCHAR*)TableName,   SQL_NTS/*strlen(TableName)*/,
+      (SQLCHAR*)TableType,   SQL_NTS/*strlen(TableType)*/);
+    if (FAILED(sr)) break;
+
     sr = CALL_SQLNumResultCols(hstmt, &ColumnCount);
     if (FAILED(sr)) break;
 
@@ -1858,7 +1884,7 @@ static int test_hard_coded_cases(SQLHANDLE henv)
   r = test_hard_coded(henv, NULL, NULL, NULL, "Driver={SQLite3};Database=/tmp/foo.sqlite3", 1);
   if (r) return -1;
 
-  if (0) r = test_hard_coded(henv, "TAOS_ODBC_DSN", NULL, NULL, NULL, 0);
+  r = test_hard_coded(henv, "TAOS_ODBC_DSN", NULL, NULL, NULL, 0);
   if (r) return -1;
 
   return 0;

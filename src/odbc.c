@@ -573,3 +573,26 @@ SQLRETURN SQL_API SQLColAttribute(
     return SQL_ERROR;
 }
 
+SQLRETURN SQL_API SQLTables(
+    SQLHSTMT       StatementHandle,
+    SQLCHAR       *CatalogName,
+    SQLSMALLINT    NameLength1,
+    SQLCHAR       *SchemaName,
+    SQLSMALLINT    NameLength2,
+    SQLCHAR       *TableName,
+    SQLSMALLINT    NameLength3,
+    SQLCHAR       *TableType,
+    SQLSMALLINT    NameLength4)
+{
+  if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  stmt_t *stmt = (stmt_t*)StatementHandle;
+
+  stmt_clr_errs(stmt);
+  return stmt_tables(stmt,
+    CatalogName, NameLength1,
+    SchemaName, NameLength2,
+    TableName, NameLength3,
+    TableType, NameLength4);
+}
+

@@ -27,6 +27,7 @@
 
 #include "macros.h"
 
+#include <inttypes.h>
 #include <libgen.h>
 #include <stdio.h>
 

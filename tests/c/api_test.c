@@ -549,8 +549,13 @@ static int do_cases(void)
 {
   CHK0(test_ok, 0);
   CHK0(test_failure, -1);
+#ifdef __APPLE__
+  CHK1(test_so, "/tmp/not_exists.dylib", -1);
+  CHK1(test_so, "libtaos_odbc.dylib", 0);
+#else
   CHK1(test_so, "/tmp/not_exists.so", -1);
   CHK1(test_so, "libtaos_odbc.so", 0);
+#endif
   CHK0(test_sql_alloc_env, 0);
 
   return 0;

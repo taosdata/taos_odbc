@@ -192,8 +192,8 @@ static int test_case1(void)
                 char *outbuf = buf;
                 size_t outbytes = sizeof(buf);
 
-                int x = _encode("ucs2", &inbuf, &inbytes,
-                    "utf8", &outbuf, &outbytes);
+                int x = _encode("UCS-2LE", &inbuf, &inbytes,
+                    "UTF8", &outbuf, &outbytes);
                 A(x == 0, "");
                 *outbuf = '\0';
                 int n = snprintf(cmp, sizeof(cmp), "[%s]", buf);

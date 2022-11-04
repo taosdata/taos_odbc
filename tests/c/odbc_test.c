@@ -1434,7 +1434,7 @@ static int test_case2(SQLHANDLE hconn)
     strftime(s, sizeof(s), fmt, &tm);
 
     char sql[128];
-    snprintf(sql, sizeof(sql), "insert into t (ts, bi) values ('%s', %ld)", s, bi);
+    snprintf(sql, sizeof(sql), "insert into t (ts, bi) values ('%s', %" PRId64 ")", s, bi);
 
     r = test_exec_direct(hconn, sql);
     if (r) return -1;
@@ -1527,7 +1527,7 @@ static int test_case3(SQLHANDLE hconn)
     strftime(s, sizeof(s), fmt, &tm);
 
     char sql[128];
-    snprintf(sql, sizeof(sql), "insert into t (ts, bi) values ('%s', %ld)", s, bi);
+    snprintf(sql, sizeof(sql), "insert into t (ts, bi) values ('%s', %" PRId64 ")", s, bi);
 
     r = test_exec_direct(hconn, sql);
     if (r) return -1;
@@ -1640,7 +1640,7 @@ static int test_case4(SQLHANDLE hconn, int non_taos, const size_t dataset, const
     strftime(s, sizeof(s), fmt, &tm);
 
     char sql[128];
-    snprintf(sql, sizeof(sql), "insert into t (ts, bi) values ('%s', %ld)", s, bi);
+    snprintf(sql, sizeof(sql), "insert into t (ts, bi) values ('%s', %" PRId64 ")", s, bi);
 
     r = test_exec_direct(hconn, sql);
     if (r) return -1;
@@ -1878,11 +1878,13 @@ static int test_hard_coded_cases(SQLHANDLE henv)
 {
   int r = 0;
 
+#ifndef __APPLE__
   r = test_hard_coded(henv, "MYSQL_ODBC_DSN", "root", "taosdata", NULL, 1);
   if (r) return -1;
 
   r = test_hard_coded(henv, NULL, NULL, NULL, "Driver={SQLite3};Database=/tmp/foo.sqlite3", 1);
   if (r) return -1;
+#endif
 
   r = test_hard_coded(henv, "TAOS_ODBC_DSN", NULL, NULL, NULL, 0);
   if (r) return -1;

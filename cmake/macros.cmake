@@ -64,16 +64,22 @@ macro(check_requirements)
   endif()
 
   set(CMAKE_REQUIRED_LIBRARIES taos)
-  check_symbol_exists(taos_init "taos.h" HAVE_TAOS)
+  if(TODBC_DARWIN)
+    set(CMAKE_REQUIRED_INCLUDES /usr/local/include)
+    set(CMAKE_REQUIRED_LINK_OPTIONS -L/usr/local/lib)
+  endif()
+  check_symbol_exists(taos_query "taos.h" HAVE_TAOS)
   if(NOT HAVE_TAOS)
     message(FATAL_ERROR "${Red}`taos.h` is required but not found, you may refer to https://github.com/taosdata/TDengine${ColorReset}")
   endif()
 
-  ## check `iconv`
-  # find_package(Iconv)
-  # if(NOT Iconv_FOUND)
-  #   message(FATAL_ERROR "${Red}you need to install `iconv` first${ColorReset}")
-  # endif()
+  if(TODBC_DARWIN)
+    ## check `iconv`
+    find_package(Iconv)
+    if(NOT Iconv_FOUND)
+      message(FATAL_ERROR "${Red}you need to install `iconv` first${ColorReset}")
+    endif()
+  endif()
 
   ## check `flex`
   find_package(FLEX)

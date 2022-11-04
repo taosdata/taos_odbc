@@ -29,7 +29,6 @@
 
 #include <errno.h>
 #include <iconv.h>
-#include <inttypes.h>
 #include <limits.h>
 #include <string.h>
 #include <time.h>
@@ -1521,9 +1520,9 @@ static int _stmt_bind_conv_tsdb_bigint_to_sql_c_char(stmt_t *stmt, const char *d
   char *outbuf = (char*)dest;
   size_t outbytes = dlen;
 
-  OD("[%ld]", v);
+  OD("[%" PRId64 "]", v);
 
-  int nn = snprintf(outbuf, outbytes, "%ld", v);
+  int nn = snprintf(outbuf, outbytes, "%" PRId64 "", v);
   OA_NIY(nn >= 0 && (size_t)nn < outbytes);
 
   return nn;
@@ -1636,7 +1635,7 @@ static int _stmt_bind_conv_tsdb_timestamp_to_sql_c_wchar(stmt_t *stmt, const cha
 
   OD("[%s]", buf);
 
-  SQLRETURN sr = _stmt_encode(stmt, "utf8", &inbuf, &inbytes, "ucs2", &outbuf, &outbytes);
+  SQLRETURN sr = _stmt_encode(stmt, "UTF8", &inbuf, &inbytes, "UCS-2LE", &outbuf, &outbytes);
   OA_NIY(sql_succeeded(sr));
   outbuf[0] = '\0';
   outbuf[1] = '\0';
@@ -1663,7 +1662,7 @@ static int _stmt_bind_conv_tsdb_int_to_sql_c_wchar(stmt_t *stmt, const char *dat
 
   OD("[%s]", buf);
 
-  SQLRETURN sr = _stmt_encode(stmt, "utf8", &inbuf, &inbytes, "ucs2", &outbuf, &outbytes);
+  SQLRETURN sr = _stmt_encode(stmt, "UTF8", &inbuf, &inbytes, "UCS-2LE", &outbuf, &outbytes);
   OA_NIY(sql_succeeded(sr));
   outbuf[0] = '\0';
   outbuf[1] = '\0';
@@ -1682,7 +1681,7 @@ static int _stmt_bind_conv_tsdb_varchar_to_sql_c_wchar(stmt_t *stmt, const char 
 
   OD("[%.*s]", len, data);
 
-  SQLRETURN sr = _stmt_encode(stmt, "utf8", &inbuf, &inbytes, "ucs2", &outbuf, &outbytes);
+  SQLRETURN sr = _stmt_encode(stmt, "UTF8", &inbuf, &inbytes, "UCS-2LE", &outbuf, &outbytes);
   OA_NIY(sql_succeeded(sr));
   outbuf[0] = '\0';
   outbuf[1] = '\0';
@@ -1701,7 +1700,7 @@ static int _stmt_bind_conv_tsdb_nchar_to_sql_c_wchar(stmt_t *stmt, const char *d
 
   OD("[%.*s]", len, data);
 
-  SQLRETURN sr = _stmt_encode(stmt, "utf8", &inbuf, &inbytes, "ucs2", &outbuf, &outbytes);
+  SQLRETURN sr = _stmt_encode(stmt, "UTF8", &inbuf, &inbytes, "UCS-2LE", &outbuf, &outbytes);
   OA_NIY(sql_succeeded(sr));
   outbuf[0] = '\0';
   outbuf[1] = '\0';
@@ -3026,7 +3025,7 @@ static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_tinyint(stmt_t *stmt, sql_c_to
 {
   int64_t v = *(int64_t*)meta->src_base;
   if (v > SCHAR_MAX || v < SCHAR_MIN) {
-    stmt_append_err_format(stmt, "22003", 0, "Numeric value out of range:tinyint is required, but got ==[%ld]==", v);
+    stmt_append_err_format(stmt, "22003", 0, "Numeric value out of range:tinyint is required, but got ==[%" PRId64 "]==", v);
     return SQL_ERROR;
   }
   *(int8_t*)meta->dst_base = v;
@@ -3038,7 +3037,7 @@ static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_smallint(stmt_t *stmt, sql_c_t
 {
   int64_t v = *(int64_t*)meta->src_base;
   if (v > SHRT_MAX || v < SHRT_MIN) {
-    stmt_append_err_format(stmt, "22003", 0, "Numeric value out of range:smallint is required, but got ==[%ld]==", v);
+    stmt_append_err_format(stmt, "22003", 0, "Numeric value out of range:smallint is required, but got ==[%" PRId64 "]==", v);
     return SQL_ERROR;
   }
   *(int16_t*)meta->dst_base = v;
@@ -3192,7 +3191,7 @@ static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_int(stmt_t *stmt, sql_c_to_tsd
 {
   int64_t v = *(int64_t*)meta->src_base;
   if (v > INT_MAX || v < INT_MIN) {
-    stmt_append_err_format(stmt, "22003", 0, "Numeric value out of range:int is required, but got ==[%ld]==", v);
+    stmt_append_err_format(stmt, "22003", 0, "Numeric value out of range:int is required, but got ==[%" PRId64 "]==", v);
     return SQL_ERROR;
   }
   *(int32_t*)meta->dst_base = v;
@@ -3204,14 +3203,14 @@ static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_varchar(stmt_t *stmt, sql_c_to
 {
   int64_t v = *(int64_t*)meta->src_base;
   char buf[128];
-  int n = snprintf(buf, sizeof(buf), "%ld", v);
+  int n = snprintf(buf, sizeof(buf), "%" PRId64 "", v);
   if (n<0 || (size_t)n>=sizeof(buf)) {
     stmt_append_err(stmt, "HY000", 0, "General error:internal logic error");
     return SQL_ERROR;
   }
 
   if ((size_t)n > meta->IPD_record->DESC_LENGTH) {
-    stmt_append_err_format(stmt, "22001", 0, "String data, right truncation:[%ld] truncated to [%s]", v, buf);
+    stmt_append_err_format(stmt, "22001", 0, "String data, right truncation:[%" PRId64 "] truncated to [%s]", v, buf);
     return SQL_ERROR;
   }
 
@@ -3955,7 +3954,7 @@ static SQLRETURN _stmt_param_process(stmt_t *stmt, int irow, int i_param)
       }
     } else if (mb->buffer_type == TSDB_DATA_TYPE_NCHAR) {
       size_t nr_bytes = 0;
-      sr = _stmt_calc_bytes(stmt, "UTF8", src_base, src_len, "UCS4", &nr_bytes);
+      sr = _stmt_calc_bytes(stmt, "UTF8", src_base, src_len, "UCS-4BE", &nr_bytes);
       if (sr == SQL_ERROR) return SQL_ERROR;
       if (nr_bytes > (size_t)field.bytes - 2) {
         stmt_append_err_format(stmt, "HY000", 0, "General error:#%d param [%.*s] too long [%d]", i_param+1, (int)src_len, src_base, (field.bytes-2)/4);

@@ -416,6 +416,23 @@ static inline cJSON* load_json_file(const char *json_file, char *buf, size_t byt
 
   cJSON *json = load_json_from_file(json_file, fn);
   if (buf) {
+#ifdef __APPLE__
+    char tmp[PATH_MAX+1];
+    int n = snprintf(tmp, sizeof(tmp), "%s", json_file);
+    do {
+      if (n<0 || (size_t)n>=sizeof(tmp) || (size_t)n>=bytes) {
+        W("buffer too small: %d, %zd", n, bytes);
+        r = -1;
+        break;
+      }
+      char *path = dirname_r(tmp, buf);
+      if (!path) {
+        W("`dirname` failed");
+        r = -1;
+        break;
+      }
+    } while (0);
+#else
     int n = snprintf(buf, bytes, "%s", json_file);
     do {
       if (n<0 || (size_t)n>=bytes) {
@@ -430,6 +447,7 @@ static inline cJSON* load_json_file(const char *json_file, char *buf, size_t byt
         break;
       }
     } while (0);
+#endif
   }
 
   if (r) {

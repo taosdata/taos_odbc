@@ -1802,7 +1802,7 @@ static int test_case5(SQLHANDLE hconn)
 
     CatalogName = "";
     SchemaName = "";
-    TableName = "%";
+    TableName = "";
     TableType = "'TABLE'";
     sr = CALL_SQLTables(hstmt,
       (SQLCHAR*)CatalogName, strlen(CatalogName),
@@ -1854,10 +1854,10 @@ static int test_hard_coded(SQLHANDLE henv, const char *dsn, const char *uid, con
       r = test_case3(hconn);
       if (r) break;
 
-      if (non_taos) {
-        r = test_case4(hconn, non_taos, 128, 113);
-        if (r) break;
-      } else {
+      r = test_case4(hconn, non_taos, 128, 113);
+      if (r) break;
+
+      if (0 && !non_taos) {
         r = test_case4(hconn, non_taos, 5000, 4000);
         if (r) break;
       }

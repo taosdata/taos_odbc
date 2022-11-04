@@ -24,6 +24,8 @@
 
 #include "utils.h"
 
+#include <ctype.h>
+#include <stdio.h>
 #include <string.h>
 #include <time.h>
 
@@ -142,7 +144,7 @@ void* buffers_realloc(buffers_t *buffers, size_t idx, size_t sz)
   return p;
 }
 
-typedef int (*wild_match_f)(wildex_t *wild, const char *s, size_t inode);
+typedef int (*wild_match_f)(wildex_t *wild, const char *s, size_t len, size_t inode);
 
 typedef struct wildex_node_s             wildex_node_t;
 struct wildex_node_s {
@@ -164,50 +166,56 @@ struct wildex_s {
   size_t                 nr;
 };
 
-static int _wild_exec(wildex_t *wild, const char *s, size_t inode);
-static int _wild_match_all(wildex_t *wild, const char *s, size_t inode);
-static int _wild_match_one(wildex_t *wild, const char *s, size_t inode);
-static int _wild_match_specific(wildex_t *wild, const char *s, size_t inode);
+static int _wild_exec(wildex_t *wild, const char *s, size_t len, size_t inode);
+static int _wild_match_all(wildex_t *wild, const char *s, size_t len, size_t inode);
+static int _wild_match_one(wildex_t *wild, const char *s, size_t len, size_t inode);
+static int _wild_match_specific(wildex_t *wild, const char *s, size_t len, size_t inode);
 
-static int _wild_match_all(wildex_t *wild, const char *s, size_t inode)
+static int _wild_match_all(wildex_t *wild, const char *s, size_t len, size_t inode)
 {
   int r = 0;
   if (inode + 1 == wild->nr) return 0;
   const char *p = s;
-  while (*p) {
-    r = _wild_exec(wild, p, inode + 1);
+  const char *end = s + len;
+  while (p<end && *p) {
+    r = _wild_exec(wild, p, end-p, inode + 1);
     if (r == 0) return 0;
     ++p;
   }
   return -1;
 }
 
-static int _wild_match_one(wildex_t *wild, const char *s, size_t inode)
+static int _wild_match_one(wildex_t *wild, const char *s, size_t len, size_t inode)
 {
   if (!*s) return -1;
   wildex_node_t *node = wild->nodes + inode;
   const char *p = s;
+  const char *end = s + len;
   for (size_t i=node->start; i<node->end; ++i) {
+    if (p == end) return -1;
     if (!*p) return -1;
     ++p;
   }
 
   if (inode + 1 == wild->nr) {
-    return *p ? -1 : 0;
+    return (p<end) ? -1 : 0;
   }
-  return _wild_exec(wild, p, inode + 1);
+  return _wild_exec(wild, p, end-p, inode + 1);
 }
 
-static int _wild_match_specific(wildex_t *wild, const char *s, size_t inode)
+static int _wild_match_specific(wildex_t *wild, const char *s, size_t len, size_t inode)
 {
   int r = 0;
   wildex_node_t *node = wild->nodes + inode;
+  if (len < node->end - node->start) return -1;
   r = strncmp(s, wild->ex + node->start, node->end - node->start);
   if (r) return -1;
 
   if (inode + 1 == wild->nr) return 0;
 
-  return _wild_exec(wild, s + node->end - node->start, inode + 1);
+  const char *end = s + len;
+  const char *p = s + node->end - node->start;
+  return _wild_exec(wild, p, end-p, inode + 1);
 }
 
 static void _wild_release(wildex_t *wild)
@@ -321,16 +329,16 @@ int wildcomp(wildex_t **pwild, const char *wildex)
   return -1;
 }
 
-static int _wild_exec(wildex_t *wild, const char *s, size_t inode)
+static int _wild_exec(wildex_t *wild, const char *s, size_t len, size_t inode)
 {
   if (inode == wild->nr) return -1;
 
   wildex_node_t *node = wild->nodes + inode;
   wild_match_f match = node->match;
-  return match(wild, s, inode);
+  return match(wild, s, len, inode);
 }
 
-int wildexec(wildex_t *wild, const char *str)
+int wildexec_n(wildex_t *wild, const char *str, size_t len)
 {
   const char *s = str;
 
@@ -338,7 +346,7 @@ int wildexec(wildex_t *wild, const char *str)
 
   if (!s) return -1;
 
-  return _wild_exec(wild, s, inode);
+  return _wild_exec(wild, s, len, inode);
 }
 
 void wildfree(wildex_t *wild)
@@ -346,5 +354,204 @@ void wildfree(wildex_t *wild)
   if (!wild) return;
   _wild_release(wild);
   free(wild);
+}
+
+static void _check_table_or_stable(const char *s, size_t n, int *table, int *stable)
+{
+  if (n == 5 && strncmp(s, "TABLE", 5) == 0) {
+    *table  = 1;
+    return;
+  }
+  if (n == 6 && strncmp(s, "STABLE", 6) == 0) {
+    *stable = 1;
+    return;
+  }
+}
+
+int table_type_parse(const char *table_type, int *table, int *stable)
+{
+  const char *s = table_type;
+  const char *p = table_type;
+
+  char c;
+
+  *table  = 0;
+  *stable = 0;
+
+step1:
+  if (isblank(*p)) {
+    s = ++p;
+    goto step1;
+  }
+  if (!*p) return 0;
+
+  if (*s == '\'') {
+    c = *s;
+  } else {
+    c = ',';
+  }
+
+step2:
+  ++p;
+  if (!*p) {
+    if (c != ',') return -1;
+    _check_table_or_stable(s, p-s, table, stable);
+    return 0;
+  }
+  if (*p == c) {
+    if (c == ',') {
+      _check_table_or_stable(s, p-s, table, stable);
+      s = ++p;
+      goto step1;
+    }
+    _check_table_or_stable(s+1, p-s-1, table, stable);
+    s = ++p;
+    goto step3;
+  }
+  if (isblank(*p)) {
+    if (c != ',') return -1;
+    _check_table_or_stable(s, p-s, table, stable);
+    s = ++p;
+    goto step1;
+  }
+  if (*p == ',') return -1;
+  if (*p == '\'') return -1;
+  goto step2;
+
+step3:
+  if (*p == ',') {
+    s = ++p;
+    goto step1;
+  }
+  if (isblank(*p)) {
+    s = ++p;
+    goto step3;
+  }
+  if (*p) return -1;
+  return 0;
+}
+
+void string_reset(string_t *str)
+{
+  str->nr = 0;
+}
+
+void string_release(string_t *str)
+{
+  if (str->base) {
+    free(str->base);
+    str->base = NULL;
+  }
+  str->sz = 0;
+  str->nr = 0;
+}
+
+int string_expand(string_t *str, size_t sz)
+{
+  if (str->nr + sz <= str->sz) return 0;
+  sz = (str->nr + sz + 15) / 16 * 16;
+  char *base = (char*)realloc(str->base, sz);
+  if (!base) return -1;
+  str->base          = base;
+  str->sz            = sz;
+  str->base[str->nr] = '\0';
+  return 0;
+}
+
+int string_concat_n(string_t *str, const char *s, size_t len)
+{
+  int r = 0;
+  r = string_expand(str, len + 1);
+  if (r) return -1;
+  strncpy(str->base + str->nr, s, len);
+  str->nr            += len;
+  str->base[str->nr]  = '\0';
+  return 0;
+}
+
+static int _string_vconcat(string_t *str, const char *fmt, va_list ap)
+{
+  va_list apx;
+  va_copy(apx, ap);
+
+  int r = 0;
+  int n = vsnprintf(str->base + str->nr, str->sz - str->nr, fmt, apx);
+  va_end(apx);
+
+  if (n < 0) return -1;
+
+  if ((size_t)n < str->sz - str->nr) {
+    str->nr            += n;
+    str->base[str->nr]  = '\0';
+    return 0;
+  }
+
+  r = string_expand(str, n + 1);
+  if (r) return -1;
+
+  if (n != vsnprintf(str->base + str->nr, str->sz - str->nr, fmt, ap)) return -1;
+
+  str->nr            += n;
+  str->base[str->nr]  = '\0';
+  return 0;
+}
+
+int string_vconcat(string_t *str, const char *fmt, va_list ap)
+{
+  int r = 0;
+  size_t old_nr = str->nr;
+
+  r = _string_vconcat(str, fmt, ap);
+  if (r) {
+    str->nr = old_nr;
+    if (str->base) str->base[str->nr] = '\0';
+    return -1;
+  }
+
+  return 0;
+}
+
+int string_concat_fmt(string_t *str, const char *fmt, ...)
+{
+  int r;
+  va_list ap;
+  va_start(ap, fmt);
+  r = string_vconcat(str, fmt, ap);
+  va_end(ap);
+  return r ? -1 : 0;
+}
+
+static int _string_concat_replacement_n(string_t *str, const char *s, size_t len)
+{
+  int r = 0;
+  const char *end = s + len;
+  const char *p = s;
+  while (p < end && *p) {
+    if (*p == '\'') {
+      if (p>s) {
+        r = string_concat_n(str, s, p-s);
+        if (r) return -1;
+      }
+      r = string_concat_n(str, "''", 2);
+      if (r) return -1;
+      s = ++p;
+      continue;
+    }
+    ++p;
+  }
+  if (p > s) return string_concat_n(str, s, p-s);
+  return 0;
+}
+
+int string_concat_replacement_n(string_t *str, const char *s, size_t len)
+{
+  int r = 0;
+  size_t old_nr = str->nr;
+  r = _string_concat_replacement_n(str, s, len);
+  if (r == 0) return 0;
+
+  str->nr = old_nr;
+  if (str->base) str->base[str->nr] = '\0';
+  return -1;
 }
 

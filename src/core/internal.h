@@ -302,12 +302,23 @@ struct stmt_attrs_s {
   // SQLULEN                    ATTR_MAX_LENGTH;
 };
 
-typedef struct params_s                        params_t;
+typedef struct params_s             params_t;
 struct params_s {
   TAOS_MULTI_BIND     *mbs;
   param_value_t       *values;
 
   size_t               cap;
+};
+
+// NOTE: this exists because of https://github.com/taosdata/TDengine/issues/17890
+typedef struct post_filter_s        post_filter_t;
+typedef SQLRETURN (*post_filter_f)(stmt_t *stmt, int row, void *ctx, int *filter);
+typedef void (*post_filter_destroy_f)(stmt_t *stmt, void *ctx);
+
+struct post_filter_s {
+  void                   *ctx;
+  post_filter_f           post_filter;
+  post_filter_destroy_f   post_filter_destroy;
 };
 
 struct stmt_s {
@@ -349,6 +360,8 @@ struct stmt_s {
   TAOS_MULTI_BIND           *mbs;
   size_t                     cap_mbs;
   size_t                     nr_mbs;
+
+  post_filter_t              post_filter;
 
   TAOS_RES                  *res;
   SQLLEN                     affected_row_count;

@@ -27,7 +27,9 @@
 
 #include "macros.h"
 
+#include <stdarg.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 EXTERN_C_BEGIN
@@ -92,8 +94,39 @@ void* buffers_realloc(buffers_t *buffers, size_t idx, size_t sz) FA_HIDDEN;
 
 typedef struct wildex_s           wildex_t;
 int wildcomp(wildex_t **pwild, const char *wildex) FA_HIDDEN;
-int wildexec(wildex_t *wild, const char *str) FA_HIDDEN;
+int wildexec_n(wildex_t *wild, const char *str, size_t len) FA_HIDDEN;
+static inline int wildexec(wildex_t *wild, const char *str)
+{
+  return wildexec_n(wild, str, strlen(str));
+}
+
 void wildfree(wildex_t *wild) FA_HIDDEN;
+
+int table_type_parse(const char *table_type, int *table, int *stable) FA_HIDDEN;
+
+typedef struct string_s           string_t;
+struct string_s {
+  char        *base;
+  size_t       sz;
+  size_t       nr;
+};
+
+void string_reset(string_t *str) FA_HIDDEN;
+void string_release(string_t *str) FA_HIDDEN;
+int string_expand(string_t *str, size_t sz) FA_HIDDEN;
+int string_concat_n(string_t *str, const char *s, size_t len) FA_HIDDEN;
+static inline int string_concat(string_t *str, const char *s)
+{
+  return string_concat_n(str, s, strlen(s));
+}
+int string_vconcat(string_t *str, const char *fmt, va_list ap) FA_HIDDEN;
+int string_concat_fmt(string_t *str, const char *fmt, ...) __attribute__ ((format (printf, 2, 3))) FA_HIDDEN;
+// replace "'" in s with "''"
+int string_concat_replacement_n(string_t *str, const char *s, size_t len) FA_HIDDEN;
+static inline int string_concat_replacement(string_t *str, const char *s)
+{
+  return string_concat_replacement_n(str, s, strlen(s));
+}
 
 EXTERN_C_END
 

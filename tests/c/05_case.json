@@ -39,6 +39,20 @@
           [1662961548651,21,"suzhou"],
           [1662961548652,22,"suzhou"]
         ]
+      },{
+        "sql": "select * from (select db_name as TABLE_CAT, '' as TABLE_SCHEM, stable_name as TABLE_NAME, 'STABLE' as TABLE_TYPE, table_comment as REMARKS from information_schema.ins_stables union select db_name as TABLE_CAT, '' as TABLE_SCHEM, table_name as TABLE_NAME, 'TABLE' as TABLE_TYPE, table_comment as REMARKS from information_schema.ins_tables)"
+      },{
+        "sql": "select * from (select db_name as TABLE_CAT, '' as TABLE_SCHEM, stable_name as TABLE_NAME, 'STABLE' as TABLE_TYPE, table_comment as REMARKS from information_schema.ins_stables union select db_name as TABLE_CAT, '' as TABLE_SCHEM, table_name as TABLE_NAME, 'TABLE' as TABLE_TYPE, table_comment as REMARKS from information_schema.ins_tables) where table_type Like '%'"
+      },{
+        "comments":"taosc reading mem at address 0x0",
+        "sqlx": "select * from (select db_name as TABLE_CAT, '' as TABLE_SCHEM, stable_name as TABLE_NAME, 'STABLE' as TABLE_TYPE, table_comment as REMARKS from information_schema.ins_stables union select db_name as TABLE_CAT, '' as TABLE_SCHEM, table_name as TABLE_NAME, 'TABLE' as TABLE_TYPE, table_comment as REMARKS from information_schema.ins_tables) where table_type Like ?",
+        "executes": [
+          {
+            "params": [
+              ["STABLE"]
+            ]
+          }
+        ]
       }
     ]
   }

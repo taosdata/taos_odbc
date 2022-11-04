@@ -38,6 +38,7 @@ SQLTables (post-filter workaround to be removed when taosc is right in place)
 
 ### Supported platform
 - Linux
+- macOS
 
 ### Requirements
 - flex, 2.6.4 or above

@@ -39,6 +39,7 @@ SQLTables (暂时使用post-filter来补救一下，等待taosc有新的实现�
 
 ### (目前)支持的平台
 - Linux
+- macOS
 
 ### 所需的依赖
 - flex, 2.6.4 或以上

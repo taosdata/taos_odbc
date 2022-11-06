@@ -48,14 +48,42 @@ macro(check_requirements)
 
   ## prepare `cjson`
   include(ExternalProject)
-  set(CJSON_INSTALL_PATH ${TAOS_ODBC_LOCAL_REPO}/.install)
+  set(TAOS_ODBC_LOCAL_INSTALL ${TAOS_ODBC_LOCAL_REPO}/.install)
   ExternalProject_Add(ex_cjson
       GIT_REPOSITORY https://github.com/taosdata-contrib/cJSON.git
       GIT_TAG v1.7.15
       GIT_SHALLOW TRUE
       PREFIX "${TAOS_ODBC_LOCAL_REPO}/cjson"
-      CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${CJSON_INSTALL_PATH}"
+      CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${TAOS_ODBC_LOCAL_INSTALL}"
       )
+
+  ExternalProject_Add(ex_antlr4
+      GIT_REPOSITORY https://github.com/antlr/antlr4.git
+      GIT_TAG antlr4-master-4.11.0
+      GIT_SHALLOW TRUE
+      PREFIX "${TAOS_ODBC_LOCAL_REPO}/antlr4"
+      CONFIGURE_COMMAND ${CMAKE_COMMAND} -E echo "configure"
+      BUILD_COMMAND ${CMAKE_COMMAND} -E echo "build"
+      INSTALL_COMMAND ${CMAKE_COMMAND} -E echo "install"
+      )
+
+  add_custom_target(ex_antlr4_lib DEPENDS ${CMAKE_BINARY_DIR}/ex_antlr4_lib_done)
+  add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/ex_antlr4_lib_done
+      COMMAND ${CMAKE_COMMAND}
+        -DCMAKE_INSTALL_PREFIX=${TAOS_ODBC_LOCAL_INSTALL}
+        -B ${TAOS_ODBC_LOCAL_REPO}/antlr4/src/ex_antlr4-build/runtime/Cpp/Release
+        -S ${TAOS_ODBC_LOCAL_REPO}/antlr4/src/ex_antlr4/runtime/Cpp
+        -DCMAKE_BUILD_TYPE=Release
+      COMMAND ${CMAKE_COMMAND} --build "${TAOS_ODBC_LOCAL_REPO}/antlr4/src/ex_antlr4-build/runtime/Cpp/Release" -j16
+      COMMAND ${CMAKE_COMMAND} --install "${TAOS_ODBC_LOCAL_REPO}/antlr4/src/ex_antlr4-build/runtime/Cpp/Release"
+      COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_BINARY_DIR}/ex_antlr4_lib_done)
+  add_dependencies(ex_antlr4_lib ex_antlr4)
+
+  add_custom_target(ex_antlr4_jar DEPENDS ${CMAKE_BINARY_DIR}/ex_antlr4_jar_done)
+  add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/ex_antlr4_jar_done
+      COMMAND mvn -f "${TAOS_ODBC_LOCAL_REPO}/antlr4/src/ex_antlr4" -DskipTests=true install
+      COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_BINARY_DIR}/ex_antlr4_jar_done)
+  add_dependencies(ex_antlr4_jar ex_antlr4)
 
   ## check `taos`
   find_library(TAOS NAMES taos)

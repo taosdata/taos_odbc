@@ -25,8 +25,8 @@
 add_executable(taos_test taos_test.c)
 add_dependencies(taos_test ex_cjson)
 
-target_include_directories(taos_test PRIVATE ${CJSON_INSTALL_PATH}/include)
-target_link_directories(taos_test PRIVATE ${CJSON_INSTALL_PATH}/lib)
+target_include_directories(taos_test PRIVATE ${TAOS_ODBC_LOCAL_INSTALL}/include)
+target_link_directories(taos_test PRIVATE ${TAOS_ODBC_LOCAL_INSTALL}/lib)
 # NOTE: cJSON_xxx exported in `libtaos.so`
 target_link_libraries(taos_test cjson taos)
 

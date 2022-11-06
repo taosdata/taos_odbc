@@ -31,4 +31,5 @@ add_library(parser_obj OBJECT ${parser_SOURCES})
 target_include_directories(parser_obj PRIVATE
     ${INTERNAL_INC_PATH})
 set_property(TARGET parser_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
+add_dependencies(parser_obj ex_antlr4_jar ex_antlr4_lib)
 

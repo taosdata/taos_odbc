@@ -55,8 +55,8 @@ add_executable(odbc_test
     odbc_test.c)
 add_dependencies(odbc_test ex_cjson)
 
-target_include_directories(odbc_test PRIVATE ${CJSON_INSTALL_PATH}/include)
-target_link_directories(odbc_test PRIVATE ${CJSON_INSTALL_PATH}/lib)
+target_include_directories(odbc_test PRIVATE ${TAOS_ODBC_LOCAL_INSTALL}/include)
+target_link_directories(odbc_test PRIVATE ${TAOS_ODBC_LOCAL_INSTALL}/lib)
 target_link_libraries(odbc_test odbc cjson)
 
 add_test(NAME odbc_test

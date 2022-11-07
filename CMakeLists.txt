@@ -30,7 +30,7 @@ set(TODBC_VERSION 0.1)
 # add_compile_options(-Wall -Wextra -pedantic -Werror)
 add_compile_options(-Wall -Wextra -Werror -O0)
 set(CMAKE_C_STANDARD 11)
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   set(TODBC_LINUX TRUE)

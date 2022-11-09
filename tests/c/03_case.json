@@ -262,7 +262,7 @@
     ]
   },{
     "conn": {"dsn": "MYSQL_ODBC_DSN"},
-    "sqls": [
+    "xsqls": [
       "show databases",
       "drop database if exists foo",
       "create database foo",

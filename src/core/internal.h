@@ -297,19 +297,6 @@ struct rowset_s {
   int                 i_row;
 };
 
-typedef struct stmt_attrs_s         stmt_attrs_t;
-struct stmt_attrs_s {
-  // SQLULEN                    ATTR_MAX_LENGTH;
-};
-
-typedef struct params_s             params_t;
-struct params_s {
-  TAOS_MULTI_BIND     *mbs;
-  param_value_t       *values;
-
-  size_t               cap;
-};
-
 // NOTE: this exists because of https://github.com/taosdata/TDengine/issues/17890
 typedef struct post_filter_s        post_filter_t;
 typedef SQLRETURN (*post_filter_f)(stmt_t *stmt, int row, void *ctx, int *filter);
@@ -340,14 +327,12 @@ struct stmt_s {
   descriptor_t              *current_APD;
   descriptor_t              *current_ARD;
 
-  stmt_attrs_t               attrs;
   col_t                      current_for_get_data;
 
   char                      *sql;
 
   TAOS_STMT                 *stmt;
   // for non-insert-parameterized-statement
-  params_t                   params;
   int                        nr_params;
 
   // for insert-parameterized-statement

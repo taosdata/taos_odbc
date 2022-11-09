@@ -62,62 +62,6 @@ static void rowset_release(rowset_t *rowset)
   rowset_reset(rowset);
 }
 
-static void param_value_reset(param_value_t *value)
-{
-  if (value->inited && value->allocated) {
-    TOD_SAFE_FREE(value->ptr);
-  }
-  value->allocated = 0;
-  value->inited = 0;
-}
-
-static void params_reset_param_values(params_t *params)
-{
-  if (!params->values) return;
-  for (size_t i=0; i<params->cap; ++i) {
-    param_value_t *param_value = params->values + i;
-    param_value_reset(param_value);
-  }
-}
-
-static void params_reset_mbs(params_t *params)
-{
-  if (!params->mbs) return;
-  memset(params->mbs, 0, sizeof(*params->mbs) * params->cap);
-}
-
-static void params_reset(params_t *params)
-{
-  params_reset_param_values(params);
-  params_reset_mbs(params);
-}
-
-static void params_release(params_t *params)
-{
-  params_reset(params);
-  TOD_SAFE_FREE(params->values);
-  TOD_SAFE_FREE(params->mbs);
-  params->cap = 0;
-}
-
-static int params_realloc(params_t *params, size_t cap)
-{
-  if (cap > params->cap) {
-    params_reset(params);
-    size_t n = (cap+ 15) / 16 *16;
-    TAOS_MULTI_BIND *mbs        = (TAOS_MULTI_BIND*)realloc(params->mbs, n * sizeof(*mbs));
-    param_value_t   *values     = (param_value_t*)realloc(params->values, n * sizeof(*values));
-    if (mbs)    params->mbs     = mbs;
-    if (values) params->values  = values;
-    if (!mbs || !values) return -1;
-
-    params->cap         = n;
-  }
-  memset(params->mbs,    0, params->cap * sizeof(*params->mbs));
-  memset(params->values, 0, params->cap * sizeof(*params->values));
-  return 0;
-}
-
 static void _stmt_release_descriptors(stmt_t *stmt)
 {
   descriptor_release(&stmt->APD);
@@ -334,8 +278,6 @@ static void _stmt_release(stmt_t *stmt)
 
   stmt_dissociate_APD(stmt);
 
-  params_release(&stmt->params);
-
   _stmt_release_stmt(stmt);
 
   stmt_dissociate_ARD(stmt);
@@ -464,7 +406,6 @@ static SQLRETURN _stmt_exec_direct_sql(stmt_t *stmt, const char *sql)
   if (_stmt_get_rows_fetched_ptr(stmt)) *_stmt_get_rows_fetched_ptr(stmt) = 0;
   rowset_reset(&stmt->rowset);
   _stmt_release_result(stmt);
-  params_reset(&stmt->params);
 
   TAOS *taos = stmt->conn->taos;
 
@@ -4014,13 +3955,6 @@ static SQLRETURN _stmt_pre_exec_prepare_params(stmt_t *stmt)
     return SQL_ERROR;
   }
 
-  if (APD_header->DESC_COUNT > 0) {
-    if (params_realloc(&stmt->params, APD_header->DESC_COUNT)) {
-      stmt_oom(stmt);
-      return SQL_ERROR;
-    }
-  }
-
   if (APD_header->DESC_ARRAY_SIZE <= 0) {
     stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error, DESC_ARRAY_SIZE[%ld] invalid", APD_header->DESC_ARRAY_SIZE);
     return SQL_ERROR;
@@ -4151,8 +4085,6 @@ static void _stmt_unbind_cols(stmt_t *stmt)
 
 static void _stmt_reset_params(stmt_t *stmt)
 {
-  params_reset(&stmt->params);
-
   descriptor_t *APD = _stmt_APD(stmt);
   desc_header_t *APD_header = &APD->header;
   APD_header->DESC_COUNT = 0;

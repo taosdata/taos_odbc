@@ -1,8 +1,7 @@
 [
   {
-    "comments": "taosc flaw: memleakage",
     "conn": {},
-    "xsqls": [
+    "sqls": [
       "show databases",
       "drop database if exists foo",
       "create database foo",
@@ -12,7 +11,7 @@
         "sql":"insert into t (ts, age) values (?, ?)",
         "executes": [
           {
-            "params": [{"timestamp":1662861478799}, "123"]
+            "params": [{"timestamp":1662861478799}, 123]
           }
         ]
       }

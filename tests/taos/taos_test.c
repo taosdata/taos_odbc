@@ -564,6 +564,43 @@ static int _prepare_mb_as_tsdb_varchar(executes_ctx_t *ctx, TAOS_FIELD_E *col, T
   return 0;
 }
 
+static int _prepare_mb_as_tsdb_double(executes_ctx_t *ctx, TAOS_MULTI_BIND *col_mb, int rows)
+{
+  double *buffer       = (double*)malloc(rows * sizeof(*buffer));
+  int32_t *length      = (int32_t*)malloc(rows * sizeof(*length));
+  char    *is_null     = (char*)malloc(rows * sizeof(*is_null));
+
+  if (!buffer || buffers_append(&ctx->buffers, (char*)buffer)) {
+    free(buffer);
+    free(length);
+    free(is_null);
+    E("out of memory");
+    return -1;
+  }
+
+  if (!length || buffers_append(&ctx->buffers, (char*)length)) {
+    free(length);
+    free(is_null);
+    E("out of memory");
+    return -1;
+  }
+
+  if (!is_null || buffers_append(&ctx->buffers, (char*)is_null)) {
+    free(is_null);
+    E("out of memory");
+    return -1;
+  }
+
+  col_mb->buffer_type            = TSDB_DATA_TYPE_DOUBLE;
+  col_mb->buffer                 = buffer;
+  col_mb->buffer_length          = sizeof(double);
+  col_mb->length                 = length; // correct me, fixed-length, necessary?
+  col_mb->is_null                = is_null;
+  col_mb->num                    = rows;
+
+  return 0;
+}
+
 static int _prepare_mb(executes_ctx_t *ctx, int iparam, TAOS_FIELD_E *col, TAOS_MULTI_BIND *col_mb, int rows)
 {
   switch (col->type) {
@@ -573,6 +610,8 @@ static int _prepare_mb(executes_ctx_t *ctx, int iparam, TAOS_FIELD_E *col, TAOS_
       return _prepare_mb_as_tsdb_int(ctx, col_mb, rows);
     case TSDB_DATA_TYPE_VARCHAR:
       return _prepare_mb_as_tsdb_varchar(ctx, col, col_mb, rows);
+    case TSDB_DATA_TYPE_DOUBLE:
+      return _prepare_mb_as_tsdb_double(ctx, col_mb, rows);
     default:
       E("#%d parameter marker of [%d]%s, but not implemented yet", iparam+1, col->type, CALL_taos_data_type(col->type));
       return -1;
@@ -695,6 +734,44 @@ static int _store_param_val_by_mb_as_tsdb_varchar(executes_ctx_t *ctx, cJSON *pa
   return 0;
 }
 
+static int _store_param_val_by_mb_as_tsdb_double(executes_ctx_t *ctx, cJSON *param, int iparam, TAOS_MULTI_BIND *mb, int irow)
+{
+  (void)ctx;
+
+  int r = 0;
+
+  double d;
+  if (cJSON_IsObject(param)) {
+    r = json_object_get_number(param, "double", &d);
+    if (r) {
+      char *t1 = cJSON_PrintUnformatted(param);
+      E("#(%d,%d) parameter marker of [%d]%s, but got ==%s==", irow+1, iparam+1, mb->buffer_type, CALL_taos_data_type(mb->buffer_type), t1);
+      free(t1);
+      return -1;
+    }
+  } else if (cJSON_IsNumber(param)) {
+    d = cJSON_GetNumberValue(param);
+  } else {
+    char *t1 = cJSON_PrintUnformatted(param);
+    E("#(%d,%d) parameter marker of [%d]%s, but got ==%s==", irow+1, iparam+1, mb->buffer_type, CALL_taos_data_type(mb->buffer_type), t1);
+    free(t1);
+    return -1;
+  }
+
+  double *buffer    = (double*)mb->buffer;
+  int32_t *length   = (int32_t*)mb->length;
+  char    *is_null  = (char*)mb->is_null;
+  buffer     += irow;
+  length     += irow;
+  is_null    += irow;
+
+  *buffer    = (double)d;
+  *length    = sizeof(double);
+  *is_null   = '\0';
+
+  return 0;
+}
+
 static int _store_param_val_by_mb(executes_ctx_t *ctx, cJSON *param, int irow, int iparam, TAOS_MULTI_BIND *mb)
 {
   if (cJSON_IsNull(param)) {
@@ -712,6 +789,8 @@ static int _store_param_val_by_mb(executes_ctx_t *ctx, cJSON *param, int irow, i
       return _store_param_val_by_mb_as_tsdb_int(ctx, param, iparam, mb, irow);
     case TSDB_DATA_TYPE_VARCHAR:
       return _store_param_val_by_mb_as_tsdb_varchar(ctx, param, iparam, mb, irow);
+    case TSDB_DATA_TYPE_DOUBLE:
+      return _store_param_val_by_mb_as_tsdb_double(ctx, param, iparam, mb, irow);
     default:
       E("#%d parameter marker of [%d]%s, but not implemented yet", iparam+1, mb->buffer_type, CALL_taos_data_type(mb->buffer_type));
       return -1;

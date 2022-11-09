@@ -14,8 +14,7 @@
         "sql":"insert into t (ts, name) values (?, ?)",
         "executes": [
           {
-            "params": [{"bigint":1662961478754},"bigint"],
-            "positive": true
+            "params": [{"bigint":1662961478754},"bigint"]
           }
         ]
       }

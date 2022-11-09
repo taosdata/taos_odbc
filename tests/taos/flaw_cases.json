@@ -44,12 +44,10 @@
         ]
       },{
         "sql": "select count(*) from suzhou",
-        "rs": [[2]],
-        "positive": true
+        "rs": [[2]]
       },{
         "sql": "select count(*) from shanghai",
-        "rs": [[2]],
-        "positive": true
+        "rs": [[2]]
       }
     ]
   },{
@@ -79,12 +77,10 @@
         ]
       },{
         "sql": "select count(*) from suzhou",
-        "rs": [[2]],
-        "positive": true
+        "rs": [[2]]
       },{
         "sql": "select count(*) from shanghai",
-        "rs": [[2]],
-        "positive": true
+        "rs": [[2]]
       }
     ]
   },{
@@ -113,21 +109,20 @@
         ]
       },{
         "sql": "select count(*) from suzhou",
-        "rs": [[2]],
-        "positive": true
+        "rs": [[2]]
       },{
         "sql": "select count(*) from shanghai",
-        "rs": [[2]],
-        "positive": true
+        "rs": [[2]]
       }
     ]
   },{
     "comments": "insert into ? values (?, ?)",
-    "comments": "won't work if it's for normal table",
+    "comments": "in case when it's for normal table, have to ignore failure of `taos_stmt_get_tag_fields`",
+    "comments": "better not use this",
     "comments": "and will result in memleakage",
-    "cooments": "root cause: taosc: taos_stmt_set_tbname only works if the tablename is subtable",
+    "git-commit":"d3b61c5261962d188914f7d5f8c241fed9322284",
     "conn": {},
-    "xsqls": [
+    "sqls": [
       "drop database if exists foo",
       "create database foo",
       "use foo",
@@ -141,21 +136,17 @@
         "sql": "insert into ? values (?, ?)",
         "executes": [
           {
-            "params": ["shanghai", {"timestamp":1665226971292}, {"int":160}],
-            "positive": false
+            "params": ["shanghai", {"timestamp":1665226971292}, {"int":160}]
           },{
-            "params": ["suzhou", {"timestamp":1665226961290}, {"int":240}],
-            "positive": false
+            "params": ["suzhou", {"timestamp":1665226961290}, {"int":240}]
           }
         ]
       },{
         "sql": "select count(*) from suzhou",
-        "rs": [[2]],
-        "positive": false
+        "rs": [[2]]
       },{
         "sql": "select count(*) from shanghai",
-        "rs": [[2]],
-        "positive": false
+        "rs": [[2]]
       }
     ]
   },{
@@ -192,24 +183,19 @@
         ]
       },{
         "sql": "select count(*) from st where name = 'foo'",
-        "rs": [[2]],
-        "positive": true
+        "rs": [[2]]
       },{
         "sql": "select count(*) from beijin",
-        "rs": [[1]],
-        "positive": true
+        "rs": [[1]]
       },{
         "sql": "select count(*) from foo",
-        "rs": [[1]],
-        "positive": true
+        "rs": [[1]]
       },{
         "sql": "select count(*) from suzhou",
-        "rs": [[2]],
-        "positive": true
+        "rs": [[2]]
       },{
         "sql": "select count(*) from shanghai",
-        "rs": [[2]],
-        "positive": true
+        "rs": [[2]]
       }
     ]
   },{
@@ -239,6 +225,8 @@
     "comments": "insert into ? using st tags (?) values (1665226861289, 100)",
     "comments": "subtbl-tags as placeholder",
     "comments": "very much weird, although rarely in practice, taosc API seemly exposes no clue to let application know which part the placeholder belongs to",
+    "comments": "better not use this",
+    "git-commit":"d3b61c5261962d188914f7d5f8c241fed9322284",
     "conn": {},
     "sqls": [
       "drop database if exists foo",

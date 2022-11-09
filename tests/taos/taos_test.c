@@ -970,17 +970,18 @@ static int _run_execute_block_params_rs(executes_ctx_t *ctx, cJSON *start, int i
       int fieldNum = 0;
       TAOS_FIELD_E *fields = NULL;
       r = CALL_taos_stmt_get_tag_fields(ctx->stmt, &fieldNum, &fields);
-      if (r) return -1;
-      for (int i=0; i<fieldNum; ++i) {
-        TAOS_FIELD_E *field = fields + i;
-        D("field[#%d]: %s[%s, precision:%d, scale:%d, bytes:%d]", i+1, field->name, CALL_taos_data_type(field->type), field->precision, field->scale, field->bytes);
-      }
-      ctx->tags_described = 1;
-      ctx->nr_tags = fieldNum;
-      ctx->tags    = fields;
+      if (r == 0) {
+        for (int i=0; i<fieldNum; ++i) {
+          TAOS_FIELD_E *field = fields + i;
+          D("field[#%d]: %s[%s, precision:%d, scale:%d, bytes:%d]", i+1, field->name, CALL_taos_data_type(field->type), field->precision, field->scale, field->bytes);
+        }
+        ctx->tags_described = 1;
+        ctx->nr_tags = fieldNum;
+        ctx->tags    = fields;
 
-      r = _bind_tags(ctx, start, istart, iend, params);
-      if (r) return -1;
+        r = _bind_tags(ctx, start, istart, iend, params);
+        if (r) return -1;
+      }
     }
 
     if (!ctx->cols_described) {

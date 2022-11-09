@@ -45,20 +45,43 @@
           }
         ]
       },{
+        "sql":"select name from t where name in ('name2', ?)",
+        "executes": [
+          {
+            "params": ["name1"],
+            "rs":[[["name1"],["name2"]]]
+          }
+        ]
+      },{
+        "sql":"select * from (select name from t where name in ('name2', ?))",
+        "executes": [
+          {
+            "params": ["name1"],
+            "rs":[[["name1"],["name2"]]]
+          }
+        ]
+      },{
+        "comments": "nested-select with parameter-placeholders in outer clause",
+        "comments": "https://github.com/taosdata/TDengine/issues/17872",
+        "git-commit":"d3b61c5261962d188914f7d5f8c241fed9322284",
+        "sql":"select * from (select name from t) where name in ('name2', ?)",
+        "executes": [
+          {
+            "params": ["name1"],
+            "rs":[[["name1"],["name2"]]],
+            "positive": false
+          }
+        ]
+      },{
+        "comments": "nested-select with parameter-placeholders in outer clause",
+        "comments": "https://github.com/taosdata/TDengine/issues/17872",
+        "git-commit":"d3b61c5261962d188914f7d5f8c241fed9322284",
         "sql":"select name from (select * from t) where name in (?, ?)",
         "executes": [
           {
             "params": ["name1", "name2"],
             "rs":[[["name1"],["name2"]]],
             "positive": false
-          }
-        ]
-      },{
-        "sql":"select name from t where name in ('name2', ?)",
-        "executes": [
-          {
-            "params": ["name1"],
-            "rs":[[["name1"],["name2"]]]
           }
         ]
       }

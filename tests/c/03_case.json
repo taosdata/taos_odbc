@@ -239,6 +239,47 @@
         ]
       }
     ]
+  },{
+    "conn": {"dsn": "TAOS_ODBC_DSN"},
+    "sqls": [
+      "show databases",
+      "drop database if exists foo",
+      "create database foo",
+      "use foo",
+      "create table t(ts timestamp,age int)",
+      "select * from t",
+      {
+        "sql":"insert into t (ts, age) values (?, (3+?))",
+        "executes": [
+          {
+            "params": [
+              [{"timestamp":1662961548650},4]
+            ],
+            "positive":false
+          }
+        ]
+      }
+    ]
+  },{
+    "conn": {"dsn": "MYSQL_ODBC_DSN"},
+    "sqls": [
+      "show databases",
+      "drop database if exists foo",
+      "create database foo",
+      "use foo",
+      "create table t(age int)",
+      "select * from t",
+      {
+        "sql":"insert into t (age) values ((3+?))",
+        "executes": [
+          {
+            "params": [
+              [4]
+            ]
+          }
+        ]
+      }
+    ]
   }
 ]
 

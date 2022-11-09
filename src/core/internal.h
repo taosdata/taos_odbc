@@ -262,22 +262,6 @@ struct conn_s {
   unsigned int        fmt_time:1;
 };
 
-typedef struct param_value_s       param_value_t;
-struct param_value_s {
-  int32_t   length;
-  char      is_null;
-  union {
-    int64_t               tsdb_timestamp;
-    int32_t               tsdb_int;
-    int64_t               tsdb_bigint;
-    const char           *tsdb_varchar;
-    const char           *tsdb_nchar;
-    void                 *ptr;
-  };
-  unsigned int            inited:1;
-  unsigned int            allocated:1;
-};
-
 typedef struct col_s                col_t;
 struct col_s {
   TAOS_FIELD          *field;

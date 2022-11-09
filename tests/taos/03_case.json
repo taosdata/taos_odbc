@@ -102,6 +102,22 @@
       },{
         "sql":"select name from t",
         "rs": [["foo"],["wall"],[null],["bigint"],["wrong"],["great"],["6610"],["name1"],["name2"]]
+      },{
+        "comments":"weird, no-parameter-placeholder-preparable-statement",
+        "sql":"insert into t (ts, name) values (1662961478855, 'fixed')",
+        "executes": [
+          {
+            "params": [{"timestamp":1662961478955},"dynamic"]
+          }
+        ]
+      },{
+        "comments":"weird, no-parameter-placeholder-preparable-statement",
+        "sql":"select name from t where ts = 1662961478955",
+        "rs": [["dynamic"]]
+      },{
+        "comments":"weird, no-parameter-placeholder-preparable-statement",
+        "sql":"select name from t where ts = 1662961478855",
+        "rs": [["fixed"]]
       }
     ]
   }

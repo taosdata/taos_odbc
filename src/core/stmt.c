@@ -927,7 +927,7 @@ SQLRETURN stmt_bind_col(stmt_t *stmt,
       ARD_record->DESC_SCALE             = 0;
       ARD_record->DESC_TYPE              = TargetType;
       ARD_record->DESC_CONCISE_TYPE      = TargetType;
-      ARD_record->element_size_in_column_wise = ARD_record->DESC_LENGTH;
+      ARD_record->DESC_OCTET_LENGTH      = ARD_record->DESC_LENGTH;
       break;
     case SQL_C_SHORT:
       ARD_record->DESC_LENGTH            = 2;
@@ -935,7 +935,7 @@ SQLRETURN stmt_bind_col(stmt_t *stmt,
       ARD_record->DESC_SCALE             = 0;
       ARD_record->DESC_TYPE              = TargetType;
       ARD_record->DESC_CONCISE_TYPE      = TargetType;
-      ARD_record->element_size_in_column_wise = ARD_record->DESC_LENGTH;
+      ARD_record->DESC_OCTET_LENGTH      = ARD_record->DESC_LENGTH;
       break;
     case SQL_C_SLONG:
       ARD_record->DESC_LENGTH            = 4;
@@ -943,7 +943,7 @@ SQLRETURN stmt_bind_col(stmt_t *stmt,
       ARD_record->DESC_SCALE             = 0;
       ARD_record->DESC_TYPE              = TargetType;
       ARD_record->DESC_CONCISE_TYPE      = TargetType;
-      ARD_record->element_size_in_column_wise = ARD_record->DESC_LENGTH;
+      ARD_record->DESC_OCTET_LENGTH      = ARD_record->DESC_LENGTH;
       break;
     case SQL_C_SBIGINT:
       ARD_record->DESC_LENGTH            = 8;
@@ -951,7 +951,7 @@ SQLRETURN stmt_bind_col(stmt_t *stmt,
       ARD_record->DESC_SCALE             = 0;
       ARD_record->DESC_TYPE              = TargetType;
       ARD_record->DESC_CONCISE_TYPE      = TargetType;
-      ARD_record->element_size_in_column_wise = ARD_record->DESC_LENGTH;
+      ARD_record->DESC_OCTET_LENGTH      = ARD_record->DESC_LENGTH;
       break;
     case SQL_C_DOUBLE:
       ARD_record->DESC_LENGTH            = 8;
@@ -959,7 +959,7 @@ SQLRETURN stmt_bind_col(stmt_t *stmt,
       ARD_record->DESC_SCALE             = 0;
       ARD_record->DESC_TYPE              = TargetType;
       ARD_record->DESC_CONCISE_TYPE      = TargetType;
-      ARD_record->element_size_in_column_wise = ARD_record->DESC_LENGTH;
+      ARD_record->DESC_OCTET_LENGTH      = ARD_record->DESC_LENGTH;
       break;
     case SQL_C_CHAR:
       ARD_record->DESC_LENGTH            = 0; // FIXME:
@@ -967,7 +967,7 @@ SQLRETURN stmt_bind_col(stmt_t *stmt,
       ARD_record->DESC_SCALE             = 0;
       ARD_record->DESC_TYPE              = TargetType;
       ARD_record->DESC_CONCISE_TYPE      = TargetType;
-      ARD_record->element_size_in_column_wise = BufferLength;
+      ARD_record->DESC_OCTET_LENGTH      = BufferLength;
       break;
     case SQL_C_WCHAR:
       ARD_record->DESC_LENGTH            = 0; // FIXME:
@@ -975,7 +975,7 @@ SQLRETURN stmt_bind_col(stmt_t *stmt,
       ARD_record->DESC_SCALE             = 0;
       ARD_record->DESC_TYPE              = TargetType;
       ARD_record->DESC_CONCISE_TYPE      = TargetType;
-      ARD_record->element_size_in_column_wise = BufferLength;
+      ARD_record->DESC_OCTET_LENGTH      = BufferLength;
       break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
@@ -985,7 +985,6 @@ SQLRETURN stmt_bind_col(stmt_t *stmt,
       break;
   }
 
-  ARD_record->DESC_OCTET_LENGTH        = BufferLength;
   ARD_record->DESC_DATA_PTR            = TargetValuePtr;
   ARD_record->DESC_INDICATOR_PTR       = StrLen_or_IndPtr;
   ARD_record->DESC_OCTET_LENGTH_PTR    = StrLen_or_IndPtr;
@@ -1701,13 +1700,13 @@ static SQLRETURN _stmt_get_conv_from_tsdb_to_sql_c(stmt_t *stmt, tsdb_to_sql_c_f
   return SQL_SUCCESS;
 }
 
-static SQLPOINTER _stmt_get_address(stmt_t *stmt, SQLPOINTER ptr, SQLULEN element_size_in_column_wise, int i_row, desc_header_t *header)
+static SQLPOINTER _stmt_get_address(stmt_t *stmt, SQLPOINTER ptr, SQLULEN octet_length, int i_row, desc_header_t *header)
 {
   (void)stmt;
   char *base = (char*)ptr;
   if (header->DESC_BIND_OFFSET_PTR) base += *header->DESC_BIND_OFFSET_PTR;
 
-  char *dest = base + element_size_in_column_wise * i_row;
+  char *dest = base + octet_length * i_row;
 
   return dest;
 }
@@ -1741,9 +1740,9 @@ static SQLRETURN _stmt_fill_rowset(stmt_t *stmt, int i_row, int i_col)
   char *base = ARD_record->DESC_DATA_PTR;
   if (ARD_header->DESC_BIND_OFFSET_PTR) base += *ARD_header->DESC_BIND_OFFSET_PTR;
 
-  char *dest = base + ARD_record->element_size_in_column_wise * i_row;
+  char *dest = base + ARD_record->DESC_OCTET_LENGTH * i_row;
   char *ptr = ARD_record->DESC_DATA_PTR;
-  dest = _stmt_get_address(stmt, ptr, ARD_record->element_size_in_column_wise, i_row, ARD_header);
+  dest = _stmt_get_address(stmt, ptr, ARD_record->DESC_OCTET_LENGTH, i_row, ARD_header);
 
   const char *data;
   int len;

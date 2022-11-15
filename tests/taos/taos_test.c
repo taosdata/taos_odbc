@@ -1373,7 +1373,8 @@ static int run_case(cJSON *json)
   TAOS *taos = CALL_taos_connect(ip, uid, pwd, db, port);
   if (!taos) return -1;
 
-  int r = run_case_under_taos(taos, json);
+  int r = 0;
+  r = run_case_under_taos(taos, json);
 
   CALL_taos_close(taos);
 

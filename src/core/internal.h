@@ -207,7 +207,6 @@ struct desc_record_s {
   SQLLEN                       *DESC_OCTET_LENGTH_PTR;
   SQLSMALLINT                   DESC_PARAMETER_TYPE;
 
-  SQLULEN                       element_size_in_column_wise;
   tsdb_to_sql_c_f               conv;
 
   int                           taos_type;

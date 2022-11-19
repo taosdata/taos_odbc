@@ -1717,6 +1717,109 @@ static int flaw_case(void)
   return r;
 }
 
+static int _flaw_case1_step3(TAOS_STMT *stmt)
+{
+  int r = 0;
+  const char *sql = "select table_name, db_name from information_schema.ins_tables t where t.db_name like ?";
+  r = CALL_taos_stmt_prepare(stmt, sql, strlen(sql));
+  if (r) return -1;
+
+  int is_insert = 0;
+  r = CALL_taos_stmt_is_insert(stmt, &is_insert);
+  if (r) return -1;
+  if (is_insert) return -1;
+
+  int nums = 0;
+  r = CALL_taos_stmt_num_params(stmt, &nums);
+  if (r) return -1;
+  if (nums != 1) return -1;
+
+  const char *db_name = "foo";
+  int32_t length = strlen(db_name);
+  char is_null = 0;
+
+  TAOS_MULTI_BIND mb = {};
+  mb.buffer_type             = TSDB_DATA_TYPE_VARCHAR;
+  mb.buffer                  = (char*)db_name;
+  mb.buffer_length           = length;
+  mb.length                  = &length;
+  mb.is_null                 = &is_null;
+  mb.num                     = 1;
+
+  r = CALL_taos_stmt_bind_param_batch(stmt, &mb);
+  if (r) return -1;
+
+  r = CALL_taos_stmt_add_batch(stmt);
+  if (r) return -1;
+
+  r = CALL_taos_stmt_execute(stmt);
+  if (r) return -1;
+
+  return 0;
+}
+
+static int _flaw_case1_step2(TAOS *taos)
+{
+  int r = 0;
+
+  const char *sqls[] = {
+    "drop database if exists foo",
+    "create database if not exists foo",
+    "drop table if exists foo.t",
+    "create table foo.t(ts timestamp,name varchar(20))",
+  };
+  for (size_t i=0; i<sizeof(sqls)/sizeof(sqls[0]); ++i) {
+    const char *sql = sqls[i];
+    TAOS_RES *res = CALL_taos_query(taos,sql);
+    if (!res) return -1;
+    CALL_taos_free_result(res);
+  }
+
+  TAOS_STMT *stmt = NULL;
+
+  stmt = CALL_taos_stmt_init(taos);
+  if (!stmt) return -1;
+
+  r = _flaw_case1_step3(stmt);
+
+  CALL_taos_stmt_close(stmt);
+
+  return r;
+}
+
+static int _flaw_case1_step1(void)
+{
+  const char *ip = NULL;
+  const char *user = NULL;
+  const char *pass = NULL;
+  const char *db = NULL;
+  uint16_t port = 0;
+  TAOS *taos = CALL_taos_connect(ip,user,pass,db,port);
+  if (!taos) return -1;
+
+  int r = 0;
+  r = _flaw_case1_step2(taos);
+  if (r == 0) {
+    r = _flaw_case1_step2(taos);
+  }
+
+  CALL_taos_close(taos);
+
+  return r;
+}
+
+static int flaw_case1(void)
+{
+  int r = 0;
+  r = CALL_taos_init();
+  if (r) return -1;
+
+  r = _flaw_case1_step1();
+
+  CALL_taos_cleanup();
+  return r;
+}
+
 int main(int argc, char *argv[])
 {
   if (0) {
@@ -1730,6 +1833,12 @@ int main(int argc, char *argv[])
       fprintf(stderr, "==success==\n");
       return 0;
     }
+  }
+  if (0) {
+    int r = 0;
+    r = flaw_case1();
+    fprintf(stderr, "==%s==\n", r ? "failure" : "success");
+    return !!r;
   }
   int r;
   r = CALL_taos_init();

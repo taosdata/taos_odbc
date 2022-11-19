@@ -170,7 +170,7 @@ static int test_case1(void)
 
             SQLWCHAR Name[100];
             SQLLEN cbName = 0;
-            const char * const p = (const char*)&Name[0];
+            // const char * const p = (const char*)&Name[0];
             const size_t bytes = 48;
             rc = CALL_SQLFreeStmt(hstmt, SQL_UNBIND);
             A(SUCCEEDED(rc), "");
@@ -185,8 +185,8 @@ static int test_case1(void)
               char buf[1024];
               char cmp[sizeof(buf)+2];
               if (cbName != SQL_NULL_DATA) {
-                A(p[bytes] == '\x01', "");
-                A(p[cbName] == '\x00', "");
+                // A(p[bytes-1] == '\x01', "bytes-1:%zd, 0x%x", bytes-1, ((unsigned char*)p)[bytes-1]);
+                // A(p[cbName] == '\x00', "cbName:%ld, 0x%x", cbName, ((unsigned char*)p)[cbName]);
                 char *inbuf = (char*)Name;
                 size_t inbytes = cbName;
                 char *outbuf = buf;
@@ -471,7 +471,666 @@ static int test_case3(void)
   return r ? 1 : 0;
 }
 
+static int test_case4(const char *conn_str)
+{
+  SQLHENV henv = 0;
+  SQLHDBC hdbc = 0;
+  SQLHSTMT hstmt = 0;
+  SQLRETURN rc;
+
+  int r = 0;
+
+  rc = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &henv);
+  A(SUCCEEDED(rc), "");
+
+  try {
+    rc = CALL_SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER*)SQL_OV_ODBC3, 0);
+    A(SUCCEEDED(rc), "");
+
+    rc = CALL_SQLAllocHandle(SQL_HANDLE_DBC, henv, &hdbc);
+    A(SUCCEEDED(rc), "");
+
+    try {
+      rc = CALL_SQLSetConnectAttr(hdbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, 0);
+      A(SUCCEEDED(rc), "");
+
+      // Connect to data source
+      rc = CALL_SQLDriverConnect(hdbc, NULL,
+            (SQLCHAR*)conn_str, SQL_NTS,
+            NULL, 0, NULL,
+            SQL_DRIVER_NOPROMPT);
+      A(SUCCEEDED(rc), "");
+
+      // Allocate statement handle
+      try {
+        rc = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt);
+        A(SUCCEEDED(rc), "");
+
+        try {
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"show databases", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"xshow databases", SQL_NTS);
+          A(FAILED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"show databases", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"drop database if exists foo", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"create database if not exists foo", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"use foo", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"drop table if exists t", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt,
+            (SQLCHAR*)"create table if not exists t (ts timestamp, name varchar(20))", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"select * from t", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name) values ('2022-09-11 09:57:28.752', 'name1')", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+
+          SQLSMALLINT ColumnCount;
+
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"SELECT * FROM t", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+
+          rc = CALL_SQLNumResultCols(hstmt, &ColumnCount);
+          A(SUCCEEDED(rc), "");
+          A(ColumnCount == 2, "");
+
+          if (1) {
+            rc = CALL_SQLFetch(hstmt);
+            A(SUCCEEDED(rc), "");
+
+            const char fill = 'X';
+            char buf[1024];
+
+            SQLUSMALLINT   Col_or_Param_Num = 2;
+            SQLSMALLINT    TargetType       = SQL_C_CHAR;
+            SQLPOINTER     TargetValue      = (SQLPOINTER)buf;
+            SQLLEN         BufferLength;
+            SQLLEN         StrLen_or_Ind;
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = -1;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(FAILED(rc), "");
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = -1;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(FAILED(rc), "");
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 0;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(StrLen_or_Ind == 5, "");
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 0;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(StrLen_or_Ind == 5, "");
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 1;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(StrLen_or_Ind == 5, "");
+            A(buf[0] == '\0', "");
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 1;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(StrLen_or_Ind == 5, "");
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 2;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(StrLen_or_Ind == 5, "");
+            A(strcmp((const char*)TargetValue, "n") == 0, "");
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 2;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(StrLen_or_Ind == 4, "");
+            A(strcmp((const char*)TargetValue, "a") == 0, "");
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 2;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(StrLen_or_Ind == 3, "");
+            A(strcmp((const char*)TargetValue, "m") == 0, "");
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 2;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(StrLen_or_Ind == 2, "");
+            A(strcmp((const char*)TargetValue, "e") == 0, "");
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 2;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS, "");
+            A(StrLen_or_Ind == 1, "");
+            A(strcmp((const char*)TargetValue, "1") == 0, "");
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 2;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_NO_DATA, "");
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 2;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_NO_DATA, "");
+          }
+
+          rc = CALL_SQLCloseCursor(hstmt);
+          A(SUCCEEDED(rc), "");
+
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"SELECT * FROM t", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+
+          rc = CALL_SQLNumResultCols(hstmt, &ColumnCount);
+          A(SUCCEEDED(rc), "");
+
+        } catch (int e) {
+          r = e;
+        }
+
+        SQLCancel(hstmt);
+        SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+      } catch (int e) {
+        r = e;
+      }
+      SQLDisconnect(hdbc);
+    } catch (int e) {
+      r = e;
+    }
+    SQLFreeHandle(SQL_HANDLE_DBC, hdbc);
+  } catch (int e) {
+    r = e;
+  }
+
+  SQLFreeHandle(SQL_HANDLE_ENV, henv);
+
+  return r ? 1 : 0;
+}
+
+static int test_case5(const char *conn_str)
+{
+  SQLHENV henv = 0;
+  SQLHDBC hdbc = 0;
+  SQLHSTMT hstmt = 0;
+  SQLRETURN rc;
+
+  int r = 0;
+
+  rc = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &henv);
+  A(SUCCEEDED(rc), "");
+
+  try {
+    rc = CALL_SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER*)SQL_OV_ODBC3, 0);
+    A(SUCCEEDED(rc), "");
+
+    rc = CALL_SQLAllocHandle(SQL_HANDLE_DBC, henv, &hdbc);
+    A(SUCCEEDED(rc), "");
+
+    try {
+      rc = CALL_SQLSetConnectAttr(hdbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, 0);
+      A(SUCCEEDED(rc), "");
+
+      // Connect to data source
+      rc = CALL_SQLDriverConnect(hdbc, NULL,
+            (SQLCHAR*)conn_str, SQL_NTS,
+            NULL, 0, NULL,
+            SQL_DRIVER_NOPROMPT);
+      A(SUCCEEDED(rc), "");
+
+      // Allocate statement handle
+      try {
+        rc = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt);
+        A(SUCCEEDED(rc), "");
+
+        try {
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"show databases", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"xshow databases", SQL_NTS);
+          A(FAILED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"show databases", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"drop database if exists foo", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"create database if not exists foo", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"use foo", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"drop table if exists t", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt,
+            (SQLCHAR*)"create table if not exists t (ts timestamp, name varchar(20))", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"select * from t", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name) values ('2022-09-11 09:57:28.752', 'name1')", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+
+          SQLSMALLINT ColumnCount;
+
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"SELECT * FROM t", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+
+          rc = CALL_SQLNumResultCols(hstmt, &ColumnCount);
+          A(SUCCEEDED(rc), "");
+          A(ColumnCount == 2, "");
+
+          if (1) {
+            rc = CALL_SQLFetch(hstmt);
+            A(SUCCEEDED(rc), "");
+
+            const char fill = 'X';
+            char buf[1024];
+
+            SQLUSMALLINT   Col_or_Param_Num = 2;
+            SQLSMALLINT    TargetType       = SQL_C_WCHAR;
+            SQLPOINTER     TargetValue      = (SQLPOINTER)buf;
+            SQLLEN         BufferLength;
+            SQLLEN         StrLen_or_Ind;
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = -1;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(FAILED(rc), "");
+            A(buf[0] == fill, "buf[0] = 0x%x", buf[0]);
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = -1;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(FAILED(rc), "");
+            A(buf[0] == fill, "buf[0] = 0x%x", buf[0]);
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 0;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(StrLen_or_Ind == 10, "");
+            A(buf[0] == fill, "buf[0] = 0x%x", buf[0]);
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 0;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(StrLen_or_Ind == 10, "");
+            A(buf[0] == fill, "buf[0] = 0x%x", buf[0]);
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 1;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(StrLen_or_Ind == 10, "");
+            A(buf[0] == fill, "buf[0] = 0x%x", buf[0]);
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 1;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(StrLen_or_Ind == 10, "");
+            A(buf[0] == fill, "buf[0] = 0x%x", buf[0]);
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 2;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(StrLen_or_Ind == 10, "");
+            A(buf[0] == '\0', "buf[0] = 0x%x", buf[0]);
+            A(buf[1] == '\0', "buf[1] = 0x%x", buf[1]);
+            A(buf[2] == fill, "buf[2] = 0x%x", buf[2]);
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 2;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(StrLen_or_Ind == 10, "");
+            A(buf[0] == '\0', "buf[0] = 0x%x", buf[0]);
+            A(buf[1] == '\0', "buf[1] = 0x%x", buf[1]);
+            A(buf[2] == fill, "buf[2] = 0x%x", buf[2]);
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 3;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(StrLen_or_Ind == 10, "");
+            A(buf[0] == '\0', "buf[0] = 0x%x", buf[0]);
+            A(buf[1] == '\0', "buf[1] = 0x%x", buf[1]);
+            A(buf[2] == fill, "buf[2] = 0x%x", buf[2]);
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 3;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(StrLen_or_Ind == 10, "");
+            A(buf[0] == '\0', "buf[0] = 0x%x", buf[0]);
+            A(buf[1] == '\0', "buf[1] = 0x%x", buf[1]);
+            A(buf[2] == fill, "buf[2] = 0x%x", buf[2]);
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 4;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(StrLen_or_Ind == 10, "");
+            A(buf[0] == 'n', "buf[0] = 0x%x", buf[0]);
+            A(buf[1] == '\0', "buf[1] = 0x%x", buf[1]);
+            A(buf[2] == '\0', "buf[2] = 0x%x", buf[2]);
+            A(buf[3] == '\0', "buf[3] = 0x%x", buf[3]);
+            A(buf[4] == fill, "buf[4] = 0x%x", buf[4]);
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 4;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(StrLen_or_Ind == 8, "");
+            A(buf[0] == 'a', "buf[0] = 0x%x", buf[0]);
+            A(buf[1] == '\0', "buf[1] = 0x%x", buf[1]);
+            A(buf[2] == '\0', "buf[2] = 0x%x", buf[2]);
+            A(buf[3] == '\0', "buf[3] = 0x%x", buf[3]);
+            A(buf[4] == fill, "buf[4] = 0x%x", buf[4]);
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 8;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS, "");
+            A(StrLen_or_Ind == 6, "");
+            A(buf[0] == 'm', "buf[0] = 0x%x", buf[0]);
+            A(buf[1] == '\0', "buf[1] = 0x%x", buf[1]);
+            A(buf[2] == 'e', "buf[2] = 0x%x", buf[2]);
+            A(buf[3] == '\0', "buf[3] = 0x%x", buf[3]);
+            A(buf[4] == '1', "buf[4] = 0x%x", buf[4]);
+            A(buf[5] == '\0', "buf[5] = 0x%x", buf[5]);
+            A(buf[6] == '\0', "buf[6] = 0x%x", buf[6]);
+            A(buf[7] == '\0', "buf[7] = 0x%x", buf[7]);
+            A(buf[8] == fill, "buf[8] = 0x%x", buf[8]);
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 8;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_NO_DATA, "");
+            A(buf[0] == fill, "buf[0] = 0x%x", buf[0]);
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 8;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_NO_DATA, "");
+            A(buf[0] == fill, "buf[0] = 0x%x", buf[0]);
+          }
+
+          rc = CALL_SQLCloseCursor(hstmt);
+          A(SUCCEEDED(rc), "");
+
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"SELECT * FROM t", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+
+          rc = CALL_SQLNumResultCols(hstmt, &ColumnCount);
+          A(SUCCEEDED(rc), "");
+
+        } catch (int e) {
+          r = e;
+        }
+
+        SQLCancel(hstmt);
+        SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+      } catch (int e) {
+        r = e;
+      }
+      SQLDisconnect(hdbc);
+    } catch (int e) {
+      r = e;
+    }
+    SQLFreeHandle(SQL_HANDLE_DBC, hdbc);
+  } catch (int e) {
+    r = e;
+  }
+
+  SQLFreeHandle(SQL_HANDLE_ENV, henv);
+
+  return r ? 1 : 0;
+}
+
+
 static int test_mysql_case1(void)
+{
+  SQLHENV henv = 0;
+  SQLHDBC hdbc = 0;
+  SQLHSTMT hstmt = 0;
+  SQLRETURN rc;
+
+  int r = 0;
+
+  rc = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &henv);
+  A(SUCCEEDED(rc), "");
+
+  try {
+    rc = CALL_SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER*)SQL_OV_ODBC3, 0);
+    A(SUCCEEDED(rc), "");
+
+    rc = CALL_SQLAllocHandle(SQL_HANDLE_DBC, henv, &hdbc);
+    A(SUCCEEDED(rc), "");
+
+    try {
+      rc = CALL_SQLSetConnectAttr(hdbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, 0);
+      A(SUCCEEDED(rc), "");
+
+      // Connect to data source
+      rc = CALL_SQLDriverConnect(hdbc, NULL,
+            (SQLCHAR*) "Driver={MySQL ODBC 8.0}; UID=root; PWD=taosdata;", SQL_NTS,
+            NULL, 0, NULL,
+            SQL_DRIVER_NOPROMPT);
+      A(SUCCEEDED(rc), "");
+
+      // Allocate statement handle
+      try {
+        rc = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt);
+        A(SUCCEEDED(rc), "");
+
+        try {
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"show databases", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"xshow databases", SQL_NTS);
+          A(FAILED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"show databases", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"drop database if exists foo", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"create database if not exists foo", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"use foo", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"drop table if exists t", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt,
+            (SQLCHAR*)"create table if not exists t (name varchar(20))", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"select * from t", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (name) values ('name1')", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+
+          SQLSMALLINT ColumnCount;
+
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"SELECT * FROM t", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+
+          rc = CALL_SQLNumResultCols(hstmt, &ColumnCount);
+          A(SUCCEEDED(rc), "");
+          A(ColumnCount == 1, "");
+
+          if (1) {
+            rc = CALL_SQLFetch(hstmt);
+            A(SUCCEEDED(rc), "");
+
+            const char fill = 'X';
+            char buf[1024];
+
+            SQLUSMALLINT   Col_or_Param_Num = 1;
+            SQLSMALLINT    TargetType       = SQL_C_CHAR;
+            SQLPOINTER     TargetValue      = (SQLPOINTER)buf;
+            SQLLEN         BufferLength;
+            SQLLEN         StrLen_or_Ind;
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = -1;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(FAILED(rc), "");
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = -1;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(FAILED(rc), "");
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 0;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(StrLen_or_Ind == 5, "");
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 0;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(StrLen_or_Ind == 5, "");
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 1;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(StrLen_or_Ind == 5, "");
+            A(buf[0] == '\0', "");
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 1;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(StrLen_or_Ind == 5, "");
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 2;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(StrLen_or_Ind == 5, "");
+            A(strcmp((const char*)TargetValue, "n") == 0, "");
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 2;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(StrLen_or_Ind == 4, "");
+            A(strcmp((const char*)TargetValue, "a") == 0, "");
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 2;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(StrLen_or_Ind == 3, "");
+            A(strcmp((const char*)TargetValue, "m") == 0, "");
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 2;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(StrLen_or_Ind == 2, "");
+            A(strcmp((const char*)TargetValue, "e") == 0, "");
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 2;
+            StrLen_or_Ind = 0;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_SUCCESS, "");
+            A(StrLen_or_Ind == 1, "");
+            A(strcmp((const char*)TargetValue, "1") == 0, "");
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 2;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_NO_DATA, "");
+
+            memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
+            BufferLength = 2;
+            rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
+            A(rc == SQL_NO_DATA, "");
+          }
+
+          rc = CALL_SQLCloseCursor(hstmt);
+          A(SUCCEEDED(rc), "");
+
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"SELECT * FROM t", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+
+          rc = CALL_SQLNumResultCols(hstmt, &ColumnCount);
+          A(SUCCEEDED(rc), "");
+
+        } catch (int e) {
+          r = e;
+        }
+
+        SQLCancel(hstmt);
+        SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+      } catch (int e) {
+        r = e;
+      }
+      SQLDisconnect(hdbc);
+    } catch (int e) {
+      r = e;
+    }
+    SQLFreeHandle(SQL_HANDLE_DBC, hdbc);
+  } catch (int e) {
+    r = e;
+  }
+
+  SQLFreeHandle(SQL_HANDLE_ENV, henv);
+
+  return r ? 1 : 0;
+}
+
+static int test_mysql_case2(void)
 {
   SQLHENV henv = 0;
   SQLHDBC hdbc = 0;
@@ -840,15 +1499,173 @@ static int test_mysql_case1(void)
   return r ? 1 : 0;
 }
 
-int main(int argc, char *argv[])
+static int test_mysql_case3(void)
 {
-  if (argc == 1 || strcmp(argv[1], "mysql")) {
+  SQLHENV henv = 0;
+  SQLHDBC hdbc = 0;
+  SQLHSTMT hstmt = 0;
+  SQLRETURN rc;
+
+  int r = 0;
+
+  rc = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &henv);
+  A(SUCCEEDED(rc), "");
+
+  try {
+    rc = CALL_SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER*)SQL_OV_ODBC3, 0);
+    A(SUCCEEDED(rc), "");
+
+    rc = CALL_SQLAllocHandle(SQL_HANDLE_DBC, henv, &hdbc);
+    A(SUCCEEDED(rc), "");
+
+    try {
+      rc = CALL_SQLSetConnectAttr(hdbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, 0);
+      A(SUCCEEDED(rc), "");
+
+      // Connect to data source
+      rc = CALL_SQLDriverConnect(hdbc, NULL,
+            (SQLCHAR*) "Driver={MySQL ODBC 8.0}; UID=root; PWD=taosdata;", SQL_NTS,
+            NULL, 0, NULL,
+            SQL_DRIVER_NOPROMPT);
+      A(SUCCEEDED(rc), "");
+
+      // Allocate statement handle
+      try {
+        rc = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt);
+        A(SUCCEEDED(rc), "");
+
+        try {
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"show databases", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"xshow databases", SQL_NTS);
+          A(FAILED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"show databases", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"drop database if exists foo", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"create database if not exists foo", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"use foo", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"drop table if exists t", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt,
+            (SQLCHAR*)"create table if not exists t (name varchar(20))", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"select * from t", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (name) values ('name1')", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (name) values ('name2')", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (name) values ('name3')", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+
+          SQLSMALLINT ColumnCount;
+
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"SELECT * FROM t", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+
+          rc = CALL_SQLNumResultCols(hstmt, &ColumnCount);
+          A(SUCCEEDED(rc), "");
+
+          rc = CALL_SQLCloseCursor(hstmt);
+          A(SUCCEEDED(rc), "");
+
+          rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"SELECT * FROM t", SQL_NTS);
+          A(SUCCEEDED(rc), "");
+
+          rc = CALL_SQLNumResultCols(hstmt, &ColumnCount);
+          A(SUCCEEDED(rc), "");
+
+          SQLWCHAR Name[100];
+          SQLLEN cbName = 0;
+          const char * const p = (const char*)&Name[0];
+          const size_t bytes = 13;
+          rc = CALL_SQLFreeStmt(hstmt, SQL_UNBIND);
+          A(SUCCEEDED(rc), "");
+          rc = CALL_SQLBindCol(hstmt, 1, SQL_C_WCHAR, Name, bytes, &cbName);
+          A(SUCCEEDED(rc), "");
+
+          const char *exp[][1] = {
+            {"[name1]"},
+            {"[name2]"},
+            {"[name3]"},
+          };
+
+          for (int i=0 ; ; i++) {
+            memset(Name, '\x01', sizeof(Name));
+            rc = CALL_SQLFetch(hstmt);
+            if (rc == SQL_NO_DATA) break;
+            A(SUCCEEDED(rc), "");
+            A(rc == SQL_SUCCESS, "");
+            char buf[1024];
+            char cmp[sizeof(buf)+2];
+            if (cbName != SQL_NULL_DATA) {
+              A(p[bytes-1] == '\x01', "bytes-1:%zd, 0x%x", bytes-1, ((unsigned char*)p)[bytes-1]);
+              A(p[cbName] == '\x00', "cbName:%ld, 0x%x", cbName, ((unsigned char*)p)[cbName]);
+              char *inbuf = (char*)Name;
+              size_t inbytes = cbName;
+              char *outbuf = buf;
+              size_t outbytes = sizeof(buf);
+
+              int x = _encode("UCS-2LE", &inbuf, &inbytes,
+                  "UTF8", &outbuf, &outbytes);
+              A(x == 0, "");
+              *outbuf = '\0';
+              int n = snprintf(cmp, sizeof(cmp), "[%s]", buf);
+              A(n >= 0 && (size_t)n < sizeof(cmp), "");
+            } else {
+              strcpy(cmp, "null");
+            }
+            A(strcmp(cmp, exp[i][0]) == 0, "\nrow#%d, col#%d\nactual  :%s\nexpected:%s", i+1, 1, cmp, exp[i][0]);
+          }
+        } catch (int e) {
+          r = e;
+        }
+
+        SQLCancel(hstmt);
+        SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+      } catch (int e) {
+        r = e;
+      }
+      SQLDisconnect(hdbc);
+    } catch (int e) {
+      r = e;
+    }
+    SQLFreeHandle(SQL_HANDLE_DBC, hdbc);
+  } catch (int e) {
+    r = e;
+  }
+
+  SQLFreeHandle(SQL_HANDLE_ENV, henv);
+
+  return r ? 1 : 0;
+}
+
+static int test(int argc, char *argv[])
+{
+  if (1 && (argc == 1 || strcmp(argv[1], "mysql"))) {
     if (test_case1()) return 1;
     if (test_case2()) return 1;
     if (test_case3()) return 1;
+    if (test_case4("DSN=TAOS_ODBC_DSN")) return 1;
+    if (test_case5("Driver={MySQL ODBC 8.0}; UID=root; PWD=taosdata;")) return 1;
+    if (test_case5("DSN=TAOS_ODBC_DSN")) return 1;
   } else {
     if (test_mysql_case1()) return 1;
+    if (test_mysql_case2()) return 1;
+    if (test_mysql_case3()) return 1;
   }
   return 0;
+}
+
+int main(int argc, char *argv[])
+{
+  int r = 0;
+  r = test(argc, argv);
+  fprintf(stderr, "==%s==\n", r ? "Failure" : "Success");
+
+  return !!r;
 }
 

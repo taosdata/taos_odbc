@@ -123,19 +123,19 @@ static SQLRETURN _do_conn_connect(conn_t *conn)
   conn->taos = CALL_taos_connect(cfg->ip, cfg->uid, cfg->pwd, cfg->db, cfg->port);
   if (!conn->taos) {
     char buf[1024];
-    buffer_t buffer = {};
+    fixed_buf_t buffer = {};
     buffer.buf = buf;
     buffer.cap = sizeof(buf);
     buffer.nr  = 0;
-    buffer_sprintf(&buffer, "taos_odbc://");
-    if (cfg->uid) buffer_sprintf(&buffer, "%s:*@", cfg->uid);
+    fixed_buf_sprintf(&buffer, "taos_odbc://");
+    if (cfg->uid) fixed_buf_sprintf(&buffer, "%s:*@", cfg->uid);
     if (cfg->ip) {
-      if (cfg->port) buffer_sprintf(&buffer, "%s:%d", cfg->ip, cfg->port);
-      else           buffer_sprintf(&buffer, "%s", cfg->ip);
+      if (cfg->port) fixed_buf_sprintf(&buffer, "%s:%d", cfg->ip, cfg->port);
+      else           fixed_buf_sprintf(&buffer, "%s", cfg->ip);
     } else {
-      buffer_sprintf(&buffer, "localhost");
+      fixed_buf_sprintf(&buffer, "localhost");
     }
-    if (cfg->db) buffer_sprintf(&buffer, "/%s", cfg->db);
+    if (cfg->db) fixed_buf_sprintf(&buffer, "/%s", cfg->db);
 
     conn_append_err_format(conn, "08001", CALL_taos_errno(NULL), "Client unable to establish connection:[%s][%s]", buffer.buf, CALL_taos_errstr(NULL));
     return SQL_ERROR;
@@ -155,60 +155,60 @@ static void _conn_fill_out_connection_str(
   size_t count = 0;
   int n = 0;
 
-  buffer_t buffer = {};
+  fixed_buf_t buffer = {};
   buffer.buf = p;
   buffer.cap = BufferLength;
   buffer.nr = 0;
   if (conn->cfg.driver) {
-    n = buffer_sprintf(&buffer, "Driver={%s};", conn->cfg.driver);
+    n = fixed_buf_sprintf(&buffer, "Driver={%s};", conn->cfg.driver);
   } else {
-    n = buffer_sprintf(&buffer, "DSN=%s;", conn->cfg.dsn);
+    n = fixed_buf_sprintf(&buffer, "DSN=%s;", conn->cfg.dsn);
   }
   if (n>0) count += n;
 
   if (conn->cfg.uid) {
-    n = buffer_sprintf(&buffer, "UID=%s;", conn->cfg.uid);
+    n = fixed_buf_sprintf(&buffer, "UID=%s;", conn->cfg.uid);
   } else {
-    n = buffer_sprintf(&buffer, "UID=;");
+    n = fixed_buf_sprintf(&buffer, "UID=;");
   }
   if (n>0) count += n;
 
   if (conn->cfg.pwd) {
-    n = buffer_sprintf(&buffer, "PWD=*;");
+    n = fixed_buf_sprintf(&buffer, "PWD=*;");
   } else {
-    n = buffer_sprintf(&buffer, "PWD=;");
+    n = fixed_buf_sprintf(&buffer, "PWD=;");
   }
   if (n>0) count += n;
 
   if (conn->cfg.ip) {
     if (conn->cfg.port) {
-      n = buffer_sprintf(&buffer, "Server=%s:%d;", conn->cfg.ip, conn->cfg.port);
+      n = fixed_buf_sprintf(&buffer, "Server=%s:%d;", conn->cfg.ip, conn->cfg.port);
     } else {
-      n = buffer_sprintf(&buffer, "Server=%s;", conn->cfg.ip);
+      n = fixed_buf_sprintf(&buffer, "Server=%s;", conn->cfg.ip);
     }
   } else {
-    n = buffer_sprintf(&buffer, "Server=;");
+    n = fixed_buf_sprintf(&buffer, "Server=;");
   }
   if (n>0) count += n;
 
   if (conn->cfg.db) {
-    n = buffer_sprintf(&buffer, "DB=%s;", conn->cfg.db);
+    n = fixed_buf_sprintf(&buffer, "DB=%s;", conn->cfg.db);
   } else {
-    n = buffer_sprintf(&buffer, "DB=;");
+    n = fixed_buf_sprintf(&buffer, "DB=;");
   }
   if (n>0) count += n;
 
   if (conn->cfg.unsigned_promotion) {
-    n = buffer_sprintf(&buffer, "UNSIGNED_PROMOTION=1;");
+    n = fixed_buf_sprintf(&buffer, "UNSIGNED_PROMOTION=1;");
   } else {
-    n = buffer_sprintf(&buffer, "UNSIGNED_PROMOTION=;");
+    n = fixed_buf_sprintf(&buffer, "UNSIGNED_PROMOTION=;");
   }
   if (n>0) count += n;
 
   if (conn->cfg.cache_sql) {
-    n = buffer_sprintf(&buffer, "CACHE_SQL=1;");
+    n = fixed_buf_sprintf(&buffer, "CACHE_SQL=1;");
   } else {
-    n = buffer_sprintf(&buffer, "CACHE_SQL=;");
+    n = fixed_buf_sprintf(&buffer, "CACHE_SQL=;");
   }
   if (n>0) count += n;
 
@@ -442,7 +442,8 @@ SQLRETURN conn_connect(
     }
   }
 
-  return _conn_connect(conn);
+  SQLRETURN sr = _conn_connect(conn);
+  return sr;
 }
 
 static SQLRETURN _conn_get_info_dbms_name(

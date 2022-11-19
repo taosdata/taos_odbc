@@ -38,6 +38,7 @@ const char *sql_c_data_type(SQLSMALLINT v)
     CASE(SQL_C_ULONG);
     CASE(SQL_C_USHORT);
     CASE(SQL_C_UTINYINT);
+    CASE(SQL_C_FLOAT);
     CASE(SQL_C_DOUBLE);
     CASE(SQL_C_DATE);
     CASE(SQL_C_TIME);

@@ -456,9 +456,9 @@ async function case6(conn_str) {
     // // await conn.query('insert into t (ts, name, age, sex, text) values (1662861450754, "name3", null, null, null)');
     var result = await conn.query('select * from t');
     var exp = [
-      {ts:'2022-09-11 09:57:28.752', name:'name1', age:20, sex:'male', text:'中国人', bi:1234567890123, f:1.23, d:3.45, bin:'def', si:-32767, ti:-127, b:1, tu:130, su:41234, iu:'4123456789'},
+      {ts:'2022-09-11 09:57:28.752', name:'name1', age:20, sex:'male', text:'中国人', bi:1234567890123, f:1.23, d:3.45, bin:'def', si:-32767, ti:-127, b:'true', tu:130, su:41234, iu:'4123456789'},
     ];
-    var expx = stringify_by_key(exp, ['bi', 'b']);
+    var expx = stringify_by_key(exp, ['bi']);
     // NOTE: https://github.com/GoogleChromeLabs/jsbi/issues/30
     //       `Do not know how to serialize a BigInt`
     var resultx = stringify(result);
@@ -613,9 +613,9 @@ async function case9(conn_str) {
     `);
 
     var exp = [
-      {ts:"2022-09-11 09:57:28.752",name:"name1",age:30,sex:'male',text:'foo',bi:12345,f:123.45,d:543.21,bin:'bin',si:234,ti:34,b:1}
+      {ts:"2022-09-11 09:57:28.752",name:"name1",age:30,sex:'male',text:'foo',bi:12345,f:123.45,d:543.21,bin:'bin',si:234,ti:34,b:'true'}
     ];
-    var expx = stringify_by_key(exp, ['bi', 'b']);
+    var expx = stringify_by_key(exp, ['bi']);
 
     assert.equal(!!await conn_ins_check(conn, `
     insert into t (ts, name, age, sex, text, bi, f, d, bin, si, ti, b)

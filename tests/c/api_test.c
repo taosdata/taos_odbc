@@ -215,6 +215,7 @@ static int _sql_stmt_get_data(SQLHANDLE stmth, SQLSMALLINT ColumnCount)
 
     buf[0] = '\0';
     SQLRETURN r = CALL_SQLGetData(stmth, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, &StrLen_or_Ind);
+    if (r == SQL_NO_DATA) continue;
     if (r != SQL_SUCCESS) break;
     if (StrLen_or_Ind == SQL_NULL_DATA) {
       D("Column[#%d]: [[null]]", i);
@@ -224,10 +225,10 @@ static int _sql_stmt_get_data(SQLHANDLE stmth, SQLSMALLINT ColumnCount)
     D("Column[#%d]: [%s]", i, buf);
 
     r = CALL_SQLGetData(stmth, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, &StrLen_or_Ind);
-    if (FAILED(r)) break;
+    if (FAILED(r) && r != SQL_NO_DATA) break;
 
     r = CALL_SQLGetData(stmth, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, &StrLen_or_Ind);
-    if (FAILED(r)) break;
+    if (FAILED(r) && r != SQL_NO_DATA) break;
   }
 
   if (i <= ColumnCount) return -1;

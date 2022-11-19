@@ -15,7 +15,7 @@
         "executes": [
           {
             "params": ["name1"],
-            "rs":[[["name1"]]]
+            "rs":[["name1"]]
           }
         ]
       },{
@@ -23,7 +23,7 @@
         "executes": [
           {
             "params": ["name2"],
-            "rs":[[["name1"]]]
+            "rs":[["name1"]]
           }
         ]
       },{
@@ -31,7 +31,7 @@
         "executes": [
           {
             "params": ["name2"],
-            "rs":[[["name2"]]]
+            "rs":[["name2"]]
           }
         ]
       },{
@@ -62,7 +62,7 @@
             "positive": false
           },{
             "params": ["name1"],
-            "rs":[[["name1"]]]
+            "rs":[["name1"]]
           }
         ]
       },{

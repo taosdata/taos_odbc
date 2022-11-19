@@ -1185,7 +1185,19 @@ static int executes_ctx_prepare_stmt(executes_ctx_t *ctx)
   r = CALL_taos_stmt_is_insert(ctx->stmt, &ctx->insert);
   if (r) return -1;
 
-  if (!ctx->insert) return 0;
+  if (!ctx->insert) {
+    if (1) return 0;
+    int nr_params = 0;
+    r = CALL_taos_stmt_num_params(ctx->stmt, &nr_params);
+    if (r) return -1;
+    // [-2147474431/0x80002401]invalid catalog input parameters
+    for (int i=0; i<nr_params; ++i) {
+      int type  = 0;
+      int bytes = 0;
+      r = CALL_taos_stmt_get_param(ctx->stmt, i, &type, &bytes);
+    }
+    return 0;
+  }
 
   int fieldNum = 0;
   TAOS_FIELD_E *fields = NULL;

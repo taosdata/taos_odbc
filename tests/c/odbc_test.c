@@ -22,9 +22,6 @@
  * SOFTWARE.
  */
 
-#define _XOPEN_SOURCE
-#include <time.h>
-
 #include "odbc_helpers.h"
 
 #include "../test_helper.h"
@@ -944,6 +941,7 @@ static int _run_execute_params_rs(executes_ctx_t *ctx, cJSON *params, cJSON *rs)
   if (FAILED(sr)) return -1;
 
   r = res_cmp_rows(ColumnCount, ctx->hstmt, rs);
+  if (r) return -1;
   if (FAILED(sr)) return -1;
 
   return 0;
@@ -1424,7 +1422,7 @@ static int test_case2(SQLHANDLE hconn)
   const char *ts = "2022-10-12 13:14:15";
   int64_t bi = 34;
   struct tm tm = {};
-  strptime(ts, fmt, &tm);
+  tod_strptime(ts, fmt, &tm);
   time_t tt = mktime(&tm);
 
 #define COUNT 128
@@ -1517,7 +1515,7 @@ static int test_case3(SQLHANDLE hconn)
   const char *ts = "2022-10-12 13:14:15";
   int64_t bi = 34;
   struct tm tm = {};
-  strptime(ts, fmt, &tm);
+  tod_strptime(ts, fmt, &tm);
   time_t tt = mktime(&tm);
 
 #define COUNT 20
@@ -1632,7 +1630,7 @@ static int test_case4(SQLHANDLE hconn, int non_taos, const size_t dataset, const
   const char *ts = "2022-10-12 13:14:15";
   int64_t bi = 34;
   struct tm tm = {};
-  strptime(ts, fmt, &tm);
+  tod_strptime(ts, fmt, &tm);
   time_t tt = mktime(&tm);
 
   for (size_t i=0; i<dataset; ++i) {
@@ -1821,6 +1819,167 @@ static int test_case5(SQLHANDLE hconn)
   return (r || FAILED(sr)) ? -1 : 0;
 }
 
+static int test_case6(SQLHANDLE hconn)
+{
+  int r = 0;
+  SQLRETURN sr = SQL_SUCCESS;
+
+  r = test_exec_direct(hconn, "drop table if exists t");
+  if (r) return -1;
+
+  r = test_exec_direct(hconn, "create table t (ts timestamp, name varchar(1024))");
+  if (r) return -1;
+
+  const char *name = "helloworldfoobargreatwall";
+  char sql[1024];
+  snprintf(sql, sizeof(sql), "insert into t (ts, name) values ('2022-10-12 13:14:15', '%s')", name);
+
+  r = test_exec_direct(hconn, sql);
+  if (r) return -1;
+
+  SQLHANDLE hstmt = SQL_NULL_HANDLE;
+
+  sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
+  if (FAILED(sr)) return -1;
+
+  do {
+    sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"select name from t", SQL_NTS);
+    if (FAILED(sr)) break;
+
+    sr = CALL_SQLFetch(hstmt);
+    if (sr == SQL_ERROR) break;
+    if (sr == SQL_NO_DATA) {
+      sr = SQL_SUCCESS;
+      break;
+    }
+
+    char buf[2048];
+    buf[0] = '\0';
+    char *p = buf;
+    size_t count = 0;
+    SQLLEN BufferLength = 2;
+    SQLLEN StrLen_or_Ind;
+
+    while (1) {
+      StrLen_or_Ind = 0;
+      sr = CALL_SQLGetData(hstmt, 1, SQL_C_CHAR, p, BufferLength, &StrLen_or_Ind);
+      if (sr == SQL_ERROR) break;
+      if (sr == SQL_SUCCESS_WITH_INFO || sr == SQL_SUCCESS) {
+        size_t n;
+        if (StrLen_or_Ind == SQL_NO_TOTAL) {
+          n = strnlen(p, BufferLength);
+        } else {
+          n = strlen(p);
+        }
+        if (n == (size_t)BufferLength) {
+          E("internal logic error");
+          r = -1;
+          break;
+        }
+        p += n;
+        count += n;
+        continue;
+      }
+      if (sr == SQL_NO_DATA) {
+        if (strncmp(buf, name, strlen(name) + 1)) {
+          E("internal logic error: %.*s <> %s", (int)sizeof(buf), buf, name);
+          r = -1;
+        }
+        sr = SQL_SUCCESS;
+        break;
+      }
+      E("internal logic error");
+      r = -1;
+      break;
+    }
+  } while (0);
+
+  CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+
+  return (r || FAILED(sr)) ? -1 : 0;
+}
+
+static int test_case7(SQLHANDLE hconn)
+{
+  int r = 0;
+  SQLRETURN sr = SQL_SUCCESS;
+
+  r = test_exec_direct(hconn, "drop table if exists t");
+  if (r) return -1;
+
+  r = test_exec_direct(hconn, "create table t (ts timestamp, name varchar(1024))");
+  if (r) return -1;
+
+  const char *ts   = "2022-10-12 13:14:15";
+  const char *name = "foo";
+  char sql[1024];
+  snprintf(sql, sizeof(sql), "insert into t (ts, name) values ('%s', '%s')", ts, name);
+
+  r = test_exec_direct(hconn, sql);
+  if (r) return -1;
+
+  SQLHANDLE hstmt = SQL_NULL_HANDLE;
+
+  sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
+  if (FAILED(sr)) return -1;
+
+  do {
+    sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"select ts from t", SQL_NTS);
+    if (FAILED(sr)) break;
+
+    sr = CALL_SQLFetch(hstmt);
+    if (sr == SQL_ERROR) break;
+    if (sr == SQL_NO_DATA) {
+      sr = SQL_SUCCESS;
+      break;
+    }
+
+    char buf[2048];
+    buf[0] = '\0';
+    char *p = buf;
+    size_t count = 0;
+    SQLLEN BufferLength = 2;
+    SQLLEN StrLen_or_Ind;
+
+    while (1) {
+      StrLen_or_Ind = 0;
+      sr = CALL_SQLGetData(hstmt, 1, SQL_C_CHAR, p, BufferLength, &StrLen_or_Ind);
+      if (sr == SQL_ERROR) break;
+      if (sr == SQL_SUCCESS_WITH_INFO || sr == SQL_SUCCESS) {
+        size_t n;
+        if (StrLen_or_Ind == SQL_NO_TOTAL) {
+          n = strnlen(p, BufferLength);
+        } else {
+          n = strlen(p);
+        }
+        if (n == (size_t)BufferLength) {
+          E("internal logic error");
+          r = -1;
+          break;
+        }
+        p += n;
+        count += n;
+        continue;
+      }
+      if (sr == SQL_NO_DATA) {
+        if (strncmp(buf, ts, strlen(ts))) {
+          E("internal logic error: %.*s <> %s", (int)sizeof(buf), buf, ts);
+          r = -1;
+        }
+        sr = SQL_SUCCESS;
+        break;
+      }
+      E("internal logic error");
+      r = -1;
+      break;
+    }
+  } while (0);
+
+  CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+
+  return (r || FAILED(sr)) ? -1 : 0;
+}
+
 static int test_hard_coded(SQLHANDLE henv, const char *dsn, const char *uid, const char *pwd, const char *connstr, int non_taos)
 {
   (void)non_taos;
@@ -1863,6 +2022,12 @@ static int test_hard_coded(SQLHANDLE henv, const char *dsn, const char *uid, con
       }
 
       r = test_case5(hconn);
+      if (r) break;
+
+      r = test_case6(hconn);
+      if (r) break;
+
+      r = test_case7(hconn);
       if (r) break;
     } while (0);
 

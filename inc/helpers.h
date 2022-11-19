@@ -30,6 +30,7 @@
 #include <inttypes.h>
 #include <libgen.h>
 #include <stdio.h>
+#include <time.h>
 
 // NOTE: you can use you own `LOG_IMPL` implementation by defining it before including this header file `helpers.h`
 #ifndef LOG_IMPL
@@ -134,6 +135,8 @@ static inline const char* color_reset(void)
     D("" fmt " => %ssuccess%s", ##__VA_ARGS__, color_green(), color_reset());  \
   }                                                                            \
 } while (0)
+
+char *tod_strptime(const char *s, const char *format, struct tm *tm) FA_HIDDEN;
 
 EXTERN_C_END
 

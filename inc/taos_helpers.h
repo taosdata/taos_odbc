@@ -76,7 +76,7 @@ static inline TAOS* call_taos_connect(const char *file, int line, const char *fu
 {
   LOGD(file, line, func, "taos_connect(ip:%s,user:%s,pass:%s,db:%s,port:%d) ...", ip, user, pass, db, port);
   TAOS *taos = taos_connect(ip, user, pass, db, port);
-  diag_res(NULL);
+  if (!taos) diag_res(NULL);
   LOGD(file, line, func, "taos_connect(ip:%s,user:%s,pass:%s,db:%s,port:%d) => %p", ip, user, pass, db, port, taos);
   return taos;
 }
@@ -85,7 +85,7 @@ static inline TAOS* call_taos_connect_auth(const char *file, int line, const cha
 {
   LOGD(file, line, func, "taos_connect_auth(ip:%s,user:%s,auth:%s,db:%s,port:%d) ...", ip, user, auth, db, port);
   TAOS *taos = taos_connect_auth(ip, user, auth, db, port);
-  diag_res(NULL);
+  if (!taos) diag_res(NULL);
   LOGD(file, line, func, "taos_connect_auth(ip:%s,user:%s,auth:%s,db:%s,port:%d) => %p", ip, user, auth, db, port, taos);
   return taos;
 }
@@ -109,7 +109,7 @@ static inline TAOS_STMT* call_taos_stmt_init(const char *file, int line, const c
 {
   LOGD(file, line, func, "taos_stmt_init(taos:%p) ...", taos);
   TAOS_STMT *stmt = taos_stmt_init(taos);
-  diag_stmt(stmt);
+  if (!stmt) diag_stmt(stmt);
   LOGD(file, line, func, "taos_stmt_init(taos:%p) => %p", taos, stmt);
   return stmt;
 }
@@ -119,7 +119,7 @@ static inline int call_taos_stmt_prepare(const char *file, int line, const char 
   int n = (int)(length ? length : (sql ? strlen(sql) : 0));
   LOGD(file, line, func, "taos_stmt_prepare(stmt:%p,sql:%.*s,length:%ld) ...", stmt, n, sql, length);
   int r = taos_stmt_prepare(stmt, sql, length);
-  diag_stmt(stmt);
+  if (r) diag_stmt(stmt);
   LOGD(file, line, func, "taos_stmt_prepare(stmt:%p,sql:%.*s,length:%ld) => %d", stmt, n, sql, length, r);
   return r;
 }
@@ -128,7 +128,7 @@ static inline int call_taos_stmt_set_tbname_tags(const char *file, int line, con
 {
   LOGD(file, line, func, "taos_stmt_set_tbname_tags(stmt:%p,name:%s,tags:%p) ...", stmt, name, tags);
   int r = taos_stmt_set_tbname_tags(stmt, name, tags);
-  diag_stmt(stmt);
+  if (r) diag_stmt(stmt);
   LOGD(file, line, func, "taos_stmt_set_tbname_tags(stmt:%p,name:%s,tags:%p) => %d", stmt, name, tags, r);
   return r;
 }
@@ -137,7 +137,7 @@ static inline int call_taos_stmt_set_tbname(const char *file, int line, const ch
 {
   LOGD(file, line, func, "taos_stmt_set_tbname(stmt:%p,name:%s) ...", stmt, name);
   int r = taos_stmt_set_tbname(stmt, name);
-  diag_stmt(stmt);
+  if (r) diag_stmt(stmt);
   LOGD(file, line, func, "taos_stmt_set_tbname(stmt:%p,name:%s) => %d", stmt, name, r);
   return r;
 }
@@ -146,7 +146,7 @@ static inline int call_taos_stmt_set_tags(const char *file, int line, const char
 {
   LOGD(file, line, func, "taos_stmt_set_tags(stmt:%p,tags:%p) ...", stmt, tags);
   int r = taos_stmt_set_tags(stmt, tags);
-  diag_stmt(stmt);
+  if (r) diag_stmt(stmt);
   LOGD(file, line, func, "taos_stmt_set_tags(stmt:%p,tags:%p) => %d", stmt, tags, r);
   return r;
 }
@@ -155,7 +155,7 @@ static inline int call_taos_stmt_set_sub_tbname(const char *file, int line, cons
 {
   LOGD(file, line, func, "taos_stmt_set_sub_tbname(stmt:%p,name:%s) ...", stmt, name);
   int r = taos_stmt_set_sub_tbname(stmt, name);
-  diag_stmt(stmt);
+  if (r) diag_stmt(stmt);
   LOGD(file, line, func, "taos_stmt_set_sub_tbname(stmt:%p,name:%s) => %d", stmt, name, r);
   return r;
 }
@@ -164,7 +164,7 @@ static inline int call_taos_stmt_get_tag_fields(const char *file, int line, cons
 {
   LOGD(file, line, func, "taos_stmt_get_tag_fields(stmt:%p,fieldNum:%p,fields:%p) ...", stmt, fieldNum, fields);
   int r = taos_stmt_get_tag_fields(stmt, fieldNum, fields);
-  diag_stmt(stmt);
+  if (r) diag_stmt(stmt);
   int n = fieldNum ? *fieldNum : 0;
   TAOS_FIELD_E *p = fields ? *fields : NULL;
   LOGD(file, line, func, "taos_stmt_get_tag_fields(stmt:%p,fieldNum:%p(%d),fields:%p(%p)) => %d", stmt, fieldNum, n, fields, p, r);
@@ -175,7 +175,7 @@ static inline int call_taos_stmt_get_col_fields(const char *file, int line, cons
 {
   LOGD(file, line, func, "taos_stmt_get_col_fields(stmt:%p,fieldNum:%p,fields:%p) ...", stmt, fieldNum, fields);
   int r = taos_stmt_get_col_fields(stmt, fieldNum, fields);
-  diag_stmt(stmt);
+  if (r) diag_stmt(stmt);
   int n = fieldNum ? *fieldNum : 0;
   TAOS_FIELD_E *p = fields ? *fields : NULL;
   LOGD(file, line, func, "taos_stmt_get_col_fields(stmt:%p,fieldNum:%p(%d),fields:%p(%p)) => %d", stmt, fieldNum, n, fields, p, r);
@@ -186,7 +186,7 @@ static inline int call_taos_stmt_is_insert(const char *file, int line, const cha
 {
   LOGD(file, line, func, "taos_stmt_is_insert(stmt:%p,insert:%p) ...", stmt, insert);
   int r = taos_stmt_is_insert(stmt, insert);
-  diag_stmt(stmt);
+  if (r) diag_stmt(stmt);
   int n = insert ? *insert : 0;
   LOGD(file, line, func, "taos_stmt_is_insert(stmt:%p,insert:%p(%d)) => %d", stmt, insert, n, r);
   return r;
@@ -196,7 +196,7 @@ static inline int call_taos_stmt_num_params(const char *file, int line, const ch
 {
   LOGD(file, line, func, "taos_stmt_num_params(stmt:%p,nums:%p) ...", stmt, nums);
   int r = taos_stmt_num_params(stmt, nums);
-  diag_stmt(stmt);
+  if (r) diag_stmt(stmt);
   int n = nums ? *nums : 0;
   LOGD(file, line, func, "taos_stmt_num_params(stmt:%p,nums:%p(%d)) => %d", stmt, nums, n, r);
   return r;
@@ -208,7 +208,7 @@ static inline int call_taos_stmt_get_param(const char *file, int line, const cha
   if (bytes) *bytes = 0;
   LOGD(file, line, func, "taos_stmt_get_param(stmt:%p,idx:%d,type:%p,bytes:%p) ...", stmt, idx, type, bytes);
   int r = taos_stmt_get_param(stmt, idx, type, bytes);
-  diag_stmt(stmt);
+  if (r) diag_stmt(stmt);
   int a = type ? *type : 0;
   int b = bytes ? *bytes : 0;
   LOGD(file, line, func, "taos_stmt_get_param(stmt:%p,idx:%d,type:%p(%d),bytes:%p(%d)) => %d", stmt, idx, type, a, bytes, b, r);
@@ -219,7 +219,7 @@ static inline int call_taos_stmt_bind_param(const char *file, int line, const ch
 {
   LOGD(file, line, func, "taos_stmt_bind_param(stmt:%p,bind:%p) ...", stmt, bind);
   int r = taos_stmt_bind_param(stmt, bind);
-  diag_stmt(stmt);
+  if (r) diag_stmt(stmt);
   LOGD(file, line, func, "taos_stmt_bind_param(stmt:%p,bind:%p) => %d", stmt, bind, r);
   return r;
 }
@@ -228,7 +228,7 @@ static inline int call_taos_stmt_bind_param_batch(const char *file, int line, co
 {
   LOGD(file, line, func, "taos_stmt_bind_param_batch(stmt:%p,bind:%p) ...", stmt, bind);
   int r = taos_stmt_bind_param_batch(stmt, bind);
-  diag_stmt(stmt);
+  if (r) diag_stmt(stmt);
   LOGD(file, line, func, "taos_stmt_bind_param_batch(stmt:%p,bind:%p) => %d", stmt, bind, r);
   return r;
 }
@@ -237,7 +237,7 @@ static inline int call_taos_stmt_bind_single_param_batch(const char *file, int l
 {
   LOGD(file, line, func, "taos_stmt_bind_single_param_batch(stmt:%p,bind:%p,colIdx:%d) ...", stmt, bind, colIdx);
   int r = taos_stmt_bind_single_param_batch(stmt, bind, colIdx);
-  diag_stmt(stmt);
+  if (r) diag_stmt(stmt);
   LOGD(file, line, func, "taos_stmt_bind_single_param_batch(stmt:%p,bind:%p,colIdx:%d) => %d", stmt, bind, colIdx, r);
   return r;
 }
@@ -246,7 +246,7 @@ static inline int call_taos_stmt_add_batch(const char *file, int line, const cha
 {
   LOGD(file, line, func, "taos_stmt_add_batch(stmt:%p) ...", stmt);
   int r = taos_stmt_add_batch(stmt);
-  diag_stmt(stmt);
+  if (r) diag_stmt(stmt);
   LOGD(file, line, func, "taos_stmt_add_batch(stmt:%p) => %d", stmt, r);
   return r;
 }
@@ -255,7 +255,7 @@ static inline int call_taos_stmt_execute(const char *file, int line, const char 
 {
   LOGD(file, line, func, "taos_stmt_execute(stmt:%p) ...", stmt);
   int r = taos_stmt_execute(stmt);
-  diag_stmt(stmt);
+  if (r) diag_stmt(stmt);
   LOGD(file, line, func, "taos_stmt_execute(stmt:%p) => %d", stmt, r);
   return r;
 }
@@ -273,7 +273,7 @@ static inline int call_taos_stmt_close(const char *file, int line, const char *f
 {
   LOGD(file, line, func, "taos_stmt_close(stmt:%p) ...", stmt);
   int r = taos_stmt_close(stmt);
-  diag_res(NULL);
+  if (r) diag_res(NULL);
   LOGD(file, line, func, "taos_stmt_close(stmt:%p) => %d", stmt, r);
   return r;
 }
@@ -290,7 +290,7 @@ static inline int call_taos_stmt_affected_rows(const char *file, int line, const
 {
   LOGD(file, line, func, "taos_stmt_affected_rows(stmt:%p) ...", stmt);
   int r = taos_stmt_affected_rows(stmt);
-  diag_stmt(stmt);
+  if (r) diag_stmt(stmt);
   LOGD(file, line, func, "taos_stmt_affected_rows(stmt:%p) => %d", stmt, r);
   return r;
 }
@@ -299,7 +299,7 @@ static inline int call_taos_stmt_affected_rows_once(const char *file, int line, 
 {
   LOGD(file, line, func, "taos_stmt_affected_rows_once(stmt:%p) ...", stmt);
   int r = taos_stmt_affected_rows_once(stmt);
-  diag_stmt(stmt);
+  if (r) diag_stmt(stmt);
   LOGD(file, line, func, "taos_stmt_affected_rows_once(stmt:%p) => %d", stmt, r);
   return r;
 }
@@ -387,7 +387,7 @@ static inline int call_taos_select_db(const char *file, int line, const char *fu
 {
   LOGD(file, line, func, "taos_select_db(taos:%p,db:%s) ...", taos, db);
   int r = taos_select_db(taos, db);
-  diag_res(NULL);
+  if (r) diag_res(NULL);
   LOGD(file, line, func, "taos_select_db(taos:%p,db:%s) => %d", taos, db, r);
   return r;
 }
@@ -430,7 +430,7 @@ static inline int call_taos_fetch_block(const char *file, int line, const char *
 {
   LOGD(file, line, func, "taos_fetch_block(res:%p,rows:%p) ...", res, rows);
   int r = taos_fetch_block(res, rows);
-  diag_res(res);
+  if (r) diag_res(res);
   TAOS_ROW p = rows ? *rows : NULL;
   LOGD(file, line, func, "taos_fetch_block(res:%p,rows:%p(%p)) => %d", res, rows, p, r);
   return r;
@@ -440,7 +440,7 @@ static inline int call_taos_fetch_block_s(const char *file, int line, const char
 {
   LOGD(file, line, func, "taos_fetch_block_s(res:%p,rnumOfRows:%p,rows:%p) ...", res, numOfRows, rows);
   int r = taos_fetch_block_s(res, numOfRows, rows);
-  diag_res(res);
+  if (r) diag_res(res);
   int n = numOfRows ? *numOfRows : 0;
   TAOS_ROW p = rows ? *rows : NULL;
   LOGD(file, line, func, "taos_fetch_block_s(res:%p,rnumOfRows:%p(%d),rows:%p(%p)) => %d", res, numOfRows, n, rows, p, r);
@@ -451,7 +451,7 @@ static inline int call_taos_fetch_raw_block(const char *file, int line, const ch
 {
   LOGD(file, line, func, "taos_fetch_raw_block(res:%p,rnumOfRows:%p,pData:%p) ...", res, numOfRows, pData);
   int r = taos_fetch_raw_block(res, numOfRows, pData);
-  diag_res(res);
+  if (r) diag_res(res);
   int n = numOfRows ? *numOfRows : 0;
   void *p = pData ? *pData : NULL;
   LOGD(file, line, func, "taos_fetch_raw_block(res:%p,rnumOfRows:%p(%d),pData:%p(%p)) => %d", res, numOfRows, n, pData, p, r);
@@ -462,7 +462,7 @@ static inline int* call_taos_get_column_data_offset(const char *file, int line, 
 {
   LOGD(file, line, func, "taos_get_column_data_offset(res:%p,columnIndex:%d) ...", res, columnIndex);
   int *p = taos_get_column_data_offset(res, columnIndex);
-  diag_res(res);
+  if (!p) diag_res(res);
   LOGD(file, line, func, "taos_get_column_data_offset(res:%p,columnIndex:%d) => %p", res, columnIndex, p);
   return p;
 }
@@ -471,7 +471,7 @@ static inline int call_taos_validate_sql(const char *file, int line, const char 
 {
   LOGD(file, line, func, "taos_validate_sql(taos:%p,sql:%s) ...", taos, sql);
   int r = taos_validate_sql(taos, sql);
-  diag_res(NULL);
+  if (r) diag_res(NULL);
   LOGD(file, line, func, "taos_validate_sql(taos:%p,sql:%s) => %d", taos, sql, r);
   return r;
 }
@@ -488,7 +488,7 @@ static inline int* call_taos_fetch_lengths(const char *file, int line, const cha
 {
   LOGD(file, line, func, "taos_fetch_lengths(res:%p) ...", res);
   int *p = taos_fetch_lengths(res);
-  diag_res(res);
+  if (!p) diag_res(res);
   LOGD(file, line, func, "taos_fetch_lengths(res:%p) => %p", res, p);
   return p;
 }
@@ -497,7 +497,7 @@ static inline TAOS_ROW* call_taos_result_block(const char *file, int line, const
 {
   LOGD(file, line, func, "taos_result_block(res:%p) ...", res);
   TAOS_ROW *p = taos_result_block(res);
-  diag_res(res);
+  if (!p) diag_res(res);
   LOGD(file, line, func, "taos_result_block(res:%p) => %p", res, p);
   return p;
 }
@@ -506,7 +506,7 @@ static inline const char* call_taos_get_server_info(const char *file, int line, 
 {
   LOGD(file, line, func, "taos_get_server_info(taos:%p) ...", taos);
   const char *s = taos_get_server_info(taos);
-  diag_res(NULL);
+  if (!s) diag_res(NULL);
   LOGD(file, line, func, "taos_get_server_info(taos:%p) => %s", taos, s);
   return s;
 }
@@ -515,7 +515,7 @@ static inline const char* call_taos_get_client_info(const char *file, int line, 
 {
   LOGD(file, line, func, "taos_get_client_info() ...");
   const char *s = taos_get_client_info();
-  diag_res(NULL);
+  if (!s) diag_res(NULL);
   LOGD(file, line, func, "taos_get_client_info() => %s", s);
   return s;
 }
@@ -564,7 +564,7 @@ static inline const void* call_taos_get_raw_block(const char *file, int line, co
 {
   LOGD(file, line, func, "taos_get_raw_block(res:%p) ...", res);
   const void *p = taos_get_raw_block(res);
-  diag_res(res);
+  if (!p) diag_res(res);
   LOGD(file, line, func, "taos_get_raw_block(res:%p) => %p", res, p);
   return p;
 }

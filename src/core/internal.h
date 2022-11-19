@@ -27,10 +27,10 @@
 
 #include "enums.h"
 
+#include "conn.h"
 #include "desc.h"
 #include "errs.h"
 #include "env.h"
-#include "conn.h"
 #include "list.h"
 #include "stmt.h"
 
@@ -182,7 +182,24 @@ struct desc_header_s {
   SQLUSMALLINT        DESC_COUNT;
 };
 
-typedef int (*tsdb_to_sql_c_f)(stmt_t *stmt, const char *data, int len, char *dest, int dlen);
+typedef struct tsdb_to_sql_c_state_s      tsdb_to_sql_c_state_t;
+struct tsdb_to_sql_c_state_s {
+  TAOS_FIELD          *field;
+  int                  i_col;
+  int                  i_row;
+
+  SQLSMALLINT          TargetType;
+  SQLPOINTER           TargetValuePtr;
+  SQLLEN               BufferLength;
+  SQLLEN              *StrLen_or_IndPtr;
+
+  const char          *data;
+  int                  len;
+
+  buffer_t             cache;
+};
+
+typedef SQLRETURN (*conv_from_tsdb_to_sql_c_f)(stmt_t *stmt, tsdb_to_sql_c_state_t *conv_state);
 
 typedef struct sql_c_to_tsdb_meta_s                sql_c_to_tsdb_meta_t;
 
@@ -207,10 +224,7 @@ struct desc_record_s {
   SQLLEN                       *DESC_OCTET_LENGTH_PTR;
   SQLSMALLINT                   DESC_PARAMETER_TYPE;
 
-  tsdb_to_sql_c_f               conv;
-
-  int                           taos_type;
-  int                           taos_bytes;
+  conv_from_tsdb_to_sql_c_f     conv;
 
   buf_t                         data_buffer;
   buf_t                         len_buffer;
@@ -261,20 +275,6 @@ struct conn_s {
   unsigned int        fmt_time:1;
 };
 
-typedef struct col_s                col_t;
-struct col_s {
-  TAOS_FIELD          *field;
-  int                  i_col;
-  const char          *data;
-  int                  len;
-
-  SQLSMALLINT          TargetType;
-
-  char                *buf;
-  size_t               cap;
-  size_t               nr;
-};
-
 typedef struct rowset_s             rowset_t;
 struct rowset_s {
   int                 i_row;
@@ -310,7 +310,8 @@ struct stmt_s {
   descriptor_t              *current_APD;
   descriptor_t              *current_ARD;
 
-  col_t                      current_for_get_data;
+  tsdb_to_sql_c_state_t      current_for_get_data;
+  buffer_t                   cache;
 
   char                      *sql;
 

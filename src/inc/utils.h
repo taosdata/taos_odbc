@@ -30,39 +30,36 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
 EXTERN_C_BEGIN
 
 #define TOD_SAFE_FREE(_p) if (_p) { free(_p); _p = NULL; }
 
-typedef struct buffer_s           buffer_t;
-struct buffer_s {
+typedef struct fixed_buf_s           fixed_buf_t;
+struct fixed_buf_s {
   char              *buf;
   size_t             cap;
   size_t             nr;
 };
 
-#define buffer_sprintf(_buf, _fmt, ...) ({                \
-  buffer_t *_buffer = _buf;                               \
-  char *__buf = _buffer->buf;                             \
+#define fixed_buf_sprintf(_buf, _fmt, ...) ({             \
+  fixed_buf_t *_fixed_buf = _buf;                         \
+  char *__buf = _fixed_buf->buf;                          \
   size_t _nn = 0;                                         \
   if (__buf) {                                            \
-    __buf += _buffer->nr;                                 \
-    _nn = _buffer->cap - _buffer->nr;                     \
+    __buf += _fixed_buf->nr;                              \
+    _nn = _fixed_buf->cap - _fixed_buf->nr;               \
   }                                                       \
   int _n = snprintf(__buf, _nn, _fmt, ##__VA_ARGS__);     \
   if (__buf) {                                            \
     if (_n>0 && (size_t)_n < _nn) {                       \
-      _buffer->nr += _n;                                  \
+      _fixed_buf->nr += _n;                               \
     } else {                                              \
-      _buffer->nr += _nn - 1;                             \
+      _fixed_buf->nr += _nn - 1;                          \
     }                                                     \
   }                                                       \
   _n;                                                     \
 })
-
-char *tod_strptime(const char *s, const char *format, struct tm *tm) FA_HIDDEN;
 
 typedef struct static_pool_s                   static_pool_t;
 
@@ -104,29 +101,38 @@ void wildfree(wildex_t *wild) FA_HIDDEN;
 
 int table_type_parse(const char *table_type, int *table, int *stable) FA_HIDDEN;
 
-typedef struct string_s           string_t;
-struct string_s {
+typedef struct buffer_s           buffer_t;
+struct buffer_s {
   char        *base;
   size_t       sz;
   size_t       nr;
 };
 
-void string_reset(string_t *str) FA_HIDDEN;
-void string_release(string_t *str) FA_HIDDEN;
-int string_expand(string_t *str, size_t sz) FA_HIDDEN;
-int string_concat_n(string_t *str, const char *s, size_t len) FA_HIDDEN;
-static inline int string_concat(string_t *str, const char *s)
+void buffer_reset(buffer_t *str) FA_HIDDEN;
+void buffer_release(buffer_t *str) FA_HIDDEN;
+int buffer_expand(buffer_t *str, size_t nr) FA_HIDDEN;
+
+int buffer_concat_n(buffer_t *str, const char *s, size_t len) FA_HIDDEN;
+static inline int buffer_concat(buffer_t *str, const char *s)
 {
-  return string_concat_n(str, s, strlen(s));
+  return buffer_concat_n(str, s, strlen(s));
 }
-int string_vconcat(string_t *str, const char *fmt, va_list ap) FA_HIDDEN;
-int string_concat_fmt(string_t *str, const char *fmt, ...) __attribute__ ((format (printf, 2, 3))) FA_HIDDEN;
+int buffer_vconcat(buffer_t *str, const char *fmt, va_list ap) FA_HIDDEN;
+int buffer_concat_fmt(buffer_t *str, const char *fmt, ...) __attribute__ ((format (printf, 2, 3))) FA_HIDDEN;
 // replace "'" in s with "''"
-int string_concat_replacement_n(string_t *str, const char *s, size_t len) FA_HIDDEN;
-static inline int string_concat_replacement(string_t *str, const char *s)
+int buffer_concat_replacement_n(buffer_t *str, const char *s, size_t len) FA_HIDDEN;
+static inline int buffer_concat_replacement(buffer_t *str, const char *s)
 {
-  return string_concat_replacement_n(str, s, strlen(s));
+  return buffer_concat_replacement_n(str, s, strlen(s));
 }
+
+int buffer_copy_n(buffer_t *str, const unsigned char *mem, size_t len) FA_HIDDEN;
+static inline int buffer_copy(buffer_t *str, const char *s)
+{
+  str->nr = 0;
+  return buffer_copy_n(str, (const unsigned char*)s, strlen(s));
+}
+
 
 EXTERN_C_END
 

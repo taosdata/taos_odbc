@@ -431,12 +431,13 @@ step3:
   return 0;
 }
 
-void string_reset(string_t *str)
+void buffer_reset(buffer_t *str)
 {
   str->nr = 0;
+  if (str->base && str->sz > 0) str->base[0] = '\0';
 }
 
-void string_release(string_t *str)
+void buffer_release(buffer_t *str)
 {
   if (str->base) {
     free(str->base);
@@ -446,7 +447,7 @@ void string_release(string_t *str)
   str->nr = 0;
 }
 
-int string_expand(string_t *str, size_t sz)
+int buffer_expand(buffer_t *str, size_t sz)
 {
   if (str->nr + sz <= str->sz) return 0;
   sz = (str->nr + sz + 15) / 16 * 16;
@@ -458,10 +459,24 @@ int string_expand(string_t *str, size_t sz)
   return 0;
 }
 
-int string_concat_n(string_t *str, const char *s, size_t len)
+int buffer_copy_n(buffer_t *str, const unsigned char *mem, size_t len)
 {
   int r = 0;
-  r = string_expand(str, len + 1);
+  str->nr = 0;
+
+  r = buffer_expand(str, len + 1);
+  if (r) return -1;
+
+  memcpy(str->base + str->nr, mem, len);
+  str->nr            += len;
+  str->base[str->nr]  = '\0';
+  return 0;
+}
+
+int buffer_concat_n(buffer_t *str, const char *s, size_t len)
+{
+  int r = 0;
+  r = buffer_expand(str, len+1);
   if (r) return -1;
   strncpy(str->base + str->nr, s, len);
   str->nr            += len;
@@ -469,7 +484,7 @@ int string_concat_n(string_t *str, const char *s, size_t len)
   return 0;
 }
 
-static int _string_vconcat(string_t *str, const char *fmt, va_list ap)
+static int _buffer_vconcat(buffer_t *str, const char *fmt, va_list ap)
 {
   va_list apx;
   va_copy(apx, ap);
@@ -486,7 +501,7 @@ static int _string_vconcat(string_t *str, const char *fmt, va_list ap)
     return 0;
   }
 
-  r = string_expand(str, n + 1);
+  r = buffer_expand(str, n+1);
   if (r) return -1;
 
   if (n != vsnprintf(str->base + str->nr, str->sz - str->nr, fmt, ap)) return -1;
@@ -496,12 +511,12 @@ static int _string_vconcat(string_t *str, const char *fmt, va_list ap)
   return 0;
 }
 
-int string_vconcat(string_t *str, const char *fmt, va_list ap)
+int buffer_vconcat(buffer_t *str, const char *fmt, va_list ap)
 {
   int r = 0;
   size_t old_nr = str->nr;
 
-  r = _string_vconcat(str, fmt, ap);
+  r = _buffer_vconcat(str, fmt, ap);
   if (r) {
     str->nr = old_nr;
     if (str->base) str->base[str->nr] = '\0';
@@ -511,17 +526,17 @@ int string_vconcat(string_t *str, const char *fmt, va_list ap)
   return 0;
 }
 
-int string_concat_fmt(string_t *str, const char *fmt, ...)
+int buffer_concat_fmt(buffer_t *str, const char *fmt, ...)
 {
   int r;
   va_list ap;
   va_start(ap, fmt);
-  r = string_vconcat(str, fmt, ap);
+  r = buffer_vconcat(str, fmt, ap);
   va_end(ap);
   return r ? -1 : 0;
 }
 
-static int _string_concat_replacement_n(string_t *str, const char *s, size_t len)
+static int _buffer_concat_replacement_n(buffer_t *str, const char *s, size_t len)
 {
   int r = 0;
   const char *end = s + len;
@@ -529,25 +544,25 @@ static int _string_concat_replacement_n(string_t *str, const char *s, size_t len
   while (p < end && *p) {
     if (*p == '\'') {
       if (p>s) {
-        r = string_concat_n(str, s, p-s);
+        r = buffer_concat_n(str, s, p-s);
         if (r) return -1;
       }
-      r = string_concat_n(str, "''", 2);
+      r = buffer_concat_n(str, "''", 2);
       if (r) return -1;
       s = ++p;
       continue;
     }
     ++p;
   }
-  if (p > s) return string_concat_n(str, s, p-s);
+  if (p > s) return buffer_concat_n(str, s, p-s);
   return 0;
 }
 
-int string_concat_replacement_n(string_t *str, const char *s, size_t len)
+int buffer_concat_replacement_n(buffer_t *str, const char *s, size_t len)
 {
   int r = 0;
   size_t old_nr = str->nr;
-  r = _string_concat_replacement_n(str, s, len);
+  r = _buffer_concat_replacement_n(str, s, len);
   if (r == 0) return 0;
 
   str->nr = old_nr;

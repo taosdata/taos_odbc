@@ -1592,7 +1592,7 @@ static int flaw_case_under_stmt(TAOS_STMT *stmt, int *tagNum, TAOS_FIELD_E **tag
   }
   tagbinds[0].buffer_type    = (*tags)[0].type;
   tagbinds[0].buffer         = "hello";
-  tagbinds[0].buffer_length  = (*tags)[0].bytes;         // correct me if i am wrong here
+  tagbinds[0].buffer_length  = (*tags)[0].bytes;      // correct me if i am wrong here
   tag_value_length           = strlen("hello");       // correct me if i am wrong here
   tagbinds[0].length         = &tag_value_length;     // correct me if i am wrong here
   tagbinds[0].is_null        = NULL;                  // correct me if i am wrong here
@@ -1832,9 +1832,9 @@ static int tests(int argc, char *argv[])
   if (0) {
     r = flaw_case1();
     if (r == 0) {
-      fprintf(stderr, "==seems like the flaw is corrected==\n");
-      return 1;
+      fprintf(stderr, "seems like the flaw is corrected\n");
     }
+    return !r;
   }
 
   r = process_by_args(argc, argv);

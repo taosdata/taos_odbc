@@ -1703,16 +1703,12 @@ static int flaw_case_inited(void)
 static int flaw_case(void)
 {
   int r = 0;
-  r = CALL_taos_init();
-  if (r) return r;
 
   int n = 1;
   for (int i=0; i<n; ++i) {
     r = flaw_case_inited();
     if (r) break;
   }
-
-  CALL_taos_cleanup();
 
   return r;
 }
@@ -1811,21 +1807,20 @@ static int _flaw_case1_step1(void)
 static int flaw_case1(void)
 {
   int r = 0;
-  r = CALL_taos_init();
-  if (r) return -1;
 
   r = _flaw_case1_step1();
 
-  CALL_taos_cleanup();
   return r;
 }
 
-int main(int argc, char *argv[])
+static int tests(int argc, char *argv[])
 {
+  int r = 0;
+
   if (0) {
     // taosc: 4bc0d33db31401cab51317d4962b3df2870bab01
     //        see memleak result from premature-abort-after-taos_stmt_set_tbname
-    int r = flaw_case();
+    r = flaw_case();
     if (r) {
       fprintf(stderr, "==failure==\n");
       return 1;
@@ -1835,18 +1830,26 @@ int main(int argc, char *argv[])
     }
   }
   if (0) {
-    int r = 0;
     r = flaw_case1();
-    fprintf(stderr, "==%s==\n", r ? "failure" : "success");
-    return !!r;
+    if (r == 0) {
+      fprintf(stderr, "==seems like the flaw is corrected==\n");
+      return 1;
+    }
   }
-  int r;
-  r = CALL_taos_init();
-  if (r) return 1;
 
   r = process_by_args(argc, argv);
 
-  CALL_taos_cleanup();
+  return r;
+}
+
+int main(int argc, char *argv[])
+{
+  int r;
+  r = CALL_taos_init();
+  if (r == 0) {
+    r = tests(argc, argv);
+    CALL_taos_cleanup();
+  }
 
   if (r == 0) D("==Success==");
   else        D("==Failure==");

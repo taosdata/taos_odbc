@@ -45,12 +45,12 @@ static int create_connection(SQLHANDLE *penv, SQLHANDLE *pdbc, const char *conn_
     sr = CALL_SQLConnect(hdbc, (SQLCHAR*)dsn, SQL_NTS, (SQLCHAR*)uid, SQL_NTS, (SQLCHAR*)pwd, SQL_NTS);
     if (FAILED(sr)) goto fail_connect;
   } else {
-     SQLSMALLINT StringLength2 = 0;
-     char buf[1024];
-     buf[0] = '\0';
-     sr = CALL_SQLDriverConnect(hdbc, 0, (SQLCHAR*)conn_str, SQL_NTS, (SQLCHAR*)buf, sizeof(buf), &StringLength2, SQL_DRIVER_NOPROMPT);
-     D("driver completed connection string: [%s]", buf);
-     if (FAILED(sr)) goto fail_connect;
+    SQLSMALLINT StringLength2 = 0;
+    char buf[1024];
+    buf[0] = '\0';
+    sr = CALL_SQLDriverConnect(hdbc, 0, (SQLCHAR*)conn_str, SQL_NTS, (SQLCHAR*)buf, sizeof(buf), &StringLength2, SQL_DRIVER_NOPROMPT);
+    D("driver completed connection string: [%s]", buf);
+    if (FAILED(sr)) goto fail_connect;
   }
 
   *penv = henv;

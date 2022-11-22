@@ -1614,6 +1614,21 @@ static SQLRETURN _stmt_conv_from_tsdb_double_to_sql_c_double(stmt_t *stmt, tsdb_
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_conv_from_tsdb_double_to_sql_c_char(stmt_t *stmt, tsdb_to_sql_c_state_t *conv_state)
+{
+  if (conv_state->cache.nr == 0) {
+    double v = *(double*)conv_state->data;
+
+    char buf[64];
+    int n = snprintf(buf, sizeof(buf), "%g", v);
+    OA_ILE(n > 0 && (size_t)n < sizeof(buf));
+
+    return _stmt_conv_to_sql_c_char(stmt, conv_state, buf, n);
+  } else {
+    return _stmt_conv_to_sql_c_char_next(stmt, conv_state);
+  }
+}
+
 static SQLRETURN _stmt_conv_from_tsdb_varchar_to_sql_c_char(stmt_t *stmt, tsdb_to_sql_c_state_t *conv_state)
 {
   int n = snprintf(conv_state->TargetValuePtr, conv_state->BufferLength,
@@ -1923,6 +1938,9 @@ static SQLRETURN _stmt_get_conv_from_tsdb_double_to_sql_c(stmt_t *stmt,
   switch (TargetType) {
     case SQL_C_DOUBLE:
       *conv = _stmt_conv_from_tsdb_double_to_sql_c_double;
+      break;
+    case SQL_C_CHAR:
+      *conv = _stmt_conv_from_tsdb_double_to_sql_c_char;
       break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,

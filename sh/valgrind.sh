@@ -14,6 +14,7 @@ valgrind --leak-check=full                                                \
          --suppressions=${_path_to_valgrind}/taos.supp                    \
          --suppressions=${_path_to_valgrind}/node.supp                    \
          --suppressions=${_path_to_valgrind}/mysql.supp                   \
+         --suppressions=${_path_to_valgrind}/sqlite3.supp                 \
          --gen-suppressions=all                                           \
          --track-origins=yes                                              \
          "$@"

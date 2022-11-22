@@ -22,6 +22,41 @@
 # SOFTWARE.
 ###############################################################################
 
+add_executable(conformance_test
+    $<TARGET_OBJECTS:common_obj>
+    conformance_test.c)
+add_dependencies(conformance_test ex_cjson)
+
+target_include_directories(conformance_test PRIVATE ${CJSON_INSTALL_PATH}/include)
+target_link_directories(conformance_test PRIVATE ${CJSON_INSTALL_PATH}/lib)
+target_link_libraries(conformance_test odbc cjson)
+
+add_test(NAME conformance_test
+    COMMAND conformance_test)
+
+if(HAVE_VALGRIND)
+  add_test(NAME Vconformance_test
+      COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/conformance_test)
+endif()
+
+if(ENABLE_MYSQL_TEST)
+  add_test(NAME mysql_conformance_test
+      COMMAND conformance_test --dsn MYSQL_ODBC_DSN)
+  if(HAVE_VALGRIND)
+    add_test(NAME Vmysql_conformance_test
+        COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/conformance_test --dsn MYSQL_ODBC_DSN)
+  endif()
+endif()
+
+if(ENABLE_SQLITE3_TEST)
+  add_test(NAME sqlite3_conformance_test
+      COMMAND conformance_test --dsn SQLITE3_DSN)
+  if(HAVE_VALGRIND)
+    add_test(NAME Vsqlite3_conformance_test
+        COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/conformance_test --dsn SQLITE3_DSN)
+  endif()
+endif()
+
 add_executable(api_test
     $<TARGET_OBJECTS:common_obj>
     api_test.c)

@@ -160,4 +160,26 @@
    fun:taos_connect_internal
    fun:taos_connect
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: indirect
+   fun:malloc
+   fun:strdup
+   fun:appHbMgrInit
+   fun:taos_connect_internal
+   fun:taos_connect
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: indirect
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:taosArrayInit
+   fun:taosHashInit
+   fun:appHbMgrInit
+   fun:taos_connect_internal
+   fun:taos_connect
+}
 

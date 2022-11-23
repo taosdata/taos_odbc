@@ -26,6 +26,7 @@ add_executable(SQLBindCol
     $<TARGET_OBJECTS:common_obj>
     SQLBindCol_ref.cpp)
 
+target_include_directories(SQLBindCol PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/..)
 target_link_libraries(SQLBindCol odbc)
 
 add_test(NAME SQLBindCol

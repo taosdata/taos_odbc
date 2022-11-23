@@ -90,7 +90,7 @@ add_executable(odbc_test
     odbc_test.c)
 add_dependencies(odbc_test ex_cjson)
 
-target_include_directories(odbc_test PRIVATE ${CJSON_INSTALL_PATH}/include)
+target_include_directories(odbc_test PRIVATE ${CJSON_INSTALL_PATH}/include ${CMAKE_CURRENT_BINARY_DIR}/..)
 target_link_directories(odbc_test PRIVATE ${CJSON_INSTALL_PATH}/lib)
 target_link_libraries(odbc_test odbc cjson)
 

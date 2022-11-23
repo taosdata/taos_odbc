@@ -192,6 +192,28 @@ macro(check_requirements)
     message(STATUS "${Green}`cargo` found -- ${CARGO_VERSION}, please be noted, cargo v1.63 and above are expected compatible${ColorReset}")
   endif()
 
+  ## check `mysql`
+  if (ENABLE_MYSQL_TEST)
+    find_program(HAVE_MYSQL NAMES mysql)
+    if(NOT HAVE_MYSQL)
+      message(FATAL_ERROR "${Yellow}`mysql-related-test-cases` is requested, but `mysql` is not found, you may refer to https://www.mysql.com/${ColorReset}")
+    else()
+      execute_process(COMMAND mysql --version ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE MYSQL_VERSION)
+      message(STATUS "${Green}`mysql` found -- ${MYSQL_VERSION}, please be noted, mysql v8.0 and above are expected compatible${ColorReset}")
+    endif()
+  endif()
+
+  ## check `sqlite3`
+  if(ENABLE_SQLITE3_TEST)
+    find_program(HAVE_SQLITE3 NAMES sqlite3)
+    if(NOT HAVE_SQLITE3)
+      message(FATAL_ERROR "${Yellow}`sqlite3-related-test-cases` is requested, but `sqlite3` is not found, you may refer to https://www.sqlite.org/${ColorReset}")
+    else()
+      execute_process(COMMAND sqlite3 --version ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE SQLITE3_VERSION)
+      message(STATUS "${Green}`sqlite3` found -- ${SQLITE3_VERSION}, please be noted, sqlite3 v3.31 and above are expected compatible${ColorReset}")
+    endif()
+  endif()
+
 endmacro()
 
 macro(parser_gen _name)

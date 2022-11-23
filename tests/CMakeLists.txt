@@ -22,6 +22,8 @@
 # SOFTWARE.
 ###############################################################################
 
+configure_file(test_config.h.in ${CMAKE_CURRENT_BINARY_DIR}/test_config.h)
+
 add_subdirectory(c)
 add_subdirectory(cpp)
 add_subdirectory(node)

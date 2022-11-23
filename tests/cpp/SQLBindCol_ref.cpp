@@ -24,6 +24,7 @@
 
 // SQLBindCol_ref.cpp
 
+#include "test_config.h"
 #include "odbc_helpers.h"
 
 #include <errno.h>
@@ -1643,27 +1644,28 @@ static int test_mysql_case3(void)
   return r ? 1 : 0;
 }
 
-static int test(int argc, char *argv[])
+static int test(void)
 {
-  if (1 && (argc == 1 || strcmp(argv[1], "mysql"))) {
-    if (test_case1()) return 1;
-    if (test_case2()) return 1;
-    if (test_case3()) return 1;
-    if (test_case4("DSN=TAOS_ODBC_DSN")) return 1;
-    if (test_case5("Driver={MySQL ODBC 8.0}; UID=root; PWD=taosdata;")) return 1;
-    if (test_case5("DSN=TAOS_ODBC_DSN")) return 1;
-  } else {
-    if (test_mysql_case1()) return 1;
-    if (test_mysql_case2()) return 1;
-    if (test_mysql_case3()) return 1;
-  }
+  if (test_case1()) return 1;
+  if (test_case2()) return 1;
+  if (test_case3()) return 1;
+  if (test_case4("DSN=TAOS_ODBC_DSN")) return 1;
+#ifdef ENABLE_MYSQL_TEST         /* { */
+  if (test_case5("Driver={MySQL ODBC 8.0}; UID=root; PWD=taosdata;")) return 1;
+#endif                           /* } */
+  if (test_case5("DSN=TAOS_ODBC_DSN")) return 1;
+#ifdef ENABLE_MYSQL_TEST         /* { */
+  if (test_mysql_case1()) return 1;
+  if (test_mysql_case2()) return 1;
+  if (test_mysql_case3()) return 1;
+#endif                           /* } */
   return 0;
 }
 
-int main(int argc, char *argv[])
+int main(void)
 {
   int r = 0;
-  r = test(argc, argv);
+  r = test();
   fprintf(stderr, "==%s==\n", r ? "Failure" : "Success");
 
   return !!r;

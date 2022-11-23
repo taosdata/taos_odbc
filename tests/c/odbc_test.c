@@ -22,6 +22,7 @@
  * SOFTWARE.
  */
 
+#include "test_config.h"
 #include "odbc_helpers.h"
 
 #include "../test_helper.h"
@@ -2043,13 +2044,15 @@ static int test_hard_coded_cases(SQLHANDLE henv)
 {
   int r = 0;
 
-#ifndef __APPLE__
+#ifdef ENABLE_MYSQL_TEST         /* { */
   r = test_hard_coded(henv, "MYSQL_ODBC_DSN", "root", "taosdata", NULL, 1);
   if (r) return -1;
+#endif                           /* } */
 
+#ifdef ENABLE_SQLITE3_TEST       /* { */
   r = test_hard_coded(henv, NULL, NULL, NULL, "Driver={SQLite3};Database=/tmp/foo.sqlite3", 1);
   if (r) return -1;
-#endif
+#endif                           /* } */
 
   r = test_hard_coded(henv, "TAOS_ODBC_DSN", NULL, NULL, NULL, 0);
   if (r) return -1;

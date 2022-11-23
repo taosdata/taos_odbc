@@ -927,7 +927,7 @@ static int test_case5(const char *conn_str)
   return r ? 1 : 0;
 }
 
-
+#ifdef ENABLE_MYSQL_TEST         /* { */
 static int test_mysql_case1(void)
 {
   SQLHENV henv = 0;
@@ -1643,6 +1643,7 @@ static int test_mysql_case3(void)
 
   return r ? 1 : 0;
 }
+#endif                           /* } */
 
 static int test(void)
 {

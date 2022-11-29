@@ -287,7 +287,7 @@ static int _exec_and_bind_check_with_stmt_v(SQLHANDLE hstmt, char *buf, size_t s
 
           if (sr == SQL_SUCCESS) {
             const char *exp = va_arg(ap, const char*);
-            r = _check_varchar(i, j, *ind, data, exp);
+            r = _check_varchar((int)i, j, *ind, data, exp);
             if (r) return -1;
           } else if (sr == SQL_SUCCESS_WITH_INFO) {
             E("not implemented yet");
@@ -436,7 +436,7 @@ static int test_case2(SQLHANDLE hconn)
   const char *fmt = "%Y-%m-%d %H:%M:%S";
   const char *ts = "2022-10-12 13:14:15";
   int64_t bi = 34;
-  struct tm tm = {};
+  struct tm tm = {0};
   tod_strptime(ts, fmt, &tm);
   time_t tt = mktime(&tm);
 
@@ -461,14 +461,14 @@ static int test_case2(SQLHANDLE hconn)
   r = _exec_and_check_count(hconn, "select * from t where ts = '2022-10-12 13:14:15'", &count);
   if (r) return -1;
   if (count != 1) {
-    E("1 expected, but got ==%ld==", count);
+    E("1 expected, but got ==%zd==", count);
     return -1;
   }
 
   r = _exec_and_check_count(hconn, "select * from t", &count);
   if (r) return -1;
   if (count != COUNT) {
-    E("%d expected, but got ==%ld==", COUNT, count);
+    E("%d expected, but got ==%zd==", COUNT, count);
     return -1;
   }
 
@@ -531,7 +531,7 @@ static int test_case3(SQLHANDLE hconn)
   const char *fmt = "%Y-%m-%d %H:%M:%S";
   const char *ts = "2022-10-12 13:14:15";
   int64_t bi = 34;
-  struct tm tm = {};
+  struct tm tm = {0};
   tod_strptime(ts, fmt, &tm);
   time_t tt = mktime(&tm);
 
@@ -579,14 +579,14 @@ static int test_case3(SQLHANDLE hconn)
   r = select_count_with_col_bind(hconn, "select * from t where ts = '2022-10-12 13:14:15'", &count);
   if (r) return -1;
   if (count != 1) {
-    E("1 expected, but got ==%ld==", count);
+    E("1 expected, but got ==%zd==", count);
     return -1;
   }
 
   r = select_count_with_col_bind(hconn, "select * from t", &count);
   if (r) return -1;
   if (count != COUNT) {
-    E("%d expected, but got ==%ld==", COUNT, count);
+    E("%d expected, but got ==%zd==", COUNT, count);
     return -1;
   }
 
@@ -614,7 +614,7 @@ static int select_count_with_col_bind_array(SQLHANDLE hconn, const char *sql, si
   SQLUINTEGER nr_rows;
   do {
     if (array_size > ARRAY_SIZE) {
-      E("array_size[%ld] too large [%d]", array_size, ARRAY_SIZE);
+      E("array_size[%zd] too large [%d]", array_size, ARRAY_SIZE);
       r = -1;
       break;
     }
@@ -669,7 +669,7 @@ static int test_case4(SQLHANDLE hconn, int non_taos, const size_t dataset, const
   const char *fmt = "%Y-%m-%d %H:%M:%S";
   const char *ts = "2022-10-12 13:14:15";
   int64_t bi = 34;
-  struct tm tm = {};
+  struct tm tm = {0};
   tod_strptime(ts, fmt, &tm);
   time_t tt = mktime(&tm);
 
@@ -693,14 +693,14 @@ static int test_case4(SQLHANDLE hconn, int non_taos, const size_t dataset, const
   r = select_count_with_col_bind_array(hconn, "select * from t", array_size, &count, &batches);
   if (r) return -1;
   if (count != dataset) {
-    E("%ld in total expected, but got ==%ld==", dataset, count);
+    E("%zd in total expected, but got ==%zd==", dataset, count);
     return -1;
   }
   if (batches != (dataset + array_size - 1) / array_size) {
     // TODO: SQLFetch for taos-odbc is still not fully implemented yet
     // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlfetch-function?view=sql-server-ver16#positioning-the-cursor
     if (non_taos) {
-      E("%ld in total, batches[%ld] expected, but got ==%ld==", count, (dataset + array_size - 1) / array_size, batches);
+      E("%zd in total, batches[%zd] expected, but got ==%zd==", count, (dataset + array_size - 1) / array_size, batches);
       return -1;
     }
   }
@@ -829,10 +829,10 @@ static int test_case5(SQLHANDLE hconn)
     TableName = "";
     TableType = "%";
     sr = CALL_SQLTables(hstmt,
-      (SQLCHAR*)CatalogName, strlen(CatalogName),
-      (SQLCHAR*)SchemaName,  strlen(SchemaName),
-      (SQLCHAR*)TableName,   strlen(TableName),
-      (SQLCHAR*)TableType,   strlen(TableType));
+      (SQLCHAR*)CatalogName, (SQLSMALLINT)strlen(CatalogName),
+      (SQLCHAR*)SchemaName,  (SQLSMALLINT)strlen(SchemaName),
+      (SQLCHAR*)TableName,   (SQLSMALLINT)strlen(TableName),
+      (SQLCHAR*)TableType,   (SQLSMALLINT)strlen(TableType));
     if (FAILED(sr)) break;
 
     r = _dump_rs_to_sql_c_char(hstmt, ColumnCount);
@@ -843,10 +843,10 @@ static int test_case5(SQLHANDLE hconn)
     TableName = "";
     TableType = "'TABLE'";
     sr = CALL_SQLTables(hstmt,
-      (SQLCHAR*)CatalogName, strlen(CatalogName),
-      (SQLCHAR*)SchemaName,  strlen(SchemaName),
-      (SQLCHAR*)TableName,   strlen(TableName),
-      (SQLCHAR*)TableType,   strlen(TableType));
+      (SQLCHAR*)CatalogName, (SQLSMALLINT)strlen(CatalogName),
+      (SQLCHAR*)SchemaName,  (SQLSMALLINT)strlen(SchemaName),
+      (SQLCHAR*)TableName,   (SQLSMALLINT)strlen(TableName),
+      (SQLCHAR*)TableType,   (SQLSMALLINT)strlen(TableType));
     if (FAILED(sr)) break;
 
     r = _dump_rs_to_sql_c_char(hstmt, ColumnCount);
@@ -1060,7 +1060,7 @@ static int test_cases(SQLHANDLE hconn)
 
 static int test_conn(int argc, char *argv[], SQLHANDLE hconn)
 {
-  conn_arg_t conn_arg = {};
+  conn_arg_t conn_arg = {0};
 
   for (int i=1; i<argc; ++i) {
     if (strcmp(argv[i], "--dsn") == 0) {

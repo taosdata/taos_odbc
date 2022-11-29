@@ -22,10 +22,8 @@
  * SOFTWARE.
  */
 
-#include "errs.h"
 #include "internal.h"
-
-#include <string.h>
+#include "errs.h"
 
 void errs_init(errs_t *errs)
 {
@@ -64,7 +62,8 @@ void errs_append_x(errs_t *errs, const char *file, int line, const char *func, c
     tod_list_add_tail(&err->node, &errs->frees);
   }
 
-  err_t *err = tod_list_first_entry_or_null(&errs->frees, err_t, node);
+  err_t *err = NULL;
+  tod_list_first_entry_or_null(err, &errs->frees, err_t, node);
   tod_list_del(&err->node);
   err_set_x(err, file, line, func, data_source, sql_state, e, estr);
   tod_list_add_tail(&err->node, &errs->errs);
@@ -75,7 +74,7 @@ void errs_clr_x(errs_t *errs)
   if (tod_list_empty(&errs->errs)) return;
 
   err_t *p, *n;
-  tod_list_for_each_entry_safe(p, n, &errs->errs, node) {
+  tod_list_for_each_entry_safe(p, n, &errs->errs, err_t, node) {
     tod_list_del(&p->node);
     tod_list_add_tail(&p->node, &errs->frees);
   }
@@ -84,12 +83,12 @@ void errs_clr_x(errs_t *errs)
 void errs_release_x(errs_t *errs)
 {
   err_t *p, *n;
-  tod_list_for_each_entry_safe(p, n, &errs->errs, node) {
+  tod_list_for_each_entry_safe(p, n, &errs->errs, err_t, node) {
     tod_list_del(&p->node);
     free(p);
   }
 
-  tod_list_for_each_entry_safe(p, n, &errs->frees, node) {
+  tod_list_for_each_entry_safe(p, n, &errs->frees, err_t, node) {
     tod_list_del(&p->node);
     free(p);
   }
@@ -111,7 +110,7 @@ SQLRETURN errs_get_diag_rec_x(
 
   int found = 0;
   err_t *p = NULL;
-  tod_list_for_each_entry(p, &errs->errs, node) {
+  tod_list_for_each_entry(p, &errs->errs, err_t, node) {
     if (i == RecNumber) {
       found = 1;
       break;

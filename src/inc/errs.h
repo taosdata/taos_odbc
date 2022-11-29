@@ -47,16 +47,14 @@ SQLRETURN errs_get_diag_rec_x(
     SQLSMALLINT    *TextLengthPtr) FA_HIDDEN;
 
 #define errs_append(_errs, _data_source, _sql_state, _e, _estr)                              \
-  ({                                                                                         \
     errs_append_x(_errs, __FILE__, __LINE__, __func__, _data_source, _sql_state, _e, _estr); \
-  })
 
 #define errs_append_format(_errs, _data_source, _sql_state, _e, _fmt, ...)    \
-  ({                                                                          \
+  do {                                                                        \
     char _buf[1024];                                                          \
     snprintf(_buf, sizeof(_buf), "" _fmt "", ##__VA_ARGS__);                  \
     errs_append(_errs, _data_source, _sql_state, _e, _buf);                   \
-  })
+  } while(0)
 
 #define errs_oom(_errs, _data_source) errs_append(_errs, _data_source, "HY001", 0, "Memory allocation error")
 #define errs_niy(_errs, _data_source) errs_append(_errs, _data_source, "HY000", 0, "General error:Not implemented yet")

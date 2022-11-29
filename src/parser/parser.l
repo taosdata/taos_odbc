@@ -36,11 +36,11 @@
     yy_push_state(state, yyscanner);              \
 } while (0)
 
-#define TOP_STATE()                               \
-    ({  yy_push_state(INITIAL, yyscanner);        \
-        int _top = yy_top_state(yyscanner);       \
-        yy_pop_state(yyscanner);                  \
-        _top; })
+#define TOP_STATE(_top) do {                  \
+    yy_push_state(INITIAL, yyscanner);        \
+    _top = yy_top_state(yyscanner);           \
+    yy_pop_state(yyscanner);                  \
+} while (0)
 
 #define R() do {                                  \
     yylloc->first_column = yylloc->last_column ;  \
@@ -69,6 +69,7 @@ do {                                              \
 %}
 
 %option bison-bridge bison-locations reentrant
+%option nounistd
 %option noyywrap noinput nounput
 %option verbose
 %option debug
@@ -77,6 +78,8 @@ do {                                              \
 %option warn
 %option perf-report
 %option 8bit
+%option never-interactive
+%option nounistd
 
 %x EQ
 %x CURLY
@@ -103,7 +106,7 @@ VALUEX        [^{}[:space:]][^{}]*[^{}[:space:]]
 DIGITS        [[:digit:]]+
 %%
 
-<<EOF>> { int state = TOP_STATE();
+<<EOF>> { int state; TOP_STATE(state);
           if (state != INITIAL) return -1;
           yyterminate(); }
 

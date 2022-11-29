@@ -123,19 +123,23 @@ static SQLRETURN _do_conn_connect(conn_t *conn)
   conn->taos = CALL_taos_connect(cfg->ip, cfg->uid, cfg->pwd, cfg->db, cfg->port);
   if (!conn->taos) {
     char buf[1024];
-    fixed_buf_t buffer = {};
+    fixed_buf_t buffer = {0};
     buffer.buf = buf;
     buffer.cap = sizeof(buf);
     buffer.nr  = 0;
-    fixed_buf_sprintf(&buffer, "taos_odbc://");
-    if (cfg->uid) fixed_buf_sprintf(&buffer, "%s:*@", cfg->uid);
+    int n = 0;
+    fixed_buf_sprintf(n, &buffer, "taos_odbc://");
+    if (cfg->uid) fixed_buf_sprintf(n, &buffer, "%s:*@", cfg->uid);
     if (cfg->ip) {
-      if (cfg->port) fixed_buf_sprintf(&buffer, "%s:%d", cfg->ip, cfg->port);
-      else           fixed_buf_sprintf(&buffer, "%s", cfg->ip);
+      if (cfg->port) {
+        fixed_buf_sprintf(n, &buffer, "%s:%d", cfg->ip, cfg->port);
+      } else {
+        fixed_buf_sprintf(n, &buffer, "%s", cfg->ip);
+      }
     } else {
-      fixed_buf_sprintf(&buffer, "localhost");
+      fixed_buf_sprintf(n, &buffer, "localhost");
     }
-    if (cfg->db) fixed_buf_sprintf(&buffer, "/%s", cfg->db);
+    if (cfg->db) fixed_buf_sprintf(n, &buffer, "/%s", cfg->db);
 
     conn_append_err_format(conn, "08001", CALL_taos_errno(NULL), "Client unable to establish connection:[%s][%s]", buffer.buf, CALL_taos_errstr(NULL));
     return SQL_ERROR;
@@ -155,60 +159,60 @@ static void _conn_fill_out_connection_str(
   size_t count = 0;
   int n = 0;
 
-  fixed_buf_t buffer = {};
+  fixed_buf_t buffer = {0};
   buffer.buf = p;
   buffer.cap = BufferLength;
   buffer.nr = 0;
   if (conn->cfg.driver) {
-    n = fixed_buf_sprintf(&buffer, "Driver={%s};", conn->cfg.driver);
+    fixed_buf_sprintf(n, &buffer, "Driver={%s};", conn->cfg.driver);
   } else {
-    n = fixed_buf_sprintf(&buffer, "DSN=%s;", conn->cfg.dsn);
+    fixed_buf_sprintf(n, &buffer, "DSN=%s;", conn->cfg.dsn);
   }
   if (n>0) count += n;
 
   if (conn->cfg.uid) {
-    n = fixed_buf_sprintf(&buffer, "UID=%s;", conn->cfg.uid);
+    fixed_buf_sprintf(n, &buffer, "UID=%s;", conn->cfg.uid);
   } else {
-    n = fixed_buf_sprintf(&buffer, "UID=;");
+    fixed_buf_sprintf(n, &buffer, "UID=;");
   }
   if (n>0) count += n;
 
   if (conn->cfg.pwd) {
-    n = fixed_buf_sprintf(&buffer, "PWD=*;");
+    fixed_buf_sprintf(n, &buffer, "PWD=*;");
   } else {
-    n = fixed_buf_sprintf(&buffer, "PWD=;");
+    fixed_buf_sprintf(n, &buffer, "PWD=;");
   }
   if (n>0) count += n;
 
   if (conn->cfg.ip) {
     if (conn->cfg.port) {
-      n = fixed_buf_sprintf(&buffer, "Server=%s:%d;", conn->cfg.ip, conn->cfg.port);
+      fixed_buf_sprintf(n, &buffer, "Server=%s:%d;", conn->cfg.ip, conn->cfg.port);
     } else {
-      n = fixed_buf_sprintf(&buffer, "Server=%s;", conn->cfg.ip);
+      fixed_buf_sprintf(n, &buffer, "Server=%s;", conn->cfg.ip);
     }
   } else {
-    n = fixed_buf_sprintf(&buffer, "Server=;");
+    fixed_buf_sprintf(n, &buffer, "Server=;");
   }
   if (n>0) count += n;
 
   if (conn->cfg.db) {
-    n = fixed_buf_sprintf(&buffer, "DB=%s;", conn->cfg.db);
+    fixed_buf_sprintf(n, &buffer, "DB=%s;", conn->cfg.db);
   } else {
-    n = fixed_buf_sprintf(&buffer, "DB=;");
+    fixed_buf_sprintf(n, &buffer, "DB=;");
   }
   if (n>0) count += n;
 
   if (conn->cfg.unsigned_promotion) {
-    n = fixed_buf_sprintf(&buffer, "UNSIGNED_PROMOTION=1;");
+    fixed_buf_sprintf(n, &buffer, "UNSIGNED_PROMOTION=1;");
   } else {
-    n = fixed_buf_sprintf(&buffer, "UNSIGNED_PROMOTION=;");
+    fixed_buf_sprintf(n, &buffer, "UNSIGNED_PROMOTION=;");
   }
   if (n>0) count += n;
 
   if (conn->cfg.cache_sql) {
-    n = fixed_buf_sprintf(&buffer, "CACHE_SQL=1;");
+    fixed_buf_sprintf(n, &buffer, "CACHE_SQL=1;");
   } else {
-    n = fixed_buf_sprintf(&buffer, "CACHE_SQL=;");
+    fixed_buf_sprintf(n, &buffer, "CACHE_SQL=;");
   }
   if (n>0) count += n;
 
@@ -218,7 +222,7 @@ static void _conn_fill_out_connection_str(
   }
 
   if (StringLength2Ptr) {
-    *StringLength2Ptr = count;
+    *StringLength2Ptr = (SQLSMALLINT)count;
   }
 }
 
@@ -249,11 +253,11 @@ SQLRETURN conn_driver_connect(
     return SQL_ERROR;
   }
 
-  parser_param_t param = {};
+  parser_param_t param = {0};
   param.debug_flex  = env_get_debug_flex(conn->env);
   param.debug_bison = env_get_debug_bison(conn->env);
 
-  if (StringLength1 == SQL_NTS) StringLength1 = strlen((const char*)InConnectionString);
+  if (StringLength1 == SQL_NTS) StringLength1 = (SQLSMALLINT)strlen((const char*)InConnectionString);
   int r = parser_parse((const char*)InConnectionString, StringLength1, &param);
   SQLRETURN sr = SQL_SUCCESS;
 
@@ -415,9 +419,9 @@ SQLRETURN conn_connect(
     return SQL_ERROR;
   }
 
-  if (NameLength1 == SQL_NTS) NameLength1 = ServerName ? strlen((const char*)ServerName) : 0;
-  if (NameLength2 == SQL_NTS) NameLength2 = UserName ? strlen((const char*)UserName) : 0;
-  if (NameLength3 == SQL_NTS) NameLength3 = Authentication ? strlen((const char*)Authentication) : 0;
+  if (NameLength1 == SQL_NTS) NameLength1 = ServerName ? (SQLSMALLINT)strlen((const char*)ServerName) : 0;
+  if (NameLength2 == SQL_NTS) NameLength2 = UserName ? (SQLSMALLINT)strlen((const char*)UserName) : 0;
+  if (NameLength3 == SQL_NTS) NameLength3 = Authentication ? (SQLSMALLINT)strlen((const char*)Authentication) : 0;
 
   connection_cfg_release(&conn->cfg);
   if (ServerName) {

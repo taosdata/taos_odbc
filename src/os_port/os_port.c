@@ -21,32 +21,3 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-
-#define _XOPEN_SOURCE
-
-#include "helpers.h"
-
-#include <time.h>
-
-#ifdef _WIN32
-// NOTE: not exported in taos.dll
-const char *taos_data_type(int type)
-{
-  (void)type;
-  return "UNKNOWN";
-}
-#endif
-#ifdef _WIN32
-char *tod_strptime(const char *s, const char *format, struct tm *tm)
-{
-  (void)s;
-  (void)format;
-  (void)tm;
-  return NULL;
-}
-#else
-char *tod_strptime(const char *s, const char *format, struct tm *tm)
-{
-  return strptime(s, format, tm);
-}
-#endif

@@ -42,7 +42,7 @@ struct fixed_buf_s {
   size_t             nr;
 };
 
-#define fixed_buf_sprintf(_buf, _fmt, ...) ({             \
+#define fixed_buf_sprintf(_n, _buf, _fmt, ...) do {       \
   fixed_buf_t *_fixed_buf = _buf;                         \
   char *__buf = _fixed_buf->buf;                          \
   size_t _nn = 0;                                         \
@@ -50,7 +50,7 @@ struct fixed_buf_s {
     __buf += _fixed_buf->nr;                              \
     _nn = _fixed_buf->cap - _fixed_buf->nr;               \
   }                                                       \
-  int _n = snprintf(__buf, _nn, _fmt, ##__VA_ARGS__);     \
+  _n = snprintf(__buf, _nn, _fmt, ##__VA_ARGS__);         \
   if (__buf) {                                            \
     if (_n>0 && (size_t)_n < _nn) {                       \
       _fixed_buf->nr += _n;                               \
@@ -59,7 +59,7 @@ struct fixed_buf_s {
     }                                                     \
   }                                                       \
   _n;                                                     \
-})
+} while (0)
 
 typedef struct static_pool_s                   static_pool_t;
 

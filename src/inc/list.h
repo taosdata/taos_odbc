@@ -59,10 +59,8 @@ struct tod_hlist_node {
  * @member: the name of the member within the struct.
  *
  */
-#define container_of(ptr, type, member) ({        \
-  unsigned char *__mptr = (unsigned char*)(ptr);  \
-  ((type *)(__mptr - offsetof(type, member))); })
-
+#define container_of(ptr, type, member)           \
+  ((type *)(((unsigned char*)(ptr)) - offsetof(type, member)))
 
 /*
  * Circular doubly linked tod_list implementation.
@@ -535,27 +533,26 @@ static inline void tod_list_splice_tail_init(struct tod_list_head *tod_list,
  *
  * Note that if the tod_list is empty, it returns NULL.
  */
-#define tod_list_first_entry_or_null(ptr, type, member) ({ \
-  struct tod_list_head *head__ = (ptr); \
-  struct tod_list_head *pos__ = READ_ONCE(head__->next); \
-  pos__ != head__ ? tod_list_entry(pos__, type, member) : NULL; \
-})
+#define tod_list_first_entry_or_null(result, ptr, type, member) do {      \
+  struct tod_list_head *_ptr = ptr;                                       \
+  result = _ptr->next ? tod_list_first_entry(_ptr, type, member) : NULL;  \
+} while (0)
 
 /**
  * tod_list_next_entry - get the next element in tod_list
  * @pos:  the type * to cursor
  * @member:  the name of the tod_list_head within the struct.
  */
-#define tod_list_next_entry(pos, member) \
-  tod_list_entry((pos)->member.next, typeof(*(pos)), member)
+#define tod_list_next_entry(pos, type, member) \
+  tod_list_entry((pos)->member.next, type, member)
 
 /**
  * tod_list_prev_entry - get the prev element in tod_list
  * @pos:  the type * to cursor
  * @member:  the name of the tod_list_head within the struct.
  */
-#define tod_list_prev_entry(pos, member) \
-  tod_list_entry((pos)->member.prev, typeof(*(pos)), member)
+#define tod_list_prev_entry(pos, type, member) \
+  tod_list_entry((pos)->member.prev, type, member)
 
 /**
  * tod_list_for_each  -  iterate over a tod_list
@@ -590,8 +587,9 @@ static inline void tod_list_splice_tail_init(struct tod_list_head *tod_list,
  * @head:  the head for your tod_list.
  */
 #define tod_list_for_each_safe(pos, n, head)             \
-  for (pos = (head)->next, n = pos->next; pos != (head); \
-    pos = n, n = pos->next)
+  for (pos = (head)->next, n = pos->next;                \
+       pos != (head);                                    \
+       pos = n, n = pos->next)
 
 /**
  * tod_list_for_each_prev_safe - iterate over a tod_list backwards safe against removal of tod_list entry
@@ -610,8 +608,8 @@ static inline void tod_list_splice_tail_init(struct tod_list_head *tod_list,
  * @head:  the head for your tod_list.
  * @member:  the name of the tod_list_head within the struct.
  */
-#define tod_list_entry_is_head(pos, head, member)        \
-  (&pos->member == (head))
+#define tod_list_entry_is_head(pos, head, type, member)        \
+  (&(pos)->member == (head))
 
 /**
  * tod_list_for_each_entry  -  iterate over tod_list of given type
@@ -619,10 +617,10 @@ static inline void tod_list_splice_tail_init(struct tod_list_head *tod_list,
  * @head:  the head for your tod_list.
  * @member:  the name of the tod_list_head within the struct.
  */
-#define tod_list_for_each_entry(pos, head, member)              \
-  for (pos = tod_list_first_entry(head, typeof(*pos), member);  \
-       !tod_list_entry_is_head(pos, head, member);              \
-       pos = tod_list_next_entry(pos, member))
+#define tod_list_for_each_entry(pos, head, type, member)        \
+  for (pos = tod_list_first_entry(head, type, member);          \
+       !tod_list_entry_is_head(pos, head, type, member);        \
+       pos = tod_list_next_entry(pos, type, member))
 
 /**
  * tod_list_for_each_entry_reverse - iterate backwards over tod_list of given type.
@@ -630,21 +628,10 @@ static inline void tod_list_splice_tail_init(struct tod_list_head *tod_list,
  * @head:  the head for your tod_list.
  * @member:  the name of the tod_list_head within the struct.
  */
-#define tod_list_for_each_entry_reverse(pos, head, member)       \
-  for (pos = tod_list_last_entry(head, typeof(*pos), member);    \
-       !tod_list_entry_is_head(pos, head, member);               \
-       pos = tod_list_prev_entry(pos, member))
-
-/**
- * tod_list_prepare_entry - prepare a pos entry for use in tod_list_for_each_entry_continue()
- * @pos:  the type * to use as a start point
- * @head:  the head of the tod_list
- * @member:  the name of the tod_list_head within the struct.
- *
- * Prepares a pos entry for use as a start point in tod_list_for_each_entry_continue().
- */
-#define tod_list_prepare_entry(pos, head, member) \
-  ((pos) ? : tod_list_entry(head, typeof(*pos), member))
+#define tod_list_for_each_entry_reverse(pos, head, type, member)    \
+  for (pos = tod_list_last_entry(head, type, member);               \
+       !tod_list_entry_is_head(pos, head, type, member);            \
+       pos = tod_list_prev_entry(pos, type, member))
 
 /**
  * tod_list_for_each_entry_continue - continue iteration over tod_list of given type
@@ -655,10 +642,10 @@ static inline void tod_list_splice_tail_init(struct tod_list_head *tod_list,
  * Continue to iterate over tod_list of given type, continuing after
  * the current position.
  */
-#define tod_list_for_each_entry_continue(pos, head, member)     \
-  for (pos = tod_list_next_entry(pos, member);                  \
-       !tod_list_entry_is_head(pos, head, member);              \
-       pos = tod_list_next_entry(pos, member))
+#define tod_list_for_each_entry_continue(pos, head, type, member)     \
+  for (pos = tod_list_next_entry(pos, type, member);                  \
+       !tod_list_entry_is_head(pos, head, type, member);              \
+       pos = tod_list_next_entry(pos, type, member))
 
 /**
  * tod_list_for_each_entry_continue_reverse - iterate backwards from the given point
@@ -669,10 +656,10 @@ static inline void tod_list_splice_tail_init(struct tod_list_head *tod_list,
  * Start to iterate over tod_list of given type backwards, continuing after
  * the current position.
  */
-#define tod_list_for_each_entry_continue_reverse(pos, head, member)    \
-  for (pos = tod_list_prev_entry(pos, member);                         \
-       !tod_list_entry_is_head(pos, head, member);                     \
-       pos = tod_list_prev_entry(pos, member))
+#define tod_list_for_each_entry_continue_reverse(pos, head, type, member)    \
+  for (pos = tod_list_prev_entry(pos, type, member);                         \
+       !tod_list_entry_is_head(pos, head, type, member);                     \
+       pos = tod_list_prev_entry(pos, type, member))
 
 /**
  * tod_list_for_each_entry_from - iterate over tod_list of given type from the current point
@@ -682,9 +669,9 @@ static inline void tod_list_splice_tail_init(struct tod_list_head *tod_list,
  *
  * Iterate over tod_list of given type, continuing from current position.
  */
-#define tod_list_for_each_entry_from(pos, head, member)       \
-  for (; !tod_list_entry_is_head(pos, head, member);          \
-       pos = tod_list_next_entry(pos, member))
+#define tod_list_for_each_entry_from(pos, head, type, member)       \
+  for (; !tod_list_entry_is_head(pos, head, type, member);          \
+       pos = tod_list_next_entry(pos, type, member))
 
 /**
  * tod_list_for_each_entry_from_reverse - iterate backwards over tod_list of given type
@@ -695,9 +682,9 @@ static inline void tod_list_splice_tail_init(struct tod_list_head *tod_list,
  *
  * Iterate backwards over tod_list of given type, continuing from current position.
  */
-#define tod_list_for_each_entry_from_reverse(pos, head, member)    \
-  for (; !tod_list_entry_is_head(pos, head, member);               \
-       pos = tod_list_prev_entry(pos, member))
+#define tod_list_for_each_entry_from_reverse(pos, head, type, member)    \
+  for (; !tod_list_entry_is_head(pos, head, type, member);               \
+       pos = tod_list_prev_entry(pos, type, member))
 
 /**
  * tod_list_for_each_entry_safe - iterate over tod_list of given type safe against removal of tod_list entry
@@ -706,11 +693,11 @@ static inline void tod_list_splice_tail_init(struct tod_list_head *tod_list,
  * @head:  the head for your tod_list.
  * @member:  the name of the tod_list_head within the struct.
  */
-#define tod_list_for_each_entry_safe(pos, n, head, member)      \
-  for (pos = tod_list_first_entry(head, typeof(*pos), member),  \
-    n = tod_list_next_entry(pos, member);                       \
-       !tod_list_entry_is_head(pos, head, member);              \
-       pos = n, n = tod_list_next_entry(n, member))
+#define tod_list_for_each_entry_safe(pos, n, head, type, member)      \
+  for (pos = tod_list_first_entry(head, type, member),                \
+    n = tod_list_next_entry(pos, type, member);                       \
+       !tod_list_entry_is_head(pos, head, type, member);              \
+       pos = n, n = tod_list_next_entry(n, type, member))
 
 /**
  * tod_list_for_each_entry_safe_continue - continue tod_list iteration safe against removal
@@ -722,11 +709,11 @@ static inline void tod_list_splice_tail_init(struct tod_list_head *tod_list,
  * Iterate over tod_list of given type, continuing after current point,
  * safe against removal of tod_list entry.
  */
-#define tod_list_for_each_entry_safe_continue(pos, n, head, member)     \
-  for (pos = tod_list_next_entry(pos, member),                          \
-    n = tod_list_next_entry(pos, member);                               \
-       !tod_list_entry_is_head(pos, head, member);                      \
-       pos = n, n = tod_list_next_entry(n, member))
+#define tod_list_for_each_entry_safe_continue(pos, n, head, type, member)     \
+  for (pos = tod_list_next_entry(pos, type, member),                          \
+    n = tod_list_next_entry(pos, type, member);                               \
+       !tod_list_entry_is_head(pos, head, type, member);                      \
+       pos = n, n = tod_list_next_entry(n, type, member))
 
 /**
  * tod_list_for_each_entry_safe_from - iterate over tod_list from current point safe against removal
@@ -738,10 +725,10 @@ static inline void tod_list_splice_tail_init(struct tod_list_head *tod_list,
  * Iterate over tod_list of given type from current point, safe against
  * removal of tod_list entry.
  */
-#define tod_list_for_each_entry_safe_from(pos, n, head, member)       \
-  for (n = tod_list_next_entry(pos, member);                          \
-       !tod_list_entry_is_head(pos, head, member);                    \
-       pos = n, n = tod_list_next_entry(n, member))
+#define tod_list_for_each_entry_safe_from(pos, n, head, type, member)       \
+  for (n = tod_list_next_entry(pos, type, member);                          \
+       !tod_list_entry_is_head(pos, head, type, member);                    \
+       pos = n, n = tod_list_next_entry(n, type, member))
 
 /**
  * tod_list_for_each_entry_safe_reverse - iterate backwards over tod_list safe against removal
@@ -753,11 +740,11 @@ static inline void tod_list_splice_tail_init(struct tod_list_head *tod_list,
  * Iterate backwards over tod_list of given type, safe against removal
  * of tod_list entry.
  */
-#define tod_list_for_each_entry_safe_reverse(pos, n, head, member)    \
-  for (pos = tod_list_last_entry(head, typeof(*pos), member),         \
-    n = tod_list_prev_entry(pos, member);                             \
-       !tod_list_entry_is_head(pos, head, member);                    \
-       pos = n, n = tod_list_prev_entry(n, member))
+#define tod_list_for_each_entry_safe_reverse(pos, n, head, type, member)    \
+  for (pos = tod_list_last_entry(head, type, member),                       \
+    n = tod_list_prev_entry(pos, type, member);                             \
+       !tod_list_entry_is_head(pos, head, type, member);                    \
+       pos = n, n = tod_list_prev_entry(n, type, member))
 
 /**
  * tod_list_safe_reset_next - reset a stale tod_list_for_each_entry_safe loop
@@ -771,8 +758,8 @@ static inline void tod_list_splice_tail_init(struct tod_list_head *tod_list,
  * and tod_list_safe_reset_next is called after re-taking the lock and before
  * completing the current iteration of the loop body.
  */
-#define tod_list_safe_reset_next(pos, n, member)        \
-  n = tod_list_next_entry(pos, member)
+#define tod_list_safe_reset_next(pos, n, type, member)        \
+  n = tod_list_next_entry(pos, type, member)
 
 /*
  * Double linked tod_lists with a single pointer tod_list head.
@@ -970,13 +957,15 @@ static inline void tod_hlist_move_tod_list(struct tod_hlist_head *old,
   for (pos = (head)->first; pos ; pos = pos->next)
 
 #define tod_hlist_for_each_safe(pos, n, head)               \
-  for (pos = (head)->first; pos && ({ n = pos->next; 1; }); \
-       pos = n)
+  for (pos = (head)->first, n = pos ? pos : NULL;           \
+       pos;                                                 \
+       n = pos->next, pos = n)
 
-#define tod_hlist_entry_safe(ptr, type, member)               \
-  ({ typeof(ptr) ____ptr = (ptr);                             \
-     ____ptr ? tod_hlist_entry(____ptr, type, member) : NULL; \
-  })
+
+#define tod_hlist_entry_safe(result, ptr, type, member)  do {             \
+  type *_ptr = ptr;                                                       \
+  result = _ptr ? tod_hlist_entry(_ptr, type, member) : NULL;             \
+} while (0)
 
 /**
  * tod_hlist_for_each_entry  - iterate over tod_list of given type
@@ -984,29 +973,29 @@ static inline void tod_hlist_move_tod_list(struct tod_hlist_head *old,
  * @head:  the head for your tod_list.
  * @member:  the name of the tod_hlist_node within the struct.
  */
-#define tod_hlist_for_each_entry(pos, head, member)                            \
-  for (pos = tod_hlist_entry_safe((head)->first, typeof(*(pos)), member);      \
+#define tod_hlist_for_each_entry(pos, head, type, member)                      \
+  for (pos = tod_hlist_entry_safe((head)->first, type, member);                \
        pos;                                                                    \
-       pos = tod_hlist_entry_safe((pos)->member.next, typeof(*(pos)), member))
+       pos = tod_hlist_entry_safe((pos)->member.next, type, member))
 
 /**
  * tod_hlist_for_each_entry_continue - iterate over a tod_hlist continuing after current point
  * @pos:  the type * to use as a loop cursor.
  * @member:  the name of the tod_hlist_node within the struct.
  */
-#define tod_hlist_for_each_entry_continue(pos, member)                         \
-  for (pos = tod_hlist_entry_safe((pos)->member.next, typeof(*(pos)), member); \
+#define tod_hlist_for_each_entry_continue(pos, type, member)                   \
+  for (pos = tod_hlist_entry_safe((pos)->member.next, type, member);           \
        pos;                                                                    \
-       pos = tod_hlist_entry_safe((pos)->member.next, typeof(*(pos)), member))
+       pos = tod_hlist_entry_safe((pos)->member.next, type, member))
 
 /**
  * tod_hlist_for_each_entry_from - iterate over a tod_hlist continuing from current point
  * @pos:  the type * to use as a loop cursor.
  * @member:  the name of the tod_hlist_node within the struct.
  */
-#define tod_hlist_for_each_entry_from(pos, member)                             \
+#define tod_hlist_for_each_entry_from(pos, type, member)                       \
   for (; pos;                                                                  \
-       pos = tod_hlist_entry_safe((pos)->member.next, typeof(*(pos)), member))
+       pos = tod_hlist_entry_safe((pos)->member.next, type, member))
 
 /**
  * tod_hlist_for_each_entry_safe - iterate over tod_list of given type safe against removal of tod_list entry
@@ -1015,10 +1004,10 @@ static inline void tod_hlist_move_tod_list(struct tod_hlist_head *old,
  * @head:  the head for your tod_list.
  * @member:  the name of the tod_hlist_node within the struct.
  */
-#define tod_hlist_for_each_entry_safe(pos, n, head, member)              \
-  for (pos = tod_hlist_entry_safe((head)->first, typeof(*pos), member);  \
-       pos && ({ n = pos->member.next; 1; });                            \
-       pos = tod_hlist_entry_safe(n, typeof(*pos), member))
+#define tod_hlist_for_each_entry_safe(pos, n, head, type, member)        \
+  for (pos = tod_hlist_entry_safe((head)->first, type, member);          \
+       pos && { n = pos->member.next; 1; };                              \
+       pos = tod_hlist_entry_safe(n, type, member))
 
 EXTERN_C_END
 

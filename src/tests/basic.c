@@ -38,7 +38,7 @@ static int test_case1(void)
 
   env_unref(env);
 
-  parser_param_t param = {};
+  parser_param_t param = {0};
   // param.debug_flex = 1;
   // param.debug_bison = 1;
 

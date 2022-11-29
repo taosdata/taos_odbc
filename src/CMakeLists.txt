@@ -27,6 +27,9 @@ set(INTERNAL_INC_PATH ${CMAKE_CURRENT_SOURCE_DIR}/inc)
 add_subdirectory(core)
 add_subdirectory(parser)
 add_subdirectory(utils)
+if(TODBC_WINDOWS)
+    add_subdirectory(os_port)
+endif()
 
 list(APPEND odbc_SOURCES odbc.c)
 
@@ -45,17 +48,35 @@ add_library(taos_odbc_a STATIC
     $<TARGET_OBJECTS:core_obj>
     $<TARGET_OBJECTS:odbc_obj>
     $<TARGET_OBJECTS:utils_obj>
-    $<TARGET_OBJECTS:parser_obj>)
-target_link_libraries(taos_odbc_a pthread taos odbcinst)
+    $<TARGET_OBJECTS:os_port_obj>
+    $<TARGET_OBJECTS:parser_obj>
+    $<TARGET_OBJECTS:os_port_obj>)
+# target_link_libraries(taos_odbc_a pthread)
+target_link_libraries(taos_odbc_a taos)
+if(NOT TODBC_WINDOWS)
+    target_link_libraries(taos_odbc_a pthread)
+    target_link_libraries(taos_odbc_a odbcinst)
+else()
+    target_link_libraries(taos_odbc_a legacy_stdio_definitions)
+    target_link_libraries(taos_odbc_a odbccp32)
+endif()
 
 add_library(taos_odbc SHARED
     $<TARGET_OBJECTS:common_obj>
     $<TARGET_OBJECTS:core_obj>
     $<TARGET_OBJECTS:odbc_obj>
     $<TARGET_OBJECTS:utils_obj>
-    $<TARGET_OBJECTS:parser_obj>)
+    $<TARGET_OBJECTS:parser_obj>
+    $<TARGET_OBJECTS:os_port_obj>)
 # add_dependencies(taos_odbc cjson)
-target_link_libraries(taos_odbc pthread taos odbcinst)
+target_link_libraries(taos_odbc taos)
+if(NOT TODBC_WINDOWS)
+    target_link_libraries(taos_odbc pthread)
+    target_link_libraries(taos_odbc odbcinst)
+else()
+    target_link_libraries(taos_odbc legacy_stdio_definitions)
+    target_link_libraries(taos_odbc odbccp32)
+endif()
 
 set_target_properties(taos_odbc PROPERTIES
     VERSION 0.1)

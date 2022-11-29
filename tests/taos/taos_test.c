@@ -129,7 +129,7 @@ static int cjson_cmp_tsdb_str_len(int i_col, const cJSON *val, const char *base,
 
 static int cjson_cmp_i64(int i_col, const cJSON *val, int64_t v)
 {
-  cJSON *cjson = cJSON_CreateNumber(v);
+  cJSON *cjson = cJSON_CreateNumber((double)v);
   if (!cjson) {
     E("out of memory");
     return -1;
@@ -152,7 +152,7 @@ static int cjson_cmp_tsdb_timestamp(int i_col, const cJSON *val, const char *bas
 
 static int cjson_cmp_i32(int i_col, const cJSON *val, int32_t v)
 {
-  cJSON *cjson = cJSON_CreateNumber(v);
+  cJSON *cjson = cJSON_CreateNumber((double)v);
   if (!cjson) {
     E("out of memory");
     return -1;
@@ -728,7 +728,7 @@ static int _store_param_val_by_mb_as_tsdb_varchar(executes_ctx_t *ctx, cJSON *pa
   strncpy(buffer, s, n);
   buffer[n] = '\0';
   buffer[n+1] = '\0';
-  *length    = n;       // plus 2 ?
+  *length    = (int32_t)n;       // plus 2 ?
   *is_null   = '\0';
 
   return 0;
@@ -931,7 +931,7 @@ static int _bind_mb_by_param_str(executes_ctx_t *ctx, const char *param, int ist
     E("out of memory");
     return -1;
   }
-  *length = strlen(buffer);
+  *length = (int32_t)strlen(buffer);
 
   mb->buffer_type          = TSDB_DATA_TYPE_VARCHAR;
   mb->buffer               = buffer;
@@ -1179,7 +1179,7 @@ static int executes_ctx_prepare_stmt(executes_ctx_t *ctx)
   ctx->stmt = CALL_taos_stmt_init(ctx->taos);
   if (!ctx->stmt) return -1;
 
-  r = CALL_taos_stmt_prepare(ctx->stmt, ctx->sql, strlen(ctx->sql));
+  r = CALL_taos_stmt_prepare(ctx->stmt, ctx->sql, (unsigned long)strlen(ctx->sql));
   if (r) return -1;
 
   r = CALL_taos_stmt_is_insert(ctx->stmt, &ctx->insert);
@@ -1293,7 +1293,7 @@ static int _run_executes(TAOS *taos, const char *sql, cJSON *executes)
     return -1;
   }
 
-  executes_ctx_t ctx = {};
+  executes_ctx_t ctx = {0};
   ctx.taos     = taos;
   ctx.sql      = sql;
 
@@ -1378,7 +1378,7 @@ static int run_case(cJSON *json)
   uint16_t    port  = 0; {
     double d;
     if (!json_object_get_number(json, "conn/port", &d)) {
-      if (d > 0) port = d;
+      if (d > 0) port = (uint16_t)d;
     }
   }
 
@@ -1453,7 +1453,11 @@ static int try_and_run(cJSON *json_test_case, const char *path)
     return -1;
   }
 
+#ifdef _WIN32
+  char buf[MAX_PATH+1];
+#else
   char buf[PATH_MAX+1];
+#endif
   int n = snprintf(buf, sizeof(buf), "%s/%s.json", path, s);
   if (n<0 || (size_t)n>=sizeof(buf)) {
     W("buffer too small:%d", n);
@@ -1467,7 +1471,11 @@ static int load_and_run(const char *json_test_cases_file)
 {
   int r = 0;
 
+#ifdef _WIN32
+  char path[MAX_PATH+1];
+#else
   char path[PATH_MAX+1];
+#endif
   cJSON *json_test_cases = load_json_file(json_test_cases_file, path, sizeof(path));
   if (!json_test_cases) return -1;
 
@@ -1521,14 +1529,14 @@ static int flaw_case_under_stmt(TAOS_STMT *stmt, int *tagNum, TAOS_FIELD_E **tag
   int r = 0;
   int insert = 0;
   const char *insert_statement = "insert into ? using st tags (?) values (?, ?)";
-  TAOS_MULTI_BIND tagbinds[1] = {}; // one tag-placeholder in parameterised-statement as above
-  TAOS_MULTI_BIND colbinds[2] = {}; // two col-placeholder in parameterised-statement as above
+  TAOS_MULTI_BIND tagbinds[1] = {0}; // one tag-placeholder in parameterised-statement as above
+  TAOS_MULTI_BIND colbinds[2] = {0}; // two col-placeholder in parameterised-statement as above
   const char *tag_value = "hello";
-  int32_t tag_value_length = strlen(tag_value);
+  int32_t tag_value_length = (int32_t)strlen(tag_value);
   int64_t ts_value = 1662961478755;
   int32_t age_value = 20;
 
-  r = CALL_taos_stmt_prepare(stmt, insert_statement, strlen(insert_statement));
+  r = CALL_taos_stmt_prepare(stmt, insert_statement, (unsigned long)strlen(insert_statement));
   if (r) return -1;
 
   r = CALL_taos_stmt_is_insert(stmt, &insert);
@@ -1592,10 +1600,10 @@ static int flaw_case_under_stmt(TAOS_STMT *stmt, int *tagNum, TAOS_FIELD_E **tag
   }
   tagbinds[0].buffer_type    = (*tags)[0].type;
   tagbinds[0].buffer         = "hello";
-  tagbinds[0].buffer_length  = (*tags)[0].bytes;      // correct me if i am wrong here
-  tag_value_length           = strlen("hello");       // correct me if i am wrong here
-  tagbinds[0].length         = &tag_value_length;     // correct me if i am wrong here
-  tagbinds[0].is_null        = NULL;                  // correct me if i am wrong here
+  tagbinds[0].buffer_length  = (*tags)[0].bytes;               // correct me if i am wrong here
+  tag_value_length           = (int32_t)strlen("hello");       // correct me if i am wrong here
+  tagbinds[0].length         = &tag_value_length;              // correct me if i am wrong here
+  tagbinds[0].is_null        = NULL;                           // correct me if i am wrong here
   tagbinds[0].num            = 1;
   r = CALL_taos_stmt_set_tags(stmt, tagbinds);
   if (r) return -1;
@@ -1717,7 +1725,7 @@ static int _flaw_case1_step3(TAOS_STMT *stmt)
 {
   int r = 0;
   const char *sql = "select table_name, db_name from information_schema.ins_tables t where t.db_name like ?";
-  r = CALL_taos_stmt_prepare(stmt, sql, strlen(sql));
+  r = CALL_taos_stmt_prepare(stmt, sql, (unsigned long)strlen(sql));
   if (r) return -1;
 
   int is_insert = 0;
@@ -1731,10 +1739,10 @@ static int _flaw_case1_step3(TAOS_STMT *stmt)
   if (nums != 1) return -1;
 
   const char *db_name = "foo";
-  int32_t length = strlen(db_name);
+  int32_t length = (int32_t)strlen(db_name);
   char is_null = 0;
 
-  TAOS_MULTI_BIND mb = {};
+  TAOS_MULTI_BIND mb = {0};
   mb.buffer_type             = TSDB_DATA_TYPE_VARCHAR;
   mb.buffer                  = (char*)db_name;
   mb.buffer_length           = length;

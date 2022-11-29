@@ -35,9 +35,23 @@
 
 EXTERN_C_BEGIN
 
+#ifdef _WIN32
+#ifndef _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
+#endif
+#endif
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+#ifdef __GNUC__
 #define FA_HIDDEN __attribute__((visibility("hidden")))
-
+#else
+// TODO: check relevant in MSVC
+#define FA_HIDDEN
+#define __attribute__(x)
+#endif
 
 EXTERN_C_END
 

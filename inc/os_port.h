@@ -1,0 +1,108 @@
+/*
+ * MIT License
+ *
+ * Copyright (c) 2022 freemine <freemine@yeah.net>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+#ifndef _os_port_h_
+#define _os_port_h_
+
+#include "macros.h"
+
+EXTERN_C_BEGIN
+
+#include <time.h>
+#ifdef _WIN32
+struct tm* localtime_r(const time_t *clock, struct tm *result);
+#endif
+
+// basename
+#ifdef _WIN32
+char *basename(char *path);
+char *dirname(char *path);
+#else
+#include <libgen.h>
+#endif
+
+#ifdef _WIN32
+#define strdup _strdup
+char *strndup(const char *s, size_t n);
+#endif
+
+#ifdef _WIN32
+#define atomic_int               LONG
+static inline LONG atomic_fetch_add(atomic_int *obj, LONG arg)
+{
+    LONG r = InterlockedAdd(obj, arg);
+    return r - arg;
+}
+
+static inline LONG atomic_fetch_sub(atomic_int *obj, LONG arg)
+{
+    LONG r = InterlockedAdd(obj, -arg);
+    return r + arg;
+}
+
+static inline LONG atomic_load(atomic_int *obj)
+{
+    return atomic_fetch_add(obj, 0);
+}
+#else
+#include <stdatomic.h>
+#endif
+
+#ifdef _WIN32
+char* tod_getenv(const char *name);
+#endif
+
+#ifdef _WIN32
+typedef int pthread_once_t;
+int pthread_once(pthread_once_t *once_control, void (*init_routine)(void));
+#endif
+
+#ifdef _WIN32
+typedef void* iconv_t;
+iconv_t iconv_open (const char* tocode, const char* fromcode);
+size_t iconv (iconv_t cd, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft);
+int iconv_close (iconv_t cd);
+#else
+#include <iconv.h>
+#endif
+
+#ifdef _WIN32
+void* dlopen(const char* path, int mode);
+int dlclose(void* handle);
+void * dlsym(void *handle, const char *symbol);
+const char * dlerror(void);
+#define RTLD_NOW                            0
+#else
+#include <dlfcn.h>
+#endif
+
+#ifdef _WIN32
+#ifndef SQL_NULL_DESC
+#define SQL_NULL_DESC NULL
+#endif
+#endif
+
+EXTERN_C_END
+
+#endif // _os_port_h_

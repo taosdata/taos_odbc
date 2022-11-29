@@ -22,33 +22,15 @@
 # SOFTWARE.
 ###############################################################################
 
-add_executable(SQLBindCol
-    $<TARGET_OBJECTS:common_obj>
-    $<TARGET_OBJECTS:os_port_obj>
-    SQLBindCol_ref.cpp)
+set(os_port_SOURCES
+    os_port.c)
 
-target_include_directories(SQLBindCol PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/..)
-if(NOT TODBC_WINDOWS)
-  target_link_libraries(SQLBindCol odbc)
-else()
-  target_link_libraries(SQLBindCol odbc32)
+if(TODBC_WINDOWS)
+    list(APPEND os_port_SOURCES
+        win_port.c)
 endif()
 
-add_test(NAME SQLBindCol
-    COMMAND SQLBindCol)
-
-if(HAVE_VALGRIND)
-  add_test(NAME VSQLBindCol
-      COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/SQLBindCol)
-endif()
-
-if(ENABLE_MYSQL_TEST)
-  add_test(NAME mySQLBindCol
-      COMMAND SQLBindCol mysql)
-
-  if(HAVE_VALGRIND)
-    add_test(NAME VmySQLBindCol
-        COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/SQLBindCol mysql)
-  endif()
-endif()
-
+add_library(os_port_obj OBJECT ${os_port_SOURCES})
+target_include_directories(os_port_obj PRIVATE
+    ${INTERNAL_INC_PATH})
+set_property(TARGET os_port_obj PROPERTY POSITION_INDEPENDENT_CODE 1)

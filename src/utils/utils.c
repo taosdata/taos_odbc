@@ -22,6 +22,7 @@
  * SOFTWARE.
  */
 
+#include "os_port.h"
 #include "utils.h"
 
 #include <ctype.h>

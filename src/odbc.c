@@ -22,6 +22,7 @@
  * SOFTWARE.
  */
 
+#include "os_port.h"
 #include "conn.h"
 #include "desc.h"
 #include "env.h"
@@ -29,7 +30,6 @@
 #include "log.h"
 #include "stmt.h"
 
-#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,6 +38,7 @@
 #include <sqlext.h>
 #include <sqlucode.h>
 
+#ifndef _WIN32
 static atomic_int         nr_load = 0;
 
 int get_nr_load(void)
@@ -56,6 +57,7 @@ __attribute__((destructor)) void _deinitialize(void)
   // yes, no check return value
   atomic_fetch_sub(&nr_load, 1);
 }
+#endif
 
 static SQLRETURN do_alloc_env(
     SQLHANDLE *OutputHandle)
@@ -595,4 +597,3 @@ SQLRETURN SQL_API SQLTables(
     TableName, NameLength3,
     TableType, NameLength4);
 }
-

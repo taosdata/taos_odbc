@@ -25,6 +25,7 @@
 #ifndef _test_helper_h_
 #define _test_helper_h_
 
+#include "os_port.h"
 #include "cjson/cJSON.h"
 
 #include <errno.h>
@@ -50,7 +51,7 @@ static inline int json_get_by_path(cJSON *root, const char *path, cJSON **json)
 
     n = snprintf(buf, sizeof(buf), "%.*s", (int)(t-s), s);
     if (n<0 || (size_t)n>=sizeof(buf)) {
-      W("buffer too small(%ld)", sizeof(buf));
+      W("buffer too small(%zd)", sizeof(buf));
       return -1;
     }
     s = t;

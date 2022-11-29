@@ -211,7 +211,7 @@ int parser_parse(const char *input, size_t len, parser_param_t *param)
   yyset_debug(debug_flex, arg);
   yydebug = debug_bison;
   // yyset_extra(param, arg);
-  yy_scan_bytes(input ? input : "", input ? len : 0, arg);
+  yy_scan_bytes(input ? input : "", input ? (int)len : 0, arg);
   int ret =yyparse(arg, param);
   yylex_destroy(arg);
   return ret ? -1 : 0;

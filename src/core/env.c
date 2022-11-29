@@ -26,8 +26,6 @@
 
 #include "env.h"
 
-#include <pthread.h>
-
 static unsigned int         _taos_odbc_debug       = 0;
 static unsigned int         _taos_odbc_debug_flex  = 0;
 static unsigned int         _taos_odbc_debug_bison = 0;
@@ -40,9 +38,9 @@ static void _exit_routine(void)
 
 static void _init_once(void)
 {
-  if (getenv("TAOS_ODBC_DEBUG"))       _taos_odbc_debug       = 1;
-  if (getenv("TAOS_ODBC_DEBUG_FLEX"))  _taos_odbc_debug_flex  = 1;
-  if (getenv("TAOS_ODBC_DEBUG_BISON")) _taos_odbc_debug_bison = 1;
+  if (tod_getenv("TAOS_ODBC_DEBUG"))       _taos_odbc_debug       = 1;
+  if (tod_getenv("TAOS_ODBC_DEBUG_FLEX"))  _taos_odbc_debug_flex  = 1;
+  if (tod_getenv("TAOS_ODBC_DEBUG_BISON")) _taos_odbc_debug_bison = 1;
   if (CALL_taos_init()) {
     _taos_init_failed = 1;
     return;

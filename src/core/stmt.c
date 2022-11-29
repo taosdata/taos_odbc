@@ -28,7 +28,6 @@
 #include "stmt.h"
 
 #include <errno.h>
-#include <iconv.h>
 #include <limits.h>
 #include <string.h>
 #include <time.h>
@@ -436,7 +435,7 @@ static SQLRETURN _stmt_exec_direct(stmt_t *stmt, const char *sql, int len)
   char buf[1024];
   char *p = (char*)sql;
   if (len == SQL_NTS)
-    len = strlen(sql);
+    len = (int)strlen(sql);
   if (p[len]) {
     if ((size_t)len < sizeof(buf)) {
       strncpy(buf, p, len);
@@ -820,7 +819,7 @@ static SQLRETURN _stmt_encode(stmt_t *stmt,
   iconv_close(cd);
   if (*inbytesleft > 0) {
     stmt_append_err_format(stmt, "01004", 0,
-        "String data, right truncated:[iconv]Character set conversion for `%s` to `%s`, #%ld out of #%ld bytes consumed, #%ld out of #%ld bytes converted:[%d]%s",
+        "String data, right truncated:[iconv]Character set conversion for `%s` to `%s`, #%zd out of #%zd bytes consumed, #%zd out of #%zd bytes converted:[%d]%s",
         fromcode, tocode, inbytes - *inbytesleft, inbytes, outbytes - * outbytesleft, outbytes, e, strerror(e));
     return SQL_SUCCESS_WITH_INFO;
   }
@@ -833,7 +832,7 @@ static SQLRETURN _stmt_encode(stmt_t *stmt,
   if (sz > 0) {
     // FIXME: what actually means when sz > 0???
     stmt_append_err_format(stmt, "01000", 0,
-        "General warning:[iconv]Character set conversion for `%s` to `%s` succeeded with #%ld of nonreversible characters converted",
+        "General warning:[iconv]Character set conversion for `%s` to `%s` succeeded with #%zd of nonreversible characters converted",
         fromcode, tocode, sz);
     return SQL_SUCCESS_WITH_INFO;
   }
@@ -1214,7 +1213,7 @@ static SQLRETURN _stmt_conv_to_sql_c_char_epilog(stmt_t *stmt, tsdb_to_sql_c_sta
   if (conv_state->StrLen_or_IndPtr) *conv_state->StrLen_or_IndPtr = conv_state->len;
 
   conv_state->data += len;
-  conv_state->len  -= len;
+  conv_state->len  -= (int)len;
 
   if (conv_state->len == 0) {
     conv_state->data = NULL;
@@ -1249,7 +1248,7 @@ static SQLRETURN _stmt_conv_to_sql_c_char(stmt_t *stmt, tsdb_to_sql_c_state_t *c
   }
 
   conv_state->data = conv_state->cache.base;
-  conv_state->len  = conv_state->cache.nr;
+  conv_state->len  = (int)conv_state->cache.nr;
 
   return _stmt_conv_to_sql_c_char_epilog(stmt, conv_state);
 }
@@ -1308,7 +1307,7 @@ static SQLRETURN _stmt_conv_to_sql_c_wchar_next(stmt_t *stmt, tsdb_to_sql_c_stat
     ptr[1] = '\0';
 
     conv_state->data += len;
-    conv_state->len  -= len;
+    conv_state->len  -= (int)len;
   }
 
   stmt_append_err_format(stmt, "01004", 0, "String data, right truncated:Column `%s[#%d]`",
@@ -1334,7 +1333,7 @@ static SQLRETURN _stmt_conv_to_sql_c_wchar(stmt_t *stmt, tsdb_to_sql_c_state_t *
   SQLRETURN sr = _stmt_encode(stmt, "UTF8", &inbuf, &inbytes, "UCS-2LE", &outbuf, &outbytes);
   if (sr == SQL_ERROR) return SQL_ERROR;
   OA_NIY(sql_succeeded(sr));
-  n = sizeof(wbuf) - outbytes;
+  n = (int)(sizeof(wbuf) - outbytes);
 
   outbuf[0] = '\0';
   outbuf[1] = '\0';
@@ -1359,7 +1358,7 @@ static SQLRETURN _stmt_conv_to_sql_c_wchar(stmt_t *stmt, tsdb_to_sql_c_state_t *
   }
 
   conv_state->data = conv_state->cache.base;
-  conv_state->len  = conv_state->cache.nr;
+  conv_state->len  = (int)conv_state->cache.nr;
 
   return _stmt_conv_to_sql_c_wchar_next(stmt, conv_state);
 }
@@ -1526,7 +1525,7 @@ static SQLRETURN _stmt_conv_from_tsdb_bigint_to_sql_c_slong(stmt_t *stmt, tsdb_t
 
   int64_t v = *(int64_t*)conv_state->data;
 
-  *(int32_t*)conv_state->TargetValuePtr = v;
+  *(int32_t*)conv_state->TargetValuePtr = (int32_t)v;
 
   conv_state->data = NULL;
   conv_state->len = 0;
@@ -2260,7 +2259,7 @@ SQLRETURN _stmt_fetch(stmt_t *stmt)
 
   TAOS_ROW rows = NULL;
   OA_NIY(stmt->res);
-  stmt->rowset.i_row += row_array_size;
+  stmt->rowset.i_row += (int)row_array_size;
   if (stmt->rowset.i_row >= stmt->nr_rows) {
     sr = _stmt_fetch_next_rowset(stmt, &rows);
     if (sr == SQL_ERROR) return SQL_ERROR;
@@ -2310,7 +2309,7 @@ SQLRETURN _stmt_fetch(stmt_t *stmt)
     return SQL_ERROR;
   }
 
-  tsdb_to_sql_c_state_t cache = {};
+  tsdb_to_sql_c_state_t cache = {0};
   sr = _stmt_fill_rowset(stmt, row_array_size, post_filter, &cache);
   tsdb_to_sql_c_state_release(&cache);
   return sr;
@@ -2398,7 +2397,7 @@ SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
     return SQL_ERROR;
   }
 
-  r = CALL_taos_stmt_prepare(stmt->stmt, sql, len);
+  r = CALL_taos_stmt_prepare(stmt->stmt, sql, (unsigned long)len);
   if (r) {
     stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_errstr(NULL));
     return SQL_ERROR;
@@ -2843,7 +2842,7 @@ static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_tinyint(stmt_t *stmt, sql_c_to
     stmt_append_err_format(stmt, "22003", 0, "Numeric value out of range:tinyint is required, but got ==[%" PRId64 "]==", v);
     return SQL_ERROR;
   }
-  *(int8_t*)meta->dst_base = v;
+  *(int8_t*)meta->dst_base = (int8_t)v;
 
   return SQL_SUCCESS;
 }
@@ -2855,7 +2854,7 @@ static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_smallint(stmt_t *stmt, sql_c_t
     stmt_append_err_format(stmt, "22003", 0, "Numeric value out of range:smallint is required, but got ==[%" PRId64 "]==", v);
     return SQL_ERROR;
   }
-  *(int16_t*)meta->dst_base = v;
+  *(int16_t*)meta->dst_base = (int16_t)v;
 
   return SQL_SUCCESS;
 }
@@ -2913,7 +2912,7 @@ static SQLRETURN _stmt_conv_sql_c_char_to_tsdb_timestamp(stmt_t *stmt, sql_c_to_
 
   char *p;
   const char *format = "%Y-%m-%d %H:%M:%S";
-  struct tm t = {};
+  struct tm t = {0};
   time_t tt;
   p = tod_strptime(src, format, &t);
   tt = mktime(&t);
@@ -2928,7 +2927,7 @@ static SQLRETURN _stmt_conv_sql_c_char_to_tsdb_timestamp(stmt_t *stmt, sql_c_to_
           "Invalid datetime format:timestamp is required, but got ==[%.*s]==", (int)len, src);
       return SQL_ERROR;
     }
-    int n = len - (p-src);
+    int n = (int)(len - (p-src));
     if (n == 4) {
       if (meta->field->precision != 0) {
         stmt_append_err_format(stmt, "22007", 0,
@@ -2997,7 +2996,7 @@ static SQLRETURN _stmt_conv_sql_c_double_to_tsdb_timestamp(stmt_t *stmt, sql_c_t
     stmt_append_err_format(stmt, "22003", 0, "Numeric value out of range:bigint is required, but got ==[%lg]==", v);
     return SQL_ERROR;
   }
-  *(int64_t*)meta->dst_base = v;
+  *(int64_t*)meta->dst_base = (int64_t)v;
 
   return SQL_SUCCESS;
 }
@@ -3009,7 +3008,7 @@ static SQLRETURN _stmt_conv_sql_c_sbigint_to_tsdb_int(stmt_t *stmt, sql_c_to_tsd
     stmt_append_err_format(stmt, "22003", 0, "Numeric value out of range:int is required, but got ==[%" PRId64 "]==", v);
     return SQL_ERROR;
   }
-  *(int32_t*)meta->dst_base = v;
+  *(int32_t*)meta->dst_base = (int32_t)v;
 
   return SQL_SUCCESS;
 }
@@ -3077,7 +3076,7 @@ static SQLRETURN _stmt_param_check_and_prepare(stmt_t *stmt, SQLUSMALLINT Parame
   TAOS_MULTI_BIND *mb = stmt->mbs + ParameterNumber - 1;
 
   if (stmt->is_insert_stmt) {
-    TAOS_FIELD_E field = {};
+    TAOS_FIELD_E field = {0};
     sr = _stmt_get_tag_or_col_field(stmt, ParameterNumber-1, &field);
     if (sr == SQL_ERROR) return SQL_ERROR;
 
@@ -3519,7 +3518,7 @@ SQLRETURN stmt_bind_param(
            (!((DecimalDigits == 3 || DecimalDigits == 6 || DecimalDigits == 9) && (ColumnSize == 20 + (size_t)DecimalDigits))) )
       {
         stmt_append_err_format(stmt, "HY000", 0,
-            "General error:#%d Parameter[SQL_TYPE_TIMESTAMP(%ld.%d)] not implemented yet",
+            "General error:#%d Parameter[SQL_TYPE_TIMESTAMP(%zd.%d)] not implemented yet",
             ParameterNumber, ColumnSize, DecimalDigits);
         return SQL_ERROR;
       }
@@ -3724,7 +3723,7 @@ static SQLRETURN _stmt_param_process(stmt_t *stmt, int irow, int i_param)
       .dst_base                 = dst_base,
       .dst_len                  = dst_len
     };
-    TAOS_FIELD_E field = {};
+    TAOS_FIELD_E field = {0};
     if (stmt->is_insert_stmt) {
       sr = _stmt_get_tag_or_col_field(stmt, i_param, &field);
       if (sr == SQL_ERROR) return SQL_ERROR;
@@ -3739,7 +3738,7 @@ static SQLRETURN _stmt_param_process(stmt_t *stmt, int irow, int i_param)
   if (APD_record->DESC_TYPE!=SQL_C_CHAR) return SQL_SUCCESS;
 
   if (stmt->is_insert_stmt) {
-    TAOS_FIELD_E field = {};
+    TAOS_FIELD_E field = {0};
     sr = _stmt_get_tag_or_col_field(stmt, i_param, &field);
     if (sr == SQL_ERROR) return SQL_ERROR;
 
@@ -3762,7 +3761,7 @@ static SQLRETURN _stmt_param_process(stmt_t *stmt, int irow, int i_param)
     }
   }
 
-  *dst_len = src_len;
+  *dst_len = (int32_t)src_len;
   return SQL_SUCCESS;
 }
 
@@ -3779,7 +3778,7 @@ static SQLRETURN _stmt_param_prepare_mb(stmt_t *stmt, int i_param)
   if (i_param < (!!stmt->subtbl_required) + stmt->nr_tag_fields) {
     mb->num = 1;
   } else {
-    mb->num = APD_header->DESC_ARRAY_SIZE;
+    mb->num = (int)(APD_header->DESC_ARRAY_SIZE);
   }
 
   if (APD_record->create_buffer_array) {
@@ -3811,7 +3810,7 @@ static SQLRETURN _stmt_pre_exec_prepare_params(stmt_t *stmt)
   }
 
   if (APD_header->DESC_ARRAY_SIZE <= 0) {
-    stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error, DESC_ARRAY_SIZE[%ld] invalid", APD_header->DESC_ARRAY_SIZE);
+    stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error, DESC_ARRAY_SIZE[%" PRId64 "] invalid", APD_header->DESC_ARRAY_SIZE);
     return SQL_ERROR;
   }
 
@@ -3837,7 +3836,7 @@ static SQLRETURN _stmt_pre_exec_prepare_params(stmt_t *stmt)
   for (size_t irow = 0; irow < APD_header->DESC_ARRAY_SIZE; ++irow) {
     if (IPD_header->DESC_ARRAY_STATUS_PTR) IPD_header->DESC_ARRAY_STATUS_PTR[irow] = SQL_PARAM_ERROR;
     for (int i_param = 0; i_param < IPD_header->DESC_COUNT; ++i_param) {
-      sr = _stmt_param_process(stmt, irow, i_param);
+      sr = _stmt_param_process(stmt, (int)irow, i_param);
       if (sr == SQL_ERROR) return SQL_ERROR;
     }
     if (IPD_header->DESC_ARRAY_STATUS_PTR) IPD_header->DESC_ARRAY_STATUS_PTR[irow] = SQL_PARAM_SUCCESS;
@@ -4074,10 +4073,10 @@ SQLRETURN stmt_tables(stmt_t *stmt,
   if (table   == NULL) table   = "";
   if (type    == NULL) type    = "";
 
-  if (NameLength1 == SQL_NTS) NameLength1 = strlen(catalog);
-  if (NameLength2 == SQL_NTS) NameLength2 = strlen(schema);
-  if (NameLength3 == SQL_NTS) NameLength3 = strlen(table);
-  if (NameLength4 == SQL_NTS) NameLength4 = strlen(type);
+  if (NameLength1 == SQL_NTS) NameLength1 = (SQLSMALLINT)strlen(catalog);
+  if (NameLength2 == SQL_NTS) NameLength2 = (SQLSMALLINT)strlen(schema);
+  if (NameLength3 == SQL_NTS) NameLength3 = (SQLSMALLINT)strlen(table);
+  if (NameLength4 == SQL_NTS) NameLength4 = (SQLSMALLINT)strlen(type);
 
   if (schema[NameLength2]) {
     stmt_append_err(stmt, "HY000", 0, "General error: non-null-terminated-string for SchemaName, not supported yet");
@@ -4119,7 +4118,7 @@ SQLRETURN stmt_tables(stmt_t *stmt,
       " select '' as TABLE_CAT, '' as TABLE_SCHEM, '' as TABLE_NAME,"
       " 'STABLE' as TABLE_TYPE, '' as REMARKS"
       " order by TABLE_TYPE, TABLE_CAT, TABLE_SCHEM, TABLE_NAME";
-    sr = stmt_exec_direct(stmt, sql, strlen(sql));
+    sr = stmt_exec_direct(stmt, sql, (int)strlen(sql));
     if (sr == SQL_ERROR) return SQL_ERROR;
     if (sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO) {
       stmt_append_err(stmt, "HY000", 0, "General warning:`SQLTables` not fully implemented yet");
@@ -4203,8 +4202,8 @@ SQLRETURN stmt_tables(stmt_t *stmt,
       // https://github.com/taosdata/TDengine/issues/17890
       if (!*catalog) catalog = "%";
       if (!*table) table = "%";
-      NameLength1 = strlen(catalog);
-      NameLength3 = strlen(table);
+      NameLength1 = (SQLSMALLINT)strlen(catalog);
+      NameLength3 = (SQLSMALLINT)strlen(table);
       int is_table  = 0;
       int is_stable = 0;
       r = table_type_parse(type, &is_table, &is_stable);
@@ -4212,7 +4211,7 @@ SQLRETURN stmt_tables(stmt_t *stmt,
         stmt_append_err_format(stmt, "HY000", 0, "General error:invalid `table_type:[%.*s]`", (int)NameLength4, type);
         return SQL_ERROR;
       }
-      buffer_t str = {};
+      buffer_t str = {0};
       do {
         if ((is_table && is_stable) || (!is_table && !is_stable)) {
           sql =
@@ -4268,7 +4267,7 @@ SQLRETURN stmt_tables(stmt_t *stmt,
         }
 
         sql = str.base;
-        sr = stmt_exec_direct(stmt, sql, str.nr);
+        sr = stmt_exec_direct(stmt, sql, (int)str.nr);
         if (sr == SQL_ERROR) return SQL_ERROR;
 
         if (*table) {

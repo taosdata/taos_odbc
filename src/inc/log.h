@@ -42,7 +42,7 @@ EXTERN_C_BEGIN
 int tod_get_debug(void) FA_HIDDEN;
 
 #define OD                        D
-
+#define OW                        W
 #define OA                        A
 
 #define OA_ILE(_statement)        OA(_statement, "internal logic error")

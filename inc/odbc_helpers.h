@@ -31,8 +31,12 @@
 #include <sqlext.h>
 #include <string.h>
 
-#define SUCCEEDED(_sr) ({ SQLRETURN __sr = _sr; (__sr == SQL_SUCCESS) || (__sr == SQL_SUCCESS_WITH_INFO); })
-#define FAILED(_sr) !SUCCEEDED(_sr)
+// #ifndef SUCCEEDED
+//   #define SUCCEEDED(_sr) ({ SQLRETURN __sr = _sr; (__sr == SQL_SUCCESS) || (__sr == SQL_SUCCESS_WITH_INFO); })
+// #endif
+// #ifndef FAILED
+//   #define FAILED(_sr) !SUCCEEDED(_sr)
+// #endif
 
 static inline void diag(SQLRETURN sr, SQLSMALLINT HandleType, SQLHANDLE Handle)
 {
@@ -175,7 +179,7 @@ static inline SQLRETURN call_SQLDescribeCol(const char *file, int line, const ch
         sql_return_type(sr));
   } else {
     LOGD(file, line, func, "SQLDescribeCol(StatementHandle:%p,ColumnNumber:%d,ColumnName:%p(%s),BufferLength:%d,"
-        "NameLengthPtr:%p(%d),DataTypePtr:%p(%s),ColumnSizePtr:%p(%ld),DecimalDigitsPtr:%p(%d),NullablePtr:%p(%d)) => %s",
+        "NameLengthPtr:%p(%d),DataTypePtr:%p(%s),ColumnSizePtr:%p(%" PRIu64 "),DecimalDigitsPtr:%p(%d),NullablePtr:%p(%d)) => %s",
         StatementHandle, ColumnNumber, ColumnName, (const char*)ColumnName, BufferLength,
         NameLengthPtr, NameLengthPtr ? *NameLengthPtr : 0,
         DataTypePtr, DataTypePtr ? sql_data_type(*DataTypePtr) : "",
@@ -225,7 +229,7 @@ static inline SQLRETURN call_SQLGetData(const char *file, int line, const char *
     SQLHSTMT StatementHandle, SQLUSMALLINT Col_or_Param_Num, SQLSMALLINT TargetType, SQLPOINTER TargetValuePtr, SQLLEN BufferLength, SQLLEN *StrLen_or_IndPtr)
 {
   LOGD(file, line, func, "SQLGetData(StatementHandle:%p,Col_or_Param_Num:%d,"
-      "TargetType:%s,TargetValuePtr:%p,BufferLength:%ld,StrLen_or_IndPtr:%p) ...",
+      "TargetType:%s,TargetValuePtr:%p,BufferLength:%" PRId64 ",StrLen_or_IndPtr:%p) ...",
       StatementHandle, Col_or_Param_Num, sql_c_data_type(TargetType), TargetValuePtr, BufferLength, StrLen_or_IndPtr);
   SQLRETURN sr = SQLGetData(StatementHandle, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, StrLen_or_IndPtr);
   diag(sr, SQL_HANDLE_STMT, StatementHandle);
@@ -238,14 +242,14 @@ static inline SQLRETURN call_SQLGetData(const char *file, int line, const char *
     } else if (n == SQL_NO_TOTAL) {
       s = "SQL_NO_TOTAL";
     } else {
-      snprintf(buf, sizeof(buf), "%ld", n);
+      snprintf(buf, sizeof(buf), "%" PRId64 "", n);
       s = buf;
     }
   } else {
     s = "";
   }
   LOGD(file, line, func, "SQLGetData(StatementHandle:%p,Col_or_Param_Num:%d,"
-      "TargetType:%s,TargetValuePtr:%p,BufferLength:%ld,StrLen_or_IndPtr:%p(%s)) => %s",
+      "TargetType:%s,TargetValuePtr:%p,BufferLength:%" PRId64 ",StrLen_or_IndPtr:%p(%s)) => %s",
       StatementHandle, Col_or_Param_Num, sql_c_data_type(TargetType), TargetValuePtr, BufferLength, StrLen_or_IndPtr, s, sql_return_type(sr));
   return sr;
 }
@@ -287,7 +291,7 @@ static inline SQLRETURN call_SQLDescribeParam(const char *file, int line, const 
   SQLSMALLINT c = DecimalDigitsPtr ? *DecimalDigitsPtr : 0;
   const char *d = NullablePtr ? (*NullablePtr ? "true" : "false") : NULL;
   LOGD(file, line, func, "SQLDescribeParam(StatementHandle:%p,ParameterNumber:%d,"
-      "DataTypePtr:%p(%s),ParameterSizePtr:%p(%lu),DecimalDigitsPtr:%p(%d),NullablePtr:%p(%s)) => %s",
+      "DataTypePtr:%p(%s),ParameterSizePtr:%p(%" PRIu64 "),DecimalDigitsPtr:%p(%d),NullablePtr:%p(%s)) => %s",
       StatementHandle, ParameterNumber, DataTypePtr, a, ParameterSizePtr, b, DecimalDigitsPtr, c, NullablePtr, d,
       sql_return_type(sr));
   return sr;
@@ -298,14 +302,14 @@ static inline SQLRETURN call_SQLBindParameter(const char *file, int line, const 
     SQLSMALLINT ParameterType, SQLULEN ColumnSize, SQLSMALLINT DecimalDigits, SQLPOINTER ParameterValuePtr, SQLLEN BufferLength, SQLLEN *StrLen_or_IndPtr)
 {
   LOGD(file, line, func, "SQLBindParameter(StatementHandle:%p,ParameterNumber:%d,InputOutputType:%s,ValueType:%s,"
-      "ParameterType:%s,ColumnSize:%ld,DecimalDigits:%d,ParameterValuePtr:%p,BufferLength:%ld,StrLen_or_IndPtr:%p) ...",
+      "ParameterType:%s,ColumnSize:%" PRIu64 ",DecimalDigits:%d,ParameterValuePtr:%p,BufferLength:%" PRId64 ",StrLen_or_IndPtr:%p) ...",
       StatementHandle, ParameterNumber, sql_input_output_type(InputOutputType), sql_c_data_type(ValueType),
       sql_data_type(ParameterType), ColumnSize, DecimalDigits, ParameterValuePtr, BufferLength, StrLen_or_IndPtr);
   SQLRETURN sr = SQLBindParameter(StatementHandle, ParameterNumber, InputOutputType, ValueType,
       ParameterType, ColumnSize, DecimalDigits, ParameterValuePtr, BufferLength, StrLen_or_IndPtr);
   diag(sr, SQL_HANDLE_STMT, StatementHandle);
   LOGD(file, line, func, "SQLBindParameter(StatementHandle:%p,ParameterNumber:%d,InputOutputType:%s,ValueType:%s,"
-      "ParameterType:%s,ColumnSize:%ld,DecimalDigits:%d,ParameterValuePtr:%p,BufferLength:%ld,StrLen_or_IndPtr:%p) => %s",
+      "ParameterType:%s,ColumnSize:%" PRIu64 ",DecimalDigits:%d,ParameterValuePtr:%p,BufferLength:%" PRId64 ",StrLen_or_IndPtr:%p) => %s",
       StatementHandle, ParameterNumber, sql_input_output_type(InputOutputType), sql_c_data_type(ValueType),
       sql_data_type(ParameterType), ColumnSize, DecimalDigits, ParameterValuePtr, BufferLength, StrLen_or_IndPtr,
       sql_return_type(sr));
@@ -388,14 +392,14 @@ static inline SQLRETURN call_SQLBindCol(const char *file, int line, const char *
     SQLLEN BufferLength, SQLLEN *StrLen_or_IndPtr)
 {
   LOGD(file, line, func, "SQLBindCol(StatementHandle:%p,ColumnNumber:%d,TargetType:%s,"
-      "TargetValuePtr:%p,BufferLength:%ld,StrLen_or_IndPtr:%p) ...",
+      "TargetValuePtr:%p,BufferLength:%" PRId64 ",StrLen_or_IndPtr:%p) ...",
       StatementHandle, ColumnNumber, sql_c_data_type(TargetType),
       TargetValuePtr, BufferLength, StrLen_or_IndPtr);
   SQLRETURN sr = SQLBindCol(StatementHandle, ColumnNumber, TargetType,
       TargetValuePtr, BufferLength, StrLen_or_IndPtr);
   diag(sr, SQL_HANDLE_STMT, StatementHandle);
   LOGD(file, line, func, "SQLBindCol(StatementHandle:%p,ColumnNumber:%d,TargetType:%s,"
-      "TargetValuePtr:%p,BufferLength:%ld,StrLen_or_IndPtr:%p) => %s",
+      "TargetValuePtr:%p,BufferLength:%" PRId64 ",StrLen_or_IndPtr:%p) => %s",
       StatementHandle, ColumnNumber, sql_c_data_type(TargetType),
       TargetValuePtr, BufferLength, StrLen_or_IndPtr,
       sql_return_type(sr));
@@ -431,16 +435,16 @@ static inline SQLRETURN call_SQLTables(const char *file, int line, const char *f
     SQLSMALLINT    NameLength4)
 {
   int n1 = NameLength1;
-  if (n1 == SQL_NTS) n1 = CatalogName ? strlen((const char*)CatalogName) : 0;
+  if (n1 == SQL_NTS) n1 = CatalogName ? (int)strlen((const char*)CatalogName) : 0;
 
   int n2 = NameLength2;
-  if (n2 == SQL_NTS) n2 = SchemaName ? strlen((const char*)SchemaName) : 0;
+  if (n2 == SQL_NTS) n2 = SchemaName ? (int)strlen((const char*)SchemaName) : 0;
 
   int n3 = NameLength3;
-  if (n3 == SQL_NTS) n3 = TableName ? strlen((const char*)TableName) : 0;
+  if (n3 == SQL_NTS) n3 = TableName ? (int)strlen((const char*)TableName) : 0;
 
   int n4 = NameLength4;
-  if (n4 == SQL_NTS) n4 = TableType ? strlen((const char*)TableType) : 0;
+  if (n4 == SQL_NTS) n4 = TableType ? (int)strlen((const char*)TableType) : 0;
 
   LOGD(file, line, func, "SQLTables(StatementHandle:%p,CatalogName:%p(%.*s),NameLength1:%d,SchemaName:%p(%.*s),NameLength2(%d),"
       "TableName:%p(%.*s),NameLength3:%d,TableType:%p(%.*s),NameLength4:%d) ...",
@@ -476,11 +480,11 @@ static inline SQLRETURN call_SQLGetInfo(const char *file, int line, const char *
 static inline SQLRETURN call_SQLFetchScroll(const char *file, int line, const char *func,
     SQLHSTMT StatementHandle, SQLSMALLINT FetchOrientation, SQLLEN FetchOffset)
 {
-  LOGD(file, line, func, "SQLFetchScroll(StatementHandle:%p,FetchOrientation:%s,FetchOffset:%ld) ...",
+  LOGD(file, line, func, "SQLFetchScroll(StatementHandle:%p,FetchOrientation:%s,FetchOffset:%" PRId64 ") ...",
       StatementHandle, sql_fetch_orientation(FetchOrientation), FetchOffset);
   SQLRETURN sr = SQLFetchScroll(StatementHandle, FetchOrientation, FetchOffset);
   diag(sr, SQL_HANDLE_STMT, StatementHandle);
-  LOGD(file, line, func, "SQLFetchScroll(StatementHandle:%p,FetchOrientation:%s,FetchOffset:%ld) => %s",
+  LOGD(file, line, func, "SQLFetchScroll(StatementHandle:%p,FetchOrientation:%s,FetchOffset:%" PRId64 ") => %s",
       StatementHandle, sql_fetch_orientation(FetchOrientation), FetchOffset, sql_return_type(sr));
   return sr;
 }

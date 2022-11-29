@@ -249,13 +249,13 @@ static int cmp_timestamp_against_val(SQLHANDLE hstmt, SQLSMALLINT iColumn, const
     return -1;
   }
 
-  cJSON *j = cJSON_CreateNumber(v);
+  cJSON *j = cJSON_CreateNumber((double)v);
   bool eq = cJSON_Compare(j, val, true);
   cJSON_Delete(j);
   if (eq) return 0;
 
   if (cJSON_IsNumber(val)) {
-    double dl = v;
+    double dl = (double)v;
     double dr = val->valuedouble;
     char lbuf[64]; snprintf(lbuf, sizeof(lbuf), "%lg", dl);
     char rbuf[64]; snprintf(rbuf, sizeof(rbuf), "%lg", dr);
@@ -279,7 +279,7 @@ static int cmp_varchar_against_val(SQLHANDLE hstmt, SQLSMALLINT iColumn, SQLULEN
   SQLCHAR buf[1024]; buf[0] = '\0';
   SQLLEN StrLen_or_Ind = 0;
   if (sizeof(buf) <= ColumnSize) {
-    E("buffer is too small to hold data as large as [%ld]", ColumnSize);
+    E("buffer is too small to hold data as large as [%" PRIu64 "]", ColumnSize);
     return -1;
   }
 
@@ -317,7 +317,7 @@ static int cmp_wvarchar_against_val(SQLHANDLE hstmt, SQLSMALLINT iColumn, SQLULE
   SQLCHAR buf[1024]; buf[0] = '\0';
   SQLLEN StrLen_or_Ind = 0;
   if (sizeof(buf) <= ColumnSize) {
-    E("buffer is too small to hold data as large as [%ld]", ColumnSize);
+    E("buffer is too small to hold data as large as [%" PRIu64 "]", ColumnSize);
     return -1;
   }
 
@@ -721,7 +721,7 @@ static int _json_sql_c_type(cJSON *json, SQLSMALLINT *ValueType, int *bytes, con
   if (cJSON_IsString(json)) {
     *ValueType = SQL_C_CHAR;
     const char *s = cJSON_GetStringValue(json);
-    *bytes = strlen(s);
+    *bytes = (int)strlen(s);
     if (conv) *conv = _conv_from_json_to_str;
     return 0;
   }
@@ -1020,7 +1020,7 @@ static int _run_executes(SQLHANDLE hconn, const char *sql, cJSON *executes)
     return -1;
   }
 
-  executes_ctx_t ctx = {};
+  executes_ctx_t ctx = {0};
   ctx.hconn    = hconn;
   ctx.sql      = sql;
 
@@ -1214,7 +1214,11 @@ static int try_and_run(SQLHANDLE hconn, cJSON *json_test_case, const char *path,
     return -1;
   }
 
+#ifdef _WIN32
+  char buf[MAX_PATH+1];
+#else
   char buf[PATH_MAX+1];
+#endif
   int n = snprintf(buf, sizeof(buf), "%s/%s.json", path, s);
   if (n<0 || (size_t)n>=sizeof(buf)) {
     W("buffer too small:%d", n);
@@ -1228,7 +1232,11 @@ static int load_and_run(SQLHANDLE hconn, const char *json_test_cases_file, conn_
 {
   int r = 0;
 
+#ifdef _WIN32
+  char path[MAX_PATH+1];
+#else
   char path[PATH_MAX+1];
+#endif
   cJSON *json_test_cases = load_json_file(json_test_cases_file, path, sizeof(path));
   if (!json_test_cases) return -1;
 
@@ -1264,7 +1272,7 @@ static int process_by_args_conn(int argc, char *argv[], SQLHANDLE hconn)
   (void)argc;
   (void)argv;
 
-  conn_arg_t conn_arg = {};
+  conn_arg_t conn_arg = {0};
 
   for (int i=1; i<argc; ++i) {
     if (strcmp(argv[i], "--dsn") == 0) {
@@ -1395,14 +1403,14 @@ static int test_case1(SQLHANDLE hconn)
   r = select_count(hconn, "select * from t where ts = '2022-10-12 13:14:15'", &count);
   if (r) return -1;
   if (count != 1) {
-    E("1 expected, but got ==%ld==", count);
+    E("1 expected, but got ==%zd==", count);
     return -1;
   }
 
   r = select_count(hconn, "select * from t where bi = 34", &count);
   if (r) return -1;
   if (count != 1) {
-    E("1 expected, but got ==%ld==", count);
+    E("1 expected, but got ==%zd==", count);
     return -1;
   }
 
@@ -1422,7 +1430,7 @@ static int test_case2(SQLHANDLE hconn)
   const char *fmt = "%Y-%m-%d %H:%M:%S";
   const char *ts = "2022-10-12 13:14:15";
   int64_t bi = 34;
-  struct tm tm = {};
+  struct tm tm = {0};
   tod_strptime(ts, fmt, &tm);
   time_t tt = mktime(&tm);
 
@@ -1447,14 +1455,14 @@ static int test_case2(SQLHANDLE hconn)
   r = select_count(hconn, "select * from t where ts = '2022-10-12 13:14:15'", &count);
   if (r) return -1;
   if (count != 1) {
-    E("1 expected, but got ==%ld==", count);
+    E("1 expected, but got ==%zd==", count);
     return -1;
   }
 
   r = select_count(hconn, "select * from t", &count);
   if (r) return -1;
   if (count != COUNT) {
-    E("%d expected, but got ==%ld==", COUNT, count);
+    E("%d expected, but got ==%zd==", COUNT, count);
     return -1;
   }
 
@@ -1515,7 +1523,7 @@ static int test_case3(SQLHANDLE hconn)
   const char *fmt = "%Y-%m-%d %H:%M:%S";
   const char *ts = "2022-10-12 13:14:15";
   int64_t bi = 34;
-  struct tm tm = {};
+  struct tm tm = {0};
   tod_strptime(ts, fmt, &tm);
   time_t tt = mktime(&tm);
 
@@ -1540,14 +1548,14 @@ static int test_case3(SQLHANDLE hconn)
   r = select_count_with_col_bind(hconn, "select * from t where ts = '2022-10-12 13:14:15'", &count);
   if (r) return -1;
   if (count != 1) {
-    E("1 expected, but got ==%ld==", count);
+    E("1 expected, but got ==%zd==", count);
     return -1;
   }
 
   r = select_count_with_col_bind(hconn, "select * from t", &count);
   if (r) return -1;
   if (count != COUNT) {
-    E("%d expected, but got ==%ld==", COUNT, count);
+    E("%d expected, but got ==%zd==", COUNT, count);
     return -1;
   }
 
@@ -1575,7 +1583,7 @@ static int select_count_with_col_bind_array(SQLHANDLE hconn, const char *sql, si
   SQLUINTEGER nr_rows;
   do {
     if (array_size > ARRAY_SIZE) {
-      E("array_size[%ld] too large [%d]", array_size, ARRAY_SIZE);
+      E("array_size[%zd] too large [%d]", array_size, ARRAY_SIZE);
       r = -1;
       break;
     }
@@ -1604,7 +1612,7 @@ static int select_count_with_col_bind_array(SQLHANDLE hconn, const char *sql, si
         sr = SQL_SUCCESS;
         break;
       }
-      // D("nr_rows: %d, array_size: %ld", nr_rows, array_size);
+      // D("nr_rows: %d, array_size: %zd", nr_rows, array_size);
       *count += nr_rows;
       ++*batches;
     }
@@ -1630,7 +1638,7 @@ static int test_case4(SQLHANDLE hconn, int non_taos, const size_t dataset, const
   const char *fmt = "%Y-%m-%d %H:%M:%S";
   const char *ts = "2022-10-12 13:14:15";
   int64_t bi = 34;
-  struct tm tm = {};
+  struct tm tm = {0};
   tod_strptime(ts, fmt, &tm);
   time_t tt = mktime(&tm);
 
@@ -1654,14 +1662,14 @@ static int test_case4(SQLHANDLE hconn, int non_taos, const size_t dataset, const
   r = select_count_with_col_bind_array(hconn, "select * from t", array_size, &count, &batches);
   if (r) return -1;
   if (count != dataset) {
-    E("%ld in total expected, but got ==%ld==", dataset, count);
+    E("%zd in total expected, but got ==%zd==", dataset, count);
     return -1;
   }
   if (batches != (dataset + array_size - 1) / array_size) {
     // TODO: SQLFetch for taos-odbc is still not fully implemented yet
     // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlfetch-function?view=sql-server-ver16#positioning-the-cursor
     if (non_taos) {
-      E("%ld in total, batches[%ld] expected, but got ==%ld==", count, (dataset + array_size - 1) / array_size, batches);
+      E("%zd in total, batches[%zd] expected, but got ==%zd==", count, (dataset + array_size - 1) / array_size, batches);
       return -1;
     }
   }
@@ -1790,10 +1798,10 @@ static int test_case5(SQLHANDLE hconn)
     TableName = "";
     TableType = "%";
     sr = CALL_SQLTables(hstmt,
-      (SQLCHAR*)CatalogName, strlen(CatalogName),
-      (SQLCHAR*)SchemaName,  strlen(SchemaName),
-      (SQLCHAR*)TableName,   strlen(TableName),
-      (SQLCHAR*)TableType,   strlen(TableType));
+      (SQLCHAR*)CatalogName, (SQLSMALLINT)strlen(CatalogName),
+      (SQLCHAR*)SchemaName,  (SQLSMALLINT)strlen(SchemaName),
+      (SQLCHAR*)TableName,   (SQLSMALLINT)strlen(TableName),
+      (SQLCHAR*)TableType,   (SQLSMALLINT)strlen(TableType));
     if (FAILED(sr)) break;
 
     r = _dump_rs_to_sql_c_char(hstmt, ColumnCount);
@@ -1804,10 +1812,10 @@ static int test_case5(SQLHANDLE hconn)
     TableName = "";
     TableType = "'TABLE'";
     sr = CALL_SQLTables(hstmt,
-      (SQLCHAR*)CatalogName, strlen(CatalogName),
-      (SQLCHAR*)SchemaName,  strlen(SchemaName),
-      (SQLCHAR*)TableName,   strlen(TableName),
-      (SQLCHAR*)TableType,   strlen(TableType));
+      (SQLCHAR*)CatalogName, (SQLSMALLINT)strlen(CatalogName),
+      (SQLCHAR*)SchemaName,  (SQLSMALLINT)strlen(SchemaName),
+      (SQLCHAR*)TableName,   (SQLSMALLINT)strlen(TableName),
+      (SQLCHAR*)TableType,   (SQLSMALLINT)strlen(TableType));
     if (FAILED(sr)) break;
 
     r = _dump_rs_to_sql_c_char(hstmt, ColumnCount);

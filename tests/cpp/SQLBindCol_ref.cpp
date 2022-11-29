@@ -28,7 +28,6 @@
 #include "odbc_helpers.h"
 
 #include <errno.h>
-#include <iconv.h>
 #include <stdlib.h>
 #include <string.h>
 #include <wchar.h>
@@ -50,7 +49,7 @@ static int _encode(
   int e = errno;
   iconv_close(cd);
   if (*inbytesleft > 0) {
-    D("[iconv] Character set conversion for `%s` to `%s` results in string truncation, #%ld out of #%ld bytes consumed, #%ld out of #%ld bytes converted: [%d] %s",
+    D("[iconv] Character set conversion for `%s` to `%s` results in string truncation, #%zd out of #%zd bytes consumed, #%zd out of #%zd bytes converted: [%d] %s",
         fromcode, tocode, inbytes - *inbytesleft, inbytes, outbytes - * outbytesleft, outbytes, e, strerror(e));
     return -1;
   }
@@ -61,7 +60,7 @@ static int _encode(
   }
   if (sz > 0) {
     // FIXME: what actually means when sz > 0???
-    D("[iconv] Character set conversion for `%s` to `%s` succeeded with #[%ld] of nonreversible characters converted",
+    D("[iconv] Character set conversion for `%s` to `%s` succeeded with #[%zd] of nonreversible characters converted",
         fromcode, tocode, sz);
   }
 
@@ -175,7 +174,7 @@ static int test_case1(void)
             const size_t bytes = 48;
             rc = CALL_SQLFreeStmt(hstmt, SQL_UNBIND);
             A(SUCCEEDED(rc), "");
-            rc = CALL_SQLBindCol(hstmt, pos, SQL_C_WCHAR, Name, bytes/*sizeof(Name)*/, &cbName);
+            rc = CALL_SQLBindCol(hstmt, (SQLUSMALLINT)pos, SQL_C_WCHAR, Name, (SQLUSMALLINT)bytes/*sizeof(Name)*/, &cbName);
             A(SUCCEEDED(rc), "");
 
             for (int i=0 ; ; i++) {
@@ -202,7 +201,7 @@ static int test_case1(void)
               } else {
                 strcpy(cmp, "null");
               }
-              A(strcmp(cmp, exp[i][pos-1]) == 0, "\nrow#%d, col#%ld\nactual  :%s\nexpected:%s", i+1, pos, cmp, exp[i][pos-1]);
+              A(strcmp(cmp, exp[i][pos-1]) == 0, "\nrow#%d, col#%zd\nactual  :%s\nexpected:%s", i+1, pos, cmp, exp[i][pos-1]);
             }
           }
         } catch (int e) {
@@ -305,7 +304,7 @@ static int test_case2(void)
             const size_t bytes = 24;
             rc = CALL_SQLFreeStmt(hstmt, SQL_UNBIND);
             A(SUCCEEDED(rc), "");
-            rc = CALL_SQLBindCol(hstmt, pos, SQL_C_CHAR, Name, bytes/*sizeof(Name)*/, &cbName);
+            rc = CALL_SQLBindCol(hstmt, (SQLUSMALLINT)pos, SQL_C_CHAR, Name, (SQLUSMALLINT)bytes/*sizeof(Name)*/, &cbName);
             A(SUCCEEDED(rc), "");
 
             for (int i=0 ; ; i++) {
@@ -323,7 +322,7 @@ static int test_case2(void)
               } else {
                 strcpy(buf, "null");
               }
-              A(strcmp(buf, exp[i][pos-1]) == 0, "\nrow#%d, col#%ld\nactual  :%s\nexpected:%s", i+1, pos, buf, exp[i][pos-1]);
+              A(strcmp(buf, exp[i][pos-1]) == 0, "\nrow#%d, col#%zd\nactual  :%s\nexpected:%s", i+1, pos, buf, exp[i][pos-1]);
             }
           }
         } catch (int e) {
@@ -426,7 +425,7 @@ static int test_case3(void)
             const size_t bytes = 24;
             rc = CALL_SQLFreeStmt(hstmt, SQL_UNBIND);
             A(SUCCEEDED(rc), "");
-            rc = CALL_SQLBindCol(hstmt, pos, SQL_C_CHAR, Name, bytes/*sizeof(Name)*/, &cbName);
+            rc = CALL_SQLBindCol(hstmt, (SQLUSMALLINT)pos, SQL_C_CHAR, Name, (SQLUSMALLINT)bytes/*sizeof(Name)*/, &cbName);
             A(SUCCEEDED(rc), "");
 
             for (int i=0 ; ; i++) {
@@ -446,7 +445,7 @@ static int test_case3(void)
               } else {
                 strcpy(buf, "null");
               }
-              A(strcmp(buf, exp[i][pos-1]) == 0, "\nrow#%d, col#%ld\nactual  :%s\nexpected:%s", i+1, pos, buf, exp[i][pos-1]);
+              A(strcmp(buf, exp[i][pos-1]) == 0, "\nrow#%d, col#%zd\nactual  :%s\nexpected:%s", i+1, pos, buf, exp[i][pos-1]);
             }
           }
         } catch (int e) {

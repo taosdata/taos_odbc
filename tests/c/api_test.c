@@ -27,9 +27,10 @@
 #include "enums.h"
 
 #include <assert.h>
+#ifndef _WIN32
 #include <dlfcn.h>
+#endif
 #include <errno.h>
-#include <libgen.h>
 #include <sql.h>
 #include <sqlext.h>
 #include <stdarg.h>
@@ -243,7 +244,7 @@ static int test_sql_stmt_execute_direct(SQLHANDLE stmth, const char *statement)
   SQLSMALLINT ColumnCount;
   int rr;
 
-  r = CALL_SQLExecDirect(stmth, (SQLCHAR*)statement, strlen(statement));
+  r = CALL_SQLExecDirect(stmth, (SQLCHAR*)statement, (SQLINTEGER)strlen(statement));
   if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
 
   r = CALL_SQLNumResultCols(stmth, &ColumnCount);
@@ -261,7 +262,7 @@ static int test_sql_stmt_execute_direct(SQLHANDLE stmth, const char *statement)
 
   if (rr) return -1;
 
-  r = CALL_SQLExecDirect(stmth, (SQLCHAR*)statement, strlen(statement));
+  r = CALL_SQLExecDirect(stmth, (SQLCHAR*)statement, (SQLINTEGER)strlen(statement));
   if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
 
   r = CALL_SQLNumResultCols(stmth, &ColumnCount);
@@ -399,7 +400,7 @@ static int test_sql_driver_conn(SQLHANDLE connh, const char *conn_str)
   SQLRETURN r;
   SQLHWND WindowHandle = NULL;
   SQLCHAR *InConnectionString = (SQLCHAR*)conn_str;
-  SQLSMALLINT StringLength1 = strlen(conn_str);
+  SQLSMALLINT StringLength1 = (SQLSMALLINT)strlen(conn_str);
   SQLCHAR OutConnectionString[1024];
   SQLSMALLINT BufferLength = sizeof(OutConnectionString);
   SQLSMALLINT StringLength2 = 0;

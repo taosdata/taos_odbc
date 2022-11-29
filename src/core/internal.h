@@ -25,6 +25,7 @@
 #ifndef _internal_h_
 #define _internal_h_
 
+#include "os_port.h"
 #include "enums.h"
 
 #include "conn.h"
@@ -37,8 +38,6 @@
 // make sure `log.h` is included ahead of `taos_helpers.h`, for the `LOG_IMPL` issue
 #include "log.h"
 #include "taos_helpers.h"
-
-#include <stdatomic.h>
 
 #include <taos.h>
 
@@ -85,76 +84,79 @@ struct errs_s {
 #define env_append_err_format(_env, _sql_state, _e, _fmt, ...) errs_append_format(&_env->errs, "", _sql_state, _e, _fmt, ##__VA_ARGS__)
 
 #define env_oom(_env)                                 \
-  ({                                                  \
+  do {                                                \
     env_t *__env = _env;                              \
     errs_oom(&__env->errs, "");                       \
-  })
+  } while(0)
 
 #define conn_append_err(_conn, _sql_state, _e, _estr)                                \
-  ({                                                                                 \
+  do {                                                                               \
     conn_t *__conn = _conn;                                                          \
     errs_append(&__conn->errs, conn_data_source(__conn), _sql_state, _e, _estr);     \
-  })
+  } while(0)
 
 #define conn_append_err_format(_conn, _sql_state, _e, _fmt, ...)                                      \
-  ({                                                                                                  \
+  do {                                                                                                \
     conn_t *__conn = _conn;                                                                           \
     errs_append_format(&__conn->errs, conn_data_source(__conn), _sql_state, _e, _fmt, ##__VA_ARGS__); \
-  })
+  } while (0)
 
 #define conn_oom(_conn)                                  \
-  ({                                                     \
+  do {                                                   \
     conn_t *__conn = _conn;                              \
     errs_oom(&__conn->errs, conn_data_source(__conn));   \
-  })
+  } while (0)
 
 #define conn_niy(_conn)                                        \
-  ({                                                           \
+  do {                                                         \
     conn_t *__conn = _conn;                                    \
     errs_niy(&__conn->errs, conn_data_source(__conn));         \
-  })
+  } while (0)
 
 #define conn_nsy(_conn)                                        \
-  ({                                                           \
+  do {                                                         \
     conn_t *__conn = _conn;                                    \
     errs_nsy(&__conn->errs, conn_data_source(__conn));         \
-  })
+  } while (0)
 
 #define stmt_append_err(_stmt, _sql_state, _e, _estr)                                \
-  ({                                                                                 \
+  do {                                                                               \
     stmt_t *__stmt = _stmt;                                                          \
     conn_t *__conn = __stmt->conn;                                                   \
     errs_append(&__stmt->errs, conn_data_source(__conn), _sql_state, _e, _estr);     \
-  })
+  } while (0)
 
 #define stmt_append_err_format(_stmt, _sql_state, _e, _fmt, ...)                                      \
-  ({                                                                                                  \
+  do {                                                                                                \
     stmt_t *__stmt = _stmt;                                                                           \
     conn_t *__conn = __stmt->conn;                                                                    \
     errs_append_format(&__stmt->errs, conn_data_source(__conn), _sql_state, _e, _fmt, ##__VA_ARGS__); \
-  })
+  } while (0)
 
 #define stmt_oom(_stmt)                                        \
-  ({                                                           \
+  do {                                                         \
     stmt_t *__stmt = _stmt;                                    \
     errs_oom(&__stmt->errs, conn_data_source(__stmt->conn));   \
-  })
+  } while (0)
 
 #define stmt_niy(_stmt)                                        \
-  ({                                                           \
+  do {                                                         \
     stmt_t *__stmt = _stmt;                                    \
     errs_niy(&__stmt->errs, conn_data_source(__stmt->conn));   \
-  })
+  } while (0)
 
 #define stmt_nsy(_stmt)                                        \
-  ({                                                           \
+  do {                                                         \
     stmt_t *__stmt = _stmt;                                    \
     errs_nsy(&__stmt->errs, conn_data_source(__stmt->conn));   \
-  })
+  } while (0)
 
 
 
-#define sql_succeeded(_sr) ({ SQLRETURN __sr = _sr; (__sr==SQL_SUCCESS || __sr==SQL_SUCCESS_WITH_INFO); })
+static inline int sql_succeeded(SQLRETURN sr)
+{
+  return sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO;
+}
 
 
 struct env_s {

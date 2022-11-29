@@ -390,7 +390,7 @@ static int test_bind_array_of_params(SQLHANDLE hdbc)
       // Set ts, name
       for (size_t i = 0; i < nr_paramset_size; i++) {
         TsArray[i] = 1662861448752 + i;
-        snprintf((char*)(NameArray[i]), sizeof(NameArray[i]), "name%ld", i);
+        snprintf((char*)(NameArray[i]), sizeof(NameArray[i]), "name%zd", i);
         NameLenOrIndArray[i] = SQL_NTS;
         TsIndArray[i] = 0;
       }
@@ -404,7 +404,7 @@ static int test_bind_array_of_params(SQLHANDLE hdbc)
       // Set ts, name
       for (size_t i = 0; i < nr_paramset_size; i++) {
         TsArray[i] = 1662861448752 + i;
-        snprintf((char*)(NameArray[i]), sizeof(NameArray[i]), "name%ld", i);
+        snprintf((char*)(NameArray[i]), sizeof(NameArray[i]), "name%zd", i);
         NameLenOrIndArray[i] = SQL_NTS;
         TsIndArray[i] = 0;
       }
@@ -424,21 +424,21 @@ static int test_bind_array_of_params(SQLHANDLE hdbc)
       switch (ParamStatusArray[i]) {
         case SQL_PARAM_SUCCESS:
         case SQL_PARAM_SUCCESS_WITH_INFO:
-          printf("%13ld  Success\n", i);
+          printf("%13zd  Success\n", i);
           break;
 
         case SQL_PARAM_ERROR:
-          printf("%13ld  Error\n", i);
+          printf("%13zd  Error\n", i);
           r = -1;
           break;
 
         case SQL_PARAM_UNUSED:
-          printf("%13ld  Not processed\n", i);
+          printf("%13zd  Not processed\n", i);
           r = -1;
           break;
 
         case SQL_PARAM_DIAG_UNAVAILABLE:
-          printf("%13ld  Unknown\n", i);
+          printf("%13zd  Unknown\n", i);
           r = -1;
           break;
       }
@@ -460,7 +460,7 @@ static int test_bind_array_of_params(SQLHANDLE hdbc)
       // NOTE: just Set ts, name
       for (size_t i = 0; i < nr_paramset_size; i++) {
         TsArray[i] = 1662861458752 + i;
-        snprintf((char*)(NameArray[i]), sizeof(NameArray[i]), "memo%ld", i);
+        snprintf((char*)(NameArray[i]), sizeof(NameArray[i]), "memo%zd", i);
         NameLenOrIndArray[i] = SQL_NTS;
         TsIndArray[i] = 0;
       }
@@ -474,7 +474,7 @@ static int test_bind_array_of_params(SQLHANDLE hdbc)
       // Set ts, name
       for (size_t i = 0; i < nr_paramset_size; i++) {
         TsArray[i] = 1662861448752 + i;
-        snprintf((char*)(NameArray[i]), sizeof(NameArray[i]), "name%ld", i);
+        snprintf((char*)(NameArray[i]), sizeof(NameArray[i]), "name%zd", i);
         NameLenOrIndArray[i] = SQL_NTS;
         TsIndArray[i] = 0;
       }
@@ -492,21 +492,21 @@ static int test_bind_array_of_params(SQLHANDLE hdbc)
       switch (ParamStatusArray[i]) {
         case SQL_PARAM_SUCCESS:
         case SQL_PARAM_SUCCESS_WITH_INFO:
-          printf("%13ld  Success\n", i);
+          printf("%13zd  Success\n", i);
           break;
 
         case SQL_PARAM_ERROR:
-          printf("%13ld  Error\n", i);
+          printf("%13zd  Error\n", i);
           r = -1;
           break;
 
         case SQL_PARAM_UNUSED:
-          printf("%13ld  Not processed\n", i);
+          printf("%13zd  Not processed\n", i);
           r = -1;
           break;
 
         case SQL_PARAM_DIAG_UNAVAILABLE:
-          printf("%13ld  Unknown\n", i);
+          printf("%13zd  Unknown\n", i);
           r = -1;
           break;
       }
@@ -530,7 +530,7 @@ int main(int argc, char *argv[])
 {
   (void)argc;
   (void)argv;
-  srand(time(0));
+  srand((unsigned int)time(0));
 
   CHECK(!test_connect(NULL, "xTAOS_ODBC_DSN", NULL, NULL));
   CHECK(test_connect(NULL, "TAOS_ODBC_DSN", NULL, NULL));

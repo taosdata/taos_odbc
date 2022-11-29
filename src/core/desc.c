@@ -87,11 +87,11 @@ desc_t* desc_unref(desc_t *desc)
 SQLRETURN desc_free(desc_t *desc)
 {
   stmt_t *p, *n;
-  tod_list_for_each_entry_safe(p, n, &desc->associated_stmts_as_ARD, associated_ARD_node) {
+  tod_list_for_each_entry_safe(p, n, &desc->associated_stmts_as_ARD, stmt_t, associated_ARD_node) {
     stmt_dissociate_ARD(p);
   }
 
-  tod_list_for_each_entry_safe(p, n, &desc->associated_stmts_as_APD, associated_APD_node) {
+  tod_list_for_each_entry_safe(p, n, &desc->associated_stmts_as_APD, stmt_t, associated_APD_node) {
     stmt_dissociate_APD(p);
   }
 

@@ -31,12 +31,13 @@
 #include <sqlext.h>
 #include <string.h>
 
-// #ifndef SUCCEEDED
-//   #define SUCCEEDED(_sr) ({ SQLRETURN __sr = _sr; (__sr == SQL_SUCCESS) || (__sr == SQL_SUCCESS_WITH_INFO); })
-// #endif
-// #ifndef FAILED
-//   #define FAILED(_sr) !SUCCEEDED(_sr)
-// #endif
+#ifndef SUCCEEDED
+  // #define SUCCEEDED(_sr) ({ SQLRETURN __sr = _sr; (__sr == SQL_SUCCESS) || (__sr == SQL_SUCCESS_WITH_INFO); })
+  #define SUCCEEDED(_sr) ((_sr == SQL_SUCCESS) || (_sr == SQL_SUCCESS_WITH_INFO))
+#endif
+#ifndef FAILED
+  #define FAILED(_sr) !SUCCEEDED(_sr)
+#endif
 
 static inline void diag(SQLRETURN sr, SQLSMALLINT HandleType, SQLHANDLE Handle)
 {

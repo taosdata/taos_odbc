@@ -27,9 +27,7 @@ set(INTERNAL_INC_PATH ${CMAKE_CURRENT_SOURCE_DIR}/inc)
 add_subdirectory(core)
 add_subdirectory(parser)
 add_subdirectory(utils)
-if(TODBC_WINDOWS)
-    add_subdirectory(os_port)
-endif()
+add_subdirectory(os_port)
 
 list(APPEND odbc_SOURCES odbc.c)
 

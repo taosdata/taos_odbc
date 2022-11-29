@@ -47,6 +47,7 @@ char *dirname(char *path);
 char *strndup(const char *s, size_t n);
 #endif
 
+#ifndef __cplusplus
 #ifdef _WIN32
 #define atomic_int               LONG
 static inline LONG atomic_fetch_add(atomic_int *obj, LONG arg)
@@ -68,14 +69,19 @@ static inline LONG atomic_load(atomic_int *obj)
 #else
 #include <stdatomic.h>
 #endif
+#endif
 
 #ifdef _WIN32
 char* tod_getenv(const char *name);
+#else
+#define tod_getenv     getenv
 #endif
 
 #ifdef _WIN32
 typedef int pthread_once_t;
 int pthread_once(pthread_once_t *once_control, void (*init_routine)(void));
+#else
+#include <pthread.h>
 #endif
 
 #ifdef _WIN32

@@ -34,3 +34,4 @@ add_library(os_port_obj OBJECT ${os_port_SOURCES})
 target_include_directories(os_port_obj PRIVATE
     ${INTERNAL_INC_PATH})
 set_property(TARGET os_port_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
+

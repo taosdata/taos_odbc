@@ -58,7 +58,6 @@ struct fixed_buf_s {
       _fixed_buf->nr += _nn - 1;                          \
     }                                                     \
   }                                                       \
-  _n;                                                     \
 } while (0)
 
 typedef struct static_pool_s                   static_pool_t;

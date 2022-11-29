@@ -3810,7 +3810,7 @@ static SQLRETURN _stmt_pre_exec_prepare_params(stmt_t *stmt)
   }
 
   if (APD_header->DESC_ARRAY_SIZE <= 0) {
-    stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error, DESC_ARRAY_SIZE[%" PRId64 "] invalid", APD_header->DESC_ARRAY_SIZE);
+    stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error, DESC_ARRAY_SIZE[%zd] invalid", (size_t)APD_header->DESC_ARRAY_SIZE);
     return SQL_ERROR;
   }
 

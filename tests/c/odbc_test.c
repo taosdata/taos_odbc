@@ -279,7 +279,7 @@ static int cmp_varchar_against_val(SQLHANDLE hstmt, SQLSMALLINT iColumn, SQLULEN
   SQLCHAR buf[1024]; buf[0] = '\0';
   SQLLEN StrLen_or_Ind = 0;
   if (sizeof(buf) <= ColumnSize) {
-    E("buffer is too small to hold data as large as [%" PRIu64 "]", ColumnSize);
+    E("buffer is too small to hold data as large as [%zd]", (size_t)ColumnSize);
     return -1;
   }
 
@@ -317,7 +317,7 @@ static int cmp_wvarchar_against_val(SQLHANDLE hstmt, SQLSMALLINT iColumn, SQLULE
   SQLCHAR buf[1024]; buf[0] = '\0';
   SQLLEN StrLen_or_Ind = 0;
   if (sizeof(buf) <= ColumnSize) {
-    E("buffer is too small to hold data as large as [%" PRIu64 "]", ColumnSize);
+    E("buffer is too small to hold data as large as [%zd]", (size_t)ColumnSize);
     return -1;
   }
 

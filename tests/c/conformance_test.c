@@ -611,7 +611,7 @@ static int select_count_with_col_bind_array(SQLHANDLE hconn, const char *sql, si
   int64_t bi[ARRAY_SIZE];
   SQLLEN bi_ind[ARRAY_SIZE];
   SQLUSMALLINT status[ARRAY_SIZE];
-  SQLUINTEGER nr_rows;
+  SQLULEN nr_rows;
   do {
     if (array_size > ARRAY_SIZE) {
       E("array_size[%zd] too large [%d]", array_size, ARRAY_SIZE);

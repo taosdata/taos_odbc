@@ -96,28 +96,54 @@ int iconv_close (iconv_t cd)
   return -1;
 }
 
+static char dl_err[1024] = {0};
+
 void* dlopen(const char* path, int mode)
 {
-  (void)path;
-  (void)mode;
-  return NULL;
+  dl_err[0] = '\0';
+  if (mode != RTLD_NOW) {
+    errno = EINVAL;
+    snprintf(dl_err, sizeof(dl_err), "only `RTLD_NOW` is supported");
+    return NULL;
+  }
+  HMODULE hDll = LoadLibrary(path);
+  if (!hDll) {
+    errno = GetLastError();
+    snprintf(dl_err, sizeof(dl_err), "LoadLibrary(`%s`) failed", path);
+    return NULL;
+  }
+
+  return hDll;
 }
 
 int dlclose(void* handle)
 {
-  (void)handle;
-  return -1;
+  BOOL ok;
+  dl_err[0] = '\0';
+  ok = FreeLibrary(handle);
+  if (!ok) {
+    errno = GetLastError();
+    snprintf(dl_err, sizeof(dl_err), "FreeLibrary failed");
+    return -1;
+  }
+  return 0;
 }
 
 void * dlsym(void *handle, const char *symbol)
 {
-  (void)handle;
-  (void)symbol;
-  return NULL;
+  dl_err[0] = '\0';
+  FARPROC proc = GetProcAddress(handle, symbol);
+  if (!proc) {
+    errno = GetLastError();
+    snprintf(dl_err, sizeof(dl_err), "GetProcAddress(`%s`) failed", symbol);
+    return NULL;
+  }
+
+  return proc;
 }
 
 const char * dlerror(void)
 {
-  return "UNKNOWN";
+  if (!dl_err[0]) return NULL;
+  return dl_err;
 }
-

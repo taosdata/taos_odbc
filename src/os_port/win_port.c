@@ -49,12 +49,6 @@ char* strndup(const char *s, size_t n)
   return p;
 }
 
-char* dirname(char *path)
-{
-  (void)path;
-  return NULL;
-}
-
 char* tod_getenv(const char *name)
 {
   (void)name;

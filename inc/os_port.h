@@ -42,13 +42,7 @@ struct tm* localtime_r(const time_t *clock, struct tm *result);
 #include <limits.h>
 #endif                   /* } */
 
-// basename
-#ifdef _WIN32            /* { */
-char* dirname(char *path);
-#else                    /* }{ */
-#include <libgen.h>
-#endif                   /* } */
-
+char* tod_dirname(const char *path, char *buf, size_t sz) FA_HIDDEN;
 char* tod_basename(const char *path, char *buf, size_t sz) FA_HIDDEN;
 
 #ifdef _WIN32            /* { */

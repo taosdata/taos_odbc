@@ -76,3 +76,31 @@ char* tod_basename(const char *path, char *buf, size_t sz)
 }
 #endif
 
+#ifdef _WIN32
+char* tod_dirname(const char *path, char *buf, size_t sz)
+{
+  (void)path;
+  return NULL;
+}
+#elif defined(__APPLIE__)
+char* tod_dirname(const char *path, char *buf, size_t sz)
+{
+  if (strlen(path) >= sz) {
+    errno = E2BIG;
+    return NULL;
+  }
+
+  return dirname_r(path, buf)
+}
+#else
+char* tod_dirname(const char *path, char *buf, size_t sz)
+{
+  int n = snprintf(buf, sz, "%s", path);
+  if (n >= sz) {
+    errno = E2BIG;
+    return NULL;
+  }
+
+  return dirname(buf);
+}
+#endif

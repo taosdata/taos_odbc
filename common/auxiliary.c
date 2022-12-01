@@ -54,35 +54,25 @@ char* tod_strptime(const char *s, const char *format, struct tm *tm)
 #ifdef _WIN32
 char* tod_basename(const char *path, char *buf, size_t sz)
 {
-    char *file = NULL;
-    DWORD dw = GetFullPathName(path, (DWORD)sz, buf, &file);
-    if (dw == 0) {
-        errno = GetLastError();
-        return NULL;
-    }
-    if (dw >= sz) {
-        errno = E2BIG;
-        return NULL;
-    }
+  char *file = NULL;
+  DWORD dw = GetFullPathName(path, (DWORD)sz, buf, &file);
+  if (dw == 0) {
+    errno = GetLastError();
+    return NULL;
+  }
+  if (dw >= sz) {
+    errno = E2BIG;
+    return NULL;
+  }
 
-    return file;
+  return file;
 }
 #else
 char* tod_basename(const char *path, char *buf, size_t sz)
 {
-    char *p = basename(path);
-    if ()
-    char *file = NULL;
-    DWORD dw = GetFullPathName(path, (DWORD)sz, buf, &file);
-    if (dw == 0) {
-        errno = GetLastError();
-        return NULL;
-    }
-    if (dw >= sz) {
-        errno = E2BIG;
-        return NULL;
-    }
-
-    return file;
+  (void)buf;
+  (void)sz;
+  return basename((char*)path);
 }
 #endif
+

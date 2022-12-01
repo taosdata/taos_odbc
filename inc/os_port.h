@@ -30,31 +30,34 @@
 EXTERN_C_BEGIN
 
 #include <time.h>
-#ifdef _WIN32
+#ifdef _WIN32            /* { */
 struct tm* localtime_r(const time_t *clock, struct tm *result);
-#endif
+#endif                   /* } */
 
-#ifdef _WIN32
-#ifndef PATH_MAX
+#ifdef _WIN32            /* { */
+#ifndef PATH_MAX         /* { */
 #define PATH_MAX  MAX_PATH
-#endif
-#endif
+#endif                   /* } */
+#else                    /* }{ */
+#include <limits.h>
+#endif                   /* } */
 
 // basename
-#ifdef _WIN32
+#ifdef _WIN32            /* { */
 char* dirname(char *path);
-#else
+#else                    /* }{ */
 #include <libgen.h>
-#endif
+#endif                   /* } */
+
 char* tod_basename(const char *path, char *buf, size_t sz) FA_HIDDEN;
 
-#ifdef _WIN32
+#ifdef _WIN32            /* { */
 #define strdup _strdup
 char* strndup(const char *s, size_t n);
-#endif
+#endif                   /* } */
 
-#ifndef __cplusplus
-#ifdef _WIN32
+#ifndef __cplusplus      /* { */
+#ifdef _WIN32            /* { */
 #define atomic_int               LONG
 static inline LONG atomic_fetch_add(atomic_int *obj, LONG arg)
 {
@@ -72,49 +75,50 @@ static inline LONG atomic_load(atomic_int *obj)
 {
     return atomic_fetch_add(obj, 0);
 }
-#else
+#else                    /* }{ */
 #include <stdatomic.h>
-#endif
-#endif
+#endif                   /* } */
+#endif                   /* } */
 
-#ifdef _WIN32
+#ifdef _WIN32            /* { */
 char* tod_getenv(const char *name);
-#else
+#else                    /* }{ */
 #define tod_getenv     getenv
-#endif
+#endif                   /* } */
 
-#ifdef _WIN32
+#ifdef _WIN32            /* { */
 typedef int pthread_once_t;
 int pthread_once(pthread_once_t *once_control, void (*init_routine)(void));
-#else
+#else                    /* }{ */
 #include <pthread.h>
-#endif
+#endif                   /* } */
 
-#ifdef _WIN32
+#ifdef _WIN32            /* { */
 typedef void* iconv_t;
 iconv_t iconv_open (const char* tocode, const char* fromcode);
 size_t iconv (iconv_t cd, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft);
 int iconv_close (iconv_t cd);
-#else
+#else                    /* }{ */
 #include <iconv.h>
-#endif
+#endif                   /* } */
 
-#ifdef _WIN32
+#ifdef _WIN32            /* { */
 void* dlopen(const char* path, int mode);
 int dlclose(void* handle);
 void * dlsym(void *handle, const char *symbol);
 const char * dlerror(void);
 #define RTLD_NOW                            0
-#else
+#else                    /* }{ */
 #include <dlfcn.h>
-#endif
+#endif                   /* } */
 
-#ifdef _WIN32
-#ifndef SQL_NULL_DESC
+#ifdef _WIN32            /* { */
+#ifndef SQL_NULL_DESC    /* { */
 #define SQL_NULL_DESC NULL
-#endif
-#endif
+#endif                   /* } */
+#endif                   /* } */
 
 EXTERN_C_END
 
 #endif // _os_port_h_
+

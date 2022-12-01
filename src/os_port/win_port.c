@@ -51,14 +51,26 @@ char* strndup(const char *s, size_t n)
 
 char* tod_getenv(const char *name)
 {
-  (void)name;
-  return NULL;
+  return getenv(name);
+}
+
+static BOOL CALLBACK InitHandleFunction(PINIT_ONCE InitOnce, PVOID Parameter, PVOID *lpContext)
+{
+  (void)InitOnce;
+  void (*init_routine)(void) = (void (*)(void))Parameter;
+  init_routine();
+  *lpContext = NULL;
+  return TRUE;
 }
 
 int pthread_once(pthread_once_t *once_control, void (*init_routine)(void))
 {
-  (void)once_control;
-  (void)init_routine;
+  PVOID lpContext = NULL;
+
+  if (InitOnceExecuteOnce(once_control, InitHandleFunction, (PVOID)init_routine, &lpContext)) {
+    return 0;
+  }
+
   return -1;
 }
 

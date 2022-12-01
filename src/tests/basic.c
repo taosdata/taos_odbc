@@ -155,6 +155,35 @@ static int test_case3(void)
   return 0;
 }
 
+static int test_case4_tick = 0;
+static void test_case4_init(void)
+{
+  ++test_case4_tick;
+}
+
+static int test_case4_step(void)
+{
+  static pthread_once_t once = PTHREAD_ONCE_INIT;
+  int r = 0;
+  r = pthread_once(&once, test_case4_init);
+  if (r) return -1;
+  if (test_case4_tick != 1) return -1;
+
+  return 0;
+}
+
+static int test_case4(void)
+{
+  int r = 0;
+  r = test_case4_step();
+  if (r) return -1;
+
+  r = test_case4_step();
+  if (r) return -1;
+
+  return 0;
+}
+
 static int test(void)
 {
   int r = 0;
@@ -166,6 +195,9 @@ static int test(void)
   if (r) return -1;
 
   r = test_case3();
+  if (r) return -1;
+
+  r = test_case4();
   if (r) return -1;
 
   return 0;

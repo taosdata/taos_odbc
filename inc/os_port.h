@@ -81,7 +81,8 @@ char* tod_getenv(const char *name);
 #endif                   /* } */
 
 #ifdef _WIN32            /* { */
-typedef int pthread_once_t;
+typedef INIT_ONCE pthread_once_t;
+#define PTHREAD_ONCE_INIT INIT_ONCE_STATIC_INIT
 int pthread_once(pthread_once_t *once_control, void (*init_routine)(void));
 #else                    /* }{ */
 #include <pthread.h>

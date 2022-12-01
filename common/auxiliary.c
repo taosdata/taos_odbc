@@ -99,12 +99,50 @@ char* tod_basename(const char *path, char *buf, size_t sz)
 
   return file;
 }
+#elif defined(__APPLE__)
+char* tod_basename(const char *path, char *buf, size_t sz)
+{
+  char tmp[PATH_MAX+1];
+  int n;
+  n = snprintf(tmp, sizeof(tmp), "%s", path);
+  if (n < 0) {
+    return NULL;
+  }
+  if ((size_t)n >= sizeof(tmp)) {
+    errno = E2BIG;
+    return NULL;
+  }
+  if ((size_t)n >= sz) {
+    errno = E2BIG;
+    return NULL;
+  }
+  return basename_r(tmp, buf);
+}
 #else
 char* tod_basename(const char *path, char *buf, size_t sz)
 {
-  (void)buf;
-  (void)sz;
-  return basename((char*)path);
+  char tmp[PATH_MAX+1];
+  int n;
+  n = snprintf(tmp, sizeof(tmp), "%s", path);
+  if (n < 0) {
+    return NULL;
+  }
+  if ((size_t)n >= sizeof(tmp)) {
+    errno = E2BIG;
+    return NULL;
+  }
+  char *p = basename(tmp);
+  if (!p) return NULL;
+
+  n = snprintf(buf, sz, "%s", p);
+  if (n < 0) {
+    return NULL;
+  }
+  if ((size_t)n >= sz) {
+    errno = E2BIG;
+    return NULL;
+  }
+  return buf;
 }
 #endif
 

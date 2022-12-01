@@ -1430,10 +1430,14 @@ static int run_json_file(cJSON *json)
 static int try_and_run_file(const char *file)
 {
   int r = 0;
+  char buf[PATH_MAX+1];
+  char *p = tod_basename(file, buf, sizeof(buf));
+  if (!p) return -1;
+
   cJSON *json = load_json_file(file, NULL, 0);
   if (!json) return -1;
 
-  const char *base = basename((char*)file);
+  const char *base = p;
 
   LOG_CALL("case %s", base);
   r = run_json_file(json);
@@ -1453,11 +1457,7 @@ static int try_and_run(cJSON *json_test_case, const char *path)
     return -1;
   }
 
-#ifdef _WIN32
-  char buf[MAX_PATH+1];
-#else
   char buf[PATH_MAX+1];
-#endif
   int n = snprintf(buf, sizeof(buf), "%s/%s.json", path, s);
   if (n<0 || (size_t)n>=sizeof(buf)) {
     W("buffer too small:%d", n);
@@ -1471,11 +1471,7 @@ static int load_and_run(const char *json_test_cases_file)
 {
   int r = 0;
 
-#ifdef _WIN32
-  char path[MAX_PATH+1];
-#else
   char path[PATH_MAX+1];
-#endif
   cJSON *json_test_cases = load_json_file(json_test_cases_file, path, sizeof(path));
   if (!json_test_cases) return -1;
 

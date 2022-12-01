@@ -34,17 +34,23 @@ EXTERN_C_BEGIN
 struct tm* localtime_r(const time_t *clock, struct tm *result);
 #endif
 
+#ifdef _WIN32
+#ifndef PATH_MAX
+#define PATH_MAX  MAX_PATH
+#endif
+#endif
+
 // basename
 #ifdef _WIN32
-char *basename(char *path);
-char *dirname(char *path);
+char* dirname(char *path);
 #else
 #include <libgen.h>
 #endif
+char* tod_basename(const char *path, char *buf, size_t sz) FA_HIDDEN;
 
 #ifdef _WIN32
 #define strdup _strdup
-char *strndup(const char *s, size_t n);
+char* strndup(const char *s, size_t n);
 #endif
 
 #ifndef __cplusplus

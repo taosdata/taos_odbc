@@ -36,10 +36,12 @@ static void err_set_x(err_t *err, const char *file, int line, const char *func, 
   const char *vendor = "freemine@yeah.net";
   const char *odbc_component = "TAOS ODBC Driver";
   err->err = e;
+  char buf[PATH_MAX + 1];
+  char *p = tod_basename(file, buf, sizeof(buf));
   snprintf(err->buf, sizeof(err->buf),
       "[%s][%s][%s]%s[%d]:%s(): %s",
       vendor, odbc_component, data_source,
-      basename((char*)file), line, func,
+      p, line, func,
       estr);
   err->estr = err->buf;
   strncpy((char*)err->sql_state, sql_state, sizeof(err->sql_state));

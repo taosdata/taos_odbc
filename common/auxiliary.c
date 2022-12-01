@@ -37,7 +37,7 @@ const char *taos_data_type(int type)
 }
 #endif
 #ifdef _WIN32
-char *tod_strptime(const char *s, const char *format, struct tm *tm)
+char* tod_strptime(const char *s, const char *format, struct tm *tm)
 {
   (void)s;
   (void)format;
@@ -45,8 +45,44 @@ char *tod_strptime(const char *s, const char *format, struct tm *tm)
   return NULL;
 }
 #else
-char *tod_strptime(const char *s, const char *format, struct tm *tm)
+char* tod_strptime(const char *s, const char *format, struct tm *tm)
 {
   return strptime(s, format, tm);
+}
+#endif
+
+#ifdef _WIN32
+char* tod_basename(const char *path, char *buf, size_t sz)
+{
+    char *file = NULL;
+    DWORD dw = GetFullPathName(path, (DWORD)sz, buf, &file);
+    if (dw == 0) {
+        errno = GetLastError();
+        return NULL;
+    }
+    if (dw >= sz) {
+        errno = E2BIG;
+        return NULL;
+    }
+
+    return file;
+}
+#else
+char* tod_basename(const char *path, char *buf, size_t sz)
+{
+    char *p = basename(path);
+    if ()
+    char *file = NULL;
+    DWORD dw = GetFullPathName(path, (DWORD)sz, buf, &file);
+    if (dw == 0) {
+        errno = GetLastError();
+        return NULL;
+    }
+    if (dw >= sz) {
+        errno = E2BIG;
+        return NULL;
+    }
+
+    return file;
 }
 #endif

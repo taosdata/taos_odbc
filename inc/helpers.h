@@ -65,35 +65,50 @@ static inline const char* color_reset(void)
   return "\033[0m";
 }
 
-#define LOGI(_file, _line, _func, _fmt, ...)           \
+#define LOGI(_file, _line, _func, _fmt, ...) do {      \
+  char __s[PATH_MAX+1];                                \
+  char *__p = tod_basename(_file, __s, sizeof(__s));   \
   LOG_IMPL("I:%s[%d]:%s(): " _fmt "\n",                \
-      basename((char*)_file), _line, _func,            \
-      ##__VA_ARGS__)
+      __p, _line, _func,                               \
+      ##__VA_ARGS__);                                  \
+} while (0)
 
 #define LOG LOGI
 
-#define LOGD(_file, _line, _func, _fmt, ...)           \
+#define LOGD(_file, _line, _func, _fmt, ...) do {      \
+  char __s[PATH_MAX+1];                                \
+  char *__p = tod_basename(_file, __s, sizeof(__s));   \
   LOG_IMPL("D:%s[%d]:%s(): " _fmt "\n",                \
-      basename((char*)_file), _line, _func,            \
-      ##__VA_ARGS__)
+      __p, _line, _func,                               \
+      ##__VA_ARGS__);                                  \
+} while (0)
 
-#define LOGW(_file, _line, _func, _fmt, ...)           \
+#define LOGW(_file, _line, _func, _fmt, ...) do {      \
+  char __s[PATH_MAX+1];                                \
+  char *__p = tod_basename(_file, __s, sizeof(__s));   \
   LOG_IMPL("%sW%s:%s[%d]:%s(): " _fmt "\n",            \
       color_yellow(), color_reset(),                   \
-      basename((char*)_file), _line, _func,            \
-      ##__VA_ARGS__)
+      __p, _line, _func,                               \
+      ##__VA_ARGS__);                                  \
+} while (0)
 
-#define LOGE(_file, _line, _func, _fmt, ...)           \
+#define LOGE(_file, _line, _func, _fmt, ...) do {      \
+  char __s[PATH_MAX+1];                                \
+  char *__p = tod_basename(_file, __s, sizeof(__s));   \
   LOG_IMPL("%sE%s:%s[%d]:%s(): " _fmt "\n",            \
       color_red(), color_reset(),                      \
-      basename((char*)_file), _line, _func,            \
-      ##__VA_ARGS__)
+      __p, _line, _func,                               \
+      ##__VA_ARGS__);                                  \
+} while (0)
 
-#define LOGA(_file, _line, _func, _fmt, ...)           \
+#define LOGA(_file, _line, _func, _fmt, ...) do {      \
+  char __s[PATH_MAX+1];                                \
+  char *__p = tod_basename(_file, __s, sizeof(__s));   \
   LOG_IMPL("%sA%s:%s[%d]:%s(): " _fmt "\n",            \
       color_red(), color_reset(),                      \
-      basename((char*)_file), _line, _func,            \
-      ##__VA_ARGS__)
+      __p, _line, _func,                               \
+      ##__VA_ARGS__);                                  \
+} while (0)
 
 #define D(_fmt, ...) LOGD(__FILE__, __LINE__, __func__, _fmt, ##__VA_ARGS__)
 #define W(_fmt, ...) do {                                     \

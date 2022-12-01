@@ -35,7 +35,7 @@ struct tm* localtime_r(const time_t *clock, struct tm *result)
     return result;
 }
 
-char *strndup(const char *s, size_t n)
+char* strndup(const char *s, size_t n)
 {
     size_t len = strlen(s);
     if (len < n) n = len;
@@ -49,13 +49,7 @@ char *strndup(const char *s, size_t n)
     return p;
 }
 
-char *basename(char *path)
-{
-    (void)path;
-    return NULL;
-}
-
-char *dirname(char *path)
+char* dirname(char *path)
 {
     (void)path;
     return NULL;

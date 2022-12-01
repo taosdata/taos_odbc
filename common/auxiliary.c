@@ -84,15 +84,22 @@ char* tod_dirname(const char *path, char *buf, size_t sz)
   (void)path;
   return NULL;
 }
-#elif defined(__APPLIE__)
+#elif defined(__APPLE__)
 char* tod_dirname(const char *path, char *buf, size_t sz)
 {
-  if (strlen(path) >= sz) {
+  char tmp[PATH_MAX+1];
+  int n = snprintf(tmp, sizeof(tmp), "%s", path);
+  if (n < 0) return NULL;
+  if ((size_t)n >= sizeof(tmp)) {
+    errno = E2BIG;
+    return NULL;
+  }
+  if ((size_t)n >= sz) {
     errno = E2BIG;
     return NULL;
   }
 
-  return dirname_r(path, buf)
+  return dirname_r(tmp, buf);
 }
 #else
 char* tod_dirname(const char *path, char *buf, size_t sz)
@@ -107,3 +114,4 @@ char* tod_dirname(const char *path, char *buf, size_t sz)
   return dirname(buf);
 }
 #endif
+

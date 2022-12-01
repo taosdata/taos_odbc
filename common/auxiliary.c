@@ -213,14 +213,28 @@ char* tod_dirname(const char *path, char *buf, size_t sz)
 #else
 char* tod_dirname(const char *path, char *buf, size_t sz)
 {
-  int n = snprintf(buf, sz, "%s", path);
-  if (n < 0) return NULL;
+  char tmp[PATH_MAX+1];
+  int n;
+  n = snprintf(tmp, sizeof(tmp), "%s", path);
+  if (n < 0) {
+    return NULL;
+  }
+  if ((size_t)n >= sizeof(tmp)) {
+    errno = E2BIG;
+    return NULL;
+  }
+  char *p = dirname(tmp);
+  if (!p) return NULL;
+
+  n = snprintf(buf, sz, "%s", p);
+  if (n < 0) {
+    return NULL;
+  }
   if ((size_t)n >= sz) {
     errno = E2BIG;
     return NULL;
   }
-
-  return dirname(buf);
+  return buf;
 }
 #endif
 

@@ -27,7 +27,9 @@
 #include "helpers.h"
 
 #include <errno.h>
+#ifndef _WIN32
 #include <libgen.h>
+#endif
 #include <time.h>
 
 #ifdef _WIN32
@@ -81,8 +83,20 @@ char* tod_basename(const char *path, char *buf, size_t sz)
 #ifdef _WIN32
 char* tod_dirname(const char *path, char *buf, size_t sz)
 {
-  (void)path;
-  return NULL;
+  char *file = NULL;
+  DWORD dw = GetFullPathName(path, (DWORD)sz, buf, &file);
+  if (dw == 0) {
+    errno = GetLastError();
+    return NULL;
+  }
+  if (dw >= sz) {
+    errno = E2BIG;
+    return NULL;
+  }
+
+  *file = '\0';
+
+  return buf;
 }
 #elif defined(__APPLE__)
 char* tod_dirname(const char *path, char *buf, size_t sz)

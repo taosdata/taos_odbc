@@ -26,6 +26,8 @@
 
 #include "helpers.h"
 
+#include <errno.h>
+#include <libgen.h>
 #include <time.h>
 
 #ifdef _WIN32
@@ -96,7 +98,8 @@ char* tod_dirname(const char *path, char *buf, size_t sz)
 char* tod_dirname(const char *path, char *buf, size_t sz)
 {
   int n = snprintf(buf, sz, "%s", path);
-  if (n >= sz) {
+  if (n < 0) return NULL;
+  if ((size_t)n >= sz) {
     errno = E2BIG;
     return NULL;
   }

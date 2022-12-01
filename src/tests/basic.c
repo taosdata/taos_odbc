@@ -140,40 +140,43 @@ static int test_case3(void)
   char fname[PATH_MAX+1];
   char ext[PATH_MAX+1];
   err = _splitpath_s(p, drive, sizeof(drive), dir, sizeof(dir), fname, sizeof(fname), ext, sizeof(ext));
-  if (strcmp(dir, "\\Users\\foo\\")) {
-    E("`\\Users\\foo\\` expected, but got ==%s==", dir);
-    return -1;
-  }
-  if (strcmp(fname, "")) {
-    E("`` expected, but got ==%s==", fname);
-    return -1;
-  }
-  if (strcmp(ext, "")) {
-    E("`` expected, but got ==%s==", ext);
+  char fullpath[PATH_MAX+1];
+  snprintf(fullpath, sizeof(fullpath), "%s%s%s", dir, fname, ext);
+  if (strcmp(fullpath, "\\Users\\foo")) {
+    E("`\\Users\\foo` expected, but got ==%s==", fullpath);
     return -1;
   }
 #else
-  if (strcmp(p, "/Users/foo/")) {
-    E("`/Users/foo/` expected, but got ==%s==", p);
+  if (strcmp(p, "/Users/foo")) {
+    E("`/Users/foo` expected, but got ==%s==", p);
     return -1;
   }
 #endif
-  return 1;
+  return 0;
+}
+
+static int test(void)
+{
+  int r = 0;
+
+  r = test_case1();
+  if (r) return -1;
+
+  r = test_case2();
+  if (r) return -1;
+
+  r = test_case3();
+  if (r) return -1;
+
+  return 0;
 }
 
 int main(void)
 {
   int r = 0;
+  r = test();
 
-  r = test_case1();
-  if (r) return 1;
+  fprintf(stderr,"==%s==\n", r ? "failure" : "success");
 
-  r = test_case2();
-  if (r) return 1;
-
-  r = test_case3();
-  if (r) return 1;
-
-  return 0;
+  return !!r;
 }
-

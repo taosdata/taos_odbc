@@ -59,7 +59,8 @@ char* tod_strptime(const char *s, const char *format, struct tm *tm)
 char* tod_basename(const char *path, char *buf, size_t sz)
 {
   char *file = NULL;
-  DWORD dw = GetFullPathName(path, (DWORD)sz, buf, &file);
+  DWORD dw;
+  dw = GetFullPathName(path, (DWORD)sz, buf, &file);
   if (dw == 0) {
     errno = GetLastError();
     return NULL;
@@ -67,6 +68,33 @@ char* tod_basename(const char *path, char *buf, size_t sz)
   if (dw >= sz) {
     errno = E2BIG;
     return NULL;
+  }
+
+  if (!file) {
+    size_t nr = strlen(buf);
+    if (nr > 3) buf[nr-1] = '\0';
+    char tmp[PATH_MAX+1];
+    int n;
+    n = snprintf(tmp, sizeof(tmp), "%s", buf);
+    if (n < 0) {
+      return NULL;
+    }
+    if ((size_t)n >= sizeof(tmp)) {
+      errno = E2BIG;
+      return NULL;
+    }
+
+    dw = GetFullPathName(tmp, (DWORD)sz, buf, &file);
+    if (dw == 0) {
+      errno = GetLastError();
+      return NULL;
+    }
+    if (dw >= sz) {
+      errno = E2BIG;
+      return NULL;
+    }
+
+    if (!file) file = buf;
   }
 
   return file;
@@ -84,7 +112,8 @@ char* tod_basename(const char *path, char *buf, size_t sz)
 char* tod_dirname(const char *path, char *buf, size_t sz)
 {
   char *file = NULL;
-  DWORD dw = GetFullPathName(path, (DWORD)sz, buf, &file);
+  DWORD dw;
+  dw = GetFullPathName(path, (DWORD)sz, buf, &file);
   if (dw == 0) {
     errno = GetLastError();
     return NULL;
@@ -94,7 +123,35 @@ char* tod_dirname(const char *path, char *buf, size_t sz)
     return NULL;
   }
 
-  *file = '\0';
+  if (!file) {
+    size_t nr = strlen(buf);
+    if (nr > 3) buf[nr-1] = '\0';
+    char tmp[PATH_MAX+1];
+    int n;
+    n = snprintf(tmp, sizeof(tmp), "%s", buf);
+    if (n < 0) {
+      return NULL;
+    }
+    if ((size_t)n >= sizeof(tmp)) {
+      errno = E2BIG;
+      return NULL;
+    }
+
+    dw = GetFullPathName(tmp, (DWORD)sz, buf, &file);
+    if (dw == 0) {
+      errno = GetLastError();
+      return NULL;
+    }
+    if (dw >= sz) {
+      errno = E2BIG;
+      return NULL;
+    }
+  }
+
+  if (file) {
+    size_t nr = strlen(buf);
+    if (nr > 3) file[-1] = '\0';
+  }
 
   return buf;
 }

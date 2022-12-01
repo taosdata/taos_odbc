@@ -25,7 +25,10 @@
 #include "internal.h"
 
 #include "desc.h"
+// make sure `log.h` is included ahead of `taos_helpers.h`, for the `LOG_IMPL` issue
+#include "log.h"
 #include "stmt.h"
+#include "taos_helpers.h"
 
 #include <errno.h>
 #include <limits.h>

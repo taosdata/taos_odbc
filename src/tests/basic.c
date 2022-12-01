@@ -24,6 +24,8 @@
 
 #include "conn.h"
 #include "env.h"
+#include "errs.h"
+#include "helpers.h"
 #include "parser.h"
 #include "utils.h"
 
@@ -122,6 +124,14 @@ static int test_case2(void)
 
 int main(void)
 {
+  if (0) {
+    const char *path = "/Users/xxh/foo/bar";
+    char buf[PATH_MAX+1];
+    char *p = tod_dirname(path, buf, sizeof(buf));
+    D("\n%s[%p]\n%s[%p]\n%s[%p]\n===", path, path, buf, buf, p, p);
+    return 1;
+  }
+
   int r = 0;
 
   r = test_case1();

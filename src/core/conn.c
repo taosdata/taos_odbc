@@ -26,7 +26,10 @@
 
 #include "conn.h"
 #include "desc.h"
+// make sure `log.h` is included ahead of `taos_helpers.h`, for the `LOG_IMPL` issue
+#include "log.h"
 #include "parser.h"
+#include "taos_helpers.h"
 
 #include <odbcinst.h>
 #include <string.h>

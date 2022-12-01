@@ -25,6 +25,9 @@
 #include "internal.h"
 
 #include "env.h"
+// make sure `log.h` is included ahead of `taos_helpers.h`, for the `LOG_IMPL` issue
+#include "log.h"
+#include "taos_helpers.h"
 
 static unsigned int         _taos_odbc_debug       = 0;
 static unsigned int         _taos_odbc_debug_flex  = 0;

@@ -25,7 +25,7 @@
 #ifndef _env_h_
 #define _env_h_
 
-#include "log.h"
+#include "macros.h"
 
 #include <sqlext.h>
 

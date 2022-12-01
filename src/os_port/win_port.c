@@ -26,91 +26,92 @@
 
 struct tm* localtime_r(const time_t *clock, struct tm *result)
 {
-    errno_t err = localtime_s(result, clock);
-    if (err) {
-        errno = err;
-        return NULL;
-    }
+  errno_t err = localtime_s(result, clock);
+  if (err) {
+    errno = err;
+    return NULL;
+  }
 
-    return result;
+  return result;
 }
 
 char* strndup(const char *s, size_t n)
 {
-    size_t len = strlen(s);
-    if (len < n) n = len;
+  size_t len = strlen(s);
+  if (len < n) n = len;
 
-    char *p = (char*)malloc(n + 1);
-    if (!p) return NULL;
+  char *p = (char*)malloc(n + 1);
+  if (!p) return NULL;
 
-    memcpy(p, s, n);
-    p[n] = '\0';
+  memcpy(p, s, n);
+  p[n] = '\0';
 
-    return p;
+  return p;
 }
 
 char* dirname(char *path)
 {
-    (void)path;
-    return NULL;
+  (void)path;
+  return NULL;
 }
 
 char* tod_getenv(const char *name)
 {
-    (void)name;
-    return NULL;
+  (void)name;
+  return NULL;
 }
 
 int pthread_once(pthread_once_t *once_control, void (*init_routine)(void))
 {
-    (void)once_control;
-    (void)init_routine;
-    return -1;
+  (void)once_control;
+  (void)init_routine;
+  return -1;
 }
 
 iconv_t iconv_open (const char* tocode, const char* fromcode)
 {
-    (void)tocode;
-    (void)fromcode;
-    return (iconv_t)-1;
+  (void)tocode;
+  (void)fromcode;
+  return (iconv_t)-1;
 }
 
 size_t iconv (iconv_t cd, char **restrict inbuf, size_t *restrict inbytesleft, char **restrict outbuf, size_t *restrict outbytesleft)
 {
-    (void)cd;
-    (void)inbuf;
-    (void)inbytesleft;
-    (void)outbuf;
-    (void)outbytesleft;
-    return -1;
+  (void)cd;
+  (void)inbuf;
+  (void)inbytesleft;
+  (void)outbuf;
+  (void)outbytesleft;
+  return -1;
 }
 int iconv_close (iconv_t cd)
 {
-    (void)cd;
-    return -1;
+  (void)cd;
+  return -1;
 }
 
 void* dlopen(const char* path, int mode)
 {
-    (void)path;
-    (void)mode;
-    return NULL;
+  (void)path;
+  (void)mode;
+  return NULL;
 }
 
 int dlclose(void* handle)
 {
-    (void)handle;
-    return -1;
+  (void)handle;
+  return -1;
 }
 
 void * dlsym(void *handle, const char *symbol)
 {
-    (void)handle;
-    (void)symbol;
-    return NULL;
+  (void)handle;
+  (void)symbol;
+  return NULL;
 }
 
 const char * dlerror(void)
 {
-    return "UNKNOWN";
+  return "UNKNOWN";
 }
+

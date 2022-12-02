@@ -408,7 +408,7 @@ static inline cJSON* load_json_file(const char *json_file, char *buf, size_t byt
 {
   int r = 0;
 
-  FILE *fn = fopen(json_file, "r");
+  FILE *fn = fopen(json_file, "rb");
   if (!fn) {
     int e = errno;
     W("open file [%s] failed: [%d]%s", json_file, e, strerror(e));

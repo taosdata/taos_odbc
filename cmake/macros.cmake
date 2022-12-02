@@ -45,9 +45,9 @@ macro(check_requirements)
 
   set(TAOS_ODBC_LOCAL_REPO $ENV{HOME}/.taos_odbc)
   include(CheckSymbolExists)
+  include(ExternalProject)
 
   ## prepare `cjson`
-  include(ExternalProject)
   set(CJSON_INSTALL_PATH ${TAOS_ODBC_LOCAL_REPO}/.install)
   ExternalProject_Add(ex_cjson
       GIT_REPOSITORY https://github.com/taosdata-contrib/cJSON.git
@@ -56,6 +56,18 @@ macro(check_requirements)
       PREFIX "${TAOS_ODBC_LOCAL_REPO}/cjson"
       CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${CJSON_INSTALL_PATH}"
       )
+
+  ## prepare `iconv`
+  if(TODBC_WINDOWS)
+    set(ICONV_INSTALL_PATH ${TAOS_ODBC_LOCAL_REPO}/.install)
+    ExternalProject_Add(ex_iconv
+        GIT_REPOSITORY https://github.com/win-iconv/win-iconv.git
+        GIT_TAG v0.0.8
+        GIT_SHALLOW TRUE
+        PREFIX "${TAOS_ODBC_LOCAL_REPO}/iconv"
+        CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${ICONV_INSTALL_PATH}"
+        )
+  endif()
 
   ## check `taos`
   find_library(TAOS NAMES taos PATHS C:/TDengine/driver)

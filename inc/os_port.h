@@ -89,15 +89,6 @@ int pthread_once(pthread_once_t *once_control, void (*init_routine)(void));
 #endif                   /* } */
 
 #ifdef _WIN32            /* { */
-typedef void* iconv_t;
-iconv_t iconv_open (const char* tocode, const char* fromcode);
-size_t iconv (iconv_t cd, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft);
-int iconv_close (iconv_t cd);
-#else                    /* }{ */
-#include <iconv.h>
-#endif                   /* } */
-
-#ifdef _WIN32            /* { */
 void* dlopen(const char* path, int mode);
 int dlclose(void* handle);
 void * dlsym(void *handle, const char *symbol);

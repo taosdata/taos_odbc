@@ -31,6 +31,7 @@
 #include "taos_helpers.h"
 
 #include <errno.h>
+#include <iconv.h>
 #include <limits.h>
 #include <string.h>
 #include <time.h>

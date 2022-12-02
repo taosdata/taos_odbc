@@ -28,6 +28,7 @@
 #include "odbc_helpers.h"
 
 #include <errno.h>
+#include <iconv.h>
 #include <stdlib.h>
 #include <string.h>
 #include <wchar.h>
@@ -45,7 +46,7 @@ static int _encode(
 
   size_t inbytes = *inbytesleft;
   size_t outbytes = *outbytesleft;
-  size_t sz = iconv(cd, inbuf, inbytesleft, outbuf, outbytesleft);
+  size_t sz = iconv(cd, (const char**)inbuf, inbytesleft, outbuf, outbytesleft);
   int e = errno;
   iconv_close(cd);
   if (*inbytesleft > 0) {

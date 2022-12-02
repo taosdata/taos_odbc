@@ -24,6 +24,8 @@
 
 #include "os_port.h"
 
+#include <stdio.h>
+
 struct tm* localtime_r(const time_t *clock, struct tm *result)
 {
   errno_t err = localtime_s(result, clock);
@@ -71,28 +73,6 @@ int pthread_once(pthread_once_t *once_control, void (*init_routine)(void))
     return 0;
   }
 
-  return -1;
-}
-
-iconv_t iconv_open (const char* tocode, const char* fromcode)
-{
-  (void)tocode;
-  (void)fromcode;
-  return (iconv_t)-1;
-}
-
-size_t iconv (iconv_t cd, char **restrict inbuf, size_t *restrict inbytesleft, char **restrict outbuf, size_t *restrict outbytesleft)
-{
-  (void)cd;
-  (void)inbuf;
-  (void)inbytesleft;
-  (void)outbuf;
-  (void)outbytesleft;
-  return -1;
-}
-int iconv_close (iconv_t cd)
-{
-  (void)cd;
   return -1;
 }
 

@@ -60,7 +60,7 @@ if(TODBC_WINDOWS)
   include_directories(C:/TDengine/include ${ICONV_INSTALL_PATH}/include)
   link_directories(C:/TDengine/driver ${ICONV_INSTALL_PATH}/lib)
   link_libraries(iconv)
-  add_compile_options(/source-charset:utf-8)
+  add_compile_options(/source-charset:utf-8 /DICONV_CONST=)
 endif()
 
 add_subdirectory(common)

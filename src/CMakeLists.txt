@@ -41,14 +41,15 @@ set_property(TARGET odbc_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
 # FIXME:
 # set(CMAKE_REQUIRED_LINK_OPTIONS ${ODBC_LINK_OPTIONS} ${ODBCINST_LINK_OPTIONS})
 
-add_library(taos_odbc_a STATIC
+list(APPEND taos_odbc_a_SOURCES
     $<TARGET_OBJECTS:common_obj>
     $<TARGET_OBJECTS:core_obj>
     $<TARGET_OBJECTS:odbc_obj>
     $<TARGET_OBJECTS:utils_obj>
     $<TARGET_OBJECTS:os_port_obj>
-    $<TARGET_OBJECTS:parser_obj>
-    $<TARGET_OBJECTS:os_port_obj>)
+    $<TARGET_OBJECTS:parser_obj>)
+
+add_library(taos_odbc_a STATIC ${taos_odbc_a_SOURCES})
 # target_link_libraries(taos_odbc_a pthread)
 target_link_libraries(taos_odbc_a taos)
 if(NOT TODBC_WINDOWS)
@@ -59,13 +60,11 @@ else()
     target_link_libraries(taos_odbc_a odbccp32)
 endif()
 
-add_library(taos_odbc SHARED
-    $<TARGET_OBJECTS:common_obj>
-    $<TARGET_OBJECTS:core_obj>
-    $<TARGET_OBJECTS:odbc_obj>
-    $<TARGET_OBJECTS:utils_obj>
-    $<TARGET_OBJECTS:parser_obj>
-    $<TARGET_OBJECTS:os_port_obj>)
+list(APPEND taos_odbc_SOURCES ${taos_odbc_a_SOURCES})
+if(TODBC_WINDOWS)
+  list(APPEND taos_odbc_SOURCES taos_odbc.def)
+endif()
+add_library(taos_odbc SHARED ${taos_odbc_SOURCES})
 # add_dependencies(taos_odbc cjson)
 target_link_libraries(taos_odbc taos)
 if(NOT TODBC_WINDOWS)

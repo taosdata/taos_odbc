@@ -1,0 +1,2 @@
+INSTALLDRIVER "TAOS_ODBC_DRIVER|Driver=C:\Program Files\taos_odbc\bin\taos_odbc.dll|APILevel=2|ConnectFunctions=YYN|DriverODBCVer=03.00|FileUsage=0|SQLLevel=0"
+CONFIGDSN "TAOS_ODBC_DRIVER" "DSN=TAOS_ODBC_DSN"

@@ -302,6 +302,7 @@ static int do_sql_stmt_execute_direct(SQLHANDLE stmth)
   CHK2(test_sql_stmt_execute_direct, stmth, "select * from t", 0);
   CHK2(test_sql_stmt_execute_direct, stmth, "select count(*) from t", 0);
 
+#ifndef _WIN32
   CHK2(test_sql_stmt_execute_direct, stmth, "drop table if exists t", 0);
   CHK2(test_sql_stmt_execute_direct, stmth, "create table if not exists t (ts timestamp, name varchar(20), age int, sex varchar(8), text nchar(3))", 0);
   CHK2(test_sql_stmt_execute_direct, stmth, "insert into t (ts, name, age, sex, text) values (1662861448752, 'name1', 20, 'male', '中国人')", 0);
@@ -311,6 +312,7 @@ static int do_sql_stmt_execute_direct(SQLHANDLE stmth)
   CHK2(test_sql_stmt_execute_direct, stmth, "create table if not exists t (ts timestamp, name varchar(20), age int, sex varchar(8), text nchar(3))", 0);
   CHK2(test_sql_stmt_execute_direct, stmth, "insert into t (ts, name, age, sex, text) values (1662861449753, 'name2', 30, 'female', '苏州人')", 0);
   CHK2(test_sql_stmt_execute_direct, stmth, "select * from t", 0);
+#endif
 
   CHK2(test_sql_stmt_execute_direct, stmth, "drop table if exists t", 0);
   CHK2(test_sql_stmt_execute_direct, stmth, "create table if not exists t (ts timestamp, name varchar(20), age int, sex varchar(8), text nchar(3))", 0);
@@ -441,10 +443,11 @@ again:
 __attribute__((unused))
 static int test_sql_conn(SQLHANDLE connh, const char *dsn, const char *uid, const char *pwd)
 {
-  SQLRETURN r;
+  int r = 0;
+  SQLRETURN sr = SQL_SUCCESS;
 
-  r = CALL_SQLConnect(connh, (SQLCHAR*)dsn, SQL_NTS, (SQLCHAR*)uid, SQL_NTS, (SQLCHAR*)pwd, SQL_NTS);
-  if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
+  sr = CALL_SQLConnect(connh, (SQLCHAR*)dsn, SQL_NTS, (SQLCHAR*)uid, SQL_NTS, (SQLCHAR*)pwd, SQL_NTS);
+  if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) return -1;
 
   do {
 // #define LOOPING
@@ -468,7 +471,7 @@ again:
 #endif                /* } */
   } while (0);
 
-  SQLDisconnect(connh);
+  CALL_SQLDisconnect(connh);
 
   return r ? -1 : 0;
 }
@@ -554,6 +557,10 @@ static int do_cases(void)
 #ifdef __APPLE__
   CHK1(test_so, "/tmp/not_exists.dylib", -1);
   CHK1(test_so, "libtaos_odbc.dylib", 0);
+#elif defined(_WIN32)
+  CHK1(test_so, "taos_odbc.dll", -1);
+  CHK1(test_so, "C:/Program Files/taos_odbc/bin/taos_odbc.dll", 0);
+  CHK1(test_so, "taos_odbc.dll", -1);
 #else
   CHK1(test_so, "/tmp/not_exists.so", -1);
   CHK1(test_so, "libtaos_odbc.so", 0);
@@ -575,6 +582,8 @@ again:
 #ifdef CHK_LEAK                /* { */
   if (r == 0) goto again;
 #endif                          /* } */
+
+  fprintf(stderr, "==%s==\n", r ? "failure" : "success");
 
   return r ? 1 : 0;
 }

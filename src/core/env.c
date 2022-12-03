@@ -36,7 +36,12 @@ static unsigned int         _taos_init_failed      = 0;
 
 static void _exit_routine(void)
 {
+#ifdef _WIN32
+  // NOTE: taos_cleanup would be hung-up under windows-ODBC
+  //       need to check later
+#else
   CALL_taos_cleanup();
+#endif
 }
 
 static void _init_once(void)
@@ -44,11 +49,16 @@ static void _init_once(void)
   if (tod_getenv("TAOS_ODBC_DEBUG"))       _taos_odbc_debug       = 1;
   if (tod_getenv("TAOS_ODBC_DEBUG_FLEX"))  _taos_odbc_debug_flex  = 1;
   if (tod_getenv("TAOS_ODBC_DEBUG_BISON")) _taos_odbc_debug_bison = 1;
+#ifdef _WIN32
+  // NOTE: taos_cleanup would be hung-up under windows-ODBC
+  //       need to check later
+#else
   if (CALL_taos_init()) {
     _taos_init_failed = 1;
     return;
   }
   atexit(_exit_routine);
+#endif
 }
 
 static int _env_init(env_t *env)

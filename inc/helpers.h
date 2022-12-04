@@ -150,7 +150,7 @@ static inline const char* color_reset(void)
   }                                                                            \
 } while (0)
 
-char *tod_strptime(const char *s, const char *format, struct tm *tm) FA_HIDDEN;
+const char *tod_strptime(const char *s, const char *format, struct tm *tm) FA_HIDDEN;
 
 EXTERN_C_END
 

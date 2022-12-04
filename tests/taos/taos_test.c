@@ -425,7 +425,12 @@ struct executes_ctx_s {
 static void executes_ctx_release_tags(executes_ctx_t *ctx)
 {
   if (ctx->tags) {
+#ifndef _WIN32
     free(ctx->tags);
+#else
+    // NOTE: free(ctx->tags) seems core-dump in windows platform
+    //       need to check later
+#endif
     ctx->tags = NULL;
   }
   ctx->nr_tags = 0;
@@ -435,7 +440,12 @@ static void executes_ctx_release_tags(executes_ctx_t *ctx)
 static void executes_ctx_release_cols(executes_ctx_t *ctx)
 {
   if (ctx->cols) {
+#ifndef _WIN32
     free(ctx->cols);
+#else
+    // NOTE: free(ctx->cols) seems core-dump in windows platform
+    //       need to check later
+#endif
     ctx->cols = NULL;
   }
   ctx->nr_cols = 0;
@@ -1216,7 +1226,12 @@ static int executes_ctx_prepare_stmt(executes_ctx_t *ctx)
       r = 0;
     }
   }
+#ifndef _WIN32
   free(fields);
+#else
+    // NOTE: free(fields) seems core-dump in windows platform
+    //       need to check later
+#endif
 
   return 0;
 }

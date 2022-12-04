@@ -27,7 +27,8 @@ set(os_port_SOURCES
 
 if(TODBC_WINDOWS)
     list(APPEND os_port_SOURCES
-        win_port.c)
+        win_port.c
+        win_port_cpp.cpp)
 endif()
 
 add_library(os_port_obj OBJECT ${os_port_SOURCES})

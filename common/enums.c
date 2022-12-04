@@ -126,7 +126,7 @@ const char *sql_handle_type(SQLSMALLINT v)
     CASE(SQL_HANDLE_DBC);
     CASE(SQL_HANDLE_STMT);
     default:
-    return "SQL_HANDLE_unknown";
+      return "SQL_HANDLE_unknown";
   }
 }
 
@@ -288,6 +288,7 @@ const char *sql_stmt_attr(SQLINTEGER v)
     CASE(SQL_ATTR_ROWS_FETCHED_PTR);
     CASE(SQL_ATTR_SIMULATE_CURSOR);
     CASE(SQL_ATTR_USE_BOOKMARKS);
+    CASE(SQL_ATTR_ROW_ARRAY_SIZE);
     default:
     return "SQL_ATTR_unknown";
   }

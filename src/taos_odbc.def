@@ -20,7 +20,7 @@ SQLFetchScroll
 SQLFreeHandle
 SQLFreeStmt
 SQLGetData
-;SQLGetDiagField
+SQLGetDiagField
 SQLGetDiagRec
 SQLGetInfo
 SQLNumParams

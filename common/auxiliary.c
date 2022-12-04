@@ -41,15 +41,9 @@ const char *taos_data_type(int type)
 }
 #endif
 #ifdef _WIN32
-char* tod_strptime(const char *s, const char *format, struct tm *tm)
-{
-  (void)s;
-  (void)format;
-  (void)tm;
-  return NULL;
-}
+// NOTE: moved to win_port_cpp.cpp
 #else
-char* tod_strptime(const char *s, const char *format, struct tm *tm)
+const char* tod_strptime(const char *s, const char *format, struct tm *tm)
 {
   return strptime(s, format, tm);
 }

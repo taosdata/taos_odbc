@@ -2914,7 +2914,7 @@ static SQLRETURN _stmt_conv_sql_c_char_to_tsdb_timestamp(stmt_t *stmt, sql_c_to_
 
   int64_t v = 0;
 
-  char *p;
+  const char *p;
   const char *format = "%Y-%m-%d %H:%M:%S";
   struct tm t = {0};
   time_t tt;

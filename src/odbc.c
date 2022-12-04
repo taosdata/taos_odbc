@@ -25,6 +25,7 @@
 #include "os_port.h"
 #include "conn.h"
 #include "desc.h"
+#include "enums.h"
 #include "env.h"
 #include "errs.h"
 #include "log.h"
@@ -454,6 +455,14 @@ SQLRETURN SQL_API SQLGetDiagField(
 {
   if (Handle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
+#ifdef _WIN32
+  const char *p = "";
+  switch (HandleType) {
+    default:
+      OW("`%s` not implemented yet", sql_handle_type(HandleType));
+      return SQL_ERROR;
+  }
+#endif
   (void)HandleType;
   (void)RecNumber;
   (void)DiagIdentifier;

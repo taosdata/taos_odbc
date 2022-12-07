@@ -459,6 +459,8 @@ static SQLRETURN _conn_get_info_driver_odbc_ver(
     size_t          sz,
     SQLSMALLINT    *StringLengthPtr)
 {
+  (void)conn;
+
   // https://learn.microsoft.com/en-us/sql/odbc/reference/install/driver-specification-subkeys?view=sql-server-ver16
   // `DriverODBCVer`: This must be the same as the value returned for the SQL_DRIVER_ODBC_VER option in SQLGetInfo.
 #if (ODBCVER == 0x0351)

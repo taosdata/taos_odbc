@@ -142,6 +142,7 @@ SQLRETURN errs_get_diag_field_sqlstate_x(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr)
 {
+  (void)DiagIdentifier;
   if (RecNumber == 0) return SQL_NO_DATA;
   if (tod_list_empty(&errs->errs)) return SQL_NO_DATA;
 
@@ -174,6 +175,7 @@ SQLRETURN errs_get_diag_field_class_origin_x(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr)
 {
+  (void)DiagIdentifier;
   if (RecNumber == 0) return SQL_NO_DATA;
   if (tod_list_empty(&errs->errs)) return SQL_NO_DATA;
 

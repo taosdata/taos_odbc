@@ -964,13 +964,16 @@ SQLRETURN SQL_API SQLBulkOperations(
 }
 #endif  /* ODBCVER >= 0x0300 */
 
+#if 0
 SQLRETURN SQL_API SQLCancel(SQLHSTMT StatementHandle)
 {
   (void)StatementHandle;
   OA_NIY(0);
 }
+#endif
 
 #if (ODBCVER >= 0x0300)
+#if 0
 SQLRETURN SQL_API SQLCloseCursor(SQLHSTMT StatementHandle)
 {
   (void)StatementHandle;
@@ -978,6 +981,7 @@ SQLRETURN SQL_API SQLCloseCursor(SQLHSTMT StatementHandle)
   // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlclosecursor-function?view=sql-server-ver16
   return SQLFreeStmt(StatementHandle, SQL_CLOSE);
 }
+#endif
 #endif
 
 SQLRETURN SQL_API SQLColumnPrivileges(
@@ -1151,10 +1155,17 @@ SQLRETURN SQL_API SQLGetEnvAttr(SQLHENV EnvironmentHandle,
   (void)Value;
   (void)BufferLength;
   (void)StringLength;
-  OA_NIY(0);
+  if (EnvironmentHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  env_t *env = (env_t*)EnvironmentHandle;
+
+  env_clr_errs(env);
+
+  return env_get_attr(env, Attribute, Value, BufferLength, StringLength);
 }
 #endif
 
+#if 0
 SQLRETURN SQL_API SQLGetFunctions(SQLHDBC ConnectionHandle,
            SQLUSMALLINT FunctionId,
            SQLUSMALLINT *Supported)
@@ -1164,6 +1175,7 @@ SQLRETURN SQL_API SQLGetFunctions(SQLHDBC ConnectionHandle,
   (void)Supported;
   OA_NIY(0);
 }
+#endif
 
 #if (ODBCVER >= 0x0300)
 SQLRETURN SQL_API SQLGetStmtAttr(SQLHSTMT StatementHandle,

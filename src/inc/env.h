@@ -59,6 +59,13 @@ SQLRETURN env_set_attr(
     SQLPOINTER   ValuePtr,
     SQLINTEGER   StringLength) FA_HIDDEN;
 
+SQLRETURN env_get_attr(
+    env_t       *env,
+    SQLINTEGER Attribute,
+    SQLPOINTER Value,
+    SQLINTEGER BufferLength,
+    SQLINTEGER *StringLength) FA_HIDDEN;
+
 SQLRETURN env_end_tran(env_t *env, SQLSMALLINT CompletionType) FA_HIDDEN;
 
 SQLRETURN env_alloc_conn(env_t *env, SQLHANDLE *OutputHandle) FA_HIDDEN;

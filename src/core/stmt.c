@@ -3967,6 +3967,7 @@ static SQLRETURN _stmt_set_cursor_type(stmt_t *stmt, SQLULEN cursor_type)
 {
   switch (cursor_type) {
     case SQL_CURSOR_FORWARD_ONLY:
+    case SQL_CURSOR_STATIC:
       return SQL_SUCCESS;
     default:
       OE("General error:`%s` for `SQL_ATTR_CURSOR_TYPE` not supported yet", sql_cursor_type(cursor_type));
@@ -4337,6 +4338,10 @@ static SQLRETURN _stmt_get_diag_field_row_number(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr)
 {
+  (void)DiagIdentifier;
+  (void)BufferLength;
+  (void)StringLengthPtr;
+
   if (RecNumber!=1) OA_NIY(0);
   switch (stmt->get_or_put_or_undef) {
     case 0x1: // get

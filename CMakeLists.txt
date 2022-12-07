@@ -39,7 +39,7 @@ endif()
 
 if(NOT TODBC_WINDOWS)
   # add_compile_options(-Wall -Wextra -pedantic -Werror)
-  add_compile_options(-Wall -Wextra -Werror -O0)
+  add_compile_options(-Wall -Wextra -Werror -O0 -DODBCVER=0x0351)
 endif()
 
 set(CMAKE_C_STANDARD 11)

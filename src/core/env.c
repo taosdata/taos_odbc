@@ -207,6 +207,30 @@ SQLRETURN env_set_attr(
   }
 }
 
+SQLRETURN env_get_attr(
+    env_t       *env,
+    SQLINTEGER   Attribute,
+    SQLPOINTER   Value,
+    SQLINTEGER   BufferLength,
+    SQLINTEGER  *StringLength)
+{
+  (void)Value;
+  (void)BufferLength;
+  (void)StringLength;
+
+  switch (Attribute) {
+    case SQL_ATTR_ODBC_VERSION:
+      *(SQLINTEGER*)Value = (SQLINTEGER)SQL_OV_ODBC3;
+      return SQL_SUCCESS;
+
+    default:
+      OE("General error:`%s[0x%x/%d]` not supported yet", sql_env_attr(Attribute), Attribute, Attribute);
+      env_append_err_format(env, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_env_attr(Attribute), Attribute, Attribute);
+      OA_NIY(0);
+      return SQL_ERROR;
+  }
+}
+
 SQLRETURN env_end_tran(env_t *env, SQLSMALLINT CompletionType)
 {
   switch (CompletionType) {

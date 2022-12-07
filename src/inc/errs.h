@@ -46,6 +46,22 @@ SQLRETURN errs_get_diag_rec_x(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *TextLengthPtr) FA_HIDDEN;
 
+SQLRETURN errs_get_diag_field_sqlstate_x(
+    errs_t         *errs,
+    SQLSMALLINT     RecNumber,
+    SQLSMALLINT     DiagIdentifier,
+    SQLPOINTER      DiagInfoPtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr) FA_HIDDEN;
+
+SQLRETURN errs_get_diag_field_class_origin_x(
+    errs_t         *errs,
+    SQLSMALLINT     RecNumber,
+    SQLSMALLINT     DiagIdentifier,
+    SQLPOINTER      DiagInfoPtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr) FA_HIDDEN;
+
 #define errs_append(_errs, _data_source, _sql_state, _e, _estr)                              \
     errs_append_x(_errs, __FILE__, __LINE__, __func__, _data_source, _sql_state, _e, _estr); \
 
@@ -65,6 +81,12 @@ SQLRETURN errs_get_diag_rec_x(
 
 #define errs_get_diag_rec(_errs, _RecNumber, _SQLSTATE, _NativeErrorPtr, _MessageText, _BufferLength, _TextLengthPtr) \
   errs_get_diag_rec_x(_errs, _RecNumber, _SQLSTATE, _NativeErrorPtr, _MessageText, _BufferLength, _TextLengthPtr)
+
+#define errs_get_diag_field_sqlstate(_errs, _RecNumber, _DiagIdentifier, _DiagInfoPtr, _BufferLength, _StringLengthPtr) \
+  errs_get_diag_field_sqlstate_x(_errs, _RecNumber, _DiagIdentifier, _DiagInfoPtr, _BufferLength, _StringLengthPtr)
+
+#define errs_get_diag_field_class_origin(_errs, _RecNumber, _DiagIdentifier, _DiagInfoPtr, _BufferLength, _StringLengthPtr) \
+  errs_get_diag_field_class_origin_x(_errs, _RecNumber, _DiagIdentifier, _DiagInfoPtr, _BufferLength, _StringLengthPtr)
 
 EXTERN_C_END
 

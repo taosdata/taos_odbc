@@ -243,7 +243,11 @@ static void _stmt_release_current_for_get_data(stmt_t *stmt)
 static void _stmt_release_tag_fields(stmt_t *stmt)
 {
   if (stmt->tag_fields) {
+#ifndef _WIN32
     free(stmt->tag_fields);
+#else
+    // NOTE: seems fail if free is called
+#endif
     stmt->tag_fields = NULL;
   }
   stmt->nr_tag_fields = 0;
@@ -252,7 +256,11 @@ static void _stmt_release_tag_fields(stmt_t *stmt)
 static void _stmt_release_col_fields(stmt_t *stmt)
 {
   if (stmt->col_fields) {
+#ifndef _WIN32
     free(stmt->col_fields);
+#else
+    // NOTE: seems fail if free is called
+#endif
     stmt->col_fields = NULL;
   }
   stmt->nr_col_fields = 0;
@@ -2140,6 +2148,7 @@ SQLRETURN stmt_get_data(
     SQLLEN         BufferLength,
     SQLLEN        *StrLen_or_IndPtr)
 {
+  stmt->get_or_put_or_undef = 1; // TODO:
   // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetdata-function?view=sql-server-ver16
   // https://learn.microsoft.com/en-us/sql/odbc/reference/develop-app/getting-long-data?view=sql-server-ver16
   OA_NIY(stmt->res);
@@ -3428,12 +3437,14 @@ SQLRETURN stmt_bind_param(
     case SQL_PARAM_OUTPUT:
       stmt_append_err(stmt, "HY000", 0, "SQL_PARAM_OUTPUT not supported yet by taos");
       return SQL_ERROR;
+#if (ODBCVER >= 0x0380)      /* { */
     case SQL_PARAM_INPUT_OUTPUT_STREAM:
       stmt_append_err(stmt, "HY000", 0, "SQL_PARAM_INPUT_OUTPUT_STREAM not supported yet by taos");
       return SQL_ERROR;
     case SQL_PARAM_OUTPUT_STREAM:
       stmt_append_err(stmt, "HY000", 0, "SQL_PARAM_OUTPUT_STREAM not supported yet by taos");
       return SQL_ERROR;
+#endif                       /* } */
     default:
       stmt_append_err(stmt, "HY000", 0, "unknown InputOutputType for `SQLBindParameter`");
       return SQL_ERROR;
@@ -3957,12 +3968,10 @@ static SQLRETURN _stmt_set_cursor_type(stmt_t *stmt, SQLULEN cursor_type)
   switch (cursor_type) {
     case SQL_CURSOR_FORWARD_ONLY:
       return SQL_SUCCESS;
-    case SQL_CURSOR_STATIC:
-      stmt_append_err_format(stmt, "01000", 0,
-          "General warning:`SQL_CURSOR_STATIC` not fully implemented yet, so `SQL_CURSOR_FORWARD_ONLY` is used as instead");
-      return SQL_SUCCESS_WITH_INFO;
     default:
+      OE("General error:`%s` for `SQL_ATTR_CURSOR_TYPE` not supported yet", sql_cursor_type(cursor_type));
       stmt_append_err_format(stmt, "HY000", 0, "General error:`%s` for `SQL_ATTR_CURSOR_TYPE` not supported yet", sql_cursor_type(cursor_type));
+      OA_NIY(0);
       return SQL_ERROR;
   }
 }
@@ -3999,7 +4008,37 @@ SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr,
     case SQL_ATTR_APP_PARAM_DESC:
       return _stmt_set_param_desc(stmt, ValuePtr);
     default:
+      OE("General error:`%s[0x%x/%d]` not supported yet", sql_stmt_attr(Attribute), Attribute, Attribute);
       stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_stmt_attr(Attribute), Attribute, Attribute);
+      OA_NIY(0);
+      return SQL_ERROR;
+  }
+}
+
+SQLRETURN stmt_get_attr(stmt_t *stmt,
+           SQLINTEGER Attribute, SQLPOINTER Value,
+           SQLINTEGER BufferLength, SQLINTEGER *StringLength)
+{
+  (void)Value;
+  (void)BufferLength;
+  (void)StringLength;
+  switch (Attribute) {
+    case SQL_ATTR_APP_ROW_DESC:
+      *(SQLHANDLE*)Value = (SQLHANDLE)(stmt->current_ARD);
+      return SQL_SUCCESS;
+    case SQL_ATTR_APP_PARAM_DESC:
+      *(SQLHANDLE*)Value = (SQLHANDLE)(stmt->current_APD);
+      return SQL_SUCCESS;
+    case SQL_ATTR_IMP_ROW_DESC:
+      *(SQLHANDLE*)Value = (SQLHANDLE)(&stmt->IRD);
+      return SQL_SUCCESS;
+    case SQL_ATTR_IMP_PARAM_DESC:
+      *(SQLHANDLE*)Value = (SQLHANDLE)(&stmt->IPD);
+      return SQL_SUCCESS;
+    default:
+      OE("General error:`%s[0x%x/%d]` not supported yet", sql_stmt_attr(Attribute), Attribute, Attribute);
+      stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_stmt_attr(Attribute), Attribute, Attribute);
+      OA_NIY(0);
       return SQL_ERROR;
   }
 }
@@ -4288,5 +4327,47 @@ SQLRETURN stmt_tables(stmt_t *stmt,
 
   stmt_append_err_format(stmt, "HY000", 0, "General error:`sql:[%s]` not supported yet", sql);
   return SQL_ERROR;
+}
+
+static SQLRETURN _stmt_get_diag_field_row_number(
+    stmt_t         *stmt,
+    SQLSMALLINT     RecNumber,
+    SQLSMALLINT     DiagIdentifier,
+    SQLPOINTER      DiagInfoPtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr)
+{
+  if (RecNumber!=1) OA_NIY(0);
+  switch (stmt->get_or_put_or_undef) {
+    case 0x1: // get
+      // FIXME: experimental
+      *(SQLLEN*)DiagInfoPtr = (SQLLEN)stmt->rowset.i_row + 1;
+      return SQL_SUCCESS;
+    case 0x2: // put
+      OA_NIY(0);
+      return SQL_ERROR;
+    default: // undef
+      OA_NIY(0);
+      return SQL_ERROR;
+  }
+}
+
+SQLRETURN stmt_get_diag_field(
+    stmt_t         *stmt,
+    SQLSMALLINT     RecNumber,
+    SQLSMALLINT     DiagIdentifier,
+    SQLPOINTER      DiagInfoPtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr)
+{
+  switch (DiagIdentifier) {
+    case SQL_DIAG_SQLSTATE:
+      return errs_get_diag_field_sqlstate(&stmt->errs, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
+    case SQL_DIAG_ROW_NUMBER:
+      return _stmt_get_diag_field_row_number(stmt, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
+    default:
+      OA(0, "RecNumber:[%d]; DiagIdentifier:[%d]%s", RecNumber, DiagIdentifier, sql_diag_identifier(DiagIdentifier));
+      return SQL_ERROR;
+  }
 }
 

@@ -29,9 +29,6 @@
 #include "log.h"
 #include "taos_helpers.h"
 
-static unsigned int         _taos_odbc_debug       = 0;
-static unsigned int         _taos_odbc_debug_flex  = 0;
-static unsigned int         _taos_odbc_debug_bison = 0;
 static unsigned int         _taos_init_failed      = 0;
 
 static void _exit_routine(void)
@@ -46,9 +43,6 @@ static void _exit_routine(void)
 
 static void _init_once(void)
 {
-  if (tod_getenv("TAOS_ODBC_DEBUG"))       _taos_odbc_debug       = 1;
-  if (tod_getenv("TAOS_ODBC_DEBUG_FLEX"))  _taos_odbc_debug_flex  = 1;
-  if (tod_getenv("TAOS_ODBC_DEBUG_BISON")) _taos_odbc_debug_bison = 1;
 #ifdef _WIN32
   // NOTE: taos_cleanup would be hung-up under windows-ODBC
   //       need to check later
@@ -68,9 +62,9 @@ static int _env_init(env_t *env)
 
   // TODO:
 
-  env->debug       = _taos_odbc_debug;
-  env->debug_flex  = _taos_odbc_debug_flex;
-  env->debug_bison = _taos_odbc_debug_bison;
+  env->debug       = tod_get_debug();
+  env->debug_flex  = tod_get_debug_flex();
+  env->debug_bison = tod_get_debug_bison();
 
   errs_init(&env->errs);
 
@@ -81,24 +75,6 @@ static int _env_init(env_t *env)
   return 0;
 }
 
-static void _env_release(env_t *env)
-{
-  int conns = atomic_load(&env->conns);
-  OA_ILE(conns == 0);
-  errs_release(&env->errs);
-  return;
-}
-
-int tod_get_debug(void)
-{
-  return !!_taos_odbc_debug;
-}
-
-int env_get_debug(env_t *env)
-{
-  return !!env->debug;
-}
-
 int env_get_debug_flex(env_t *env)
 {
   return !!env->debug_flex;
@@ -107,6 +83,14 @@ int env_get_debug_flex(env_t *env)
 int env_get_debug_bison(env_t *env)
 {
   return !!env->debug_bison;
+}
+
+static void _env_release(env_t *env)
+{
+  int conns = atomic_load(&env->conns);
+  OA_ILE(conns == 0);
+  errs_release(&env->errs);
+  return;
 }
 
 env_t* env_create(void)
@@ -199,6 +183,7 @@ static SQLRETURN _env_set_odbc_version(env_t *env, SQLINTEGER odbc_version)
     default:
       env_append_err_format(env, "01S02", 0,
           "Option value changed:`%s[0x%x/%d]` is substituted by `SQL_OV_ODBC3`", sql_odbc_version(odbc_version), odbc_version, odbc_version);
+      OA_NIY(0);
       return SQL_SUCCESS_WITH_INFO;
   }
 }
@@ -217,6 +202,7 @@ SQLRETURN env_set_attr(
 
     default:
       env_append_err_format(env, "01S02", 0, "Optional value changed:`%s[0x%x/%d]` is substituted by default", sql_env_attr(Attribute), Attribute, Attribute);
+      OA_NIY(0);
       return SQL_SUCCESS_WITH_INFO;
   }
 }

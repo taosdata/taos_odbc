@@ -583,8 +583,8 @@ again:
   if (r == 0) goto again;
 #endif                          /* } */
 
-  fprintf(stderr, "==%s==\n", r ? "failure" : "success");
+  D("==%s==", r ? "failure" : "success");
 
-  return r ? 1 : 0;
+  return !!r;
 }
 

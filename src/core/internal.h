@@ -346,6 +346,7 @@ struct stmt_s {
   unsigned int               is_insert_stmt:1;
   unsigned int               res_is_from_taos_query:1;
   unsigned int               subtbl_required:1;
+  unsigned int               get_or_put_or_undef:2; // 0x0: undef; 0x1:get; 0x2:put
 };
 
 EXTERN_C_END

@@ -51,4 +51,3 @@ if(ENABLE_MYSQL_TEST)
         COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/SQLBindCol mysql)
   endif()
 endif()
-

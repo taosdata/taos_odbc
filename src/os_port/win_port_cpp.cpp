@@ -35,12 +35,9 @@ const char* tod_strptime(const char *s, const char *format, struct tm *tm)
   std::istringstream ss(s);
   // ss.imbue(std::locale("de_DE.utf-8"));
   ss >> std::get_time(tm, format);
-  size_t count = ss.gcount();
+  size_t count = ss.tellg();
 
-  if (ss.fail())
-      std::cout << "Parse failed\n";
-  else
-      std::cout << std::put_time(tm, "%c") << '\n';
+  if (ss.fail()) return NULL;
 
   return s + count;
 }

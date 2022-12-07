@@ -128,6 +128,18 @@ SQLRETURN stmt_tables(stmt_t *stmt,
     SQLCHAR       *TableType,
     SQLSMALLINT    NameLength4) FA_HIDDEN;
 
+SQLRETURN stmt_get_attr(stmt_t *stmt,
+           SQLINTEGER Attribute, SQLPOINTER Value,
+           SQLINTEGER BufferLength, SQLINTEGER *StringLength);
+
+SQLRETURN stmt_get_diag_field(
+    stmt_t         *stmt,
+    SQLSMALLINT     RecNumber,
+    SQLSMALLINT     DiagIdentifier,
+    SQLPOINTER      DiagInfoPtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr) FA_HIDDEN;
+
 EXTERN_C_END
 
 #endif //  _stmt_h_

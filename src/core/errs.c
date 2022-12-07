@@ -134,3 +134,72 @@ SQLRETURN errs_get_diag_rec_x(
   return SQL_SUCCESS;
 }
 
+SQLRETURN errs_get_diag_field_sqlstate_x(
+    errs_t         *errs,
+    SQLSMALLINT     RecNumber,
+    SQLSMALLINT     DiagIdentifier,
+    SQLPOINTER      DiagInfoPtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr)
+{
+  if (RecNumber == 0) return SQL_NO_DATA;
+  if (tod_list_empty(&errs->errs)) return SQL_NO_DATA;
+
+  int i = 1;
+
+  int found = 0;
+  err_t *p = NULL;
+  tod_list_for_each_entry(p, &errs->errs, err_t, node) {
+    if (i == RecNumber) {
+      found = 1;
+      break;
+    }
+    ++i;
+  }
+
+  if (!found) return SQL_NO_DATA;
+
+  SQLCHAR *SQLState = (SQLCHAR*)DiagInfoPtr;
+  int n = snprintf((char*)SQLState, BufferLength, "%.*s", 6, (const char*)p->sql_state);
+  if (StringLengthPtr) *StringLengthPtr = n;
+
+  return SQL_SUCCESS;
+}
+
+SQLRETURN errs_get_diag_field_class_origin_x(
+    errs_t         *errs,
+    SQLSMALLINT     RecNumber,
+    SQLSMALLINT     DiagIdentifier,
+    SQLPOINTER      DiagInfoPtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr)
+{
+  if (RecNumber == 0) return SQL_NO_DATA;
+  if (tod_list_empty(&errs->errs)) return SQL_NO_DATA;
+
+  int i = 1;
+
+  int found = 0;
+  err_t *p = NULL;
+  tod_list_for_each_entry(p, &errs->errs, err_t, node) {
+    if (i == RecNumber) {
+      found = 1;
+      break;
+    }
+    ++i;
+  }
+
+  if (!found) return SQL_NO_DATA;
+
+  SQLCHAR *ClassOrigin = (SQLCHAR*)DiagInfoPtr;
+  const char *class_origin = "ISO 9075";
+  if (p->sql_state[0] == 'I' && p->sql_state[1] == 'M') { 
+    class_origin = "ODBC 3.0";
+  }
+  int n = snprintf((char*)ClassOrigin, BufferLength, "%s", class_origin);
+  if (StringLengthPtr) *StringLengthPtr = n;
+
+  return SQL_SUCCESS;
+}
+
+

@@ -490,6 +490,21 @@ static inline SQLRETURN call_SQLFetchScroll(const char *file, int line, const ch
   return sr;
 }
 
+static inline SQLRETURN call_SQLGetDiagField(const char *file, int line, const char *func,
+    SQLSMALLINT HandleType, SQLHANDLE Handle,
+    SQLSMALLINT RecNumber, SQLSMALLINT DiagIdentifier,
+    SQLPOINTER DiagInfo, SQLSMALLINT BufferLength,
+    SQLSMALLINT *StringLength)
+{
+  LOGD(file, line, func, "SQLGetDiagField(HandleType:%s,Handle:%p,RecNumber:%d,DiagIdentifier:%s,DiagInfo:%p,BufferLength:%d,StringLength:%p) ...",
+      sql_handle_type(HandleType), Handle, RecNumber, sql_diag_identifier(DiagIdentifier), DiagInfo, BufferLength, StringLength);
+  SQLRETURN sr = SQLGetDiagField(HandleType, Handle, RecNumber, DiagIdentifier, DiagInfo, BufferLength, StringLength);
+  diag(sr, HandleType, Handle);
+  LOGD(file, line, func, "SQLGetDiagField(HandleType:%s,Handle:%p,RecNumber:%d,DiagIdentifier:%s,DiagInfo:%p,BufferLength:%d,StringLength:%p(%d)) => %s",
+      sql_handle_type(HandleType), Handle, RecNumber, sql_diag_identifier(DiagIdentifier), DiagInfo, BufferLength, StringLength, *StringLength, sql_return_type(sr));
+  return sr;
+}
+
 #define CALL_SQLAllocHandle(...)                   call_SQLAllocHandle(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLFreeHandle(...)                    call_SQLFreeHandle(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLSetEnvAttr(...)                    call_SQLSetEnvAttr(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
@@ -516,6 +531,7 @@ static inline SQLRETURN call_SQLFetchScroll(const char *file, int line, const ch
 #define CALL_SQLTables(...)                        call_SQLTables(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLGetInfo(...)                       call_SQLGetInfo(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLFetchScroll(...)                   call_SQLFetchScroll(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
+#define CALL_SQLGetDiagField(...)                  call_SQLGetDiagField(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 
 #endif // _odbc_helper_h_
 

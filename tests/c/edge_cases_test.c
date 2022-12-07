@@ -133,8 +133,10 @@ static int test_direct_executes(SQLHANDLE hstmt)
 {
   CHECK(test_direct_exec(hstmt, "show databases"));
   CHECK(test_direct_exec(hstmt, "use foo"));
+#ifndef _WIN32
   CHECK(test_direct_exec(hstmt, "insert into t (ts, name, age, sex, text) values (1662861448752, 'name1', 20, 'male', '中国人')"));
   CHECK(test_direct_exec(hstmt, "insert into t (ts, name, age, sex, text) values (1662861449753, 'name2', 30, 'female', '苏州人')"));
+#endif
   CHECK(test_direct_exec(hstmt, "insert into t (ts, name, age, sex, text) values (1662861450754, 'name3', null, null, null)"));
   CHECK(test_direct_exec(hstmt, "select * from t"));
 
@@ -526,10 +528,8 @@ static int test_bind_array_of_params(SQLHANDLE hdbc)
   return (r || FAILED(sr)) ? -1 : 0;
 }
 
-int main(int argc, char *argv[])
+static int test(void)
 {
-  (void)argc;
-  (void)argv;
   srand((unsigned int)time(0));
 
   CHECK(!test_connect(NULL, "xTAOS_ODBC_DSN", NULL, NULL));
@@ -612,3 +612,14 @@ int main(int argc, char *argv[])
   return r;
 }
 
+int main(int argc, char *argv[])
+{
+  (void)argc;
+  (void)argv;
+  int r = 0;
+  r = test();
+
+  D("==%s==", r ? "failure" : "success");
+
+  return !!r;
+}

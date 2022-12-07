@@ -453,6 +453,24 @@ SQLRETURN conn_connect(
   return sr;
 }
 
+static SQLRETURN _conn_get_info_driver_odbc_ver(
+    conn_t         *conn,
+    char           *buf,
+    size_t          sz,
+    SQLSMALLINT    *StringLengthPtr)
+{
+  // https://learn.microsoft.com/en-us/sql/odbc/reference/install/driver-specification-subkeys?view=sql-server-ver16
+  // `DriverODBCVer`: This must be the same as the value returned for the SQL_DRIVER_ODBC_VER option in SQLGetInfo.
+#if (ODBCVER == 0x0351)
+  const char *ver = "03.51";
+#endif
+
+  int n = snprintf(buf, sz, "%s", ver);
+  if (StringLengthPtr) *StringLengthPtr = n;
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _conn_get_info_dbms_name(
     conn_t         *conn,
     char           *buf,
@@ -491,14 +509,20 @@ SQLRETURN conn_get_info(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr)
 {
+  // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetinfo-function?view=sql-server-ver16
   switch (InfoType) {
+    case SQL_DRIVER_ODBC_VER:
+      return _conn_get_info_driver_odbc_ver(conn, (char*)InfoValuePtr, (size_t)BufferLength, StringLengthPtr);
     case SQL_DBMS_NAME:
       return _conn_get_info_dbms_name(conn, (char*)InfoValuePtr, (size_t)BufferLength, StringLengthPtr);
     case SQL_DRIVER_NAME:
       return _conn_get_info_driver_name(conn, (char*)InfoValuePtr, (size_t)BufferLength, StringLengthPtr);
     case SQL_CURSOR_COMMIT_BEHAVIOR:
-      *(SQLUSMALLINT*)InfoValuePtr = 0; // TODO:
-      return SQL_ERROR;
+      *(SQLUSMALLINT*)InfoValuePtr = 0; // NOTE: refer to msdn listed above
+      return SQL_SUCCESS;
+    case SQL_CURSOR_ROLLBACK_BEHAVIOR:
+      *(SQLUSMALLINT*)InfoValuePtr = 0; // NOTE: refer to msdn listed above
+      return SQL_SUCCESS;
     case SQL_TXN_ISOLATION_OPTION:
       *(SQLUINTEGER*)InfoValuePtr = 0; // TODO:
       return SQL_SUCCESS;
@@ -517,8 +541,17 @@ SQLRETURN conn_get_info(
     case SQL_MAX_TABLE_NAME_LEN:
       *(SQLUSMALLINT*)InfoValuePtr = MAX_TABLE_NAME_LEN;
       return SQL_SUCCESS;
+#if (ODBCVER >= 0x0380)      /* { */
+    case SQL_ASYNC_DBC_FUNCTIONS:
+      *(SQLUINTEGER*)InfoValuePtr = SQL_ASYNC_DBC_NOT_CAPABLE;
+      return SQL_SUCCESS;
+    case SQL_ASYNC_NOTIFICATION:
+      *(SQLUINTEGER*)InfoValuePtr = SQL_ASYNC_NOTIFICATION_NOT_CAPABLE;
+      return SQL_SUCCESS;
+#endif
     default:
       conn_append_err_format(conn, "HY000", 0, "General error:`%s[%d/0x%x]` not implemented yet", sql_info_type(InfoType), InfoType, InfoType);
+      OA_NIY(0);
       return SQL_ERROR;
   }
 }
@@ -570,3 +603,19 @@ void conn_clr_errs(conn_t *conn)
   errs_clr(&conn->errs);
 }
 
+SQLRETURN conn_get_diag_field(
+    conn_t         *conn,
+    SQLSMALLINT     RecNumber,
+    SQLSMALLINT     DiagIdentifier,
+    SQLPOINTER      DiagInfoPtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr)
+{
+  switch (DiagIdentifier) {
+    case SQL_DIAG_CLASS_ORIGIN:
+      return errs_get_diag_field_class_origin(&conn->errs, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
+    default:
+      OA(0, "RecNumber:[%d]; DiagIdentifier:[%d]%s", RecNumber, DiagIdentifier, sql_diag_identifier(DiagIdentifier));
+      return SQL_ERROR;
+  }
+}

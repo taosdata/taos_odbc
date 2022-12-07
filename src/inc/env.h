@@ -63,6 +63,9 @@ SQLRETURN env_end_tran(env_t *env, SQLSMALLINT CompletionType) FA_HIDDEN;
 
 SQLRETURN env_alloc_conn(env_t *env, SQLHANDLE *OutputHandle) FA_HIDDEN;
 
+int tod_get_debug_flex(void) FA_HIDDEN;
+int tod_get_debug_bison(void) FA_HIDDEN;
+
 EXTERN_C_END
 
 #endif // _env_h_

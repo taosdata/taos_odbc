@@ -201,24 +201,27 @@ macro(check_requirements)
     message(STATUS "${Green}`node` found -- ${NODEJS_VERSION}, please be noted, nodejs v12 and above are expected compatible${ColorReset}")
   endif()
 
-  ## check `rustc`
-  find_program(RUSTC NAMES rustc)
-  if(NOT RUSTC)
-    message(STATUS "${Yellow}`rustc` not found, thus rustc-related-test-cases would be eliminated, you may refer to https://rust-lang.org/${ColorReset}")
-  else()
-    set(HAVE_RUSTC ON)
-    execute_process(COMMAND rustc --version ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE RUSTC_VERSION)
-    message(STATUS "${Green}`rustc` found -- ${RUSTC_VERSION}, please be noted, rustc v1.63 and above are expected compatible${ColorReset}")
-  endif()
+  if(NOT TODBC_WINDOWS)
+    ## NOTE: check http-proxy sort of issues
+    ## check `rustc`
+    find_program(RUSTC NAMES rustc)
+    if(NOT RUSTC)
+      message(STATUS "${Yellow}`rustc` not found, thus rustc-related-test-cases would be eliminated, you may refer to https://rust-lang.org/${ColorReset}")
+    else()
+      set(HAVE_RUSTC ON)
+      execute_process(COMMAND rustc --version ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE RUSTC_VERSION)
+      message(STATUS "${Green}`rustc` found -- ${RUSTC_VERSION}, please be noted, rustc v1.63 and above are expected compatible${ColorReset}")
+    endif()
 
-  ## check `cargo`
-  find_program(CARGO NAMES cargo)
-  if(NOT CARGO)
-    message(STATUS "${Yellow}`cargo` not found, thus cargo-related-test-cases would be eliminated, you may refer to https://rust-lang.org/${ColorReset}")
-  else()
-    set(HAVE_CARGO ON)
-    execute_process(COMMAND cargo --version ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE CARGO_VERSION)
-    message(STATUS "${Green}`cargo` found -- ${CARGO_VERSION}, please be noted, cargo v1.63 and above are expected compatible${ColorReset}")
+    ## check `cargo`
+    find_program(CARGO NAMES cargo)
+    if(NOT CARGO)
+      message(STATUS "${Yellow}`cargo` not found, thus cargo-related-test-cases would be eliminated, you may refer to https://rust-lang.org/${ColorReset}")
+    else()
+      set(HAVE_CARGO ON)
+      execute_process(COMMAND cargo --version ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE CARGO_VERSION)
+      message(STATUS "${Green}`cargo` found -- ${CARGO_VERSION}, please be noted, cargo v1.63 and above are expected compatible${ColorReset}")
+    endif()
   endif()
 
   ## check `mysql`

@@ -122,10 +122,12 @@ static int test_case1(void)
           A(SUCCEEDED(rc), "");
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"select * from t", SQL_NTS);
           A(SUCCEEDED(rc), "");
+#ifndef _WIN32
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861448752, 'name1', 20, 'male', '中国人')", SQL_NTS);
           A(SUCCEEDED(rc), "");
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861449753, 'name2', 30, 'female', '苏州人')", SQL_NTS);
           A(SUCCEEDED(rc), "");
+#endif
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861450754, 'name3', null, null, null)", SQL_NTS);
           A(SUCCEEDED(rc), "");
 
@@ -164,8 +166,10 @@ static int test_case1(void)
             }
 
             const char *exp[][5] = {
+#ifndef _WIN32
               {"[2022-09-11 09:57:28.752]", "[name1]", "[20]", "[male]", "[中国人]"},
               {"[2022-09-11 09:57:29.753]", "[name2]", "[30]", "[female]", "[苏州人]"},
+#endif
               {"[2022-09-11 09:57:30.754]", "[name3]", "null", "null", "null"},
             };
 
@@ -209,7 +213,9 @@ static int test_case1(void)
           r = e;
         }
 
+#ifndef _WIN32
         SQLCancel(hstmt);
+#endif
         SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
       } catch (int e) {
         r = e;
@@ -282,10 +288,12 @@ static int test_case2(void)
           A(SUCCEEDED(rc), "");
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"select * from t", SQL_NTS);
           A(SUCCEEDED(rc), "");
+#ifndef _WIN32
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861448752, 'name1', 20, 'male', '中国人')", SQL_NTS);
           A(SUCCEEDED(rc), "");
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861449753, 'name2', 30, 'female', '苏州人')", SQL_NTS);
           A(SUCCEEDED(rc), "");
+#endif
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861450754, 'name3', null, null, null)", SQL_NTS);
           A(SUCCEEDED(rc), "");
 
@@ -294,8 +302,10 @@ static int test_case2(void)
             A(SUCCEEDED(rc), "");
 
             const char *exp[][5] = {
+#ifndef _WIN32
               {"[2022-09-11 09:57:28.752]", "[name1]", "[20]", "[male]", "[中国人]"},
               {"[2022-09-11 09:57:29.753]", "[name2]", "[30]", "[female]", "[苏州人]"},
+#endif
               {"[2022-09-11 09:57:30.754]", "[name3]", "null", "null", "null"},
             };
 
@@ -330,7 +340,9 @@ static int test_case2(void)
           r = e;
         }
 
+#ifndef _WIN32
         SQLCancel(hstmt);
+#endif
         SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
       } catch (int e) {
         r = e;
@@ -403,10 +415,12 @@ static int test_case3(void)
           A(SUCCEEDED(rc), "");
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"select * from t", SQL_NTS);
           A(SUCCEEDED(rc), "");
+#ifndef _WIN32
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861448752, 'name1', 20, 'male', '中国人')", SQL_NTS);
           A(SUCCEEDED(rc), "");
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861449753, 'name2', 30, 'female', '苏州人')", SQL_NTS);
           A(SUCCEEDED(rc), "");
+#endif
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861450754, 'name3', null, null, null)", SQL_NTS);
           A(SUCCEEDED(rc), "");
 
@@ -415,8 +429,10 @@ static int test_case3(void)
             A(SUCCEEDED(rc), "");
 
             const char *exp[][5] = {
+#ifndef _WIN32
               {"[2022-09-11 09:57:28.752]", "[name1]", "[20]", "[male]", "[中国人]"},
               {"[2022-09-11 09:57:29.753]", "[name2]", "[30]", "[female]", "[苏州人]"},
+#endif
               {"[2022-09-11 09:57:30.754]", "[name3]", "null", "null", "null"},
             };
 
@@ -453,7 +469,9 @@ static int test_case3(void)
           r = e;
         }
 
+#ifndef _WIN32
         SQLCancel(hstmt);
+#endif
         SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
       } catch (int e) {
         r = e;
@@ -656,7 +674,9 @@ static int test_case4(const char *conn_str)
           r = e;
         }
 
+#ifndef _WIN32
         SQLCancel(hstmt);
+#endif
         SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
       } catch (int e) {
         r = e;
@@ -790,7 +810,7 @@ static int test_case5(const char *conn_str)
             rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
             A(rc == SQL_SUCCESS_WITH_INFO, "");
             A(StrLen_or_Ind == 10, "");
-            A(buf[0] == fill, "buf[0] = 0x%x", buf[0]);
+            A(buf[0] == '\0', "buf[0] = 0x%x", buf[0]);
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 1;
@@ -798,7 +818,7 @@ static int test_case5(const char *conn_str)
             rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
             A(rc == SQL_SUCCESS_WITH_INFO, "");
             A(StrLen_or_Ind == 10, "");
-            A(buf[0] == fill, "buf[0] = 0x%x", buf[0]);
+            A(buf[0] == '\0', "buf[0] = 0x%x", buf[0]);
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 2;
@@ -908,7 +928,9 @@ static int test_case5(const char *conn_str)
           r = e;
         }
 
+#ifndef _WIN32
         SQLCancel(hstmt);
+#endif
         SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
       } catch (int e) {
         r = e;
@@ -1112,7 +1134,9 @@ static int test_mysql_case1(void)
           r = e;
         }
 
+#ifndef _WIN32
         SQLCancel(hstmt);
+#endif
         SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
       } catch (int e) {
         r = e;
@@ -1187,10 +1211,12 @@ static int test_mysql_case2(void)
           A(SUCCEEDED(rc), "");
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"select * from t", SQL_NTS);
           A(SUCCEEDED(rc), "");
+#ifndef _WIN32
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (name, age, sex, text) values ('name1', 20, 'male', '中国人')", SQL_NTS);
           A(SUCCEEDED(rc), "");
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (name, age, sex, text) values ('name2', 30, 'female', '苏州人')", SQL_NTS);
           A(SUCCEEDED(rc), "");
+#endif
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (name, age, sex, text) values ('name3', null, null, null)", SQL_NTS);
           A(SUCCEEDED(rc), "");
 
@@ -1481,7 +1507,9 @@ static int test_mysql_case2(void)
           r = e;
         }
 
+#ifndef _WIN32
         SQLCancel(hstmt);
+#endif
         SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
       } catch (int e) {
         r = e;
@@ -1625,7 +1653,9 @@ static int test_mysql_case3(void)
           r = e;
         }
 
+#ifndef _WIN32
         SQLCancel(hstmt);
+#endif
         SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
       } catch (int e) {
         r = e;

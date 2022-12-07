@@ -32,8 +32,8 @@ SQLConnect
 SQLColAttribute
 SQLTables
 SQLBulkOperations
-SQLCancel
-SQLCloseCursor
+;SQLCancel
+;SQLCloseCursor
 SQLColumnPrivileges
 SQLColumns
 SQLCopyDesc

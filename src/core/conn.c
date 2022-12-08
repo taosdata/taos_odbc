@@ -31,6 +31,9 @@
 #include "parser.h"
 #include "taos_helpers.h"
 
+#ifndef _WIN32
+#include <locale.h>
+#endif
 #include <odbcinst.h>
 #include <string.h>
 
@@ -282,7 +285,15 @@ static int _conn_setup_iconvs(conn_t *conn)
   const char *sql_c_charset = "";
 
 #ifndef _WIN32
-#error not implemented yet
+  const char *locale = setlocale(LC_CTYPE, NULL);
+  const char *p = locale ? strchr(locale, '.') : NULL;
+  p = p ? p + 1 : NULL;
+  if (!p) {
+    conn_append_err_format(conn, "HY000", 0,
+        "General error:current locale [%s] not implemented yet", locale);
+    return -1;
+  }
+  sql_c_charset = p;
 #endif
 #ifdef _WIN32
   UINT acp = GetACP();
@@ -305,9 +316,15 @@ static int _conn_setup_iconvs(conn_t *conn)
   conn->iconv_tsdb_varchar_to_sql_c_char = iconv_open(sql_c_charset, tsdb_charset);
   if (!conn->iconv_sql_c_char_to_tsdb_varchar || !conn->iconv_tsdb_varchar_to_sql_c_char) {
     _conn_release_iconvs(conn);
+#ifdef _WIN32
     conn_append_err_format(conn, "HY000", 0,
         "General error:conversion between current code page [%d]%s <=> charset [%s] not supported yet",
         acp, sql_c_charset, tsdb_charset);
+#else
+    conn_append_err_format(conn, "HY000", 0,
+        "General error:conversion between current charset [%s] of locale [%s] <=> charset [%s] not supported yet",
+        p, locale, tsdb_charset);
+#endif
     return -1;
   }
   return 0;
@@ -819,7 +836,6 @@ SQLRETURN conn_get_diag_field(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr)
 {
-  int n = 0;
   switch (DiagIdentifier) {
     case SQL_DIAG_CLASS_ORIGIN:
       return errs_get_diag_field_class_origin(&conn->errs, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
@@ -827,13 +843,13 @@ SQLRETURN conn_get_diag_field(
       return errs_get_diag_field_subclass_origin(&conn->errs, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
     case SQL_DIAG_CONNECTION_NAME:
       // TODO:
-      n = snprintf((char*)DiagInfoPtr, BufferLength, "");
-      if (StringLengthPtr) *StringLengthPtr = n;
+      *(char*)DiagInfoPtr = '\0';
+      if (StringLengthPtr) *StringLengthPtr = 0;
       return SQL_SUCCESS;
     case SQL_DIAG_SERVER_NAME:
       // TODO:
-      n = snprintf((char*)DiagInfoPtr, BufferLength, "");
-      if (StringLengthPtr) *StringLengthPtr = n;
+      *(char*)DiagInfoPtr = '\0';
+      if (StringLengthPtr) *StringLengthPtr = 0;
       return SQL_SUCCESS;
     default:
       OA(0, "RecNumber:[%d]; DiagIdentifier:[%d]%s", RecNumber, DiagIdentifier, sql_diag_identifier(DiagIdentifier));

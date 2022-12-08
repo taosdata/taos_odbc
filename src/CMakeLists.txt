@@ -47,10 +47,10 @@ list(APPEND taos_odbc_a_SOURCES
     $<TARGET_OBJECTS:odbc_obj>
     $<TARGET_OBJECTS:utils_obj>
     $<TARGET_OBJECTS:os_port_obj>
-    $<TARGET_OBJECTS:parser_obj>)
+    $<TARGET_OBJECTS:parser_obj>
+    $<TARGET_OBJECTS:taos_helpers_obj>)
 
 add_library(taos_odbc_a STATIC ${taos_odbc_a_SOURCES})
-# target_link_libraries(taos_odbc_a pthread)
 target_link_libraries(taos_odbc_a taos)
 if(NOT TODBC_WINDOWS)
     target_link_libraries(taos_odbc_a pthread)

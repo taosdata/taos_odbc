@@ -1832,6 +1832,79 @@ static int flaw_case1(void)
   return r;
 }
 
+static int test_charset_step2(TAOS_RES *res)
+{
+  int numOfRows                = 0;
+  TAOS_ROW rows                = NULL;
+  TAOS_FIELD *fields           = NULL;
+  int nr_fields                = 0;
+
+  int r = 0;
+  nr_fields = CALL_taos_num_fields(res);
+  if (nr_fields == -1) return -1;
+  A(nr_fields == 2, "internal logic error");
+
+  fields = CALL_taos_fetch_fields(res);
+  if (!fields) return -1;
+
+  r = CALL_taos_fetch_block_s(res, &numOfRows, &rows);
+  if (r) return -1;
+  A(numOfRows == 1, "internal logic error");
+
+  TAOS_FIELD *field;
+  int col;
+
+  col = 0;
+  field = fields + col;
+  const char *name = NULL;
+  int name_len = 0;
+  r = helper_get_data_len(res, field, rows, 0, col, &name, &name_len);
+  if (r) return -1;
+
+  col = 1;
+  field = fields + col;
+  const char *wname = NULL;
+  int wname_len = 0;
+  r = helper_get_data_len(res, field, rows, 0, col, &wname, &wname_len);
+  if (r) return -1;
+
+  D("name:%.*s", name_len, name);
+  D("wname:%.*s", wname_len, wname);
+
+  return 0;
+}
+
+static int test_charset_step1(TAOS *taos)
+{
+  const char *sql = "select name, wname from wall.t";
+  TAOS_RES *res = CALL_taos_query(taos,sql);
+  if (!res) return -1;
+
+  int r = test_charset_step2(res);
+
+  CALL_taos_free_result(res);
+
+  return r;
+}
+
+static int test_charset(void)
+{
+  const char *ip = NULL;
+  const char *user = NULL;
+  const char *pass = NULL;
+  const char *db = NULL;
+  uint16_t port = 0;
+  TAOS *taos = CALL_taos_connect(ip,user,pass,db,port);
+  if (!taos) return -1;
+
+  int r = 0;
+  r = test_charset_step1(taos);
+
+  CALL_taos_close(taos);
+
+  return r;
+}
+
 static int tests(int argc, char *argv[])
 {
   int r = 0;
@@ -1855,6 +1928,12 @@ static int tests(int argc, char *argv[])
     }
     return !r;
   }
+  if (0) {
+    r = test_charset();
+    D("==%s==", r ? "failure" : "success");
+    if (1) return 1;
+    return !!r;
+  }
 
   r = process_by_args(argc, argv);
 
@@ -1875,4 +1954,3 @@ int main(int argc, char *argv[])
 
   return !!r;
 }
-

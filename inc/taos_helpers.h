@@ -748,5 +748,11 @@ static inline TSDB_SERVER_STATUS call_taos_check_server_status(const char *file,
 #define CALL_taos_check_server_status(...) call_taos_check_server_status(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 
 
+EXTERN_C_BEGIN
+
+int helper_get_data_len(TAOS_RES *res, TAOS_FIELD *field, TAOS_ROW rows, int row, int col, const char **data, int *len) FA_HIDDEN;
+
+EXTERN_C_END
+
 #endif // _taos_helpers_h_
 

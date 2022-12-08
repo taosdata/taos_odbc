@@ -32,3 +32,8 @@ target_include_directories(common_obj PRIVATE
     ${ODBCINST_INCLUDE_DIRECTORY})
 set_property(TARGET common_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
 
+list(APPEND taos_helpers_SOURCES
+    taos_helpers.c)
+
+add_library(taos_helpers_obj OBJECT ${taos_helpers_SOURCES})
+set_property(TARGET taos_helpers_obj PROPERTY POSITION_INDEPENDENT_CODE 1)

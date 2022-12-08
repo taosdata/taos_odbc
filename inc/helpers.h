@@ -151,6 +151,11 @@ static inline const char* color_reset(void)
 } while (0)
 
 const char *tod_strptime(const char *s, const char *format, struct tm *tm) FA_HIDDEN;
+#ifdef _WIN32
+#define tod_strcasecmp _stricmp
+#else
+#define tod_strcasecmp strcasecmp
+#endif
 
 EXTERN_C_END
 

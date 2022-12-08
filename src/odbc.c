@@ -53,13 +53,8 @@ static int check_env_bool(const char *name)
   const char *val = tod_getenv(name);
   if (!val) return 0;
   if (!*val) return 1;
-#ifdef _WIN32
-  if (_stricmp(val, "true") == 0) return 1;
-  if (_stricmp(val, "on") == 0) return 1;
-#else
-  if (strcasecmp(val, "true") == 0) return 1;
-  if (strcasecmp(val, "on") == 0) return 1;
-#endif
+  if (tod_strcasecmp(val, "true") == 0) return 1;
+  if (tod_strcasecmp(val, "on") == 0) return 1;
   return atoi(val);
 }
 
@@ -510,10 +505,8 @@ SQLRETURN SQL_API SQLGetDiagField(
   const char *p = "";
   switch (HandleType) {
     case SQL_HANDLE_DBC:
-      conn_clr_errs((conn_t*)Handle);
       return conn_get_diag_field((conn_t*)Handle, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
     case SQL_HANDLE_STMT:
-      stmt_clr_errs((stmt_t*)Handle);
       return stmt_get_diag_field((stmt_t*)Handle, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
     default:
       OW("`%s` not implemented yet", sql_handle_type(HandleType));

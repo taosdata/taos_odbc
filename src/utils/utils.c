@@ -570,4 +570,3 @@ int buffer_concat_replacement_n(buffer_t *str, const char *s, size_t len)
   if (str->base) str->base[str->nr] = '\0';
   return -1;
 }
-

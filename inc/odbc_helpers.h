@@ -50,7 +50,7 @@ static inline void diag(SQLRETURN sr, SQLSMALLINT HandleType, SQLHANDLE Handle)
     SQLRETURN _sr = SQL_SUCCESS;
     const char *s1 = (sr == SQL_ERROR) ? color_red() : color_yellow();
     const char *s2 = color_reset();
-    for (SQLSMALLINT i=1; i>=1; ++i) {
+    for (SQLSMALLINT i=1; i<10; ++i) {
       _sr = SQLGetDiagRec(HandleType, Handle, i,
           sqlState, &nativeErrno,
           messageText, sizeof(messageText), &textLength);

@@ -240,9 +240,9 @@ static int _sql_stmt_get_data(SQLHANDLE stmth, SQLSMALLINT ColumnCount)
 __attribute__((unused))
 static int test_sql_stmt_execute_direct(SQLHANDLE stmth, const char *statement)
 {
-  SQLRETURN r;
-  SQLSMALLINT ColumnCount;
-  int rr;
+  SQLRETURN r = SQL_SUCCESS;
+  SQLSMALLINT ColumnCount = 0;
+  int rr = 0;
 
   r = CALL_SQLExecDirect(stmth, (SQLCHAR*)statement, (SQLINTEGER)strlen(statement));
   if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;

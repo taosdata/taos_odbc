@@ -25,7 +25,8 @@
 add_executable(taos_test
     taos_test.c
     $<TARGET_OBJECTS:common_obj>
-    $<TARGET_OBJECTS:os_port_obj>)
+    $<TARGET_OBJECTS:os_port_obj>
+    $<TARGET_OBJECTS:taos_helpers_obj>)
 add_dependencies(taos_test ex_cjson)
 
 target_include_directories(taos_test PRIVATE ${CJSON_INSTALL_PATH}/include)

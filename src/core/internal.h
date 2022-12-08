@@ -37,6 +37,8 @@
 
 #include <taos.h>
 
+#include <iconv.h>
+
 EXTERN_C_BEGIN
 
 // <TDengine/ include/util/tdef.h
@@ -265,6 +267,18 @@ struct conn_s {
   env_t              *env;
 
   connection_cfg_t    cfg;
+
+  // server info
+  const char         *svr_info;
+
+  // config from information_schema.ins_configs
+  char               *s_statusInterval;
+  char               *s_timezone;
+  char               *s_locale;
+  char               *s_charset;
+
+  iconv_t             iconv_sql_c_char_to_tsdb_varchar;
+  iconv_t             iconv_tsdb_varchar_to_sql_c_char;
 
   errs_t              errs;
 

@@ -204,4 +204,16 @@ SQLRETURN errs_get_diag_field_class_origin_x(
   return SQL_SUCCESS;
 }
 
+SQLRETURN errs_get_diag_field_subclass_origin_x(
+    errs_t         *errs,
+    SQLSMALLINT     RecNumber,
+    SQLSMALLINT     DiagIdentifier,
+    SQLPOINTER      DiagInfoPtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr)
+{
+  // TODO:
+  return errs_get_diag_field_class_origin_x(errs, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
+}
+
 

@@ -45,6 +45,14 @@ static void _conn_init(conn_t *conn, env_t *env)
   conn->refc = 1;
 }
 
+static void _conn_release_information_schema_ins_configs(conn_t *conn)
+{
+  TOD_SAFE_FREE(conn->s_statusInterval);
+  TOD_SAFE_FREE(conn->s_timezone);
+  TOD_SAFE_FREE(conn->s_locale);
+  TOD_SAFE_FREE(conn->s_charset);
+}
+
 static void _conn_release(conn_t *conn)
 {
   OA_ILE(conn->taos == NULL);
@@ -57,6 +65,7 @@ static void _conn_release(conn_t *conn)
   conn->env = NULL;
 
   connection_cfg_release(&conn->cfg);
+  _conn_release_information_schema_ins_configs(conn);
   errs_release(&conn->errs);
 
   return;
@@ -118,6 +127,192 @@ SQLRETURN conn_free(conn_t *conn)
   return SQL_SUCCESS;
 }
 
+static int _conn_save_from_information_schema_ins_configs(conn_t *conn, int name_len, const char *name, int value_len, const char *value)
+{
+#ifdef _LOCAL_
+#error choose another name for local usage
+#endif
+
+#define _LOCAL_(x) do {                                                        \
+  if (name_len == sizeof(#x) - 1 && strncmp(#x, name, name_len) == 0) {        \
+    TOD_SAFE_FREE(conn->s_##x);                                                \
+    conn->s_##x = strndup(value, value_len);                                   \
+    if (!conn->s_##x) return -1;                                               \
+    OD("===%s===", conn->s_##x);                                               \
+    return 0;                                                                  \
+  }                                                                            \
+} while (0)
+
+  _LOCAL_(statusInterval);
+  _LOCAL_(timezone);
+  _LOCAL_(locale);
+  _LOCAL_(charset);
+
+#undef _LOCAL_
+  return 0;
+}
+
+static SQLRETURN _conn_get_configs_from_information_schema_ins_configs_with_res(conn_t *conn, TAOS_RES *res)
+{
+  int numOfRows                = 0;
+  TAOS_ROW rows                = NULL;
+  TAOS_FIELD *fields           = NULL;
+  int nr_fields                = 0;
+
+  int r = 0;
+  nr_fields = CALL_taos_num_fields(res);
+  if (nr_fields == -1) {
+    int err = taos_errno(res);
+    const char *s = taos_errstr(res);
+    conn_append_err_format(conn, "HY000", 0,
+        "General error:failed to fetch # of fields from `information_schema.ins_configs`:[%d]%s", err, s);
+    return SQL_ERROR;
+  }
+  if (nr_fields != 2) {
+    conn_append_err_format(conn, "HY000", 0,
+        "General error:# of fields from `information_schema.ins_configs` is expected 2 but got ==%d==", nr_fields);
+    return SQL_ERROR;
+  }
+  fields = CALL_taos_fetch_fields(res);
+  if (!fields) {
+    int err = taos_errno(res);
+    const char *s = taos_errstr(res);
+    conn_append_err_format(conn, "HY000", 0,
+        "General error:failed to fetch fields from `information_schema.ins_configs`:[%d]%s", err, s);
+    return SQL_ERROR;
+  }
+  for (int i=0; i<nr_fields; ++i) {
+    if (fields[i].type != TSDB_DATA_TYPE_VARCHAR) {
+      conn_append_err_format(conn, "HY000", 0,
+          "General error:field[#%d] from `information_schema.ins_configs` is expected `TSDB_DATA_TYPE_VARCHAR` but got ==%s==",
+          i + 1, taos_data_type(fields[0].type));
+      return SQL_ERROR;
+    }
+  }
+  r = CALL_taos_fetch_block_s(res, &numOfRows, &rows);
+  if (r) {
+    int err = taos_errno(res);
+    const char *s = taos_errstr(res);
+    conn_append_err_format(conn, "HY000", 0,
+        "General error:failed to fetch block from `information_schema.ins_configs`:[%d]%s", err, s);
+    return SQL_ERROR;
+  }
+  for (int i=0; i<numOfRows; ++i) {
+    TAOS_FIELD *field;
+    int col;
+
+    col = 0;
+    field = fields + col;
+    const char *name = NULL;
+    int name_len = 0;
+    r = helper_get_data_len(res, field, rows, i, col, &name, &name_len);
+    if (r) {
+      OE("General error:Row[%d] Column[%s] conversion from `%s[0x%x/%d]` not implemented yet",
+          i + 1, field->name, taos_data_type(field->type), field->type, field->type);
+      conn_append_err_format(conn, "HY000", 0,
+          "General error:Row[%d] Column[%s] conversion from `%s[0x%x/%d]` not implemented yet",
+          i + 1, field->name, taos_data_type(field->type), field->type, field->type);
+      return SQL_ERROR;
+    }
+
+    col = 1;
+    field = fields + col;
+    const char *value = NULL;
+    int value_len = 0;
+    r = helper_get_data_len(res, field, rows, i, col, &value, &value_len);
+    if (r) {
+      OE("General error:Row[%d] Column[%s] conversion from `%s[0x%x/%d]` not implemented yet",
+          i + 1, field->name, taos_data_type(field->type), field->type, field->type);
+      conn_append_err_format(conn, "HY000", 0,
+          "General error:Row[%d] Column[%s] conversion from `%s[0x%x/%d]` not implemented yet",
+          i + 1, field->name, taos_data_type(field->type), field->type, field->type);
+      return SQL_ERROR;
+    }
+    OD("%.*s: %.*s", name_len, name, value_len, value);
+    r = _conn_save_from_information_schema_ins_configs(conn, name_len, name, value_len, value);
+    if (r) {
+      OE("General error: save `%.*s:%.*s` failed", name_len, name, value_len, value);
+      conn_append_err_format(conn, "HY000", 0,
+          "General error: save `%.*s:%.*s` failed", name_len, name, value_len, value);
+      return SQL_ERROR;
+    }
+  }
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _conn_get_configs_from_information_schema_ins_configs(conn_t *conn)
+{
+  TAOS *taos = conn->taos;
+  OA_ILE(taos);
+  const char *sql = "select * from information_schema.ins_configs";
+  TAOS_RES *res = CALL_taos_query(taos, sql);
+  if (!res) {
+    int err = taos_errno(NULL);
+    const char *s = taos_errstr(NULL);
+    conn_append_err_format(conn, "HY000", 0,
+        "General error:failed to query `information_schema.ins_configs`:[%d]%s", err, s);
+    return SQL_ERROR;
+  }
+  SQLRETURN sr = _conn_get_configs_from_information_schema_ins_configs_with_res(conn, res);
+  CALL_taos_free_result(res);
+  return sr;
+}
+
+static void _conn_release_iconvs(conn_t *conn)
+{
+#ifdef _LOCAL_
+#error choose another name for local usage
+#endif
+#define _LOCAL_(x) do {                   \
+  if (!conn->iconv_##x) break;            \
+  iconv_close(conn->iconv_##x);           \
+  conn->iconv_##x= NULL;                  \
+} while (0)
+
+  _LOCAL_(sql_c_char_to_tsdb_varchar);
+  _LOCAL_(tsdb_varchar_to_sql_c_char);
+
+#undef _LOCAL_
+}
+
+static int _conn_setup_iconvs(conn_t *conn)
+{
+  _conn_release_iconvs(conn);
+  const char *tsdb_charset = conn->s_charset;
+  const char *sql_c_charset = "";
+
+#ifndef _WIN32
+#error not implemented yet
+#endif
+#ifdef _WIN32
+  UINT acp = GetACP();
+  switch (acp) {
+    case 936:
+      sql_c_charset = "GB18030";
+      break;
+    case 65001:
+      sql_c_charset = "UTF-8";
+      break;
+    default:
+      conn_append_err_format(conn, "HY000", 0,
+          "General error:current code page [%d] not implemented yet", acp);
+      return -1;
+  }
+#endif
+
+  if (tod_strcasecmp(tsdb_charset, sql_c_charset)==0) return 0;
+  conn->iconv_sql_c_char_to_tsdb_varchar = iconv_open(tsdb_charset, sql_c_charset);
+  conn->iconv_tsdb_varchar_to_sql_c_char = iconv_open(sql_c_charset, tsdb_charset);
+  if (!conn->iconv_sql_c_char_to_tsdb_varchar || !conn->iconv_tsdb_varchar_to_sql_c_char) {
+    _conn_release_iconvs(conn);
+    conn_append_err_format(conn, "HY000", 0,
+        "General error:conversion between current code page [%d]%s <=> charset [%s] not supported yet",
+        acp, sql_c_charset, tsdb_charset);
+    return -1;
+  }
+  return 0;
+}
+
 static SQLRETURN _do_conn_connect(conn_t *conn)
 {
   OA_ILE(conn->taos == NULL);
@@ -148,7 +343,18 @@ static SQLRETURN _do_conn_connect(conn_t *conn)
     return SQL_ERROR;
   }
 
-  return SQL_SUCCESS;
+  conn->svr_info = CALL_taos_get_server_info(conn->taos);
+  do {
+    SQLRETURN sr;
+    int r;
+    sr = _conn_get_configs_from_information_schema_ins_configs(conn);
+    if (sr == SQL_ERROR) break;
+    r = _conn_setup_iconvs(conn);
+    if (r) break;
+    return SQL_SUCCESS;
+  } while (0);
+  conn_disconnect(conn);
+  return SQL_ERROR;
 }
 
 static void _conn_fill_out_connection_str(
@@ -613,9 +819,22 @@ SQLRETURN conn_get_diag_field(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr)
 {
+  int n = 0;
   switch (DiagIdentifier) {
     case SQL_DIAG_CLASS_ORIGIN:
       return errs_get_diag_field_class_origin(&conn->errs, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
+    case SQL_DIAG_SUBCLASS_ORIGIN:
+      return errs_get_diag_field_subclass_origin(&conn->errs, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
+    case SQL_DIAG_CONNECTION_NAME:
+      // TODO:
+      n = snprintf((char*)DiagInfoPtr, BufferLength, "");
+      if (StringLengthPtr) *StringLengthPtr = n;
+      return SQL_SUCCESS;
+    case SQL_DIAG_SERVER_NAME:
+      // TODO:
+      n = snprintf((char*)DiagInfoPtr, BufferLength, "");
+      if (StringLengthPtr) *StringLengthPtr = n;
+      return SQL_SUCCESS;
     default:
       OA(0, "RecNumber:[%d]; DiagIdentifier:[%d]%s", RecNumber, DiagIdentifier, sql_diag_identifier(DiagIdentifier));
       return SQL_ERROR;

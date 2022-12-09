@@ -90,7 +90,7 @@ static void _env_release(env_t *env)
   int conns = atomic_load(&env->conns);
   OA_ILE(conns == 0);
   errs_release(&env->errs);
-  return;
+  mem_release(&env->mem);
 }
 
 env_t* env_create(void)
@@ -260,3 +260,27 @@ void env_clr_errs(env_t *env)
   errs_clr(&env->errs);
 }
 
+size_t env_conv(env_t *env, iconv_t cnv, mem_t *mem, const char *src, char **pdst)
+{
+  size_t nr = strlen(src);
+  size_t sz = (nr + 1) * 3;
+
+  int rr = 0;
+  rr = mem_keep(mem, sz);
+  if (rr) return (size_t)-1;
+
+  unsigned char *p = mem->base;
+  *pdst = (char*)p;
+
+  char *inbuf = (char*)src;
+  size_t inbytesleft = nr;
+  char *outbuf = (char*)p;
+  size_t outbytesleft = sz;
+  size_t r = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+  iconv(cnv, NULL, NULL, NULL, NULL); // back to initial state
+  if (r == (size_t)-1) return (size_t)-1;
+  OA_NIY(outbytesleft > 2);
+  outbuf[0] = '\0';
+  outbuf[1] = '\0';
+  return sz - outbytesleft;
+}

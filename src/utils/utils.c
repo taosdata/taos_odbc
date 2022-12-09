@@ -88,6 +88,38 @@ unsigned char* static_pool_calloc_align(static_pool_t *pool, size_t sz, size_t a
   return p;
 }
 
+void mem_release(mem_t *mem)
+{
+  if (!mem) return;
+  TOD_SAFE_FREE(mem->base);
+  mem->cap = 0;
+  mem->nr  = 0;
+}
+
+void mem_reset(mem_t *mem)
+{
+  if (!mem) return;
+  mem->nr = 0;
+}
+
+int mem_expand(mem_t *mem, size_t delta)
+{
+  if (!mem) return -1;
+  size_t cap = mem->nr + delta;
+  return mem_keep(mem, cap);
+}
+
+int mem_keep(mem_t *mem, size_t cap)
+{
+  if (!mem) return -1;
+  if (cap < mem->cap) return 0;
+  unsigned char *p = realloc(mem->base, cap);
+  if (!p) return -1;
+  mem->base = p;
+  mem->cap  = cap;
+  return 0;
+}
+
 void buf_release(buf_t *buf)
 {
   if (buf->base) {

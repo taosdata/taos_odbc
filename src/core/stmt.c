@@ -246,7 +246,10 @@ static void _stmt_release_tag_fields(stmt_t *stmt)
 #ifndef _WIN32
     free(stmt->tag_fields);
 #else
-    // NOTE: seems fail if free is called
+    // https://github.com/taosdata/TDengine/issues/18804
+    // https://learn.microsoft.com/en-us/troubleshoot/developer/visualstudio/cpp/libraries/use-c-run-time
+    // https://learn.microsoft.com/en-us/cpp/build/reference/md-mt-ld-use-run-time-library?view=msvc-170
+    free(stmt->tag_fields);
 #endif
     stmt->tag_fields = NULL;
   }
@@ -259,7 +262,10 @@ static void _stmt_release_col_fields(stmt_t *stmt)
 #ifndef _WIN32
     free(stmt->col_fields);
 #else
-    // NOTE: seems fail if free is called
+    // https://github.com/taosdata/TDengine/issues/18804
+    // https://learn.microsoft.com/en-us/troubleshoot/developer/visualstudio/cpp/libraries/use-c-run-time
+    // https://learn.microsoft.com/en-us/cpp/build/reference/md-mt-ld-use-run-time-library?view=msvc-170
+    free(stmt->col_fields);
 #endif
     stmt->col_fields = NULL;
   }
@@ -436,6 +442,25 @@ static SQLRETURN _stmt_exec_direct_sql(stmt_t *stmt, const char *sql)
 
   // TODO: to support exec_direct parameterized statement
 
+  conn_t *conn = stmt->conn;
+  env_t *env = conn->env;
+  iconv_t cnv = conn->iconv_sql_c_char_to_tsdb_varchar;
+  if (0 && cnv) {
+    char *p = NULL;
+    size_t sz = env_conv(env, cnv, &env->mem, sql, &p);
+    if (!p) {
+      stmt_oom(stmt);
+      return SQL_ERROR;
+    }
+    if (sz == (size_t)-1) {
+      stmt_append_err_format(stmt, "HY000", 0, "General error: charset conversion failed:%s", sql);
+      return SQL_ERROR;
+    }
+    OD("sql:%s", sql);
+    OD("p:  %s", p);
+    OA(0, "not implemented yet");
+    sql = p;
+  }
   stmt->res = CALL_taos_query(taos, sql);
   stmt->res_is_from_taos_query = stmt->res ? 1 : 0;
 

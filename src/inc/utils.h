@@ -70,6 +70,20 @@ unsigned char* static_pool_calloc(static_pool_t *pool, size_t sz) FA_HIDDEN;
 unsigned char* static_pool_malloc_align(static_pool_t *pool, size_t sz, size_t align) FA_HIDDEN;
 unsigned char* static_pool_calloc_align(static_pool_t *pool, size_t sz, size_t align) FA_HIDDEN;
 
+typedef struct mem_s               mem_t;
+
+struct mem_s {
+  unsigned char        *base;
+  size_t                cap;
+  size_t                nr;
+};
+
+void mem_release(mem_t *mem) FA_HIDDEN;
+void mem_reset(mem_t *mem) FA_HIDDEN;
+int mem_expand(mem_t *mem, size_t delta) FA_HIDDEN;
+int mem_keep(mem_t *mem, size_t cap) FA_HIDDEN;
+
+
 typedef struct buf_s               buf_t;
 struct buf_s {
   char               *base;

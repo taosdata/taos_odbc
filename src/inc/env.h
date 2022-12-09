@@ -27,7 +27,10 @@
 
 #include "macros.h"
 
+#include "utils.h"
+
 #include <sqlext.h>
+#include <iconv.h>
 
 EXTERN_C_BEGIN
 
@@ -69,6 +72,8 @@ SQLRETURN env_get_attr(
 SQLRETURN env_end_tran(env_t *env, SQLSMALLINT CompletionType) FA_HIDDEN;
 
 SQLRETURN env_alloc_conn(env_t *env, SQLHANDLE *OutputHandle) FA_HIDDEN;
+
+size_t env_conv(env_t *env, iconv_t cnv, mem_t *mem, const char *src, char **pdst) FA_HIDDEN;
 
 int tod_get_debug_flex(void) FA_HIDDEN;
 int tod_get_debug_bison(void) FA_HIDDEN;

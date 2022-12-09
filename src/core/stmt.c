@@ -318,6 +318,7 @@ static void _stmt_release(stmt_t *stmt)
   errs_release(&stmt->errs);
 
   buffer_release(&stmt->cache);
+  mem_release(&stmt->intermediate);
 
   return;
 }

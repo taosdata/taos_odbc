@@ -274,6 +274,10 @@ static void _conn_release_iconvs(conn_t *conn)
 
   _LOCAL_(sql_c_char_to_tsdb_varchar);
   _LOCAL_(tsdb_varchar_to_sql_c_char);
+  _LOCAL_(tsdb_varchar_to_utf8);
+  _LOCAL_(utf8_to_tsdb_varchar);
+  _LOCAL_(sql_c_char_to_utf8);
+  _LOCAL_(utf8_to_sql_c_char);
 
 #undef _LOCAL_
 }
@@ -312,9 +316,17 @@ static int _conn_setup_iconvs(conn_t *conn)
 #endif
 
   if (tod_strcasecmp(tsdb_charset, sql_c_charset)==0) return 0;
-  conn->iconv_sql_c_char_to_tsdb_varchar = iconv_open(tsdb_charset, sql_c_charset);
-  conn->iconv_tsdb_varchar_to_sql_c_char = iconv_open(sql_c_charset, tsdb_charset);
-  if (!conn->iconv_sql_c_char_to_tsdb_varchar || !conn->iconv_tsdb_varchar_to_sql_c_char) {
+  const char *utf8 = "UTF-8";
+  conn->iconv_sql_c_char_to_tsdb_varchar = iconv_open(tsdb_charset,    sql_c_charset);
+  conn->iconv_tsdb_varchar_to_sql_c_char = iconv_open(sql_c_charset,   tsdb_charset);
+  conn->iconv_sql_c_char_to_utf8         = iconv_open(utf8,            sql_c_charset);
+  conn->iconv_utf8_to_sql_c_char         = iconv_open(sql_c_charset,   utf8);
+  conn->iconv_tsdb_varchar_to_utf8       = iconv_open(utf8,            tsdb_charset);
+  conn->iconv_utf8_to_tsdb_varchar       = iconv_open(tsdb_charset,    utf8);
+  if (!conn->iconv_sql_c_char_to_tsdb_varchar || !conn->iconv_tsdb_varchar_to_sql_c_char ||
+      !conn->iconv_sql_c_char_to_utf8         || !conn->iconv_utf8_to_sql_c_char ||
+      !conn->iconv_tsdb_varchar_to_utf8       || !conn->iconv_utf8_to_tsdb_varchar)
+  {
     _conn_release_iconvs(conn);
 #ifdef _WIN32
     conn_append_err_format(conn, "HY000", 0,

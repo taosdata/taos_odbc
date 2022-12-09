@@ -30,6 +30,7 @@
 #include "errs.h"
 #include "log.h"
 #include "stmt.h"
+#include "tls.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -98,30 +99,56 @@ __attribute__((destructor)) void _deinitialize(void)
   atomic_fetch_sub(&_nr_load, 1);
 }
 #else
+static DWORD tls_idx;
+tls_t* tls_get(void)
+{
+    return (tls_t*)TlsGetValue(tls_idx);
+}
+
 BOOL WINAPI DllMain(
     HINSTANCE hinstDLL, // handle to DLL module
     DWORD fdwReason,    // reason for calling function
     LPVOID lpvReserved) // reserved
 {
+  tls_t *tls;
+
   // Perform actions based on the reason for calling.
   switch (fdwReason)
   {
   case DLL_PROCESS_ATTACH:
     // Initialize once for each new process.
     // Return FALSE to fail DLL load.
+    if ((tls_idx = TlsAlloc()) == TLS_OUT_OF_INDEXES)
+      return FALSE;
+
     atomic_fetch_add(&_nr_load, 1);
     break;
 
   case DLL_THREAD_ATTACH:
     // Do thread-specific initialization.
+    tls = (tls_t*)LocalAlloc(LPTR, tls_size());
+    if (tls != NULL) TlsSetValue(tls_idx, tls);
     break;
 
   case DLL_THREAD_DETACH:
     // Do thread-specific cleanup.
+    tls = tls_get();
+    if (tls != NULL) {
+      tls_release(tls);
+      LocalFree((HLOCAL)tls);
+    }
     break;
 
   case DLL_PROCESS_DETACH:
     atomic_fetch_sub(&_nr_load, 1);
+
+    tls = tls_get();
+    if (tls != NULL) {
+      tls_release(tls);
+      LocalFree((HLOCAL)tls);
+    }
+
+    TlsFree(tls_idx); 
 
     if (lpvReserved != NULL)
     {

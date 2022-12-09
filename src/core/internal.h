@@ -281,6 +281,10 @@ struct conn_s {
 
   iconv_t             iconv_sql_c_char_to_tsdb_varchar;
   iconv_t             iconv_tsdb_varchar_to_sql_c_char;
+  iconv_t             iconv_tsdb_varchar_to_utf8;
+  iconv_t             iconv_sql_c_char_to_utf8;
+  iconv_t             iconv_utf8_to_tsdb_varchar;
+  iconv_t             iconv_utf8_to_sql_c_char;
 
   errs_t              errs;
 
@@ -326,6 +330,7 @@ struct stmt_s {
 
   tsdb_to_sql_c_state_t      current_for_get_data;
   buffer_t                   cache;
+  mem_t                      intermediate;
 
   char                      *sql;
 
@@ -363,6 +368,10 @@ struct stmt_s {
   unsigned int               res_is_from_taos_query:1;
   unsigned int               subtbl_required:1;
   unsigned int               get_or_put_or_undef:2; // 0x0: undef; 0x1:get; 0x2:put
+};
+
+struct tls_s {
+  mem_t                      intermediate;
 };
 
 EXTERN_C_END

@@ -262,6 +262,8 @@ void env_clr_errs(env_t *env)
 
 size_t env_conv(env_t *env, iconv_t cnv, mem_t *mem, const char *src, char **pdst)
 {
+  (void)env;
+
   size_t nr = strlen(src);
   size_t sz = (nr + 1) * 3;
 

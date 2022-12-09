@@ -40,6 +40,7 @@
 static void tsdb_to_sql_c_state_reset(tsdb_to_sql_c_state_t *col)
 {
   buffer_reset(&col->cache);
+  mem_reset(&col->mem);
 
   col->field = NULL;
   col->i_col = -1;
@@ -51,6 +52,7 @@ static void tsdb_to_sql_c_state_release(tsdb_to_sql_c_state_t *col)
 {
   tsdb_to_sql_c_state_reset(col);
   buffer_release(&col->cache);
+  mem_release(&col->mem);
 }
 
 static void rowset_reset(rowset_t *rowset)
@@ -316,9 +318,6 @@ static void _stmt_release(stmt_t *stmt)
   TOD_SAFE_FREE(stmt->sql);
 
   errs_release(&stmt->errs);
-
-  buffer_release(&stmt->cache);
-  mem_release(&stmt->intermediate);
 
   return;
 }
@@ -2217,7 +2216,7 @@ SQLRETURN _stmt_fetch(stmt_t *stmt)
 
   tsdb_to_sql_c_state_t cache = {0};
   sr = _stmt_fill_rowset(stmt, row_array_size, post_filter, &cache);
-  tsdb_to_sql_c_state_release(&cache);
+  tsdb_to_sql_c_state_reset(&cache);
   return sr;
 }
 

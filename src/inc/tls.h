@@ -36,7 +36,6 @@ tls_t* tls_get(void) FA_HIDDEN;
 void tls_release(tls_t *tls) FA_HIDDEN;
 mem_t* tls_get_mem_intermediate(void) FA_HIDDEN;
 
-
 EXTERN_C_END
 
 #endif //  _tls_h_

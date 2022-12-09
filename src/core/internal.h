@@ -199,6 +199,7 @@ struct tsdb_to_sql_c_state_s {
   int                  len;
 
   buffer_t             cache;
+  mem_t                mem;
 };
 
 typedef SQLRETURN (*conv_from_tsdb_to_sql_c_f)(stmt_t *stmt, tsdb_to_sql_c_state_t *conv_state);
@@ -329,8 +330,6 @@ struct stmt_s {
   descriptor_t              *current_ARD;
 
   tsdb_to_sql_c_state_t      current_for_get_data;
-  buffer_t                   cache;
-  mem_t                      intermediate;
 
   char                      *sql;
 

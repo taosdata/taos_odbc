@@ -428,8 +428,10 @@ static void executes_ctx_release_tags(executes_ctx_t *ctx)
 #ifndef _WIN32
     free(ctx->tags);
 #else
-    // NOTE: free(ctx->tags) seems core-dump in windows platform
-    //       need to check later
+    // https://github.com/taosdata/TDengine/issues/18804
+    // https://learn.microsoft.com/en-us/troubleshoot/developer/visualstudio/cpp/libraries/use-c-run-time
+    // https://learn.microsoft.com/en-us/cpp/build/reference/md-mt-ld-use-run-time-library?view=msvc-170
+    free(ctx->tags);
 #endif
     ctx->tags = NULL;
   }
@@ -443,8 +445,10 @@ static void executes_ctx_release_cols(executes_ctx_t *ctx)
 #ifndef _WIN32
     free(ctx->cols);
 #else
-    // NOTE: free(ctx->cols) seems core-dump in windows platform
-    //       need to check later
+    // https://github.com/taosdata/TDengine/issues/18804
+    // https://learn.microsoft.com/en-us/troubleshoot/developer/visualstudio/cpp/libraries/use-c-run-time
+    // https://learn.microsoft.com/en-us/cpp/build/reference/md-mt-ld-use-run-time-library?view=msvc-170
+    free(ctx->cols);
 #endif
     ctx->cols = NULL;
   }
@@ -1229,8 +1233,10 @@ static int executes_ctx_prepare_stmt(executes_ctx_t *ctx)
 #ifndef _WIN32
   free(fields);
 #else
-    // NOTE: free(fields) seems core-dump in windows platform
-    //       need to check later
+  // https://github.com/taosdata/TDengine/issues/18804
+  // https://learn.microsoft.com/en-us/troubleshoot/developer/visualstudio/cpp/libraries/use-c-run-time
+  // https://learn.microsoft.com/en-us/cpp/build/reference/md-mt-ld-use-run-time-library?view=msvc-170
+  free(fields);
 #endif
 
   return 0;

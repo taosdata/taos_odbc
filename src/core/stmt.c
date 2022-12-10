@@ -1122,6 +1122,7 @@ static SQLRETURN _stmt_conv_to_sql_c_char_epilog(stmt_t *stmt, tsdb_to_sql_c_sta
 {
   size_t len = 0;
   len = strnlen(conv_state->TargetValuePtr, conv_state->BufferLength);
+  OA_NIY(len > 0 || conv_state->BufferLength <= 1);
 
   if (conv_state->StrLen_or_IndPtr) *conv_state->StrLen_or_IndPtr = conv_state->len;
 
@@ -1130,6 +1131,7 @@ static SQLRETURN _stmt_conv_to_sql_c_char_epilog(stmt_t *stmt, tsdb_to_sql_c_sta
 
   if (conv_state->len == 0) {
     conv_state->data = NULL;
+    conv_state->state = DATA_GET_DONE;
     return SQL_SUCCESS;
   }
   stmt_append_err_format(stmt, "01004", 0, "String data, right truncated:Column `%s[#%d]`",
@@ -1139,65 +1141,45 @@ static SQLRETURN _stmt_conv_to_sql_c_char_epilog(stmt_t *stmt, tsdb_to_sql_c_sta
 
 static SQLRETURN _stmt_conv(stmt_t *stmt, mem_t *mem, iconv_t cnv, const char *buf, int len, const char **pdata, int *plen)
 {
+  int r = 0;
   if (!cnv) {
-    *pdata = buf;
+    r = mem_keep(mem, len + 1);
+    if (r) {
+      stmt_oom(stmt);
+      return SQL_ERROR;
+    }
+    memcpy(mem->base, buf, len);
+    *pdata = (const char*)mem->base;
     *plen  = len;
     return SQL_SUCCESS;
-  }
-  int r = mem_keep(mem, len * 3 + 3);
-  if (r) {
-    stmt_oom(stmt);
-    return SQL_ERROR;
-  }
+  } else {
+    r = mem_keep(mem, len * 3 + 3);
+    if (r) {
+      stmt_oom(stmt);
+      return SQL_ERROR;
+    }
 
-  char     *inbuf           = (char*)buf;
-  size_t    inbytesleft     = len;
-  char     *outbuf          = (char*)mem->base;
-  size_t    outbytesleft    = mem->cap;
+    char     *inbuf           = (char*)buf;
+    size_t    inbytesleft     = len;
+    char     *outbuf          = (char*)mem->base;
+    size_t    outbytesleft    = mem->cap;
 
-  size_t n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
-  if (n == (size_t)-1) {
+    size_t n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
     int e = errno;
-    stmt_append_err_format(stmt, "HY000", 0,
-        "General error:[iconv]Character set conversion failed:[%d]%s",
-        e, strerror(e));
-    return SQL_ERROR;
-  }
+    iconv(cnv, NULL, NULL, NULL, NULL);
+    if (n == (size_t)-1) {
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:[iconv]Character set conversion failed:[%d]%s",
+          e, strerror(e));
+      return SQL_ERROR;
+    }
 
-  OA_NIY(inbytesleft == 0);
-  OA_NIY(outbytesleft >= 3);
-  *pdata = (const char*)mem->base;
-  *plen  = mem->cap - outbytesleft;
-  return SQL_SUCCESS;
-}
-
-static SQLRETURN _stmt_conv_to_sql_c_char(stmt_t *stmt, tsdb_to_sql_c_state_t *conv_state, const char *buf, int len)
-{
-  int r = 0;
-
-  int n = len;
-  int nn = snprintf(conv_state->TargetValuePtr, conv_state->BufferLength, "%.*s", n, buf);
-  if (nn < 0) {
-    stmt_append_err(stmt, "HY000", 0, "General error: internal logic error");
-    return SQL_ERROR;
-  }
-  if (nn < conv_state->BufferLength) {
-    conv_state->data = NULL;
-    conv_state->len = 0;
-    if (conv_state->StrLen_or_IndPtr) *conv_state->StrLen_or_IndPtr = nn;
+    OA_NIY(inbytesleft == 0);
+    OA_NIY(outbytesleft >= 3);
+    *pdata = (const char*)mem->base;
+    *plen  = mem->cap - outbytesleft;
     return SQL_SUCCESS;
   }
-
-  r = buffer_concat_fmt(&conv_state->cache, "%.*s", n, buf);
-  if (r) {
-    stmt_oom(stmt);
-    return SQL_ERROR;
-  }
-
-  conv_state->data = conv_state->cache.base;
-  conv_state->len  = (int)conv_state->cache.nr;
-
-  return _stmt_conv_to_sql_c_char_epilog(stmt, conv_state);
 }
 
 static SQLRETURN _stmt_conv_to_sql_c_char_next(stmt_t *stmt, tsdb_to_sql_c_state_t *conv_state)
@@ -1213,7 +1195,9 @@ static SQLRETURN _stmt_conv_to_sql_c_char_next(stmt_t *stmt, tsdb_to_sql_c_state
 
 static SQLRETURN _stmt_conv_from_tsdb_timestamp_to_sql_c_char(stmt_t *stmt, tsdb_to_sql_c_state_t *conv_state)
 {
-  if (conv_state->cache.nr == 0) {
+  if (conv_state->state == DATA_GET_DONE) return SQL_NO_DATA;
+
+  if (conv_state->state == DATA_GET_INIT) {
     int64_t v = *(int64_t*)conv_state->data;
 
     char buf[64];
@@ -1225,11 +1209,11 @@ static SQLRETURN _stmt_conv_from_tsdb_timestamp_to_sql_c_char(stmt_t *stmt, tsdb
     int len = 0;
     sr = _stmt_conv(stmt, &conv_state->mem, stmt->conn->cnv_utf8_to_sql_c_char.cnv, buf, n, &data, &len);
     if (sr == SQL_ERROR) return SQL_ERROR;
-
-    return _stmt_conv_to_sql_c_char(stmt, conv_state, data, len);
-  } else {
-    return _stmt_conv_to_sql_c_char_next(stmt, conv_state);
+    conv_state->data = data;
+    conv_state->len = len;
+    conv_state->state = DATA_GET_GETTING;
   }
+  return _stmt_conv_to_sql_c_char_next(stmt, conv_state);
 }
 
 static SQLRETURN _stmt_conv_to_sql_c_wchar_next(stmt_t *stmt, tsdb_to_sql_c_state_t *conv_state)
@@ -1333,17 +1317,24 @@ static SQLRETURN _stmt_conv_from_tsdb_timestamp_to_sql_c_wchar(stmt_t *stmt, tsd
 
 static SQLRETURN _stmt_conv_from_tsdb_bool_to_sql_c_char(stmt_t *stmt, tsdb_to_sql_c_state_t *conv_state)
 {
-  if (conv_state->cache.nr == 0) {
+  if (conv_state->state == DATA_GET_DONE) return SQL_NO_DATA;
+
+  if (conv_state->state == DATA_GET_INIT) {
     int8_t v = *(int8_t*)conv_state->data;
 
-    if (v) {
-      return _stmt_conv_to_sql_c_char(stmt, conv_state, "true", 4);
-    } else {
-      return _stmt_conv_to_sql_c_char(stmt, conv_state, "false", 5);
-    }
-  } else {
-    return _stmt_conv_to_sql_c_char_next(stmt, conv_state);
+    const char *buf = v ? "true" : "false";
+    int n = v ? 4 : 5;
+
+    SQLRETURN sr = SQL_SUCCESS;
+    const char *data = NULL;
+    int len = 0;
+    sr = _stmt_conv(stmt, &conv_state->mem, stmt->conn->cnv_utf8_to_sql_c_char.cnv, buf, n, &data, &len);
+    if (sr == SQL_ERROR) return SQL_ERROR;
+    conv_state->data = data;
+    conv_state->len = len;
+    conv_state->state = DATA_GET_GETTING;
   }
+  return _stmt_conv_to_sql_c_char_next(stmt, conv_state);
 }
 
 static SQLRETURN _stmt_conv_from_tsdb_tinyint_to_sql_c_short(stmt_t *stmt, tsdb_to_sql_c_state_t *conv_state)
@@ -1444,17 +1435,25 @@ static SQLRETURN _stmt_conv_from_tsdb_uint_to_sql_c_sbigint(stmt_t *stmt, tsdb_t
 
 static SQLRETURN _stmt_conv_from_tsdb_int_to_sql_c_char(stmt_t *stmt, tsdb_to_sql_c_state_t *conv_state)
 {
-  if (conv_state->cache.nr == 0) {
+  if (conv_state->state == DATA_GET_DONE) return SQL_NO_DATA;
+
+  if (conv_state->state == DATA_GET_INIT) {
     int32_t v = *(int32_t*)conv_state->data;
 
     char buf[64];
     int n = snprintf(buf, sizeof(buf), "%d", v);
     OA_ILE(n > 0 && (size_t)n < sizeof(buf));
 
-    return _stmt_conv_to_sql_c_char(stmt, conv_state, buf, n);
-  } else {
-    return _stmt_conv_to_sql_c_char_next(stmt, conv_state);
+    SQLRETURN sr = SQL_SUCCESS;
+    const char *data = NULL;
+    int len = 0;
+    sr = _stmt_conv(stmt, &conv_state->mem, stmt->conn->cnv_utf8_to_sql_c_char.cnv, buf, n, &data, &len);
+    if (sr == SQL_ERROR) return SQL_ERROR;
+    conv_state->data = data;
+    conv_state->len = len;
+    conv_state->state = DATA_GET_GETTING;
   }
+  return _stmt_conv_to_sql_c_char_next(stmt, conv_state);
 }
 
 static SQLRETURN _stmt_conv_from_tsdb_int_to_sql_c_wchar(stmt_t *stmt, tsdb_to_sql_c_state_t *conv_state)
@@ -1506,32 +1505,48 @@ static SQLRETURN _stmt_conv_from_tsdb_bigint_to_sql_c_sbigint(stmt_t *stmt, tsdb
 
 static SQLRETURN _stmt_conv_from_tsdb_bigint_to_sql_c_char(stmt_t *stmt, tsdb_to_sql_c_state_t *conv_state)
 {
-  if (conv_state->cache.nr == 0) {
+  if (conv_state->state == DATA_GET_DONE) return SQL_NO_DATA;
+
+  if (conv_state->state == DATA_GET_INIT) {
     int64_t v = *(int64_t*)conv_state->data;
 
     char buf[64];
     int n = snprintf(buf, sizeof(buf), "%" PRId64 "", v);
     OA_ILE(n > 0 && (size_t)n < sizeof(buf));
 
-    return _stmt_conv_to_sql_c_char(stmt, conv_state, buf, n);
-  } else {
-    return _stmt_conv_to_sql_c_char_next(stmt, conv_state);
+    SQLRETURN sr = SQL_SUCCESS;
+    const char *data = NULL;
+    int len = 0;
+    sr = _stmt_conv(stmt, &conv_state->mem, stmt->conn->cnv_utf8_to_sql_c_char.cnv, buf, n, &data, &len);
+    if (sr == SQL_ERROR) return SQL_ERROR;
+    conv_state->data = data;
+    conv_state->len = len;
+    conv_state->state = DATA_GET_GETTING;
   }
+  return _stmt_conv_to_sql_c_char_next(stmt, conv_state);
 }
 
 static SQLRETURN _stmt_conv_from_tsdb_float_to_sql_c_char(stmt_t *stmt, tsdb_to_sql_c_state_t *conv_state)
 {
-  if (conv_state->cache.nr == 0) {
+  if (conv_state->state == DATA_GET_DONE) return SQL_NO_DATA;
+
+  if (conv_state->state == DATA_GET_INIT) {
     float v = *(float*)conv_state->data;
 
     char buf[64];
     int n = snprintf(buf, sizeof(buf), "%g", v);
     OA_ILE(n > 0 && (size_t)n < sizeof(buf));
 
-    return _stmt_conv_to_sql_c_char(stmt, conv_state, buf, n);
-  } else {
-    return _stmt_conv_to_sql_c_char_next(stmt, conv_state);
+    SQLRETURN sr = SQL_SUCCESS;
+    const char *data = NULL;
+    int len = 0;
+    sr = _stmt_conv(stmt, &conv_state->mem, stmt->conn->cnv_utf8_to_sql_c_char.cnv, buf, n, &data, &len);
+    if (sr == SQL_ERROR) return SQL_ERROR;
+    conv_state->data = data;
+    conv_state->len = len;
+    conv_state->state = DATA_GET_GETTING;
   }
+  return _stmt_conv_to_sql_c_char_next(stmt, conv_state);
 }
 
 static SQLRETURN _stmt_conv_from_tsdb_float_to_sql_c_float(stmt_t *stmt, tsdb_to_sql_c_state_t *conv_state)
@@ -1568,21 +1583,42 @@ static SQLRETURN _stmt_conv_from_tsdb_double_to_sql_c_double(stmt_t *stmt, tsdb_
 
 static SQLRETURN _stmt_conv_from_tsdb_double_to_sql_c_char(stmt_t *stmt, tsdb_to_sql_c_state_t *conv_state)
 {
-  if (conv_state->cache.nr == 0) {
+  if (conv_state->state == DATA_GET_DONE) return SQL_NO_DATA;
+
+  if (conv_state->state == DATA_GET_INIT) {
     double v = *(double*)conv_state->data;
 
     char buf[64];
     int n = snprintf(buf, sizeof(buf), "%g", v);
     OA_ILE(n > 0 && (size_t)n < sizeof(buf));
 
-    return _stmt_conv_to_sql_c_char(stmt, conv_state, buf, n);
-  } else {
-    return _stmt_conv_to_sql_c_char_next(stmt, conv_state);
+    SQLRETURN sr = SQL_SUCCESS;
+    const char *data = NULL;
+    int len = 0;
+    sr = _stmt_conv(stmt, &conv_state->mem, stmt->conn->cnv_utf8_to_sql_c_char.cnv, buf, n, &data, &len);
+    if (sr == SQL_ERROR) return SQL_ERROR;
+    conv_state->data = data;
+    conv_state->len = len;
+    conv_state->state = DATA_GET_GETTING;
   }
+  return _stmt_conv_to_sql_c_char_next(stmt, conv_state);
 }
 
 static SQLRETURN _stmt_conv_from_tsdb_varchar_to_sql_c_char(stmt_t *stmt, tsdb_to_sql_c_state_t *conv_state)
 {
+  if (conv_state->state == DATA_GET_DONE) return SQL_NO_DATA;
+
+  if (conv_state->state == DATA_GET_INIT) {
+    SQLRETURN sr = SQL_SUCCESS;
+    const char *data = NULL;
+    int len = 0;
+    sr = _stmt_conv(stmt, &conv_state->mem, stmt->conn->cnv_tsdb_varchar_to_sql_c_char.cnv, conv_state->data, conv_state->len, &data, &len);
+    if (sr == SQL_ERROR) return SQL_ERROR;
+    conv_state->data = data;
+    conv_state->len = len;
+    conv_state->state = DATA_GET_GETTING;
+  }
+
   int n = snprintf(conv_state->TargetValuePtr, conv_state->BufferLength,
       "%.*s", (int)conv_state->len, conv_state->data);
   if (n < 0) {

@@ -1177,7 +1177,7 @@ static SQLRETURN _stmt_conv(stmt_t *stmt, mem_t *mem, iconv_t cnv, const char *b
     OA_NIY(inbytesleft == 0);
     OA_NIY(outbytesleft >= 3);
     *pdata = (const char*)mem->base;
-    *plen  = mem->cap - outbytesleft;
+    *plen  = (int)((size_t)mem->cap - outbytesleft);
     return SQL_SUCCESS;
   }
 }

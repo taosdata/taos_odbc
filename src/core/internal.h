@@ -184,6 +184,10 @@ struct desc_header_s {
   SQLUSMALLINT        DESC_COUNT;
 };
 
+#define DATA_GET_INIT              0x0U
+#define DATA_GET_GETTING           0x1U
+#define DATA_GET_DONE              0x2U
+
 typedef struct tsdb_to_sql_c_state_s      tsdb_to_sql_c_state_t;
 struct tsdb_to_sql_c_state_s {
   TAOS_FIELD          *field;
@@ -200,6 +204,8 @@ struct tsdb_to_sql_c_state_s {
 
   buffer_t             cache;
   mem_t                mem;
+
+  unsigned int         state:2; // DATA_GET_{UNKNOWN/INIT/GETTING/DONE}
 };
 
 typedef SQLRETURN (*conv_from_tsdb_to_sql_c_f)(stmt_t *stmt, tsdb_to_sql_c_state_t *conv_state);
@@ -261,6 +267,17 @@ struct desc_s {
   struct tod_list_head          associated_stmts_as_APD; // struct stmt_s*
 };
 
+typedef struct charset_conv_s            charset_conv_t;
+struct charset_conv_s {
+  char         from[64];
+  char         to[64];
+  iconv_t      cnv;
+};
+
+void charset_conv_release(charset_conv_t *cnv) FA_HIDDEN;
+int charset_conv_reset(charset_conv_t *cnv, const char *from, const char *to) FA_HIDDEN;
+
+
 struct conn_s {
   atomic_int          refc;
   atomic_int          stmts;
@@ -280,12 +297,12 @@ struct conn_s {
   char               *s_locale;
   char               *s_charset;
 
-  iconv_t             iconv_sql_c_char_to_tsdb_varchar;
-  iconv_t             iconv_tsdb_varchar_to_sql_c_char;
-  iconv_t             iconv_tsdb_varchar_to_utf8;
-  iconv_t             iconv_sql_c_char_to_utf8;
-  iconv_t             iconv_utf8_to_tsdb_varchar;
-  iconv_t             iconv_utf8_to_sql_c_char;
+  charset_conv_t      cnv_sql_c_char_to_tsdb_varchar;
+  charset_conv_t      cnv_tsdb_varchar_to_sql_c_char;
+  charset_conv_t      cnv_tsdb_varchar_to_utf8;
+  charset_conv_t      cnv_sql_c_char_to_utf8;
+  charset_conv_t      cnv_utf8_to_tsdb_varchar;
+  charset_conv_t      cnv_utf8_to_sql_c_char;
 
   errs_t              errs;
 
@@ -294,9 +311,23 @@ struct conn_s {
   unsigned int        fmt_time:1;
 };
 
+typedef struct rs_s                 rs_t;
+struct rs_s {
+  TAOS_RES                  *res;
+  SQLLEN                     affected_row_count;
+  SQLSMALLINT                col_count;
+  TAOS_FIELD                *fields;
+  int                       *lengths;
+  int                        time_precision;
+
+  unsigned int               res_is_from_taos_query:1;
+};
+
 typedef struct rowset_s             rowset_t;
 struct rowset_s {
   int                 i_row;
+  int                 nr_rows;
+  TAOS_ROW            rows;
 };
 
 // NOTE: this exists because of https://github.com/taosdata/TDengine/issues/17890
@@ -350,21 +381,11 @@ struct stmt_s {
 
   post_filter_t              post_filter;
 
-  TAOS_RES                  *res;
-  SQLLEN                     affected_row_count;
-  SQLSMALLINT                col_count;
-  TAOS_FIELD                *fields;
-  int                       *lengths;
-  int                        time_precision;
-
-  TAOS_ROW                   rows;
-  int                        nr_rows;
-
+  rs_t                       rs;
   rowset_t                   rowset;
 
   unsigned int               prepared:1;
   unsigned int               is_insert_stmt:1;
-  unsigned int               res_is_from_taos_query:1;
   unsigned int               subtbl_required:1;
   unsigned int               get_or_put_or_undef:2; // 0x0: undef; 0x1:get; 0x2:put
 };

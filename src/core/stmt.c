@@ -46,6 +46,8 @@ static void tsdb_to_sql_c_state_reset(tsdb_to_sql_c_state_t *col)
   col->i_col = -1;
   col->data  = NULL;
   col->len   = 0;
+
+  col->state = DATA_GET_INIT;
 }
 
 static void tsdb_to_sql_c_state_release(tsdb_to_sql_c_state_t *col)
@@ -57,7 +59,8 @@ static void tsdb_to_sql_c_state_release(tsdb_to_sql_c_state_t *col)
 
 static void rowset_reset(rowset_t *rowset)
 {
-  rowset->i_row = 0;
+  rowset->i_row   = 0;
+  rowset->nr_rows = 0;
 }
 
 static void rowset_release(rowset_t *rowset)
@@ -107,24 +110,26 @@ static void _stmt_release_post_filter(stmt_t *stmt)
   post_filter->ctx         = NULL;
 }
 
+static void _rs_release(rs_t *rs)
+{
+  if (!rs->res) return;
+
+  if (rs->res_is_from_taos_query) CALL_taos_free_result(rs->res);
+
+  rs->res_is_from_taos_query = 0;
+  rs->res                    = NULL;
+  rs->affected_row_count     = 0;
+  rs->col_count              = 0;
+  rs->fields                 = NULL;
+  rs->lengths                = NULL;
+  rs->time_precision         = 0;
+}
+
 static void _stmt_release_result(stmt_t *stmt)
 {
+  rowset_release(&stmt->rowset);
   _stmt_release_post_filter(stmt);
-
-  if (!stmt->res) return;
-
-  if (stmt->res_is_from_taos_query) CALL_taos_free_result(stmt->res);
-
-  stmt->res_is_from_taos_query = 0;
-  stmt->res = NULL;
-  stmt->affected_row_count = 0;
-  stmt->col_count = 0;
-  stmt->fields = NULL;
-  stmt->lengths = NULL;
-  stmt->time_precision = 0;
-
-  stmt->rows = NULL;
-  stmt->nr_rows = 0;
+  _rs_release(&stmt->rs);
 }
 
 static void _stmt_release_stmt(stmt_t *stmt)
@@ -287,7 +292,6 @@ static void _stmt_release_field_arrays(stmt_t *stmt)
 
 static void _stmt_release(stmt_t *stmt)
 {
-  rowset_release(&stmt->rowset);
   _stmt_release_post_filter(stmt);
   _stmt_release_result(stmt);
 
@@ -360,22 +364,23 @@ SQLRETURN stmt_free(stmt_t *stmt)
   return SQL_SUCCESS;
 }
 
-static SQLRETURN _stmt_post_exec(stmt_t *stmt)
+static SQLRETURN _stmt_post_exec(stmt_t *stmt, rs_t *rs)
 {
   int e;
   const char *estr;
-  e = CALL_taos_errno(stmt->res);
-  estr = CALL_taos_errstr(stmt->res);
+
+  e = CALL_taos_errno(rs->res);
+  estr = CALL_taos_errstr(rs->res);
 
   if (e) {
     stmt_append_err_format(stmt, "HY000", e, "General error:[taosc]%s", estr);
     return SQL_ERROR;
-  } else if (stmt->res) {
-    stmt->time_precision = CALL_taos_result_precision(stmt->res);
-    stmt->affected_row_count = CALL_taos_affected_rows(stmt->res);
-    stmt->col_count = CALL_taos_field_count(stmt->res);
-    if (stmt->col_count > 0) {
-      stmt->fields = CALL_taos_fetch_fields(stmt->res);
+  } else if (rs->res) {
+    rs->time_precision = CALL_taos_result_precision(rs->res);
+    rs->affected_row_count = CALL_taos_affected_rows(rs->res);
+    rs->col_count = CALL_taos_field_count(rs->res);
+    if (rs->col_count > 0) {
+      rs->fields = CALL_taos_fetch_fields(rs->res);
     }
     _stmt_reset_current_for_get_data(stmt);
   }
@@ -421,8 +426,6 @@ static SQLRETURN _stmt_exec_direct_sql(stmt_t *stmt, const char *sql)
   OA_ILE(sql);
 
   if (_stmt_get_rows_fetched_ptr(stmt)) *_stmt_get_rows_fetched_ptr(stmt) = 0;
-  rowset_reset(&stmt->rowset);
-  _stmt_release_result(stmt);
 
   TAOS *taos = stmt->conn->taos;
 
@@ -444,7 +447,7 @@ static SQLRETURN _stmt_exec_direct_sql(stmt_t *stmt, const char *sql)
 
   conn_t *conn = stmt->conn;
   env_t *env = conn->env;
-  iconv_t cnv = conn->iconv_sql_c_char_to_tsdb_varchar;
+  iconv_t cnv = conn->cnv_sql_c_char_to_tsdb_varchar.cnv;
   if (0 && cnv) {
     char *p = NULL;
     size_t sz = env_conv(env, cnv, &env->mem, sql, &p);
@@ -461,10 +464,12 @@ static SQLRETURN _stmt_exec_direct_sql(stmt_t *stmt, const char *sql)
     OA(0, "not implemented yet");
     sql = p;
   }
-  stmt->res = CALL_taos_query(taos, sql);
-  stmt->res_is_from_taos_query = stmt->res ? 1 : 0;
 
-  return _stmt_post_exec(stmt);
+  rs_t *rs = &stmt->rs;
+  rs->res = CALL_taos_query(taos, sql);
+  rs->res_is_from_taos_query = rs->res ? 1 : 0;
+
+  return _stmt_post_exec(stmt, &stmt->rs);
 }
 
 static SQLRETURN _stmt_exec_direct(stmt_t *stmt, const char *sql, int len)
@@ -494,10 +499,19 @@ static SQLRETURN _stmt_exec_direct(stmt_t *stmt, const char *sql, int len)
   return sr;
 }
 
+static void _stmt_close_cursor(stmt_t *stmt)
+{
+  _stmt_reset_current_for_get_data(stmt);
+  rowset_reset(&stmt->rowset);
+  _stmt_release_result(stmt);
+}
+
 SQLRETURN stmt_exec_direct(stmt_t *stmt, const char *sql, int len)
 {
   OA_ILE(stmt->conn);
   OA_ILE(stmt->conn->taos);
+
+  _stmt_close_cursor(stmt);
 
   int prev = atomic_fetch_add(&stmt->conn->outstandings, 1);
   OA_ILE(prev >= 0);
@@ -590,13 +604,17 @@ static SQLRETURN _stmt_set_param_status_ptr(stmt_t *stmt, SQLUSMALLINT *param_st
 
 SQLRETURN stmt_get_row_count(stmt_t *stmt, SQLLEN *row_count_ptr)
 {
-  if (row_count_ptr) *row_count_ptr = stmt->affected_row_count;
+  rs_t *rs = &stmt->rs;
+
+  if (row_count_ptr) *row_count_ptr = rs->affected_row_count;
   return SQL_SUCCESS;
 }
 
 SQLRETURN stmt_get_col_count(stmt_t *stmt, SQLSMALLINT *col_count_ptr)
 {
-  if (col_count_ptr) *col_count_ptr = stmt->col_count;
+  rs_t *rs = &stmt->rs;
+
+  if (col_count_ptr) *col_count_ptr = rs->col_count;
   return SQL_SUCCESS;
 }
 
@@ -695,7 +713,8 @@ SQLRETURN stmt_describe_col(stmt_t *stmt,
     SQLSMALLINT   *NullablePtr)
 {
   // NOTE: DM to make sure ColumnNumber is valid
-  TAOS_FIELD *p = stmt->fields + ColumnNumber - 1;
+  rs_t *rs = &stmt->rs;
+  TAOS_FIELD *p = rs->fields + ColumnNumber - 1;
 
   if (DecimalDigitsPtr) *DecimalDigitsPtr = 0;
   if (NullablePtr)      *NullablePtr      = SQL_NULLABLE_UNKNOWN;
@@ -769,7 +788,7 @@ SQLRETURN stmt_describe_col(stmt_t *stmt,
     case TSDB_DATA_TYPE_TIMESTAMP:
       if (DataTypePtr)      *DataTypePtr = SQL_TYPE_TIMESTAMP;
       if (DecimalDigitsPtr) {
-        *DecimalDigitsPtr = (stmt->time_precision + 1) * 3;
+        *DecimalDigitsPtr = (rs->time_precision + 1) * 3;
       }
       if (ColumnSizePtr) {
         *ColumnSizePtr = 20 + *DecimalDigitsPtr;
@@ -883,7 +902,8 @@ static int _tsdb_timestamp_to_string(stmt_t *stmt, int64_t val, char *buf)
   time_t  tt;
   int32_t ms = 0;
   int w;
-  switch (stmt->time_precision) {
+  rs_t *rs = &stmt->rs;
+  switch (rs->time_precision) {
     case 2:
       tt = (time_t)(val / 1000000000);
       ms = val % 1000000000;
@@ -1033,9 +1053,12 @@ SQLRETURN stmt_bind_col(stmt_t *stmt,
 
 static SQLRETURN _stmt_get_data_len(stmt_t *stmt, int row, int col, const char **data, int *len)
 {
-  TAOS_RES         *res   = stmt->res;
-  TAOS_FIELD       *field = stmt->fields + col;
-  TAOS_ROW          rows  = stmt->rows;
+  rs_t             *rs      = &stmt->rs;
+  rowset_t         *rowset  = &stmt->rowset;
+
+  TAOS_RES         *res   = rs->res;
+  TAOS_FIELD       *field = rs->fields + col;
+  TAOS_ROW          rows  = rowset->rows;
   int r = helper_get_data_len(res, field, rows, row, col, data, len);
 
   if (r) {
@@ -1061,34 +1084,20 @@ static SQLPOINTER _stmt_get_address(stmt_t *stmt, SQLPOINTER ptr, SQLULEN octet_
   return dest;
 }
 
-static void _stmt_set_len_or_ind(stmt_t *stmt, int i_row, desc_header_t *header, desc_record_t *record, SQLLEN len_or_ind)
-{
-  SQLPOINTER ptr;
-  if (len_or_ind == SQL_NULL_DATA && record->DESC_INDICATOR_PTR) {
-    ptr = record->DESC_INDICATOR_PTR;
-  } else if (len_or_ind != SQL_NULL_DATA && record->DESC_OCTET_LENGTH_PTR) {
-    ptr = record->DESC_OCTET_LENGTH_PTR;
-  } else {
-    return;
-  }
-  SQLPOINTER p = _stmt_get_address(stmt, ptr, sizeof(SQLLEN), i_row, header);
-  *(SQLLEN*)p = len_or_ind;
-}
-
 static SQLRETURN _stmt_fetch_next_rowset(stmt_t *stmt, TAOS_ROW *rows)
 {
-  rowset_reset(&stmt->rowset);
+  rs_t *rs = &stmt->rs;
+  rowset_t *rowset = &stmt->rowset;
+
+  rowset_reset(rowset);
 
   // TODO:
   // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlfetch-function?view=sql-server-ver16#positioning-the-cursor
-  int nr_rows = CALL_taos_fetch_block(stmt->res, rows);
+  int nr_rows = CALL_taos_fetch_block(rs->res, rows);
   if (nr_rows == 0) return SQL_NO_DATA;
-  stmt->rows = *rows;          // column-wise
-  stmt->nr_rows = nr_rows;
-  stmt->rowset.i_row = 0;
-
-  stmt->lengths = CALL_taos_fetch_lengths(stmt->res);
-  OA_NIY(stmt->lengths);
+  rowset->rows = *rows;          // column-wise
+  rowset->nr_rows = nr_rows;
+  rowset->i_row   = 0;
 
   return SQL_SUCCESS;
 }
@@ -1126,6 +1135,40 @@ static SQLRETURN _stmt_conv_to_sql_c_char_epilog(stmt_t *stmt, tsdb_to_sql_c_sta
   stmt_append_err_format(stmt, "01004", 0, "String data, right truncated:Column `%s[#%d]`",
       conv_state->field->name, conv_state->i_col + 1);
   return SQL_SUCCESS_WITH_INFO;
+}
+
+static SQLRETURN _stmt_conv(stmt_t *stmt, mem_t *mem, iconv_t cnv, const char *buf, int len, const char **pdata, int *plen)
+{
+  if (!cnv) {
+    *pdata = buf;
+    *plen  = len;
+    return SQL_SUCCESS;
+  }
+  int r = mem_keep(mem, len * 3 + 3);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+
+  char     *inbuf           = (char*)buf;
+  size_t    inbytesleft     = len;
+  char     *outbuf          = (char*)mem->base;
+  size_t    outbytesleft    = mem->cap;
+
+  size_t n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+  if (n == (size_t)-1) {
+    int e = errno;
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:[iconv]Character set conversion failed:[%d]%s",
+        e, strerror(e));
+    return SQL_ERROR;
+  }
+
+  OA_NIY(inbytesleft == 0);
+  OA_NIY(outbytesleft >= 3);
+  *pdata = (const char*)mem->base;
+  *plen  = mem->cap - outbytesleft;
+  return SQL_SUCCESS;
 }
 
 static SQLRETURN _stmt_conv_to_sql_c_char(stmt_t *stmt, tsdb_to_sql_c_state_t *conv_state, const char *buf, int len)
@@ -1177,7 +1220,13 @@ static SQLRETURN _stmt_conv_from_tsdb_timestamp_to_sql_c_char(stmt_t *stmt, tsdb
     int n = _tsdb_timestamp_to_string(stmt, v, buf);
     OA_ILE(n > 0);
 
-    return _stmt_conv_to_sql_c_char(stmt, conv_state, buf, n);
+    SQLRETURN sr = SQL_SUCCESS;
+    const char *data = NULL;
+    int len = 0;
+    sr = _stmt_conv(stmt, &conv_state->mem, stmt->conn->cnv_utf8_to_sql_c_char.cnv, buf, n, &data, &len);
+    if (sr == SQL_ERROR) return SQL_ERROR;
+
+    return _stmt_conv_to_sql_c_char(stmt, conv_state, data, len);
   } else {
     return _stmt_conv_to_sql_c_char_next(stmt, conv_state);
   }
@@ -1917,7 +1966,8 @@ static SQLRETURN _stmt_get_conv_from_tsdb_to_sql_c(stmt_t *stmt,
     SQLSMALLINT    TargetType,
     conv_from_tsdb_to_sql_c_f *conv)
 {
-  TAOS_FIELD *field = stmt->fields + Col_or_Param_Num - 1;
+  rs_t *rs = &stmt->rs;
+  TAOS_FIELD *field = rs->fields + Col_or_Param_Num - 1;
   switch (field->type) {
     case TSDB_DATA_TYPE_TIMESTAMP:
       return _stmt_get_conv_from_tsdb_timestamp_to_sql_c(stmt, Col_or_Param_Num, field, TargetType, conv);
@@ -1956,11 +2006,6 @@ static SQLRETURN _stmt_get_conv_from_tsdb_to_sql_c(stmt_t *stmt,
   }
 }
 
-static void _stmt_close_cursor(stmt_t *stmt)
-{
-  (void)stmt;
-}
-
 SQLRETURN stmt_get_diag_rec(
     stmt_t         *stmt,
     SQLSMALLINT     RecNumber,
@@ -1974,25 +2019,25 @@ SQLRETURN stmt_get_diag_rec(
 }
 
 static SQLRETURN _stmt_get_data(
-    stmt_t        *stmt,
-    tsdb_to_sql_c_state_t *current,
-    int            iRow,
-    SQLUSMALLINT   Col_or_Param_Num,
-    SQLSMALLINT    TargetType,
-    SQLPOINTER     TargetValuePtr,
-    SQLLEN         BufferLength,
-    SQLLEN        *StrLen_or_IndPtr)
+    stmt_t                    *stmt,
+    conv_from_tsdb_to_sql_c_f  conv,
+    tsdb_to_sql_c_state_t     *current,
+    int                        iRow,
+    SQLUSMALLINT               Col_or_Param_Num,
+    SQLSMALLINT                TargetType,
+    SQLPOINTER                 TargetValuePtr,
+    SQLLEN                     BufferLength,
+    SQLLEN                    *StrLenPtr,
+    SQLLEN                    *IndPtr)
 {
   SQLRETURN sr = SQL_SUCCESS;
 
-  conv_from_tsdb_to_sql_c_f conv = NULL;
-  sr = _stmt_get_conv_from_tsdb_to_sql_c(stmt, Col_or_Param_Num, TargetType, &conv);
-  if (sr == SQL_ERROR) return SQL_ERROR;
+  rs_t *rs = &stmt->rs;
 
   if (current->i_col + 1 != Col_or_Param_Num) {
     tsdb_to_sql_c_state_reset(current);
     current->i_col              = Col_or_Param_Num - 1;
-    current->field              = stmt->fields + current->i_col;
+    current->field              = rs->fields + current->i_col;
 
     const char *data;
     int len;
@@ -2000,9 +2045,10 @@ static SQLRETURN _stmt_get_data(
     sr = _stmt_get_data_len(stmt, iRow, current->i_col, &data, &len);
     if (!sql_succeeded(sr)) return sr;
 
+    if (IndPtr) IndPtr[0] = 0;
     if (data == NULL && len == 0) {
-      if (StrLen_or_IndPtr) {
-        StrLen_or_IndPtr[0] = SQL_NULL_DATA;
+      if (IndPtr) {
+        IndPtr[0] = SQL_NULL_DATA;
         return SQL_SUCCESS;
       }
       stmt_append_err_format(stmt, "22002", 0, "Indicator variable required but not supplied:#%d Column_or_Param", Col_or_Param_Num);
@@ -2027,7 +2073,7 @@ static SQLRETURN _stmt_get_data(
 
   current->TargetValuePtr     = TargetValuePtr;
   current->BufferLength       = BufferLength;
-  current->StrLen_or_IndPtr   = StrLen_or_IndPtr;
+  current->StrLen_or_IndPtr   = StrLenPtr;
 
   return conv(stmt, current);
 }
@@ -2043,22 +2089,29 @@ SQLRETURN stmt_get_data(
   stmt->get_or_put_or_undef = 1; // TODO:
   // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetdata-function?view=sql-server-ver16
   // https://learn.microsoft.com/en-us/sql/odbc/reference/develop-app/getting-long-data?view=sql-server-ver16
-  OA_NIY(stmt->res);
-  OA_NIY(stmt->rows);
+  OA_NIY(stmt->rs.res);
+  OA_NIY(stmt->rowset.rows);
 
   if (StrLen_or_IndPtr) StrLen_or_IndPtr[0] = SQL_NO_TOTAL;
 
-  if (Col_or_Param_Num < 1 || Col_or_Param_Num > stmt->col_count) {
+  rs_t *rs = &stmt->rs;
+  rowset_t *rowset = &stmt->rowset;
+
+  if (Col_or_Param_Num < 1 || Col_or_Param_Num > rs->col_count) {
     stmt_append_err_format(stmt, "07009", 0, "Invalid descriptor index:#%d Col_or_Param", Col_or_Param_Num);
     return SQL_ERROR;
   }
 
+  conv_from_tsdb_to_sql_c_f conv = NULL;
+  SQLRETURN sr = _stmt_get_conv_from_tsdb_to_sql_c(stmt, Col_or_Param_Num, TargetType, &conv);
+  if (sr == SQL_ERROR) return SQL_ERROR;
+
   tsdb_to_sql_c_state_t *current = &stmt->current_for_get_data;
 
-  return _stmt_get_data(stmt, current, stmt->rowset.i_row, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, StrLen_or_IndPtr);
+  return _stmt_get_data(stmt, conv, current, rowset->i_row, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, StrLen_or_IndPtr, StrLen_or_IndPtr);
 }
 
-static SQLRETURN _stmt_fill_cell(stmt_t *stmt, int i_row, int i_col, tsdb_to_sql_c_state_t *cache, int iRow)
+static SQLRETURN _stmt_fill_cell(stmt_t *stmt, int i_row, int i_col, int iRow)
 {
   SQLRETURN sr;
 
@@ -2076,46 +2129,26 @@ static SQLRETURN _stmt_fill_cell(stmt_t *stmt, int i_row, int i_col, tsdb_to_sql
   char *dest = base + ARD_record->DESC_OCTET_LENGTH * iRow;
   char *ptr = ARD_record->DESC_DATA_PTR;
   dest = _stmt_get_address(stmt, ptr, ARD_record->DESC_OCTET_LENGTH, iRow, ARD_header);
+  SQLLEN *StrLenPtr = _stmt_get_address(stmt, ARD_record->DESC_OCTET_LENGTH_PTR, sizeof(SQLLEN), i_row, ARD_header);
+  SQLLEN *IndPtr = _stmt_get_address(stmt, ARD_record->DESC_INDICATOR_PTR, sizeof(SQLLEN), i_row, ARD_header);
 
-  const char *data;
-  int len;
-  sr = _stmt_get_data_len(stmt, i_row + stmt->rowset.i_row, i_col, &data, &len);
-  if (!sql_succeeded(sr)) return SQL_ERROR;
-
-  if (!data) {
-    _stmt_set_len_or_ind(stmt, iRow, ARD_header, ARD_record, SQL_NULL_DATA);
-    OD("null");
-    return SQL_SUCCESS;
-  }
+  rowset_t *rowset = &stmt->rowset;
 
   SQLSMALLINT    TargetType       = ARD_record->DESC_CONCISE_TYPE;
   SQLPOINTER     TargetValuePtr   = dest;
   SQLLEN         BufferLength     = ARD_record->DESC_OCTET_LENGTH;
-  SQLLEN        *StrLen_or_IndPtr = _stmt_get_address(stmt, ARD_record->DESC_OCTET_LENGTH_PTR, sizeof(SQLLEN), i_row, ARD_header);
 
-  tsdb_to_sql_c_state_reset(cache);
-  cache->i_col              = i_col;
-  cache->field              = stmt->fields + cache->i_col;
-
-  cache->data = data;
-  cache->len  = len;
-
-  cache->TargetType          = TargetType;
-  cache->TargetValuePtr      = TargetValuePtr;
-  cache->BufferLength        = BufferLength;
-  cache->StrLen_or_IndPtr    = StrLen_or_IndPtr;
-
-  cache->i_row              = i_row + stmt->rowset.i_row;
-
-  return ARD_record->conv(stmt, cache);
+  _stmt_reset_current_for_get_data(stmt);
+  tsdb_to_sql_c_state_t *current = &stmt->current_for_get_data;
+  sr = _stmt_get_data(stmt, ARD_record->conv, current, rowset->i_row + i_row, i_col+1, TargetType, TargetValuePtr, BufferLength, StrLenPtr, IndPtr);
+  _stmt_reset_current_for_get_data(stmt);
+  return sr;
 }
 
 static SQLRETURN _stmt_fill_rowset(stmt_t *stmt,
   SQLULEN row_array_size,
-  post_filter_t *post_filter,
-  tsdb_to_sql_c_state_t *cache)
+  post_filter_t *post_filter)
 {
-  (void)cache;
   SQLRETURN sr = SQL_SUCCESS;
 
   descriptor_t *ARD = _stmt_ARD(stmt);
@@ -2125,47 +2158,67 @@ static SQLRETURN _stmt_fill_rowset(stmt_t *stmt,
 
   if (IRD_header->DESC_ROWS_PROCESSED_PTR) *IRD_header->DESC_ROWS_PROCESSED_PTR = 0;
 
+  rowset_t *rowset = &stmt->rowset;
+
   int iRow = 0;
+  int with_info = 0;
+
   for (int i_row = 0; (SQLULEN)i_row<row_array_size; ++i_row) {
-    if (i_row + stmt->rowset.i_row >= stmt->nr_rows) break;
+    if (i_row + rowset->i_row >= rowset->nr_rows) break;
 
     if (post_filter->post_filter) {
       int filter = 0;
 again:
-      sr = post_filter->post_filter(stmt, i_row + stmt->rowset.i_row, post_filter->ctx, &filter);
+      sr = post_filter->post_filter(stmt, i_row + rowset->i_row, post_filter->ctx, &filter);
       if (sr == SQL_ERROR) return SQL_ERROR;
       if (filter) {
         ++i_row;
-        if (i_row + stmt->rowset.i_row >= stmt->nr_rows) break;
+        if (i_row + rowset->i_row >= rowset->nr_rows) break;
         goto again;
       }
     }
 
+    SQLRETURN row_sr = SQL_ROW_SUCCESS;
+
     for (int i_col = 0; (size_t)i_col < ARD->cap; ++i_col) {
-      cache->i_col = i_col - 1; // Yes, make it previous
-      sr = _stmt_fill_cell(stmt, i_row, i_col, cache, iRow);
-      if (sr == SQL_ERROR) return SQL_ERROR;
+      sr = _stmt_fill_cell(stmt, i_row, i_col, iRow);
+      if (sr == SQL_ERROR) {
+        row_sr = SQL_ROW_ERROR;
+        with_info = 1;
+        break;
+      }
+      if (sr == SQL_SUCCESS_WITH_INFO) {
+        row_sr = SQL_ROW_SUCCESS_WITH_INFO;
+        with_info = 1;
+        continue;
+      }
+      OA_NIY(sr == SQL_SUCCESS);
     }
 
-    if (IRD_header->DESC_ARRAY_STATUS_PTR) IRD_header->DESC_ARRAY_STATUS_PTR[iRow] = SQL_ROW_SUCCESS;
+    if (IRD_header->DESC_ARRAY_STATUS_PTR) IRD_header->DESC_ARRAY_STATUS_PTR[iRow] = row_sr;
     if (IRD_header->DESC_ROWS_PROCESSED_PTR) *IRD_header->DESC_ROWS_PROCESSED_PTR += 1;
     ++iRow;
   }
 
-  return SQL_SUCCESS;
+  return with_info ? SQL_SUCCESS_WITH_INFO : SQL_SUCCESS;
 }
 
 SQLRETURN _stmt_fetch(stmt_t *stmt)
 {
+  _stmt_reset_current_for_get_data(stmt);
+
   SQLULEN row_array_size = _stmt_get_row_array_size(stmt);
   OA_NIY(row_array_size > 0);
 
   SQLRETURN sr = SQL_SUCCESS;
 
   TAOS_ROW rows = NULL;
-  OA_NIY(stmt->res);
-  stmt->rowset.i_row += (int)row_array_size;
-  if (stmt->rowset.i_row >= stmt->nr_rows) {
+  OA_NIY(stmt->rs.res);
+
+  rowset_t *rowset = &stmt->rowset;
+
+  rowset->i_row += (int)row_array_size;
+  if (rowset->i_row >= rowset->nr_rows) {
     sr = _stmt_fetch_next_rowset(stmt, &rows);
     if (sr == SQL_ERROR) return SQL_ERROR;
     if (sr == SQL_NO_DATA) return SQL_NO_DATA;
@@ -2175,20 +2228,18 @@ SQLRETURN _stmt_fetch(stmt_t *stmt)
   if (post_filter->post_filter) {
     while (1) {
       int filter = 0;
-      sr = post_filter->post_filter(stmt, stmt->rowset.i_row, post_filter->ctx, &filter);
+      sr = post_filter->post_filter(stmt, rowset->i_row, post_filter->ctx, &filter);
       if (sr == SQL_ERROR) return SQL_ERROR;
       if (!filter) break;
 
-      ++stmt->rowset.i_row;
-      if (stmt->rowset.i_row >= stmt->nr_rows) {
+      ++rowset->i_row;
+      if (rowset->i_row >= rowset->nr_rows) {
         sr = _stmt_fetch_next_rowset(stmt, &rows);
         if (sr == SQL_ERROR) return SQL_ERROR;
         if (sr == SQL_NO_DATA) return SQL_NO_DATA;
       }
     }
   }
-
-  _stmt_reset_current_for_get_data(stmt);
 
   descriptor_t *ARD = _stmt_ARD(stmt);
   desc_header_t *ARD_header = &ARD->header;
@@ -2214,9 +2265,7 @@ SQLRETURN _stmt_fetch(stmt_t *stmt)
     return SQL_ERROR;
   }
 
-  tsdb_to_sql_c_state_t cache = {0};
-  sr = _stmt_fill_rowset(stmt, row_array_size, post_filter, &cache);
-  tsdb_to_sql_c_state_reset(&cache);
+  sr = _stmt_fill_rowset(stmt, row_array_size, post_filter);
   return sr;
 }
 
@@ -3255,10 +3304,9 @@ SQLRETURN stmt_prepare(stmt_t *stmt,
     SQLCHAR      *StatementText,
     SQLINTEGER    TextLength)
 {
-  // OA_NIY(stmt->stmt == NULL);
+  OA_NIY(stmt->stmt == NULL);
 
-  rowset_reset(&stmt->rowset);
-  _stmt_release_result(stmt);
+  _stmt_close_cursor(stmt);
 
   _stmt_unprepare(stmt);
 
@@ -3806,9 +3854,8 @@ SQLRETURN _stmt_execute(stmt_t *stmt)
   }
 
   if (_stmt_get_rows_fetched_ptr(stmt)) *_stmt_get_rows_fetched_ptr(stmt) = 0;
-  rowset_reset(&stmt->rowset);
   // column-binds remain valid among executes
-  _stmt_release_result(stmt);
+  _stmt_close_cursor(stmt);
 
   sr = _stmt_pre_exec(stmt);
   if (!sql_succeeded(sr)) return sr;
@@ -3819,10 +3866,13 @@ SQLRETURN _stmt_execute(stmt_t *stmt)
     stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->stmt));
     return SQL_ERROR;
   }
-  stmt->res = CALL_taos_stmt_use_result(stmt->stmt);
-  stmt->res_is_from_taos_query = 0;
 
-  return _stmt_post_exec(stmt);
+  rs_t *rs = &stmt->rs;
+
+  rs->res = CALL_taos_stmt_use_result(stmt->stmt);
+  rs->res_is_from_taos_query = 0;
+
+  return _stmt_post_exec(stmt, rs);
 }
 
 SQLRETURN stmt_execute(stmt_t *stmt)
@@ -3830,6 +3880,8 @@ SQLRETURN stmt_execute(stmt_t *stmt)
   OA_ILE(stmt->conn);
   OA_ILE(stmt->conn->taos);
   OA_ILE(stmt->stmt);
+
+  _stmt_close_cursor(stmt);
 
   SQLRETURN sr = _stmt_execute(stmt);
 
@@ -4235,10 +4287,13 @@ static SQLRETURN _stmt_get_diag_field_row_number(
   (void)StringLengthPtr;
 
   if (RecNumber!=1) OA_NIY(0);
+
+  rowset_t *rowset = &stmt->rowset;
+
   switch (stmt->get_or_put_or_undef) {
     case 0x1: // get
       // FIXME: experimental
-      *(SQLLEN*)DiagInfoPtr = (SQLLEN)stmt->rowset.i_row + 1;
+      *(SQLLEN*)DiagInfoPtr = (SQLLEN)rowset->i_row + 1;
       return SQL_SUCCESS;
     case 0x2: // put
       OA_NIY(0);

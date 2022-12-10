@@ -37,6 +37,29 @@
 #include <odbcinst.h>
 #include <string.h>
 
+void charset_conv_release(charset_conv_t *cnv)
+{
+  if (!cnv) return;
+  if (cnv->cnv) {
+    iconv_close(cnv->cnv);
+    cnv->cnv = NULL;
+  }
+  cnv->from[0] = '\0';
+  cnv->to[0] = '\0';
+}
+
+int charset_conv_reset(charset_conv_t *cnv, const char *from, const char *to)
+{
+  charset_conv_release(cnv);
+  if (tod_strcasecmp(from, to)) {
+    cnv->cnv = iconv_open(to, from);
+    if (!cnv->cnv) return -1;
+  }
+  snprintf(cnv->from, sizeof(cnv->from), "%s", from);
+  snprintf(cnv->to, sizeof(cnv->to), "%s", to);
+  return 0;
+}
+
 static void _conn_init(conn_t *conn, env_t *env)
 {
   conn->env = env_ref(env);
@@ -56,6 +79,16 @@ static void _conn_release_information_schema_ins_configs(conn_t *conn)
   TOD_SAFE_FREE(conn->s_charset);
 }
 
+static void _conn_release_iconvs(conn_t *conn)
+{
+  charset_conv_release(&conn->cnv_sql_c_char_to_tsdb_varchar);
+  charset_conv_release(&conn->cnv_tsdb_varchar_to_sql_c_char);
+  charset_conv_release(&conn->cnv_tsdb_varchar_to_utf8);
+  charset_conv_release(&conn->cnv_utf8_to_tsdb_varchar);
+  charset_conv_release(&conn->cnv_sql_c_char_to_utf8);
+  charset_conv_release(&conn->cnv_utf8_to_sql_c_char);
+}
+
 static void _conn_release(conn_t *conn)
 {
   OA_ILE(conn->taos == NULL);
@@ -69,6 +102,7 @@ static void _conn_release(conn_t *conn)
 
   connection_cfg_release(&conn->cfg);
   _conn_release_information_schema_ins_configs(conn);
+  _conn_release_iconvs(conn);
   errs_release(&conn->errs);
 
   return;
@@ -261,27 +295,6 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs(conn_t *c
   return sr;
 }
 
-static void _conn_release_iconvs(conn_t *conn)
-{
-#ifdef _LOCAL_
-#error choose another name for local usage
-#endif
-#define _LOCAL_(x) do {                   \
-  if (!conn->iconv_##x) break;            \
-  iconv_close(conn->iconv_##x);           \
-  conn->iconv_##x= NULL;                  \
-} while (0)
-
-  _LOCAL_(sql_c_char_to_tsdb_varchar);
-  _LOCAL_(tsdb_varchar_to_sql_c_char);
-  _LOCAL_(tsdb_varchar_to_utf8);
-  _LOCAL_(utf8_to_tsdb_varchar);
-  _LOCAL_(sql_c_char_to_utf8);
-  _LOCAL_(utf8_to_sql_c_char);
-
-#undef _LOCAL_
-}
-
 static int _conn_setup_iconvs(conn_t *conn)
 {
   _conn_release_iconvs(conn);
@@ -315,18 +328,38 @@ static int _conn_setup_iconvs(conn_t *conn)
   }
 #endif
 
-  if (tod_strcasecmp(tsdb_charset, sql_c_charset)==0) return 0;
   const char *utf8 = "UTF-8";
-  conn->iconv_sql_c_char_to_tsdb_varchar = iconv_open(tsdb_charset,    sql_c_charset);
-  conn->iconv_tsdb_varchar_to_sql_c_char = iconv_open(sql_c_charset,   tsdb_charset);
-  conn->iconv_sql_c_char_to_utf8         = iconv_open(utf8,            sql_c_charset);
-  conn->iconv_utf8_to_sql_c_char         = iconv_open(sql_c_charset,   utf8);
-  conn->iconv_tsdb_varchar_to_utf8       = iconv_open(utf8,            tsdb_charset);
-  conn->iconv_utf8_to_tsdb_varchar       = iconv_open(tsdb_charset,    utf8);
-  if (!conn->iconv_sql_c_char_to_tsdb_varchar || !conn->iconv_tsdb_varchar_to_sql_c_char ||
-      !conn->iconv_sql_c_char_to_utf8         || !conn->iconv_utf8_to_sql_c_char ||
-      !conn->iconv_tsdb_varchar_to_utf8       || !conn->iconv_utf8_to_tsdb_varchar)
-  {
+  const char *from, *to;
+  charset_conv_t *cnv;
+  do {
+    cnv = &conn->cnv_sql_c_char_to_utf8;
+    from = sql_c_charset; to = utf8;
+    if (charset_conv_reset(cnv, from, to)) break;
+
+    cnv = &conn->cnv_utf8_to_sql_c_char;
+    from = utf8; to = sql_c_charset;
+    if (charset_conv_reset(cnv, from, to)) break;
+
+    cnv = &conn->cnv_tsdb_varchar_to_utf8;
+    from = tsdb_charset; to = utf8;
+    if (charset_conv_reset(cnv, from, to)) break;
+
+    cnv = &conn->cnv_utf8_to_tsdb_varchar;
+    from = utf8; to = tsdb_charset;
+    if (charset_conv_reset(cnv, from, to)) break;
+
+    do {
+      cnv = &conn->cnv_sql_c_char_to_tsdb_varchar;
+      from = sql_c_charset; to = tsdb_charset;
+      if (charset_conv_reset(cnv, from, to)) break;
+
+      cnv = &conn->cnv_tsdb_varchar_to_sql_c_char;
+      from = tsdb_charset; to = sql_c_charset;
+      if (charset_conv_reset(cnv, from, to)) break;
+
+      return 0;
+    } while (0);
+
     _conn_release_iconvs(conn);
 #ifdef _WIN32
     conn_append_err_format(conn, "HY000", 0,
@@ -338,8 +371,13 @@ static int _conn_setup_iconvs(conn_t *conn)
         p, locale, tsdb_charset);
 #endif
     return -1;
-  }
-  return 0;
+  } while (0);
+
+  _conn_release_iconvs(conn);
+  conn_append_err_format(conn, "HY000", 0,
+      "General error:conversion between charsets [%s] <=> [%s] not supported yet",
+      from, to);
+  return -1;
 }
 
 static SQLRETURN _do_conn_connect(conn_t *conn)

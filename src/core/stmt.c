@@ -1521,7 +1521,7 @@ static SQLRETURN _stmt_conv_from_tsdb_float_to_sql_c_char(stmt_t *stmt, tsdb_to_
     SQLRETURN sr = SQL_SUCCESS;
     const char *data = NULL;
     size_t len = 0;
-    sr = _stmt_conv(stmt, &conv_state->mem, stmt->conn->cnv_utf8_to_sql_c_char.cnv, buf, n, &data, &len);
+    sr = _stmt_conv(stmt, &conv_state->mem, &stmt->conn->cnv_utf8_to_sql_c_char, buf, n, &data, &len);
     if (sr == SQL_ERROR) return SQL_ERROR;
     conv_state->data = data;
     conv_state->len = len;
@@ -1576,7 +1576,7 @@ static SQLRETURN _stmt_conv_from_tsdb_double_to_sql_c_char(stmt_t *stmt, tsdb_to
     SQLRETURN sr = SQL_SUCCESS;
     const char *data = NULL;
     size_t len = 0;
-    sr = _stmt_conv(stmt, &conv_state->mem, stmt->conn->cnv_utf8_to_sql_c_char.cnv, buf, n, &data, &len);
+    sr = _stmt_conv(stmt, &conv_state->mem, &stmt->conn->cnv_utf8_to_sql_c_char, buf, n, &data, &len);
     if (sr == SQL_ERROR) return SQL_ERROR;
     conv_state->data = data;
     conv_state->len = len;
@@ -1593,7 +1593,7 @@ static SQLRETURN _stmt_conv_from_tsdb_varchar_to_sql_c_char(stmt_t *stmt, tsdb_t
     SQLRETURN sr = SQL_SUCCESS;
     const char *data = NULL;
     size_t len = 0;
-    sr = _stmt_conv(stmt, &conv_state->mem, stmt->conn->cnv_tsdb_varchar_to_sql_c_char.cnv, conv_state->data, conv_state->len, &data, &len);
+    sr = _stmt_conv(stmt, &conv_state->mem, &stmt->conn->cnv_tsdb_varchar_to_sql_c_char, conv_state->data, conv_state->len, &data, &len);
     if (sr == SQL_ERROR) return SQL_ERROR;
     conv_state->data = data;
     conv_state->len = len;

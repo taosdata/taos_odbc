@@ -302,7 +302,6 @@ static int do_sql_stmt_execute_direct(SQLHANDLE stmth)
   CHK2(test_sql_stmt_execute_direct, stmth, "select * from t", 0);
   CHK2(test_sql_stmt_execute_direct, stmth, "select count(*) from t", 0);
 
-#ifndef _WIN32
   CHK2(test_sql_stmt_execute_direct, stmth, "drop table if exists t", 0);
   CHK2(test_sql_stmt_execute_direct, stmth, "create table if not exists t (ts timestamp, name varchar(20), age int, sex varchar(8), text nchar(3))", 0);
   CHK2(test_sql_stmt_execute_direct, stmth, "insert into t (ts, name, age, sex, text) values (1662861448752, 'name1', 20, 'male', '中国人')", 0);
@@ -312,7 +311,6 @@ static int do_sql_stmt_execute_direct(SQLHANDLE stmth)
   CHK2(test_sql_stmt_execute_direct, stmth, "create table if not exists t (ts timestamp, name varchar(20), age int, sex varchar(8), text nchar(3))", 0);
   CHK2(test_sql_stmt_execute_direct, stmth, "insert into t (ts, name, age, sex, text) values (1662861449753, 'name2', 30, 'female', '苏州人')", 0);
   CHK2(test_sql_stmt_execute_direct, stmth, "select * from t", 0);
-#endif
 
   CHK2(test_sql_stmt_execute_direct, stmth, "drop table if exists t", 0);
   CHK2(test_sql_stmt_execute_direct, stmth, "create table if not exists t (ts timestamp, name varchar(20), age int, sex varchar(8), text nchar(3))", 0);

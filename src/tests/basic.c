@@ -201,7 +201,7 @@ static int test_case5(void)
 
   do {
     char buf[1024];
-    char utf8[] = "中文";
+    char utf8[] = "\xe4\xb8\xad\xe6\x96\x87"; //"中文";
     char          *inbuf                = utf8;
     size_t         inbytes              = sizeof(utf8);
     size_t         inbytesleft          = inbytes;
@@ -214,7 +214,7 @@ static int test_case5(void)
     outbytesleft = outbytes;
     n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
     A(n == (size_t)-1, "-1 expected, but got ==%zd==", n);
-    A(errno == E2BIG, "");
+    A(errno == E2BIG, "[%d]%s", errno, strerror(errno));
     A(inbytes - inbytesleft == 0, "0 expected, but got ==%zd==", inbytes - inbytesleft);
     A(inbuf - utf8 == 0, "");
     A(outbytes - outbytesleft == 0, "");

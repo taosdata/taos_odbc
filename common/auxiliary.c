@@ -33,14 +33,6 @@
 #include <time.h>
 
 #ifdef _WIN32
-// NOTE: not exported in taos.dll
-const char *taos_data_type(int type)
-{
-  (void)type;
-  return "UNKNOWN";
-}
-#endif
-#ifdef _WIN32
 // NOTE: moved to win_port_cpp.cpp
 #else
 const char* tod_strptime(const char *s, const char *format, struct tm *tm)

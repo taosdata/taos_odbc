@@ -405,42 +405,42 @@ static inline cJSON* load_json_from_file(const char *json_file, FILE *fn)
     free(buf);
     return NULL;
   }
-  char *utf8 = NULL;
+  char *gb = NULL;
   do {
     size_t sz = bytes * 3 + 3;
-    utf8 = malloc(sz);
-    if (!utf8) {
+    gb = malloc(sz);
+    if (!gb) {
       W("out of memory");
       break;
     }
-    utf8[0] = '\0';
+    gb[0] = '\0';
     char          *inbuf               = buf;
     size_t         inbytesleft         = bytes;
-    char          *outbuf              = utf8;
+    char          *outbuf              = gb;
     size_t         outbytesleft        = sz;
     size_t n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
     if (n == (size_t)-1) {
       int e = errno;
       W("conversion from `%s` to `%s` failed:[%d]%s", fromcode, tocode, e, strerror(e));
-      free(utf8);
-      utf8 = NULL;
+      free(gb);
+      gb = NULL;
       break;
     }
     A(inbytesleft == 0, "");
     A(outbytesleft >= 1, "");
     outbuf[0] = '\0';
-    p = utf8;
+    p = gb;
   } while (0);
   iconv_close(cnv);
-  if (!utf8) {
+  if (!gb) {
     free(buf);
     return NULL;
   }
 #endif
   cJSON *json = cJSON_ParseWithOpts(p, &next, true);
 #ifdef _WIN32
-  free(utf8);
-  utf8 = NULL;
+  free(gb);
+  gb = NULL;
 #endif
   if (!json) {
     W("parsing file [%s] failed: bad syntax: @[%s]", json_file, next);

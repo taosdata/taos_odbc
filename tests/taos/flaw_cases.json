@@ -13,7 +13,9 @@
             "params": [
               ["foo"]
             ],
-            "rs": [[["t","foo"]]]
+            "rs": [[["t","foo"]]],
+            "comments": "3.0.2.0 regression test fails",
+            "positive": false
           }
         ]
       }
@@ -49,7 +51,9 @@
       "create table foo.t(ts timestamp,name varchar(20))",
       {
         "sql": "select table_name, db_name from (select table_name, db_name from information_schema.ins_tables) t where t.db_name like 'foo'",
-        "rs": [["t","foo"]]
+        "rs": [["t","foo"]],
+        "comments": "3.0.2.0 regression test fails",
+        "positive": false
       }
     ]
   },{

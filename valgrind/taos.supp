@@ -182,4 +182,101 @@
    fun:taos_connect_internal
    fun:taos_connect
 }
+# 3.0.2.0
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:calloc
+   fun:allocate_dtv
+   fun:_dl_allocate_tls
+   fun:allocate_stack
+   fun:pthread_create@@GLIBC_2.2.5
+   fun:taosThreadCreate
+   fun:taosInitScheduler
+   fun:taosTmrModuleInit
+   fun:__pthread_once_slow
+   fun:taosThreadOnce
+   fun:taosTmrInit
+   fun:schedulerInit
+   fun:taos_init_imp
+   fun:__pthread_once_slow
+   fun:taosThreadOnce
+   fun:taos_init
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:calloc
+   fun:allocate_dtv
+   fun:_dl_allocate_tls
+   fun:allocate_stack
+   fun:pthread_create@@GLIBC_2.2.5
+   fun:taosThreadCreate
+   fun:taosInitTimer
+   fun:taosTmrModuleInit
+   fun:__pthread_once_slow
+   fun:taosThreadOnce
+   fun:taosTmrInit
+   fun:schedulerInit
+   fun:taos_init_imp
+   fun:__pthread_once_slow
+   fun:taosThreadOnce
+   fun:taos_init
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:allocate_dtv_entry
+   fun:allocate_and_init
+   fun:tls_get_addr_tail.isra.0
+   fun:__tls_get_addr
+   fun:taosGetSelfPthreadId
+   fun:cliWorkThread
+   fun:start_thread
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   fun:__libc_alloc_buffer_allocate
+   fun:alloc_buffer_allocate
+   fun:__resolv_conf_allocate
+   fun:__resolv_conf_load
+   fun:__resolv_conf_get_current
+   fun:__res_vinit
+   fun:maybe_init
+   fun:context_get
+   fun:context_get
+   fun:__resolv_context_get
+   fun:gaih_inet.constprop.0
+   fun:getaddrinfo
+   fun:taosGetFqdn
+   fun:taosAddClientCfg
+   fun:taosInitCfg
+   fun:taos_init_imp
+   fun:__pthread_once_slow
+   fun:taosThreadOnce
+   fun:taos_init
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:calloc
+   fun:allocate_dtv
+   fun:_dl_allocate_tls
+   fun:allocate_stack
+   fun:pthread_create@@GLIBC_2.2.5
+   fun:taosThreadCreate
+   fun:transInitClient
+   fun:rpcOpen
+   fun:openTransporter
+   fun:taos_connect_internal
+   fun:taos_connect
+}
 

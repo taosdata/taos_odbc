@@ -133,10 +133,8 @@ static int test_direct_executes(SQLHANDLE hstmt)
 {
   CHECK(test_direct_exec(hstmt, "show databases"));
   CHECK(test_direct_exec(hstmt, "use foo"));
-#ifndef _WIN32
   CHECK(test_direct_exec(hstmt, "insert into t (ts, name, age, sex, text) values (1662861448752, 'name1', 20, 'male', '中国人')"));
   CHECK(test_direct_exec(hstmt, "insert into t (ts, name, age, sex, text) values (1662861449753, 'name2', 30, 'female', '苏州人')"));
-#endif
   CHECK(test_direct_exec(hstmt, "insert into t (ts, name, age, sex, text) values (1662861450754, 'name3', null, null, null)"));
   CHECK(test_direct_exec(hstmt, "select * from t"));
 

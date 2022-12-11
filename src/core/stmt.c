@@ -2904,8 +2904,8 @@ static SQLRETURN _stmt_conv_sql_c_char_to_tsdb_timestamp(stmt_t *stmt, sql_c_to_
 
   char   *src = meta->src_base;
   SQLLEN  len = meta->src_len;
-
   if (len == SQL_NTS) len = strlen(src);
+  else                len = strnlen(src, len);
 
   int64_t v = 0;
 
@@ -3359,10 +3359,36 @@ SQLRETURN stmt_prepare(stmt_t *stmt,
 
   size_t len = TextLength;
   if (TextLength == SQL_NTS) len = strlen(sql);
+  else                       len = strnlen(sql, TextLength);
 
-  const char *sqlx;
-  size_t n;
-  char *s, *pre;
+  if (1) {
+    conn_t *conn = stmt->conn;
+    iconv_t cnv = conn->cnv_sql_c_char_to_tsdb_varchar.cnv;
+    mem_t *mem = &stmt->mem;
+    if (cnv) {
+      int r = mem_conv(mem, cnv, sql, len);
+      if (r) {
+        // TODO: what about illegal byte sequence?
+        stmt_oom(stmt);
+        return SQL_ERROR;
+      }
+    } else {
+      int r = mem_keep(mem, len+8);
+      if (r) {
+        stmt_oom(stmt);
+        return SQL_ERROR;
+      }
+      strcpy((char*)mem->base, sql);
+    }
+    OW("sql:%s", sql);
+    sql = (const char *)mem->base;
+    OW("mem:%s", sql);
+    len = mem->nr;
+  }
+
+  const char *sqlx = NULL;
+  size_t n = 0;
+  char *s = NULL, *pre = NULL;
 
   if (stmt->conn->cfg.cache_sql) {
     s = strndup(sql, len);
@@ -3749,7 +3775,12 @@ static SQLRETURN _stmt_param_process(stmt_t *stmt, int irow, int i_param)
       }
     } else if (mb->buffer_type == TSDB_DATA_TYPE_NCHAR) {
       size_t nr_bytes = 0;
+#ifdef _WIN32
+      // TODO: remove harded-coded GB18030
+      sr = _stmt_calc_bytes(stmt, "GB18030", src_base, src_len, "UCS-4BE", &nr_bytes);
+#else
       sr = _stmt_calc_bytes(stmt, "UTF8", src_base, src_len, "UCS-4BE", &nr_bytes);
+#endif
       if (sr == SQL_ERROR) return SQL_ERROR;
       if (nr_bytes > (size_t)field.bytes - 2) {
         stmt_append_err_format(stmt, "HY000", 0, "General error:#%d param [%.*s] too long [%d]", i_param+1, (int)src_len, src_base, (field.bytes-2)/4);

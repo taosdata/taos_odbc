@@ -26,6 +26,7 @@
 #include "utils.h"
 
 #include <ctype.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -117,6 +118,33 @@ int mem_keep(mem_t *mem, size_t cap)
   if (!p) return -1;
   mem->base = p;
   mem->cap  = cap;
+  return 0;
+}
+
+int mem_conv(mem_t *mem, iconv_t cnv, const char *src, size_t len)
+{
+  // TODO: errcode/errmsg
+  int r = 0;
+
+  size_t sz = len * 4 + 4; // FIXME: hard-coded?
+
+  r = mem_keep(mem, sz);
+  if (r) return -1;
+
+  char           *inbuf          = src;
+  size_t          inbytesleft    = len;
+  char           *outbuf         = (char*)mem->base;
+  size_t          outbytesleft   = mem->cap;
+
+  size_t n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+  iconv(cnv, NULL, NULL, NULL, NULL);
+  if (n == (size_t)-1) return -1;
+
+  if (inbytesleft) return -1;
+  if (outbytesleft < 4) return -1;
+  *(int32_t*)outbuf = 0;
+  mem->nr = mem->cap - outbytesleft;
+
   return 0;
 }
 

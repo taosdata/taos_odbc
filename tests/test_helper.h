@@ -28,6 +28,8 @@
 #include "os_port.h"
 #include "cjson/cJSON.h"
 
+#include <iconv.h>
+
 #include <errno.h>
 #include <limits.h>
 #include <stdbool.h>
@@ -392,7 +394,54 @@ static inline cJSON* load_json_from_file(const char *json_file, FILE *fn)
 
   buf[bytes] = '\0';
   const char *next = NULL;
-  cJSON *json = cJSON_ParseWithOpts(buf, &next, true);
+  const char *p = buf;
+#ifdef _WIN32
+  // NOTE: only support on CodePage 936
+  const char *tocode = "GB18030";
+  const char *fromcode = "UTF-8";
+  iconv_t cnv = iconv_open(tocode, fromcode);
+  if (!cnv) {
+    W("no charset conversion between `%s` <=> `%s`", fromcode, tocode);
+    free(buf);
+    return NULL;
+  }
+  char *utf8 = NULL;
+  do {
+    size_t sz = bytes * 3 + 3;
+    utf8 = malloc(sz);
+    if (!utf8) {
+      W("out of memory");
+      break;
+    }
+    utf8[0] = '\0';
+    char          *inbuf               = buf;
+    size_t         inbytesleft         = bytes;
+    char          *outbuf              = utf8;
+    size_t         outbytesleft        = sz;
+    size_t n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+    if (n == (size_t)-1) {
+      int e = errno;
+      W("conversion from `%s` to `%s` failed:[%d]%s", fromcode, tocode, e, strerror(e));
+      free(utf8);
+      utf8 = NULL;
+      break;
+    }
+    A(inbytesleft == 0, "");
+    A(outbytesleft >= 1, "");
+    outbuf[0] = '\0';
+    p = utf8;
+  } while (0);
+  iconv_close(cnv);
+  if (!utf8) {
+    free(buf);
+    return NULL;
+  }
+#endif
+  cJSON *json = cJSON_ParseWithOpts(p, &next, true);
+#ifdef _WIN32
+  free(utf8);
+  utf8 = NULL;
+#endif
   if (!json) {
     W("parsing file [%s] failed: bad syntax: @[%s]", json_file, next);
     free(buf);

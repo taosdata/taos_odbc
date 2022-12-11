@@ -27,6 +27,8 @@
 
 #include "macros.h"
 
+#include <iconv.h>
+
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
@@ -82,6 +84,7 @@ void mem_release(mem_t *mem) FA_HIDDEN;
 void mem_reset(mem_t *mem) FA_HIDDEN;
 int mem_expand(mem_t *mem, size_t delta) FA_HIDDEN;
 int mem_keep(mem_t *mem, size_t cap) FA_HIDDEN;
+int mem_conv(mem_t *mem, iconv_t cnv, const char *src, size_t len) FA_HIDDEN;
 
 
 typedef struct buf_s               buf_t;

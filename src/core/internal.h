@@ -200,7 +200,7 @@ struct tsdb_to_sql_c_state_s {
   SQLLEN              *StrLen_or_IndPtr;
 
   const char          *data;
-  int                  len;
+  size_t               len;
 
   buffer_t             cache;
   mem_t                mem;
@@ -272,11 +272,12 @@ struct charset_conv_s {
   char         from[64];
   char         to[64];
   iconv_t      cnv;
+  int8_t       nr_from_terminator;
+  int8_t       nr_to_terminator;
 };
 
 void charset_conv_release(charset_conv_t *cnv) FA_HIDDEN;
 int charset_conv_reset(charset_conv_t *cnv, const char *from, const char *to) FA_HIDDEN;
-
 
 struct conn_s {
   atomic_int          refc;

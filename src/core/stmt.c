@@ -420,6 +420,37 @@ static SQLULEN* _stmt_get_rows_fetched_ptr(stmt_t *stmt)
   return IRD_header->DESC_ROWS_PROCESSED_PTR;
 }
 
+static SQLRETURN _stmt_conv(stmt_t *stmt, mem_t *mem, charset_conv_t *cnv, const char *buf, size_t len, const char **pdata, size_t *plen)
+{
+  char *p = NULL;
+  int n = 0;
+  int r = 0;
+  if (!cnv->cnv) {
+    r = mem_keep(mem, len + 8);
+    if (r) { stmt_oom(stmt); return SQL_ERROR; }
+    p = (char*)mem->base;
+    n = snprintf(p, mem->cap, "%.*s", (int)len, buf);
+    OA_NIY(n >= 0);
+  } else {
+    r = mem_conv(mem, cnv->cnv, buf, len, cnv->nr_to_terminator);
+    if (r) {
+      int e = errno;
+      if (e == ENOMEM) {
+        stmt_oom(stmt);
+      } else {
+        stmt_append_err_format(stmt, "HY000", 0, "General error:charset conversion failed:[%d]%s",
+            e, strerror(e));
+      }
+      return SQL_ERROR;
+    }
+    p = (char*)mem->base;
+    n = (int)mem->nr;
+  }
+  *pdata = p;
+  *plen = n;
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_exec_direct_sql(stmt_t *stmt, const char *sql)
 {
   OA_ILE(stmt->conn);
@@ -446,32 +477,16 @@ static SQLRETURN _stmt_exec_direct_sql(stmt_t *stmt, const char *sql)
 
   // TODO: to support exec_direct parameterized statement
 
-  iconv_t *cnv = stmt->conn->cnv_sql_c_char_to_tsdb_varchar.cnv;
-  if (cnv) {
+  charset_conv_t *cnv = &stmt->conn->cnv_sql_c_char_to_tsdb_varchar;
+  if (cnv->cnv) {
     mem_t *mem = &stmt->mem;
-    mem_reset(mem);
-    size_t len = strlen(sql);
-    int r = mem_keep(mem, len * 3 + 3);
-    if (r) {
-      stmt_oom(stmt);
-      return SQL_ERROR;
-    }
-    char        *inbuf         = (char*)sql;
-    size_t       inbytesleft   = len;
-    char        *outbuf        = (char*)mem->base;
-    size_t       outbytesleft  = mem->cap;
-
-    size_t n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
-    if (n == (size_t)-1) {
-      stmt_append_err_format(stmt, "HY000", 0, "General error: charset conversion failed:%s", sql);
-      return SQL_ERROR;
-    }
-    OA_ILE(inbytesleft == 0);
-    OA_ILE(outbytesleft >= 3);
-    outbuf[0] = '\0';
-    outbuf[1] = '\0';
-    outbuf[2] = '\0';
-    sql = (const char*)mem->base;
+    size_t nr_from_terminator = cnv->nr_from_terminator;
+    SQLRETURN sr = SQL_SUCCESS;
+    const char *data = NULL;
+    size_t len = 0;
+    sr = _stmt_conv(stmt, mem, cnv, sql, strlen(sql) + nr_from_terminator, &data, &len);
+    if (sr == SQL_ERROR) return SQL_ERROR;
+    sql = data;
   }
 
   rs_t *rs = &stmt->rs;
@@ -1148,52 +1163,9 @@ static SQLRETURN _stmt_conv_to_sql_c_char_epilog(stmt_t *stmt, tsdb_to_sql_c_sta
   return SQL_SUCCESS_WITH_INFO;
 }
 
-static SQLRETURN _stmt_conv(stmt_t *stmt, mem_t *mem, iconv_t cnv, const char *buf, int len, const char **pdata, int *plen)
-{
-  int r = 0;
-  if (!cnv) {
-    r = mem_keep(mem, len + 1);
-    if (r) {
-      stmt_oom(stmt);
-      return SQL_ERROR;
-    }
-    memcpy(mem->base, buf, len);
-    *pdata = (const char*)mem->base;
-    *plen  = len;
-    return SQL_SUCCESS;
-  } else {
-    r = mem_keep(mem, len * 3 + 3);
-    if (r) {
-      stmt_oom(stmt);
-      return SQL_ERROR;
-    }
-
-    char     *inbuf           = (char*)buf;
-    size_t    inbytesleft     = len;
-    char     *outbuf          = (char*)mem->base;
-    size_t    outbytesleft    = mem->cap;
-
-    size_t n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
-    int e = errno;
-    iconv(cnv, NULL, NULL, NULL, NULL);
-    if (n == (size_t)-1) {
-      stmt_append_err_format(stmt, "HY000", 0,
-          "General error:[iconv]Character set conversion failed:[%d]%s",
-          e, strerror(e));
-      return SQL_ERROR;
-    }
-
-    OA_NIY(inbytesleft == 0);
-    OA_NIY(outbytesleft >= 3);
-    *pdata = (const char*)mem->base;
-    *plen  = (int)((size_t)mem->cap - outbytesleft);
-    return SQL_SUCCESS;
-  }
-}
-
 static SQLRETURN _stmt_conv_to_sql_c_char_next(stmt_t *stmt, tsdb_to_sql_c_state_t *conv_state)
 {
-  int nn = snprintf(conv_state->TargetValuePtr, conv_state->BufferLength, "%.*s", conv_state->len, conv_state->data);
+  int nn = snprintf(conv_state->TargetValuePtr, conv_state->BufferLength, "%.*s", (int)conv_state->len, conv_state->data);
   if (nn < 0) {
     stmt_append_err(stmt, "HY000", 0, "General error: internal logic error");
     return SQL_ERROR;
@@ -1215,8 +1187,8 @@ static SQLRETURN _stmt_conv_from_tsdb_timestamp_to_sql_c_char(stmt_t *stmt, tsdb
 
     SQLRETURN sr = SQL_SUCCESS;
     const char *data = NULL;
-    int len = 0;
-    sr = _stmt_conv(stmt, &conv_state->mem, stmt->conn->cnv_utf8_to_sql_c_char.cnv, buf, n, &data, &len);
+    size_t len = 0;
+    sr = _stmt_conv(stmt, &conv_state->mem, &stmt->conn->cnv_utf8_to_sql_c_char, buf, n, &data, &len);
     if (sr == SQL_ERROR) return SQL_ERROR;
     conv_state->data = data;
     conv_state->len = len;
@@ -1227,7 +1199,7 @@ static SQLRETURN _stmt_conv_from_tsdb_timestamp_to_sql_c_char(stmt_t *stmt, tsdb
 
 static SQLRETURN _stmt_conv_to_sql_c_wchar_next(stmt_t *stmt, tsdb_to_sql_c_state_t *conv_state)
 {
-  if (conv_state->len + 2 <= conv_state->BufferLength) {
+  if (conv_state->len + 2 <= (size_t)conv_state->BufferLength) {
     char *ptr = (char*)conv_state->TargetValuePtr;
     memcpy(ptr, conv_state->data, conv_state->len);
     ptr += conv_state->len;
@@ -1261,10 +1233,10 @@ static SQLRETURN _stmt_conv_to_sql_c_wchar_next(stmt_t *stmt, tsdb_to_sql_c_stat
   return SQL_SUCCESS_WITH_INFO;
 }
 
-static SQLRETURN _stmt_conv_to_sql_c_wchar(stmt_t *stmt, tsdb_to_sql_c_state_t *conv_state, const char *buf, int len)
+static SQLRETURN _stmt_conv_to_sql_c_wchar(stmt_t *stmt, tsdb_to_sql_c_state_t *conv_state, const char *buf, size_t len)
 {
   int r = 0;
-  int n = len;
+  size_t n = len;
 
   char wbuf[512];
 
@@ -1284,7 +1256,7 @@ static SQLRETURN _stmt_conv_to_sql_c_wchar(stmt_t *stmt, tsdb_to_sql_c_state_t *
   outbuf[0] = '\0';
   outbuf[1] = '\0';
 
-  if (n + 2 <= conv_state->BufferLength) {
+  if (n + 2 <= (size_t)conv_state->BufferLength) {
     char *ptr = (char*)conv_state->TargetValuePtr;
     memcpy(ptr, wbuf, n);
     ptr += n;
@@ -1336,8 +1308,8 @@ static SQLRETURN _stmt_conv_from_tsdb_bool_to_sql_c_char(stmt_t *stmt, tsdb_to_s
 
     SQLRETURN sr = SQL_SUCCESS;
     const char *data = NULL;
-    int len = 0;
-    sr = _stmt_conv(stmt, &conv_state->mem, stmt->conn->cnv_utf8_to_sql_c_char.cnv, buf, n, &data, &len);
+    size_t len = 0;
+    sr = _stmt_conv(stmt, &conv_state->mem, &stmt->conn->cnv_utf8_to_sql_c_char, buf, n, &data, &len);
     if (sr == SQL_ERROR) return SQL_ERROR;
     conv_state->data = data;
     conv_state->len = len;
@@ -1455,8 +1427,8 @@ static SQLRETURN _stmt_conv_from_tsdb_int_to_sql_c_char(stmt_t *stmt, tsdb_to_sq
 
     SQLRETURN sr = SQL_SUCCESS;
     const char *data = NULL;
-    int len = 0;
-    sr = _stmt_conv(stmt, &conv_state->mem, stmt->conn->cnv_utf8_to_sql_c_char.cnv, buf, n, &data, &len);
+    size_t len = 0;
+    sr = _stmt_conv(stmt, &conv_state->mem, &stmt->conn->cnv_utf8_to_sql_c_char, buf, n, &data, &len);
     if (sr == SQL_ERROR) return SQL_ERROR;
     conv_state->data = data;
     conv_state->len = len;
@@ -1525,8 +1497,8 @@ static SQLRETURN _stmt_conv_from_tsdb_bigint_to_sql_c_char(stmt_t *stmt, tsdb_to
 
     SQLRETURN sr = SQL_SUCCESS;
     const char *data = NULL;
-    int len = 0;
-    sr = _stmt_conv(stmt, &conv_state->mem, stmt->conn->cnv_utf8_to_sql_c_char.cnv, buf, n, &data, &len);
+    size_t len = 0;
+    sr = _stmt_conv(stmt, &conv_state->mem, &stmt->conn->cnv_utf8_to_sql_c_char, buf, n, &data, &len);
     if (sr == SQL_ERROR) return SQL_ERROR;
     conv_state->data = data;
     conv_state->len = len;
@@ -1548,7 +1520,7 @@ static SQLRETURN _stmt_conv_from_tsdb_float_to_sql_c_char(stmt_t *stmt, tsdb_to_
 
     SQLRETURN sr = SQL_SUCCESS;
     const char *data = NULL;
-    int len = 0;
+    size_t len = 0;
     sr = _stmt_conv(stmt, &conv_state->mem, stmt->conn->cnv_utf8_to_sql_c_char.cnv, buf, n, &data, &len);
     if (sr == SQL_ERROR) return SQL_ERROR;
     conv_state->data = data;
@@ -1603,7 +1575,7 @@ static SQLRETURN _stmt_conv_from_tsdb_double_to_sql_c_char(stmt_t *stmt, tsdb_to
 
     SQLRETURN sr = SQL_SUCCESS;
     const char *data = NULL;
-    int len = 0;
+    size_t len = 0;
     sr = _stmt_conv(stmt, &conv_state->mem, stmt->conn->cnv_utf8_to_sql_c_char.cnv, buf, n, &data, &len);
     if (sr == SQL_ERROR) return SQL_ERROR;
     conv_state->data = data;
@@ -1620,7 +1592,7 @@ static SQLRETURN _stmt_conv_from_tsdb_varchar_to_sql_c_char(stmt_t *stmt, tsdb_t
   if (conv_state->state == DATA_GET_INIT) {
     SQLRETURN sr = SQL_SUCCESS;
     const char *data = NULL;
-    int len = 0;
+    size_t len = 0;
     sr = _stmt_conv(stmt, &conv_state->mem, stmt->conn->cnv_tsdb_varchar_to_sql_c_char.cnv, conv_state->data, conv_state->len, &data, &len);
     if (sr == SQL_ERROR) return SQL_ERROR;
     conv_state->data = data;
@@ -2389,6 +2361,7 @@ SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
   int r = 0;
 
   SQLRETURN sr = SQL_SUCCESS;
+  OA_NIY(stmt->stmt == NULL);
 
   stmt->stmt = CALL_taos_stmt_init(stmt->conn->taos);
   if (!stmt->stmt) {
@@ -2397,20 +2370,14 @@ SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
   }
 
   conn_t *conn = stmt->conn;
-  iconv_t cnv = conn->cnv_sql_c_char_to_tsdb_varchar.cnv;
   mem_t *mem = &stmt->mem;
-  if (cnv) {
-    int r = mem_conv(mem, cnv, sql, len);
-    if (r) {
-      // TODO: what about illegal byte sequence?
-      stmt_oom(stmt);
-      return SQL_ERROR;
-    }
-    sql = (const char *)mem->base;
-    len = mem->nr;
-  }
 
-  r = CALL_taos_stmt_prepare(stmt->stmt, sql, (unsigned long)len);
+  const char *dst = NULL;
+  size_t dlen = 0;
+  sr = _stmt_conv(stmt, mem, &conn->cnv_sql_c_char_to_tsdb_varchar, sql, len, &dst, &dlen);
+  if (sr == SQL_ERROR) return SQL_ERROR;
+
+  r = CALL_taos_stmt_prepare(stmt->stmt, dst, (unsigned long)dlen);
   if (r) {
     stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_errstr(NULL));
     return SQL_ERROR;

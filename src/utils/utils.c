@@ -120,7 +120,7 @@ int mem_keep(mem_t *mem, size_t cap)
   return 0;
 }
 
-int mem_conv(mem_t *mem, iconv_t cnv, const char *src, size_t len)
+int mem_conv(mem_t *mem, iconv_t cnv, const char *src, size_t len, size_t nr_target_terminator)
 {
   int r = 0;
 
@@ -134,7 +134,7 @@ int mem_conv(mem_t *mem, iconv_t cnv, const char *src, size_t len)
 
 again:
   if (mem->base == NULL) {
-    int r = mem_keep(mem, len + 1);
+    int r = mem_keep(mem, len + nr_target_terminator);
     if (r) return -1;
   }
 
@@ -160,7 +160,7 @@ again:
     goto again;
   }
 
-  memset(outbuf, 0, 4);  
+  memset(outbuf, 0, nr_target_terminator);
   mem->nr = mem->cap - outbytesleft;
 
   return 0;

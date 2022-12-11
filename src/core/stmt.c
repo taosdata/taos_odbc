@@ -322,6 +322,7 @@ static void _stmt_release(stmt_t *stmt)
   TOD_SAFE_FREE(stmt->sql);
 
   errs_release(&stmt->errs);
+  mem_release(&stmt->mem);
 
   return;
 }
@@ -445,24 +446,54 @@ static SQLRETURN _stmt_exec_direct_sql(stmt_t *stmt, const char *sql)
 
   // TODO: to support exec_direct parameterized statement
 
-  conn_t *conn = stmt->conn;
-  env_t *env = conn->env;
-  iconv_t cnv = conn->cnv_sql_c_char_to_tsdb_varchar.cnv;
-  if (0 && cnv) {
-    char *p = NULL;
-    size_t sz = env_conv(env, cnv, &env->mem, sql, &p);
-    if (!p) {
-      stmt_oom(stmt);
-      return SQL_ERROR;
+  if (1) {
+    iconv_t *cnv = stmt->conn->cnv_sql_c_char_to_tsdb_varchar.cnv;
+    if (cnv) {
+      mem_t *mem = &stmt->mem;
+      mem_reset(mem);
+      size_t len = strlen(sql);
+      int r = mem_keep(mem, len * 3 + 3);
+      if (r) {
+        stmt_oom(stmt);
+        return SQL_ERROR;
+      }
+      char        *inbuf         = (char*)sql;
+      size_t       inbytesleft   = len;
+      char        *outbuf        = (char*)mem->base;
+      size_t       outbytesleft  = mem->cap;
+
+      size_t n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+      if (n == (size_t)-1) {
+        stmt_append_err_format(stmt, "HY000", 0, "General error: charset conversion failed:%s", sql);
+        return SQL_ERROR;
+      }
+      OA_ILE(inbytesleft == 0);
+      OA_ILE(outbytesleft >= 3);
+      outbuf[0] = '\0';
+      outbuf[1] = '\0';
+      outbuf[2] = '\0';
+      sql = (const char*)mem->base;
     }
-    if (sz == (size_t)-1) {
-      stmt_append_err_format(stmt, "HY000", 0, "General error: charset conversion failed:%s", sql);
-      return SQL_ERROR;
+  } else {
+    conn_t *conn = stmt->conn;
+    env_t *env = conn->env;
+    iconv_t cnv = conn->cnv_sql_c_char_to_tsdb_varchar.cnv;
+    if (0 && cnv) {
+      char *p = NULL;
+      size_t sz = env_conv(env, cnv, &env->mem, sql, &p);
+      if (!p) {
+        stmt_oom(stmt);
+        return SQL_ERROR;
+      }
+      if (sz == (size_t)-1) {
+        stmt_append_err_format(stmt, "HY000", 0, "General error: charset conversion failed:%s", sql);
+        return SQL_ERROR;
+      }
+      OD("sql:%s", sql);
+      OD("p:  %s", p);
+      OA(0, "not implemented yet");
+      sql = p;
     }
-    OD("sql:%s", sql);
-    OD("p:  %s", p);
-    OA(0, "not implemented yet");
-    sql = p;
   }
 
   rs_t *rs = &stmt->rs;

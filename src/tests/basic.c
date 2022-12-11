@@ -29,6 +29,7 @@
 #include "parser.h"
 #include "utils.h"
 
+#include <errno.h>
 #include <string.h>
 
 static int test_case1(void)
@@ -184,6 +185,75 @@ static int test_case4(void)
   return 0;
 }
 
+static int test_case5(void)
+{
+  int r = 0;
+
+  const char *tocode = "GB18030";
+  const char *fromcode = "UTF-8";
+
+  iconv_t cnv = iconv_open(tocode, fromcode);
+  if (!cnv) {
+    int e = errno;
+    E("iconv_open(tocode:%s, fromcode:%s) failed:[%d]%s", tocode, fromcode, e, strerror(e));
+    return -1;
+  }
+
+  do {
+    char buf[1024];
+    char utf8[] = "中文";
+    char          *inbuf                = utf8;
+    size_t         inbytes              = sizeof(utf8);
+    size_t         inbytesleft          = inbytes;
+    char          *outbuf               = buf;
+    size_t         outbytes;
+    size_t         outbytesleft;
+    size_t n;
+
+    outbytes = 0;
+    outbytesleft = outbytes;
+    n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+    A(n == (size_t)-1, "-1 expected, but got ==%zd==", n);
+    A(errno == E2BIG, "");
+    A(inbytes - inbytesleft == 0, "0 expected, but got ==%zd==", inbytes - inbytesleft);
+    A(inbuf - utf8 == 0, "");
+    A(outbytes - outbytesleft == 0, "");
+    A(outbuf - buf == 0, "");
+
+    outbytes = 3;
+    outbytesleft = outbytes;
+    n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+    A(n == (size_t)-1, "-1 expected, but got ==%zd==", n);
+    A(errno == E2BIG, "");
+    A(inbytes - inbytesleft == 3, "3 expected, but got ==%zd==", inbytes - inbytesleft);
+    A(inbuf - utf8 == 3, "");
+    A(outbytes - outbytesleft == 2, "");
+    A(outbuf - buf == 2, "");
+    A(strncmp(buf, "\xd6\xd0", 2)==0, "");
+
+    outbytes = 2;
+    outbytesleft = outbytes;
+    n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+    A(n == (size_t)-1, "-1 expected, but got ==%zd==", n);
+    A(errno == E2BIG, "");
+    A(inbytes - inbytesleft == 6, "6 expected, but got ==%zd==", inbytes - inbytesleft);
+    A(outbytes - outbytesleft == 2, "");
+    A(strncmp(buf, "\xd6\xd0\xce\xc4", 4)==0, "");
+
+    outbytes = 1;
+    outbytesleft = outbytes;
+    n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+    A(n == 0, "0 expected, but got ==%zd==", n);
+    A(inbytes - inbytesleft == 7, "7 expected, but got ==%zd==", inbytes - inbytesleft);
+    A(outbytes - outbytesleft == 1, "");
+    A(outbuf[-1] == '\0', "");
+  } while (0);
+
+  iconv_close(cnv);
+
+  return r ? -1 : 0;
+}
+
 static int test(void)
 {
   int r = 0;
@@ -198,6 +268,9 @@ static int test(void)
   if (r) return -1;
 
   r = test_case4();
+  if (r) return -1;
+
+  r = test_case5();
   if (r) return -1;
 
   return 0;

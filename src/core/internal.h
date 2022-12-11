@@ -384,6 +384,8 @@ struct stmt_s {
   rs_t                       rs;
   rowset_t                   rowset;
 
+  mem_t                      mem;
+
   unsigned int               prepared:1;
   unsigned int               is_insert_stmt:1;
   unsigned int               subtbl_required:1;

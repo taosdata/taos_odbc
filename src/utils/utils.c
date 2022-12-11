@@ -26,7 +26,6 @@
 #include "utils.h"
 
 #include <ctype.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -91,7 +90,6 @@ unsigned char* static_pool_calloc_align(static_pool_t *pool, size_t sz, size_t a
 
 void mem_release(mem_t *mem)
 {
-  if (!mem) return;
   TOD_SAFE_FREE(mem->base);
   mem->cap = 0;
   mem->nr  = 0;
@@ -99,20 +97,21 @@ void mem_release(mem_t *mem)
 
 void mem_reset(mem_t *mem)
 {
-  if (!mem) return;
   mem->nr = 0;
 }
 
 int mem_expand(mem_t *mem, size_t delta)
 {
-  if (!mem) return -1;
-  size_t cap = mem->nr + delta;
+  size_t cap = mem->cap + delta;
+  if (cap < mem->cap) {
+    errno = E2BIG;
+    return -1;
+  }
   return mem_keep(mem, cap);
 }
 
 int mem_keep(mem_t *mem, size_t cap)
 {
-  if (!mem) return -1;
   if (cap < mem->cap) return 0;
   unsigned char *p = realloc(mem->base, cap);
   if (!p) return -1;
@@ -123,26 +122,45 @@ int mem_keep(mem_t *mem, size_t cap)
 
 int mem_conv(mem_t *mem, iconv_t cnv, const char *src, size_t len)
 {
-  // TODO: errcode/errmsg
   int r = 0;
 
-  size_t sz = len * 4 + 4; // FIXME: hard-coded?
+  char           *inbuf;
+  size_t          inbytesleft;
+  char           *outbuf;
+  size_t          outbytesleft;
 
-  r = mem_keep(mem, sz);
-  if (r) return -1;
+  size_t n;
+  int e;
 
-  char           *inbuf          = (char*)src;
-  size_t          inbytesleft    = len;
-  char           *outbuf         = (char*)mem->base;
-  size_t          outbytesleft   = mem->cap;
+again:
+  if (mem->base == NULL) {
+    int r = mem_keep(mem, len + 1);
+    if (r) return -1;
+  }
 
-  size_t n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+  inbuf          = (char*)src;
+  inbytesleft    = len;
+  outbuf         = (char*)mem->base;
+  outbytesleft   = mem->cap;
+
+  n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+  e = errno;
   iconv(cnv, NULL, NULL, NULL, NULL);
-  if (n == (size_t)-1) return -1;
+  if (n == (size_t)-1) {
+    if (e != E2BIG) return -1;
+    r = mem_expand(mem, len);
+    if (r) return -1;
+    goto again;
+  }
 
   if (inbytesleft) return -1;
-  if (outbytesleft < 4) return -1;
-  *(int32_t*)outbuf = 0;
+  if (outbytesleft < 4) {
+    r = mem_expand(mem, len);
+    if (r) return -1;
+    goto again;
+  }
+
+  memset(outbuf, 0, 4);  
   mem->nr = mem->cap - outbytesleft;
 
   return 0;

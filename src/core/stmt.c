@@ -2396,6 +2396,20 @@ SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
     return SQL_ERROR;
   }
 
+  conn_t *conn = stmt->conn;
+  iconv_t cnv = conn->cnv_sql_c_char_to_tsdb_varchar.cnv;
+  mem_t *mem = &stmt->mem;
+  if (cnv) {
+    int r = mem_conv(mem, cnv, sql, len);
+    if (r) {
+      // TODO: what about illegal byte sequence?
+      stmt_oom(stmt);
+      return SQL_ERROR;
+    }
+    sql = (const char *)mem->base;
+    len = mem->nr;
+  }
+
   r = CALL_taos_stmt_prepare(stmt->stmt, sql, (unsigned long)len);
   if (r) {
     stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_errstr(NULL));
@@ -3361,31 +3375,6 @@ SQLRETURN stmt_prepare(stmt_t *stmt,
   if (TextLength == SQL_NTS) len = strlen(sql);
   else                       len = strnlen(sql, TextLength);
 
-  if (1) {
-    conn_t *conn = stmt->conn;
-    iconv_t cnv = conn->cnv_sql_c_char_to_tsdb_varchar.cnv;
-    mem_t *mem = &stmt->mem;
-    if (cnv) {
-      int r = mem_conv(mem, cnv, sql, len);
-      if (r) {
-        // TODO: what about illegal byte sequence?
-        stmt_oom(stmt);
-        return SQL_ERROR;
-      }
-    } else {
-      int r = mem_keep(mem, len+8);
-      if (r) {
-        stmt_oom(stmt);
-        return SQL_ERROR;
-      }
-      strcpy((char*)mem->base, sql);
-    }
-    OW("sql:%s", sql);
-    sql = (const char *)mem->base;
-    OW("mem:%s", sql);
-    len = mem->nr;
-  }
-
   const char *sqlx = NULL;
   size_t n = 0;
   char *s = NULL, *pre = NULL;
@@ -3396,6 +3385,7 @@ SQLRETURN stmt_prepare(stmt_t *stmt,
       stmt_oom(stmt);
       return SQL_ERROR;
     }
+    OW("s:%s", s);
     pre = stmt->sql;
     stmt->sql = s;
 

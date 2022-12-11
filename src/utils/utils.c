@@ -131,7 +131,7 @@ int mem_conv(mem_t *mem, iconv_t cnv, const char *src, size_t len)
   r = mem_keep(mem, sz);
   if (r) return -1;
 
-  char           *inbuf          = src;
+  char           *inbuf          = (char*)src;
   size_t          inbytesleft    = len;
   char           *outbuf         = (char*)mem->base;
   size_t          outbytesleft   = mem->cap;

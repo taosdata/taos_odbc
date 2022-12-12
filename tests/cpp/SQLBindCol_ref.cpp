@@ -213,9 +213,6 @@ static int test_case1(void)
           r = e;
         }
 
-#ifndef _WIN32
-        SQLCancel(hstmt);
-#endif
         SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
       } catch (int e) {
         r = e;
@@ -340,9 +337,6 @@ static int test_case2(void)
           r = e;
         }
 
-#ifndef _WIN32
-        SQLCancel(hstmt);
-#endif
         SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
       } catch (int e) {
         r = e;
@@ -469,9 +463,6 @@ static int test_case3(void)
           r = e;
         }
 
-#ifndef _WIN32
-        SQLCancel(hstmt);
-#endif
         SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
       } catch (int e) {
         r = e;
@@ -674,9 +665,6 @@ static int test_case4(const char *conn_str)
           r = e;
         }
 
-#ifndef _WIN32
-        SQLCancel(hstmt);
-#endif
         SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
       } catch (int e) {
         r = e;
@@ -926,9 +914,6 @@ static int test_case5(const char *conn_str)
           r = e;
         }
 
-#ifndef _WIN32
-        SQLCancel(hstmt);
-#endif
         SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
       } catch (int e) {
         r = e;
@@ -1132,9 +1117,6 @@ static int test_mysql_case1(void)
           r = e;
         }
 
-#ifndef _WIN32
-        SQLCancel(hstmt);
-#endif
         SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
       } catch (int e) {
         r = e;
@@ -1505,9 +1487,6 @@ static int test_mysql_case2(void)
           r = e;
         }
 
-#ifndef _WIN32
-        SQLCancel(hstmt);
-#endif
         SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
       } catch (int e) {
         r = e;
@@ -1651,9 +1630,6 @@ static int test_mysql_case3(void)
           r = e;
         }
 
-#ifndef _WIN32
-        SQLCancel(hstmt);
-#endif
         SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
       } catch (int e) {
         r = e;

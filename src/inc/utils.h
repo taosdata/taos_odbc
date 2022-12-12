@@ -133,7 +133,14 @@ static inline int buffer_concat(buffer_t *str, const char *s)
   return buffer_concat_n(str, s, strlen(s));
 }
 int buffer_vconcat(buffer_t *str, const char *fmt, va_list ap) FA_HIDDEN;
-int buffer_concat_fmt(buffer_t *str, const char *fmt, ...) __attribute__ ((format (printf, 2, 3))) FA_HIDDEN;
+#ifdef _WIN32
+int buffer_concat_fmt_x(buffer_t *str, const char *fmt, ...) FA_HIDDEN;
+// NOTE: make MSVC to do fmt-string-checking with printf during compile-time
+#define buffer_concat_fmt(str, fmt, ...) (0 ? printf(fmt, ##__VA_ARGS__) : buffer_concat_fmt_x(str, fmt, ##__VA_ARGS__))
+#else
+int buffer_concat_fmt_x(buffer_t *str, const char *fmt, ...) __attribute__ ((format (printf, 2, 3))) FA_HIDDEN;
+#define buffer_concat_fmt buffer_concat_fmt_x
+#endif
 // replace "'" in s with "''"
 int buffer_concat_replacement_n(buffer_t *str, const char *s, size_t len) FA_HIDDEN;
 static inline int buffer_concat_replacement(buffer_t *str, const char *s)

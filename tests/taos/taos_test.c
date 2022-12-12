@@ -425,12 +425,12 @@ struct executes_ctx_s {
 static void executes_ctx_release_tags(executes_ctx_t *ctx)
 {
   if (ctx->tags) {
-#ifndef _WIN32
-    free(ctx->tags);
-#else
+#ifdef _WIN32
     // https://github.com/taosdata/TDengine/issues/18804
     // https://learn.microsoft.com/en-us/troubleshoot/developer/visualstudio/cpp/libraries/use-c-run-time
     // https://learn.microsoft.com/en-us/cpp/build/reference/md-mt-ld-use-run-time-library?view=msvc-170
+    free(ctx->tags);
+#else
     free(ctx->tags);
 #endif
     ctx->tags = NULL;
@@ -442,12 +442,12 @@ static void executes_ctx_release_tags(executes_ctx_t *ctx)
 static void executes_ctx_release_cols(executes_ctx_t *ctx)
 {
   if (ctx->cols) {
-#ifndef _WIN32
-    free(ctx->cols);
-#else
+#ifdef _WIN32
     // https://github.com/taosdata/TDengine/issues/18804
     // https://learn.microsoft.com/en-us/troubleshoot/developer/visualstudio/cpp/libraries/use-c-run-time
     // https://learn.microsoft.com/en-us/cpp/build/reference/md-mt-ld-use-run-time-library?view=msvc-170
+    free(ctx->cols);
+#else
     free(ctx->cols);
 #endif
     ctx->cols = NULL;
@@ -1230,12 +1230,12 @@ static int executes_ctx_prepare_stmt(executes_ctx_t *ctx)
       r = 0;
     }
   }
-#ifndef _WIN32
-  free(fields);
-#else
+#ifdef _WIN32
   // https://github.com/taosdata/TDengine/issues/18804
   // https://learn.microsoft.com/en-us/troubleshoot/developer/visualstudio/cpp/libraries/use-c-run-time
   // https://learn.microsoft.com/en-us/cpp/build/reference/md-mt-ld-use-run-time-library?view=msvc-170
+  free(fields);
+#else
   free(fields);
 #endif
 

@@ -336,17 +336,6 @@ static int _conn_setup_iconvs(conn_t *conn)
   const char *tsdb_charset = conn->s_charset;
   const char *sql_c_charset = "";
 
-#ifndef _WIN32
-  const char *locale = setlocale(LC_CTYPE, NULL);
-  const char *p = locale ? strchr(locale, '.') : NULL;
-  p = p ? p + 1 : NULL;
-  if (!p) {
-    conn_append_err_format(conn, "HY000", 0,
-        "General error:current locale [%s] not implemented yet", locale);
-    return -1;
-  }
-  sql_c_charset = p;
-#endif
 #ifdef _WIN32
   UINT acp = GetACP();
   switch (acp) {
@@ -361,6 +350,16 @@ static int _conn_setup_iconvs(conn_t *conn)
           "General error:current code page [%d] not implemented yet", acp);
       return -1;
   }
+#else
+  const char *locale = setlocale(LC_CTYPE, NULL);
+  const char *p = locale ? strchr(locale, '.') : NULL;
+  p = p ? p + 1 : NULL;
+  if (!p) {
+    conn_append_err_format(conn, "HY000", 0,
+        "General error:current locale [%s] not implemented yet", locale);
+    return -1;
+  }
+  sql_c_charset = p;
 #endif
 
   const char *utf8 = "UTF-8";

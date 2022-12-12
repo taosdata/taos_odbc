@@ -254,6 +254,28 @@ static int test_case5(void)
   return r ? -1 : 0;
 }
 
+static int get_int(void)
+{
+  static int tick = 0;
+  return tick++;
+}
+
+static int test_case6(void)
+{
+  buffer_t str = {0};
+  buffer_concat_fmt(&str, "%d", get_int());
+  if (strcmp("0", str.base)) {
+    E("0 expected, but got ==%s==", str.base);
+    return -1;
+  }
+  int tick = get_int();
+  if (tick != 1) {
+    E("1 expected, but got ==%d==", tick);
+    return -1;
+  }
+  return 0;
+}
+
 static int test(void)
 {
   int r = 0;
@@ -271,6 +293,9 @@ static int test(void)
   if (r) return -1;
 
   r = test_case5();
+  if (r) return -1;
+
+  r = test_case6();
   if (r) return -1;
 
   return 0;

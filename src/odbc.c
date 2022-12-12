@@ -86,58 +86,7 @@ int get_nr_load(void)
   return atomic_load(&_nr_load);
 }
 
-#ifndef _WIN32
-static pthread_key_t tls_key;
-
-static void _tls_destroy(void *val)
-{
-  tls_t *tls = (tls_t*)val;
-  tls_release(tls);
-  free(tls);
-}
-
-static void _tls_init(void)
-{
-  int e = pthread_key_create(&tls_key, _tls_destroy);
-  if (e) {
-    fprintf(stderr, "pthread_key_create failed: [%d]%s\n", e, strerror(e));
-    abort();
-  }
-  tls_t *tls = (tls_t*)calloc(1, tls_size());
-  if (!tls) {
-    fprintf(stderr, "out of memory\n");
-    abort();
-  }
-  e = pthread_setspecific(tls_key, tls);
-  if (e) {
-    free(tls);
-    fprintf(stderr, "pthread_setspecific failed: [%d]%s\n", e, strerror(e));
-    abort();
-  }
-}
-
-tls_t* tls_get(void)
-{
-  tls_t *tls = (tls_t*)pthread_getspecific(tls_key);
-  return tls;
-}
-
-__attribute__((constructor)) void _initialize(void)
-{
-  // yes, no check return value
-  atomic_fetch_add(&_nr_load, 1);
-
-  static pthread_once_t key_once = PTHREAD_ONCE_INIT;
-
-  pthread_once(&key_once, _tls_init);
-}
-
-__attribute__((destructor)) void _deinitialize(void)
-{
-  // yes, no check return value
-  atomic_fetch_sub(&_nr_load, 1);
-}
-#else
+#ifdef _WIN32
 static DWORD tls_idx;
 tls_t* tls_get(void)
 {
@@ -198,6 +147,57 @@ BOOL WINAPI DllMain(
     break;
   }
   return TRUE; // Successful DLL_PROCESS_ATTACH.
+}
+#else
+static pthread_key_t tls_key;
+
+static void _tls_destroy(void *val)
+{
+  tls_t *tls = (tls_t*)val;
+  tls_release(tls);
+  free(tls);
+}
+
+static void _tls_init(void)
+{
+  int e = pthread_key_create(&tls_key, _tls_destroy);
+  if (e) {
+    fprintf(stderr, "pthread_key_create failed: [%d]%s\n", e, strerror(e));
+    abort();
+  }
+  tls_t *tls = (tls_t*)calloc(1, tls_size());
+  if (!tls) {
+    fprintf(stderr, "out of memory\n");
+    abort();
+  }
+  e = pthread_setspecific(tls_key, tls);
+  if (e) {
+    free(tls);
+    fprintf(stderr, "pthread_setspecific failed: [%d]%s\n", e, strerror(e));
+    abort();
+  }
+}
+
+tls_t* tls_get(void)
+{
+  tls_t *tls = (tls_t*)pthread_getspecific(tls_key);
+  return tls;
+}
+
+__attribute__((constructor)) void _initialize(void)
+{
+  // yes, no check return value
+  atomic_fetch_add(&_nr_load, 1);
+
+  static pthread_once_t key_once = PTHREAD_ONCE_INIT;
+
+  pthread_once(&key_once, _tls_init);
+}
+
+__attribute__((destructor)) void _deinitialize(void)
+{
+  // yes, no check return value
+  atomic_fetch_sub(&_nr_load, 1);
 }
 #endif
 

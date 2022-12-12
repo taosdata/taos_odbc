@@ -606,7 +606,7 @@ int buffer_vconcat(buffer_t *str, const char *fmt, va_list ap)
   return 0;
 }
 
-int buffer_concat_fmt(buffer_t *str, const char *fmt, ...)
+int buffer_concat_fmt_x(buffer_t *str, const char *fmt, ...)
 {
   int r;
   va_list ap;

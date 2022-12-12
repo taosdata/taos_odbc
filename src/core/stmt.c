@@ -250,12 +250,12 @@ static void _stmt_release_current_for_get_data(stmt_t *stmt)
 static void _stmt_release_tag_fields(stmt_t *stmt)
 {
   if (stmt->tag_fields) {
-#ifndef _WIN32
-    free(stmt->tag_fields);
-#else
+#ifdef _WIN32
     // https://github.com/taosdata/TDengine/issues/18804
     // https://learn.microsoft.com/en-us/troubleshoot/developer/visualstudio/cpp/libraries/use-c-run-time
     // https://learn.microsoft.com/en-us/cpp/build/reference/md-mt-ld-use-run-time-library?view=msvc-170
+    free(stmt->tag_fields);
+#else
     free(stmt->tag_fields);
 #endif
     stmt->tag_fields = NULL;
@@ -266,12 +266,12 @@ static void _stmt_release_tag_fields(stmt_t *stmt)
 static void _stmt_release_col_fields(stmt_t *stmt)
 {
   if (stmt->col_fields) {
-#ifndef _WIN32
-    free(stmt->col_fields);
-#else
+#ifdef _WIN32
     // https://github.com/taosdata/TDengine/issues/18804
     // https://learn.microsoft.com/en-us/troubleshoot/developer/visualstudio/cpp/libraries/use-c-run-time
     // https://learn.microsoft.com/en-us/cpp/build/reference/md-mt-ld-use-run-time-library?view=msvc-170
+    free(stmt->col_fields);
+#else
     free(stmt->col_fields);
 #endif
     stmt->col_fields = NULL;

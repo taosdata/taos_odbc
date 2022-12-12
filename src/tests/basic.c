@@ -268,12 +268,17 @@ static int test_case6(void)
     E("0 expected, but got ==%s==", str.base);
     return -1;
   }
-  int tick = get_int();
-  if (tick != 1) {
-    E("1 expected, but got ==%d==", tick);
-    return -1;
-  }
-  return 0;
+  int r = 0;
+  do {
+    int tick = get_int();
+    if (tick != 1) {
+      E("1 expected, but got ==%d==", tick);
+      r = -1;
+      break;
+    }
+  } while (0);
+  buffer_release(&str);
+  return r ? -1 : 0;
 }
 
 static int test(void)

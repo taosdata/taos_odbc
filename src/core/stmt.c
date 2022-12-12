@@ -290,6 +290,62 @@ static void _stmt_release_field_arrays(stmt_t *stmt)
   descriptor_reclaim_buffers(APD);
 }
 
+static void _param_array_reset(param_array_t *pa)
+{
+  mem_reset(&pa->mem);
+}
+
+static void _param_array_release(param_array_t *pa)
+{
+  mem_release(&pa->mem);
+}
+
+static void _param_set_reset(param_set_t *paramset)
+{
+  paramset->nr_params  = 0;
+  paramset->nr_rows = 0;
+}
+
+static void _param_set_release(param_set_t *paramset)
+{
+  for (int i=0; i<paramset->cap_params; ++i) {
+    param_array_t *pa = paramset->params + i;
+    _param_array_release(pa);
+  }
+  paramset->cap_params = 0;
+  paramset->nr_params  = 0;
+  paramset->nr_rows = 0;
+  TOD_SAFE_FREE(paramset->params);
+}
+
+static int _param_set_calloc(param_set_t *paramset, int nr_rows, int nr_params)
+{
+  _param_set_reset(paramset);
+  if (nr_params > paramset->cap_params) {
+    int cap = (nr_params + 15) / 16 * 16;
+    param_array_t *pas= (param_array_t*)realloc(paramset->params, sizeof(*pas) * cap);
+    if (!pas) return -1;
+
+    memset(pas + paramset->cap_params, 0, sizeof(*pas) * (cap - paramset->cap_params));
+
+    paramset->cap_params = cap;
+    paramset->nr_params = nr_params;
+    paramset->nr_rows = nr_rows;
+    paramset->params = pas;
+  }
+  paramset->nr_params = nr_params;
+  return 0;
+}
+
+static int _param_set_malloc_param(param_set_t *paramset, int i_param, int nr_rows, size_t sz_cell)
+{
+  if (i_param >= paramset->nr_params) return -1;
+  param_array_t *pa = paramset->params + i_param;
+  size_t sz = nr_rows * sz_cell;
+  int r = mem_keep(&pa->mem, sz);
+  return r ? -1 : 0;
+}
+
 static void _stmt_release(stmt_t *stmt)
 {
   _stmt_release_post_filter(stmt);
@@ -323,6 +379,7 @@ static void _stmt_release(stmt_t *stmt)
 
   errs_release(&stmt->errs);
   mem_release(&stmt->mem);
+  _param_set_release(&stmt->paramset);
 
   return;
 }
@@ -2404,9 +2461,12 @@ SQLRETURN _stmt_get_taos_tags_cols_for_insert(stmt_t *stmt)
       sr = _stmt_get_taos_tags_cols_for_subtbled_insert(stmt, r);
     } else if (e == TSDB_CODE_TSC_STMT_API_ERROR) {
       sr = _stmt_get_taos_tags_cols_for_normal_insert(stmt, r);
+    } else {
+      OA_NIY(0);
     }
     TOD_SAFE_FREE(tag_fields);
   } else {
+    OA_NIY(tagNum == 0);
     OA_NIY(tag_fields == NULL);
     stmt->nr_tag_fields = tagNum;
     TOD_SAFE_FREE(stmt->tag_fields);
@@ -3969,6 +4029,8 @@ static void _stmt_reset_params(stmt_t *stmt)
   descriptor_t *IPD = _stmt_IPD(stmt);
   desc_header_t *IPD_header = &IPD->header;
   IPD_header->DESC_COUNT = 0;
+
+  _param_set_reset(&stmt->paramset);
 }
 
 static SQLRETURN _stmt_set_cursor_type(stmt_t *stmt, SQLULEN cursor_type)

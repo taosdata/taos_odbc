@@ -208,6 +208,19 @@ struct tsdb_to_sql_c_state_s {
   unsigned int         state:2; // DATA_GET_{UNKNOWN/INIT/GETTING/DONE}
 };
 
+typedef struct param_array_s              param_array_t;
+struct param_array_s {
+  mem_t           mem;
+};
+
+typedef struct param_set_s                param_set_t;
+struct param_set_s {
+  int             cap_params;
+  int             nr_params;
+  param_array_t  *params;
+  int             nr_rows;
+};
+
 typedef SQLRETURN (*conv_from_tsdb_to_sql_c_f)(stmt_t *stmt, tsdb_to_sql_c_state_t *conv_state);
 
 typedef struct sql_c_to_tsdb_meta_s                sql_c_to_tsdb_meta_t;
@@ -368,6 +381,8 @@ struct stmt_s {
   TAOS_STMT                 *stmt;
   // for non-insert-parameterized-statement
   int                        nr_params;
+
+  param_set_t                paramset;
 
   // for insert-parameterized-statement
   char                      *subtbl;

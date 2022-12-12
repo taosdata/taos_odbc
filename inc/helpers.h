@@ -32,6 +32,7 @@
 #include <time.h>
 
 // NOTE: you can use you own `LOG_IMPL` implementation by defining it before including this header file `helpers.h`
+// TODO: refactor later
 #ifndef LOG_IMPL
 #define LOG_IMPL(...)          fprintf(stderr, ##__VA_ARGS__)
 #endif

@@ -70,6 +70,7 @@ add_executable(api_test
 if(NOT TODBC_WINDOWS)
     target_link_libraries(api_test odbc dl)
 else()
+    set_source_files_properties(api_test.c PROPERTIES COMPILE_OPTIONS "/source-charset:utf-8")
     target_link_libraries(api_test odbc32)
 endif()
 
@@ -89,6 +90,7 @@ add_executable(edge_cases_test
 if(NOT TODBC_WINDOWS)
     target_link_libraries(edge_cases_test odbc)
 else()
+    set_source_files_properties(edge_cases_test.c PROPERTIES COMPILE_OPTIONS "/source-charset:utf-8")
     target_link_libraries(edge_cases_test odbc32)
 endif()
 

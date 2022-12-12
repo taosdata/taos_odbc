@@ -31,6 +31,7 @@ target_include_directories(SQLBindCol PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/..)
 if(NOT TODBC_WINDOWS)
   target_link_libraries(SQLBindCol odbc)
 else()
+  set_source_files_properties(SQLBindCol_ref.cpp PROPERTIES COMPILE_OPTIONS "/source-charset:utf-8")
   target_link_libraries(SQLBindCol odbc32)
 endif()
 

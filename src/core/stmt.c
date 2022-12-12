@@ -290,10 +290,10 @@ static void _stmt_release_field_arrays(stmt_t *stmt)
   descriptor_reclaim_buffers(APD);
 }
 
-static void _param_array_reset(param_array_t *pa)
-{
-  mem_reset(&pa->mem);
-}
+// static void _param_array_reset(param_array_t *pa)
+// {
+//   mem_reset(&pa->mem);
+// }
 
 static void _param_array_release(param_array_t *pa)
 {
@@ -2461,8 +2461,6 @@ SQLRETURN _stmt_get_taos_tags_cols_for_insert(stmt_t *stmt)
       sr = _stmt_get_taos_tags_cols_for_subtbled_insert(stmt, r);
     } else if (e == TSDB_CODE_TSC_STMT_API_ERROR) {
       sr = _stmt_get_taos_tags_cols_for_normal_insert(stmt, r);
-    } else {
-      OA_NIY(0);
     }
     TOD_SAFE_FREE(tag_fields);
   } else {
@@ -3897,6 +3895,21 @@ static SQLRETURN _stmt_pre_exec_prepare_params(stmt_t *stmt)
     if (!stmt->is_insert_stmt) {
       stmt_append_err(stmt, "HY000", 0, "General error:taosc currently does not support batch execution for non-insert-statement");
       return SQL_ERROR;
+    }
+  }
+
+  if (0) {
+    r = _param_set_calloc(&stmt->paramset, APD_header->DESC_ARRAY_SIZE, APD_header->DESC_COUNT);
+    if (r) {
+      stmt_oom(stmt);
+      return SQL_ERROR;
+    }
+    for (int i=0; i<APD_header->DESC_COUNT; ++i) {
+      r = _param_set_malloc_param(&stmt->paramset, i, APD_header->DESC_ARRAY_SIZE, 1);
+      if (r) {
+        stmt_oom(stmt);
+        return SQL_ERROR;
+      }
     }
   }
 

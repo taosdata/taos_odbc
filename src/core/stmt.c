@@ -2358,7 +2358,6 @@ static SQLSMALLINT _stmt_get_count_of_tsdb_params(stmt_t *stmt)
 
 SQLRETURN _stmt_get_taos_tags_cols_for_subtbled_insert(stmt_t *stmt, int e)
 {
-  OA_NIY(0);
   // fake subtbl name to get tags/cols meta-info
   int r = 0;
   SQLRETURN sr = SQL_SUCCESS;

@@ -4221,23 +4221,20 @@ static SQLRETURN _stmt_prepare_param_data_array_from_sql_c_char_to_tsdb_varchar(
   if (!cnv) {
     tsdb_bind->buffer_length = APD_record->DESC_OCTET_LENGTH;
     tsdb_bind->buffer = APD_record->DESC_DATA_PTR;
-  } else if (stmt->tsdb_meta.is_insert_stmt) {
+    return SQL_SUCCESS;
+  }
+  if (stmt->tsdb_meta.is_insert_stmt) {
     tsdb_bind->buffer_length = tsdb_field->bytes - 2 + cnv->nr_to_terminator;
-    r = mem_keep(&param_array->mem, sizeof(char) * tsdb_bind->buffer_length);
-    if (r) {
-      stmt_oom(stmt);
-      return SQL_ERROR;
-    }
-    tsdb_bind->buffer = param_array->mem.base;
   } else {
     tsdb_bind->buffer_length = tsdb_field->bytes + 8;
-    r = mem_keep(&param_array->mem, sizeof(char) * tsdb_bind->buffer_length);
-    if (r) {
-      stmt_oom(stmt);
-      return SQL_ERROR;
-    }
-    tsdb_bind->buffer = param_array->mem.base;
   }
+
+  r = mem_keep(&param_array->mem, sizeof(char) * tsdb_bind->buffer_length);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+  tsdb_bind->buffer = param_array->mem.base;
 
   return SQL_SUCCESS;
 }

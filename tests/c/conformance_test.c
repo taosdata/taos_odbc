@@ -1234,9 +1234,9 @@ static int test_bind_params_with_stmt(SQLHANDLE hstmt)
 
   for (int i=0; i<ARRAY_SIZE; ++i) {
     i64_arr[i] = 1662861448751 + i;
-    snprintf(varchar_arr[i], 100, "人%d", i);
+    snprintf(varchar_arr[i], 100, "a人%d", i);
     varchar_ind[i] = SQL_NTS;
-    snprintf(nchar_arr[i], 100, "民%d", i);
+    snprintf(nchar_arr[i], 100, "bc%d", i);
     nchar_ind[i] = SQL_NTS;
   }
 

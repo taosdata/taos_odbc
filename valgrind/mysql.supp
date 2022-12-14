@@ -30,4 +30,40 @@
    fun:_Z14my_SQLFreeStmtPvt
    fun:_Z11MySQLTablesPvPhsS0_sS0_sS0_s
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   fun:_Z9my_mallocjmi
+   obj:/usr/lib/x86_64-linux-gnu/odbc/libmyodbc8a.so
+   fun:_Z12insert_paramP4STMTP10MYSQL_BINDP4DESCP7DESCRECS6_m
+   fun:_Z13insert_paramsP4STMTmPPcPm
+   fun:_Z13my_SQLExecuteP4STMT
+   fun:SQLExecute
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   fun:__libc_alloc_buffer_allocate
+   fun:alloc_buffer_allocate
+   fun:__resolv_conf_allocate
+   fun:__resolv_conf_load
+   fun:__resolv_conf_get_current
+   fun:__res_vinit
+   fun:maybe_init
+   fun:context_get
+   fun:context_get
+   fun:__resolv_context_get
+   fun:gaih_inet.constprop.0
+   fun:getaddrinfo
+   obj:/usr/lib/x86_64-linux-gnu/odbc/libmyodbc8a.so
+   fun:connect_helper
+   fun:mysql_real_connect
+   fun:_ZN3DBC7connectEP10DataSource
+   fun:_Z12MySQLConnectPvPtsS0_sS0_s
+   fun:SQLConnect
+}
 

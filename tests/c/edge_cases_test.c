@@ -530,6 +530,7 @@ static int test(void)
 {
   srand((unsigned int)time(0));
 
+#if 0                /* { */
   CHECK(!test_connect(NULL, "xTAOS_ODBC_DSN", NULL, NULL));
   CHECK(test_connect(NULL, "TAOS_ODBC_DSN", NULL, NULL));
   CHECK(test_connect(NULL, "TAOS_ODBC_DSN", "root", "taosdata"));
@@ -578,6 +579,7 @@ static int test(void)
   //        taosc reports failure cause as: Invalid database name
   CHECK(!test_connect("Driver={TAOS_ODBC_DRIVER};UID=root;PWD=taosdata;Server=localhost:6030;DB=performance_schema;UNSIGNED_PROMOTION=1;CACHE_SQL=1;", NULL, NULL, NULL));
   CHECK(!test_connect("Driver={TAOS_ODBC_DRIVER};UID=root;PWD=taosdata;Server=localhost:6030;DB=information_schema;UNSIGNED_PROMOTION=1;CACHE_SQL=1;", NULL, NULL, NULL));
+#endif               /* } */
 
   SQLRETURN sr;
   SQLHANDLE henv, hdbc;

@@ -211,6 +211,9 @@ struct tsdb_to_sql_c_state_s {
 typedef struct param_array_s              param_array_t;
 struct param_array_s {
   mem_t           mem;
+  mem_t           mem_length;
+  mem_t           mem_is_null;
+  SQLRETURN (*conv)(stmt_t *stmt, int i_param);
 };
 
 typedef struct param_set_s                param_set_t;
@@ -218,7 +221,30 @@ struct param_set_s {
   int             cap_params;
   int             nr_params;
   param_array_t  *params;
-  int             nr_rows;
+};
+
+typedef struct tsdb_meta_s            tsdb_meta_t;
+struct tsdb_meta_s {
+  char                               *subtbl;
+  TAOS_FIELD_E                        subtbl_field;
+  TAOS_FIELD_E                       *tag_fields;
+  int                                 nr_tag_fields;
+  TAOS_FIELD_E                       *col_fields;
+  int                                 nr_col_fields;
+
+  mem_t                               mem;
+
+  unsigned int                        prepared:1;
+  unsigned int                        is_insert_stmt:1;
+  unsigned int                        subtbl_required:1;
+};
+
+typedef struct tsdb_binds_s           tsdb_binds_t;
+struct tsdb_binds_s {
+  int                        cap;
+  int                        nr;
+
+  TAOS_MULTI_BIND           *mbs;
 };
 
 typedef SQLRETURN (*conv_from_tsdb_to_sql_c_f)(stmt_t *stmt, tsdb_to_sql_c_state_t *conv_state);
@@ -380,20 +406,14 @@ struct stmt_s {
 
   TAOS_STMT                 *stmt;
   // for non-insert-parameterized-statement
-  int                        nr_params;
+  int                        nr_params_for_non_insert;
 
   param_set_t                paramset;
 
   // for insert-parameterized-statement
-  char                      *subtbl;
-  TAOS_FIELD_E              *tag_fields;
-  int                        nr_tag_fields;
-  TAOS_FIELD_E              *col_fields;
-  int                        nr_col_fields;
+  tsdb_meta_t                tsdb_meta;
 
-  TAOS_MULTI_BIND           *mbs;
-  size_t                     cap_mbs;
-  size_t                     nr_mbs;
+  tsdb_binds_t               tsdb_binds;
 
   post_filter_t              post_filter;
 
@@ -403,8 +423,6 @@ struct stmt_s {
   mem_t                      mem;
 
   unsigned int               prepared:1;
-  unsigned int               is_insert_stmt:1;
-  unsigned int               subtbl_required:1;
   unsigned int               get_or_put_or_undef:2; // 0x0: undef; 0x1:get; 0x2:put
 };
 

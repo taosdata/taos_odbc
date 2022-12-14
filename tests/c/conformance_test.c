@@ -1201,6 +1201,7 @@ static int test_bind_params_with_stmt(SQLHANDLE hstmt)
   const char *fields[] = {
     NULL,
     "varchar(10)",
+    "nchar(10)",
   };
   fields[0] = first_field;
 
@@ -1212,7 +1213,7 @@ static int test_bind_params_with_stmt(SQLHANDLE hstmt)
   sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)buf, SQL_NTS);
   if (sr == SQL_ERROR) return -1;
 
-#define ARRAY_SIZE 1
+#define ARRAY_SIZE 10
 
   SQLUSMALLINT param_status_arr[ARRAY_SIZE] = {0};
   SQLULEN nr_params_processed = 0;
@@ -1220,17 +1221,23 @@ static int test_bind_params_with_stmt(SQLHANDLE hstmt)
   SQLLEN  i64_ind[ARRAY_SIZE] = {0};
   char    varchar_arr[ARRAY_SIZE][100];
   SQLLEN  varchar_ind[ARRAY_SIZE] = {0};
+  char    nchar_arr[ARRAY_SIZE][100];
+  SQLLEN  nchar_ind[ARRAY_SIZE] = {0};
 
   const param_t params[] = {
     {SQL_PARAM_INPUT,  SQL_C_SBIGINT,  SQL_TYPE_TIMESTAMP,  23,       3,          i64_arr,          0,   i64_ind},
     {SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_VARCHAR,         99,       0,          varchar_arr,      100, varchar_ind},
+    {SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_WVARCHAR,        99,       0,          nchar_arr,        100, nchar_ind},
   };
 
-  SQLULEN nr_paramset_size = 1;
+  SQLULEN nr_paramset_size = 4;
 
   for (int i=0; i<ARRAY_SIZE; ++i) {
-    snprintf(varchar_arr[i], 100, "name%d", i);
+    i64_arr[i] = 1662861448751 + i;
+    snprintf(varchar_arr[i], 100, "人%d", i);
     varchar_ind[i] = SQL_NTS;
+    snprintf(nchar_arr[i], 100, "民%d", i);
+    nchar_ind[i] = SQL_NTS;
   }
 
   str.nr = 0;
@@ -1242,18 +1249,18 @@ static int test_bind_params_with_stmt(SQLHANDLE hstmt)
 
   // Set the SQL_ATTR_PARAM_BIND_TYPE statement attribute to use
   // column-wise binding.
-  SQLSetStmtAttr(hstmt, SQL_ATTR_PARAM_BIND_TYPE, SQL_PARAM_BIND_BY_COLUMN, 0);
+  CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAM_BIND_TYPE, SQL_PARAM_BIND_BY_COLUMN, 0);
 
   // Specify the number of elements in each parameter array.
-  SQLSetStmtAttr(hstmt, SQL_ATTR_PARAMSET_SIZE, (SQLPOINTER)(uintptr_t)nr_paramset_size, 0);
+  CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAMSET_SIZE, (SQLPOINTER)(uintptr_t)nr_paramset_size, 0);
 
   // Specify an array in which to return the status of each set of
   // parameters.
-  SQLSetStmtAttr(hstmt, SQL_ATTR_PARAM_STATUS_PTR, param_status_arr, 0);
+  CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAM_STATUS_PTR, param_status_arr, 0);
 
   // Specify an SQLUINTEGER value in which to return the number of sets of
   // parameters processed.
-  SQLSetStmtAttr(hstmt, SQL_ATTR_PARAMS_PROCESSED_PTR, &nr_params_processed, 0);
+  CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAMS_PROCESSED_PTR, &nr_params_processed, 0);
 
   // Bind the parameters in column-wise fashion.
   for (size_t i=0; i<sizeof(params)/sizeof(params[0]); ++i) {
@@ -1338,6 +1345,7 @@ static int test_cases(SQLHANDLE hconn)
 
   r = test_bind_params(hconn);
   if (r) return r;
+  if (1) return 0;
 
   r = test_case1(hconn);
   if (r) return r;;
@@ -1501,6 +1509,7 @@ int main(int argc, char *argv[])
   int r = 0;
   r = test(argc, argv);
   D("==%s==", r ? "failure" : "success");
+  if (1) return 1;
   return !!r;
 }
 

@@ -37,6 +37,24 @@
 #include <odbcinst.h>
 #include <string.h>
 
+size_t iconv_x(const char *file, int line, const char *func,
+    iconv_t cd, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
+{
+  LOGD(file, line, func, "inbuf:%p(%p);inbytesleft:%p(%zd);outbuf:%p(%p);outbytesleft:%p(%zd) ...",
+      inbuf, inbuf ? *inbuf : NULL,
+      inbytesleft, inbytesleft ? *inbytesleft : 0,
+      outbuf, outbuf ? *outbuf : NULL,
+      outbytesleft, outbytesleft ? *outbytesleft : 0);
+  size_t n = iconv(cd, inbuf, inbytesleft, outbuf, outbytesleft);
+  LOGD(file, line, func, "inbuf:%p(%p);inbytesleft:%p(%zd);outbuf:%p(%p);outbytesleft:%p(%zd) => %zd",
+      inbuf, inbuf ? *inbuf : NULL,
+      inbytesleft, inbytesleft ? *inbytesleft : 0,
+      outbuf, outbuf ? *outbuf : NULL,
+      outbytesleft, outbytesleft ? *outbytesleft : 0,
+      n);
+  return n;
+}
+
 void charset_conv_release(charset_conv_t *cnv)
 {
   if (!cnv) return;

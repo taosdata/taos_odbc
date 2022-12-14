@@ -33,6 +33,7 @@ target_link_directories(conformance_test PRIVATE ${CJSON_INSTALL_PATH}/lib)
 if(NOT TODBC_WINDOWS)
     target_link_libraries(conformance_test odbc cjson)
 else()
+    set_source_files_properties(conformance_test.c PROPERTIES COMPILE_OPTIONS "/source-charset:utf-8")
     target_link_libraries(conformance_test odbc32 cjson)
 endif()
 

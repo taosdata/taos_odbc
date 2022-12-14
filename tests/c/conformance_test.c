@@ -1308,7 +1308,8 @@ static int test_bind_params_with_stmt(SQLHANDLE hstmt)
         break;
     }
   }
-  A(0, "");
+
+  return r ? -1 : 0;
 }
 
 static int test_bind_params(SQLHANDLE hconn)

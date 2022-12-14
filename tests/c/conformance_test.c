@@ -1258,7 +1258,7 @@ static int test_bind_params_with_stmt(SQLHANDLE hstmt)
   // Bind the parameters in column-wise fashion.
   for (size_t i=0; i<sizeof(params)/sizeof(params[0]); ++i) {
     const param_t *param = params + i;
-    sr = CALL_SQLBindParameter(hstmt, i+1,
+    sr = CALL_SQLBindParameter(hstmt, (SQLUSMALLINT)i+1,
         param->InputOutputType,
         param->ValueType,
         param->ParameterType,

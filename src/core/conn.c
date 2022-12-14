@@ -617,10 +617,10 @@ static void _conn_get_dbms_name(conn_t *conn, const char **name)
   if (name) *name = server;
 }
 
-static void _get_driver_name(const char **name)
+static void _get_driver_name(char *name, size_t sz)
 {
   const char *client = CALL_taos_get_client_info();
-  if (name) *name = client;
+  snprintf(name, sz, "taos_odbc-0.1@taosc:%s", client);
 }
 
 static SQLRETURN _conn_commit(conn_t *conn)
@@ -802,8 +802,8 @@ static SQLRETURN _conn_get_info_driver_name(
     SQLSMALLINT    *StringLengthPtr)
 {
   (void)conn;
-  const char *name;
-  _get_driver_name(&name);
+  char name[1024]; name[0] = '\0';
+  _get_driver_name(name, sizeof(name));
 
   int n = snprintf(buf, sz, "%s", name);
   if (StringLengthPtr) *StringLengthPtr = n;

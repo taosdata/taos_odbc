@@ -30,7 +30,7 @@
 #include <stdint.h>
 
 
-static int _under_taos = 1;
+static int _under_taos_mysql_sqlite3 = 0;  // 0: taos; 1: mysql; 2: sqlite3
 
 typedef struct conn_arg_s             conn_arg_t;
 struct conn_arg_s {
@@ -1020,12 +1020,323 @@ static int test_case7(SQLHANDLE hconn)
   return (r || FAILED(sr)) ? -1 : 0;
 }
 
+static int _vexec_(SQLHANDLE hstmt, const char *fmt, va_list ap)
+{
+  char buf[1024];
+  char *sql = buf;
+
+  va_list aq;
+  va_copy(aq, ap);
+  int n = vsnprintf(buf, sizeof(buf), fmt, aq);
+  if (n < 0) {
+    int e = errno;
+    E("vsnprintf failed:[%d]%s", e, strerror(e));
+    return -1;
+  }
+  if ((size_t)n >= sizeof(buf)) {
+    sql = (char*)malloc(n + 1);
+    if (!sql) {
+      W("out of memory");
+      return -1;
+    }
+    int m = vsnprintf(sql, n+1, fmt, ap);
+    A(m == n, "");
+  }
+  SQLRETURN sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
+  if (sql != buf) free(sql);
+  va_end(aq);
+
+  if (sr == SQL_ERROR) return -1;
+  return 0;
+}
+
+static int _exec_impl(SQLHANDLE hstmt, const char *fmt, ...)
+{
+  va_list ap;
+  va_start(ap, fmt);
+  int r = _vexec_(hstmt, fmt, ap);
+  va_end(ap);
+
+  return r ? -1 : 0;
+}
+
+
+#define _exec_(hstmt, fmt, ...) (0 ? printf(fmt, ##__VA_ARGS__) : _exec_impl(hstmt, fmt, ##__VA_ARGS__))
+
+typedef struct simple_str_s                 simple_str_t;
+struct simple_str_s {
+  size_t                       cap;
+  size_t                       nr;
+  char                        *base;
+};
+
+static int _simple_str_fmt_impl(simple_str_t *str, const char *fmt, ...)
+{
+  va_list ap;
+  va_start(ap, fmt);
+  char *base = str->base ? str->base + str->nr : NULL;
+  size_t sz = str->cap - str->nr;
+  int n = vsnprintf(base, sz, fmt, ap);
+  va_end(ap);
+
+  if (n < 0) {
+    int e = errno;
+    E("vsnprintf failed:[%d]%s", e, strerror(e));
+    return -1;
+  }
+
+  if (str->base) {
+    if ((size_t)n >= sz) {
+      W("buffer too small");
+      return -1;
+    }
+    str->nr += n;
+  }
+
+  return 0;
+}
+
+#define _simple_str_fmt(str, fmt, ...) (0 ? printf(fmt, ##__VA_ARGS__) : _simple_str_fmt_impl(str, fmt, ##__VA_ARGS__))
+
+static int _gen_table_create_sql(simple_str_t *str, const char *table, const char *fields[], size_t nr_fields)
+{
+  int r = 0;
+  r = _simple_str_fmt(str, "create table %s", table);
+  if (r) return -1;
+
+  for (size_t i=0; i<nr_fields; ++i) {
+    const char *field = fields[i];
+    if (i == 0) {
+      r = _simple_str_fmt(str, " (");
+    } else {
+      r = _simple_str_fmt(str, ",");
+    }
+    if (r) return -1;
+    r = _simple_str_fmt(str, "t%zd %s", i, field);
+  }
+  if (nr_fields > 0) {
+    r = _simple_str_fmt(str, ")");
+    if (r) return -1;
+  }
+
+  return 0;
+}
+
+static int _gen_table_param_insert(simple_str_t *str, const char *table, size_t nr_fields)
+{
+  int r = 0;
+  r = _simple_str_fmt(str, "insert into %s", table);
+  if (r) return -1;
+
+  for (size_t i=0; i<nr_fields; ++i) {
+    if (i == 0) {
+      r = _simple_str_fmt(str, " (");
+    } else {
+      r = _simple_str_fmt(str, ",");
+    }
+    if (r) return -1;
+    r = _simple_str_fmt(str, "t%zd", i);
+
+    if (i+1 < nr_fields) continue;
+    r = _simple_str_fmt(str, ")");
+    if (r) return -1;
+  }
+
+  for (size_t i=0; i<nr_fields; ++i) {
+    if (i == 0) {
+      r = _simple_str_fmt(str, " values (");
+    } else {
+      r = _simple_str_fmt(str, ",");
+    }
+    if (r) return -1;
+    r = _simple_str_fmt(str, "?");
+
+    if (i+1 < nr_fields) continue;
+    r = _simple_str_fmt(str, ")");
+    if (r) return -1;
+  }
+
+  return 0;
+}
+
+typedef struct param_s                   param_t;
+struct param_s {
+  SQLSMALLINT     InputOutputType;
+  SQLSMALLINT     ValueType;
+  SQLSMALLINT     ParameterType;
+  SQLULEN         ColumnSize;
+  SQLSMALLINT     DecimalDigits;
+  SQLPOINTER      ParameterValuePtr;
+  SQLLEN          BufferLength;
+  SQLLEN         *StrLen_or_IndPtr;
+};
+
+static int test_bind_params_with_stmt(SQLHANDLE hstmt)
+{
+  int r = 0;
+  SQLRETURN sr = SQL_SUCCESS;
+  char buf[1024];
+  simple_str_t str = {
+    .base           = buf,
+    .cap            = sizeof(buf),
+    .nr             = 0,
+  };
+
+  const char *database = "foo";
+
+  if (_under_taos_mysql_sqlite3 != 2) {
+    r = _exec_(hstmt, "drop database if exists %s", database);
+    if (r) return -1;
+    r = _exec_(hstmt, "create database if not exists %s", database);
+    if (r) return -1;
+    r = _exec_(hstmt, "use %s", database);
+    if (r) return -1;
+  }
+
+  const char *table = "t";
+  const char *first_field = "timestamp";
+  if (_under_taos_mysql_sqlite3) {
+    first_field = "bigint";
+  }
+  const char *fields[] = {
+    NULL,
+    "varchar(10)",
+  };
+  fields[0] = first_field;
+
+  r = _exec_(hstmt, "drop table if exists %s", table);
+  if (r) return -1;
+
+  r = _gen_table_create_sql(&str, table, fields, sizeof(fields)/sizeof(fields[0]));
+  if (r) return -1;
+  sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)buf, SQL_NTS);
+  if (sr == SQL_ERROR) return -1;
+
+#define ARRAY_SIZE 1
+
+  SQLUSMALLINT param_status_arr[ARRAY_SIZE] = {0};
+  SQLULEN nr_params_processed = 0;
+  int64_t i64_arr[ARRAY_SIZE] = {1662861448751};
+  SQLLEN  i64_ind[ARRAY_SIZE] = {0};
+  char    varchar_arr[ARRAY_SIZE][100];
+  SQLLEN  varchar_ind[ARRAY_SIZE] = {0};
+
+  const param_t params[] = {
+    {SQL_PARAM_INPUT,  SQL_C_SBIGINT,  SQL_TYPE_TIMESTAMP,  23,       3,          i64_arr,          0,   i64_ind},
+    {SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_VARCHAR,         99,       0,          varchar_arr,      100, varchar_ind},
+  };
+
+  SQLULEN nr_paramset_size = 1;
+
+  for (int i=0; i<ARRAY_SIZE; ++i) {
+    snprintf(varchar_arr[i], 100, "name%d", i);
+    varchar_ind[i] = SQL_NTS;
+  }
+
+  str.nr = 0;
+  r = _gen_table_param_insert(&str, table, sizeof(fields)/sizeof(fields[0]));
+  if (r) return -1;
+
+  sr = CALL_SQLPrepare(hstmt, (SQLCHAR*)buf, SQL_NTS);
+  if (sr == SQL_ERROR) return -1;
+
+  // Set the SQL_ATTR_PARAM_BIND_TYPE statement attribute to use
+  // column-wise binding.
+  SQLSetStmtAttr(hstmt, SQL_ATTR_PARAM_BIND_TYPE, SQL_PARAM_BIND_BY_COLUMN, 0);
+
+  // Specify the number of elements in each parameter array.
+  SQLSetStmtAttr(hstmt, SQL_ATTR_PARAMSET_SIZE, (SQLPOINTER)(uintptr_t)nr_paramset_size, 0);
+
+  // Specify an array in which to return the status of each set of
+  // parameters.
+  SQLSetStmtAttr(hstmt, SQL_ATTR_PARAM_STATUS_PTR, param_status_arr, 0);
+
+  // Specify an SQLUINTEGER value in which to return the number of sets of
+  // parameters processed.
+  SQLSetStmtAttr(hstmt, SQL_ATTR_PARAMS_PROCESSED_PTR, &nr_params_processed, 0);
+
+  // Bind the parameters in column-wise fashion.
+  for (size_t i=0; i<sizeof(params)/sizeof(params[0]); ++i) {
+    const param_t *param = params + i;
+    sr = CALL_SQLBindParameter(hstmt, i+1,
+        param->InputOutputType,
+        param->ValueType,
+        param->ParameterType,
+        param->ColumnSize,
+        param->DecimalDigits,
+        param->ParameterValuePtr,
+        param->BufferLength,
+        param->StrLen_or_IndPtr);
+    if (sr == SQL_ERROR) return -1;
+  }
+
+
+  // Set part ID, description, and price.
+
+  // Execute the statement.
+  sr = CALL_SQLExecute(hstmt);
+  if (sr == SQL_ERROR) return -1;
+
+  // Check to see which sets of parameters were processed successfully.
+  for (size_t i = 0; i < nr_params_processed; i++) {
+    printf("Parameter Set  Status\n");
+    printf("-------------  -------------\n");
+    switch (param_status_arr[i]) {
+      case SQL_PARAM_SUCCESS:
+      case SQL_PARAM_SUCCESS_WITH_INFO:
+        D("param row #%13zd  Success", i + 1);
+        break;
+
+      case SQL_PARAM_ERROR:
+        E("param row #%13zd  Error", i + 1);
+        r = -1;
+        break;
+
+      case SQL_PARAM_UNUSED:
+        E("param row #%13zd  Not processed", i + 1);
+        r = -1;
+        break;
+
+      case SQL_PARAM_DIAG_UNAVAILABLE:
+        E("param row #%13zd  Unknown", i + 1);
+        r = -1;
+        break;
+
+      default:
+        E("internal logic error");
+        r = -1;
+        break;
+    }
+  }
+  A(0, "");
+}
+
+static int test_bind_params(SQLHANDLE hconn)
+{
+  int r = 0;
+  SQLRETURN sr = SQL_SUCCESS;
+
+  SQLHANDLE hstmt = SQL_NULL_HANDLE;
+
+  sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
+  if (FAILED(sr)) return -1;
+
+  r = test_bind_params_with_stmt(hstmt);
+
+  CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+
+  return (r || FAILED(sr)) ? -1 : 0;
+}
+
 static int test_cases(SQLHANDLE hconn)
 {
   int r = 0;
 
   _exec_direct(hconn, "create database if not exists foo");
   _exec_direct(hconn, "use foo");
+
+  r = test_bind_params(hconn);
+  if (r) return r;
 
   r = test_case1(hconn);
   if (r) return r;;
@@ -1056,6 +1367,33 @@ static int test_cases(SQLHANDLE hconn)
   if (r) return r;;
 
   return r;
+}
+
+static void check_driver(SQLHANDLE hconn)
+{
+  char buf[1024]; buf[0] = '\0';
+  SQLSMALLINT StringLength = 0;
+  SQLRETURN sr = CALL_SQLGetInfo(hconn, SQL_DRIVER_NAME, (SQLCHAR*)buf, sizeof(buf), &StringLength);
+  if (FAILED(sr)) {
+    W("fall back to taos-odbc");
+    _under_taos_mysql_sqlite3 = 0;
+    return;
+  }
+  D("driver_name:%s", buf);
+  if (strstr(buf, "taos")) {
+    _under_taos_mysql_sqlite3 = 0;
+    return;
+  }
+  if (strstr(buf, "sqlite3")) {
+    _under_taos_mysql_sqlite3 = 2;
+    return;
+  }
+  if (strstr(buf, "my")) {
+    _under_taos_mysql_sqlite3 = 1;
+    return;
+  }
+  W("fall back to taos-odbc");
+  _under_taos_mysql_sqlite3 = 0;
 }
 
 static int test_conn(int argc, char *argv[], SQLHANDLE hconn)
@@ -1105,8 +1443,11 @@ static int test_conn(int argc, char *argv[], SQLHANDLE hconn)
 
   if (r) return r;
 
-  r = _exec_and_check(hconn, (char*)-1, 0, "show apps", 0, 0);
-  if (r) _under_taos = 0;
+  check_driver(hconn);
+
+  if (_under_taos_mysql_sqlite3 == 0) {
+    r = _exec_and_check(hconn, (char*)-1, 0, "show apps", 0, 0);
+  }
 
   r = test_cases(hconn);
 

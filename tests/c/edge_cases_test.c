@@ -530,8 +530,9 @@ static int test(void)
 {
   srand((unsigned int)time(0));
 
-#if 0                /* { */
   CHECK(!test_connect(NULL, "xTAOS_ODBC_DSN", NULL, NULL));
+
+#if 0                /* { */
   CHECK(test_connect(NULL, "TAOS_ODBC_DSN", NULL, NULL));
   CHECK(test_connect(NULL, "TAOS_ODBC_DSN", "root", "taosdata"));
 

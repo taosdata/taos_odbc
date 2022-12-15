@@ -138,3 +138,4 @@ charset_conv_t* charset_conv_mgr_get_charset_conv(charset_conv_mgr_t *mgr, const
   free(cnv);
   return NULL;
 }
+

@@ -40,6 +40,7 @@ void tls_release(tls_t *tls)
   mem_release(&tls->intermediate);
   if (tls->mgr) {
     charset_conv_mgr_release(tls->mgr);
+    free(tls->mgr);
     tls->mgr = NULL;
   }
 }
@@ -77,3 +78,4 @@ charset_conv_t* tls_get_charset_conv(const char *fromcode, const char *tocode)
 
   return charset_conv_mgr_get_charset_conv(tls->mgr, fromcode, tocode);
 }
+

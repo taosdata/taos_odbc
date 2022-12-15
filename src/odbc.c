@@ -149,6 +149,7 @@ BOOL WINAPI DllMain(
   return TRUE; // Successful DLL_PROCESS_ATTACH.
 }
 #else                          /* }{ */
+static pthread_once_t key_once = PTHREAD_ONCE_INIT;
 static pthread_key_t tls_key;
 
 static void _tls_destroy(void *val)
@@ -165,22 +166,27 @@ static void _tls_init(void)
     fprintf(stderr, "pthread_key_create failed: [%d]%s\n", e, strerror(e));
     abort();
   }
-  tls_t *tls = (tls_t*)calloc(1, tls_size());
+}
+
+tls_t* tls_get(void)
+{
+  pthread_once(&key_once, _tls_init);
+
+  tls_t *tls = (tls_t*)pthread_getspecific(tls_key);
+  if (tls) return tls;
+
+  tls = (tls_t*)calloc(1, tls_size());
   if (!tls) {
     fprintf(stderr, "out of memory\n");
     abort();
   }
-  e = pthread_setspecific(tls_key, tls);
+  int e = pthread_setspecific(tls_key, tls);
   if (e) {
     free(tls);
     fprintf(stderr, "pthread_setspecific failed: [%d]%s\n", e, strerror(e));
     abort();
   }
-}
 
-tls_t* tls_get(void)
-{
-  tls_t *tls = (tls_t*)pthread_getspecific(tls_key);
   return tls;
 }
 
@@ -188,10 +194,6 @@ __attribute__((constructor)) void _initialize(void)
 {
   // yes, no check return value
   atomic_fetch_add(&_nr_load, 1);
-
-  static pthread_once_t key_once = PTHREAD_ONCE_INIT;
-
-  pthread_once(&key_once, _tls_init);
 }
 
 __attribute__((destructor)) void _deinitialize(void)

@@ -90,7 +90,8 @@ int get_nr_load(void)
 static DWORD tls_idx;
 tls_t* tls_get(void)
 {
-    return (tls_t*)TlsGetValue(tls_idx);
+  tls_t *tls = TlsGetValue(tls_idx);
+  return tls;
 }
 
 BOOL WINAPI DllMain(
@@ -106,14 +107,19 @@ BOOL WINAPI DllMain(
   case DLL_PROCESS_ATTACH:
     // Initialize once for each new process.
     // Return FALSE to fail DLL load.
-    if ((tls_idx = TlsAlloc()) == TLS_OUT_OF_INDEXES)
+    if ((tls_idx = TlsAlloc()) == TLS_OUT_OF_INDEXES) {
       return FALSE;
+    }
+    tls = (tls_t*)LocalAlloc(LPTR, tls_size());
+    if (tls != NULL) TlsSetValue(tls_idx, tls);
 
     atomic_fetch_add(&_nr_load, 1);
     break;
 
   case DLL_THREAD_ATTACH:
     // Do thread-specific initialization.
+    tls = tls_get();
+    if (tls) break;
     tls = (tls_t*)LocalAlloc(LPTR, tls_size());
     if (tls != NULL) TlsSetValue(tls_idx, tls);
     break;

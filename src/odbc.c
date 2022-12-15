@@ -86,7 +86,7 @@ int get_nr_load(void)
   return atomic_load(&_nr_load);
 }
 
-#ifdef _WIN32
+#ifdef _WIN32                  /* { */
 static DWORD tls_idx;
 tls_t* tls_get(void)
 {
@@ -148,7 +148,7 @@ BOOL WINAPI DllMain(
   }
   return TRUE; // Successful DLL_PROCESS_ATTACH.
 }
-#else
+#else                          /* }{ */
 static pthread_key_t tls_key;
 
 static void _tls_destroy(void *val)
@@ -199,7 +199,7 @@ __attribute__((destructor)) void _deinitialize(void)
   // yes, no check return value
   atomic_fetch_sub(&_nr_load, 1);
 }
-#endif
+#endif                         /* } */
 
 static SQLRETURN do_alloc_env(
     SQLHANDLE *OutputHandle)

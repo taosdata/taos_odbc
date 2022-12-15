@@ -25,7 +25,7 @@
 #ifndef _tls_h_
 #define _tls_h_
 
-#include "utils.h"
+#include "charset.h"
 
 EXTERN_C_BEGIN
 
@@ -35,6 +35,9 @@ size_t tls_size(void) FA_HIDDEN;
 tls_t* tls_get(void) FA_HIDDEN;
 void tls_release(tls_t *tls) FA_HIDDEN;
 mem_t* tls_get_mem_intermediate(void) FA_HIDDEN;
+
+charset_conv_t* tls_get_charset_conv(const char *fromcode, const char *tocode) FA_HIDDEN;
+
 
 EXTERN_C_END
 

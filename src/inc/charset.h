@@ -22,58 +22,25 @@
  * SOFTWARE.
  */
 
-#include "internal.h"
+#ifndef _charset_h_
+#define _charset_h_
 
-#include "charset.h"
-#include "tls.h"
+#include "env.h"
 
-// make sure `log.h` is included ahead of `taos_helpers.h`, for the `LOG_IMPL` issue
-#include "log.h"
+EXTERN_C_BEGIN
 
-size_t tls_size(void)
-{
-  return sizeof(tls_t);
-}
+typedef struct charset_conv_s            charset_conv_t;
+typedef struct charset_conv_mgr_s        charset_conv_mgr_t;
 
-void tls_release(tls_t *tls)
-{
-  mem_release(&tls->intermediate);
-  if (tls->mgr) {
-    charset_conv_mgr_release(tls->mgr);
-    tls->mgr = NULL;
-  }
-}
+void charset_conv_release(charset_conv_t *cnv) FA_HIDDEN;
+int charset_conv_reset(charset_conv_t *cnv, const char *from, const char *to) FA_HIDDEN;
 
-mem_t* tls_get_mem_intermediate(void)
-{
-  tls_t *tls = tls_get();
-  if (!tls) return NULL;
-  return &tls->intermediate;
-}
+void charset_conv_mgr_release(charset_conv_mgr_t *mgr) FA_HIDDEN;
+charset_conv_t* charset_conv_mgr_get_charset_conv(charset_conv_mgr_t *mgr, const char *fromcode, const char *tocode) FA_HIDDEN;
 
-static int _charset_conv_mgr_init(charset_conv_mgr_t *mgr)
-{
-  INIT_TOD_LIST_HEAD(&mgr->convs);
-  return 0;
-}
 
-charset_conv_t* tls_get_charset_conv(const char *fromcode, const char *tocode)
-{
-  int r = 0;
 
-  tls_t *tls = tls_get();
-  if (!tls) return NULL;
+EXTERN_C_END
 
-  if (tls->mgr == NULL) {
-    charset_conv_mgr_t *mgr = (charset_conv_mgr_t*)calloc(1, sizeof(*tls->mgr));
-    if (!mgr) return NULL;
-    r = _charset_conv_mgr_init(mgr);
-    if (r) {
-      charset_conv_mgr_release(mgr);
-      return NULL;
-    }
-    tls->mgr = mgr;
-  }
+#endif //  _charset_h_
 
-  return charset_conv_mgr_get_charset_conv(tls->mgr, fromcode, tocode);
-}

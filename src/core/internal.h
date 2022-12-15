@@ -28,6 +28,7 @@
 #include "os_port.h"
 #include "enums.h"
 
+#include "charset.h"
 #include "conn.h"
 #include "desc.h"
 #include "errs.h"
@@ -306,17 +307,19 @@ struct desc_s {
   struct tod_list_head          associated_stmts_as_APD; // struct stmt_s*
 };
 
-typedef struct charset_conv_s            charset_conv_t;
 struct charset_conv_s {
   char         from[64];
   char         to[64];
   iconv_t      cnv;
   int8_t       nr_from_terminator;
   int8_t       nr_to_terminator;
+
+  struct tod_list_head        node;
 };
 
-void charset_conv_release(charset_conv_t *cnv) FA_HIDDEN;
-int charset_conv_reset(charset_conv_t *cnv, const char *from, const char *to) FA_HIDDEN;
+struct charset_conv_mgr_s {
+  struct tod_list_head        convs; // charset_conv_t*
+};
 
 struct conn_s {
   atomic_int          refc;
@@ -428,6 +431,7 @@ struct stmt_s {
 
 struct tls_s {
   mem_t                      intermediate;
+  charset_conv_mgr_t        *mgr;
 };
 
 size_t iconv_x(const char *file, int line, const char *func,

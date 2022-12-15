@@ -24,6 +24,7 @@
 
 #include "internal.h"
 
+#include "charset.h"
 #include "conn.h"
 #include "desc.h"
 // make sure `log.h` is included ahead of `taos_helpers.h`, for the `LOG_IMPL` issue
@@ -36,82 +37,6 @@
 #endif
 #include <odbcinst.h>
 #include <string.h>
-
-size_t iconv_x(const char *file, int line, const char *func,
-    iconv_t cd, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
-{
-  LOGD(file, line, func, "inbuf:%p(%p);inbytesleft:%p(%zd);outbuf:%p(%p);outbytesleft:%p(%zd) ...",
-      inbuf, inbuf ? *inbuf : NULL,
-      inbytesleft, inbytesleft ? *inbytesleft : 0,
-      outbuf, outbuf ? *outbuf : NULL,
-      outbytesleft, outbytesleft ? *outbytesleft : 0);
-  size_t n = iconv(cd, inbuf, inbytesleft, outbuf, outbytesleft);
-  LOGD(file, line, func, "inbuf:%p(%p);inbytesleft:%p(%zd);outbuf:%p(%p);outbytesleft:%p(%zd) => %zd",
-      inbuf, inbuf ? *inbuf : NULL,
-      inbytesleft, inbytesleft ? *inbytesleft : 0,
-      outbuf, outbuf ? *outbuf : NULL,
-      outbytesleft, outbytesleft ? *outbytesleft : 0,
-      n);
-  return n;
-}
-
-void charset_conv_release(charset_conv_t *cnv)
-{
-  if (!cnv) return;
-  if (cnv->cnv) {
-    iconv_close(cnv->cnv);
-    cnv->cnv = NULL;
-  }
-  cnv->from[0] = '\0';
-  cnv->to[0] = '\0';
-  cnv->nr_from_terminator = 0;
-  cnv->nr_to_terminator = 0;
-}
-
-static int _calc_terminator(const char *tocode)
-{
-  int nr = -1;
-  iconv_t cnv = iconv_open(tocode, "UTF-8");
-  if (!cnv) return -1;
-  do {
-    char buf[64]; buf[0] = '\0';
-    char          *inbuf          = "";
-    size_t         inbytesleft    = 1;
-    char          *outbuf         = buf;
-    size_t         outbytesleft   = sizeof(buf);
-
-    size_t n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
-    if (n) break;
-    if (inbytesleft) break;
-    nr = (int)(sizeof(buf) - outbytesleft);
-  } while (0);
-  iconv_close(cnv);
-  return nr;
-}
-
-int charset_conv_reset(charset_conv_t *cnv, const char *from, const char *to)
-{
-  charset_conv_release(cnv);
-
-  cnv->nr_from_terminator = _calc_terminator(from);
-  cnv->nr_to_terminator = _calc_terminator(to);
-
-  do {
-    if (cnv->nr_from_terminator <= 0) break;
-    if (cnv->nr_to_terminator <= 0) break;
-
-    if (1 || tod_strcasecmp(from, to)) {
-      cnv->cnv = iconv_open(to, from);
-      if (!cnv->cnv) return -1;
-    }
-    snprintf(cnv->from, sizeof(cnv->from), "%s", from);
-    snprintf(cnv->to, sizeof(cnv->to), "%s", to);
-    return 0;
-  } while (0);
-
-  charset_conv_release(cnv);
-  return -1;
-}
 
 static void _conn_init(conn_t *conn, env_t *env)
 {

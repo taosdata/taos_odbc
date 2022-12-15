@@ -22,10 +22,11 @@
 # SOFTWARE.
 ###############################################################################
 
+list(APPEND core_SOURCES charset.c)
+list(APPEND core_SOURCES conn.c)
 list(APPEND core_SOURCES desc.c)
 list(APPEND core_SOURCES env.c)
 list(APPEND core_SOURCES errs.c)
-list(APPEND core_SOURCES conn.c)
 list(APPEND core_SOURCES stmt.c)
 list(APPEND core_SOURCES tls.c)
 

@@ -100,7 +100,7 @@ int charset_conv_reset(charset_conv_t *cnv, const char *from, const char *to)
     if (cnv->nr_from_terminator <= 0) break;
     if (cnv->nr_to_terminator <= 0) break;
 
-    if (tod_strcasecmp(from, to)) {
+    if (1 || tod_strcasecmp(from, to)) {
       cnv->cnv = iconv_open(to, from);
       if (!cnv->cnv) return -1;
     }

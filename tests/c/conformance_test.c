@@ -1200,7 +1200,7 @@ static int test_bind_params_with_stmt(SQLHANDLE hstmt)
   }
   const char *fields[] = {
     NULL,
-    "varchar(10)",
+    "varchar(5)",
     "nchar(10)",
   };
   fields[0] = first_field;
@@ -1236,7 +1236,7 @@ static int test_bind_params_with_stmt(SQLHANDLE hstmt)
     i64_arr[i] = 1662861448751 + i;
     snprintf(varchar_arr[i], 100, "a人%d", i);
     varchar_ind[i] = SQL_NTS;
-    snprintf(nchar_arr[i], 100, "bc%d", i);
+    snprintf(nchar_arr[i], 100, "b民%d", i);
     nchar_ind[i] = SQL_NTS;
   }
 
@@ -1509,7 +1509,6 @@ int main(int argc, char *argv[])
   int r = 0;
   r = test(argc, argv);
   D("==%s==", r ? "failure" : "success");
-  if (1) return 1;
   return !!r;
 }
 

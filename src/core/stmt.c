@@ -4926,7 +4926,7 @@ static SQLRETURN _stmt_conv_param_data_from_sql_c_sbigint_to_tsdb_int(stmt_t *st
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
   _dump_TAOS_FIELD_E(tsdb_field);
   int32_t *tsdb_bigint = (int32_t*)tsdb_bind->buffer;
-  tsdb_bigint[i_row] = i64;
+  tsdb_bigint[i_row] = (int32_t)i64;
 
   return SQL_SUCCESS;
 }
@@ -4939,7 +4939,7 @@ static SQLRETURN _stmt_conv_param_data_from_sql_c_sbigint_to_tsdb_smallint(stmt_
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
   _dump_TAOS_FIELD_E(tsdb_field);
   int16_t *tsdb_bigint = (int16_t*)tsdb_bind->buffer;
-  tsdb_bigint[i_row] = i64;
+  tsdb_bigint[i_row] = (int16_t)i64;
 
   return SQL_SUCCESS;
 }
@@ -4952,7 +4952,7 @@ static SQLRETURN _stmt_conv_param_data_from_sql_c_sbigint_to_tsdb_tinyint(stmt_t
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
   _dump_TAOS_FIELD_E(tsdb_field);
   int8_t *tsdb_bigint = (int8_t*)tsdb_bind->buffer;
-  tsdb_bigint[i_row] = i64;
+  tsdb_bigint[i_row] = (int8_t)i64;
 
   return SQL_SUCCESS;
 }
@@ -4965,7 +4965,7 @@ static SQLRETURN _stmt_conv_param_data_from_sql_c_sbigint_to_tsdb_bool(stmt_t *s
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
   _dump_TAOS_FIELD_E(tsdb_field);
   int8_t *tsdb_bigint = (int8_t*)tsdb_bind->buffer;
-  tsdb_bigint[i_row] = i64;
+  tsdb_bigint[i_row] = (int8_t)i64;
 
   return SQL_SUCCESS;
 }
@@ -5030,7 +5030,7 @@ static SQLRETURN _stmt_conv_param_data_from_sql_c_double_to_tsdb_float(stmt_t *s
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
 
   float *tsdb_float = (float*)tsdb_bind->buffer;
-  tsdb_float[i_row] = d;
+  tsdb_float[i_row] = (float)d;
   return SQL_SUCCESS;
 }
 

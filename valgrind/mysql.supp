@@ -66,4 +66,17 @@
    fun:_Z12MySQLConnectPvPtsS0_sS0_s
    fun:SQLConnect
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   fun:_Z9my_mallocjmi
+   obj:/usr/lib/x86_64-linux-gnu/odbc/libmyodbc8a.so
+   obj:/usr/lib/x86_64-linux-gnu/odbc/libmyodbc8a.so
+   fun:_Z12insert_paramP4STMTP10MYSQL_BINDP4DESCP7DESCRECS6_m
+   fun:_Z13insert_paramsP4STMTmPPcPm
+   fun:_Z13my_SQLExecuteP4STMT
+   fun:SQLExecute
+}
 

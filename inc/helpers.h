@@ -102,6 +102,15 @@ static inline const char* color_reset(void)
       ##__VA_ARGS__);                                  \
 } while (0)
 
+#define LOGX(_file, _line, _func, _fmt, ...) do {      \
+  char __s[PATH_MAX+1];                                \
+  char *__p = tod_basename(_file, __s, sizeof(__s));   \
+  LOG_IMPL("%sW%s:%s[%d]:%s(): " _fmt "\n",            \
+      color_green(), color_reset(),                    \
+      __p, _line, _func,                               \
+      ##__VA_ARGS__);                                  \
+} while (0)
+
 #define LOGA(_file, _line, _func, _fmt, ...) do {      \
   char __s[PATH_MAX+1];                                \
   char *__p = tod_basename(_file, __s, sizeof(__s));   \
@@ -121,6 +130,11 @@ static inline const char* color_reset(void)
   LOGE(__FILE__, __LINE__, __func__,                          \
       "%s" _fmt "%s",                                         \
       color_red(), ##__VA_ARGS__, color_reset());             \
+} while (0)
+#define X(_fmt, ...) do {                                     \
+  LOGX(__FILE__, __LINE__, __func__,                          \
+      "%s" _fmt "%s",                                         \
+      color_green(), ##__VA_ARGS__, color_reset());           \
 } while (0)
 
 #define A(_statement, _fmt, ...)                                        \

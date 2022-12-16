@@ -123,6 +123,7 @@ static int test_case1(void)
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"select * from t", SQL_NTS);
           A(SUCCEEDED(rc), "");
 #ifndef _WIN32
+// TODO: SQLBindCol(SQL_C_WCHAR)
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861448752, 'name1', 20, 'male', '中国人')", SQL_NTS);
           A(SUCCEEDED(rc), "");
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861449753, 'name2', 30, 'female', '苏州人')", SQL_NTS);
@@ -285,12 +286,10 @@ static int test_case2(void)
           A(SUCCEEDED(rc), "");
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"select * from t", SQL_NTS);
           A(SUCCEEDED(rc), "");
-#ifndef _WIN32
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861448752, 'name1', 20, 'male', '中国人')", SQL_NTS);
           A(SUCCEEDED(rc), "");
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861449753, 'name2', 30, 'female', '苏州人')", SQL_NTS);
           A(SUCCEEDED(rc), "");
-#endif
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861450754, 'name3', null, null, null)", SQL_NTS);
           A(SUCCEEDED(rc), "");
 
@@ -299,10 +298,8 @@ static int test_case2(void)
             A(SUCCEEDED(rc), "");
 
             const char *exp[][5] = {
-#ifndef _WIN32
               {"[2022-09-11 09:57:28.752]", "[name1]", "[20]", "[male]", "[中国人]"},
               {"[2022-09-11 09:57:29.753]", "[name2]", "[30]", "[female]", "[苏州人]"},
-#endif
               {"[2022-09-11 09:57:30.754]", "[name3]", "null", "null", "null"},
             };
 
@@ -409,12 +406,10 @@ static int test_case3(void)
           A(SUCCEEDED(rc), "");
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"select * from t", SQL_NTS);
           A(SUCCEEDED(rc), "");
-#ifndef _WIN32
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861448752, 'name1', 20, 'male', '中国人')", SQL_NTS);
           A(SUCCEEDED(rc), "");
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861449753, 'name2', 30, 'female', '苏州人')", SQL_NTS);
           A(SUCCEEDED(rc), "");
-#endif
           rc = CALL_SQLExecDirect(hstmt, (SQLCHAR*)"insert into t (ts, name, age, sex, text) values (1662861450754, 'name3', null, null, null)", SQL_NTS);
           A(SUCCEEDED(rc), "");
 
@@ -423,10 +418,8 @@ static int test_case3(void)
             A(SUCCEEDED(rc), "");
 
             const char *exp[][5] = {
-#ifndef _WIN32
               {"[2022-09-11 09:57:28.752]", "[name1]", "[20]", "[male]", "[中国人]"},
               {"[2022-09-11 09:57:29.753]", "[name2]", "[30]", "[female]", "[苏州人]"},
-#endif
               {"[2022-09-11 09:57:30.754]", "[name3]", "null", "null", "null"},
             };
 

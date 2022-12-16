@@ -1098,21 +1098,27 @@ static int _simple_str_fmt_impl(simple_str_t *str, const char *fmt, ...)
 
 #define _simple_str_fmt(str, fmt, ...) (0 ? printf(fmt, ##__VA_ARGS__) : _simple_str_fmt_impl(str, fmt, ##__VA_ARGS__))
 
-static int _gen_table_create_sql(simple_str_t *str, const char *table, const char *fields[], size_t nr_fields)
+typedef struct field_s            field_t;
+struct field_s {
+  const char       *name;
+  const char       *field;
+};
+
+static int _gen_table_create_sql(simple_str_t *str, const char *table, const field_t *fields, size_t nr_fields)
 {
   int r = 0;
   r = _simple_str_fmt(str, "create table %s", table);
   if (r) return -1;
 
   for (size_t i=0; i<nr_fields; ++i) {
-    const char *field = fields[i];
+    const field_t *field = fields + i;
     if (i == 0) {
       r = _simple_str_fmt(str, " (");
     } else {
       r = _simple_str_fmt(str, ",");
     }
     if (r) return -1;
-    r = _simple_str_fmt(str, "t%zd %s", i, field);
+    r = _simple_str_fmt(str, "%s %s", field->name, field->field);
   }
   if (nr_fields > 0) {
     r = _simple_str_fmt(str, ")");
@@ -1122,20 +1128,21 @@ static int _gen_table_create_sql(simple_str_t *str, const char *table, const cha
   return 0;
 }
 
-static int _gen_table_param_insert(simple_str_t *str, const char *table, size_t nr_fields)
+static int _gen_table_param_insert(simple_str_t *str, const char *table, const field_t *fields, size_t nr_fields)
 {
   int r = 0;
   r = _simple_str_fmt(str, "insert into %s", table);
   if (r) return -1;
 
   for (size_t i=0; i<nr_fields; ++i) {
+    const field_t *field = fields + i;
     if (i == 0) {
       r = _simple_str_fmt(str, " (");
     } else {
       r = _simple_str_fmt(str, ",");
     }
     if (r) return -1;
-    r = _simple_str_fmt(str, "t%zd", i);
+    r = _simple_str_fmt(str, "%s", field->name);
 
     if (i+1 < nr_fields) continue;
     r = _simple_str_fmt(str, ")");
@@ -1171,7 +1178,7 @@ struct param_s {
   SQLLEN         *StrLen_or_IndPtr;
 };
 
-static int test_bind_params_with_stmt(SQLHANDLE hstmt)
+static int test_bind_params_with_stmt(SQLHANDLE hconn, SQLHANDLE hstmt)
 {
   int r = 0;
   SQLRETURN sr = SQL_SUCCESS;
@@ -1194,16 +1201,15 @@ static int test_bind_params_with_stmt(SQLHANDLE hstmt)
   }
 
   const char *table = "t";
-  const char *first_field = "timestamp";
-  if (_under_taos_mysql_sqlite3) {
-    first_field = "bigint";
-  }
-  const char *fields[] = {
-    NULL,
-    "varchar(5)",
-    "nchar(10)",
+  field_t fields[] = {
+    {"ts", "timestamp"},
+    {"vname", "varchar(10)"},
+    {"wname", "nchar(10)"},
+    {"bi", "bigint"},
   };
-  fields[0] = first_field;
+  if (_under_taos_mysql_sqlite3) {
+    fields[0].field = "bigint";
+  }
 
   r = _exec_(hstmt, "drop table if exists %s", table);
   if (r) return -1;
@@ -1217,31 +1223,35 @@ static int test_bind_params_with_stmt(SQLHANDLE hstmt)
 
   SQLUSMALLINT param_status_arr[ARRAY_SIZE] = {0};
   SQLULEN nr_params_processed = 0;
-  int64_t i64_arr[ARRAY_SIZE] = {1662861448751};
-  SQLLEN  i64_ind[ARRAY_SIZE] = {0};
+  int64_t ts_arr[ARRAY_SIZE] = {1662861448751};
+  SQLLEN  ts_ind[ARRAY_SIZE] = {0};
   char    varchar_arr[ARRAY_SIZE][100];
   SQLLEN  varchar_ind[ARRAY_SIZE] = {0};
   char    nchar_arr[ARRAY_SIZE][100];
   SQLLEN  nchar_ind[ARRAY_SIZE] = {0};
+  int64_t i64_arr[ARRAY_SIZE] = {1662861448751};
+  SQLLEN  i64_ind[ARRAY_SIZE] = {0};
 
   const param_t params[] = {
-    {SQL_PARAM_INPUT,  SQL_C_SBIGINT,  SQL_TYPE_TIMESTAMP,  23,       3,          i64_arr,          0,   i64_ind},
+    {SQL_PARAM_INPUT,  SQL_C_SBIGINT,  SQL_TYPE_TIMESTAMP,  23,       3,          ts_arr,           0,   ts_ind},
     {SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_VARCHAR,         99,       0,          varchar_arr,      100, varchar_ind},
     {SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_WVARCHAR,        99,       0,          nchar_arr,        100, nchar_ind},
+    {SQL_PARAM_INPUT,  SQL_C_SBIGINT,  SQL_BIGINT,          99,       0,          i64_arr,          100, i64_ind},
   };
 
   SQLULEN nr_paramset_size = 4;
 
   for (int i=0; i<ARRAY_SIZE; ++i) {
-    i64_arr[i] = 1662861448751 + i;
+    ts_arr[i] = 1662861448751 + i;
     snprintf(varchar_arr[i], 100, "a人%d", i);
     varchar_ind[i] = SQL_NTS;
     snprintf(nchar_arr[i], 100, "b民%d", i);
     nchar_ind[i] = SQL_NTS;
+    i64_arr[i] = 54321 + i;
   }
 
   str.nr = 0;
-  r = _gen_table_param_insert(&str, table, sizeof(fields)/sizeof(fields[0]));
+  r = _gen_table_param_insert(&str, table, fields, sizeof(fields)/sizeof(fields[0]));
   if (r) return -1;
 
   sr = CALL_SQLPrepare(hstmt, (SQLCHAR*)buf, SQL_NTS);
@@ -1284,14 +1294,17 @@ static int test_bind_params_with_stmt(SQLHANDLE hstmt)
   sr = CALL_SQLExecute(hstmt);
   if (sr == SQL_ERROR) return -1;
 
+  if (nr_params_processed != nr_paramset_size) {
+    W("%" PRIu64 " rows of params to be processed, but only %" PRIu64 "", nr_paramset_size, nr_params_processed);
+    return -1;
+  }
+
   // Check to see which sets of parameters were processed successfully.
   for (size_t i = 0; i < nr_params_processed; i++) {
-    printf("Parameter Set  Status\n");
-    printf("-------------  -------------\n");
     switch (param_status_arr[i]) {
       case SQL_PARAM_SUCCESS:
       case SQL_PARAM_SUCCESS_WITH_INFO:
-        D("param row #%13zd  Success", i + 1);
+        X("param row #%13zd  Success", i + 1);
         break;
 
       case SQL_PARAM_ERROR:
@@ -1316,6 +1329,18 @@ static int test_bind_params_with_stmt(SQLHANDLE hstmt)
     }
   }
 
+  r = _exec_and_bind_check(hconn, buf, sizeof(buf),
+      "select wname from t",
+      1, 4,
+      "b民0", "b民1", "b民2", "b民3");
+  if (r) return -1;
+
+  r = _exec_and_bind_check(hconn, buf, sizeof(buf),
+      "select vname from t",
+      1, 4,
+      "a人0", "a人1", "a人2", "a人3");
+  if (r) return -1;
+
   return r ? -1 : 0;
 }
 
@@ -1329,7 +1354,7 @@ static int test_bind_params(SQLHANDLE hconn)
   sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
   if (FAILED(sr)) return -1;
 
-  r = test_bind_params_with_stmt(hstmt);
+  r = test_bind_params_with_stmt(hconn, hstmt);
 
   CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
 
@@ -1345,7 +1370,6 @@ static int test_cases(SQLHANDLE hconn)
 
   r = test_bind_params(hconn);
   if (r) return r;
-  if (1) return 0;
 
   r = test_case1(hconn);
   if (r) return r;;

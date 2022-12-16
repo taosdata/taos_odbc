@@ -356,7 +356,7 @@ static inline cJSON* json_object_get_array(cJSON *json, const char *key)
 //   return val;
 // }
 
-static inline cJSON* load_json_from_file(const char *json_file, FILE *fn)
+static inline cJSON* load_json_from_file(const char *json_file, FILE *fn, const char *fromcode, const char *tocode)
 {
   int r, e;
   r = fseek(fn, 0, SEEK_END);
@@ -395,10 +395,7 @@ static inline cJSON* load_json_from_file(const char *json_file, FILE *fn)
   buf[bytes] = '\0';
   const char *next = NULL;
   const char *p = buf;
-#ifdef _WIN32
-  // NOTE: only support on CodePage 936
-  const char *tocode = "GB18030";
-  const char *fromcode = "UTF-8";
+
   iconv_t cnv = iconv_open(tocode, fromcode);
   if (!cnv) {
     W("no charset conversion between `%s` <=> `%s`", fromcode, tocode);
@@ -436,12 +433,11 @@ static inline cJSON* load_json_from_file(const char *json_file, FILE *fn)
     free(buf);
     return NULL;
   }
-#endif
+
   cJSON *json = cJSON_ParseWithOpts(p, &next, true);
-#ifdef _WIN32
   free(gb);
   gb = NULL;
-#endif
+
   if (!json) {
     W("parsing file [%s] failed: bad syntax: @[%s]", json_file, next);
     free(buf);
@@ -453,7 +449,7 @@ static inline cJSON* load_json_from_file(const char *json_file, FILE *fn)
   return json;
 }
 
-static inline cJSON* load_json_file(const char *json_file, char *buf, size_t bytes)
+static inline cJSON* load_json_file(const char *json_file, char *buf, size_t bytes, const char *fromcode, const char *tocode)
 {
   int r = 0;
 
@@ -464,7 +460,7 @@ static inline cJSON* load_json_file(const char *json_file, char *buf, size_t byt
     return NULL;
   }
 
-  cJSON *json = load_json_from_file(json_file, fn);
+  cJSON *json = load_json_from_file(json_file, fn, fromcode, tocode);
   if (buf) {
     char *p = tod_dirname(json_file, buf, bytes);
     if (!p) r = -1;

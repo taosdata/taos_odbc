@@ -1195,7 +1195,13 @@ static int try_and_run_file(SQLHANDLE hconn, const char *file, conn_arg_t *conn_
   char *p = tod_basename(file, buf, sizeof(buf));
   if (!p) return -1;
 
-  cJSON *json = load_json_file(file, NULL, 0, "UTF-8", "GB18030");
+  const char *fromcode = "UTF-8";
+  const char *tocode = "UTF-8";
+#ifdef _WIN32
+  tocode = "GB18030";
+#endif
+
+  cJSON *json = load_json_file(file, NULL, 0, fromcode, tocode);
   if (!json) return -1;
 
   const char *base = p;
@@ -1232,8 +1238,14 @@ static int load_and_run(SQLHANDLE hconn, const char *json_test_cases_file, conn_
 {
   int r = 0;
 
+  const char *fromcode = "UTF-8";
+  const char *tocode = "UTF-8";
+#ifdef _WIN32
+  tocode = "GB18030";
+#endif
+
   char path[PATH_MAX+1];
-  cJSON *json_test_cases = load_json_file(json_test_cases_file, path, sizeof(path), "UTF-8", "GB18030");
+  cJSON *json_test_cases = load_json_file(json_test_cases_file, path, sizeof(path), fromcode, tocode);
   if (!json_test_cases) return -1;
 
   do {

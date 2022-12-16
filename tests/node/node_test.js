@@ -493,8 +493,7 @@ async function case6(conn_str) {
     assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where d = ?', ['345e-2'], expx), 0);
     // taosc: this would fail `Invalid timestamp format`
     assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where ts = ?', ['1662861448752'], expx), 1);
-    // taosc: this would fail `Invalid timestamp format`
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where ts = ?', [1662861448752], expx), 1);
+    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where ts = ?', [1662861448752], expx), 0);
     // taosc: but this goes as expected
     assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where ts = ?', ['2022-09-11 09:57:28.752'], expx), 0);
 

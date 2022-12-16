@@ -1295,7 +1295,7 @@ static int test_bind_params_with_stmt(SQLHANDLE hconn, SQLHANDLE hstmt)
   if (sr == SQL_ERROR) return -1;
 
   if (nr_params_processed != nr_paramset_size) {
-    W("%" PRIu64 " rows of params to be processed, but only %" PRIu64 "", nr_paramset_size, nr_params_processed);
+    W("%zu rows of params to be processed, but only %zu", nr_paramset_size, nr_params_processed);
     return -1;
   }
 

@@ -4,6 +4,9 @@
 - **开发中的TDengine 3.0 TAOS ODBC驱动**
 - **目前驱动中已经导出的SQLxxx函数如下**:
 ```
+ConfigDSN              (windows 平台仅有)
+ConfigDriver           (windows 平台仅有)
+ConfigTranslator       (windows 平台仅有)
 SQLAllocHandle
 SQLBindCol
 SQLBindParameter
@@ -67,12 +70,14 @@ SQLTables (暂时使用post-filter来补救一下，等待taosc有新的实现�
 ### (目前)支持的平台
 - Linux
 - macOS
+- Windows
 
 ### 所需的依赖
-- flex, 2.6.4 或以上
-- bison, 3.5.1 或以上
-- odbc 驱动管理器, 例如Linux平台上的unixodbc(2.3.6 或以上)
-- iconv, 应该不需要单独安装了，基本上libc都已经内建了
+- cmake, 3.16.3 或以上
+- flex, 2.6.4 或以上. 注: windows平台上需要安装win_flex_bison, 参见后续说明.
+- bison, 3.5.1 或以上. 注: windows平台上需要安装win_flex_bison, 参见后续说明.
+- odbc 驱动管理器, 例如Linux平台上的unixodbc(2.3.6 或以上). 注: windows平台上odbc驱动管理器已经预装.
+- iconv, 应该不需要单独安装了，基本上libc都已经内建了. 注: 在Windows平台编译的过程中, 会自动下载并编译安装win_iconv.
 - valgrind, 如果您想对程序进行性能分析及内存泄漏探查的话
 - node, 如果您想同时跑nodejs测试程序的话
   - node odbc, 2.4.4 或以上, https://www.npmjs.com/package/odbc
@@ -146,6 +151,53 @@ export TAOS_ODBC_DEBUG=
 或者，你也可以这样
 ```
 pushd debug >/dev/null && ctest --output-on-failure && echo -=Done=-; popd >/dev/null
+```
+
+### 安装必需的依赖项，以Windows 11为例
+1. 下载并安装win_flex_bison 2.5.25.
+```
+https://github.com/lexxmark/winflexbison/releases/download/v2.5.25/win_flex_bison-2.5.25.zip
+```
+2. 检查是否成功安装
+```
+win_flex --version
+```
+
+### Building and Installing, use Windows 11 as an example
+3. 以管理员身份运行命令提示符. https://www.makeuseof.com/windows-run-command-prompt-admin/
+4. cd至本工程的根目录.
+5. 设置编译环境, 如果你是在64位的windows 11上安装的visual studio community 2022, 那么:
+```
+"\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
+```
+6. 构建Makefiles
+```
+cmake --no-warn-unused-cli -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -B build -G "Visual Studio 17 2022" -A x64
+```
+7. 开始编译构建
+```
+cmake --build build --config Debug -j 4
+```
+8. 安装taos_odbc, 安装好后, C:\Program Files\taos_odbc\bin\目录下会安装有taos_odbc.dll
+```
+cmake --install build --config Debug
+```
+9. 检查windows注册表项，看下相关的TAOS_ODBC_DSN条目等是否存在
+```
+HKEY_LOCAL_MACHINE\SOFTWARE\ODBC\ODBCINST.INI\TAOS_ODBC_DRIVER
+HKEY_CURRENT_USER\Software\ODBC\Odbc.ini\TAOS_ODBC_DSN
+```
+
+### 测试
+10. 设置相关的测试环境
+```
+set TAOS_TEST_CASES=%cd%\tests\taos\taos_test.cases
+set ODBC_TEST_CASES=%cd%\tests\c\odbc_test.cases
+set TAOS_ODBC_DEBUG=1
+```
+11. 开始测试
+```
+ctest --test-dir build --output-on-failure -C Debug
 ```
 
 ### 小提示

@@ -4503,9 +4503,10 @@ static SQLRETURN _stmt_execute(stmt_t *stmt)
     if (params_processed<=1) return SQL_ERROR;
 
     SQLSMALLINT n = _stmt_get_count_of_tsdb_params(stmt);
+    int num = (int)(params_processed - 1);
     for (int i=0; i<n; ++i) {
       TAOS_MULTI_BIND *mbs = stmt->tsdb_binds.mbs + i;
-      mbs->num = params_processed - 1;
+      mbs->num = num;
     }
   }
 

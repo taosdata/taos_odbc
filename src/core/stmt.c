@@ -93,6 +93,8 @@ static void _stmt_init(stmt_t *stmt, conn_t *conn)
   int prev = atomic_fetch_add(&conn->stmts, 1);
   OA_ILE(prev >= 0);
 
+  stmt->strict = 1;
+
   errs_init(&stmt->errs);
   _stmt_init_descriptors(stmt);
 
@@ -4192,7 +4194,7 @@ static SQLRETURN _stmt_conv_sql_c_char_to_tsdb_varchar(stmt_t *stmt, param_state
     }
   }
   if (inbytesleft) {
-    stmt_append_err_format(stmt, "01004", 0,
+    stmt_append_err_format(stmt, "22001", 0,
         "String data, right truncated:[iconv]Character set conversion for `%s` to `%s`, #%zd out of #%zd bytes consumed, #%zd out of #%zd bytes converted:[%d]%s",
         cnv->from, cnv->to, inbytes - inbytesleft, inbytes, outbytes - *dstlen, outbytes, e, strerror(e));
     return SQL_SUCCESS_WITH_INFO;
@@ -4406,6 +4408,10 @@ static SQLRETURN _stmt_execute_prepare_params(stmt_t *stmt, param_state_t *param
         case SQL_SUCCESS:
           break;
         case SQL_SUCCESS_WITH_INFO:
+          if (stmt->strict) {
+            sr = SQL_ERROR;
+            break;
+          }
           row_with_info = 1;
           break;
         default:
@@ -4413,17 +4419,22 @@ static SQLRETURN _stmt_execute_prepare_params(stmt_t *stmt, param_state_t *param
             stmt_append_err(stmt, "HY000", 0, "General error:internal logic error when processing paramset");
             sr = SQL_ERROR;
           }
-          if (param_status_ptr) param_status_ptr[i] = SQL_PARAM_ERROR;
-          if (params_processed_ptr) *params_processed_ptr += 1;
-          if (i == 0) return SQL_ERROR;
-          if (!param_status_ptr) return SQL_ERROR;
-          return SQL_SUCCESS_WITH_INFO;
+          break;
       }
+      if (sr == SQL_ERROR) break;
       if (j == 0 && i == 0 && tsdb_meta->is_insert_stmt && tsdb_meta->subtbl_required) {
         OA_NIY(tsdb_meta->subtbl == NULL);
         OA_NIY(0);
       }
     }
+
+    if (params_processed_ptr) *params_processed_ptr += 1;
+
+    if (sr == SQL_ERROR) {
+      if (param_status_ptr) param_status_ptr[i] = SQL_PARAM_ERROR;
+      return SQL_ERROR;
+    }
+
     if (row_with_info) {
       with_info = 1;
       if (!param_status_ptr) return SQL_ERROR;
@@ -4431,7 +4442,6 @@ static SQLRETURN _stmt_execute_prepare_params(stmt_t *stmt, param_state_t *param
     } else {
       if (param_status_ptr) param_status_ptr[i] = SQL_PARAM_SUCCESS;
     }
-    if (params_processed_ptr) *params_processed_ptr += 1;
   }
 
   if (with_info) return SQL_SUCCESS_WITH_INFO;
@@ -4484,10 +4494,20 @@ static SQLRETURN _stmt_execute(stmt_t *stmt)
   if (sr == SQL_ERROR) return SQL_ERROR;
 
   sr = _stmt_execute_prepare_params(stmt, &param_state);
-  if (sr == SQL_ERROR) return SQL_ERROR;
-  if (sr == SQL_SUCCESS_WITH_INFO) return SQL_ERROR; // FIXME:
-  if (sr == SQL_SUCCESS_WITH_INFO) OA_NIY(0);
-  if (sr != SQL_SUCCESS) OA_NIY(0);
+
+  if (sr == SQL_ERROR) {
+    SQLULEN params_processed = 0;
+    SQLULEN *params_processed_ptr = IPD_header->DESC_ROWS_PROCESSED_PTR;
+    if (params_processed_ptr) params_processed = *params_processed_ptr;
+
+    if (params_processed<=1) return SQL_ERROR;
+
+    SQLSMALLINT n = _stmt_get_count_of_tsdb_params(stmt);
+    for (int i=0; i<n; ++i) {
+      TAOS_MULTI_BIND *mbs = stmt->tsdb_binds.mbs + i;
+      mbs->num = params_processed - 1;
+    }
+  }
 
   tsdb_meta_t *tsdb_meta = &stmt->tsdb_meta;
   if (tsdb_meta->is_insert_stmt) {

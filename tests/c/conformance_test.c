@@ -1303,8 +1303,10 @@ static int test_bind_params_with_stmt(SQLHANDLE hconn, SQLHANDLE hstmt)
   for (size_t i = 0; i < nr_params_processed; i++) {
     switch (param_status_arr[i]) {
       case SQL_PARAM_SUCCESS:
-      case SQL_PARAM_SUCCESS_WITH_INFO:
         X("param row #%13zd  Success", i + 1);
+        break;
+      case SQL_PARAM_SUCCESS_WITH_INFO:
+        X("param row #%13zd  Success with info", i + 1);
         break;
 
       case SQL_PARAM_ERROR:
@@ -1318,7 +1320,7 @@ static int test_bind_params_with_stmt(SQLHANDLE hconn, SQLHANDLE hstmt)
         break;
 
       case SQL_PARAM_DIAG_UNAVAILABLE:
-        E("param row #%13zd  Unknown", i + 1);
+        E("param row #%13zd  Diag unavailable", i + 1);
         r = -1;
         break;
 
@@ -1344,6 +1346,176 @@ static int test_bind_params_with_stmt(SQLHANDLE hconn, SQLHANDLE hstmt)
   return r ? -1 : 0;
 }
 
+static int test_bind_params_with_stmt_status(SQLHANDLE hconn, SQLHANDLE hstmt)
+{
+  int r = 0;
+  SQLRETURN sr = SQL_SUCCESS;
+  char buf[1024];
+  simple_str_t str = {
+    .base           = buf,
+    .cap            = sizeof(buf),
+    .nr             = 0,
+  };
+
+  const char *database = "foo";
+
+  if (_under_taos_mysql_sqlite3 != 2) {
+    r = _exec_(hstmt, "drop database if exists %s", database);
+    if (r) return -1;
+    r = _exec_(hstmt, "create database if not exists %s", database);
+    if (r) return -1;
+    r = _exec_(hstmt, "use %s", database);
+    if (r) return -1;
+  } else {
+    W("not fully test under sqlite3");
+    return 0;
+  }
+
+  const char *table = "t";
+  field_t fields[] = {
+    {"ts", "timestamp"},
+    {"vname", "varchar(5)"},
+    {"wname", "nchar(10)"},
+    {"bi", "bigint"},
+  };
+  if (_under_taos_mysql_sqlite3) {
+    fields[0].field = "bigint";
+  }
+
+  r = _exec_(hstmt, "drop table if exists %s", table);
+  if (r) return -1;
+
+  r = _gen_table_create_sql(&str, table, fields, sizeof(fields)/sizeof(fields[0]));
+  if (r) return -1;
+  sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)buf, SQL_NTS);
+  if (sr == SQL_ERROR) return -1;
+
+#define ARRAY_SIZE 10
+
+  SQLUSMALLINT param_status_arr[ARRAY_SIZE] = {0};
+  SQLULEN nr_params_processed = 0;
+  int64_t ts_arr[ARRAY_SIZE] = {1662861448751};
+  SQLLEN  ts_ind[ARRAY_SIZE] = {0};
+  char    varchar_arr[ARRAY_SIZE][100];
+  SQLLEN  varchar_ind[ARRAY_SIZE] = {0};
+  char    nchar_arr[ARRAY_SIZE][100];
+  SQLLEN  nchar_ind[ARRAY_SIZE] = {0};
+  int64_t i64_arr[ARRAY_SIZE] = {1662861448751};
+  SQLLEN  i64_ind[ARRAY_SIZE] = {0};
+
+  const param_t params[] = {
+    {SQL_PARAM_INPUT,  SQL_C_SBIGINT,  SQL_TYPE_TIMESTAMP,  23,       3,          ts_arr,           0,   ts_ind},
+    {SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_VARCHAR,         99,       0,          varchar_arr,      100, varchar_ind},
+    {SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_WVARCHAR,        99,       0,          nchar_arr,        100, nchar_ind},
+    {SQL_PARAM_INPUT,  SQL_C_SBIGINT,  SQL_BIGINT,          99,       0,          i64_arr,          100, i64_ind},
+  };
+
+  SQLULEN nr_paramset_size = 4;
+
+  for (int i=0; i<ARRAY_SIZE; ++i) {
+    ts_arr[i] = 1662861448751 + i;
+    snprintf(varchar_arr[i], 100, "abcd%d", i+9);
+    varchar_ind[i] = SQL_NTS;
+    snprintf(nchar_arr[i], 100, "b民%d", i);
+    nchar_ind[i] = SQL_NTS;
+    i64_arr[i] = 54321 + i;
+  }
+
+  str.nr = 0;
+  r = _gen_table_param_insert(&str, table, fields, sizeof(fields)/sizeof(fields[0]));
+  if (r) return -1;
+
+  sr = CALL_SQLPrepare(hstmt, (SQLCHAR*)buf, SQL_NTS);
+  if (sr == SQL_ERROR) return -1;
+
+  // Set the SQL_ATTR_PARAM_BIND_TYPE statement attribute to use
+  // column-wise binding.
+  CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAM_BIND_TYPE, SQL_PARAM_BIND_BY_COLUMN, 0);
+
+  // Specify the number of elements in each parameter array.
+  CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAMSET_SIZE, (SQLPOINTER)(uintptr_t)nr_paramset_size, 0);
+
+  // Specify an array in which to return the status of each set of
+  // parameters.
+  CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAM_STATUS_PTR, param_status_arr, 0);
+
+  // Specify an SQLUINTEGER value in which to return the number of sets of
+  // parameters processed.
+  CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAMS_PROCESSED_PTR, &nr_params_processed, 0);
+
+  // Bind the parameters in column-wise fashion.
+  for (size_t i=0; i<sizeof(params)/sizeof(params[0]); ++i) {
+    const param_t *param = params + i;
+    sr = CALL_SQLBindParameter(hstmt, (SQLUSMALLINT)i+1,
+        param->InputOutputType,
+        param->ValueType,
+        param->ParameterType,
+        param->ColumnSize,
+        param->DecimalDigits,
+        param->ParameterValuePtr,
+        param->BufferLength,
+        param->StrLen_or_IndPtr);
+    if (sr == SQL_ERROR) return -1;
+  }
+
+
+  // Set part ID, description, and price.
+
+  // Execute the statement.
+  sr = CALL_SQLExecute(hstmt);
+  if (sr == SQL_ERROR) return -1;
+
+  if (nr_params_processed != nr_paramset_size) {
+    W("%zu rows of params to be processed, but only %zu", nr_paramset_size, nr_params_processed);
+  }
+
+  // Check to see which sets of parameters were processed successfully.
+  for (size_t i = 0; i < nr_params_processed; i++) {
+    switch (param_status_arr[i]) {
+      case SQL_PARAM_SUCCESS:
+        X("param row #%13zd  Success", i + 1);
+        break;
+      case SQL_PARAM_SUCCESS_WITH_INFO:
+        X("param row #%13zd  Success with info", i + 1);
+        break;
+
+      case SQL_PARAM_ERROR:
+        E("param row #%13zd  Error", i + 1);
+        r = -1;
+        break;
+
+      case SQL_PARAM_UNUSED:
+        E("param row #%13zd  Not processed", i + 1);
+        r = -1;
+        break;
+
+      case SQL_PARAM_DIAG_UNAVAILABLE:
+        E("param row #%13zd  Diag unavailable", i + 1);
+        r = -1;
+        break;
+
+      default:
+        E("internal logic error");
+        r = -1;
+        break;
+    }
+  }
+
+  r = _exec_and_bind_check(hconn, buf, sizeof(buf),
+      "select wname from t",
+      1, 1,
+      "b民0");
+  if (r) return -1;
+
+  r = _exec_and_bind_check(hconn, buf, sizeof(buf),
+      "select vname from t",
+      1, 1,
+      "abcd9");
+  if (r) return -1;
+
+  return r ? -1 : 0;
+}
+
 static int test_bind_params(SQLHANDLE hconn)
 {
   int r = 0;
@@ -1354,7 +1526,12 @@ static int test_bind_params(SQLHANDLE hconn)
   sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
   if (FAILED(sr)) return -1;
 
-  r = test_bind_params_with_stmt(hconn, hstmt);
+  do {
+    r = test_bind_params_with_stmt(hconn, hstmt);
+    if (r) break;
+
+    r = test_bind_params_with_stmt_status(hconn, hstmt);
+  } while (0);
 
   CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
 

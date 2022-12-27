@@ -1,6 +1,12 @@
 # TDengine 3.0 TAOS ODBC 驱动 #
 [English](README.md) | 简体中文
 
+### (目前)支持的平台
+- Linux
+- macOS
+- Windows
+
+### 特性
 - **开发中的TDengine 3.0 TAOS ODBC驱动**
 - **目前驱动中已经导出的SQLxxx函数如下**:
 ```
@@ -66,11 +72,6 @@ SQLTables (暂时使用post-filter来补救一下，等待taosc有新的实现�
 - **ODBC应用程序将可以利用该驱动实现对TDengine时序数据库的操作，但是，目前该驱动只有Linux平台的实现**
 - **相信，任何具有ODBC-绑定/插件的编程语言、框架，利用该驱动，也可实现对TDengine时序数据库的操作**
 - **持续开发中**...
-
-### (目前)支持的平台
-- Linux
-- macOS
-- Windows
 
 ### 所需的依赖
 - cmake, 3.16.3 或以上

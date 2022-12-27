@@ -1,5 +1,12 @@
 # ODBC Driver for TDengine 3.0 (TAOS) #
 English | [简体中文](README.cn.md)
+
+### Supported platform
+- Linux
+- macOS
+- Windows
+
+### Features
 - **on-going implementation of ODBC driver for TDengine 3.0 (TAOS)**
 - **currently exported ODBC functions are**:
 ```
@@ -65,11 +72,6 @@ SQLTables (post-filter workaround, to be removed when taosc is right in place)
 - **enable ODBC-aware software to communicate with TDengine, at this very beginning, we support linux only**
 - **enable any programming language with ODBC-bindings/ODBC-plugings to communicate with TDengine, potentially**
 - **still going on**...
-
-### Supported platform
-- Linux
-- macOS
-- Windows
 
 ### Requirements
 - cmake, 3.16.3 or above

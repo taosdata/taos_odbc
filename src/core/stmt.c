@@ -695,12 +695,12 @@ static SQLRETURN _stmt_set_row_status_ptr(stmt_t *stmt, SQLUSMALLINT *row_status
   return SQL_SUCCESS;
 }
 
-SQLUSMALLINT* stmt_get_row_status_ptr(stmt_t *stmt)
-{
-  descriptor_t *IRD = _stmt_IRD(stmt);
-  desc_header_t *IRD_header = &IRD->header;
-  return IRD_header->DESC_ARRAY_STATUS_PTR;
-}
+// static SQLUSMALLINT* stmt_get_row_status_ptr(stmt_t *stmt)
+// {
+//   descriptor_t *IRD = _stmt_IRD(stmt);
+//   desc_header_t *IRD_header = &IRD->header;
+//   return IRD_header->DESC_ARRAY_STATUS_PTR;
+// }
 
 static SQLRETURN _stmt_set_param_status_ptr(stmt_t *stmt, SQLUSMALLINT *param_status_ptr)
 {
@@ -2270,7 +2270,7 @@ again:
   return with_info ? SQL_SUCCESS_WITH_INFO : SQL_SUCCESS;
 }
 
-SQLRETURN _stmt_fetch(stmt_t *stmt)
+static SQLRETURN _stmt_fetch(stmt_t *stmt)
 {
   _stmt_reset_current_for_get_data(stmt);
 
@@ -2406,7 +2406,7 @@ static SQLSMALLINT _stmt_get_count_of_tsdb_params(stmt_t *stmt)
   return n;
 }
 
-SQLRETURN _stmt_get_taos_tags_cols_for_subtbled_insert(stmt_t *stmt, int e)
+static SQLRETURN _stmt_get_taos_tags_cols_for_subtbled_insert(stmt_t *stmt, int e)
 {
   // fake subtbl name to get tags/cols meta-info
   int r = 0;
@@ -2429,7 +2429,7 @@ SQLRETURN _stmt_get_taos_tags_cols_for_subtbled_insert(stmt_t *stmt, int e)
   return SQL_SUCCESS;
 }
 
-SQLRETURN _stmt_get_taos_tags_cols_for_normal_insert(stmt_t *stmt, int e)
+static SQLRETURN _stmt_get_taos_tags_cols_for_normal_insert(stmt_t *stmt, int e)
 {
   // insert into t ... and t is normal tablename, will result in TSDB_CODE_TSC_STMT_API_ERROR
   SQLRETURN sr = SQL_SUCCESS;
@@ -2441,7 +2441,7 @@ SQLRETURN _stmt_get_taos_tags_cols_for_normal_insert(stmt_t *stmt, int e)
   return sr;
 }
 
-SQLRETURN _stmt_get_taos_tags_cols_for_insert(stmt_t *stmt)
+static SQLRETURN _stmt_get_taos_tags_cols_for_insert(stmt_t *stmt)
 {
   int r = 0;
   SQLRETURN sr = SQL_SUCCESS;
@@ -2466,7 +2466,7 @@ SQLRETURN _stmt_get_taos_tags_cols_for_insert(stmt_t *stmt)
   return sr;
 }
 
-SQLRETURN _stmt_get_taos_params_for_non_insert(stmt_t *stmt)
+static SQLRETURN _stmt_get_taos_params_for_non_insert(stmt_t *stmt)
 {
   int r = 0;
 
@@ -2495,7 +2495,7 @@ SQLRETURN _stmt_get_taos_params_for_non_insert(stmt_t *stmt)
   return SQL_SUCCESS;
 }
 
-SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
+static SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
 {
   int r = 0;
 
@@ -2586,7 +2586,7 @@ SQLRETURN stmt_get_num_params(
   return SQL_SUCCESS;
 }
 
-SQLRETURN _stmt_describe_param_by_field(
+static SQLRETURN _stmt_describe_param_by_field(
     stmt_t         *stmt,
     SQLUSMALLINT    ParameterNumber,
     SQLSMALLINT    *DataTypePtr,

@@ -130,7 +130,7 @@ SQLRETURN stmt_tables(stmt_t *stmt,
 
 SQLRETURN stmt_get_attr(stmt_t *stmt,
            SQLINTEGER Attribute, SQLPOINTER Value,
-           SQLINTEGER BufferLength, SQLINTEGER *StringLength);
+           SQLINTEGER BufferLength, SQLINTEGER *StringLength) FA_HIDDEN;
 
 SQLRETURN stmt_get_diag_field(
     stmt_t         *stmt,

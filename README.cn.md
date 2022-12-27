@@ -7,8 +7,12 @@
 SQLAllocHandle
 SQLBindCol
 SQLBindParameter
+SQLBulkOperations
 SQLColAttribute
+SQLColumnPrivileges
+SQLColumns
 SQLConnect
+SQLCopyDesc
 SQLDescribeCol
 SQLDescribeParam
 SQLDisconnect
@@ -16,21 +20,44 @@ SQLDriverConnect
 SQLEndTran
 SQLExecDirect
 SQLExecute
+SQLExtendedFetch
 SQLFetch
 SQLFetchScroll
+SQLForeignKeys
 SQLFreeHandle
 SQLFreeStmt
+SQLGetConnectAttr
+SQLGetCursorName
 SQLGetData
+SQLGetDescField
+SQLGetDescRec
 SQLGetDiagField
 SQLGetDiagRec
+SQLGetEnvAttr
 SQLGetInfo
+SQLGetStmtAttr
+SQLGetTypeInfo
+SQLMoreResults
+SQLNativeSql
 SQLNumParams
 SQLNumResultCols
+SQLParamData
 SQLPrepare
+SQLPrimaryKeys
+SQLProcedureColumns
+SQLProcedures
+SQLPutData
 SQLRowCount
 SQLSetConnectAttr
+SQLSetCursorName
+SQLSetDescField
+SQLSetDescRec
 SQLSetEnvAttr
+SQLSetPos
 SQLSetStmtAttr
+SQLSpecialColumns
+SQLStatistics
+SQLTablePrivileges
 SQLTables (暂时使用post-filter来补救一下，等待taosc有新的实现后再移除)
 ```
 - **ODBC应用程序将可以利用该驱动实现对TDengine时序数据库的操作，但是，目前该驱动只有Linux平台的实现**
@@ -89,6 +116,38 @@ export TAOS_ODBC_DEBUG=
 pushd debug >/dev/null && ctest --output-on-failure && echo -=Done=-; popd >/dev/null
 ```
 
+### 安装必需的依赖项，以MacOS Big Sur为例
+```
+brew install flex bison unixodbc && echo -=Done=-
+```
+
+### 编译及安装, 以MacOS Big Sur为例
+```
+rm -rf debug && cmake -B debug -DCMAKE_BUILD_TYPE=Debug && cmake --build debug && sudo cmake --install debug && echo -=Done=-
+```
+
+### 测试
+```
+pushd debug >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases ODBC_TEST_CASES=$(pwd)/../tests/c/odbc_test.cases ctest --output-on-failure && echo -=Done=-; popd >/dev/null
+```
+
+### 带上TAOS_ODBC_DEBUG环境变量进行测试
+当测试程序出现失败的时候，你可能期望看到更多的调试信息，那么你可以这样
+```
+pushd debug >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases ODBC_TEST_CASES=$(pwd)/../tests/c/odbc_test.cases TAOS_ODBC_DEBUG= ctest --output-on-failure && echo -=Done=-; popd >/dev/null
+```
+
+### 让每天的生活简单一点
+```
+export TAOS_TEST_CASES=$(pwd)/tests/taos/taos_test.cases
+export ODBC_TEST_CASES=$(pwd)/tests/c/odbc_test.cases
+export TAOS_ODBC_DEBUG=
+```
+或者，你也可以这样
+```
+pushd debug >/dev/null && ctest --output-on-failure && echo -=Done=-; popd >/dev/null
+```
+
 ### 小提示
 - `cmake --help` or `man cmake`
 - `ctest --help` or `man ctest`
@@ -99,13 +158,12 @@ pushd debug >/dev/null && ctest --output-on-failure && echo -=Done=-; popd >/dev
 <root>
 ├── cmake
 ├── common
-├── examples
 ├── inc
-├── samples
 ├── sh
 ├── src
 │   ├── core
 │   ├── inc
+│   ├── os_port
 │   ├── parser
 │   ├── tests
 │   └── utils
@@ -118,7 +176,6 @@ pushd debug >/dev/null && ctest --output-on-failure && echo -=Done=-; popd >/dev
 │   │   └── main
 │   │       └── src
 │   └── taos
-├── tools
 └── valgrind
 ```
 

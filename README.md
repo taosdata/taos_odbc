@@ -6,8 +6,12 @@ English | [简体中文](README.cn.md)
 SQLAllocHandle
 SQLBindCol
 SQLBindParameter
+SQLBulkOperations
 SQLColAttribute
+SQLColumnPrivileges
+SQLColumns
 SQLConnect
+SQLCopyDesc
 SQLDescribeCol
 SQLDescribeParam
 SQLDisconnect
@@ -15,21 +19,44 @@ SQLDriverConnect
 SQLEndTran
 SQLExecDirect
 SQLExecute
+SQLExtendedFetch
 SQLFetch
 SQLFetchScroll
+SQLForeignKeys
 SQLFreeHandle
 SQLFreeStmt
+SQLGetConnectAttr
+SQLGetCursorName
 SQLGetData
+SQLGetDescField
+SQLGetDescRec
 SQLGetDiagField
 SQLGetDiagRec
+SQLGetEnvAttr
 SQLGetInfo
+SQLGetStmtAttr
+SQLGetTypeInfo
+SQLMoreResults
+SQLNativeSql
 SQLNumParams
 SQLNumResultCols
+SQLParamData
 SQLPrepare
+SQLPrimaryKeys
+SQLProcedureColumns
+SQLProcedures
+SQLPutData
 SQLRowCount
 SQLSetConnectAttr
+SQLSetCursorName
+SQLSetDescField
+SQLSetDescRec
 SQLSetEnvAttr
+SQLSetPos
 SQLSetStmtAttr
+SQLSpecialColumns
+SQLStatistics
+SQLTablePrivileges
 SQLTables (post-filter workaround, to be removed when taosc is right in place)
 ```
 - **enable ODBC-aware software to communicate with TDengine, at this very beginning, we support linux only**
@@ -88,6 +115,38 @@ and then, you can
 pushd debug >/dev/null && ctest --output-on-failure && echo -=Done=-; popd >/dev/null
 ```
 
+### Installing prerequisites, use MacOS Big Sur as an example
+```
+brew install flex bison unixodbc && echo -=Done=-
+```
+
+### Building and Installing, use MacOS Big Sur as an example
+```
+rm -rf debug && cmake -B debug -DCMAKE_BUILD_TYPE=Debug && cmake --build debug && sudo cmake --install debug && echo -=Done=-
+```
+
+### Test
+```
+pushd debug >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases ODBC_TEST_CASES=$(pwd)/../tests/c/odbc_test.cases ctest --output-on-failure && echo -=Done=-; popd >/dev/null
+```
+
+### Test with TAOS_ODBC_DEBUG
+in case when some test cases fail and you wish to have more debug info, such as when and how taos_xxx API is called under the hood, you can
+```
+pushd debug >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases ODBC_TEST_CASES=$(pwd)/../tests/c/odbc_test.cases TAOS_ODBC_DEBUG= ctest --output-on-failure && echo -=Done=-; popd >/dev/null
+```
+
+### To make your daily life better
+```
+export TAOS_TEST_CASES=$(pwd)/tests/taos/taos_test.cases
+export ODBC_TEST_CASES=$(pwd)/tests/c/odbc_test.cases
+export TAOS_ODBC_DEBUG=
+```
+and then, you can
+```
+pushd debug >/dev/null && ctest --output-on-failure && echo -=Done=-; popd >/dev/null
+```
+
 ### Tips
 - `cmake --help` or `man cmake`
 - `ctest --help` or `man ctest`
@@ -98,13 +157,12 @@ pushd debug >/dev/null && ctest --output-on-failure && echo -=Done=-; popd >/dev
 <root>
 ├── cmake
 ├── common
-├── examples
 ├── inc
-├── samples
 ├── sh
 ├── src
 │   ├── core
 │   ├── inc
+│   ├── os_port
 │   ├── parser
 │   ├── tests
 │   └── utils
@@ -117,7 +175,6 @@ pushd debug >/dev/null && ctest --output-on-failure && echo -=Done=-; popd >/dev
 │   │   └── main
 │   │       └── src
 │   └── taos
-├── tools
 └── valgrind
 ```
 

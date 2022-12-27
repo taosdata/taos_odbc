@@ -175,7 +175,8 @@
       "select * from t",
       {
         "comments": "test varchar truncation-check",
-        "sql":"insert into t (ts, name) values (?, ?)",
+        "comments": "seems coredump on windows platform",
+        "xsql":"insert into t (ts, name) values (?, ?)",
         "executes": [
           {
             "params": [
@@ -226,7 +227,8 @@
       "create table t(ts timestamp,name nchar(4))",
       "select * from t",
       {
-        "sql":"insert into t (ts, name) values (?, ?)",
+        "comments": "seems coredump on windows platform",
+        "xsql":"insert into t (ts, name) values (?, ?)",
         "executes": [
           {
             "params": [

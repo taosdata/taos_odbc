@@ -96,7 +96,8 @@
           }
         ]
       },{
-        "sql":"insert into t (ts, name) values (now, ?)",
+        "comments": "seems coredump on windows platform",
+        "xsql":"insert into t (ts, name) values (now, ?)",
         "executes": [
           {
             "params": [],

@@ -1911,6 +1911,101 @@ static int test_charset(void)
   return r;
 }
 
+static int _flaw_case2_step3(TAOS_STMT *stmt)
+{
+  int r = 0;
+  const char *sql = "insert into t (ts, name) values (?, ?)";
+  r = CALL_taos_stmt_prepare(stmt, sql, (unsigned long)strlen(sql));
+  if (r) return -1;
+
+  int is_insert = 0;
+  r = CALL_taos_stmt_is_insert(stmt, &is_insert);
+  if (r) return -1;
+  if (!is_insert) return -1;
+
+  int fieldNum = 0;
+  TAOS_FIELD_E *fields = NULL;
+  r = CALL_taos_stmt_get_tag_fields(stmt, &fieldNum, &fields);
+  if (r == 0) return -1;
+  if (fieldNum > 0) return -1;
+  if (fields) return -1;
+
+  int colNum = 0;
+  TAOS_FIELD_E *cols = NULL;
+  r = CALL_taos_stmt_get_col_fields(stmt, &colNum, &cols);
+  if (r) return -1;
+  if (colNum != 2) return -1;
+  if (cols == NULL) return -1;
+
+#ifdef _WIN32
+    // https://github.com/taosdata/TDengine/issues/18804
+    // https://learn.microsoft.com/en-us/troubleshoot/developer/visualstudio/cpp/libraries/use-c-run-time
+    // https://learn.microsoft.com/en-us/cpp/build/reference/md-mt-ld-use-run-time-library?view=msvc-170
+    free(cols);
+#else
+    free(cols);
+#endif
+
+  return 0;
+}
+
+static int _flaw_case2_step2(TAOS *taos)
+{
+  int r = 0;
+
+  const char *sqls[] = {
+    "drop database if exists foo",
+    "create database if not exists foo",
+    "use foo",
+    "drop table if exists t",
+    "create table t(ts timestamp,name varchar(20))",
+  };
+  for (size_t i=0; i<sizeof(sqls)/sizeof(sqls[0]); ++i) {
+    const char *sql = sqls[i];
+    TAOS_RES *res = CALL_taos_query(taos,sql);
+    if (!res) return -1;
+    CALL_taos_free_result(res);
+  }
+
+  TAOS_STMT *stmt = NULL;
+
+  stmt = CALL_taos_stmt_init(taos);
+  if (!stmt) return -1;
+
+  r = _flaw_case2_step3(stmt);
+
+  CALL_taos_stmt_close(stmt);
+
+  return r;
+}
+
+static int _flaw_case2_step1(void)
+{
+  const char *ip = NULL;
+  const char *user = NULL;
+  const char *pass = NULL;
+  const char *db = NULL;
+  uint16_t port = 0;
+  TAOS *taos = CALL_taos_connect(ip,user,pass,db,port);
+  if (!taos) return -1;
+
+  int r = 0;
+  r = _flaw_case2_step2(taos);
+
+  CALL_taos_close(taos);
+
+  return r;
+}
+
+static int flaw_case2(void)
+{
+  int r = 0;
+
+  r = _flaw_case2_step1();
+
+  return r;
+}
+
 static int tests(int argc, char *argv[])
 {
   int r = 0;
@@ -1939,6 +2034,13 @@ static int tests(int argc, char *argv[])
     D("==%s==", r ? "failure" : "success");
     if (1) return 1;
     return !!r;
+  }
+  if (0) {
+    r = flaw_case2();
+    if (r == 0) {
+      fprintf(stderr, "seems like the flaw is corrected\n");
+    }
+    return !r;
   }
 
   r = process_by_args(argc, argv);

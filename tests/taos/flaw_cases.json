@@ -279,9 +279,8 @@
     "comments": "insert into xsuzhou using st tags ('ysuzhou') values (1665226861289, 100)",
     "comments": "there's no parameter placeholder marker, but prepare-bind-execute still works, except you only bind cols but not subtbl nor tags",
     "comments": "better not use this",
-    "comments": "seems coredump on windows platform",
     "conn": {},
-    "xsqls": [
+    "sqls": [
       "drop database if exists foo",
       "create database foo",
       "use foo",
@@ -314,8 +313,7 @@
       "insert into suzhou using st tags ('suzhou') values (1665226861288, 1)",
       {
         "comments": "this will fail",
-        "comments": "seems coredump on windows platform",
-        "xsql": "insert into ? using st tags (?) values (1665226861289, 100)",
+        "sql": "insert into ? using st tags (?) values (1665226861289, 100)",
         "executes": [
           {
             "params": [["suzhou", "suzhou"]],

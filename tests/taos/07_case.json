@@ -66,8 +66,7 @@
       {
         "sql": "insert into shanghai using st tags ('shanghai') values (1665226861289, 200)"
       },{
-        "comments": "seems coredump on windows platform",
-        "xsql": "insert into suzhou using st tags ('suzhou') values (?, ?)",
+        "sql": "insert into suzhou using st tags ('suzhou') values (?, ?)",
         "executes": [
           {
             "params": [{"timestamp":1665226971289}, {"int":490}]

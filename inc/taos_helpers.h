@@ -182,6 +182,13 @@ static inline int call_taos_stmt_get_col_fields(const char *file, int line, cons
   return r;
 }
 
+static inline void call_taos_stmt_reclaim_fields(const char *file, int line, const char *func, TAOS_STMT *stmt, TAOS_FIELD_E *fields)
+{
+  LOGD(file, line, func, "taos_stmt_reclaim_fields(stmt:%p,fields:%p) ...", stmt, fields);
+  taos_stmt_reclaim_fields(stmt, fields);
+  LOGD(file, line, func, "taos_stmt_reclaim_fields(stmt:%p,fields:%p) => void", stmt, fields);
+}
+
 static inline int call_taos_stmt_is_insert(const char *file, int line, const char *func, TAOS_STMT *stmt, int *insert)
 {
   LOGD(file, line, func, "taos_stmt_is_insert(stmt:%p,insert:%p) ...", stmt, insert);
@@ -653,6 +660,7 @@ static inline TSDB_SERVER_STATUS call_taos_check_server_status(const char *file,
 #define CALL_taos_stmt_set_sub_tbname(...) call_taos_stmt_set_sub_tbname(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_taos_stmt_get_tag_fields(...) call_taos_stmt_get_tag_fields(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_taos_stmt_get_col_fields(...) call_taos_stmt_get_col_fields(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
+#define CALL_taos_stmt_reclaim_fields(...) call_taos_stmt_reclaim_fields(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 
 #define CALL_taos_stmt_is_insert(...) call_taos_stmt_is_insert(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_taos_stmt_num_params(...) call_taos_stmt_num_params(__FILE__, __LINE__, __func__, ##__VA_ARGS__)

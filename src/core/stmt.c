@@ -134,9 +134,54 @@ static void _stmt_release_result(stmt_t *stmt)
   _rs_release(&stmt->rs);
 }
 
+static void _tsdb_meta_reset_tag_fields(stmt_t *stmt, tsdb_meta_t *tsdb_meta)
+{
+  if (tsdb_meta->tag_fields) {
+    CALL_taos_stmt_reclaim_fields(stmt->stmt, tsdb_meta->tag_fields);
+    tsdb_meta->tag_fields = NULL;
+  }
+  tsdb_meta->nr_tag_fields = 0;
+}
+
+static void _tsdb_meta_reset_col_fields(stmt_t *stmt, tsdb_meta_t *tsdb_meta)
+{
+  if (tsdb_meta->col_fields) {
+    if (tsdb_meta->is_insert_stmt) {
+      CALL_taos_stmt_reclaim_fields(stmt->stmt, tsdb_meta->col_fields);
+    } else {
+      mem_reset(&tsdb_meta->mem);
+    }
+    tsdb_meta->col_fields = NULL;
+  }
+  tsdb_meta->nr_col_fields = 0;
+}
+
+static void _tsdb_meta_reset(stmt_t *stmt, tsdb_meta_t *tsdb_meta)
+{
+  _tsdb_meta_reset_tag_fields(stmt, tsdb_meta);
+  _tsdb_meta_reset_col_fields(stmt, tsdb_meta);
+
+  TOD_SAFE_FREE(tsdb_meta->subtbl);
+  tsdb_meta->prepared = 0;
+  tsdb_meta->is_insert_stmt = 0;
+  tsdb_meta->subtbl_required = 0;
+}
+
+static void _tsdb_meta_release(stmt_t *stmt, tsdb_meta_t *tsdb_meta)
+{
+  _tsdb_meta_reset(stmt, tsdb_meta);
+
+  mem_release(&tsdb_meta->mem);
+  tsdb_meta->prepared = 0;
+  tsdb_meta->is_insert_stmt = 0;
+  tsdb_meta->subtbl_required = 0;
+}
+
 static void _stmt_release_stmt(stmt_t *stmt)
 {
   if (!stmt->stmt) return;
+
+  _tsdb_meta_release(stmt, &stmt->tsdb_meta);
 
   int r = CALL_taos_stmt_close(stmt->stmt);
   OA_NIY(r == 0);
@@ -249,63 +294,6 @@ static void _stmt_release_current_for_get_data(stmt_t *stmt)
   tsdb_to_sql_c_state_release(col);
 }
 
-static void _tsdb_meta_reset_tag_fields(tsdb_meta_t *tsdb_meta)
-{
-  if (tsdb_meta->tag_fields) {
-#ifdef _WIN32
-    // https://github.com/taosdata/TDengine/issues/18804
-    // https://learn.microsoft.com/en-us/troubleshoot/developer/visualstudio/cpp/libraries/use-c-run-time
-    // https://learn.microsoft.com/en-us/cpp/build/reference/md-mt-ld-use-run-time-library?view=msvc-170
-    free(tsdb_meta->tag_fields);
-#else
-    free(tsdb_meta->tag_fields);
-#endif
-    tsdb_meta->tag_fields = NULL;
-  }
-  tsdb_meta->nr_tag_fields = 0;
-}
-
-static void _tsdb_meta_reset_col_fields(tsdb_meta_t *tsdb_meta)
-{
-  if (tsdb_meta->col_fields) {
-    if (tsdb_meta->is_insert_stmt) {
-#ifdef _WIN32
-      // https://github.com/taosdata/TDengine/issues/18804
-      // https://learn.microsoft.com/en-us/troubleshoot/developer/visualstudio/cpp/libraries/use-c-run-time
-      // https://learn.microsoft.com/en-us/cpp/build/reference/md-mt-ld-use-run-time-library?view=msvc-170
-      free(tsdb_meta->col_fields);
-#else
-      free(tsdb_meta->col_fields);
-#endif
-    } else {
-      mem_reset(&tsdb_meta->mem);
-    }
-    tsdb_meta->col_fields = NULL;
-  }
-  tsdb_meta->nr_col_fields = 0;
-}
-
-static void _tsdb_meta_reset(tsdb_meta_t *tsdb_meta)
-{
-  _tsdb_meta_reset_tag_fields(tsdb_meta);
-  _tsdb_meta_reset_col_fields(tsdb_meta);
-
-  TOD_SAFE_FREE(tsdb_meta->subtbl);
-  tsdb_meta->prepared = 0;
-  tsdb_meta->is_insert_stmt = 0;
-  tsdb_meta->subtbl_required = 0;
-}
-
-static void _tsdb_meta_release(tsdb_meta_t *tsdb_meta)
-{
-  _tsdb_meta_reset(tsdb_meta);
-
-  mem_release(&tsdb_meta->mem);
-  tsdb_meta->prepared = 0;
-  tsdb_meta->is_insert_stmt = 0;
-  tsdb_meta->subtbl_required = 0;
-}
-
 static descriptor_t* _stmt_APD(stmt_t *stmt)
 {
   return stmt->current_APD;
@@ -410,7 +398,7 @@ static void _stmt_release(stmt_t *stmt)
 
   _stmt_release_descriptors(stmt);
 
-  _tsdb_meta_release(&stmt->tsdb_meta);
+  _tsdb_meta_release(stmt, &stmt->tsdb_meta);
 
   TOD_SAFE_FREE(stmt->sql);
 
@@ -559,7 +547,7 @@ static SQLRETURN _stmt_exec_direct_sql(stmt_t *stmt, const char *sql)
     // NOTE: not fully tested yet
     _stmt_release_stmt(stmt);
 
-    _tsdb_meta_reset(&stmt->tsdb_meta);
+    _tsdb_meta_reset(stmt, &stmt->tsdb_meta);
     _tsdb_binds_reset(&stmt->tsdb_binds);
 
     TOD_SAFE_FREE(stmt->sql);
@@ -2569,7 +2557,7 @@ static SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
 
 static void _stmt_unprepare(stmt_t *stmt)
 {
-  _tsdb_meta_reset(&stmt->tsdb_meta);
+  _tsdb_meta_reset(stmt, &stmt->tsdb_meta);
   _tsdb_binds_reset(&stmt->tsdb_binds);
 
   stmt->prepared = 0;

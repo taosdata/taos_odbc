@@ -69,7 +69,7 @@ SQLStatistics
 SQLTablePrivileges
 SQLTables (post-filter workaround, to be removed when taosc is right in place)
 ```
-- **enable ODBC-aware software to communicate with TDengine, at this very beginning, we support linux only**
+- **enable ODBC-aware software to communicate with TDengine**
 - **enable any programming language with ODBC-bindings/ODBC-plugings to communicate with TDengine, potentially**
 - **still going on**...
 

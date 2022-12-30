@@ -69,7 +69,7 @@ SQLStatistics
 SQLTablePrivileges
 SQLTables (暂时使用post-filter来补救一下，等待taosc有新的实现后再移除)
 ```
-- **ODBC应用程序将可以利用该驱动实现对TDengine时序数据库的操作，但是，目前该驱动只有Linux平台的实现**
+- **ODBC应用程序将可以利用该驱动实现对TDengine时序数据库的操作**
 - **相信，任何具有ODBC-绑定/插件的编程语言、框架，利用该驱动，也可实现对TDengine时序数据库的操作**
 - **持续开发中**...
 

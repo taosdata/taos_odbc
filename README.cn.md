@@ -89,6 +89,7 @@ SQLTables (暂时使用post-filter来补救一下，等待taosc有新的实现�
 
 ### 安装TDengine 3.0
 - 请参考TDengine官方说明，https://tdengine.com
+- 最好使用TDengine-git-commit "ea249127afb42ac3a31d8d9f63243c3d1b950b5d"或以上, 否则，在windows平台上，您可能会遇到由`taos_stmt_get_tag_fields/taos_stmt_get_col_fields`所引致的内存泄漏的问题.具体细节，您可以参见: https://github.com/taosdata/TDengine/issues/18804 and https://github.com/taosdata/TDengine/pull/19245
 
 ### 安装必需的依赖项，以Ubuntu 20.04为例
 ```

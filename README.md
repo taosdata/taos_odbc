@@ -89,6 +89,7 @@ SQLTables (post-filter workaround, to be removed when taosc is right in place)
 
 ### Installing TDengine 3.0
 - please visit https://tdengine.com
+- better use TDengine-git-commit "ea249127afb42ac3a31d8d9f63243c3d1b950b5d" or above, otherwise, you might come across memory leakage in windows platform, which is introduced by `taos_stmt_get_tag_fields/taos_stmt_get_col_fields`. please check detail: https://github.com/taosdata/TDengine/issues/18804 and https://github.com/taosdata/TDengine/pull/19245
 
 ### Installing prerequisites, use Ubuntu 20.04 as an example
 ```

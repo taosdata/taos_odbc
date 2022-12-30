@@ -182,10 +182,14 @@ static inline int call_taos_stmt_get_col_fields(const char *file, int line, cons
   return r;
 }
 
+EXTERN_C_BEGIN
+void bridge_taos_stmt_reclaim_fields(TAOS_STMT *stmt, TAOS_FIELD_E *fields) FA_HIDDEN;
+EXTERN_C_END
+
 static inline void call_taos_stmt_reclaim_fields(const char *file, int line, const char *func, TAOS_STMT *stmt, TAOS_FIELD_E *fields)
 {
   LOGD(file, line, func, "taos_stmt_reclaim_fields(stmt:%p,fields:%p) ...", stmt, fields);
-  taos_stmt_reclaim_fields(stmt, fields);
+  bridge_taos_stmt_reclaim_fields(stmt, fields);
   LOGD(file, line, func, "taos_stmt_reclaim_fields(stmt:%p,fields:%p) => void", stmt, fields);
 }
 

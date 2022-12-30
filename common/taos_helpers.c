@@ -24,6 +24,35 @@
 
 #include "taos_helpers.h"
 
+typedef void (*taos_stmt_reclaim_fields_f)(TAOS_STMT *stmt, TAOS_FIELD_E *fields);
+
+static taos_stmt_reclaim_fields_f loaded_taos_stmt_reclaim_fields = NULL;
+
+static void init_taos_apis(void)
+{
+#ifdef _WIN32
+#error not implemented yet
+#else
+  void *p = dlsym(RTLD_DEFAULT, "taos_stmt_reclaim_fields");
+  loaded_taos_stmt_reclaim_fields = (taos_stmt_reclaim_fields_f)p;
+#endif
+}
+
+void bridge_taos_stmt_reclaim_fields(TAOS_STMT *stmt, TAOS_FIELD_E *fields)
+{
+  static pthread_once_t once = PTHREAD_ONCE_INIT;
+  pthread_once(&once, init_taos_apis);
+  if (loaded_taos_stmt_reclaim_fields) {
+    loaded_taos_stmt_reclaim_fields(stmt, fields);
+    return;
+  }
+#ifdef _WIN32
+#error not implemented yet
+#else
+  free(fields);
+#endif
+}
+
 int helper_get_data_len(TAOS_RES *res, TAOS_FIELD *field, TAOS_ROW rows, int row, int col, const char **data, int *len)
 {
   switch(field->type) {

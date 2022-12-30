@@ -94,6 +94,9 @@ int dlclose(void* handle);
 void * dlsym(void *handle, const char *symbol);
 const char * dlerror(void);
 #define RTLD_NOW                            0
+#ifndef RTLD_DEFAULT
+#define RTLD_DEFAULT 0
+#endif
 #else                    /* }{ */
 #include <dlfcn.h>
 #endif                   /* } */

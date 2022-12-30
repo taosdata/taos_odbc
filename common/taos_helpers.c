@@ -24,6 +24,7 @@
 
 #define _GNU_SOURCE
 
+#include "os_port.h"
 #include "taos_helpers.h"
 
 typedef void (*taos_stmt_reclaim_fields_f)(TAOS_STMT *stmt, TAOS_FIELD_E *fields);
@@ -32,12 +33,8 @@ static taos_stmt_reclaim_fields_f loaded_taos_stmt_reclaim_fields = NULL;
 
 static void init_taos_apis(void)
 {
-#ifdef _WIN32
-#error not implemented yet
-#else
   void *p = dlsym(RTLD_DEFAULT, "taos_stmt_reclaim_fields");
   loaded_taos_stmt_reclaim_fields = (taos_stmt_reclaim_fields_f)p;
-#endif
 }
 
 void bridge_taos_stmt_reclaim_fields(TAOS_STMT *stmt, TAOS_FIELD_E *fields)
@@ -49,7 +46,7 @@ void bridge_taos_stmt_reclaim_fields(TAOS_STMT *stmt, TAOS_FIELD_E *fields)
     return;
   }
 #ifdef _WIN32
-#error not implemented yet
+  W("no `taos_stmt_reclaim_fields` exported in taos.dll, thus memory leakage is expected");
 #else
   free(fields);
 #endif

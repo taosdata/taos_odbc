@@ -32,7 +32,11 @@ add_dependencies(taos_test ex_cjson)
 target_include_directories(taos_test PRIVATE ${CJSON_INSTALL_PATH}/include)
 target_link_directories(taos_test PRIVATE ${CJSON_INSTALL_PATH}/lib)
 # NOTE: cJSON_xxx exported in `libtaos.so`
-target_link_libraries(taos_test cjson taos dl pthread)
+if(TODBC_WINDOWS)
+  target_link_libraries(taos_test cjson taos)
+else()
+  target_link_libraries(taos_test cjson taos dl pthread)
+endif()
 
 add_test(NAME taos_test
     COMMAND taos_test)

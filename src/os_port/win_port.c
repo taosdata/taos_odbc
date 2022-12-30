@@ -25,6 +25,9 @@
 #include "os_port.h"
 
 #include <stdio.h>
+#ifdef _WIN32
+#include <psapi.h>
+#endif
 
 struct tm* localtime_r(const time_t *clock, struct tm *result)
 {
@@ -109,13 +112,52 @@ int dlclose(void* handle)
   return 0;
 }
 
-void * dlsym(void *handle, const char *symbol)
+static void* _dlsym_recursive(const char *symbol)
+{
+  HMODULE hMods[1024];
+  HANDLE hProcess;
+  DWORD cbNeeded;
+  unsigned int i;
+
+  hProcess = GetCurrentProcess();
+  if (NULL == hProcess) {
+    dl_err[0] = '\0';
+    errno = GetLastError();
+    snprintf(dl_err, sizeof(dl_err), "GetProcAddress(`%s`) failed:[%d]%s", symbol, errno, strerror(errno));
+    return NULL;
+  }
+
+  if (EnumProcessModules(hProcess, hMods, sizeof(hMods), &cbNeeded)) {
+    for (i = 0; i < (cbNeeded / sizeof(HMODULE)); i++) {
+      FARPROC proc = GetProcAddress(hMods[i], symbol);
+      if (proc) return proc;
+
+      char szModName[MAX_PATH];
+      szModName[0] = '\0';
+
+      GetModuleFileNameEx(hProcess, hMods[i], szModName, sizeof(szModName) / sizeof(szModName[0]));
+
+      dl_err[0] = '\0';
+      errno = GetLastError();
+      int e = errno;
+      snprintf(dl_err, sizeof(dl_err), "GetProcAddress(`%s`) from `%s` failed:[%d]%s", symbol, szModName, e, strerror(e));
+    }
+  }
+
+  return NULL;
+}
+
+void* dlsym(void *handle, const char *symbol)
 {
   dl_err[0] = '\0';
+  if (handle == RTLD_DEFAULT) {
+    return _dlsym_recursive(symbol);
+  }
   FARPROC proc = GetProcAddress(handle, symbol);
   if (!proc) {
     errno = GetLastError();
-    snprintf(dl_err, sizeof(dl_err), "GetProcAddress(`%s`) failed", symbol);
+    int e = errno;
+    snprintf(dl_err, sizeof(dl_err), "GetProcAddress(`%s`) failed:[%d]%s", symbol, e, strerror(e));
     return NULL;
   }
 

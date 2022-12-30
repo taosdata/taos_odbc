@@ -24,7 +24,12 @@
 
 add_executable(basic basic.c)
 
-target_link_libraries(basic taos_odbc_a dl)
+if(TODBC_WINDOWS)
+  target_link_libraries(basic taos_odbc_a)
+else()
+  target_link_libraries(basic taos_odbc_a dl)
+endif()
+
 target_include_directories(basic PRIVATE
     ${INTERNAL_INC_PATH})
 

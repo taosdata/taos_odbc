@@ -24,7 +24,7 @@
 
 add_executable(basic basic.c)
 
-target_link_libraries(basic taos_odbc_a)
+target_link_libraries(basic taos_odbc_a dl)
 target_include_directories(basic PRIVATE
     ${INTERNAL_INC_PATH})
 

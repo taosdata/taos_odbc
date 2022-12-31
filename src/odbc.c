@@ -98,7 +98,7 @@ static void odbc_log(const char *log)
   fputs(log, f);
   fclose(f);
 #else
-  syslog(LOG_DEBUG, "%s", log);
+  if (0) syslog(LOG_DEBUG, "%s", log);
 #endif
 }
 

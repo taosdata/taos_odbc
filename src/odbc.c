@@ -81,45 +81,16 @@ int tod_get_debug_bison(void)
   return !!_taos_odbc_debug_bison;
 }
 
-static void odbc_log(const char *log)
-{
-  const char *logn = "C:\\Windows\\Temp\\taos_odbc.txt";
-  if (0) {
-    HANDLE h = CreateFile(logn, FILE_APPEND_DATA, FILE_SHARE_WRITE, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (h == INVALID_HANDLE_VALUE) return;
-    WriteFile(h, log, (DWORD)strlen(log), NULL, NULL);
-    CloseHandle(h);
-    return;
-  }
-  const char *temp = getenv("TEMP");
-  char fn[MAX_PATH + 1]; fn[0] = '\0';
-  snprintf(fn, sizeof(fn), "%s\\taos_odbc.log", temp);
-  FILE *f = fopen(logn, "a");
-  if (!f) return;
-  fputs(log, f);
-  fclose(f);
-}
-
 void tod_log(const char *fmt, ...)
 {
   va_list ap;
   va_start(ap, fmt);
 
   if (tod_get_debug()) {
-    va_list aq;
-    va_copy(aq, ap);
-    vfprintf(stderr, fmt, aq);
-    va_end(aq);
-  }
-
-  if (0) {
-    char buf[1024]; buf[0] = '\0';
-    vsnprintf(buf, sizeof(buf), fmt, ap);
-    odbc_log(buf);
+    vfprintf(stderr, fmt, ap);
   }
 
   va_end(ap);
-
 }
 
 int get_nr_load(void)

@@ -98,7 +98,7 @@ static void odbc_log(const char *log)
   fputs(log, f);
   fclose(f);
 #else
-  if (0) syslog(LOG_DEBUG, "%s", log);
+  syslog(LOG_DEBUG, "%s", log);
 #endif
 }
 
@@ -114,7 +114,9 @@ void tod_log(const char *fmt, ...)
     va_end(aq);
   }
 
-  if (1) {
+  // NOTE: if you wanna debug in detail, open it
+  // NOTE: this is performance-hit, please take serious consideration in advance!!!
+  if (0) {
     char buf[1024]; buf[0] = '\0';
     vsnprintf(buf, sizeof(buf), fmt, ap);
     odbc_log(buf);

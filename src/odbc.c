@@ -81,9 +81,60 @@ int tod_get_debug_bison(void)
   return !!_taos_odbc_debug_bison;
 }
 
+static void odbc_log(const char *log)
+{
+  const char *logn = "C:\\Windows\\Temp\\taos_odbc.txt";
+  if (0) {
+    HANDLE h = CreateFile(logn, FILE_APPEND_DATA, FILE_SHARE_WRITE, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (h == INVALID_HANDLE_VALUE) return;
+    WriteFile(h, log, (DWORD)strlen(log), NULL, NULL);
+    CloseHandle(h);
+    return;
+  }
+  const char *temp = getenv("TEMP");
+  char fn[MAX_PATH + 1]; fn[0] = '\0';
+  snprintf(fn, sizeof(fn), "%s\\taos_odbc.log", temp);
+  FILE *f = fopen(logn, "a");
+  if (!f) return;
+  fputs(log, f);
+  fclose(f);
+}
+
+void tod_log(const char *fmt, ...)
+{
+  va_list ap;
+  va_start(ap, fmt);
+
+  if (tod_get_debug()) {
+    va_list aq;
+    va_copy(aq, ap);
+    vfprintf(stderr, fmt, aq);
+    va_end(aq);
+  }
+
+  if (0) {
+    char buf[1024]; buf[0] = '\0';
+    vsnprintf(buf, sizeof(buf), fmt, ap);
+    odbc_log(buf);
+  }
+
+  va_end(ap);
+
+}
+
 int get_nr_load(void)
 {
   return atomic_load(&_nr_load);
+}
+
+static void init_global(void)
+{
+  static int                     inited = 0;
+  if (!inited) {
+    static pthread_once_t        once;
+    pthread_once(&once, _init_once);
+    inited = 1;
+  }
 }
 
 #ifdef _WIN32                  /* { */
@@ -99,6 +150,8 @@ BOOL WINAPI DllMain(
     DWORD fdwReason,    // reason for calling function
     LPVOID lpvReserved) // reserved
 {
+  init_global();
+
   tls_t *tls;
 
   // Perform actions based on the reason for calling.
@@ -198,6 +251,7 @@ tls_t* tls_get(void)
 
 __attribute__((constructor)) void _initialize(void)
 {
+  init_global();
   // yes, no check return value
   atomic_fetch_add(&_nr_load, 1);
 }
@@ -228,12 +282,6 @@ SQLRETURN SQL_API SQLAllocHandle(
     SQLHANDLE   InputHandle,
     SQLHANDLE  *OutputHandle)
 {
-  static int                     inited = 0;
-  if (!inited) {
-    static pthread_once_t        once;
-    pthread_once(&once, _init_once);
-  }
-
   env_t  *env;
   conn_t *conn;
 
@@ -377,7 +425,6 @@ SQLRETURN SQL_API SQLEndTran(
 
   switch (HandleType) {
     case SQL_HANDLE_ENV:
-      OA_NIY(0);
       env_clr_errs((env_t*)Handle);
       return env_end_tran((env_t*)Handle, CompletionType);
     case SQL_HANDLE_DBC:
@@ -557,7 +604,6 @@ SQLRETURN SQL_API SQLGetDiagRec(
       return stmt_get_diag_rec((stmt_t*)Handle, RecNumber, SQLState, NativeErrorPtr, MessageText, BufferLength, TextLengthPtr);
     default:
       OE("HandleType[%s] not supported yet", sql_handle_type(HandleType));
-      OA_NIY(0);
       return SQL_ERROR;
   }
 
@@ -584,7 +630,6 @@ SQLRETURN SQL_API SQLGetDiagField(
       return stmt_get_diag_field((stmt_t*)Handle, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
     default:
       OW("`%s` not implemented yet", sql_handle_type(HandleType));
-      OA_NIY(0);
       return SQL_ERROR;
   }
 #endif
@@ -594,7 +639,7 @@ SQLRETURN SQL_API SQLGetDiagField(
   (void)DiagInfoPtr;
   (void)BufferLength;
   (void)StringLengthPtr;
-  OA_NIY(0);
+  return SQL_ERROR;
 }
 
 SQLRETURN SQL_API SQLGetData(
@@ -745,7 +790,6 @@ SQLRETURN SQL_API SQLColAttribute(
   (void)StringLengthPtr;
   (void)NumericAttributePtr;
 
-  OA_NIY(0);
   return SQL_ERROR;
 }
 
@@ -1071,7 +1115,7 @@ SQLRETURN SQL_API SQLColumnPrivileges(
   (void)cchTableName;
   (void)szColumnName;
   (void)cchColumnName;
-  OA_NIY(0);
+  return SQL_ERROR;
 }
 
 SQLRETURN SQL_API SQLColumns(SQLHSTMT StatementHandle,
@@ -1089,7 +1133,7 @@ SQLRETURN SQL_API SQLColumns(SQLHSTMT StatementHandle,
   (void)NameLength3;
   (void)ColumnName;
   (void)NameLength4;
-  OA_NIY(0);
+  return SQL_ERROR;
 }
 
 #if (ODBCVER >= 0x0300)
@@ -1098,7 +1142,7 @@ SQLRETURN SQL_API SQLCopyDesc(SQLHDESC SourceDescHandle,
 {
   (void)SourceDescHandle;
   (void)TargetDescHandle;
-  OA_NIY(0);
+  return SQL_ERROR;
 }
 #endif
 
@@ -1114,7 +1158,7 @@ SQLRETURN SQL_API SQLExtendedFetch(
   (void)irow;
   (void)pcrow;
   (void)rgfRowStatus;
-  OA_NIY(0);
+  return SQL_ERROR;
 }
 
 SQLRETURN SQL_API SQLForeignKeys(
@@ -1145,7 +1189,7 @@ SQLRETURN SQL_API SQLForeignKeys(
   (void)cchFkSchemaName;
   (void)szFkTableName;
   (void)cchFkTableName;
-  OA_NIY(0);
+  return SQL_ERROR;
 }
 
 #if (ODBCVER >= 0x0300)
@@ -1158,7 +1202,7 @@ SQLRETURN SQL_API SQLGetConnectAttr(SQLHDBC ConnectionHandle,
   (void)Value;
   (void)BufferLength;
   (void)StringLengthPtr;
-  OA_NIY(0);
+  return SQL_ERROR;
 }
 #endif
 
@@ -1174,7 +1218,7 @@ SQLRETURN SQL_API SQLGetCursorName
   (void)CursorName;
   (void)BufferLength;
   (void)NameLengthPtr;
-  OA_NIY(0);
+  return SQL_ERROR;
 }
 
 #if (ODBCVER >= 0x0300)
@@ -1189,7 +1233,7 @@ SQLRETURN SQL_API SQLGetDescField(SQLHDESC DescriptorHandle,
   (void)Value;
   (void)BufferLength;
   (void)StringLength;
-  OA_NIY(0);
+  return SQL_ERROR;
 }
 
 SQLRETURN SQL_API SQLGetDescRec(SQLHDESC DescriptorHandle,
@@ -1210,7 +1254,7 @@ SQLRETURN SQL_API SQLGetDescRec(SQLHDESC DescriptorHandle,
   (void)PrecisionPtr;
   (void)ScalePtr;
   (void)NullablePtr;
-  OA_NIY(0);
+  return SQL_ERROR;
 }
 
 SQLRETURN SQL_API SQLGetEnvAttr(SQLHENV EnvironmentHandle,
@@ -1259,14 +1303,14 @@ SQLRETURN SQL_API SQLGetTypeInfo(SQLHSTMT StatementHandle,
 {
   (void)StatementHandle;
   (void)DataType;
-  OA_NIY(0);
+  return SQL_ERROR;
 }
 
 SQLRETURN SQL_API SQLMoreResults(
     SQLHSTMT           hstmt)
 {
   (void)hstmt;
-  OA_NIY(0);
+  return SQL_ERROR;
 }
 
 SQLRETURN SQL_API SQLNativeSql
@@ -1285,7 +1329,7 @@ SQLRETURN SQL_API SQLNativeSql
   (void)szSqlStr;
   (void)cchSqlStrMax;
   (void)pcbSqlStr;
-  OA_NIY(0);
+  return SQL_ERROR;
 }
 
 SQLRETURN SQL_API SQLParamData(SQLHSTMT StatementHandle,
@@ -1293,7 +1337,7 @@ SQLRETURN SQL_API SQLParamData(SQLHSTMT StatementHandle,
 {
   (void)StatementHandle;
   (void)Value;
-  OA_NIY(0);
+  return SQL_ERROR;
 }
 
 SQLRETURN SQL_API SQLPrimaryKeys(
@@ -1312,7 +1356,7 @@ SQLRETURN SQL_API SQLPrimaryKeys(
   (void)cchSchemaName;
   (void)szTableName;
   (void)cchTableName;
-  OA_NIY(0);
+  return SQL_ERROR;
 }
 
 SQLRETURN SQL_API SQLProcedureColumns(
@@ -1335,7 +1379,7 @@ SQLRETURN SQL_API SQLProcedureColumns(
   (void)cchProcName;
   (void)szColumnName;
   (void)cchColumnName;
-  OA_NIY(0);
+  return SQL_ERROR;
 }
 
 SQLRETURN SQL_API SQLProcedures(
@@ -1354,7 +1398,7 @@ SQLRETURN SQL_API SQLProcedures(
   (void)cchSchemaName;
   (void)szProcName;
   (void)cchProcName;
-  OA_NIY(0);
+  return SQL_ERROR;
 }
 
 SQLRETURN SQL_API SQLPutData(SQLHSTMT StatementHandle,
@@ -1363,7 +1407,7 @@ SQLRETURN SQL_API SQLPutData(SQLHSTMT StatementHandle,
   (void)StatementHandle;
   (void)Data;
   (void)StrLen_or_Ind;
-  OA_NIY(0);
+  return SQL_ERROR;
 }
 
 SQLRETURN SQL_API SQLSetCursorName
@@ -1376,7 +1420,7 @@ SQLRETURN SQL_API SQLSetCursorName
   (void)StatementHandle;
   (void)CursorName;
   (void)NameLength;
-  OA_NIY(0);
+  return SQL_ERROR;
 }
 
 #if (ODBCVER >= 0x0300)
@@ -1389,7 +1433,7 @@ SQLRETURN SQL_API SQLSetDescField(SQLHDESC DescriptorHandle,
   (void)FieldIdentifier;
   (void)Value;
   (void)BufferLength;
-  OA_NIY(0);
+  return SQL_ERROR;
 }
 
 SQLRETURN SQL_API SQLSetDescRec(SQLHDESC DescriptorHandle,
@@ -1409,7 +1453,7 @@ SQLRETURN SQL_API SQLSetDescRec(SQLHDESC DescriptorHandle,
   (void)Data;
   (void)StringLength;
   (void)Indicator;
-  OA_NIY(0);
+  return SQL_ERROR;
 }
 #endif /* ODBCVER >= 0x0300 */
 
@@ -1423,7 +1467,7 @@ SQLRETURN SQL_API SQLSetPos(
   (void)irow;
   (void)fOption;
   (void)fLock;
-  OA_NIY(0);
+  return SQL_ERROR;
 }
 
 SQLRETURN SQL_API SQLSpecialColumns(SQLHSTMT StatementHandle,
@@ -1443,7 +1487,7 @@ SQLRETURN SQL_API SQLSpecialColumns(SQLHSTMT StatementHandle,
   (void)NameLength3;
   (void)Scope;
   (void)Nullable;
-  OA_NIY(0);
+  return SQL_ERROR;
 }
 
 SQLRETURN SQL_API SQLStatistics(SQLHSTMT StatementHandle,
@@ -1461,7 +1505,7 @@ SQLRETURN SQL_API SQLStatistics(SQLHSTMT StatementHandle,
   (void)NameLength3;
   (void)Unique;
   (void)Reserved;
-  OA_NIY(0);
+  return SQL_ERROR;
 }
 
 SQLRETURN SQL_API SQLTablePrivileges(
@@ -1480,5 +1524,5 @@ SQLRETURN SQL_API SQLTablePrivileges(
   (void)cchSchemaName;
   (void)szTableName;
   (void)cchTableName;
-  OA_NIY(0);
+  return SQL_ERROR;
 }

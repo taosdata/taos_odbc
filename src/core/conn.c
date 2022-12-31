@@ -803,7 +803,6 @@ SQLRETURN conn_get_info(
 #endif
     default:
       conn_append_err_format(conn, "HY000", 0, "General error:`%s[%d/0x%x]` not implemented yet", sql_info_type(InfoType), InfoType, InfoType);
-      OA_NIY(0);
       return SQL_ERROR;
   }
 }
@@ -879,7 +878,7 @@ SQLRETURN conn_get_diag_field(
       if (StringLengthPtr) *StringLengthPtr = 0;
       return SQL_SUCCESS;
     default:
-      OA(0, "RecNumber:[%d]; DiagIdentifier:[%d]%s", RecNumber, DiagIdentifier, sql_diag_identifier(DiagIdentifier));
+      conn_append_err_format(conn, "HY000", 0, "General error:RecNumber:[%d]; DiagIdentifier:[%d]%s", RecNumber, DiagIdentifier, sql_diag_identifier(DiagIdentifier));
       return SQL_ERROR;
   }
 }

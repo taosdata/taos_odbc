@@ -27,10 +27,14 @@
 
 #include "macros.h"
 
-#define LOG_IMPL(fmt, ...) do {                  \
-  if (!tod_get_debug()) break;                   \
-  fprintf(stderr, fmt, ##__VA_ARGS__);           \
-} while (0)
+#ifdef _WIN32
+void tod_log(const char *fmt, ...) FA_HIDDEN;
+// NOTE: make MSVC to do fmt-string-checking with printf during compile-time
+#define LOG_IMPL(fmt, ...) (0 ? printf(fmt, ##__VA_ARGS__) : tod_log(fmt, ##__VA_ARGS__))
+#else
+void tod_log(const char *fmt, ...) __attribute__ ((format (printf, 1, 2))) FA_HIDDEN;
+#define LOG_IMPL tod_log
+#endif
 
 #include "helpers.h"
 

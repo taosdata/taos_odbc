@@ -183,6 +183,7 @@ cmake --build build --config Debug -j 4
 8. installing taos_odbc, this would install taos_odbc.dll into C:\Program Files\taos_odbc\bin\
 ```
 cmake --install build --config Debug
+cmake --build build --config Debug --target install_templates
 ```
 9. check and see if a new TAOS_ODBC_DSN registry has been setup in win_registry
 ```

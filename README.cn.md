@@ -183,6 +183,7 @@ cmake --build build --config Debug -j 4
 8. 安装taos_odbc, 安装好后, C:\Program Files\taos_odbc\bin\目录下会安装有taos_odbc.dll
 ```
 cmake --install build --config Debug
+cmake --build build --config Debug --target install_templates
 ```
 9. 检查windows注册表项，看下相关的TAOS_ODBC_DSN条目等是否存在
 ```

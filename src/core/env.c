@@ -180,6 +180,8 @@ static SQLRETURN _env_set_odbc_version(env_t *env, SQLINTEGER odbc_version)
   switch (odbc_version) {
     case SQL_OV_ODBC3:
       return SQL_SUCCESS;
+    case SQL_OV_ODBC2:
+      return SQL_SUCCESS;
     default:
       env_append_err_format(env, "01S02", 0,
           "Option value changed:`%s[0x%x/%d]` is substituted by `SQL_OV_ODBC3`", sql_odbc_version(odbc_version), odbc_version, odbc_version);
@@ -253,6 +255,37 @@ SQLRETURN env_alloc_conn(env_t *env, SQLHANDLE *OutputHandle)
 
   *OutputHandle = (SQLHANDLE)conn;
   return SQL_SUCCESS;
+}
+
+SQLRETURN env_get_diag_field(
+    env_t          *env,
+    SQLSMALLINT     RecNumber,
+    SQLSMALLINT     DiagIdentifier,
+    SQLPOINTER      DiagInfoPtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr)
+{
+  switch (DiagIdentifier) {
+    case SQL_DIAG_CLASS_ORIGIN:
+      return errs_get_diag_field_class_origin(&env->errs, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
+    case SQL_DIAG_SUBCLASS_ORIGIN:
+      return errs_get_diag_field_subclass_origin(&env->errs, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
+    case SQL_DIAG_SQLSTATE:
+      return errs_get_diag_field_sqlstate(&env->errs, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
+    case SQL_DIAG_CONNECTION_NAME:
+      // TODO:
+      *(char*)DiagInfoPtr = '\0';
+      if (StringLengthPtr) *StringLengthPtr = 0;
+      return SQL_SUCCESS;
+    case SQL_DIAG_SERVER_NAME:
+      // TODO:
+      *(char*)DiagInfoPtr = '\0';
+      if (StringLengthPtr) *StringLengthPtr = 0;
+      return SQL_SUCCESS;
+    default:
+      OA(0, "RecNumber:[%d]; DiagIdentifier:[%d]%s", RecNumber, DiagIdentifier, sql_diag_identifier(DiagIdentifier));
+      return SQL_ERROR;
+  }
 }
 
 void env_clr_errs(env_t *env)

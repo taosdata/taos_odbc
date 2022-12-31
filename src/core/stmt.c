@@ -4635,6 +4635,10 @@ SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr,
       return _stmt_set_row_desc(stmt, ValuePtr);
     case SQL_ATTR_APP_PARAM_DESC:
       return _stmt_set_param_desc(stmt, ValuePtr);
+    case SQL_ATTR_QUERY_TIMEOUT:
+      if (*(SQLULEN*)ValuePtr == 0) return SQL_SUCCESS;
+      stmt_append_err_format(stmt, "01S02", 0, "Option value changed:`%" PRIu64 "` for `SQL_ATTR_QUERY_TIMEOUT` is substituted by `0`", *(SQLULEN*)ValuePtr);
+      return SQL_SUCCESS_WITH_INFO;
     default:
       OE("General error:`%s[0x%x/%d]` not supported yet", sql_stmt_attr(Attribute), Attribute, Attribute);
       stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_stmt_attr(Attribute), Attribute, Attribute);

@@ -73,6 +73,14 @@ SQLRETURN env_end_tran(env_t *env, SQLSMALLINT CompletionType) FA_HIDDEN;
 
 SQLRETURN env_alloc_conn(env_t *env, SQLHANDLE *OutputHandle) FA_HIDDEN;
 
+SQLRETURN env_get_diag_field(
+    env_t          *env,
+    SQLSMALLINT     RecNumber,
+    SQLSMALLINT     DiagIdentifier,
+    SQLPOINTER      DiagInfoPtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr) FA_HIDDEN;
+
 size_t env_conv(env_t *env, iconv_t cnv, mem_t *mem, const char *src, char **pdst) FA_HIDDEN;
 
 int tod_get_debug_flex(void) FA_HIDDEN;

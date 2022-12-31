@@ -81,13 +81,41 @@ int tod_get_debug_bison(void)
   return !!_taos_odbc_debug_bison;
 }
 
+static void odbc_log(const char *log)
+{
+#ifdef _WIN32
+  const char *temp = getenv("TEMP");
+  if (!temp) temp = getenv("TMP");
+  if (!temp) return;
+
+  char fn[MAX_PATH+1]; fn[0] = '\0';
+  snprintf(fn, sizeof(fn), "%s\\taos_odbc.log", temp);
+
+  FILE *f = fopen(fn, "a");
+  if (!f) return;
+  fputs(log, f);
+  fclose(f);
+#else
+#error not implemented yet
+#endif
+}
+
 void tod_log(const char *fmt, ...)
 {
   va_list ap;
   va_start(ap, fmt);
 
   if (tod_get_debug()) {
-    vfprintf(stderr, fmt, ap);
+    va_list aq;
+    va_copy(aq, ap);
+    vfprintf(stderr, fmt, aq);
+    va_end(aq);
+  }
+
+  if (1) {
+    char buf[1024]; buf[0] = '\0';
+    vsnprintf(buf, sizeof(buf), fmt, ap);
+    odbc_log(buf);
   }
 
   va_end(ap);
@@ -283,6 +311,7 @@ SQLRETURN SQL_API SQLAllocHandle(
     default:
       if (InputHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
+      OA_NIY(0);
       return SQL_ERROR;
   }
 }
@@ -306,6 +335,7 @@ SQLRETURN SQL_API SQLFreeHandle(
     case SQL_HANDLE_DESC:
       return desc_free((desc_t*)Handle);
     default:
+      OA_NIY(0);
       return SQL_ERROR;
   }
 }
@@ -402,6 +432,7 @@ SQLRETURN SQL_API SQLEndTran(
       conn_clr_errs((conn_t*)Handle);
       return conn_end_tran((conn_t*)Handle, CompletionType);
     default:
+      OA_NIY(0);
       return SQL_ERROR;
   }
 }
@@ -578,6 +609,7 @@ SQLRETURN SQL_API SQLGetDiagRec(
       return SQL_ERROR;
   }
 
+  OA_NIY(0);
   return SQL_ERROR;
 }
 
@@ -599,8 +631,11 @@ SQLRETURN SQL_API SQLGetDiagField(
       return conn_get_diag_field((conn_t*)Handle, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
     case SQL_HANDLE_STMT:
       return stmt_get_diag_field((stmt_t*)Handle, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
+    case SQL_HANDLE_ENV:
+      return env_get_diag_field((env_t*)Handle, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
     default:
       OW("`%s` not implemented yet", sql_handle_type(HandleType));
+      OA_NIY(0);
       return SQL_ERROR;
   }
 #endif
@@ -610,6 +645,7 @@ SQLRETURN SQL_API SQLGetDiagField(
   (void)DiagInfoPtr;
   (void)BufferLength;
   (void)StringLengthPtr;
+  OA_NIY(0);
   return SQL_ERROR;
 }
 
@@ -761,6 +797,7 @@ SQLRETURN SQL_API SQLColAttribute(
   (void)StringLengthPtr;
   (void)NumericAttributePtr;
 
+  OA_NIY(0);
   return SQL_ERROR;
 }
 
@@ -1042,7 +1079,9 @@ SQLRETURN SQL_API SQLBulkOperations(
     SQLSMALLINT         Operation)
 {
   (void)StatementHandle;
-  OA(0, "Operation:%s", sql_bulk_operation(Operation));
+  OD("Operation:%s", sql_bulk_operation(Operation));
+  OA_NIY(0);
+  return SQL_ERROR;
 }
 #endif  /* ODBCVER >= 0x0300 */
 
@@ -1086,6 +1125,7 @@ SQLRETURN SQL_API SQLColumnPrivileges(
   (void)cchTableName;
   (void)szColumnName;
   (void)cchColumnName;
+  OA_NIY(0);
   return SQL_ERROR;
 }
 
@@ -1104,6 +1144,7 @@ SQLRETURN SQL_API SQLColumns(SQLHSTMT StatementHandle,
   (void)NameLength3;
   (void)ColumnName;
   (void)NameLength4;
+  OA_NIY(0);
   return SQL_ERROR;
 }
 
@@ -1113,6 +1154,7 @@ SQLRETURN SQL_API SQLCopyDesc(SQLHDESC SourceDescHandle,
 {
   (void)SourceDescHandle;
   (void)TargetDescHandle;
+  OA_NIY(0);
   return SQL_ERROR;
 }
 #endif
@@ -1129,6 +1171,7 @@ SQLRETURN SQL_API SQLExtendedFetch(
   (void)irow;
   (void)pcrow;
   (void)rgfRowStatus;
+  OA_NIY(0);
   return SQL_ERROR;
 }
 
@@ -1160,6 +1203,7 @@ SQLRETURN SQL_API SQLForeignKeys(
   (void)cchFkSchemaName;
   (void)szFkTableName;
   (void)cchFkTableName;
+  OA_NIY(0);
   return SQL_ERROR;
 }
 
@@ -1168,12 +1212,13 @@ SQLRETURN SQL_API SQLGetConnectAttr(SQLHDBC ConnectionHandle,
            SQLINTEGER Attribute, SQLPOINTER Value,
            SQLINTEGER BufferLength, SQLINTEGER *StringLengthPtr)
 {
-  (void)ConnectionHandle;
-  (void)Attribute;
-  (void)Value;
-  (void)BufferLength;
-  (void)StringLengthPtr;
-  return SQL_ERROR;
+  if (ConnectionHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  conn_t *conn = (conn_t*)ConnectionHandle;
+
+  conn_clr_errs(conn);
+
+  return conn_get_attr(conn, Attribute, Value, BufferLength, StringLengthPtr);
 }
 #endif
 
@@ -1189,6 +1234,7 @@ SQLRETURN SQL_API SQLGetCursorName
   (void)CursorName;
   (void)BufferLength;
   (void)NameLengthPtr;
+  OA_NIY(0);
   return SQL_ERROR;
 }
 
@@ -1204,6 +1250,7 @@ SQLRETURN SQL_API SQLGetDescField(SQLHDESC DescriptorHandle,
   (void)Value;
   (void)BufferLength;
   (void)StringLength;
+  OA_NIY(0);
   return SQL_ERROR;
 }
 
@@ -1225,6 +1272,7 @@ SQLRETURN SQL_API SQLGetDescRec(SQLHDESC DescriptorHandle,
   (void)PrecisionPtr;
   (void)ScalePtr;
   (void)NullablePtr;
+  OA_NIY(0);
   return SQL_ERROR;
 }
 
@@ -1274,6 +1322,7 @@ SQLRETURN SQL_API SQLGetTypeInfo(SQLHSTMT StatementHandle,
 {
   (void)StatementHandle;
   (void)DataType;
+  OA_NIY(0);
   return SQL_ERROR;
 }
 
@@ -1281,6 +1330,7 @@ SQLRETURN SQL_API SQLMoreResults(
     SQLHSTMT           hstmt)
 {
   (void)hstmt;
+  OA_NIY(0);
   return SQL_ERROR;
 }
 
@@ -1300,6 +1350,7 @@ SQLRETURN SQL_API SQLNativeSql
   (void)szSqlStr;
   (void)cchSqlStrMax;
   (void)pcbSqlStr;
+  OA_NIY(0);
   return SQL_ERROR;
 }
 
@@ -1308,6 +1359,7 @@ SQLRETURN SQL_API SQLParamData(SQLHSTMT StatementHandle,
 {
   (void)StatementHandle;
   (void)Value;
+  OA_NIY(0);
   return SQL_ERROR;
 }
 
@@ -1327,6 +1379,7 @@ SQLRETURN SQL_API SQLPrimaryKeys(
   (void)cchSchemaName;
   (void)szTableName;
   (void)cchTableName;
+  OA_NIY(0);
   return SQL_ERROR;
 }
 
@@ -1350,6 +1403,7 @@ SQLRETURN SQL_API SQLProcedureColumns(
   (void)cchProcName;
   (void)szColumnName;
   (void)cchColumnName;
+  OA_NIY(0);
   return SQL_ERROR;
 }
 
@@ -1369,6 +1423,7 @@ SQLRETURN SQL_API SQLProcedures(
   (void)cchSchemaName;
   (void)szProcName;
   (void)cchProcName;
+  OA_NIY(0);
   return SQL_ERROR;
 }
 
@@ -1378,6 +1433,7 @@ SQLRETURN SQL_API SQLPutData(SQLHSTMT StatementHandle,
   (void)StatementHandle;
   (void)Data;
   (void)StrLen_or_Ind;
+  OA_NIY(0);
   return SQL_ERROR;
 }
 
@@ -1391,6 +1447,7 @@ SQLRETURN SQL_API SQLSetCursorName
   (void)StatementHandle;
   (void)CursorName;
   (void)NameLength;
+  OA_NIY(0);
   return SQL_ERROR;
 }
 
@@ -1404,6 +1461,7 @@ SQLRETURN SQL_API SQLSetDescField(SQLHDESC DescriptorHandle,
   (void)FieldIdentifier;
   (void)Value;
   (void)BufferLength;
+  OA_NIY(0);
   return SQL_ERROR;
 }
 
@@ -1424,6 +1482,7 @@ SQLRETURN SQL_API SQLSetDescRec(SQLHDESC DescriptorHandle,
   (void)Data;
   (void)StringLength;
   (void)Indicator;
+  OA_NIY(0);
   return SQL_ERROR;
 }
 #endif /* ODBCVER >= 0x0300 */
@@ -1438,6 +1497,7 @@ SQLRETURN SQL_API SQLSetPos(
   (void)irow;
   (void)fOption;
   (void)fLock;
+  OA_NIY(0);
   return SQL_ERROR;
 }
 
@@ -1458,6 +1518,7 @@ SQLRETURN SQL_API SQLSpecialColumns(SQLHSTMT StatementHandle,
   (void)NameLength3;
   (void)Scope;
   (void)Nullable;
+  OA_NIY(0);
   return SQL_ERROR;
 }
 
@@ -1476,6 +1537,7 @@ SQLRETURN SQL_API SQLStatistics(SQLHSTMT StatementHandle,
   (void)NameLength3;
   (void)Unique;
   (void)Reserved;
+  OA_NIY(0);
   return SQL_ERROR;
 }
 
@@ -1495,5 +1557,6 @@ SQLRETURN SQL_API SQLTablePrivileges(
   (void)cchSchemaName;
   (void)szTableName;
   (void)cchTableName;
+  OA_NIY(0);
   return SQL_ERROR;
 }

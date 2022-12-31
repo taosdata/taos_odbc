@@ -134,6 +134,9 @@ const char *sql_driver_completion(SQLUSMALLINT v)
 {
   switch (v) {
     CASE(SQL_DRIVER_NOPROMPT);
+    CASE(SQL_DRIVER_COMPLETE);
+    CASE(SQL_DRIVER_COMPLETE_REQUIRED);
+    CASE(SQL_DRIVER_PROMPT);
     default:
     return "SQL_DRIVER_unknown";
   }
@@ -331,6 +334,8 @@ const char *sql_info_type(SQLUSMALLINT v)
     CASE(SQL_CONVERT_VARBINARY);
     CASE(SQL_CONVERT_VARCHAR);
 
+    CASE(SQL_DTC_TRANSITION_COST);
+
     // Information Types Added for ODBC 3.x
     // Note: check it later
     // Information Types Renamed for ODBC 3.x
@@ -358,6 +363,7 @@ const char *sql_conn_attr(SQLINTEGER v)
   switch (v) {
     CASE(SQL_ATTR_CONNECTION_TIMEOUT);
     CASE(SQL_ATTR_LOGIN_TIMEOUT);
+    CASE(SQL_CURRENT_QUALIFIER);
     default:
     return "SQL_ATTR_unknown";
   }

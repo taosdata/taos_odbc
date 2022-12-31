@@ -129,6 +129,13 @@ SQLRETURN conn_set_attr(
     SQLPOINTER    ValuePtr,
     SQLINTEGER    StringLength) FA_HIDDEN;
 
+SQLRETURN conn_get_attr(
+    conn_t       *conn,
+    SQLINTEGER    Attribute,
+    SQLPOINTER    Value,
+    SQLINTEGER    BufferLength,
+    SQLINTEGER   *StringLengthPtr) FA_HIDDEN;
+
 SQLRETURN conn_get_diag_field(
     conn_t         *conn,
     SQLSMALLINT     RecNumber,

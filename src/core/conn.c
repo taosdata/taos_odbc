@@ -430,12 +430,12 @@ static void _conn_fill_out_connection_str(
   }
   if (n>0) count += n;
 
-  if (conn->cfg.pwd) {
-    fixed_buf_sprintf(n, &buffer, "PWD=*;");
-  } else {
-    fixed_buf_sprintf(n, &buffer, "PWD=;");
-  }
-  if (n>0) count += n;
+  // if (conn->cfg.pwd) {
+  //   fixed_buf_sprintf(n, &buffer, "PWD=*;");
+  // } else {
+  //   fixed_buf_sprintf(n, &buffer, "PWD=;");
+  // }
+  // if (n>0) count += n;
 
   if (conn->cfg.ip) {
     if (conn->cfg.port) {
@@ -444,28 +444,28 @@ static void _conn_fill_out_connection_str(
       fixed_buf_sprintf(n, &buffer, "Server=%s;", conn->cfg.ip);
     }
   } else {
-    fixed_buf_sprintf(n, &buffer, "Server=;");
+    if (0) fixed_buf_sprintf(n, &buffer, "Server=;");
   }
   if (n>0) count += n;
 
   if (conn->cfg.db) {
     fixed_buf_sprintf(n, &buffer, "DB=%s;", conn->cfg.db);
   } else {
-    fixed_buf_sprintf(n, &buffer, "DB=;");
+    if (0) fixed_buf_sprintf(n, &buffer, "DB=;");
   }
   if (n>0) count += n;
 
   if (conn->cfg.unsigned_promotion) {
     fixed_buf_sprintf(n, &buffer, "UNSIGNED_PROMOTION=1;");
   } else {
-    fixed_buf_sprintf(n, &buffer, "UNSIGNED_PROMOTION=;");
+    if (0) fixed_buf_sprintf(n, &buffer, "UNSIGNED_PROMOTION=;");
   }
   if (n>0) count += n;
 
   if (conn->cfg.cache_sql) {
     fixed_buf_sprintf(n, &buffer, "CACHE_SQL=1;");
   } else {
-    fixed_buf_sprintf(n, &buffer, "CACHE_SQL=;");
+    if (0) fixed_buf_sprintf(n, &buffer, "CACHE_SQL=;");
   }
   if (n>0) count += n;
 
@@ -493,6 +493,8 @@ SQLRETURN conn_driver_connect(
 
   switch (DriverCompletion) {
     case SQL_DRIVER_NOPROMPT:
+      break;
+    case SQL_DRIVER_COMPLETE:
       break;
     default:
       conn_append_err_format(conn, "HY000", 0,
@@ -754,6 +756,76 @@ static SQLRETURN _conn_get_info_driver_name(
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _conn_get_dbms_ver(
+    conn_t         *conn,
+    SQLPOINTER      InfoValuePtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr)
+{
+  const char *dbms_ver = "01.00.0000";
+  int n = snprintf((char*)InfoValuePtr, BufferLength, "%s", dbms_ver);
+  if (StringLengthPtr) {
+    *StringLengthPtr = n;
+  }
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _conn_get_server_name(
+    conn_t         *conn,
+    SQLPOINTER      InfoValuePtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr)
+{
+  const char *server_name = "";
+  int n = snprintf((char*)InfoValuePtr, BufferLength, "%s", server_name);
+  if (StringLengthPtr) {
+    *StringLengthPtr = n;
+  }
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _conn_get_catalog_name_separator(
+    conn_t         *conn,
+    SQLPOINTER      InfoValuePtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr)
+{
+  const char *catalog_name_separator = ".";
+  int n = snprintf((char*)InfoValuePtr, BufferLength, "%s", catalog_name_separator);
+  if (StringLengthPtr) {
+    *StringLengthPtr = n;
+  }
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _conn_get_order_by_columns_in_select(
+    conn_t         *conn,
+    SQLPOINTER      InfoValuePtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr)
+{
+  const char *order_by_columns_in_select = "N";
+  int n = snprintf((char*)InfoValuePtr, BufferLength, "%s", order_by_columns_in_select);
+  if (StringLengthPtr) {
+    *StringLengthPtr = n;
+  }
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _conn_get_identifier_quote_char(
+    conn_t         *conn,
+    SQLPOINTER      InfoValuePtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr)
+{
+  const char *identifier_quote_char = "`";
+  int n = snprintf((char*)InfoValuePtr, BufferLength, "%s", identifier_quote_char);
+  if (StringLengthPtr) {
+    *StringLengthPtr = n;
+  }
+  return SQL_SUCCESS;
+}
+
 SQLRETURN conn_get_info(
     conn_t         *conn,
     SQLUSMALLINT    InfoType,
@@ -801,6 +873,32 @@ SQLRETURN conn_get_info(
       *(SQLUINTEGER*)InfoValuePtr = SQL_ASYNC_NOTIFICATION_NOT_CAPABLE;
       return SQL_SUCCESS;
 #endif
+    case SQL_DBMS_VER:
+      return _conn_get_dbms_ver(conn, InfoValuePtr, BufferLength, StringLengthPtr);
+    case SQL_SERVER_NAME:
+      return _conn_get_server_name(conn, InfoValuePtr, BufferLength, StringLengthPtr);
+    case SQL_DTC_TRANSITION_COST:
+      *(SQLUINTEGER*)InfoValuePtr = 0;
+      return SQL_SUCCESS;
+    case SQL_CATALOG_NAME_SEPARATOR:
+      return _conn_get_catalog_name_separator(conn, InfoValuePtr, BufferLength, StringLengthPtr);
+    case SQL_OJ_CAPABILITIES:
+      // *(SQLUINTEGER*)InfoValuePtr = SQL_OJ_LEFT | SQL_OJ_RIGHT | SQL_OJ_FULL | SQL_OJ_NESTED | SQL_OJ_NOT_ORDERED | SQL_OJ_INNER | SQL_OJ_ALL_COMPARISON_OPS;
+      *(SQLUINTEGER*)InfoValuePtr = 0;
+      return SQL_SUCCESS;
+    case SQL_GROUP_BY:
+      *(SQLUSMALLINT*)InfoValuePtr = SQL_GB_GROUP_BY_EQUALS_SELECT;
+      return SQL_SUCCESS;
+    case SQL_IDENTIFIER_CASE:
+      *(SQLUSMALLINT*)InfoValuePtr = SQL_IC_UPPER;
+      return SQL_SUCCESS;
+    case SQL_ORDER_BY_COLUMNS_IN_SELECT:
+      return _conn_get_order_by_columns_in_select(conn, InfoValuePtr, BufferLength, StringLengthPtr);
+    case SQL_IDENTIFIER_QUOTE_CHAR:
+      return _conn_get_identifier_quote_char(conn, InfoValuePtr, BufferLength, StringLengthPtr);
+    case SQL_QUOTED_IDENTIFIER_CASE:
+      *(SQLUSMALLINT*)InfoValuePtr = SQL_IC_SENSITIVE;
+      return SQL_SUCCESS;
     default:
       conn_append_err_format(conn, "HY000", 0, "General error:`%s[%d/0x%x]` not implemented yet", sql_info_type(InfoType), InfoType, InfoType);
       return SQL_ERROR;
@@ -849,6 +947,38 @@ SQLRETURN conn_set_attr(
   }
 }
 
+static SQLRETURN _conn_get_attr_current_qualifier(
+    conn_t       *conn,
+    SQLPOINTER    Value,
+    SQLINTEGER    BufferLength,
+    SQLINTEGER   *StringLengthPtr)
+{
+  if (0) {
+    conn_append_err(conn, "HYC00", 0, "Optional feature not implemented:`SQL_CURRENT_QUALIFIER` not supported yet");
+    return SQL_ERROR;
+  }
+  const char *current_qualifier = "information_schema";
+  int n = snprintf((char*)Value, BufferLength, "%s", current_qualifier);
+  if (StringLengthPtr) *StringLengthPtr = n;
+  return SQL_SUCCESS;
+}
+
+SQLRETURN conn_get_attr(
+    conn_t       *conn,
+    SQLINTEGER    Attribute,
+    SQLPOINTER    Value,
+    SQLINTEGER    BufferLength,
+    SQLINTEGER   *StringLengthPtr)
+{
+  switch (Attribute) {
+    case SQL_CURRENT_QUALIFIER:
+      return _conn_get_attr_current_qualifier(conn, Value, BufferLength, StringLengthPtr);
+    default:
+      conn_append_err_format(conn, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_conn_attr(Attribute), Attribute, Attribute);
+      return SQL_ERROR;
+  }
+}
+
 void conn_clr_errs(conn_t *conn)
 {
   errs_clr(&conn->errs);
@@ -867,6 +997,8 @@ SQLRETURN conn_get_diag_field(
       return errs_get_diag_field_class_origin(&conn->errs, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
     case SQL_DIAG_SUBCLASS_ORIGIN:
       return errs_get_diag_field_subclass_origin(&conn->errs, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
+    case SQL_DIAG_SQLSTATE:
+      return errs_get_diag_field_sqlstate(&conn->errs, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
     case SQL_DIAG_CONNECTION_NAME:
       // TODO:
       *(char*)DiagInfoPtr = '\0';

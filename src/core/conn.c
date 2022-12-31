@@ -762,6 +762,7 @@ static SQLRETURN _conn_get_dbms_ver(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr)
 {
+  (void)conn;
   const char *dbms_ver = "01.00.0000";
   int n = snprintf((char*)InfoValuePtr, BufferLength, "%s", dbms_ver);
   if (StringLengthPtr) {
@@ -776,6 +777,7 @@ static SQLRETURN _conn_get_server_name(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr)
 {
+  (void)conn;
   const char *server_name = "";
   int n = snprintf((char*)InfoValuePtr, BufferLength, "%s", server_name);
   if (StringLengthPtr) {
@@ -790,6 +792,7 @@ static SQLRETURN _conn_get_catalog_name_separator(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr)
 {
+  (void)conn;
   const char *catalog_name_separator = ".";
   int n = snprintf((char*)InfoValuePtr, BufferLength, "%s", catalog_name_separator);
   if (StringLengthPtr) {
@@ -804,6 +807,7 @@ static SQLRETURN _conn_get_order_by_columns_in_select(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr)
 {
+  (void)conn;
   const char *order_by_columns_in_select = "N";
   int n = snprintf((char*)InfoValuePtr, BufferLength, "%s", order_by_columns_in_select);
   if (StringLengthPtr) {
@@ -818,6 +822,7 @@ static SQLRETURN _conn_get_identifier_quote_char(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr)
 {
+  (void)conn;
   const char *identifier_quote_char = "`";
   int n = snprintf((char*)InfoValuePtr, BufferLength, "%s", identifier_quote_char);
   if (StringLengthPtr) {

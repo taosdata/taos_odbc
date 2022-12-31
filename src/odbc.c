@@ -42,6 +42,8 @@
 
 #ifdef _WIN32
 #include <odbcinst.h>
+#else
+#include <syslog.h>
 #endif
 
 static atomic_int    _nr_load               = 0;
@@ -96,7 +98,7 @@ static void odbc_log(const char *log)
   fputs(log, f);
   fclose(f);
 #else
-#error not implemented yet
+  syslog(LOG_DEBUG, "%s", log);
 #endif
 }
 

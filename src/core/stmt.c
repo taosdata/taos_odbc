@@ -465,7 +465,6 @@ static descriptor_t* _stmt_ARD(stmt_t *stmt)
 
 static SQLRETURN _stmt_fill_IRD(stmt_t *stmt)
 {
-  SQLRETURN sr = SQL_SUCCESS;
   rs_t *rs = &stmt->rs;
 
   descriptor_t *IRD = _stmt_IRD(stmt);
@@ -551,6 +550,7 @@ static SQLRETURN _stmt_fill_IRD(stmt_t *stmt)
         IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
         break;
       case TSDB_DATA_TYPE_INT:
+        // FIXME: promotion?
         IRD_record->DESC_CONCISE_TYPE = SQL_INTEGER;
         IRD_record->DESC_TYPE = SQL_INTEGER;
         IRD_record->DESC_LENGTH = 10;
@@ -574,6 +574,84 @@ static SQLRETURN _stmt_fill_IRD(stmt_t *stmt)
         IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
         IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
         break;
+      case TSDB_DATA_TYPE_SMALLINT:
+        // FIXME: promotion?
+        IRD_record->DESC_CONCISE_TYPE = SQL_SMALLINT;
+        IRD_record->DESC_TYPE = SQL_SMALLINT;
+        IRD_record->DESC_LENGTH = 5;
+        IRD_record->DESC_OCTET_LENGTH = 2;
+        IRD_record->DESC_PRECISION = 5;
+        IRD_record->DESC_SCALE = 0;
+        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+        break;
+      case TSDB_DATA_TYPE_TINYINT:
+        // FIXME: promotion?
+        IRD_record->DESC_CONCISE_TYPE = SQL_TINYINT;
+        IRD_record->DESC_TYPE = SQL_TINYINT;
+        IRD_record->DESC_LENGTH = 3;
+        IRD_record->DESC_OCTET_LENGTH = 1;
+        IRD_record->DESC_PRECISION = 3;
+        IRD_record->DESC_SCALE = 0;
+        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+        break;
+      case TSDB_DATA_TYPE_BOOL:
+        // FIXME: promotion?
+        IRD_record->DESC_CONCISE_TYPE = SQL_BIT;
+        IRD_record->DESC_TYPE = SQL_BIT;
+        IRD_record->DESC_LENGTH = 1;
+        IRD_record->DESC_OCTET_LENGTH = 1;
+        IRD_record->DESC_PRECISION = 1;
+        IRD_record->DESC_SCALE = 0;
+        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+        break;
+      case TSDB_DATA_TYPE_UTINYINT:
+        // FIXME: promotion?
+        IRD_record->DESC_CONCISE_TYPE = SQL_TINYINT;
+        IRD_record->DESC_TYPE = SQL_TINYINT;
+        IRD_record->DESC_LENGTH = 3;
+        IRD_record->DESC_OCTET_LENGTH = 1;
+        IRD_record->DESC_PRECISION = 3;
+        IRD_record->DESC_SCALE = 0;
+        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+        break;
+      case TSDB_DATA_TYPE_USMALLINT:
+        // FIXME: promotion?
+        IRD_record->DESC_CONCISE_TYPE = SQL_SMALLINT;
+        IRD_record->DESC_TYPE = SQL_SMALLINT;
+        IRD_record->DESC_LENGTH = 5;
+        IRD_record->DESC_OCTET_LENGTH = 2;
+        IRD_record->DESC_PRECISION = 5;
+        IRD_record->DESC_SCALE = 0;
+        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+        break;
+      case TSDB_DATA_TYPE_UINT:
+        // FIXME: promotion?
+        IRD_record->DESC_CONCISE_TYPE = SQL_INTEGER;
+        IRD_record->DESC_TYPE = SQL_INTEGER;
+        IRD_record->DESC_LENGTH = 10;
+        IRD_record->DESC_OCTET_LENGTH = 4;
+        IRD_record->DESC_PRECISION = 10;
+        IRD_record->DESC_SCALE = 0;
+        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+        break;
       default:
         stmt_append_err_format(stmt, "HY000", 0, "General error:Column[#%zd/%.*s] of `%s[%d/0x%x]` not supported yet",
             i+1, (int)sizeof(col->name), col->name, taos_data_type(col->type), col->type, col->type);
@@ -582,12 +660,6 @@ static SQLRETURN _stmt_fill_IRD(stmt_t *stmt)
   }
 
   return SQL_SUCCESS;
-}
-
-static SQLRETURN _stmt_reset_IRD(stmt_t *stmt)
-{
-  (void)stmt;
-  OA_NIY(0);
 }
 
 static SQLRETURN _stmt_post_exec(stmt_t *stmt, rs_t *rs)
@@ -5225,9 +5297,6 @@ SQLRETURN stmt_columns(
     SQLCHAR *TableName, SQLSMALLINT NameLength3,
     SQLCHAR *ColumnName, SQLSMALLINT NameLength4)
 {
-  int r = 0;
-  SQLRETURN sr = SQL_SUCCESS;
-
   const char *catalog = (const char *)CatalogName;
   const char *schema  = (const char *)SchemaName;
   const char *table   = (const char *)TableName;

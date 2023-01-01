@@ -5322,7 +5322,7 @@ SQLRETURN stmt_columns(
   char buf[1024]; buf[0] = '\0';
   snprintf(buf, sizeof(buf), "select * from information_schema.ins_tables where db_name like ? and table_name like ?");
 
-  sr = stmt_prepare(stmt, buf, (SQLINTEGER)strlen(buf));
+  sr = stmt_prepare(stmt, (SQLCHAR*)buf, (SQLINTEGER)strlen(buf));
   if (sr == SQL_ERROR) return SQL_ERROR;
 
   SQLLEN StrLen_or_Ind[2];

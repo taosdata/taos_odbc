@@ -130,15 +130,6 @@ void descriptor_reclaim_buffers(descriptor_t *APD)
 
   for (SQLUSMALLINT i=0; i<APD_header->DESC_COUNT; ++i) {
     desc_record_t *record = APD->records + i;
-    desc_record_reclaim_buffers(record);
     record->bound = 0;
   }
 }
-
-void desc_record_reclaim_buffers(desc_record_t *record)
-{
-  buf_release(&record->data_buffer);
-  buf_release(&record->len_buffer);
-  buf_release(&record->ind_buffer);
-}
-

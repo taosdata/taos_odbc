@@ -273,16 +273,12 @@ struct desc_record_s {
   SQLLEN                       *DESC_OCTET_LENGTH_PTR;
   SQLSMALLINT                   DESC_PARAMETER_TYPE;
 
+  SQLSMALLINT                   DESC_AUTO_UNIQUE_VALUE;
+  SQLSMALLINT                   DESC_UPDATABLE;
+  SQLSMALLINT                   DESC_NULLABLE;
+  SQLSMALLINT                   DESC_UNNAMED;
+
   conv_from_tsdb_to_sql_c_f     conv;
-
-  buf_t                         data_buffer;
-  buf_t                         len_buffer;
-  buf_t                         ind_buffer;
-
-  SQLRETURN (*create_buffer_array)(stmt_t *stmt, desc_record_t *record, int rows, TAOS_MULTI_BIND *mb);
-  SQLRETURN (*create_length_array)(stmt_t *stmt, desc_record_t *record, int rows, TAOS_MULTI_BIND *mb);
-
-  SQLRETURN (*convf)(stmt_t *stmt, sql_c_to_tsdb_meta_t *meta);
 
   unsigned int                  bound:1;
 };

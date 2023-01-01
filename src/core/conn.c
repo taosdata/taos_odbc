@@ -963,6 +963,7 @@ static SQLRETURN _conn_get_attr_current_qualifier(
     return SQL_ERROR;
   }
   const char *current_qualifier = "information_schema";
+  current_qualifier = "";
   int n = snprintf((char*)Value, BufferLength, "%s", current_qualifier);
   if (StringLengthPtr) *StringLengthPtr = n;
   return SQL_SUCCESS;

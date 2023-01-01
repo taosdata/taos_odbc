@@ -36,6 +36,7 @@ SQLBulkOperations
 ;SQLCloseCursor
 SQLColumnPrivileges
 SQLColumns
+SQLCompleteAsync
 SQLCopyDesc
 SQLExtendedFetch
 SQLForeignKeys
@@ -61,4 +62,5 @@ SQLSetPos
 SQLSpecialColumns
 SQLStatistics
 SQLTablePrivileges
+SQLBrowseConnect
 get_nr_load

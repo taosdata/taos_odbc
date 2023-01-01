@@ -46,6 +46,15 @@
 #include <syslog.h>
 #endif
 
+// NOTE: if you wanna debug in detail, just define DEBUG_OOW to 1
+// NOTE: this is performance-hit, please take serious consideration in advance!!!
+#define DEBUG_OOW      0
+#define OOW(fmt, ...) do {        \
+  if (DEBUG_OOW) {                \
+    OW(fmt, ##__VA_ARGS__);       \
+  }                               \
+} while (0)
+
 static atomic_int    _nr_load               = 0;
 static unsigned int  _taos_odbc_debug       = 0;
 static unsigned int  _taos_odbc_debug_flex  = 0;
@@ -114,9 +123,7 @@ void tod_log(const char *fmt, ...)
     va_end(aq);
   }
 
-  // NOTE: if you wanna debug in detail, open it
-  // NOTE: this is performance-hit, please take serious consideration in advance!!!
-  if (0) {
+  if (DEBUG_OOW) {
     char buf[1024]; buf[0] = '\0';
     vsnprintf(buf, sizeof(buf), fmt, ap);
     odbc_log(buf);
@@ -285,6 +292,7 @@ SQLRETURN SQL_API SQLAllocHandle(
     SQLHANDLE   InputHandle,
     SQLHANDLE  *OutputHandle)
 {
+  OOW("===");
   env_t  *env;
   conn_t *conn;
 
@@ -324,6 +332,7 @@ SQLRETURN SQL_API SQLFreeHandle(
     SQLSMALLINT HandleType,
     SQLHANDLE   Handle)
 {
+  OOW("===");
   if (Handle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   switch (HandleType) {
@@ -354,6 +363,7 @@ SQLRETURN SQL_API SQLDriverConnect(
     SQLSMALLINT    *StringLength2Ptr,
     SQLUSMALLINT    DriverCompletion)
 {
+  OOW("===");
   if (ConnectionHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   conn_t *conn = (conn_t*)ConnectionHandle;
@@ -366,6 +376,7 @@ SQLRETURN SQL_API SQLDriverConnect(
 SQLRETURN SQL_API SQLDisconnect(
     SQLHDBC ConnectionHandle)
 {
+  OOW("===");
   if (ConnectionHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   conn_t *conn = (conn_t*)ConnectionHandle;
@@ -382,6 +393,7 @@ SQLRETURN SQL_API SQLExecDirect(
     SQLCHAR     *StatementText,
     SQLINTEGER   TextLength)
 {
+  OOW("===");
   if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   stmt_t *stmt = (stmt_t*)StatementHandle;
@@ -396,6 +408,7 @@ SQLRETURN SQL_API SQLSetEnvAttr(
     SQLPOINTER   ValuePtr,
     SQLINTEGER   StringLength)
 {
+  OOW("===");
   if (EnvironmentHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   env_t *env = (env_t*)EnvironmentHandle;
@@ -412,6 +425,7 @@ SQLRETURN SQL_API SQLGetInfo(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr)
 {
+  OOW("===");
   if (ConnectionHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   conn_t *conn = (conn_t*)ConnectionHandle;
@@ -426,6 +440,7 @@ SQLRETURN SQL_API SQLEndTran(
     SQLHANDLE     Handle,
     SQLSMALLINT   CompletionType)
 {
+  OOW("===");
   if (Handle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   switch (HandleType) {
@@ -448,6 +463,7 @@ SQLRETURN SQL_API SQLSetConnectAttr(
     SQLPOINTER    ValuePtr,
     SQLINTEGER    StringLength)
 {
+  OOW("===");
   if (ConnectionHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   conn_t *conn = (conn_t*)ConnectionHandle;
@@ -464,6 +480,7 @@ SQLRETURN SQL_API SQLSetStmtAttr(
     SQLPOINTER    ValuePtr,
     SQLINTEGER    StringLength)
 {
+  OOW("===");
   if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   stmt_t *stmt = (stmt_t*)StatementHandle;
@@ -477,6 +494,7 @@ SQLRETURN SQL_API SQLRowCount(
     SQLHSTMT   StatementHandle,
     SQLLEN    *RowCountPtr)
 {
+  OOW("===");
   if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   stmt_t *stmt = (stmt_t*)StatementHandle;
@@ -490,6 +508,7 @@ SQLRETURN SQL_API SQLNumResultCols(
      SQLHSTMT        StatementHandle,
      SQLSMALLINT    *ColumnCountPtr)
 {
+  OOW("===");
   if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   stmt_t *stmt = (stmt_t*)StatementHandle;
@@ -510,6 +529,7 @@ SQLRETURN SQL_API SQLDescribeCol(
     SQLSMALLINT   *DecimalDigitsPtr,
     SQLSMALLINT   *NullablePtr)
 {
+  OOW("===");
   if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   stmt_t *stmt = (stmt_t*)StatementHandle;
@@ -535,6 +555,7 @@ SQLRETURN SQL_API SQLBindCol(
     SQLLEN         BufferLength,
     SQLLEN        *StrLen_or_IndPtr)
 {
+  OOW("===");
   if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   stmt_t *stmt = (stmt_t*)StatementHandle;
@@ -552,6 +573,7 @@ SQLRETURN SQL_API SQLBindCol(
 SQLRETURN SQL_API SQLFetch(
     SQLHSTMT     StatementHandle)
 {
+  OOW("===");
   if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   stmt_t *stmt = (stmt_t*)StatementHandle;
@@ -566,6 +588,7 @@ SQLRETURN SQL_API SQLFetchScroll(
     SQLSMALLINT   FetchOrientation,
     SQLLEN        FetchOffset)
 {
+  OOW("===");
   if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   stmt_t *stmt = (stmt_t*)StatementHandle;
@@ -579,6 +602,7 @@ SQLRETURN SQL_API SQLFreeStmt(
     SQLHSTMT       StatementHandle,
     SQLUSMALLINT   Option)
 {
+  OOW("===");
   if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   stmt_t *stmt = (stmt_t*)StatementHandle;
@@ -598,6 +622,7 @@ SQLRETURN SQL_API SQLGetDiagRec(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *TextLengthPtr)
 {
+  OOW("===");
   OD("HandleType:%s; Handle:%p", sql_handle_type(HandleType), Handle);
   if (Handle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
@@ -626,6 +651,7 @@ SQLRETURN SQL_API SQLGetDiagField(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr)
 {
+  OOW("===");
   if (Handle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
 #ifdef _WIN32
@@ -661,6 +687,7 @@ SQLRETURN SQL_API SQLGetData(
     SQLLEN         BufferLength,
     SQLLEN        *StrLen_or_IndPtr)
 {
+  OOW("===");
   if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   stmt_t *stmt = (stmt_t*)StatementHandle;
@@ -675,6 +702,7 @@ SQLRETURN SQL_API SQLPrepare(
     SQLCHAR      *StatementText,
     SQLINTEGER    TextLength)
 {
+  OOW("===");
   if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   stmt_t *stmt = (stmt_t*)StatementHandle;
@@ -688,6 +716,7 @@ SQLRETURN SQL_API SQLNumParams(
     SQLHSTMT        StatementHandle,
     SQLSMALLINT    *ParameterCountPtr)
 {
+  OOW("===");
   if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   stmt_t *stmt = (stmt_t*)StatementHandle;
@@ -705,6 +734,7 @@ SQLRETURN SQL_API SQLDescribeParam(
     SQLSMALLINT    *DecimalDigitsPtr,
     SQLSMALLINT    *NullablePtr)
 {
+  OOW("===");
   if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   stmt_t *stmt = (stmt_t*)StatementHandle;
@@ -732,6 +762,7 @@ SQLRETURN SQL_API SQLBindParameter(
     SQLLEN          BufferLength,
     SQLLEN         *StrLen_or_IndPtr)
 {
+  OOW("===");
   if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   stmt_t *stmt = (stmt_t*)StatementHandle;
@@ -753,6 +784,7 @@ SQLRETURN SQL_API SQLBindParameter(
 SQLRETURN SQL_API SQLExecute(
     SQLHSTMT     StatementHandle)
 {
+  OOW("===");
   if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   stmt_t *stmt = (stmt_t*)StatementHandle;
@@ -771,6 +803,7 @@ SQLRETURN SQL_API SQLConnect(
     SQLCHAR       *Authentication,
     SQLSMALLINT    NameLength3)
 {
+  OOW("===");
   if (ConnectionHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   conn_t *conn = (conn_t*)ConnectionHandle;
@@ -793,16 +826,13 @@ SQLRETURN SQL_API SQLColAttribute(
     SQLSMALLINT    *StringLengthPtr,
     SQLLEN         *NumericAttributePtr)
 {
-  (void)StatementHandle;
-  (void)ColumnNumber;
-  (void)FieldIdentifier;
-  (void)CharacterAttributePtr;
-  (void)BufferLength;
-  (void)StringLengthPtr;
-  (void)NumericAttributePtr;
+  OOW("===");
+  if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
-  OA_NIY(0);
-  return SQL_ERROR;
+  stmt_t *stmt = (stmt_t*)StatementHandle;
+
+  stmt_clr_errs(stmt);
+  return stmt_col_attribute(stmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
 }
 
 SQLRETURN SQL_API SQLTables(
@@ -816,6 +846,7 @@ SQLRETURN SQL_API SQLTables(
     SQLCHAR       *TableType,
     SQLSMALLINT    NameLength4)
 {
+  OOW("===");
   if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   stmt_t *stmt = (stmt_t*)StatementHandle;
@@ -1082,6 +1113,7 @@ SQLRETURN SQL_API SQLBulkOperations(
     SQLHSTMT            StatementHandle,
     SQLSMALLINT         Operation)
 {
+  OOW("===");
   (void)StatementHandle;
   OD("Operation:%s", sql_bulk_operation(Operation));
   OA_NIY(0);
@@ -1092,6 +1124,7 @@ SQLRETURN SQL_API SQLBulkOperations(
 #if 0
 SQLRETURN SQL_API SQLCancel(SQLHSTMT StatementHandle)
 {
+  OOW("===");
   (void)StatementHandle;
   OA_NIY(0);
 }
@@ -1101,6 +1134,7 @@ SQLRETURN SQL_API SQLCancel(SQLHSTMT StatementHandle)
 #if 0
 SQLRETURN SQL_API SQLCloseCursor(SQLHSTMT StatementHandle)
 {
+  OOW("===");
   (void)StatementHandle;
   // NOTE: some tiny difference in SQLFreeStmt
   // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlclosecursor-function?view=sql-server-ver16
@@ -1120,6 +1154,7 @@ SQLRETURN SQL_API SQLColumnPrivileges(
     SQLCHAR           *szColumnName,
     SQLSMALLINT        cchColumnName)
 {
+  OOW("===");
   (void)hstmt;
   (void)szCatalogName;
   (void)cchCatalogName;
@@ -1139,23 +1174,20 @@ SQLRETURN SQL_API SQLColumns(SQLHSTMT StatementHandle,
           SQLCHAR *TableName, SQLSMALLINT NameLength3,
           SQLCHAR *ColumnName, SQLSMALLINT NameLength4)
 {
-  (void)StatementHandle;
-  (void)CatalogName;
-  (void)NameLength1;
-  (void)SchemaName;
-  (void)NameLength2;
-  (void)TableName;
-  (void)NameLength3;
-  (void)ColumnName;
-  (void)NameLength4;
-  OA_NIY(0);
-  return SQL_ERROR;
+  OOW("===");
+  if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  stmt_t *stmt = (stmt_t*)StatementHandle;
+
+  stmt_clr_errs(stmt);
+  return stmt_columns(stmt, CatalogName, NameLength1, SchemaName, NameLength2, TableName, NameLength3, ColumnName, NameLength4);
 }
 
 #if (ODBCVER >= 0x0300)
 SQLRETURN SQL_API SQLCopyDesc(SQLHDESC SourceDescHandle,
            SQLHDESC TargetDescHandle)
 {
+  OOW("===");
   (void)SourceDescHandle;
   (void)TargetDescHandle;
   OA_NIY(0);
@@ -1170,6 +1202,7 @@ SQLRETURN SQL_API SQLExtendedFetch(
     SQLULEN           *pcrow,
     SQLUSMALLINT      *rgfRowStatus)
 {
+  OOW("===");
   (void)hstmt;
   (void)fFetchType;
   (void)irow;
@@ -1194,6 +1227,7 @@ SQLRETURN SQL_API SQLForeignKeys(
     SQLCHAR           *szFkTableName,
     SQLSMALLINT        cchFkTableName)
 {
+  OOW("===");
   (void)hstmt;
   (void)szPkCatalogName;
   (void)cchPkCatalogName;
@@ -1216,6 +1250,7 @@ SQLRETURN SQL_API SQLGetConnectAttr(SQLHDBC ConnectionHandle,
            SQLINTEGER Attribute, SQLPOINTER Value,
            SQLINTEGER BufferLength, SQLINTEGER *StringLengthPtr)
 {
+  OOW("===");
   if (ConnectionHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   conn_t *conn = (conn_t*)ConnectionHandle;
@@ -1226,14 +1261,13 @@ SQLRETURN SQL_API SQLGetConnectAttr(SQLHDBC ConnectionHandle,
 }
 #endif
 
-SQLRETURN SQL_API SQLGetCursorName
-(
+SQLRETURN SQL_API SQLGetCursorName(
     SQLHSTMT StatementHandle,
     SQLCHAR *CursorName,
     SQLSMALLINT BufferLength,
-    SQLSMALLINT *NameLengthPtr
-)
+    SQLSMALLINT *NameLengthPtr)
 {
+  OOW("===");
   (void)StatementHandle;
   (void)CursorName;
   (void)BufferLength;
@@ -1248,6 +1282,7 @@ SQLRETURN SQL_API SQLGetDescField(SQLHDESC DescriptorHandle,
            SQLPOINTER Value, SQLINTEGER BufferLength,
            SQLINTEGER *StringLength)
 {
+  OOW("===");
   (void)DescriptorHandle;
   (void)RecNumber;
   (void)FieldIdentifier;
@@ -1265,6 +1300,7 @@ SQLRETURN SQL_API SQLGetDescRec(SQLHDESC DescriptorHandle,
            SQLLEN     *LengthPtr, SQLSMALLINT *PrecisionPtr,
            SQLSMALLINT *ScalePtr, SQLSMALLINT *NullablePtr)
 {
+  OOW("===");
   (void)DescriptorHandle;
   (void)RecNumber;
   (void)Name;
@@ -1284,6 +1320,7 @@ SQLRETURN SQL_API SQLGetEnvAttr(SQLHENV EnvironmentHandle,
            SQLINTEGER Attribute, SQLPOINTER Value,
            SQLINTEGER BufferLength, SQLINTEGER *StringLength)
 {
+  OOW("===");
   (void)EnvironmentHandle;
   (void)Attribute;
   (void)Value;
@@ -1304,6 +1341,7 @@ SQLRETURN SQL_API SQLGetFunctions(SQLHDBC ConnectionHandle,
            SQLUSMALLINT FunctionId,
            SQLUSMALLINT *Supported)
 {
+  OOW("===");
   (void)ConnectionHandle;
   (void)FunctionId;
   (void)Supported;
@@ -1316,6 +1354,7 @@ SQLRETURN SQL_API SQLGetStmtAttr(SQLHSTMT StatementHandle,
            SQLINTEGER Attribute, SQLPOINTER Value,
            SQLINTEGER BufferLength, SQLINTEGER *StringLength)
 {
+  OOW("===");
   stmt_clr_errs((stmt_t*)StatementHandle);
   return stmt_get_attr((stmt_t*)StatementHandle, Attribute, Value, BufferLength, StringLength);
 }
@@ -1324,6 +1363,7 @@ SQLRETURN SQL_API SQLGetStmtAttr(SQLHSTMT StatementHandle,
 SQLRETURN SQL_API SQLGetTypeInfo(SQLHSTMT StatementHandle,
            SQLSMALLINT DataType)
 {
+  OOW("===");
   (void)StatementHandle;
   (void)DataType;
   OA_NIY(0);
@@ -1331,23 +1371,26 @@ SQLRETURN SQL_API SQLGetTypeInfo(SQLHSTMT StatementHandle,
 }
 
 SQLRETURN SQL_API SQLMoreResults(
-    SQLHSTMT           hstmt)
+    SQLHSTMT           StatementHandle)
 {
-  (void)hstmt;
-  OA_NIY(0);
-  return SQL_ERROR;
+  OOW("===");
+  if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  stmt_t *stmt = (stmt_t*)StatementHandle;
+
+  stmt_clr_errs(stmt);
+  return stmt_more_results(stmt);
 }
 
-SQLRETURN SQL_API SQLNativeSql
-(
+SQLRETURN SQL_API SQLNativeSql(
     SQLHDBC            hdbc,
     SQLCHAR* szSqlStrIn,
     SQLINTEGER  cchSqlStrIn,
     SQLCHAR* szSqlStr,
     SQLINTEGER         cchSqlStrMax,
-    SQLINTEGER        *pcbSqlStr
-)
+    SQLINTEGER        *pcbSqlStr)
 {
+  OOW("===");
   (void)hdbc;
   (void)szSqlStrIn;
   (void)cchSqlStrIn;
@@ -1361,6 +1404,7 @@ SQLRETURN SQL_API SQLNativeSql
 SQLRETURN SQL_API SQLParamData(SQLHSTMT StatementHandle,
            SQLPOINTER *Value)
 {
+  OOW("===");
   (void)StatementHandle;
   (void)Value;
   OA_NIY(0);
@@ -1376,6 +1420,7 @@ SQLRETURN SQL_API SQLPrimaryKeys(
     SQLCHAR           *szTableName,
     SQLSMALLINT        cchTableName)
 {
+  OOW("===");
   (void)hstmt;
   (void)szCatalogName;
   (void)cchCatalogName;
@@ -1398,6 +1443,7 @@ SQLRETURN SQL_API SQLProcedureColumns(
     SQLCHAR           *szColumnName,
     SQLSMALLINT        cchColumnName)
 {
+  OOW("===");
   (void)hstmt;
   (void)szCatalogName;
   (void)cchCatalogName;
@@ -1420,6 +1466,7 @@ SQLRETURN SQL_API SQLProcedures(
     SQLCHAR           *szProcName,
     SQLSMALLINT        cchProcName)
 {
+  OOW("===");
   (void)hstmt;
   (void)szCatalogName;
   (void)cchCatalogName;
@@ -1434,6 +1481,7 @@ SQLRETURN SQL_API SQLProcedures(
 SQLRETURN SQL_API SQLPutData(SQLHSTMT StatementHandle,
            SQLPOINTER Data, SQLLEN StrLen_or_Ind)
 {
+  OOW("===");
   (void)StatementHandle;
   (void)Data;
   (void)StrLen_or_Ind;
@@ -1441,13 +1489,12 @@ SQLRETURN SQL_API SQLPutData(SQLHSTMT StatementHandle,
   return SQL_ERROR;
 }
 
-SQLRETURN SQL_API SQLSetCursorName
-(
+SQLRETURN SQL_API SQLSetCursorName(
     SQLHSTMT StatementHandle,
     SQLCHAR* CursorName,
-    SQLSMALLINT NameLength
-)
+    SQLSMALLINT NameLength)
 {
+  OOW("===");
   (void)StatementHandle;
   (void)CursorName;
   (void)NameLength;
@@ -1460,6 +1507,7 @@ SQLRETURN SQL_API SQLSetDescField(SQLHDESC DescriptorHandle,
            SQLSMALLINT RecNumber, SQLSMALLINT FieldIdentifier,
            SQLPOINTER Value, SQLINTEGER BufferLength)
 {
+  OOW("===");
   (void)DescriptorHandle;
   (void)RecNumber;
   (void)FieldIdentifier;
@@ -1476,6 +1524,7 @@ SQLRETURN SQL_API SQLSetDescRec(SQLHDESC DescriptorHandle,
            SQLPOINTER Data, SQLLEN *StringLength,
            SQLLEN *Indicator)
 {
+  OOW("===");
   (void)DescriptorHandle;
   (void)RecNumber;
   (void)Type;
@@ -1497,6 +1546,7 @@ SQLRETURN SQL_API SQLSetPos(
     SQLUSMALLINT       fOption,
     SQLUSMALLINT       fLock)
 {
+  OOW("===");
   (void)hstmt;
   (void)irow;
   (void)fOption;
@@ -1512,6 +1562,7 @@ SQLRETURN SQL_API SQLSpecialColumns(SQLHSTMT StatementHandle,
            SQLCHAR *TableName, SQLSMALLINT NameLength3,
            SQLUSMALLINT Scope, SQLUSMALLINT Nullable)
 {
+  OOW("===");
   (void)StatementHandle;
   (void)IdentifierType;
   (void)CatalogName;
@@ -1532,6 +1583,7 @@ SQLRETURN SQL_API SQLStatistics(SQLHSTMT StatementHandle,
            SQLCHAR *TableName, SQLSMALLINT NameLength3,
            SQLUSMALLINT Unique, SQLUSMALLINT Reserved)
 {
+  OOW("===");
   (void)StatementHandle;
   (void)CatalogName;
   (void)NameLength1;
@@ -1554,6 +1606,7 @@ SQLRETURN SQL_API SQLTablePrivileges(
     SQLCHAR           *szTableName,
     SQLSMALLINT        cchTableName)
 {
+  OOW("===");
   (void)hstmt;
   (void)szCatalogName;
   (void)cchCatalogName;
@@ -1561,6 +1614,38 @@ SQLRETURN SQL_API SQLTablePrivileges(
   (void)cchSchemaName;
   (void)szTableName;
   (void)cchTableName;
+  OA_NIY(0);
+  return SQL_ERROR;
+}
+
+SQLRETURN SQL_API SQLBrowseConnect(
+    SQLHDBC        ConnectionHandle,
+    SQLCHAR       *InConnectionString,
+    SQLSMALLINT    StringLength1,
+    SQLCHAR       *OutConnectionString,
+    SQLSMALLINT    BufferLength,
+    SQLSMALLINT   *StringLength2Ptr)
+{
+  OOW("===");
+  (void)ConnectionHandle;
+  (void)InConnectionString;
+  (void)StringLength1;
+  (void)OutConnectionString;
+  (void)BufferLength;
+  (void)StringLength2Ptr;
+  OA_NIY(0);
+  return SQL_ERROR;
+}
+
+SQLRETURN SQL_API SQLCompleteAsync(
+    SQLSMALLINT  HandleType,
+    SQLHANDLE    Handle,
+    RETCODE     *AsyncRetCodePtr)
+{
+  OOW("===");
+  (void)HandleType;
+  (void)Handle;
+  (void)AsyncRetCodePtr;
   OA_NIY(0);
   return SQL_ERROR;
 }

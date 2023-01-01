@@ -49,6 +49,7 @@ const char *sql_nullable(SQLSMALLINT v) FA_HIDDEN;
 const char *sql_fetch_orientation(SQLSMALLINT v) FA_HIDDEN;
 const char *sql_diag_identifier(SQLSMALLINT v) FA_HIDDEN;
 const char *sql_bulk_operation(SQLSMALLINT v) FA_HIDDEN;
+const char *sql_col_attribute(SQLUSMALLINT v) FA_HIDDEN;
 
 EXTERN_C_END
 

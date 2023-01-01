@@ -448,6 +448,148 @@ SQLRETURN stmt_free(stmt_t *stmt)
   return SQL_SUCCESS;
 }
 
+static descriptor_t* _stmt_IPD(stmt_t *stmt)
+{
+  return &stmt->IPD;
+}
+
+static descriptor_t* _stmt_IRD(stmt_t *stmt)
+{
+  return &stmt->IRD;
+}
+
+static descriptor_t* _stmt_ARD(stmt_t *stmt)
+{
+  return stmt->current_ARD;
+}
+
+static SQLRETURN _stmt_fill_IRD(stmt_t *stmt)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+  rs_t *rs = &stmt->rs;
+
+  descriptor_t *IRD = _stmt_IRD(stmt);
+  desc_header_t *IRD_header = &IRD->header;
+  IRD_header->DESC_COUNT = rs->col_count;
+  if (IRD_header->DESC_COUNT > IRD->cap) {
+    size_t cap = (IRD_header->DESC_COUNT + 15) / 16 * 16;
+    desc_record_t *IRD_records = (desc_record_t*)realloc(IRD->records, cap * sizeof(*IRD_records));
+    if (!IRD_records) {
+      stmt_oom(stmt);
+      return SQL_ERROR;
+    }
+    for (size_t i=IRD->cap; i < cap; ++i) {
+      desc_record_t *IRD_record = IRD_records + i;
+      memset(IRD_record, 0, sizeof(*IRD_record));
+    }
+    IRD->records = IRD_records;
+    IRD->cap = cap;
+  }
+
+  for (size_t i=0; i<IRD_header->DESC_COUNT; ++i) {
+    desc_record_t *IRD_record = IRD->records + i;
+    TAOS_FIELD *col = rs->fields + i;
+    switch (col->type) {
+      case TSDB_DATA_TYPE_VARCHAR:
+        IRD_record->DESC_CONCISE_TYPE = SQL_VARCHAR;
+        IRD_record->DESC_TYPE = SQL_VARCHAR;
+        IRD_record->DESC_LENGTH = col->bytes;
+        IRD_record->DESC_OCTET_LENGTH = col->bytes;
+        IRD_record->DESC_PRECISION = 0;
+        IRD_record->DESC_SCALE = 0;
+        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+        break;
+      case TSDB_DATA_TYPE_NCHAR:
+        IRD_record->DESC_CONCISE_TYPE = SQL_WVARCHAR;
+        IRD_record->DESC_TYPE = SQL_WVARCHAR;
+        IRD_record->DESC_LENGTH = col->bytes;
+        IRD_record->DESC_OCTET_LENGTH = col->bytes;
+        IRD_record->DESC_PRECISION = 0;
+        IRD_record->DESC_SCALE = 0;
+        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+        break;
+      case TSDB_DATA_TYPE_BIGINT:
+        IRD_record->DESC_CONCISE_TYPE = SQL_BIGINT;
+        IRD_record->DESC_TYPE = SQL_BIGINT;
+        IRD_record->DESC_LENGTH = 19;
+        IRD_record->DESC_OCTET_LENGTH = 8;
+        IRD_record->DESC_PRECISION = 19;
+        IRD_record->DESC_SCALE = 0;
+        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+        break;
+      case TSDB_DATA_TYPE_TIMESTAMP:
+        IRD_record->DESC_CONCISE_TYPE = SQL_TYPE_TIMESTAMP;
+        IRD_record->DESC_TYPE = SQL_DATETIME;
+        IRD_record->DESC_LENGTH = 20 + (rs->time_precision + 1) * 3;
+        IRD_record->DESC_OCTET_LENGTH = 16;
+        IRD_record->DESC_PRECISION = 20 + (rs->time_precision + 1) *3;
+        IRD_record->DESC_SCALE = (rs->time_precision + 1) * 3;
+        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+        break;
+      case TSDB_DATA_TYPE_DOUBLE:
+        IRD_record->DESC_CONCISE_TYPE = SQL_DOUBLE;
+        IRD_record->DESC_TYPE = SQL_DOUBLE;
+        IRD_record->DESC_LENGTH = 15;
+        IRD_record->DESC_OCTET_LENGTH = 8;
+        IRD_record->DESC_PRECISION = 15;
+        IRD_record->DESC_SCALE = 0;
+        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+        break;
+      case TSDB_DATA_TYPE_INT:
+        IRD_record->DESC_CONCISE_TYPE = SQL_INTEGER;
+        IRD_record->DESC_TYPE = SQL_INTEGER;
+        IRD_record->DESC_LENGTH = 10;
+        IRD_record->DESC_OCTET_LENGTH = 4;
+        IRD_record->DESC_PRECISION = 10;
+        IRD_record->DESC_SCALE = 0;
+        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+        break;
+      case TSDB_DATA_TYPE_FLOAT:
+        IRD_record->DESC_CONCISE_TYPE = SQL_REAL;
+        IRD_record->DESC_TYPE = SQL_REAL;
+        IRD_record->DESC_LENGTH = 7;
+        IRD_record->DESC_OCTET_LENGTH = 4;
+        IRD_record->DESC_PRECISION = 7;
+        IRD_record->DESC_SCALE = 0;
+        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+        break;
+      default:
+        stmt_append_err_format(stmt, "HY000", 0, "General error:Column[#%zd/%.*s] of `%s[%d/0x%x]` not supported yet",
+            i+1, (int)sizeof(col->name), col->name, taos_data_type(col->type), col->type, col->type);
+        return SQL_ERROR; 
+    }
+  }
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_reset_IRD(stmt_t *stmt)
+{
+  (void)stmt;
+  OA_NIY(0);
+}
+
 static SQLRETURN _stmt_post_exec(stmt_t *stmt, rs_t *rs)
 {
   int e;
@@ -468,23 +610,7 @@ static SQLRETURN _stmt_post_exec(stmt_t *stmt, rs_t *rs)
     }
     _stmt_reset_current_for_get_data(stmt);
   }
-
-  return SQL_SUCCESS;
-}
-
-static descriptor_t* _stmt_IPD(stmt_t *stmt)
-{
-  return &stmt->IPD;
-}
-
-static descriptor_t* _stmt_IRD(stmt_t *stmt)
-{
-  return &stmt->IRD;
-}
-
-static descriptor_t* _stmt_ARD(stmt_t *stmt)
-{
-  return stmt->current_ARD;
+  return _stmt_fill_IRD(stmt);
 }
 
 static SQLRETURN _stmt_set_rows_fetched_ptr(stmt_t *stmt, SQLULEN *rows_fetched_ptr)
@@ -4636,13 +4762,11 @@ SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr,
     case SQL_ATTR_APP_PARAM_DESC:
       return _stmt_set_param_desc(stmt, ValuePtr);
     case SQL_ATTR_QUERY_TIMEOUT:
-      if (*(SQLULEN*)ValuePtr == 0) return SQL_SUCCESS;
-      stmt_append_err_format(stmt, "01S02", 0, "Option value changed:`%zd` for `SQL_ATTR_QUERY_TIMEOUT` is substituted by `0`", *(SQLULEN*)ValuePtr);
+      if ((SQLULEN)(uintptr_t)ValuePtr == 0) return SQL_SUCCESS;
+      stmt_append_err_format(stmt, "01S02", 0, "Option value changed:`%zd` for `SQL_ATTR_QUERY_TIMEOUT` is substituted by `0`", (SQLULEN)(uintptr_t)ValuePtr);
       return SQL_SUCCESS_WITH_INFO;
     default:
-      OE("General error:`%s[0x%x/%d]` not supported yet", sql_stmt_attr(Attribute), Attribute, Attribute);
-      stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_stmt_attr(Attribute), Attribute, Attribute);
-      OA_NIY(0);
+      stmt_append_err_format(stmt, "HYC00", 0, "Optional feature not implemented:`%s[0x%x/%d]` not supported yet", sql_stmt_attr(Attribute), Attribute, Attribute);
       return SQL_ERROR;
   }
 }
@@ -4752,6 +4876,11 @@ SQLRETURN stmt_tables(stmt_t *stmt,
   if (NameLength2 == SQL_NTS) NameLength2 = (SQLSMALLINT)strlen(schema);
   if (NameLength3 == SQL_NTS) NameLength3 = (SQLSMALLINT)strlen(table);
   if (NameLength4 == SQL_NTS) NameLength4 = (SQLSMALLINT)strlen(type);
+
+  OW("catalog:%.*s", (int)NameLength1, catalog);
+  OW("schema:%.*s", (int)NameLength2, schema);
+  OW("table:%.*s", (int)NameLength3, table);
+  OW("type:%.*s", (int)NameLength4, type);
 
   if (schema[NameLength2]) {
     stmt_append_err(stmt, "HY000", 0, "General error: non-null-terminated-string for SchemaName, not supported yet");
@@ -5010,3 +5139,322 @@ SQLRETURN stmt_get_diag_field(
   }
 }
 
+SQLRETURN stmt_col_attribute(
+    stmt_t         *stmt,
+    SQLUSMALLINT    ColumnNumber,
+    SQLUSMALLINT    FieldIdentifier,
+    SQLPOINTER      CharacterAttributePtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr,
+    SQLLEN         *NumericAttributePtr)
+{
+  if (ColumnNumber == 0) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:ColumnNumber #%d not supported yet", ColumnNumber);
+    return SQL_ERROR;
+  }
+
+  rs_t *rs = &stmt->rs;
+
+  if (ColumnNumber > rs->col_count) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:ColumnNumber #%d out of range", ColumnNumber);
+    return SQL_ERROR;
+  }
+
+  int n = 0;
+
+  descriptor_t *IRD = _stmt_IRD(stmt);
+  desc_record_t *IRD_record = IRD->records + ColumnNumber - 1;
+
+  TAOS_FIELD *col = rs->fields + ColumnNumber - 1;
+
+  // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
+  switch(FieldIdentifier) {
+    case SQL_DESC_CONCISE_TYPE:
+      *NumericAttributePtr = IRD_record->DESC_CONCISE_TYPE;
+      return SQL_SUCCESS;
+    case SQL_DESC_OCTET_LENGTH:
+      *NumericAttributePtr = IRD_record->DESC_OCTET_LENGTH;
+      return SQL_SUCCESS;
+    // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
+    case SQL_DESC_PRECISION:
+    case SQL_COLUMN_PRECISION:
+      *NumericAttributePtr = IRD_record->DESC_PRECISION;
+      return SQL_SUCCESS;
+    // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
+    case SQL_DESC_SCALE:
+    case SQL_COLUMN_SCALE:
+      *NumericAttributePtr = IRD_record->DESC_SCALE;
+      return SQL_SUCCESS;
+    case SQL_DESC_AUTO_UNIQUE_VALUE:
+      *NumericAttributePtr = IRD_record->DESC_AUTO_UNIQUE_VALUE;
+      return SQL_SUCCESS;
+    case SQL_DESC_UPDATABLE:
+      *NumericAttributePtr = IRD_record->DESC_UPDATABLE;
+      return SQL_SUCCESS;
+    case SQL_DESC_NULLABLE:
+      *NumericAttributePtr = IRD_record->DESC_NULLABLE;
+      return SQL_SUCCESS;
+    case SQL_DESC_NAME:
+      n = snprintf(CharacterAttributePtr, BufferLength, "%.*s", (int)sizeof(col->name), col->name);
+      if (n < 0) {
+        int e = errno;
+        stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
+        return SQL_ERROR;
+      }
+      if (StringLengthPtr) *StringLengthPtr = n;
+      return SQL_SUCCESS;
+    default:
+    stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` not supported yet", sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier);
+    return SQL_ERROR;
+  }
+  OA_NIY(0);
+}
+
+SQLRETURN stmt_more_results(
+    stmt_t         *stmt)
+{
+  (void)stmt;
+  // FIXME:
+  return SQL_NO_DATA;
+}
+
+SQLRETURN stmt_columns(
+    stmt_t         *stmt,
+    SQLCHAR *CatalogName, SQLSMALLINT NameLength1,
+    SQLCHAR *SchemaName, SQLSMALLINT NameLength2,
+    SQLCHAR *TableName, SQLSMALLINT NameLength3,
+    SQLCHAR *ColumnName, SQLSMALLINT NameLength4)
+{
+  int r = 0;
+  SQLRETURN sr = SQL_SUCCESS;
+
+  const char *catalog = (const char *)CatalogName;
+  const char *schema  = (const char *)SchemaName;
+  const char *table   = (const char *)TableName;
+  const char *column  = (const char *)ColumnName;
+
+  if (catalog == NULL) catalog = "";
+  if (schema  == NULL) schema  = "";
+  if (table   == NULL) table   = "";
+  if (column  == NULL) column  = "";
+
+  if (NameLength1 == SQL_NTS) NameLength1 = (SQLSMALLINT)strlen(catalog);
+  if (NameLength2 == SQL_NTS) NameLength2 = (SQLSMALLINT)strlen(schema);
+  if (NameLength3 == SQL_NTS) NameLength3 = (SQLSMALLINT)strlen(table);
+  if (NameLength4 == SQL_NTS) NameLength4 = (SQLSMALLINT)strlen(column);
+
+  OW("catalog:%.*s", (int)NameLength1, catalog);
+  OW("schema:%.*s", (int)NameLength2, schema);
+  OW("table:%.*s", (int)NameLength3, table);
+  OW("column:%.*s", (int)NameLength4, column);
+
+  stmt_append_err(stmt, "HY000", 0, "General error:SQLColumns not supported yet");
+  return SQL_ERROR;
+
+  // if (schema[NameLength2]) {
+  //   stmt_append_err(stmt, "HY000", 0, "General error: non-null-terminated-string for SchemaName, not supported yet");
+  //   return SQL_ERROR;
+  // }
+
+  // const char *sql = NULL;
+
+  // if (strcmp(catalog, SQL_ALL_CATALOGS) == 0 && !*schema && !*table) {
+  //   sql =
+  //     "select name as TABLE_CAT, '' as TABLE_SCHEM, '' as TABLE_NAME,"
+  //     " '' as TABLE_TYPE, '' as REMARKS"
+  //     " from information_schema.ins_databases"
+  //     " where name like ?"
+  //     " order by TABLE_TYPE, TABLE_CAT, TABLE_SCHEM, TABLE_NAME";
+  //   sr = stmt_prepare(stmt, (SQLCHAR*)sql, (SQLINTEGER)strlen(sql));
+  //   if (sr == SQL_ERROR) return SQL_ERROR;
+
+  //   SQLSMALLINT  InputOutputType       = SQL_PARAM_INPUT;
+  //   SQLSMALLINT  ValueType             = SQL_C_CHAR;
+  //   SQLSMALLINT  ParameterType         = SQL_VARCHAR;
+  //   SQLULEN      ColumnSize            = 1024; // FIXME: hard-coded
+  //   SQLSMALLINT  DecimalDigits         = 0;
+  //   SQLPOINTER   ParameterValuePtr     = (SQLPOINTER)catalog;
+  //   SQLLEN       BufferLength          = strlen(catalog) + 1;
+  //   SQLLEN       StrLen_or_Ind         = SQL_NTS;
+  //   sr = stmt_bind_param(stmt, 1, InputOutputType, ValueType, ParameterType, ColumnSize, DecimalDigits, ParameterValuePtr, BufferLength, &StrLen_or_Ind);
+  //   if (sr == SQL_ERROR) return SQL_ERROR;
+
+  //   return stmt_execute(stmt);
+  // } else if (strcmp(schema, SQL_ALL_SCHEMAS) == 0 && !*catalog && !*table) {
+  //   stmt_append_err_format(stmt, "HY000", 0, "General error:`schema:[%.*s]` not supported yet", (int)NameLength2, schema);
+  //   return SQL_ERROR;
+  // } else if (strcmp(type, SQL_ALL_TABLE_TYPES) == 0 && !*catalog && !*schema && !*table) {
+  //   sql =
+  //     "select '' as TABLE_CAT, '' as TABLE_SCHEM, '' as TABLE_NAME,"
+  //     " 'TABLE' as TABLE_TYPE, '' as REMARKS"
+  //     " union"
+  //     " select '' as TABLE_CAT, '' as TABLE_SCHEM, '' as TABLE_NAME,"
+  //     " 'STABLE' as TABLE_TYPE, '' as REMARKS"
+  //     " order by TABLE_TYPE, TABLE_CAT, TABLE_SCHEM, TABLE_NAME";
+  //   sr = stmt_exec_direct(stmt, sql, (int)strlen(sql));
+  //   if (sr == SQL_ERROR) return SQL_ERROR;
+  //   if (sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO) {
+  //     stmt_append_err(stmt, "HY000", 0, "General warning:`SQLTables` not fully implemented yet");
+  //     return SQL_SUCCESS_WITH_INFO;
+  //   }
+  //   return sr;
+  // } else if (*schema) {
+  //   stmt_append_err_format(stmt, "HY000", 0, "General error:`schema:[%.*s]` not supported yet", (int)NameLength2, schema);
+  //   return SQL_ERROR;
+  // } else {
+  //   if (0) {
+  //     // NOTE: taosc seems fail to execute-prepared-statement as follows?
+  //     // https://github.com/taosdata/TDengine/issues/17870
+  //     // https://github.com/taosdata/TDengine/issues/17871
+  //     sql =
+  //       "select db_name as TABLE_CAT, '' as TABLE_SCHEM, table_name as TABLE_NAME,"
+  //       " 'TABLE' as TABLE_TYPE, table_comment as REMARKS"
+  //       " from information_schema.ins_tables where TABLE_TYPE like ?"
+  //       " union"
+  //       " select db_name as TABLE_CAT, '' as TABLE_SCHEM, stable_name as TABLE_NAME,"
+  //       " 'STABLE' as TABLE_TYPE, table_comment as REMARKS"
+  //       " from information_schema.ins_stables where TABLE_TYPE like ?"
+  //       " order by TABLE_TYPE, TABLE_CAT, TABLE_SCHEM, TABLE_NAME";
+  //     sr = stmt_prepare(stmt, (SQLCHAR*)sql, (SQLINTEGER)strlen(sql));
+  //     if (sr == SQL_ERROR) return SQL_ERROR;
+
+  //     SQLSMALLINT  InputOutputType       = SQL_PARAM_INPUT;
+  //     SQLSMALLINT  ValueType             = SQL_C_CHAR;
+  //     SQLSMALLINT  ParameterType         = SQL_VARCHAR;
+  //     SQLULEN      ColumnSize            = 1024; // FIXME: hard-coded
+  //     SQLSMALLINT  DecimalDigits         = 0;
+  //     SQLPOINTER   ParameterValuePtr     = (SQLPOINTER)type;
+  //     SQLLEN       BufferLength          = strlen(type) + 1;
+  //     SQLLEN       StrLen_or_Ind         = SQL_NTS;
+  //     sr = stmt_bind_param(stmt, 1, InputOutputType, ValueType, ParameterType, ColumnSize, DecimalDigits, ParameterValuePtr, BufferLength, &StrLen_or_Ind);
+  //     if (sr == SQL_ERROR) return SQL_ERROR;
+
+  //     sr = stmt_bind_param(stmt, 2, InputOutputType, ValueType, ParameterType, ColumnSize, DecimalDigits, ParameterValuePtr, BufferLength, &StrLen_or_Ind);
+  //     if (sr == SQL_ERROR) return SQL_ERROR;
+
+  //     return stmt_execute(stmt);
+  //   }
+
+  //   if (0) {
+  //     // https://github.com/taosdata/TDengine/issues/17872
+  //     sql =
+  //       "select * from ("
+  //       " select db_name as TABLE_CAT, '' as TABLE_SCHEM, stable_name as TABLE_NAME,"
+  //       " 'STABLE' as TABLE_TYPE, table_comment as REMARKS"
+  //       " from information_schema.ins_stables"
+  //       " union"
+  //       " select db_name as TABLE_CAT, '' as TABLE_SCHEM, table_name as TABLE_NAME,"
+  //       " 'TABLE' as TABLE_TYPE, table_comment as REMARKS"
+  //       " from information_schema.ins_tables"
+  //       ") where TABLE_TYPE in (?, ?)";
+  //     sr = stmt_prepare(stmt, (SQLCHAR*)sql, (SQLINTEGER)strlen(sql));
+  //     if (sr == SQL_ERROR) return SQL_ERROR;
+
+  //     SQLSMALLINT  InputOutputType       = SQL_PARAM_INPUT;
+  //     SQLSMALLINT  ValueType             = SQL_C_CHAR;
+  //     SQLSMALLINT  ParameterType         = SQL_VARCHAR;
+  //     SQLULEN      ColumnSize            = 1024; // FIXME: hard-coded
+  //     SQLSMALLINT  DecimalDigits         = 0;
+  //     SQLPOINTER   ParameterValuePtr     = (SQLPOINTER)"TABLE";
+  //     SQLLEN       BufferLength          = strlen("TABLE") + 1;
+  //     SQLLEN       StrLen_or_Ind         = SQL_NTS;
+
+  //     sr = stmt_bind_param(stmt, 1, InputOutputType, ValueType, ParameterType, ColumnSize, DecimalDigits, ParameterValuePtr, BufferLength, &StrLen_or_Ind);
+  //     if (sr == SQL_ERROR) return SQL_ERROR;
+
+  //     ParameterValuePtr     = (SQLPOINTER)"STABLE";
+  //     BufferLength          = strlen("STABLE") + 1;
+
+  //     sr = stmt_bind_param(stmt, 2, InputOutputType, ValueType, ParameterType, ColumnSize, DecimalDigits, ParameterValuePtr, BufferLength, &StrLen_or_Ind);
+  //     if (sr == SQL_ERROR) return SQL_ERROR;
+  //     return stmt_execute(stmt);
+  //   }
+
+  //   if (1) {
+  //     // TODO: Catalog/Schema/TableName/TableType
+  //     // https://github.com/taosdata/TDengine/issues/17890
+  //     if (!*catalog) catalog = "%";
+  //     if (!*table) table = "%";
+  //     NameLength1 = (SQLSMALLINT)strlen(catalog);
+  //     NameLength3 = (SQLSMALLINT)strlen(table);
+  //     int is_table  = 0;
+  //     int is_stable = 0;
+  //     r = table_type_parse(type, &is_table, &is_stable);
+  //     if (r) {
+  //       stmt_append_err_format(stmt, "HY000", 0, "General error:invalid `table_type:[%.*s]`", (int)NameLength4, type);
+  //       return SQL_ERROR;
+  //     }
+  //     buffer_t str = {0};
+  //     do {
+  //       if ((is_table && is_stable) || (!is_table && !is_stable)) {
+  //         sql =
+  //           "select * from ("
+  //           " select db_name as TABLE_CAT, '' as TABLE_SCHEM, stable_name as TABLE_NAME,"
+  //           " 'STABLE' as TABLE_TYPE, table_comment as REMARKS"
+  //           " from information_schema.ins_stables"
+  //           " union"
+  //           " select db_name as TABLE_CAT, '' as TABLE_SCHEM, table_name as TABLE_NAME,"
+  //           " 'TABLE' as TABLE_TYPE, table_comment as REMARKS"
+  //           " from information_schema.ins_tables"
+  //           ") where 1 = 1";
+  //         r = buffer_concat(&str, sql);
+  //         if (r) { stmt_oom(stmt); break; }
+  //       } else if (is_stable) {
+  //         sql =
+  //           "select * from("
+  //           " select db_name as TABLE_CAT, '' as TABLE_SCHEM, stable_name as TABLE_NAME,"
+  //           " 'STABLE' as TABLE_TYPE, table_comment as REMARKS"
+  //           " from information_schema.ins_stables"
+  //           ") where 1 = 1";
+  //         r = buffer_concat(&str, sql);
+  //         if (r) { stmt_oom(stmt); break; }
+  //       } else {
+  //         sql =
+  //           "select * from("
+  //           " select db_name as TABLE_CAT, '' as TABLE_SCHEM, table_name as TABLE_NAME,"
+  //           " 'TABLE' as TABLE_TYPE, table_comment as REMARKS"
+  //           " from information_schema.ins_tables"
+  //           ") where 1 = 1";
+  //         r = buffer_concat(&str, sql);
+  //         if (r) { stmt_oom(stmt); break; }
+  //       }
+  //       if (*catalog) {
+  //         r = buffer_concat_fmt(&str, " and table_cat like '");
+  //         if (r) { stmt_oom(stmt); break; }
+  //         r = buffer_concat_replacement_n(&str, catalog, NameLength1);
+  //         if (r) { stmt_oom(stmt); break; }
+  //         r = buffer_concat_n(&str, "'", 1);
+  //         if (r) { stmt_oom(stmt); break; }
+  //       }
+
+  //       r = buffer_concat_fmt(&str, " order by table_type, table_cat, table_schem, table_name");
+  //       if (r) { stmt_oom(stmt); break; }
+
+  //       wildex_t *wild = NULL;
+  //       if (*table) {
+  //         r = wildcomp(&wild, table);
+  //         if (r) {
+  //           stmt_append_err_format(stmt, "HY000", 0, "General error:`invalid pattern for table_name:[%s]`", table);
+  //           break;
+  //         }
+  //       }
+
+  //       sql = str.base;
+  //       sr = stmt_exec_direct(stmt, sql, (int)str.nr);
+  //       if (sr == SQL_ERROR) return SQL_ERROR;
+
+  //       if (*table) {
+  //         stmt->post_filter.ctx                   = wild;
+  //         stmt->post_filter.post_filter           = _wild_post_filter;
+  //         stmt->post_filter.post_filter_destroy   = _wild_post_filter_destroy;
+  //       }
+  //     } while (0);
+  //     buffer_release(&str);
+  //     if (r) return SQL_ERROR;
+  //     return sr;
+  //   }
+  // }
+
+  // stmt_append_err_format(stmt, "HY000", 0, "General error:`sql:[%s]` not supported yet", sql);
+  // return SQL_ERROR;
+}

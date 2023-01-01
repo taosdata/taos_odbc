@@ -44,8 +44,6 @@ void descriptor_release(descriptor_t *descriptor) FA_HIDDEN;
 
 void descriptor_reclaim_buffers(descriptor_t *APD) FA_HIDDEN;
 
-void desc_record_reclaim_buffers(desc_record_t *record) FA_HIDDEN;
-
 EXTERN_C_END
 
 #endif //  _desc_h_

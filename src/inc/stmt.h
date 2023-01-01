@@ -140,6 +140,25 @@ SQLRETURN stmt_get_diag_field(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr) FA_HIDDEN;
 
+SQLRETURN stmt_col_attribute(
+    stmt_t         *stmt,
+    SQLUSMALLINT    ColumnNumber,
+    SQLUSMALLINT    FieldIdentifier,
+    SQLPOINTER      CharacterAttributePtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr,
+    SQLLEN         *NumericAttributePtr) FA_HIDDEN;
+
+SQLRETURN stmt_more_results(
+    stmt_t         *stmt) FA_HIDDEN;
+
+SQLRETURN stmt_columns(
+    stmt_t         *stmt,
+    SQLCHAR *CatalogName, SQLSMALLINT NameLength1,
+    SQLCHAR *SchemaName, SQLSMALLINT NameLength2,
+    SQLCHAR *TableName, SQLSMALLINT NameLength3,
+    SQLCHAR *ColumnName, SQLSMALLINT NameLength4) FA_HIDDEN;
+
 EXTERN_C_END
 
 #endif //  _stmt_h_

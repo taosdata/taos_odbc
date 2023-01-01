@@ -5297,6 +5297,8 @@ SQLRETURN stmt_columns(
     SQLCHAR *TableName, SQLSMALLINT NameLength3,
     SQLCHAR *ColumnName, SQLSMALLINT NameLength4)
 {
+  SQLRETURN sr = SQL_SUCCESS;
+
   const char *catalog = (const char *)CatalogName;
   const char *schema  = (const char *)SchemaName;
   const char *table   = (const char *)TableName;
@@ -5316,6 +5318,30 @@ SQLRETURN stmt_columns(
   OW("schema:%.*s", (int)NameLength2, schema);
   OW("table:%.*s", (int)NameLength3, table);
   OW("column:%.*s", (int)NameLength4, column);
+
+  char buf[1024]; buf[0] = '\0';
+  snprintf(buf, sizeof(buf), "select * from information_schema.ins_tables where db_name like ? and table_name like ?");
+
+  sr = stmt_prepare(stmt, buf, (SQLINTEGER)strlen(buf));
+  if (sr == SQL_ERROR) return SQL_ERROR;
+
+  SQLLEN StrLen_or_Ind[2];
+  StrLen_or_Ind[0] = NameLength1;
+  StrLen_or_Ind[1] = NameLength3;
+
+  sr = stmt_set_attr(stmt, SQL_ATTR_PARAM_BIND_TYPE, SQL_PARAM_BIND_BY_COLUMN, 0);
+  if (sr == SQL_ERROR) return SQL_ERROR;
+
+  sr = stmt_set_attr(stmt, SQL_ATTR_PARAMSET_SIZE, (SQLPOINTER)(uintptr_t)1, 0);
+  if (sr == SQL_ERROR) return SQL_ERROR;
+
+  sr = stmt_bind_param(stmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, NameLength1, 0, (SQLPOINTER)catalog, NameLength1, &StrLen_or_Ind[0]);
+  if (sr == SQL_ERROR) return SQL_ERROR;
+  sr = stmt_bind_param(stmt, 2, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, NameLength3, 0, (SQLPOINTER)table, NameLength3, &StrLen_or_Ind[1]);
+  if (sr == SQL_ERROR) return SQL_ERROR;
+
+  sr = stmt_execute(stmt);
+  if (sr == SQL_ERROR) return SQL_ERROR;
 
   stmt_append_err(stmt, "HY000", 0, "General error:SQLColumns not supported yet");
   return SQL_ERROR;

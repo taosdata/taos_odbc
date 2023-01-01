@@ -16,10 +16,12 @@ ConfigTranslator       (windows port only)
 SQLAllocHandle
 SQLBindCol
 SQLBindParameter
+SQLBrowseConnect
 SQLBulkOperations
 SQLColAttribute
 SQLColumnPrivileges
 SQLColumns
+SQLCompleteAsync
 SQLConnect
 SQLCopyDesc
 SQLDescribeCol

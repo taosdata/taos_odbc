@@ -20,7 +20,7 @@ SQLBrowseConnect
 SQLBulkOperations
 SQLColAttribute
 SQLColumnPrivileges
-SQLColumns
+SQLColumns             (not fully implemented yet)
 SQLCompleteAsync
 SQLConnect
 SQLCopyDesc

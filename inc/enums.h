@@ -50,6 +50,12 @@ const char *sql_fetch_orientation(SQLSMALLINT v) FA_HIDDEN;
 const char *sql_diag_identifier(SQLSMALLINT v) FA_HIDDEN;
 const char *sql_bulk_operation(SQLSMALLINT v) FA_HIDDEN;
 const char *sql_col_attribute(SQLUSMALLINT v) FA_HIDDEN;
+const char *sql_pos_operation(SQLUSMALLINT v) FA_HIDDEN;
+const char *sql_pos_locktype(SQLUSMALLINT v) FA_HIDDEN;
+const char *sql_special_columns_identifier(SQLUSMALLINT v) FA_HIDDEN;
+const char *sql_scope(SQLUSMALLINT v) FA_HIDDEN;
+const char *sql_index(SQLUSMALLINT v) FA_HIDDEN;
+const char *sql_statistics_reserved(SQLUSMALLINT v) FA_HIDDEN;
 
 EXTERN_C_END
 

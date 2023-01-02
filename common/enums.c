@@ -629,3 +629,67 @@ const char *sql_col_attribute(SQLUSMALLINT v)
       return "SQL_DESC_unknown";
   }
 }
+
+const char *sql_pos_operation(SQLUSMALLINT v)
+{
+  switch (v) {
+    CASE(SQL_POSITION);
+    CASE(SQL_REFRESH);
+    CASE(SQL_UPDATE);
+    CASE(SQL_DELETE);
+    default:
+      return "SQL_POSITION_unknown";
+  }
+}
+
+const char *sql_pos_locktype(SQLUSMALLINT v)
+{
+  switch (v) {
+    CASE(SQL_LOCK_NO_CHANGE);
+    CASE(SQL_LOCK_EXCLUSIVE);
+    CASE(SQL_LOCK_UNLOCK);
+    default:
+      return "SQL_LOCK_unknown";
+  }
+}
+
+const char *sql_special_columns_identifier(SQLUSMALLINT v)
+{
+  switch (v) {
+    CASE(SQL_BEST_ROWID);
+    CASE(SQL_ROWVER);
+    default:
+      return "SQL_unknown";
+  }
+}
+
+const char *sql_scope(SQLUSMALLINT v)
+{
+  switch (v) {
+    CASE(SQL_SCOPE_CURROW);
+    CASE(SQL_SCOPE_TRANSACTION);
+    CASE(SQL_SCOPE_SESSION);
+    default:
+      return "SQL_SCOPE_unknown";
+  }
+}
+
+const char *sql_index(SQLUSMALLINT v)
+{
+  switch (v) {
+    CASE(SQL_INDEX_UNIQUE);
+    CASE(SQL_INDEX_ALL);
+    default:
+      return "SQL_INDEX_unknown";
+  }
+}
+
+const char *sql_statistics_reserved(SQLUSMALLINT v)
+{
+  switch (v) {
+    CASE(SQL_ENSURE);
+    CASE(SQL_QUICK);
+    default:
+      return "SQL_unknown";
+  }
+}

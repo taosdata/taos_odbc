@@ -4843,6 +4843,7 @@ SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr,
   }
 }
 
+#if (ODBCVER >= 0x0300)          /* { */
 SQLRETURN stmt_get_attr(stmt_t *stmt,
            SQLINTEGER Attribute, SQLPOINTER Value,
            SQLINTEGER BufferLength, SQLINTEGER *StringLength)
@@ -4870,6 +4871,7 @@ SQLRETURN stmt_get_attr(stmt_t *stmt,
       return SQL_ERROR;
   }
 }
+#endif                           /* } */
 
 SQLRETURN stmt_free_stmt(stmt_t *stmt, SQLUSMALLINT Option)
 {
@@ -5552,4 +5554,364 @@ SQLRETURN stmt_columns(
 
   // stmt_append_err_format(stmt, "HY000", 0, "General error:`sql:[%s]` not supported yet", sql);
   // return SQL_ERROR;
+}
+
+#if (ODBCVER >= 0x0300)       /* { */
+SQLRETURN stmt_bulk_operations(
+    stmt_t             *stmt,
+    SQLSMALLINT         Operation)
+{
+  stmt_append_err_format(stmt, "HY000", 0, "General error:Operation `%s[%d/0x%x]` not supported yet", sql_bulk_operation(Operation), Operation, Operation);
+  return SQL_ERROR;
+}
+
+#endif                        /* } */
+
+SQLRETURN stmt_column_privileges(
+    stmt_t       *stmt,
+    SQLCHAR      *CatalogName,
+    SQLSMALLINT   NameLength1,
+    SQLCHAR      *SchemaName,
+    SQLSMALLINT   NameLength2,
+    SQLCHAR      *TableName,
+    SQLSMALLINT   NameLength3,
+    SQLCHAR      *ColumnName,
+    SQLSMALLINT   NameLength4)
+{
+  const char *catalog = (const char *)CatalogName;
+  const char *schema  = (const char *)SchemaName;
+  const char *table   = (const char *)TableName;
+  const char *column  = (const char *)ColumnName;
+
+  if (catalog == NULL) catalog = "";
+  if (schema  == NULL) schema  = "";
+  if (table   == NULL) table   = "";
+  if (column  == NULL) column  = "";
+
+  if (NameLength1 == SQL_NTS) NameLength1 = (SQLSMALLINT)strlen(catalog);
+  if (NameLength2 == SQL_NTS) NameLength2 = (SQLSMALLINT)strlen(schema);
+  if (NameLength3 == SQL_NTS) NameLength3 = (SQLSMALLINT)strlen(table);
+  if (NameLength4 == SQL_NTS) NameLength4 = (SQLSMALLINT)strlen(column);
+
+  OW("catalog:%.*s", (int)NameLength1, catalog);
+  OW("schema:%.*s", (int)NameLength2, schema);
+  OW("table:%.*s", (int)NameLength3, table);
+  OW("column:%.*s", (int)NameLength4, column);
+
+  stmt_append_err(stmt, "HY000", 0, "General error:not supported yet");
+  return SQL_ERROR;
+}
+
+SQLRETURN stmt_extended_fetch(
+    stmt_t          *stmt,
+    SQLUSMALLINT     FetchOrientation,
+    SQLLEN           FetchOffset,
+    SQLULEN         *RowCountPtr,
+    SQLUSMALLINT    *RowStatusArray)
+{
+  stmt_append_err_format(stmt, "HY000", 0, "General error:FetchOrientation[%d/0x%x],FetchOffset[%" PRId64 "/0x%" PRIx64 "] not supported yet",
+      FetchOrientation, FetchOrientation, FetchOffset, FetchOffset);
+  return SQL_ERROR;
+}
+
+SQLRETURN stmt_foreign_keys(
+    stmt_t        *stmt,
+    SQLCHAR       *PKCatalogName,
+    SQLSMALLINT    NameLength1,
+    SQLCHAR       *PKSchemaName,
+    SQLSMALLINT    NameLength2,
+    SQLCHAR       *PKTableName,
+    SQLSMALLINT    NameLength3,
+    SQLCHAR       *FKCatalogName,
+    SQLSMALLINT    NameLength4,
+    SQLCHAR       *FKSchemaName,
+    SQLSMALLINT    NameLength5,
+    SQLCHAR       *FKTableName,
+    SQLSMALLINT    NameLength6)
+{
+  const char *pkcatalog            = (const char*)PKCatalogName;
+  const char *pkschema             = (const char*)PKSchemaName;
+  const char *pktable              = (const char*)PKTableName;
+  const char *fkcatalog            = (const char*)FKCatalogName;
+  const char *fkschema             = (const char*)FKSchemaName;
+  const char *fktable              = (const char*)FKTableName;
+
+  if (!pkcatalog)             pkcatalog = "";
+  if (!pkschema)              pkschema  = "";
+  if (!pktable)               pktable   = "";
+  if (!fkcatalog)             fkcatalog = "";
+  if (!fkschema)              fkschema  = "";
+  if (!fktable)               fktable   = "";
+
+  if (NameLength1 == SQL_NTS)       NameLength1 = (SQLSMALLINT)strlen(pkcatalog);
+  if (NameLength2 == SQL_NTS)       NameLength2 = (SQLSMALLINT)strlen(pkschema);
+  if (NameLength3 == SQL_NTS)       NameLength3 = (SQLSMALLINT)strlen(pktable);
+  if (NameLength4 == SQL_NTS)       NameLength4 = (SQLSMALLINT)strlen(fkcatalog);
+  if (NameLength5 == SQL_NTS)       NameLength5 = (SQLSMALLINT)strlen(fkschema);
+  if (NameLength5 == SQL_NTS)       NameLength6 = (SQLSMALLINT)strlen(fktable);
+
+  OW("pkcatalog:%.*s", NameLength1, pkcatalog);
+  OW("pkschema:%.*s",  NameLength2, pkschema);
+  OW("pktable:%.*s",   NameLength3, pktable);
+  OW("fkcatalog:%.*s", NameLength4, fkcatalog);
+  OW("fkschema:%.*s",  NameLength5, fkschema);
+  OW("fktable:%.*s",   NameLength6, fktable);
+
+  stmt_append_err(stmt, "HY000", 0, "General error:not supported yet");
+  return SQL_ERROR;
+}
+
+SQLRETURN stmt_get_cursor_name(
+    stmt_t       *stmt,
+    SQLCHAR      *CursorName,
+    SQLSMALLINT   BufferLength,
+    SQLSMALLINT  *NameLengthPtr)
+{
+  (void)CursorName;
+  (void)BufferLength;
+  (void)NameLengthPtr;
+  stmt_append_err(stmt, "HY000", 0, "General error:not supported yet");
+  return SQL_ERROR;
+}
+
+SQLRETURN stmt_get_type_info(
+    stmt_t       *stmt,
+    SQLSMALLINT   DataType)
+{
+  stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` not supported yet", sql_data_type(DataType), DataType, DataType);
+  return SQL_ERROR;
+}
+
+SQLRETURN stmt_param_data(
+    stmt_t       *stmt,
+    SQLPOINTER   *Value)
+{
+  (void)Value;
+  stmt_append_err(stmt, "HY000", 0, "General error:not supported yet");
+  return SQL_ERROR;
+}
+
+SQLRETURN stmt_primary_keys(
+    stmt_t        *stmt,
+    SQLCHAR       *CatalogName,
+    SQLSMALLINT    NameLength1,
+    SQLCHAR       *SchemaName,
+    SQLSMALLINT    NameLength2,
+    SQLCHAR       *TableName,
+    SQLSMALLINT    NameLength3)
+{
+  const char *catalog = (const char *)CatalogName;
+  const char *schema  = (const char *)SchemaName;
+  const char *table   = (const char *)TableName;
+
+  if (catalog == NULL) catalog = "";
+  if (schema  == NULL) schema  = "";
+  if (table   == NULL) table   = "";
+
+  if (NameLength1 == SQL_NTS) NameLength1 = (SQLSMALLINT)strlen(catalog);
+  if (NameLength2 == SQL_NTS) NameLength2 = (SQLSMALLINT)strlen(schema);
+  if (NameLength3 == SQL_NTS) NameLength3 = (SQLSMALLINT)strlen(table);
+
+  OW("catalog:%.*s", (int)NameLength1, catalog);
+  OW("schema:%.*s", (int)NameLength2, schema);
+  OW("table:%.*s", (int)NameLength3, table);
+
+  stmt_append_err(stmt, "HY000", 0, "General error:not supported yet");
+  return SQL_ERROR;
+}
+
+SQLRETURN stmt_procedure_columns(
+    stmt_t       *stmt,
+    SQLCHAR      *CatalogName,
+    SQLSMALLINT   NameLength1,
+    SQLCHAR      *SchemaName,
+    SQLSMALLINT   NameLength2,
+    SQLCHAR      *ProcName,
+    SQLSMALLINT   NameLength3,
+    SQLCHAR      *ColumnName,
+    SQLSMALLINT   NameLength4)
+{
+  const char *catalog = (const char *)CatalogName;
+  const char *schema  = (const char *)SchemaName;
+  const char *proc    = (const char *)ProcName;
+  const char *column  = (const char *)ColumnName;
+
+  if (catalog == NULL) catalog = "";
+  if (schema  == NULL) schema  = "";
+  if (proc    == NULL) proc    = "";
+  if (column  == NULL) column  = "";
+
+  if (NameLength1 == SQL_NTS) NameLength1 = (SQLSMALLINT)strlen(catalog);
+  if (NameLength2 == SQL_NTS) NameLength2 = (SQLSMALLINT)strlen(schema);
+  if (NameLength3 == SQL_NTS) NameLength3 = (SQLSMALLINT)strlen(proc);
+  if (NameLength4 == SQL_NTS) NameLength4 = (SQLSMALLINT)strlen(column);
+
+  OW("catalog:%.*s", (int)NameLength1, catalog);
+  OW("schema:%.*s",  (int)NameLength2, schema);
+  OW("proc:%.*s",    (int)NameLength3, proc);
+  OW("column:%.*s",  (int)NameLength4, column);
+
+  stmt_append_err(stmt, "HY000", 0, "General error:not supported yet");
+  return SQL_ERROR;
+}
+
+SQLRETURN stmt_procedures(
+    stmt_t         *stmt,
+    SQLCHAR        *CatalogName,
+    SQLSMALLINT     NameLength1,
+    SQLCHAR        *SchemaName,
+    SQLSMALLINT     NameLength2,
+    SQLCHAR        *ProcName,
+    SQLSMALLINT     NameLength3)
+{
+  const char *catalog = (const char *)CatalogName;
+  const char *schema  = (const char *)SchemaName;
+  const char *proc    = (const char *)ProcName;
+
+  if (catalog == NULL) catalog = "";
+  if (schema  == NULL) schema  = "";
+  if (proc    == NULL) proc    = "";
+
+  if (NameLength1 == SQL_NTS) NameLength1 = (SQLSMALLINT)strlen(catalog);
+  if (NameLength2 == SQL_NTS) NameLength2 = (SQLSMALLINT)strlen(schema);
+  if (NameLength3 == SQL_NTS) NameLength3 = (SQLSMALLINT)strlen(proc);
+
+  OW("catalog:%.*s", (int)NameLength1, catalog);
+  OW("schema:%.*s",  (int)NameLength2, schema);
+  OW("proc:%.*s",    (int)NameLength3, proc);
+
+  stmt_append_err(stmt, "HY000", 0, "General error:not supported yet");
+  return SQL_ERROR;
+}
+
+SQLRETURN stmt_put_data(
+    stmt_t         *stmt,
+    SQLPOINTER      Data,
+    SQLLEN          StrLen_or_Ind)
+{
+  (void)Data;
+  (void)StrLen_or_Ind;
+  stmt_append_err(stmt, "HY000", 0, "General error:not supported yet");
+  return SQL_ERROR;
+}
+
+SQLRETURN stmt_set_cursor_name(
+    stmt_t         *stmt,
+    SQLCHAR        *CursorName,
+    SQLSMALLINT     NameLength)
+{
+  const char *cursor         = (const char*)CursorName;
+  if (!cursor) cursor = "";
+  if (NameLength == SQL_NTS) NameLength = (SQLSMALLINT)strlen(cursor);
+  stmt_append_err_format(stmt, "HY000", 0, "General error:CursorName[%.*s] not supported yet", NameLength, cursor);
+  return SQL_ERROR;
+}
+
+SQLRETURN stmt_set_pos(
+    stmt_t         *stmt,
+    SQLSETPOSIROW   RowNumber,
+    SQLUSMALLINT    Operation,
+    SQLUSMALLINT    LockType)
+{
+  stmt_append_err_format(stmt, "HY000", 0, "General error:RowNumber[%" PRIu64 "],Operation `%s[%d/0x%x]`,LockType `%s[%d/0x%x]`",
+      RowNumber, sql_pos_operation(Operation), Operation, Operation, sql_pos_locktype(LockType), LockType, LockType);
+  return SQL_ERROR;
+}
+
+SQLRETURN stmt_special_columns(
+    stmt_t         *stmt,
+    SQLUSMALLINT    IdentifierType,
+    SQLCHAR *CatalogName, SQLSMALLINT NameLength1,
+    SQLCHAR *SchemaName, SQLSMALLINT NameLength2,
+    SQLCHAR *TableName, SQLSMALLINT NameLength3,
+    SQLUSMALLINT Scope, SQLUSMALLINT Nullable)
+{
+  const char *catalog = (const char *)CatalogName;
+  const char *schema  = (const char *)SchemaName;
+  const char *table   = (const char *)TableName;
+
+  if (catalog == NULL) catalog = "";
+  if (schema  == NULL) schema  = "";
+  if (table   == NULL) table   = "";
+
+  if (NameLength1 == SQL_NTS) NameLength1 = (SQLSMALLINT)strlen(catalog);
+  if (NameLength2 == SQL_NTS) NameLength2 = (SQLSMALLINT)strlen(schema);
+  if (NameLength3 == SQL_NTS) NameLength3 = (SQLSMALLINT)strlen(table);
+
+  OW("catalog:%.*s", (int)NameLength1, catalog);
+  OW("schema:%.*s", (int)NameLength2, schema);
+  OW("table:%.*s", (int)NameLength3, table);
+
+  stmt_append_err_format(stmt, "HY000", 0, "General error:Identifier `%s[%d/0x%x]`,Scope `%s[%d/0x%x]`,Nullable `%s[%d/0x%x]` not supported yet",
+      sql_special_columns_identifier(IdentifierType), IdentifierType, IdentifierType,
+      sql_scope(Scope), Scope, Scope,
+      sql_nullable(Nullable), Nullable, Nullable);
+  return SQL_ERROR;
+}
+
+SQLRETURN stmt_statistics(
+    stmt_t  *stmt,
+    SQLCHAR *CatalogName, SQLSMALLINT NameLength1,
+    SQLCHAR *SchemaName, SQLSMALLINT NameLength2,
+    SQLCHAR *TableName, SQLSMALLINT NameLength3,
+    SQLUSMALLINT Unique, SQLUSMALLINT Reserved)
+{
+  const char *catalog = (const char *)CatalogName;
+  const char *schema  = (const char *)SchemaName;
+  const char *table   = (const char *)TableName;
+
+  if (catalog == NULL) catalog = "";
+  if (schema  == NULL) schema  = "";
+  if (table   == NULL) table   = "";
+
+  if (NameLength1 == SQL_NTS) NameLength1 = (SQLSMALLINT)strlen(catalog);
+  if (NameLength2 == SQL_NTS) NameLength2 = (SQLSMALLINT)strlen(schema);
+  if (NameLength3 == SQL_NTS) NameLength3 = (SQLSMALLINT)strlen(table);
+
+  OW("catalog:%.*s", (int)NameLength1, catalog);
+  OW("schema:%.*s", (int)NameLength2, schema);
+  OW("table:%.*s", (int)NameLength3, table);
+
+  stmt_append_err_format(stmt, "HY000", 0, "General error:Unique `%s[%d/0x%x]`,Reserved `%s[%d/0x%x]` not supported yet",
+      sql_index(Unique), Unique, Unique,
+      sql_statistics_reserved(Reserved), Reserved, Reserved);
+  return SQL_ERROR;
+}
+
+SQLRETURN stmt_table_privileges(
+    stmt_t  *stmt,
+    SQLCHAR *CatalogName,
+    SQLSMALLINT NameLength1,
+    SQLCHAR *SchemaName,
+    SQLSMALLINT NameLength2,
+    SQLCHAR *TableName,
+    SQLSMALLINT NameLength3)
+{
+  const char *catalog = (const char *)CatalogName;
+  const char *schema  = (const char *)SchemaName;
+  const char *table   = (const char *)TableName;
+
+  if (catalog == NULL) catalog = "";
+  if (schema  == NULL) schema  = "";
+  if (table   == NULL) table   = "";
+
+  if (NameLength1 == SQL_NTS) NameLength1 = (SQLSMALLINT)strlen(catalog);
+  if (NameLength2 == SQL_NTS) NameLength2 = (SQLSMALLINT)strlen(schema);
+  if (NameLength3 == SQL_NTS) NameLength3 = (SQLSMALLINT)strlen(table);
+
+  OW("catalog:%.*s", (int)NameLength1, catalog);
+  OW("schema:%.*s", (int)NameLength2, schema);
+  OW("table:%.*s", (int)NameLength3, table);
+
+  stmt_append_err(stmt, "HY000", 0, "General error:not supported yet");
+  return SQL_ERROR;
+}
+
+SQLRETURN stmt_complete_async(
+    stmt_t      *stmt,
+    RETCODE     *AsyncRetCodePtr)
+{
+  (void)AsyncRetCodePtr;
+  stmt_append_err(stmt, "HY000", 0, "General error:not supported yet");
+  return SQL_ERROR;
 }

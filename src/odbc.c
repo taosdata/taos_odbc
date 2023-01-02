@@ -637,9 +637,6 @@ SQLRETURN SQL_API SQLGetDiagRec(
       OE("HandleType[%s] not supported yet", sql_handle_type(HandleType));
       return SQL_ERROR;
   }
-
-  OA_NIY(0);
-  return SQL_ERROR;
 }
 
 SQLRETURN SQL_API SQLGetDiagField(
@@ -668,15 +665,10 @@ SQLRETURN SQL_API SQLGetDiagField(
       OA_NIY(0);
       return SQL_ERROR;
   }
-#endif
-  (void)HandleType;
-  (void)RecNumber;
-  (void)DiagIdentifier;
-  (void)DiagInfoPtr;
-  (void)BufferLength;
-  (void)StringLengthPtr;
+#else
   OA_NIY(0);
   return SQL_ERROR;
+#endif
 }
 
 SQLRETURN SQL_API SQLGetData(
@@ -1114,10 +1106,13 @@ SQLRETURN SQL_API SQLBulkOperations(
     SQLSMALLINT         Operation)
 {
   OOW("===");
-  (void)StatementHandle;
-  OD("Operation:%s", sql_bulk_operation(Operation));
-  OA_NIY(0);
-  return SQL_ERROR;
+  if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  stmt_t *stmt = (stmt_t*)StatementHandle;
+
+  stmt_clr_errs(stmt);
+
+  return stmt_bulk_operations(stmt, Operation);
 }
 #endif  /* ODBCVER >= 0x0300 */
 
@@ -1144,28 +1139,23 @@ SQLRETURN SQL_API SQLCloseCursor(SQLHSTMT StatementHandle)
 #endif
 
 SQLRETURN SQL_API SQLColumnPrivileges(
-    SQLHSTMT           hstmt,
-    SQLCHAR           *szCatalogName,
-    SQLSMALLINT        cchCatalogName,
-    SQLCHAR           *szSchemaName,
-    SQLSMALLINT        cchSchemaName,
-    SQLCHAR           *szTableName,
-    SQLSMALLINT        cchTableName,
-    SQLCHAR           *szColumnName,
-    SQLSMALLINT        cchColumnName)
+    SQLHSTMT      StatementHandle,
+    SQLCHAR      *CatalogName,
+    SQLSMALLINT   NameLength1,
+    SQLCHAR      *SchemaName,
+    SQLSMALLINT   NameLength2,
+    SQLCHAR      *TableName,
+    SQLSMALLINT   NameLength3,
+    SQLCHAR      *ColumnName,
+    SQLSMALLINT   NameLength4)
 {
   OOW("===");
-  (void)hstmt;
-  (void)szCatalogName;
-  (void)cchCatalogName;
-  (void)szSchemaName;
-  (void)cchSchemaName;
-  (void)szTableName;
-  (void)cchTableName;
-  (void)szColumnName;
-  (void)cchColumnName;
-  OA_NIY(0);
-  return SQL_ERROR;
+  if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  stmt_t *stmt = (stmt_t*)StatementHandle;
+
+  stmt_clr_errs(stmt);
+  return stmt_column_privileges(stmt, CatalogName, NameLength1, SchemaName, NameLength2, TableName, NameLength3, ColumnName, NameLength4);
 }
 
 SQLRETURN SQL_API SQLColumns(SQLHSTMT StatementHandle,
@@ -1196,53 +1186,44 @@ SQLRETURN SQL_API SQLCopyDesc(SQLHDESC SourceDescHandle,
 #endif
 
 SQLRETURN SQL_API SQLExtendedFetch(
-    SQLHSTMT           hstmt,
-    SQLUSMALLINT       fFetchType,
-    SQLLEN             irow,
-    SQLULEN           *pcrow,
-    SQLUSMALLINT      *rgfRowStatus)
+    SQLHSTMT         StatementHandle,
+    SQLUSMALLINT     FetchOrientation,
+    SQLLEN           FetchOffset,
+    SQLULEN         *RowCountPtr,
+    SQLUSMALLINT    *RowStatusArray)
 {
   OOW("===");
-  (void)hstmt;
-  (void)fFetchType;
-  (void)irow;
-  (void)pcrow;
-  (void)rgfRowStatus;
-  OA_NIY(0);
-  return SQL_ERROR;
+  if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  stmt_t *stmt = (stmt_t*)StatementHandle;
+
+  stmt_clr_errs(stmt);
+  return stmt_extended_fetch(stmt, FetchOrientation, FetchOffset, RowCountPtr, RowStatusArray);
 }
 
 SQLRETURN SQL_API SQLForeignKeys(
-    SQLHSTMT           hstmt,
-    SQLCHAR           *szPkCatalogName,
-    SQLSMALLINT        cchPkCatalogName,
-    SQLCHAR           *szPkSchemaName,
-    SQLSMALLINT        cchPkSchemaName,
-    SQLCHAR           *szPkTableName,
-    SQLSMALLINT        cchPkTableName,
-    SQLCHAR           *szFkCatalogName,
-    SQLSMALLINT        cchFkCatalogName,
-    SQLCHAR           *szFkSchemaName,
-    SQLSMALLINT        cchFkSchemaName,
-    SQLCHAR           *szFkTableName,
-    SQLSMALLINT        cchFkTableName)
+    SQLHSTMT       StatementHandle,
+    SQLCHAR       *PKCatalogName,
+    SQLSMALLINT    NameLength1,
+    SQLCHAR       *PKSchemaName,
+    SQLSMALLINT    NameLength2,
+    SQLCHAR       *PKTableName,
+    SQLSMALLINT    NameLength3,
+    SQLCHAR       *FKCatalogName,
+    SQLSMALLINT    NameLength4,
+    SQLCHAR       *FKSchemaName,
+    SQLSMALLINT    NameLength5,
+    SQLCHAR       *FKTableName,
+    SQLSMALLINT    NameLength6)
 {
   OOW("===");
-  (void)hstmt;
-  (void)szPkCatalogName;
-  (void)cchPkCatalogName;
-  (void)szPkSchemaName;
-  (void)cchPkSchemaName;
-  (void)szPkTableName;
-  (void)cchPkTableName;
-  (void)szFkCatalogName;
-  (void)cchFkCatalogName;
-  (void)szFkSchemaName;
-  (void)cchFkSchemaName;
-  (void)szFkTableName;
-  (void)cchFkTableName;
-  OA_NIY(0);
-  return SQL_ERROR;
+  if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  stmt_t *stmt = (stmt_t*)StatementHandle;
+
+  stmt_clr_errs(stmt);
+  return stmt_foreign_keys(stmt, PKCatalogName, NameLength1, PKSchemaName, NameLength2,
+      PKTableName, NameLength3, FKCatalogName, NameLength4, FKSchemaName, NameLength5, FKTableName, NameLength6);
 }
 
 #if (ODBCVER >= 0x0300)
@@ -1262,18 +1243,18 @@ SQLRETURN SQL_API SQLGetConnectAttr(SQLHDBC ConnectionHandle,
 #endif
 
 SQLRETURN SQL_API SQLGetCursorName(
-    SQLHSTMT StatementHandle,
-    SQLCHAR *CursorName,
-    SQLSMALLINT BufferLength,
-    SQLSMALLINT *NameLengthPtr)
+    SQLHSTMT      StatementHandle,
+    SQLCHAR      *CursorName,
+    SQLSMALLINT   BufferLength,
+    SQLSMALLINT  *NameLengthPtr)
 {
   OOW("===");
-  (void)StatementHandle;
-  (void)CursorName;
-  (void)BufferLength;
-  (void)NameLengthPtr;
-  OA_NIY(0);
-  return SQL_ERROR;
+  if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  stmt_t *stmt = (stmt_t*)StatementHandle;
+
+  stmt_clr_errs(stmt);
+  return stmt_get_cursor_name(stmt, CursorName, BufferLength, NameLengthPtr);
 }
 
 #if (ODBCVER >= 0x0300)
@@ -1321,11 +1302,6 @@ SQLRETURN SQL_API SQLGetEnvAttr(SQLHENV EnvironmentHandle,
            SQLINTEGER BufferLength, SQLINTEGER *StringLength)
 {
   OOW("===");
-  (void)EnvironmentHandle;
-  (void)Attribute;
-  (void)Value;
-  (void)BufferLength;
-  (void)StringLength;
   if (EnvironmentHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   env_t *env = (env_t*)EnvironmentHandle;
@@ -1355,8 +1331,12 @@ SQLRETURN SQL_API SQLGetStmtAttr(SQLHSTMT StatementHandle,
            SQLINTEGER BufferLength, SQLINTEGER *StringLength)
 {
   OOW("===");
-  stmt_clr_errs((stmt_t*)StatementHandle);
-  return stmt_get_attr((stmt_t*)StatementHandle, Attribute, Value, BufferLength, StringLength);
+  if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  stmt_t *stmt = (stmt_t*)StatementHandle;
+
+  stmt_clr_errs(stmt);
+  return stmt_get_attr(stmt, Attribute, Value, BufferLength, StringLength);
 }
 #endif  /* ODBCVER >= 0x0300 */
 
@@ -1364,10 +1344,12 @@ SQLRETURN SQL_API SQLGetTypeInfo(SQLHSTMT StatementHandle,
            SQLSMALLINT DataType)
 {
   OOW("===");
-  (void)StatementHandle;
-  (void)DataType;
-  OA_NIY(0);
-  return SQL_ERROR;
+  if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  stmt_t *stmt = (stmt_t*)StatementHandle;
+
+  stmt_clr_errs(stmt);
+  return stmt_get_type_info(stmt, DataType);
 }
 
 SQLRETURN SQL_API SQLMoreResults(
@@ -1383,123 +1365,114 @@ SQLRETURN SQL_API SQLMoreResults(
 }
 
 SQLRETURN SQL_API SQLNativeSql(
-    SQLHDBC            hdbc,
-    SQLCHAR* szSqlStrIn,
-    SQLINTEGER  cchSqlStrIn,
-    SQLCHAR* szSqlStr,
-    SQLINTEGER         cchSqlStrMax,
-    SQLINTEGER        *pcbSqlStr)
+    SQLHDBC        ConnectionHandle,
+    SQLCHAR       *InStatementText,
+    SQLINTEGER     TextLength1,
+    SQLCHAR       *OutStatementText,
+    SQLINTEGER     BufferLength,
+    SQLINTEGER    *TextLength2Ptr)
 {
   OOW("===");
-  (void)hdbc;
-  (void)szSqlStrIn;
-  (void)cchSqlStrIn;
-  (void)szSqlStr;
-  (void)cchSqlStrMax;
-  (void)pcbSqlStr;
-  OA_NIY(0);
-  return SQL_ERROR;
+  if (ConnectionHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  conn_t *conn = (conn_t*)ConnectionHandle;
+
+  conn_clr_errs(conn);
+  return conn_native_sql((conn_t*)ConnectionHandle, InStatementText, TextLength1, OutStatementText, BufferLength, TextLength2Ptr);
 }
 
 SQLRETURN SQL_API SQLParamData(SQLHSTMT StatementHandle,
            SQLPOINTER *Value)
 {
   OOW("===");
-  (void)StatementHandle;
-  (void)Value;
-  OA_NIY(0);
-  return SQL_ERROR;
+  if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  stmt_t *stmt = (stmt_t*)StatementHandle;
+
+  stmt_clr_errs(stmt);
+  return stmt_param_data(stmt, Value);
 }
 
 SQLRETURN SQL_API SQLPrimaryKeys(
-    SQLHSTMT           hstmt,
-    SQLCHAR           *szCatalogName,
-    SQLSMALLINT        cchCatalogName,
-    SQLCHAR           *szSchemaName,
-    SQLSMALLINT        cchSchemaName,
-    SQLCHAR           *szTableName,
-    SQLSMALLINT        cchTableName)
+    SQLHSTMT       StatementHandle,
+    SQLCHAR       *CatalogName,
+    SQLSMALLINT    NameLength1,
+    SQLCHAR       *SchemaName,
+    SQLSMALLINT    NameLength2,
+    SQLCHAR       *TableName,
+    SQLSMALLINT    NameLength3)
 {
   OOW("===");
-  (void)hstmt;
-  (void)szCatalogName;
-  (void)cchCatalogName;
-  (void)szSchemaName;
-  (void)cchSchemaName;
-  (void)szTableName;
-  (void)cchTableName;
-  OA_NIY(0);
-  return SQL_ERROR;
+  if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  stmt_t *stmt = (stmt_t*)StatementHandle;
+
+  stmt_clr_errs(stmt);
+  return stmt_primary_keys(stmt, CatalogName, NameLength1, SchemaName, NameLength2, TableName, NameLength3);
 }
 
 SQLRETURN SQL_API SQLProcedureColumns(
-    SQLHSTMT           hstmt,
-    SQLCHAR           *szCatalogName,
-    SQLSMALLINT        cchCatalogName,
-    SQLCHAR           *szSchemaName,
-    SQLSMALLINT        cchSchemaName,
-    SQLCHAR           *szProcName,
-    SQLSMALLINT        cchProcName,
-    SQLCHAR           *szColumnName,
-    SQLSMALLINT        cchColumnName)
+    SQLHSTMT      StatementHandle,
+    SQLCHAR      *CatalogName,
+    SQLSMALLINT   NameLength1,
+    SQLCHAR      *SchemaName,
+    SQLSMALLINT   NameLength2,
+    SQLCHAR      *ProcName,
+    SQLSMALLINT   NameLength3,
+    SQLCHAR      *ColumnName,
+    SQLSMALLINT   NameLength4)
 {
   OOW("===");
-  (void)hstmt;
-  (void)szCatalogName;
-  (void)cchCatalogName;
-  (void)szSchemaName;
-  (void)cchSchemaName;
-  (void)szProcName;
-  (void)cchProcName;
-  (void)szColumnName;
-  (void)cchColumnName;
-  OA_NIY(0);
-  return SQL_ERROR;
+  if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  stmt_t *stmt = (stmt_t*)StatementHandle;
+
+  stmt_clr_errs(stmt);
+  return stmt_procedure_columns(stmt, CatalogName, NameLength1, SchemaName, NameLength2, ProcName, NameLength3, ColumnName, NameLength4);
 }
 
 SQLRETURN SQL_API SQLProcedures(
-    SQLHSTMT           hstmt,
-    SQLCHAR           *szCatalogName,
-    SQLSMALLINT        cchCatalogName,
-    SQLCHAR           *szSchemaName,
-    SQLSMALLINT        cchSchemaName,
-    SQLCHAR           *szProcName,
-    SQLSMALLINT        cchProcName)
+    SQLHSTMT        StatementHandle,
+    SQLCHAR        *CatalogName,
+    SQLSMALLINT     NameLength1,
+    SQLCHAR        *SchemaName,
+    SQLSMALLINT     NameLength2,
+    SQLCHAR        *ProcName,
+    SQLSMALLINT     NameLength3)
 {
   OOW("===");
-  (void)hstmt;
-  (void)szCatalogName;
-  (void)cchCatalogName;
-  (void)szSchemaName;
-  (void)cchSchemaName;
-  (void)szProcName;
-  (void)cchProcName;
-  OA_NIY(0);
-  return SQL_ERROR;
+  if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  stmt_t *stmt = (stmt_t*)StatementHandle;
+
+  stmt_clr_errs(stmt);
+  return stmt_procedures(stmt, CatalogName, NameLength1, SchemaName, NameLength2, ProcName, NameLength3);
 }
 
 SQLRETURN SQL_API SQLPutData(SQLHSTMT StatementHandle,
            SQLPOINTER Data, SQLLEN StrLen_or_Ind)
 {
   OOW("===");
-  (void)StatementHandle;
-  (void)Data;
-  (void)StrLen_or_Ind;
-  OA_NIY(0);
-  return SQL_ERROR;
+  if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  stmt_t *stmt = (stmt_t*)StatementHandle;
+
+  stmt_clr_errs(stmt);
+  return stmt_put_data(stmt, Data, StrLen_or_Ind);
 }
 
 SQLRETURN SQL_API SQLSetCursorName(
-    SQLHSTMT StatementHandle,
-    SQLCHAR* CursorName,
-    SQLSMALLINT NameLength)
+    SQLHSTMT     StatementHandle,
+    SQLCHAR     *CursorName,
+    SQLSMALLINT  NameLength)
 {
   OOW("===");
-  (void)StatementHandle;
-  (void)CursorName;
-  (void)NameLength;
-  OA_NIY(0);
-  return SQL_ERROR;
+  if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  stmt_t *stmt = (stmt_t*)StatementHandle;
+
+  stmt_clr_errs(stmt);
+  return stmt_set_cursor_name(stmt, CursorName, NameLength);
 }
 
 #if (ODBCVER >= 0x0300)
@@ -1541,81 +1514,80 @@ SQLRETURN SQL_API SQLSetDescRec(SQLHDESC DescriptorHandle,
 #endif /* ODBCVER >= 0x0300 */
 
 SQLRETURN SQL_API SQLSetPos(
-    SQLHSTMT           hstmt,
-    SQLSETPOSIROW      irow,
-    SQLUSMALLINT       fOption,
-    SQLUSMALLINT       fLock)
+    SQLHSTMT        StatementHandle,
+    SQLSETPOSIROW   RowNumber,
+    SQLUSMALLINT    Operation,
+    SQLUSMALLINT    LockType)
 {
   OOW("===");
-  (void)hstmt;
-  (void)irow;
-  (void)fOption;
-  (void)fLock;
-  OA_NIY(0);
-  return SQL_ERROR;
+  if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  stmt_t *stmt = (stmt_t*)StatementHandle;
+
+  stmt_clr_errs(stmt);
+  return stmt_set_pos(stmt, RowNumber, Operation, LockType);
 }
 
-SQLRETURN SQL_API SQLSpecialColumns(SQLHSTMT StatementHandle,
-           SQLUSMALLINT IdentifierType,
-           SQLCHAR *CatalogName, SQLSMALLINT NameLength1,
-           SQLCHAR *SchemaName, SQLSMALLINT NameLength2,
-           SQLCHAR *TableName, SQLSMALLINT NameLength3,
-           SQLUSMALLINT Scope, SQLUSMALLINT Nullable)
+SQLRETURN SQL_API SQLSpecialColumns(
+    SQLHSTMT StatementHandle,
+    SQLUSMALLINT IdentifierType,
+    SQLCHAR *CatalogName, SQLSMALLINT NameLength1,
+    SQLCHAR *SchemaName, SQLSMALLINT NameLength2,
+    SQLCHAR *TableName, SQLSMALLINT NameLength3,
+    SQLUSMALLINT Scope, SQLUSMALLINT Nullable)
 {
   OOW("===");
-  (void)StatementHandle;
-  (void)IdentifierType;
-  (void)CatalogName;
-  (void)NameLength1;
-  (void)SchemaName;
-  (void)NameLength2;
-  (void)TableName;
-  (void)NameLength3;
-  (void)Scope;
-  (void)Nullable;
-  OA_NIY(0);
-  return SQL_ERROR;
+  if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  stmt_t *stmt = (stmt_t*)StatementHandle;
+
+  stmt_clr_errs(stmt);
+  return stmt_special_columns(
+      stmt, IdentifierType, CatalogName, NameLength1,
+      SchemaName, NameLength2, TableName, NameLength3, Scope, Nullable);
 }
 
-SQLRETURN SQL_API SQLStatistics(SQLHSTMT StatementHandle,
-           SQLCHAR *CatalogName, SQLSMALLINT NameLength1,
-           SQLCHAR *SchemaName, SQLSMALLINT NameLength2,
-           SQLCHAR *TableName, SQLSMALLINT NameLength3,
-           SQLUSMALLINT Unique, SQLUSMALLINT Reserved)
+SQLRETURN SQL_API SQLStatistics(
+    SQLHSTMT StatementHandle,
+    SQLCHAR *CatalogName, SQLSMALLINT NameLength1,
+    SQLCHAR *SchemaName, SQLSMALLINT NameLength2,
+    SQLCHAR *TableName, SQLSMALLINT NameLength3,
+    SQLUSMALLINT Unique, SQLUSMALLINT Reserved)
 {
   OOW("===");
-  (void)StatementHandle;
-  (void)CatalogName;
-  (void)NameLength1;
-  (void)SchemaName;
-  (void)NameLength2;
-  (void)TableName;
-  (void)NameLength3;
-  (void)Unique;
-  (void)Reserved;
-  OA_NIY(0);
-  return SQL_ERROR;
+  if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  stmt_t *stmt = (stmt_t*)StatementHandle;
+
+  stmt_clr_errs(stmt);
+  return stmt_statistics(
+      stmt,
+      CatalogName, NameLength1,
+      SchemaName, NameLength2,
+      TableName, NameLength3,
+      Unique, Reserved);
 }
 
 SQLRETURN SQL_API SQLTablePrivileges(
-    SQLHSTMT           hstmt,
-    SQLCHAR           *szCatalogName,
-    SQLSMALLINT        cchCatalogName,
-    SQLCHAR           *szSchemaName,
-    SQLSMALLINT        cchSchemaName,
-    SQLCHAR           *szTableName,
-    SQLSMALLINT        cchTableName)
+    SQLHSTMT StatementHandle,
+    SQLCHAR *CatalogName,
+    SQLSMALLINT NameLength1,
+    SQLCHAR *SchemaName,
+    SQLSMALLINT NameLength2,
+    SQLCHAR *TableName,
+    SQLSMALLINT NameLength3)
 {
   OOW("===");
-  (void)hstmt;
-  (void)szCatalogName;
-  (void)cchCatalogName;
-  (void)szSchemaName;
-  (void)cchSchemaName;
-  (void)szTableName;
-  (void)cchTableName;
-  OA_NIY(0);
-  return SQL_ERROR;
+  if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  stmt_t *stmt = (stmt_t*)StatementHandle;
+
+  stmt_clr_errs(stmt);
+  return stmt_table_privileges(
+      stmt,
+      CatalogName, NameLength1,
+      SchemaName, NameLength2,
+      TableName, NameLength3);
 }
 
 SQLRETURN SQL_API SQLBrowseConnect(
@@ -1627,14 +1599,15 @@ SQLRETURN SQL_API SQLBrowseConnect(
     SQLSMALLINT   *StringLength2Ptr)
 {
   OOW("===");
-  (void)ConnectionHandle;
-  (void)InConnectionString;
-  (void)StringLength1;
-  (void)OutConnectionString;
-  (void)BufferLength;
-  (void)StringLength2Ptr;
-  OA_NIY(0);
-  return SQL_ERROR;
+  if (ConnectionHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  conn_t *conn = (conn_t*)ConnectionHandle;
+
+  conn_clr_errs(conn);
+  return conn_browse_connect(
+      conn,
+      InConnectionString, StringLength1,
+      OutConnectionString, BufferLength, StringLength2Ptr);
 }
 
 SQLRETURN SQL_API SQLCompleteAsync(
@@ -1643,9 +1616,17 @@ SQLRETURN SQL_API SQLCompleteAsync(
     RETCODE     *AsyncRetCodePtr)
 {
   OOW("===");
-  (void)HandleType;
-  (void)Handle;
-  (void)AsyncRetCodePtr;
-  OA_NIY(0);
-  return SQL_ERROR;
+  if (Handle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  switch (HandleType) {
+    case SQL_HANDLE_DBC:
+      conn_clr_errs((conn_t*)Handle);
+      return conn_complete_async((conn_t*)Handle, AsyncRetCodePtr);
+    case SQL_HANDLE_STMT:
+      stmt_clr_errs((stmt_t*)Handle);
+      return stmt_complete_async((stmt_t*)Handle, AsyncRetCodePtr);
+    default:
+      OA_NIY(0);
+      return SQL_ERROR;
+  }
 }

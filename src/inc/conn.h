@@ -129,12 +129,14 @@ SQLRETURN conn_set_attr(
     SQLPOINTER    ValuePtr,
     SQLINTEGER    StringLength) FA_HIDDEN;
 
+#if (ODBCVER >= 0x0300)           /* { */
 SQLRETURN conn_get_attr(
     conn_t       *conn,
     SQLINTEGER    Attribute,
     SQLPOINTER    Value,
     SQLINTEGER    BufferLength,
     SQLINTEGER   *StringLengthPtr) FA_HIDDEN;
+#endif                            /* } */
 
 SQLRETURN conn_get_diag_field(
     conn_t         *conn,
@@ -144,7 +146,26 @@ SQLRETURN conn_get_diag_field(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr) FA_HIDDEN;
 
+SQLRETURN conn_native_sql(
+    conn_t        *conn,
+    SQLCHAR       *InStatementText,
+    SQLINTEGER     TextLength1,
+    SQLCHAR       *OutStatementText,
+    SQLINTEGER     BufferLength,
+    SQLINTEGER    *TextLength2Ptr) FA_HIDDEN;
+
+SQLRETURN conn_browse_connect(
+    conn_t        *conn,
+    SQLCHAR       *InConnectionString,
+    SQLSMALLINT    StringLength1,
+    SQLCHAR       *OutConnectionString,
+    SQLSMALLINT    BufferLength,
+    SQLSMALLINT   *StringLength2Ptr) FA_HIDDEN;
+
+SQLRETURN conn_complete_async(
+    conn_t      *conn,
+    RETCODE     *AsyncRetCodePtr) FA_HIDDEN;
+
 EXTERN_C_END
 
 #endif //  _conn_h_
-

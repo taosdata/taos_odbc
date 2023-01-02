@@ -128,9 +128,11 @@ SQLRETURN stmt_tables(stmt_t *stmt,
     SQLCHAR       *TableType,
     SQLSMALLINT    NameLength4) FA_HIDDEN;
 
+#if (ODBCVER >= 0x0300)          /* { */
 SQLRETURN stmt_get_attr(stmt_t *stmt,
            SQLINTEGER Attribute, SQLPOINTER Value,
            SQLINTEGER BufferLength, SQLINTEGER *StringLength) FA_HIDDEN;
+#endif                           /* } */
 
 SQLRETURN stmt_get_diag_field(
     stmt_t         *stmt,
@@ -158,6 +160,132 @@ SQLRETURN stmt_columns(
     SQLCHAR *SchemaName, SQLSMALLINT NameLength2,
     SQLCHAR *TableName, SQLSMALLINT NameLength3,
     SQLCHAR *ColumnName, SQLSMALLINT NameLength4) FA_HIDDEN;
+
+#if (ODBCVER >= 0x0300)       /* { */
+SQLRETURN stmt_bulk_operations(
+    stmt_t             *stmt,
+    SQLSMALLINT         Operation) FA_HIDDEN;
+#endif                        /* } */
+
+SQLRETURN stmt_column_privileges(
+    stmt_t       *stmt,
+    SQLCHAR      *CatalogName,
+    SQLSMALLINT   NameLength1,
+    SQLCHAR      *SchemaName,
+    SQLSMALLINT   NameLength2,
+    SQLCHAR      *TableName,
+    SQLSMALLINT   NameLength3,
+    SQLCHAR      *ColumnName,
+    SQLSMALLINT   NameLength4) FA_HIDDEN;
+
+SQLRETURN stmt_extended_fetch(
+    stmt_t          *stmt,
+    SQLUSMALLINT     FetchOrientation,
+    SQLLEN           FetchOffset,
+    SQLULEN         *RowCountPtr,
+    SQLUSMALLINT    *RowStatusArray) FA_HIDDEN;
+
+SQLRETURN stmt_foreign_keys(
+    stmt_t        *stmt,
+    SQLCHAR       *PKCatalogName,
+    SQLSMALLINT    NameLength1,
+    SQLCHAR       *PKSchemaName,
+    SQLSMALLINT    NameLength2,
+    SQLCHAR       *PKTableName,
+    SQLSMALLINT    NameLength3,
+    SQLCHAR       *FKCatalogName,
+    SQLSMALLINT    NameLength4,
+    SQLCHAR       *FKSchemaName,
+    SQLSMALLINT    NameLength5,
+    SQLCHAR       *FKTableName,
+    SQLSMALLINT    NameLength6) FA_HIDDEN;
+
+SQLRETURN stmt_get_cursor_name(
+    stmt_t       *stmt,
+    SQLCHAR      *CursorName,
+    SQLSMALLINT   BufferLength,
+    SQLSMALLINT  *NameLengthPtr) FA_HIDDEN;
+
+SQLRETURN stmt_get_type_info(
+    stmt_t       *stmt,
+    SQLSMALLINT   DataType) FA_HIDDEN;
+
+SQLRETURN stmt_param_data(
+    stmt_t       *stmt,
+    SQLPOINTER   *Value) FA_HIDDEN;
+
+SQLRETURN stmt_primary_keys(
+    stmt_t        *stmt,
+    SQLCHAR       *CatalogName,
+    SQLSMALLINT    NameLength1,
+    SQLCHAR       *SchemaName,
+    SQLSMALLINT    NameLength2,
+    SQLCHAR       *TableName,
+    SQLSMALLINT    NameLength3) FA_HIDDEN;
+
+SQLRETURN stmt_procedure_columns(
+    stmt_t       *stmt,
+    SQLCHAR      *CatalogName,
+    SQLSMALLINT   NameLength1,
+    SQLCHAR      *SchemaName,
+    SQLSMALLINT   NameLength2,
+    SQLCHAR      *ProcName,
+    SQLSMALLINT   NameLength3,
+    SQLCHAR      *ColumnName,
+    SQLSMALLINT   NameLength4) FA_HIDDEN;
+
+SQLRETURN stmt_procedures(
+    stmt_t         *stmt,
+    SQLCHAR        *CatalogName,
+    SQLSMALLINT     NameLength1,
+    SQLCHAR        *SchemaName,
+    SQLSMALLINT     NameLength2,
+    SQLCHAR        *ProcName,
+    SQLSMALLINT     NameLength3) FA_HIDDEN;
+
+SQLRETURN stmt_put_data(
+    stmt_t         *stmt,
+    SQLPOINTER      Data,
+    SQLLEN          StrLen_or_Ind) FA_HIDDEN;
+
+SQLRETURN stmt_set_cursor_name(
+    stmt_t         *stmt,
+    SQLCHAR        *CursorName,
+    SQLSMALLINT     NameLength) FA_HIDDEN;
+
+SQLRETURN stmt_set_pos(
+    stmt_t         *stmt,
+    SQLSETPOSIROW   RowNumber,
+    SQLUSMALLINT    Operation,
+    SQLUSMALLINT    LockType) FA_HIDDEN;
+
+SQLRETURN stmt_special_columns(
+    stmt_t         *stmt,
+    SQLUSMALLINT    IdentifierType,
+    SQLCHAR *CatalogName, SQLSMALLINT NameLength1,
+    SQLCHAR *SchemaName, SQLSMALLINT NameLength2,
+    SQLCHAR *TableName, SQLSMALLINT NameLength3,
+    SQLUSMALLINT Scope, SQLUSMALLINT Nullable) FA_HIDDEN;
+
+SQLRETURN stmt_statistics(
+    stmt_t  *stmt,
+    SQLCHAR *CatalogName, SQLSMALLINT NameLength1,
+    SQLCHAR *SchemaName, SQLSMALLINT NameLength2,
+    SQLCHAR *TableName, SQLSMALLINT NameLength3,
+    SQLUSMALLINT Unique, SQLUSMALLINT Reserved) FA_HIDDEN;
+
+SQLRETURN stmt_table_privileges(
+    stmt_t  *stmt,
+    SQLCHAR *CatalogName,
+    SQLSMALLINT NameLength1,
+    SQLCHAR *SchemaName,
+    SQLSMALLINT NameLength2,
+    SQLCHAR *TableName,
+    SQLSMALLINT NameLength3) FA_HIDDEN;
+
+SQLRETURN stmt_complete_async(
+    stmt_t      *stmt,
+    RETCODE     *AsyncRetCodePtr) FA_HIDDEN;
 
 EXTERN_C_END
 

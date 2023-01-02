@@ -952,6 +952,7 @@ SQLRETURN conn_set_attr(
   }
 }
 
+#if (ODBCVER >= 0x0300)           /* { */
 static SQLRETURN _conn_get_attr_current_qualifier(
     conn_t       *conn,
     SQLPOINTER    Value,
@@ -984,6 +985,7 @@ SQLRETURN conn_get_attr(
       return SQL_ERROR;
   }
 }
+#endif                            /* } */
 
 void conn_clr_errs(conn_t *conn)
 {
@@ -1019,4 +1021,47 @@ SQLRETURN conn_get_diag_field(
       conn_append_err_format(conn, "HY000", 0, "General error:RecNumber:[%d]; DiagIdentifier:[%d]%s", RecNumber, DiagIdentifier, sql_diag_identifier(DiagIdentifier));
       return SQL_ERROR;
   }
+}
+
+SQLRETURN conn_native_sql(
+    conn_t        *conn,
+    SQLCHAR       *InStatementText,
+    SQLINTEGER     TextLength1,
+    SQLCHAR       *OutStatementText,
+    SQLINTEGER     BufferLength,
+    SQLINTEGER    *TextLength2Ptr)
+{
+  (void)InStatementText;
+  (void)TextLength1;
+  (void)OutStatementText;
+  (void)BufferLength;
+  (void)TextLength2Ptr;
+  conn_append_err(conn, "HY000", 0, "General error:not supported yet");
+  return SQL_ERROR;
+}
+
+SQLRETURN conn_browse_connect(
+    conn_t        *conn,
+    SQLCHAR       *InConnectionString,
+    SQLSMALLINT    StringLength1,
+    SQLCHAR       *OutConnectionString,
+    SQLSMALLINT    BufferLength,
+    SQLSMALLINT   *StringLength2Ptr)
+{
+  (void)InConnectionString;
+  (void)StringLength1;
+  (void)OutConnectionString;
+  (void)BufferLength;
+  (void)StringLength2Ptr;
+  conn_append_err(conn, "HY000", 0, "General error:not supported yet");
+  return SQL_ERROR;
+}
+
+SQLRETURN conn_complete_async(
+    conn_t      *conn,
+    RETCODE     *AsyncRetCodePtr)
+{
+  (void)AsyncRetCodePtr;
+  conn_append_err(conn, "HY000", 0, "General error:not supported yet");
+  return SQL_ERROR;
 }

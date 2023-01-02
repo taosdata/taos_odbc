@@ -633,6 +633,8 @@ SQLRETURN SQL_API SQLGetDiagRec(
       return conn_get_diag_rec((conn_t*)Handle, RecNumber, SQLState, NativeErrorPtr, MessageText, BufferLength, TextLengthPtr);
     case SQL_HANDLE_STMT:
       return stmt_get_diag_rec((stmt_t*)Handle, RecNumber, SQLState, NativeErrorPtr, MessageText, BufferLength, TextLengthPtr);
+    case SQL_HANDLE_DESC:
+      return desc_get_diag_rec((desc_t*)Handle, RecNumber, SQLState, NativeErrorPtr, MessageText, BufferLength, TextLengthPtr);
     default:
       OE("HandleType[%s] not supported yet", sql_handle_type(HandleType));
       return SQL_ERROR;
@@ -658,6 +660,8 @@ SQLRETURN SQL_API SQLGetDiagField(
       return stmt_get_diag_field((stmt_t*)Handle, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
     case SQL_HANDLE_ENV:
       return env_get_diag_field((env_t*)Handle, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
+    case SQL_HANDLE_DESC:
+      return desc_get_diag_field((desc_t*)Handle, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
     default:
       OW("`%s` not implemented yet", sql_handle_type(HandleType));
       OA_NIY(0);
@@ -1167,17 +1171,23 @@ SQLRETURN SQL_API SQLColumns(SQLHSTMT StatementHandle,
   return stmt_columns(stmt, CatalogName, NameLength1, SchemaName, NameLength2, TableName, NameLength3, ColumnName, NameLength4);
 }
 
-#if (ODBCVER >= 0x0300)
+#if (ODBCVER >= 0x0300)       /* { */
 SQLRETURN SQL_API SQLCopyDesc(SQLHDESC SourceDescHandle,
            SQLHDESC TargetDescHandle)
 {
   OOW("===");
-  (void)SourceDescHandle;
-  (void)TargetDescHandle;
-  OA_NIY(0);
-  return SQL_ERROR;
+  if (SourceDescHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+  if (TargetDescHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  desc_t *src = (desc_t*)SourceDescHandle;
+  desc_t *tgt = (desc_t*)TargetDescHandle;
+
+  desc_clr_errs(src);
+  desc_clr_errs(tgt);
+
+  return desc_copy(src, tgt);
 }
-#endif
+#endif                        /* } */
 
 SQLRETURN SQL_API SQLExtendedFetch(
     SQLHSTMT         StatementHandle,
@@ -1251,21 +1261,19 @@ SQLRETURN SQL_API SQLGetCursorName(
   return stmt_get_cursor_name(stmt, CursorName, BufferLength, NameLengthPtr);
 }
 
-#if (ODBCVER >= 0x0300)
+#if (ODBCVER >= 0x0300)         /* { */
 SQLRETURN SQL_API SQLGetDescField(SQLHDESC DescriptorHandle,
            SQLSMALLINT RecNumber, SQLSMALLINT FieldIdentifier,
            SQLPOINTER Value, SQLINTEGER BufferLength,
            SQLINTEGER *StringLength)
 {
   OOW("===");
-  (void)DescriptorHandle;
-  (void)RecNumber;
-  (void)FieldIdentifier;
-  (void)Value;
-  (void)BufferLength;
-  (void)StringLength;
-  OA_NIY(0);
-  return SQL_ERROR;
+  if (DescriptorHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  desc_t *desc = (desc_t*)DescriptorHandle;
+
+  desc_clr_errs(desc);
+  return desc_get_field(desc, RecNumber, FieldIdentifier, Value, BufferLength, StringLength);
 }
 
 SQLRETURN SQL_API SQLGetDescRec(SQLHDESC DescriptorHandle,
@@ -1276,19 +1284,18 @@ SQLRETURN SQL_API SQLGetDescRec(SQLHDESC DescriptorHandle,
            SQLSMALLINT *ScalePtr, SQLSMALLINT *NullablePtr)
 {
   OOW("===");
-  (void)DescriptorHandle;
-  (void)RecNumber;
-  (void)Name;
-  (void)BufferLength;
-  (void)StringLengthPtr;
-  (void)TypePtr;
-  (void)SubTypePtr;
-  (void)LengthPtr;
-  (void)PrecisionPtr;
-  (void)ScalePtr;
-  (void)NullablePtr;
-  OA_NIY(0);
-  return SQL_ERROR;
+  if (DescriptorHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  desc_t *desc = (desc_t*)DescriptorHandle;
+
+  desc_clr_errs(desc);
+  return desc_get_rec(
+      desc,
+      RecNumber, Name,
+      BufferLength, StringLengthPtr,
+      TypePtr, SubTypePtr,
+      LengthPtr, PrecisionPtr,
+      ScalePtr, NullablePtr);
 }
 
 SQLRETURN SQL_API SQLGetEnvAttr(SQLHENV EnvironmentHandle,
@@ -1304,7 +1311,7 @@ SQLRETURN SQL_API SQLGetEnvAttr(SQLHENV EnvironmentHandle,
 
   return env_get_attr(env, Attribute, Value, BufferLength, StringLength);
 }
-#endif
+#endif                          /* } */
 
 #if 0
 SQLRETURN SQL_API SQLGetFunctions(SQLHDBC ConnectionHandle,
@@ -1469,19 +1476,18 @@ SQLRETURN SQL_API SQLSetCursorName(
   return stmt_set_cursor_name(stmt, CursorName, NameLength);
 }
 
-#if (ODBCVER >= 0x0300)
+#if (ODBCVER >= 0x0300)          /* { */
 SQLRETURN SQL_API SQLSetDescField(SQLHDESC DescriptorHandle,
            SQLSMALLINT RecNumber, SQLSMALLINT FieldIdentifier,
            SQLPOINTER Value, SQLINTEGER BufferLength)
 {
   OOW("===");
-  (void)DescriptorHandle;
-  (void)RecNumber;
-  (void)FieldIdentifier;
-  (void)Value;
-  (void)BufferLength;
-  OA_NIY(0);
-  return SQL_ERROR;
+  if (DescriptorHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  desc_t *desc = (desc_t*)DescriptorHandle;
+
+  desc_clr_errs(desc);
+  return desc_set_field(desc, RecNumber, FieldIdentifier, Value, BufferLength);
 }
 
 SQLRETURN SQL_API SQLSetDescRec(SQLHDESC DescriptorHandle,
@@ -1492,20 +1498,20 @@ SQLRETURN SQL_API SQLSetDescRec(SQLHDESC DescriptorHandle,
            SQLLEN *Indicator)
 {
   OOW("===");
-  (void)DescriptorHandle;
-  (void)RecNumber;
-  (void)Type;
-  (void)SubType;
-  (void)Length;
-  (void)Precision;
-  (void)Scale;
-  (void)Data;
-  (void)StringLength;
-  (void)Indicator;
-  OA_NIY(0);
-  return SQL_ERROR;
+  if (DescriptorHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  desc_t *desc = (desc_t*)DescriptorHandle;
+
+  desc_clr_errs(desc);
+  return desc_set_rec(
+      desc,
+      RecNumber, Type,
+      SubType, Length,
+      Precision, Scale,
+      Data, StringLength,
+      Indicator);
 }
-#endif /* ODBCVER >= 0x0300 */
+#endif                           /* } */
 
 SQLRETURN SQL_API SQLSetPos(
     SQLHSTMT        StatementHandle,

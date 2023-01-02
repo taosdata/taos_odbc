@@ -51,6 +51,8 @@ static void _desc_release(desc_t *desc)
   conn_unref(desc->conn);
   desc->conn = NULL;
 
+  errs_release(&desc->errs);
+
   return;
 }
 
@@ -133,3 +135,135 @@ void descriptor_reclaim_buffers(descriptor_t *APD)
     record->bound = 0;
   }
 }
+
+void desc_clr_errs(desc_t *desc)
+{
+  errs_clr(&desc->errs);
+}
+
+SQLRETURN desc_get_diag_rec(
+    desc_t         *desc,
+    SQLSMALLINT     RecNumber,
+    SQLCHAR        *SQLState,
+    SQLINTEGER     *NativeErrorPtr,
+    SQLCHAR        *MessageText,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *TextLengthPtr)
+{
+  return errs_get_diag_rec(&desc->errs, RecNumber, SQLState, NativeErrorPtr, MessageText, BufferLength, TextLengthPtr);
+}
+
+SQLRETURN desc_get_diag_field(
+    desc_t         *desc,
+    SQLSMALLINT     RecNumber,
+    SQLSMALLINT     DiagIdentifier,
+    SQLPOINTER      DiagInfoPtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr)
+{
+  switch (DiagIdentifier) {
+    case SQL_DIAG_CLASS_ORIGIN:
+      return errs_get_diag_field_class_origin(&desc->errs, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
+    case SQL_DIAG_SUBCLASS_ORIGIN:
+      return errs_get_diag_field_subclass_origin(&desc->errs, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
+    case SQL_DIAG_SQLSTATE:
+      return errs_get_diag_field_sqlstate(&desc->errs, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
+    case SQL_DIAG_CONNECTION_NAME:
+      // TODO:
+      *(char*)DiagInfoPtr = '\0';
+      if (StringLengthPtr) *StringLengthPtr = 0;
+      return SQL_SUCCESS;
+    case SQL_DIAG_SERVER_NAME:
+      // TODO:
+      *(char*)DiagInfoPtr = '\0';
+      if (StringLengthPtr) *StringLengthPtr = 0;
+      return SQL_SUCCESS;
+    default:
+      desc_append_err_format(desc, "HY000", 0, "General error:RecNumber:[%d]; DiagIdentifier:[%d]%s", RecNumber, DiagIdentifier, sql_diag_identifier(DiagIdentifier));
+      return SQL_ERROR;
+  }
+}
+
+#if (ODBCVER >= 0x0300)       /* { */
+SQLRETURN desc_copy(
+    desc_t *src,
+    desc_t *tgt)
+{
+  (void)src;
+  desc_append_err(tgt, "HY000", 0, "General error:not implemented yet");
+  return SQL_ERROR;
+}
+
+SQLRETURN desc_get_field(
+    desc_t         *desc,
+    SQLSMALLINT RecNumber, SQLSMALLINT FieldIdentifier,
+    SQLPOINTER Value, SQLINTEGER BufferLength,
+    SQLINTEGER *StringLength)
+{
+  (void)RecNumber;
+  (void)FieldIdentifier;
+  (void)Value;
+  (void)BufferLength;
+  (void)StringLength;
+  desc_append_err(desc, "HY000", 0, "General error:not implemented yet");
+  return SQL_ERROR;
+}
+
+SQLRETURN desc_get_rec(
+    desc_t         *desc,
+    SQLSMALLINT RecNumber, SQLCHAR *Name,
+    SQLSMALLINT BufferLength, SQLSMALLINT *StringLengthPtr,
+    SQLSMALLINT *TypePtr, SQLSMALLINT *SubTypePtr,
+    SQLLEN     *LengthPtr, SQLSMALLINT *PrecisionPtr,
+    SQLSMALLINT *ScalePtr, SQLSMALLINT *NullablePtr)
+{
+  (void)RecNumber;
+  (void)Name;
+  (void)BufferLength;
+  (void)StringLengthPtr;
+  (void)TypePtr;
+  (void)SubTypePtr;
+  (void)LengthPtr;
+  (void)PrecisionPtr;
+  (void)ScalePtr;
+  (void)NullablePtr;
+  desc_append_err(desc, "HY000", 0, "General error:not implemented yet");
+  return SQL_ERROR;
+}
+
+SQLRETURN desc_set_field(
+    desc_t         *desc,
+    SQLSMALLINT RecNumber, SQLSMALLINT FieldIdentifier,
+    SQLPOINTER Value, SQLINTEGER BufferLength)
+{
+  (void)RecNumber;
+  (void)FieldIdentifier;
+  (void)Value;
+  (void)BufferLength;
+  desc_append_err(desc, "HY000", 0, "General error:not implemented yet");
+  return SQL_ERROR;
+}
+
+SQLRETURN desc_set_rec(
+    desc_t         *desc,
+    SQLSMALLINT RecNumber, SQLSMALLINT Type,
+    SQLSMALLINT SubType, SQLLEN Length,
+    SQLSMALLINT Precision, SQLSMALLINT Scale,
+    SQLPOINTER Data, SQLLEN *StringLength,
+    SQLLEN *Indicator)
+{
+  (void)RecNumber;
+  (void)Type;
+  (void)SubType;
+  (void)Length;
+  (void)Precision;
+  (void)Scale;
+  (void)Data;
+  (void)StringLength;
+  (void)Indicator;
+  desc_append_err(desc, "HY000", 0, "General error:not implemented yet");
+  return SQL_ERROR;
+}
+
+#endif                        /* }*/
+

@@ -150,6 +150,36 @@ struct errs_s {
     errs_nsy(&__stmt->errs, conn_data_source(__stmt->conn));   \
   } while (0)
 
+#define desc_append_err(_desc, _sql_state, _e, _estr)                                      \
+  do {                                                                                     \
+    desc_t *__desc = _desc;                                                                \
+    errs_append(&__desc->errs, conn_data_source(__desc->conn), _sql_state, _e, _estr);     \
+  } while(0)
+
+#define desc_append_err_format(_desc, _sql_state, _e, _fmt, ...)                                            \
+  do {                                                                                                      \
+    desc_t *__desc = _desc;                                                                                 \
+    errs_append_format(&__desc->errs, conn_data_source(__desc->conn), _sql_state, _e, _fmt, ##__VA_ARGS__); \
+  } while (0)
+
+#define desc_oom(_desc)                                        \
+  do {                                                         \
+    desc_t *__desc = _desc;                                    \
+    errs_oom(&__desc->errs, conn_data_source(__desc->conn));   \
+  } while (0)
+
+#define desc_niy(_desc)                                        \
+  do {                                                         \
+    desc_t *__desc = _desc;                                    \
+    errs_niy(&__desc->errs, conn_data_source(__desc->conn));   \
+  } while (0)
+
+#define desc_nsy(_desc)                                        \
+  do {                                                         \
+    desc_t *__desc = _desc;                                    \
+    errs_nsy(&__desc->errs, conn_data_source(__desc->conn));   \
+  } while (0)
+
 
 
 static inline int sql_succeeded(SQLRETURN sr)
@@ -301,6 +331,8 @@ struct desc_s {
   // `A row descriptor in one statement can serve as a parameter descriptor in another statement.`
   struct tod_list_head          associated_stmts_as_ARD; // struct stmt_s*
   struct tod_list_head          associated_stmts_as_APD; // struct stmt_s*
+
+  errs_t                        errs;
 };
 
 struct charset_conv_s {

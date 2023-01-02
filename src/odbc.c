@@ -651,8 +651,6 @@ SQLRETURN SQL_API SQLGetDiagField(
   OOW("===");
   if (Handle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
-#ifdef _WIN32
-  const char *p = "";
   switch (HandleType) {
     case SQL_HANDLE_DBC:
       return conn_get_diag_field((conn_t*)Handle, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
@@ -665,10 +663,6 @@ SQLRETURN SQL_API SQLGetDiagField(
       OA_NIY(0);
       return SQL_ERROR;
   }
-#else
-  OA_NIY(0);
-  return SQL_ERROR;
-#endif
 }
 
 SQLRETURN SQL_API SQLGetData(

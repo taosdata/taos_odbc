@@ -5609,7 +5609,9 @@ SQLRETURN stmt_extended_fetch(
     SQLULEN         *RowCountPtr,
     SQLUSMALLINT    *RowStatusArray)
 {
-  stmt_append_err_format(stmt, "HY000", 0, "General error:FetchOrientation[%d/0x%x],FetchOffset[%" PRId64 "/0x%" PRIx64 "] not supported yet",
+  (void)RowCountPtr;
+  (void)RowStatusArray;
+  stmt_append_err_format(stmt, "HY000", 0, "General error:FetchOrientation[%d/0x%x],FetchOffset[%zd/0x%zx] not supported yet",
       FetchOrientation, FetchOrientation, FetchOffset, FetchOffset);
   return SQL_ERROR;
 }
@@ -5813,7 +5815,7 @@ SQLRETURN stmt_set_pos(
     SQLUSMALLINT    Operation,
     SQLUSMALLINT    LockType)
 {
-  stmt_append_err_format(stmt, "HY000", 0, "General error:RowNumber[%" PRIu64 "],Operation `%s[%d/0x%x]`,LockType `%s[%d/0x%x]`",
+  stmt_append_err_format(stmt, "HY000", 0, "General error:RowNumber[%zd],Operation `%s[%d/0x%x]`,LockType `%s[%d/0x%x]`",
       RowNumber, sql_pos_operation(Operation), Operation, Operation, sql_pos_locktype(LockType), LockType, LockType);
   return SQL_ERROR;
 }

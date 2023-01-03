@@ -52,7 +52,6 @@
 } while (0)
 
 static atomic_int    _nr_load               = 0;
-static unsigned int  _taos_odbc_debug       = 0;
 static unsigned int  _taos_odbc_debug_flex  = 0;
 static unsigned int  _taos_odbc_debug_bison = 0;
 
@@ -68,7 +67,6 @@ static int check_env_bool(const char *name)
 
 static void _init_once(void)
 {
-  _taos_odbc_debug       = check_env_bool("TAOS_ODBC_DEBUG");
   _taos_odbc_debug_flex  = check_env_bool("TAOS_ODBC_DEBUG_FLEX");
   _taos_odbc_debug_bison = check_env_bool("TAOS_ODBC_DEBUG_BISON");
 }

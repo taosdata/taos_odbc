@@ -1664,7 +1664,8 @@ int main(void)
 {
   int r = 0;
   r = test();
-  fprintf(stderr, "==%s==\n", r ? "Failure" : "Success");
+
+  fprintf(stderr, "==%s==\n", r ? "failure" : "success");
 
   return !!r;
 }

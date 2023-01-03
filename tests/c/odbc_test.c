@@ -2099,8 +2099,7 @@ int main(int argc, char *argv[])
 
   CALL_SQLFreeHandle(SQL_HANDLE_ENV, henv);
 
-  if (r == 0) D("==Success==");
-  else        D("==Failure==");
+  fprintf(stderr, "==%s==\n", r ? "failure" : "success");
 
   return !!r;
 }

@@ -508,12 +508,8 @@ static int test_bind_array_of_params(SQLHANDLE hdbc)
   return (r || FAILED(sr)) ? -1 : 0;
 }
 
-int main(int argc, char *argv[])
+static int test(void)
 {
-  (void)argc;
-  (void)argv;
-  srand(time(0));
-
   CHECK(!!test_connect("Driver={SQLite3};Database=/tmp/bar.sqlite3", NULL, NULL, NULL));
 
   SQLRETURN sr;
@@ -539,7 +535,6 @@ int main(int argc, char *argv[])
     r = test_large_dataset(hdbc);
   } while (0);
 
-
   sr = CALL_SQLDisconnect(hdbc);
   if (FAILED(sr)) r = 1;
 
@@ -549,3 +544,15 @@ int main(int argc, char *argv[])
   return r;
 }
 
+int main(int argc, char *argv[])
+{
+  (void)argc;
+  (void)argv;
+  srand(time(0));
+
+  int r = test();
+
+  fprintf(stderr, "==%s==\n", r ? "failure" : "success");
+
+  return !!r;
+}

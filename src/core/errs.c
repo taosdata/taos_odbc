@@ -50,9 +50,7 @@ static void err_set_x(err_t *err, const char *file, int line, const char *func, 
   err->estr = err->buf;
   strncpy((char*)err->sql_state, sql_state, sizeof(err->sql_state));
 
-  if (1) {
-    tod_log("%s\n", err->buf);
-  }
+  OE("[%s]%d/0x%x:%s", sql_state, e, e, err->buf);
 }
 
 void errs_append_x(errs_t *errs, const char *file, int line, const char *func, const char *data_source, const char *sql_state, int e, const char *estr)

@@ -1709,7 +1709,7 @@ int main(int argc, char *argv[])
 {
   int r = 0;
   r = test(argc, argv);
-  D("==%s==", r ? "failure" : "success");
+  fprintf(stderr, "==%s==\n", r ? "failure" : "success");
   return !!r;
 }
 

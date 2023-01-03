@@ -2029,8 +2029,7 @@ int main(int argc, char *argv[])
     CALL_taos_cleanup();
   }
 
-  if (r == 0) D("==Success==");
-  else        D("==Failure==");
+  fprintf(stderr, "==%s==\n", r ? "failure" : "success");
 
   return !!r;
 }

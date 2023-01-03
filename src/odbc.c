@@ -77,11 +77,6 @@ static void _init_once(void)
   _taos_odbc_debug_bison = check_env_bool("TAOS_ODBC_DEBUG_BISON");
 }
 
-int tod_get_debug(void)
-{
-  return !!_taos_odbc_debug;
-}
-
 int tod_get_debug_flex(void)
 {
   return !!_taos_odbc_debug_flex;
@@ -109,27 +104,6 @@ static void odbc_log(const char *log)
 #else
   syslog(LOG_DEBUG, "%s", log);
 #endif
-}
-
-void tod_log(const char *fmt, ...)
-{
-  va_list ap;
-  va_start(ap, fmt);
-
-  if (tod_get_debug()) {
-    va_list aq;
-    va_copy(aq, ap);
-    vfprintf(stderr, fmt, aq);
-    va_end(aq);
-  }
-
-  if (DEBUG_OOW) {
-    char buf[1024]; buf[0] = '\0';
-    vsnprintf(buf, sizeof(buf), fmt, ap);
-    odbc_log(buf);
-  }
-
-  va_end(ap);
 }
 
 int get_nr_load(void)

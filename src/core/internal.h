@@ -199,7 +199,6 @@ struct env_s {
 
   mem_t               mem;
 
-  unsigned int        debug:1;
   unsigned int        debug_flex:1;
   unsigned int        debug_bison:1;
 };

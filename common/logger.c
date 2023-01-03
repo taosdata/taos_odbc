@@ -64,14 +64,14 @@ static char logger_level_char(logger_level_t level)
   }
 }
 
-static logger_level_t _system_logger_level = LOGGER_FATAL;
+static logger_level_t _system_logger_level = LOGGER_ERROR;
 
 static void _init_system_logger_level(void)
 {
   const char *env = getenv("TAOS_ODBC_LOG_LEVEL");
   if (!env) {
     fprintf(stderr,
-        "environment variable `TAOS_ODBC_LOG_LEVEL` could be set as `VERBOSE/DEBUG/INFO/WARN/ERROR/FATAL`, but not set. system logger level fall back to `FATAL`\n");
+        "environment variable `TAOS_ODBC_LOG_LEVEL` could be set as `VERBOSE/DEBUG/INFO/WARN/ERROR/FATAL`, but not set. system logger level fall back to `ERROR`\n");
     return;
   }
   if (0 == tod_strcasecmp(env, "VERBOSE")) {
@@ -99,7 +99,7 @@ static void _init_system_logger_level(void)
     return;
   }
   fprintf(stderr,
-      "environment variable `TAOS_ODBC_LOG_LEVEL` shall be set as `VERBOSE/DEBUG/INFO/WARN/ERROR/FATAL`, but got `%s`. system logger level fall back to `FATAL`\n",
+      "environment variable `TAOS_ODBC_LOG_LEVEL` shall be set as `VERBOSE/DEBUG/INFO/WARN/ERROR/FATAL`, but got `%s`. system logger level fall back to `ERROR`\n",
       env);
 }
 
@@ -238,8 +238,8 @@ void tod_logger_write_impl(logger_t *logger, logger_level_t request, logger_leve
 {
   if (request < level) return;
 
-  char fn[1024]; fn[0] = '\0';
-  tod_basename(file, fn, sizeof(fn));
+  char filename[1024]; filename[0] = '\0';
+  const char *fn = tod_basename(file, filename, sizeof(filename));
 
   char buf[1024]; buf[0] = '\0';
   char *p = buf;

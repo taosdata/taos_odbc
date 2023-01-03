@@ -62,7 +62,6 @@ static int _env_init(env_t *env)
 
   // TODO:
 
-  env->debug       = tod_get_debug();
   env->debug_flex  = tod_get_debug_flex();
   env->debug_bison = tod_get_debug_bison();
 

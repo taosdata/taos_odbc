@@ -26,6 +26,7 @@
 #include "env.h"
 #include "errs.h"
 #include "helpers.h"
+#include "logger.h"
 #include "parser.h"
 #include "utils.h"
 
@@ -315,3 +316,4 @@ int main(void)
 
   return !!r;
 }
+

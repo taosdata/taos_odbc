@@ -24,7 +24,8 @@
 
 list(APPEND common_SOURCES
     auxiliary.c
-    enums.c)
+    enums.c
+    logger.c)
 
 add_library(common_obj OBJECT ${common_SOURCES})
 target_include_directories(common_obj PRIVATE

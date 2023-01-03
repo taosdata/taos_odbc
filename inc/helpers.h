@@ -27,9 +27,17 @@
 
 #include "os_port.h"
 
+#include "logger.h"
+
 #include <inttypes.h>
 #include <stdio.h>
 #include <time.h>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <string.h>
+#endif
 
 // NOTE: you can use you own `LOG_IMPL` implementation by defining it before including this header file `helpers.h`
 // TODO: refactor later
@@ -66,6 +74,7 @@ static inline const char* color_reset(void)
   return "\033[0m";
 }
 
+/*
 #define LOGI(_file, _line, _func, _fmt, ...) do {      \
   char __s[PATH_MAX+1];                                \
   char *__p = tod_basename(_file, __s, sizeof(__s));   \
@@ -73,9 +82,12 @@ static inline const char* color_reset(void)
       __p, _line, _func,                               \
       ##__VA_ARGS__);                                  \
 } while (0)
+*/
+#define LOGI TOD_LOGI
 
 #define LOG LOGI
 
+/*
 #define LOGD(_file, _line, _func, _fmt, ...) do {      \
   char __s[PATH_MAX+1];                                \
   char *__p = tod_basename(_file, __s, sizeof(__s));   \
@@ -83,7 +95,10 @@ static inline const char* color_reset(void)
       __p, _line, _func,                               \
       ##__VA_ARGS__);                                  \
 } while (0)
+*/
+#define LOGD TOD_LOGD
 
+/*
 #define LOGW(_file, _line, _func, _fmt, ...) do {      \
   char __s[PATH_MAX+1];                                \
   char *__p = tod_basename(_file, __s, sizeof(__s));   \
@@ -92,7 +107,10 @@ static inline const char* color_reset(void)
       __p, _line, _func,                               \
       ##__VA_ARGS__);                                  \
 } while (0)
+*/
+#define LOGW TOD_LOGW
 
+/*
 #define LOGE(_file, _line, _func, _fmt, ...) do {      \
   char __s[PATH_MAX+1];                                \
   char *__p = tod_basename(_file, __s, sizeof(__s));   \
@@ -101,7 +119,10 @@ static inline const char* color_reset(void)
       __p, _line, _func,                               \
       ##__VA_ARGS__);                                  \
 } while (0)
+*/
+#define LOGE TOD_LOGE
 
+/*
 #define LOGX(_file, _line, _func, _fmt, ...) do {      \
   char __s[PATH_MAX+1];                                \
   char *__p = tod_basename(_file, __s, sizeof(__s));   \
@@ -110,7 +131,10 @@ static inline const char* color_reset(void)
       __p, _line, _func,                               \
       ##__VA_ARGS__);                                  \
 } while (0)
+*/
+#define LOGX TOD_LOGI
 
+/*
 #define LOGA(_file, _line, _func, _fmt, ...) do {      \
   char __s[PATH_MAX+1];                                \
   char *__p = tod_basename(_file, __s, sizeof(__s));   \
@@ -119,29 +143,27 @@ static inline const char* color_reset(void)
       __p, _line, _func,                               \
       ##__VA_ARGS__);                                  \
 } while (0)
+*/
+#define LOGA TOD_LOGF
 
-#define D(_fmt, ...) LOGD(__FILE__, __LINE__, __func__, _fmt, ##__VA_ARGS__)
+#define D(_fmt, ...) LOGD(_fmt, ##__VA_ARGS__)
 #define W(_fmt, ...) do {                                     \
-  LOGW(__FILE__, __LINE__, __func__,                          \
-      "%s" _fmt "%s",                                         \
+  LOGW("%s" _fmt "%s",                                        \
       color_yellow(), ##__VA_ARGS__, color_reset());          \
 } while (0)
 #define E(_fmt, ...) do {                                     \
-  LOGE(__FILE__, __LINE__, __func__,                          \
-      "%s" _fmt "%s",                                         \
+  LOGE("%s" _fmt "%s",                                        \
       color_red(), ##__VA_ARGS__, color_reset());             \
 } while (0)
 #define X(_fmt, ...) do {                                     \
-  LOGX(__FILE__, __LINE__, __func__,                          \
-      "%s" _fmt "%s",                                         \
+  LOGX("%s" _fmt "%s",                                        \
       color_green(), ##__VA_ARGS__, color_reset());           \
 } while (0)
 
 #define A(_statement, _fmt, ...)                                        \
   do {                                                                  \
     if (!(_statement)) {                                                \
-      LOGA(__FILE__, __LINE__, __func__,                                \
-          "%sassertion failed%s: [%s]" _fmt "",                         \
+      LOGA("%sassertion failed%s: [%s]" _fmt "",                        \
           color_red(), color_reset(), #_statement, ##__VA_ARGS__);      \
       ABORT_OR_THROW;                                                   \
     }                                                                   \
@@ -166,6 +188,8 @@ static inline const char* color_reset(void)
 } while (0)
 
 const char *tod_strptime(const char *s, const char *format, struct tm *tm) FA_HIDDEN;
+uintptr_t tod_get_current_thread_id(void) FA_HIDDEN;
+
 #ifdef _WIN32
 #define tod_strcasecmp _stricmp
 #else

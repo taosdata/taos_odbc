@@ -4891,6 +4891,13 @@ SQLRETURN stmt_free_stmt(stmt_t *stmt, SQLUSMALLINT Option)
   }
 }
 
+logger_t* stmt_get_logger(stmt_t *stmt)
+{
+  if (!stmt) return NULL;
+  if (stmt->logger.logger) return &stmt->logger;
+  return conn_get_logger(stmt->conn);
+}
+
 void stmt_clr_errs(stmt_t *stmt)
 {
   errs_clr(&stmt->errs);

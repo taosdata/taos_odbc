@@ -34,6 +34,7 @@
 #include "errs.h"
 #include "env.h"
 #include "list.h"
+#include "logger.h"
 #include "stmt.h"
 
 #include <taos.h>
@@ -193,6 +194,7 @@ struct env_s {
 
   atomic_int          conns;
 
+  logger_t            logger;
   errs_t              errs;
 
   mem_t               mem;
@@ -332,6 +334,7 @@ struct desc_s {
   struct tod_list_head          associated_stmts_as_ARD; // struct stmt_s*
   struct tod_list_head          associated_stmts_as_APD; // struct stmt_s*
 
+  logger_t                      logger;
   errs_t                        errs;
 };
 
@@ -375,6 +378,7 @@ struct conn_s {
   charset_conv_t      cnv_utf8_to_tsdb_varchar;
   charset_conv_t      cnv_utf8_to_sql_c_char;
 
+  logger_t            logger;
   errs_t              errs;
 
   TAOS               *taos;
@@ -417,6 +421,7 @@ struct stmt_s {
 
   conn_t                    *conn;
 
+  logger_t                   logger;
   errs_t                     errs;
 
   struct tod_list_head       associated_APD_node;

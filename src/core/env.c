@@ -288,6 +288,13 @@ SQLRETURN env_get_diag_field(
   }
 }
 
+logger_t* env_get_logger(env_t *env)
+{
+  if (!env) return NULL;
+  if (env->logger.logger) return &env->logger;
+  return NULL;
+}
+
 void env_clr_errs(env_t *env)
 {
   errs_clr(&env->errs);

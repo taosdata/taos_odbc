@@ -987,6 +987,13 @@ SQLRETURN conn_get_attr(
 }
 #endif                            /* } */
 
+logger_t* conn_get_logger(conn_t *conn)
+{
+  if (!conn) return NULL;
+  if (conn->logger.logger) return &conn->logger;
+  return env_get_logger(conn->env);
+}
+
 void conn_clr_errs(conn_t *conn)
 {
   errs_clr(&conn->errs);

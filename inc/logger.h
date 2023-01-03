@@ -1,0 +1,103 @@
+/*
+ * MIT License
+ *
+ * Copyright (c) 2022 freemine <freemine@yeah.net>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+#ifndef _logger_h_
+#define _logger_h_
+
+#include "macros.h"
+
+typedef enum logger_level_e {
+  LOGGER_VERBOSE,
+  LOGGER_DEBUG,
+  LOGGER_INFO,
+  LOGGER_WARN,
+  LOGGER_ERROR,
+  LOGGER_FATAL,
+} logger_level_t;
+
+typedef void (*logger_f)(const char *log, void *ctx);
+
+typedef struct logger_s            logger_t;
+struct logger_s {
+  void (*logger)(const char *log, void *ctx);
+  void *ctx;
+};
+
+EXTERN_C_BEGIN
+
+logger_level_t tod_get_system_logger_level(void) FA_HIDDEN;
+logger_t* tod_get_system_logger(void) FA_HIDDEN;
+
+// NOTE: do NOT call `tod_logger_write_impl` directly, call `tod_logger_write` instead!!!
+void tod_logger_write_impl(logger_t *logger, logger_level_t request, logger_level_t level,
+    const char *file, int line, const char *func,
+    const char *fmt, ...) __attribute__ ((format (printf, 7, 8))) FA_HIDDEN;
+
+#ifdef _WIN32               /* { */
+#define tod_logger_write(logger, request, level, file, line, func, fmt, ...) \
+  (0 ? fprintf(stderr, fmt, ##__VA_ARGS__) : tod_logger_write_impl(logger, request, level, file, line, func, fmt, ##__VA_ARGS__))
+#else
+#define tod_logger_write tod_logger_write_impl
+#endif                      /* } */
+
+#define TOD_LOGV(fmt, ...) do {                                                                   \
+  tod_logger_write(tod_get_system_logger(), LOGGER_VERBOSE, tod_get_system_logger_level(),        \
+    __FILE__, __LINE__, __func__,                                                                 \
+    fmt, ##__VA_ARGS__);                                                                          \
+} while (0)
+
+#define TOD_LOGD(fmt, ...) do {                                                                   \
+  tod_logger_write(tod_get_system_logger(), LOGGER_DEBUG, tod_get_system_logger_level(),          \
+    __FILE__, __LINE__, __func__,                                                                 \
+    fmt, ##__VA_ARGS__);                                                                          \
+} while (0)
+
+#define TOD_LOGI(fmt, ...) do {                                                                   \
+  tod_logger_write(tod_get_system_logger(), LOGGER_INFO, tod_get_system_logger_level(),           \
+    __FILE__, __LINE__, __func__,                                                                 \
+    fmt, ##__VA_ARGS__);                                                                          \
+} while (0)
+
+#define TOD_LOGW(fmt, ...) do {                                                                   \
+  tod_logger_write(tod_get_system_logger(), LOGGER_WARN, tod_get_system_logger_level(),           \
+    __FILE__, __LINE__, __func__,                                                                 \
+    fmt, ##__VA_ARGS__);                                                                          \
+} while (0)
+
+#define TOD_LOGE(fmt, ...) do {                                                                   \
+  tod_logger_write(tod_get_system_logger(), LOGGER_ERROR, tod_get_system_logger_level(),          \
+    __FILE__, __LINE__, __func__,                                                                 \
+    fmt, ##__VA_ARGS__);                                                                          \
+} while (0)
+
+#define TOD_LOGF(fmt, ...) do {                                                                   \
+  tod_logger_write(tod_get_system_logger(), LOGGER_FATAL, tod_get_system_logger_level(),          \
+    __FILE__, __LINE__, __func__,                                                                 \
+    fmt, ##__VA_ARGS__);                                                                          \
+} while (0)
+
+EXTERN_C_END
+
+#endif // _logger_h_
+

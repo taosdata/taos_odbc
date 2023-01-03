@@ -136,6 +136,13 @@ void descriptor_reclaim_buffers(descriptor_t *APD)
   }
 }
 
+logger_t* desc_get_logger(desc_t *desc)
+{
+  if (!desc) return NULL;
+  if (desc->logger.logger) return &desc->logger;
+  return conn_get_logger(desc->conn);
+}
+
 void desc_clr_errs(desc_t *desc)
 {
   errs_clr(&desc->errs);

@@ -27,6 +27,7 @@
 
 #include "macros.h"
 
+#include "logger.h"
 #include "utils.h"
 
 #include <sqlext.h>
@@ -40,6 +41,8 @@ env_t* env_create(void) FA_HIDDEN;
 env_t* env_ref(env_t *env) FA_HIDDEN;
 env_t* env_unref(env_t *env) FA_HIDDEN;
 SQLRETURN env_free(env_t *env) FA_HIDDEN;
+
+logger_t* env_get_logger(env_t *env) FA_HIDDEN;
 
 void env_clr_errs(env_t *env) FA_HIDDEN;
 

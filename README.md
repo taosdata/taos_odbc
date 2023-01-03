@@ -111,6 +111,9 @@ pushd debug >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases O
 ### Test with environment variable `TAOS_ODBC_LOG_LEVEL` and `TAOS_ODBC_LOGGER`
 - TAOS_ODBC_LOG_LEVEL: VERBOSE/DEBUG/INFO/WARN/ERROR/FATAL, from low to high. the lower the level is, the more info to log
 - TAOS_ODBC_LOGGER: stderr/temp/syslog
+    - stderr: log to `stderr`
+    - temp: log to `env('TEMP')/taos_odbc.log` or `/tmp/taos_odbc.log` if env('TEMP') not exists
+    - syslog: log to `syslog`
 
 in case when some test cases fail and you wish to have more debug info, such as when and how taos_xxx API is called under the hood, you can
 ```
@@ -147,6 +150,8 @@ pushd debug >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases O
 ### Test with environment variable `TAOS_ODBC_LOG_LEVEL` and `TAOS_ODBC_LOGGER`
 - TAOS_ODBC_LOG_LEVEL: VERBOSE/DEBUG/INFO/WARN/ERROR/FATAL, from low to high. the lower the level is, the more info to log
 - TAOS_ODBC_LOGGER: stderr/temp
+    - stderr: log to `stderr`
+    - temp: log to `env('TEMP')/taos_odbc.log` or `/tmp/taos_odbc.log` if env('TEMP') not exists
 
 in case when some test cases fail and you wish to have more debug info, such as when and how taos_xxx API is called under the hood, you can
 ```
@@ -205,6 +210,8 @@ HKEY_CURRENT_USER\Software\ODBC\Odbc.ini\TAOS_ODBC_DSN
 10. setup testing environment variable `TAOS_ODBC_LOG_LEVEL` and `TAOS_ODBC_LOGGER`
 - TAOS_ODBC_LOG_LEVEL: VERBOSE/DEBUG/INFO/WARN/ERROR/FATAL, from low to high. the lower the level is, the more info to log
 - TAOS_ODBC_LOGGER: stderr/temp
+    - stderr: log to `stderr`
+    - temp: log to `env('TEMP')\taos_odbc.log` or `C:\Windows\Temp\taos_odbc.log` if env('TEMP') not exists
 ```
 set TAOS_TEST_CASES=%cd%\tests\taos\taos_test.cases
 set ODBC_TEST_CASES=%cd%\tests\c\odbc_test.cases

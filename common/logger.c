@@ -189,7 +189,7 @@ static void _init_system_logger(void)
   }
 
 #ifdef _WIN32              /* { */
-  if (0 == tod_strcasecmp(env, "event")) {
+  if (0 && 0 == tod_strcasecmp(env, "event")) {
     _system_logger.logger   = logger_to_event;
     _system_logger.ctx      = NULL;
     return;
@@ -204,7 +204,7 @@ static void _init_system_logger(void)
 
 #ifdef _WIN32              /* { */
     fprintf(stderr,
-        "environment variable `TAOS_ODBC_LOGGER` could be set as `stderr/temp/event`, but got `%s`. system logger level fall back to `stderr`\n",
+        "environment variable `TAOS_ODBC_LOGGER` could be set as `stderr/temp`, but got `%s`. system logger level fall back to `stderr`\n",
         env);
     return;
 #elif defined(__APPLE__)   /* }{ */

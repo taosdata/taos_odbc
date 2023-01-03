@@ -38,8 +38,16 @@
 
 uintptr_t tod_get_current_thread_id(void)
 {
-  pid_t id = syscall(__NR_gettid);
-  return id;
+#ifdef _WIN32             /* { */
+#error not implemented yet
+#elif defined(__APPLE__)  /* }{ */
+  uint64_t tid = (uint64_t)-1;
+  pthread_threadid_np(pthread_self(), &tid);
+  return tid;
+#else                     /* }{ */
+  pid_t tid = syscall(__NR_gettid);
+  return tid;
+#endif                    /* } */
 }
 
 static char logger_level_char(logger_level_t level)
@@ -125,35 +133,39 @@ static void logger_to_temp(const char *log, void *ctx)
   fclose(f);
 }
 
-#ifdef _WIN32           /* { */
+#ifdef _WIN32              /* { */
 static void logger_to_event(const char *log, void *ctx)
 {
   (void)ctx;
   (void)log;
   // TODO:
 }
-#else                   /* }{ */
+#elif !defined(__APPLE__)  /* }{ */
 static void logger_to_syslog(const char *log, void *ctx)
 {
   (void)ctx;
   int priority = LOG_SYSLOG | LOG_USER | LOG_INFO;
   syslog(priority, "%s", log);
 }
-#endif                  /* } */
+#endif                     /* } */
 
 static void _init_system_logger(void)
 {
   const char *env = getenv("TAOS_ODBC_LOGGER");
   if (!env) {
-#ifdef _WIN32           /* { */
+#ifdef _WIN32              /* { */
     fprintf(stderr,
         "environment variable `TAOS_ODBC_LOGGER` could be set as `stderr/temp/event`, but not set. system logger level fall back to `stderr`\n");
     return;
-#else                   /* }{ */
+#elif defined(__APPLE__)   /* }{ */
+    fprintf(stderr,
+        "environment variable `TAOS_ODBC_LOGGER` could be set as `stderr/temp`, but not set. system logger level fall back to `stderr`\n");
+    return;
+#else                      /* }{ */
     fprintf(stderr,
         "environment variable `TAOS_ODBC_LOGGER` could be set as `stderr/temp/syslog`, but not set. system logger level fall back to `stderr`\n");
     return;
-#endif                  /* } */
+#endif                     /* } */
   }
 
   if (0 == tod_strcasecmp(env, "stderr")) {
@@ -175,31 +187,36 @@ static void _init_system_logger(void)
     return;
   }
 
-#ifndef _WIN32          /* { */
-  if (0 == tod_strcasecmp(env, "syslog")) {
-    _system_logger.logger   = logger_to_syslog;
-    _system_logger.ctx      = NULL;
-    return;
-  }
-#else                   /* }{ */
+#ifdef _WIN32              /* { */
   if (0 == tod_strcasecmp(env, "event")) {
     _system_logger.logger   = logger_to_event;
     _system_logger.ctx      = NULL;
     return;
   }
-#endif                  /* } */
+#elif !defined(__APPLE__)  /* }{ */
+  if (0 == tod_strcasecmp(env, "syslog")) {
+    _system_logger.logger   = logger_to_syslog;
+    _system_logger.ctx      = NULL;
+    return;
+  }
+#endif                     /* } */
 
-#ifdef _WIN32           /* { */
+#ifdef _WIN32              /* { */
     fprintf(stderr,
         "environment variable `TAOS_ODBC_LOGGER` could be set as `stderr/temp/event`, but got `%s`. system logger level fall back to `stderr`\n",
         env);
     return;
-#else                   /* }{ */
+#elif defined(__APPLE__)   /* }{ */
+    fprintf(stderr,
+        "environment variable `TAOS_ODBC_LOGGER` could be set as `stderr/temp`, but got `%s`. system logger level fall back to `stderr`\n",
+        env);
+    return;
+#else                      /* }{ */
     fprintf(stderr,
         "environment variable `TAOS_ODBC_LOGGER` could be set as `stderr/temp/syslog`, but got `%s`. system logger level fall back to `stderr`\n",
         env);
     return;
-#endif                  /* } */
+#endif                     /* } */
   return;
 }
 

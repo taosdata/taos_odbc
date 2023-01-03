@@ -32,8 +32,6 @@
 #include "stmt.h"
 #include "tls.h"
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include <sql.h>
@@ -42,8 +40,6 @@
 
 #ifdef _WIN32
 #include <odbcinst.h>
-#else
-#include <syslog.h>
 #endif
 
 // NOTE: if you wanna debug in detail, just define DEBUG_OOW to 1
@@ -85,25 +81,6 @@ int tod_get_debug_flex(void)
 int tod_get_debug_bison(void)
 {
   return !!_taos_odbc_debug_bison;
-}
-
-static void odbc_log(const char *log)
-{
-#ifdef _WIN32
-  const char *temp = getenv("TEMP");
-  if (!temp) temp = getenv("TMP");
-  if (!temp) return;
-
-  char fn[MAX_PATH+1]; fn[0] = '\0';
-  snprintf(fn, sizeof(fn), "%s\\taos_odbc.log", temp);
-
-  FILE *f = fopen(fn, "a");
-  if (!f) return;
-  fputs(log, f);
-  fclose(f);
-#else
-  syslog(LOG_DEBUG, "%s", log);
-#endif
 }
 
 int get_nr_load(void)
@@ -1604,3 +1581,4 @@ SQLRETURN SQL_API SQLCompleteAsync(
       return SQL_ERROR;
   }
 }
+

@@ -111,6 +111,10 @@ pushd debug >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases O
 ### 带上TAOS_ODBC_LOG_LEVEL/TAOS_ODBC_LOGGER环境变量进行测试
 - TAOS_ODBC_LOG_LEVEL: VERBOSE/DEBUG/INFO/WARN/ERROR/FATAL, 值由低到高。值越低，调试信息越多
 - TAOS_ODBC_LOGGER: stderr/temp/syslog
+    - stderr: log to `stderr`
+    - temp: log to `env('TEMP')/taos_odbc.log` or `/tmp/taos_odbc.log` if env('TEMP') not exists
+    - syslog: log to `syslog`
+
 当测试程序出现失败的时候，你可能期望看到更多的调试信息，那么你可以这样
 ```
 pushd debug >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases ODBC_TEST_CASES=$(pwd)/../tests/c/odbc_test.cases TAOS_ODBC_LOG_LEVEL=ERROR TAOS_ODBC_LOGGER=stderr ctest --output-on-failure && echo -=Done=-; popd >/dev/null
@@ -146,6 +150,9 @@ pushd debug >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases O
 ### 带上TAOS_ODBC_LOG_LEVEL/TAOS_ODBC_LOGGER环境变量进行测试
 - TAOS_ODBC_LOG_LEVEL: VERBOSE/DEBUG/INFO/WARN/ERROR/FATAL, 值由低到高。值越低，调试信息越多
 - TAOS_ODBC_LOGGER: stderr/temp
+    - stderr: log to `stderr`
+    - temp: log to `env('TEMP')/taos_odbc.log` or `/tmp/taos_odbc.log` if env('TEMP') not exists
+
 当测试程序出现失败的时候，你可能期望看到更多的调试信息，那么你可以这样
 ```
 pushd debug >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases ODBC_TEST_CASES=$(pwd)/../tests/c/odbc_test.cases TAOS_ODBC_LOG_LEVEL=ERROR TAOS_ODBC_LOGGER=stderr ctest --output-on-failure && echo -=Done=-; popd >/dev/null
@@ -203,6 +210,8 @@ HKEY_CURRENT_USER\Software\ODBC\Odbc.ini\TAOS_ODBC_DSN
 10. 设置相关的测试环境变量`TAOS_ODBC_LOG_LEVEL`及`TAOS_ODBC_LOGGER`
 - TAOS_ODBC_LOG_LEVEL: VERBOSE/DEBUG/INFO/WARN/ERROR/FATAL, 值由低到高。值越低，调试信息越多
 - TAOS_ODBC_LOGGER: stderr/temp
+    - stderr: log to `stderr`
+    - temp: log to `env('TEMP')\taos_odbc.log` or `C:\Windows\Temp\taos_odbc.log` if env('TEMP') not exists
 ```
 set TAOS_TEST_CASES=%cd%\tests\taos\taos_test.cases
 set ODBC_TEST_CASES=%cd%\tests\c\odbc_test.cases

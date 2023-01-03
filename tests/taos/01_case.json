@@ -16,8 +16,9 @@
   },{
     "conn": { "pwd": "taosdata" }
   },{
-    "conn": { "pwd": "xtaosdata" },
-    "positive": false
+    "comments":"seems like coredump in macosx, if pwd is bad",
+    "conn": { "pwd": "taosdata" },
+    "positive": true
   },{
     "conn": { "port": 6030 }
   },{

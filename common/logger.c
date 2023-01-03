@@ -39,7 +39,8 @@
 uintptr_t tod_get_current_thread_id(void)
 {
 #ifdef _WIN32             /* { */
-#error not implemented yet
+  DWORD tid = GetCurrentThreadId();
+  return tid;
 #elif defined(__APPLE__)  /* }{ */
   uint64_t tid = (uint64_t)-1;
   pthread_threadid_np(pthread_self(), &tid);

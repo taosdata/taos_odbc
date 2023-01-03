@@ -25,7 +25,6 @@
 #include "internal.h"
 
 #include "env.h"
-// make sure `log.h` is included ahead of `taos_helpers.h`, for the `LOG_IMPL` issue
 #include "log.h"
 #include "taos_helpers.h"
 
@@ -285,13 +284,6 @@ SQLRETURN env_get_diag_field(
       OA(0, "RecNumber:[%d]; DiagIdentifier:[%d]%s", RecNumber, DiagIdentifier, sql_diag_identifier(DiagIdentifier));
       return SQL_ERROR;
   }
-}
-
-logger_t* env_get_logger(env_t *env)
-{
-  if (!env) return NULL;
-  if (env->logger.logger) return &env->logger;
-  return NULL;
 }
 
 void env_clr_errs(env_t *env)

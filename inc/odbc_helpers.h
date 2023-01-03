@@ -67,7 +67,7 @@ static inline void diag(SQLRETURN sr, SQLSMALLINT HandleType, SQLHANDLE Handle)
 static inline SQLRETURN call_SQLAllocHandle(const char *file, int line, const char *func,
     SQLSMALLINT HandleType, SQLHANDLE InputHandle, SQLHANDLE *OutputHandle)
 {
-  LOGD(file, line, func, "SQLAllocHandle(HandleType:%s,InputHandle:%p,OutputHandle:%p) ...",
+  TOD_LOGD(file, line, func, "SQLAllocHandle(HandleType:%s,InputHandle:%p,OutputHandle:%p) ...",
       sql_handle_type(HandleType), InputHandle, OutputHandle);
   SQLRETURN sr = SQLAllocHandle(HandleType, InputHandle, OutputHandle);
   if (sr != SQL_INVALID_HANDLE) {
@@ -86,7 +86,7 @@ static inline SQLRETURN call_SQLAllocHandle(const char *file, int line, const ch
     }
   }
   SQLHANDLE p = OutputHandle ? *OutputHandle : NULL;
-  LOGD(file, line, func, "SQLAllocHandle(HandleType:%s,InputHandle:%p,OutputHandle:%p(%p)) => %s",
+  TOD_LOGD(file, line, func, "SQLAllocHandle(HandleType:%s,InputHandle:%p,OutputHandle:%p(%p)) => %s",
       sql_handle_type(HandleType), InputHandle, OutputHandle, p, sql_return_type(sr));
   return sr;
 }
@@ -94,10 +94,10 @@ static inline SQLRETURN call_SQLAllocHandle(const char *file, int line, const ch
 static inline SQLRETURN call_SQLFreeHandle(const char *file, int line, const char *func,
     SQLSMALLINT HandleType, SQLHANDLE Handle)
 {
-  LOGD(file, line, func, "SQLFreeHandle(HandleType:%s,Handle:%p) ...",
+  TOD_LOGD(file, line, func, "SQLFreeHandle(HandleType:%s,Handle:%p) ...",
       sql_handle_type(HandleType), Handle);
   SQLRETURN sr = SQLFreeHandle(HandleType, Handle);
-  LOGD(file, line, func, "SQLFreeHandle(HandleType:%s,Handle:%p) => %s",
+  TOD_LOGD(file, line, func, "SQLFreeHandle(HandleType:%s,Handle:%p) => %s",
       sql_handle_type(HandleType), Handle, sql_return_type(sr));
   return sr;
 }
@@ -105,11 +105,11 @@ static inline SQLRETURN call_SQLFreeHandle(const char *file, int line, const cha
 static inline SQLRETURN call_SQLSetEnvAttr(const char *file, int line, const char *func,
     SQLHENV EnvironmentHandle, SQLINTEGER Attribute, SQLPOINTER ValuePtr, SQLINTEGER StringLength)
 {
-  LOGD(file, line, func, "SQLSetEnvAttr(EnvironmentHandle:%p,Attribute:%s,ValuePtr:%p,StringLength:%d) ...",
+  TOD_LOGD(file, line, func, "SQLSetEnvAttr(EnvironmentHandle:%p,Attribute:%s,ValuePtr:%p,StringLength:%d) ...",
       EnvironmentHandle, sql_env_attr(Attribute), ValuePtr, StringLength);
   SQLRETURN sr = SQLSetEnvAttr(EnvironmentHandle, Attribute, ValuePtr, StringLength);
   diag(sr, SQL_HANDLE_ENV, EnvironmentHandle);
-  LOGD(file, line, func, "SQLSetEnvAttr(EnvironmentHandle:%p,Attribute:%s,ValuePtr:%p,StringLength:%d) => %s",
+  TOD_LOGD(file, line, func, "SQLSetEnvAttr(EnvironmentHandle:%p,Attribute:%s,ValuePtr:%p,StringLength:%d) => %s",
       EnvironmentHandle, sql_env_attr(Attribute), ValuePtr, StringLength, sql_return_type(sr));
   return sr;
 }
@@ -121,11 +121,11 @@ static inline SQLRETURN call_SQLConnect(const char *file, int line, const char *
   int n2 = (NameLength2 == SQL_NTS) ? (UserName ? (int)strlen((const char*)UserName) : 0) : (int)NameLength2;
   int n3 = (NameLength3 == SQL_NTS) ? (Authentication ? (int)strlen((const char*)Authentication) : 0) : (int)NameLength3;
 
-  LOGD(file, line, func, "SQLConnect(ConnectionHandle:%p,ServerName:%.*s,NameLength1:%d,UserName:%.*s,NameLength2:%d,Authentication:%.*s,NameLength3:%d) ...",
+  TOD_LOGD(file, line, func, "SQLConnect(ConnectionHandle:%p,ServerName:%.*s,NameLength1:%d,UserName:%.*s,NameLength2:%d,Authentication:%.*s,NameLength3:%d) ...",
       ConnectionHandle, n1, ServerName, NameLength1, n2, UserName, NameLength2, n3, Authentication, NameLength3);
   SQLRETURN sr = SQLConnect(ConnectionHandle, ServerName, NameLength1, UserName, NameLength2, Authentication, NameLength3);
   diag(sr, SQL_HANDLE_DBC, ConnectionHandle);
-  LOGD(file, line, func, "SQLConnect(ConnectionHandle:%p,ServerName:%.*s,NameLength1:%d,UserName:%.*s,NameLength2:%d,Authentication:%.*s,NameLength3:%d) => %s",
+  TOD_LOGD(file, line, func, "SQLConnect(ConnectionHandle:%p,ServerName:%.*s,NameLength1:%d,UserName:%.*s,NameLength2:%d,Authentication:%.*s,NameLength3:%d) => %s",
       ConnectionHandle, n1, ServerName, NameLength1, n2, UserName, NameLength2, n3, Authentication, NameLength3, sql_return_type(sr));
   return sr;
 }
@@ -136,7 +136,7 @@ static inline SQLRETURN call_SQLDriverConnect(const char *file, int line, const 
 {
   int n1 = (StringLength1 == SQL_NTS) ? (InConnectionString ? (int)strlen((const char*)InConnectionString) : 0) : (int)StringLength1;
 
-  LOGD(file, line, func,
+  TOD_LOGD(file, line, func,
       "SQLDriverConnect(ConnectionHandle:%p,WindowHandle:%p,InConnectionString:%.*s,StringLength1:%d,"
       "OutConnectionString:%p,BufferLength:%d,StringLength2Ptr:%p,DriverCompletion:%s) ...",
       ConnectionHandle, WindowHandle, n1, InConnectionString, StringLength1,
@@ -144,7 +144,7 @@ static inline SQLRETURN call_SQLDriverConnect(const char *file, int line, const 
   SQLRETURN sr = SQLDriverConnect(ConnectionHandle, WindowHandle, InConnectionString, StringLength1,
       OutConnectionString, BufferLength, StringLength2Ptr, DriverCompletion);
   diag(sr, SQL_HANDLE_DBC, ConnectionHandle);
-  LOGD(file, line, func,
+  TOD_LOGD(file, line, func,
       "SQLDriverConnect(ConnectionHandle:%p,WindowHandle:%p,InConnectionString:%.*s,StringLength1:%d,"
       "OutConnectionString:%p,BufferLength:%d,StringLength2Ptr:%p,DriverCompletion:%s) => %s",
       ConnectionHandle, WindowHandle, n1, InConnectionString, StringLength1,
@@ -156,9 +156,9 @@ static inline SQLRETURN call_SQLDriverConnect(const char *file, int line, const 
 static inline SQLRETURN call_SQLDisconnect(const char *file, int line, const char *func,
     SQLHDBC ConnectionHandle)
 {
-  LOGD(file, line, func, "SQLDisconnect(ConnectionHandle:%p) ...", ConnectionHandle);
+  TOD_LOGD(file, line, func, "SQLDisconnect(ConnectionHandle:%p) ...", ConnectionHandle);
   SQLRETURN sr = SQLDisconnect(ConnectionHandle);
-  LOGD(file, line, func, "SQLDisconnect(ConnectionHandle:%p) => %s", ConnectionHandle, sql_return_type(sr));
+  TOD_LOGD(file, line, func, "SQLDisconnect(ConnectionHandle:%p) => %s", ConnectionHandle, sql_return_type(sr));
   return sr;
 }
 
@@ -166,20 +166,20 @@ static inline SQLRETURN call_SQLDescribeCol(const char *file, int line, const ch
     SQLHSTMT StatementHandle, SQLUSMALLINT ColumnNumber, SQLCHAR *ColumnName, SQLSMALLINT BufferLength,
     SQLSMALLINT *NameLengthPtr, SQLSMALLINT *DataTypePtr, SQLULEN *ColumnSizePtr, SQLSMALLINT *DecimalDigitsPtr, SQLSMALLINT *NullablePtr)
 {
-  LOGD(file, line, func, "SQLDescribeCol(StatementHandle:%p,ColumnNumber:%d,ColumnName:%p,BufferLength:%d,"
+  TOD_LOGD(file, line, func, "SQLDescribeCol(StatementHandle:%p,ColumnNumber:%d,ColumnName:%p,BufferLength:%d,"
       "NameLengthPtr:%p,DataTypePtr:%p,ColumnSizePtr:%p,DecimalDigitsPtr:%p,NullablePtr:%p) ...",
       StatementHandle, ColumnNumber, ColumnName, BufferLength, NameLengthPtr, DataTypePtr, ColumnSizePtr, DecimalDigitsPtr, NullablePtr);
   SQLRETURN sr = SQLDescribeCol(StatementHandle, ColumnNumber, ColumnName, BufferLength, NameLengthPtr,
       DataTypePtr, ColumnSizePtr, DecimalDigitsPtr, NullablePtr);
   diag(sr, SQL_HANDLE_STMT, StatementHandle);
   if (sr == SQL_ERROR) {
-    LOGD(file, line, func, "SQLDescribeCol(StatementHandle:%p,ColumnNumber:%d,ColumnName:%p,BufferLength:%d,"
+    TOD_LOGD(file, line, func, "SQLDescribeCol(StatementHandle:%p,ColumnNumber:%d,ColumnName:%p,BufferLength:%d,"
         "NameLengthPtr:%p,DataTypePtr:%p,ColumnSizePtr:%p,DecimalDigitsPtr:%p,NullablePtr:%p) => %s",
         StatementHandle, ColumnNumber, ColumnName, BufferLength,
         NameLengthPtr, DataTypePtr, ColumnSizePtr, DecimalDigitsPtr, NullablePtr,
         sql_return_type(sr));
   } else {
-    LOGD(file, line, func, "SQLDescribeCol(StatementHandle:%p,ColumnNumber:%d,ColumnName:%p(%s),BufferLength:%d,"
+    TOD_LOGD(file, line, func, "SQLDescribeCol(StatementHandle:%p,ColumnNumber:%d,ColumnName:%p(%s),BufferLength:%d,"
         "NameLengthPtr:%p(%d),DataTypePtr:%p(%s),ColumnSizePtr:%p(%zd),DecimalDigitsPtr:%p(%d),NullablePtr:%p(%d)) => %s",
         StatementHandle, ColumnNumber, ColumnName, (const char*)ColumnName, BufferLength,
         NameLengthPtr, NameLengthPtr ? *NameLengthPtr : 0,
@@ -195,10 +195,10 @@ static inline SQLRETURN call_SQLDescribeCol(const char *file, int line, const ch
 static inline SQLRETURN call_SQLFetch(const char *file, int line, const char *func,
     SQLHSTMT StatementHandle)
 {
-  LOGD(file, line, func, "SQLFetch(StatementHandle:%p) ...", StatementHandle);
+  TOD_LOGD(file, line, func, "SQLFetch(StatementHandle:%p) ...", StatementHandle);
   SQLRETURN sr = SQLFetch(StatementHandle);
   diag(sr, SQL_HANDLE_STMT, StatementHandle);
-  LOGD(file, line, func, "SQLFetch(StatementHandle:%p) => %s", StatementHandle, sql_return_type(sr));
+  TOD_LOGD(file, line, func, "SQLFetch(StatementHandle:%p) => %s", StatementHandle, sql_return_type(sr));
   return sr;
 }
 
@@ -206,11 +206,11 @@ static inline SQLRETURN call_SQLExecDirect(const char *file, int line, const cha
     SQLHSTMT StatementHandle, SQLCHAR *StatementText, SQLINTEGER TextLength)
 {
   int n1 = (TextLength == SQL_NTS) ? (StatementText ? (int)strlen((const char*)StatementText) : 0) : (int)TextLength;
-  LOGD(file, line, func, "SQLExecDirect(StatementHandle:%p,StatementText:%.*s,TextLength:%d) ...",
+  TOD_LOGD(file, line, func, "SQLExecDirect(StatementHandle:%p,StatementText:%.*s,TextLength:%d) ...",
       StatementHandle, n1, StatementText, TextLength);
   SQLRETURN sr = SQLExecDirect(StatementHandle, StatementText, TextLength);
   diag(sr, SQL_HANDLE_STMT, StatementHandle);
-  LOGD(file, line, func, "SQLExecDirect(StatementHandle:%p,StatementText:%.*s,TextLength:%d) => %s",
+  TOD_LOGD(file, line, func, "SQLExecDirect(StatementHandle:%p,StatementText:%.*s,TextLength:%d) => %s",
       StatementHandle, n1, StatementText, TextLength, sql_return_type(sr));
   return sr;
 }
@@ -218,18 +218,18 @@ static inline SQLRETURN call_SQLExecDirect(const char *file, int line, const cha
 static inline SQLRETURN call_SQLNumResultCols(const char *file, int line, const char *func,
     SQLHSTMT StatementHandle, SQLSMALLINT *ColumnCountPtr)
 {
-  LOGD(file, line, func, "SQLNumResultCols(StatementHandle:%p,ColumnCountPtr:%p) ...", StatementHandle, ColumnCountPtr);
+  TOD_LOGD(file, line, func, "SQLNumResultCols(StatementHandle:%p,ColumnCountPtr:%p) ...", StatementHandle, ColumnCountPtr);
   SQLRETURN sr = SQLNumResultCols(StatementHandle, ColumnCountPtr);
   diag(sr, SQL_HANDLE_STMT, StatementHandle);
   SQLSMALLINT n = ColumnCountPtr ? *ColumnCountPtr : 0;
-  LOGD(file, line, func, "SQLNumResultCols(StatementHandle:%p,ColumnCountPtr:%p(%d)) => %s", StatementHandle, ColumnCountPtr, n, sql_return_type(sr));
+  TOD_LOGD(file, line, func, "SQLNumResultCols(StatementHandle:%p,ColumnCountPtr:%p(%d)) => %s", StatementHandle, ColumnCountPtr, n, sql_return_type(sr));
   return sr;
 }
 
 static inline SQLRETURN call_SQLGetData(const char *file, int line, const char *func,
     SQLHSTMT StatementHandle, SQLUSMALLINT Col_or_Param_Num, SQLSMALLINT TargetType, SQLPOINTER TargetValuePtr, SQLLEN BufferLength, SQLLEN *StrLen_or_IndPtr)
 {
-  LOGD(file, line, func, "SQLGetData(StatementHandle:%p,Col_or_Param_Num:%d,"
+  TOD_LOGD(file, line, func, "SQLGetData(StatementHandle:%p,Col_or_Param_Num:%d,"
       "TargetType:%s,TargetValuePtr:%p,BufferLength:%zd,StrLen_or_IndPtr:%p) ...",
       StatementHandle, Col_or_Param_Num, sql_c_data_type(TargetType), TargetValuePtr, BufferLength, StrLen_or_IndPtr);
   SQLRETURN sr = SQLGetData(StatementHandle, Col_or_Param_Num, TargetType, TargetValuePtr, (size_t)BufferLength, StrLen_or_IndPtr);
@@ -249,7 +249,7 @@ static inline SQLRETURN call_SQLGetData(const char *file, int line, const char *
   } else {
     s = "";
   }
-  LOGD(file, line, func, "SQLGetData(StatementHandle:%p,Col_or_Param_Num:%d,"
+  TOD_LOGD(file, line, func, "SQLGetData(StatementHandle:%p,Col_or_Param_Num:%d,"
       "TargetType:%s,TargetValuePtr:%p,BufferLength:%zd,StrLen_or_IndPtr:%p(%s)) => %s",
       StatementHandle, Col_or_Param_Num, sql_c_data_type(TargetType), TargetValuePtr, (size_t)BufferLength, StrLen_or_IndPtr, s, sql_return_type(sr));
   return sr;
@@ -259,21 +259,21 @@ static inline SQLRETURN call_SQLPrepare(const char *file, int line, const char *
     SQLHSTMT StatementHandle, SQLCHAR *StatementText, SQLINTEGER TextLength)
 {
   int n1 = (TextLength == SQL_NTS) ? (StatementText ? (int)strlen((const char*)StatementText) : 0) : (int)TextLength;
-  LOGD(file, line, func, "SQLPrepare(StatementHandle:%p,StatementText:%.*s,TextLength:%d) ...", StatementHandle, n1, StatementText, TextLength);
+  TOD_LOGD(file, line, func, "SQLPrepare(StatementHandle:%p,StatementText:%.*s,TextLength:%d) ...", StatementHandle, n1, StatementText, TextLength);
   SQLRETURN sr = SQLPrepare(StatementHandle, StatementText, TextLength);
   diag(sr, SQL_HANDLE_STMT, StatementHandle);
-  LOGD(file, line, func, "SQLPrepare(StatementHandle:%p,StatementText:%.*s,TextLength:%d) => %s", StatementHandle, n1, StatementText, TextLength, sql_return_type(sr));
+  TOD_LOGD(file, line, func, "SQLPrepare(StatementHandle:%p,StatementText:%.*s,TextLength:%d) => %s", StatementHandle, n1, StatementText, TextLength, sql_return_type(sr));
   return sr;
 }
 
 static inline SQLRETURN call_SQLNumParams(const char *file, int line, const char *func,
     SQLHSTMT StatementHandle, SQLSMALLINT *ParameterCountPtr)
 {
-  LOGD(file, line, func, "SQLNumParams(StatementHandle:%p,ParameterCountPtr:%p) ...", StatementHandle, ParameterCountPtr);
+  TOD_LOGD(file, line, func, "SQLNumParams(StatementHandle:%p,ParameterCountPtr:%p) ...", StatementHandle, ParameterCountPtr);
   SQLRETURN sr = SQLNumParams(StatementHandle, ParameterCountPtr);
   diag(sr, SQL_HANDLE_STMT, StatementHandle);
   SQLSMALLINT n = ParameterCountPtr ? *ParameterCountPtr : 0;
-  LOGD(file, line, func, "SQLNumParams(StatementHandle:%p,ParameterCountPtr:%p(%d)) => %s", StatementHandle, ParameterCountPtr, n, sql_return_type(sr));
+  TOD_LOGD(file, line, func, "SQLNumParams(StatementHandle:%p,ParameterCountPtr:%p(%d)) => %s", StatementHandle, ParameterCountPtr, n, sql_return_type(sr));
   return sr;
 }
 
@@ -281,7 +281,7 @@ static inline SQLRETURN call_SQLDescribeParam(const char *file, int line, const 
     SQLHSTMT StatementHandle, SQLUSMALLINT ParameterNumber,
     SQLSMALLINT *DataTypePtr, SQLULEN *ParameterSizePtr, SQLSMALLINT *DecimalDigitsPtr, SQLSMALLINT *NullablePtr)
 {
-  LOGD(file, line, func, "SQLDescribeParam(StatementHandle:%p,ParameterNumber:%d,"
+  TOD_LOGD(file, line, func, "SQLDescribeParam(StatementHandle:%p,ParameterNumber:%d,"
       "DataTypePtr:%p,ParameterSizePtr:%p,DecimalDigitsPtr:%p,NullablePtr:%p) ...",
       StatementHandle, ParameterNumber, DataTypePtr, ParameterSizePtr, DecimalDigitsPtr, NullablePtr);
   SQLRETURN sr = SQLDescribeParam(StatementHandle, ParameterNumber,
@@ -291,7 +291,7 @@ static inline SQLRETURN call_SQLDescribeParam(const char *file, int line, const 
   SQLULEN b = ParameterSizePtr ? *ParameterSizePtr : 0;
   SQLSMALLINT c = DecimalDigitsPtr ? *DecimalDigitsPtr : 0;
   const char *d = NullablePtr ? (*NullablePtr ? "true" : "false") : NULL;
-  LOGD(file, line, func, "SQLDescribeParam(StatementHandle:%p,ParameterNumber:%d,"
+  TOD_LOGD(file, line, func, "SQLDescribeParam(StatementHandle:%p,ParameterNumber:%d,"
       "DataTypePtr:%p(%s),ParameterSizePtr:%p(%zd),DecimalDigitsPtr:%p(%d),NullablePtr:%p(%s)) => %s",
       StatementHandle, ParameterNumber, DataTypePtr, a, ParameterSizePtr, (size_t)b, DecimalDigitsPtr, c, NullablePtr, d,
       sql_return_type(sr));
@@ -302,14 +302,14 @@ static inline SQLRETURN call_SQLBindParameter(const char *file, int line, const 
     SQLHSTMT StatementHandle, SQLUSMALLINT ParameterNumber, SQLSMALLINT InputOutputType, SQLSMALLINT ValueType,
     SQLSMALLINT ParameterType, SQLULEN ColumnSize, SQLSMALLINT DecimalDigits, SQLPOINTER ParameterValuePtr, SQLLEN BufferLength, SQLLEN *StrLen_or_IndPtr)
 {
-  LOGD(file, line, func, "SQLBindParameter(StatementHandle:%p,ParameterNumber:%d,InputOutputType:%s,ValueType:%s,"
+  TOD_LOGD(file, line, func, "SQLBindParameter(StatementHandle:%p,ParameterNumber:%d,InputOutputType:%s,ValueType:%s,"
       "ParameterType:%s,ColumnSize:%zd,DecimalDigits:%d,ParameterValuePtr:%p,BufferLength:%zd,StrLen_or_IndPtr:%p) ...",
       StatementHandle, ParameterNumber, sql_input_output_type(InputOutputType), sql_c_data_type(ValueType),
       sql_data_type(ParameterType), (size_t)ColumnSize, DecimalDigits, ParameterValuePtr, (size_t)BufferLength, StrLen_or_IndPtr);
   SQLRETURN sr = SQLBindParameter(StatementHandle, ParameterNumber, InputOutputType, ValueType,
       ParameterType, ColumnSize, DecimalDigits, ParameterValuePtr, BufferLength, StrLen_or_IndPtr);
   diag(sr, SQL_HANDLE_STMT, StatementHandle);
-  LOGD(file, line, func, "SQLBindParameter(StatementHandle:%p,ParameterNumber:%d,InputOutputType:%s,ValueType:%s,"
+  TOD_LOGD(file, line, func, "SQLBindParameter(StatementHandle:%p,ParameterNumber:%d,InputOutputType:%s,ValueType:%s,"
       "ParameterType:%s,ColumnSize:%zd,DecimalDigits:%d,ParameterValuePtr:%p,BufferLength:%zd,StrLen_or_IndPtr:%p) => %s",
       StatementHandle, ParameterNumber, sql_input_output_type(InputOutputType), sql_c_data_type(ValueType),
       sql_data_type(ParameterType), (size_t)ColumnSize, DecimalDigits, ParameterValuePtr, (size_t)BufferLength, StrLen_or_IndPtr,
@@ -320,11 +320,11 @@ static inline SQLRETURN call_SQLBindParameter(const char *file, int line, const 
 static inline SQLRETURN call_SQLSetStmtAttr(const char *file, int line, const char *func,
     SQLHSTMT StatementHandle, SQLINTEGER Attribute, SQLPOINTER ValuePtr, SQLINTEGER StringLength)
 {
-  LOGD(file, line, func, "SQLSetStmtAttr(StatementHandle:%p,Attribute:%s,ValuePtr:%p,StringLength:%d) ...",
+  TOD_LOGD(file, line, func, "SQLSetStmtAttr(StatementHandle:%p,Attribute:%s,ValuePtr:%p,StringLength:%d) ...",
       StatementHandle, sql_stmt_attr(Attribute), ValuePtr, StringLength);
   SQLRETURN sr = SQLSetStmtAttr(StatementHandle, Attribute, ValuePtr, StringLength);
   diag(sr, SQL_HANDLE_STMT, StatementHandle);
-  LOGD(file, line, func, "SQLSetStmtAttr(StatementHandle:%p,Attribute:%s,ValuePtr:%p,StringLength:%d) => %s",
+  TOD_LOGD(file, line, func, "SQLSetStmtAttr(StatementHandle:%p,Attribute:%s,ValuePtr:%p,StringLength:%d) => %s",
       StatementHandle, sql_stmt_attr(Attribute), ValuePtr, StringLength, sql_return_type(sr));
   return sr;
 }
@@ -332,10 +332,10 @@ static inline SQLRETURN call_SQLSetStmtAttr(const char *file, int line, const ch
 static inline SQLRETURN call_SQLExecute(const char *file, int line, const char *func,
     SQLHSTMT StatementHandle)
 {
-  LOGD(file, line, func, "SQLExecute(StatementHandle:%p) ...", StatementHandle);
+  TOD_LOGD(file, line, func, "SQLExecute(StatementHandle:%p) ...", StatementHandle);
   SQLRETURN sr = SQLExecute(StatementHandle);
   diag(sr, SQL_HANDLE_STMT, StatementHandle);
-  LOGD(file, line, func, "SQLExecute(StatementHandle:%p) => %s", StatementHandle, sql_return_type(sr));
+  TOD_LOGD(file, line, func, "SQLExecute(StatementHandle:%p) => %s", StatementHandle, sql_return_type(sr));
   return sr;
 }
 
@@ -344,11 +344,11 @@ static inline SQLRETURN call_SQLEndTran(const char *file, int line, const char *
     SQLHANDLE     Handle,
     SQLSMALLINT   CompletionType)
 {
-  LOGD(file, line, func, "SQLEndTran(HandleType:%s,Handle:%p,CompletionType:%s) ...",
+  TOD_LOGD(file, line, func, "SQLEndTran(HandleType:%s,Handle:%p,CompletionType:%s) ...",
       sql_handle_type(HandleType), Handle, sql_completion_type(CompletionType));
   SQLRETURN sr = SQLEndTran(HandleType, Handle, CompletionType);
   diag(sr, SQL_HANDLE_STMT, Handle);
-  LOGD(file, line, func, "SQLEndTran(HandleType:%s,Handle:%p,CompletionType:%s) => %s",
+  TOD_LOGD(file, line, func, "SQLEndTran(HandleType:%s,Handle:%p,CompletionType:%s) => %s",
       sql_handle_type(HandleType), Handle, sql_completion_type(CompletionType),
       sql_return_type(sr));
   return sr;
@@ -358,10 +358,10 @@ static inline SQLRETURN call_SQLFreeStmt(const char *file, int line, const char 
     SQLHSTMT       StatementHandle,
     SQLUSMALLINT   Option)
 {
-  LOGD(file, line, func, "SQLFreeStmt(StatementHandle:%p, Option:%s) ...",
+  TOD_LOGD(file, line, func, "SQLFreeStmt(StatementHandle:%p, Option:%s) ...",
       StatementHandle, sql_free_statement_option(Option));
   SQLRETURN sr = SQLFreeStmt(StatementHandle, Option);
-  LOGD(file, line, func, "SQLFreeStmt(StatementHandle:%p, Option:%s) => %s",
+  TOD_LOGD(file, line, func, "SQLFreeStmt(StatementHandle:%p, Option:%s) => %s",
       StatementHandle, sql_free_statement_option(Option), sql_return_type(sr));
   return sr;
 }
@@ -369,21 +369,21 @@ static inline SQLRETURN call_SQLFreeStmt(const char *file, int line, const char 
 static inline SQLRETURN call_SQLCloseCursor(const char *file, int line, const char *func,
     SQLHSTMT StatementHandle)
 {
-  LOGD(file, line, func, "SQLCloseCursor(StatementHandle:%p) ...", StatementHandle);
+  TOD_LOGD(file, line, func, "SQLCloseCursor(StatementHandle:%p) ...", StatementHandle);
   SQLRETURN sr = SQLCloseCursor(StatementHandle);
   diag(sr, SQL_HANDLE_STMT, StatementHandle);
-  LOGD(file, line, func, "SQLCloseCursor(StatementHandle:%p) => %s", StatementHandle, sql_return_type(sr));
+  TOD_LOGD(file, line, func, "SQLCloseCursor(StatementHandle:%p) => %s", StatementHandle, sql_return_type(sr));
   return sr;
 }
 
 static inline SQLRETURN call_SQLSetConnectAttr(const char *file, int line, const char *func,
     SQLHDBC ConnectionHandle, SQLINTEGER Attribute, SQLPOINTER ValuePtr, SQLINTEGER StringLength)
 {
-  LOGD(file, line, func, "SQLSetConnectAttr(ConnectionHandle:%p,Attribute:%s,ValuePtr:%p,StringLength:%d) ...",
+  TOD_LOGD(file, line, func, "SQLSetConnectAttr(ConnectionHandle:%p,Attribute:%s,ValuePtr:%p,StringLength:%d) ...",
       ConnectionHandle, sql_stmt_attr(Attribute), ValuePtr, StringLength);
   SQLRETURN sr = SQLSetConnectAttr(ConnectionHandle, Attribute, ValuePtr, StringLength);
   diag(sr, SQL_HANDLE_STMT, ConnectionHandle);
-  LOGD(file, line, func, "SQLSetConnectAttr(ConnectionHandle:%p,Attribute:%s,ValuePtr:%p,StringLength:%d) => %s",
+  TOD_LOGD(file, line, func, "SQLSetConnectAttr(ConnectionHandle:%p,Attribute:%s,ValuePtr:%p,StringLength:%d) => %s",
       ConnectionHandle, sql_conn_attr(Attribute), ValuePtr, StringLength, sql_return_type(sr));
   return sr;
 }
@@ -392,14 +392,14 @@ static inline SQLRETURN call_SQLBindCol(const char *file, int line, const char *
     SQLHSTMT StatementHandle, SQLUSMALLINT ColumnNumber, SQLSMALLINT TargetType, SQLPOINTER TargetValuePtr,
     SQLLEN BufferLength, SQLLEN *StrLen_or_IndPtr)
 {
-  LOGD(file, line, func, "SQLBindCol(StatementHandle:%p,ColumnNumber:%d,TargetType:%s,"
+  TOD_LOGD(file, line, func, "SQLBindCol(StatementHandle:%p,ColumnNumber:%d,TargetType:%s,"
       "TargetValuePtr:%p,BufferLength:%zd,StrLen_or_IndPtr:%p) ...",
       StatementHandle, ColumnNumber, sql_c_data_type(TargetType),
       TargetValuePtr, (size_t)BufferLength, StrLen_or_IndPtr);
   SQLRETURN sr = SQLBindCol(StatementHandle, ColumnNumber, TargetType,
       TargetValuePtr, BufferLength, StrLen_or_IndPtr);
   diag(sr, SQL_HANDLE_STMT, StatementHandle);
-  LOGD(file, line, func, "SQLBindCol(StatementHandle:%p,ColumnNumber:%d,TargetType:%s,"
+  TOD_LOGD(file, line, func, "SQLBindCol(StatementHandle:%p,ColumnNumber:%d,TargetType:%s,"
       "TargetValuePtr:%p,BufferLength:%zd,StrLen_or_IndPtr:%p) => %s",
       StatementHandle, ColumnNumber, sql_c_data_type(TargetType),
       TargetValuePtr, (size_t)BufferLength, StrLen_or_IndPtr,
@@ -411,13 +411,13 @@ static inline SQLRETURN call_SQLDescribeColW(const char *file, int line, const c
     SQLHSTMT StatementHandle, SQLUSMALLINT ColumnNumber, SQLWCHAR *ColumnName, SQLSMALLINT BufferLength,
     SQLSMALLINT *NameLengthPtr, SQLSMALLINT *DataTypePtr, SQLULEN *ColumnSizePtr, SQLSMALLINT *DecimalDigitsPtr, SQLSMALLINT *NullablePtr)
 {
-  LOGD(file, line, func, "SQLDescribeColW(StatementHandle:%p,ColumnNumber:%d,ColumnName:%p,BufferLength:%d,"
+  TOD_LOGD(file, line, func, "SQLDescribeColW(StatementHandle:%p,ColumnNumber:%d,ColumnName:%p,BufferLength:%d,"
       "NameLengthPtr:%p,DataTypePtr:%p,ColumnSizePtr:%p,DecimalDigitsPtr:%p,NullablePtr:%p) ...",
       StatementHandle, ColumnNumber, ColumnName, BufferLength, NameLengthPtr, DataTypePtr, ColumnSizePtr, DecimalDigitsPtr, NullablePtr);
   SQLRETURN sr = SQLDescribeColW(StatementHandle, ColumnNumber, ColumnName, BufferLength, NameLengthPtr,
       DataTypePtr, ColumnSizePtr, DecimalDigitsPtr, NullablePtr);
   diag(sr, SQL_HANDLE_STMT, StatementHandle);
-  LOGD(file, line, func, "SQLDescribeColW(StatementHandle:%p,ColumnNumber:%d,ColumnName:%p,BufferLength:%d,"
+  TOD_LOGD(file, line, func, "SQLDescribeColW(StatementHandle:%p,ColumnNumber:%d,ColumnName:%p,BufferLength:%d,"
       "NameLengthPtr:%p,DataTypePtr:%p,ColumnSizePtr:%p,DecimalDigitsPtr:%p,NullablePtr:%p) => %s",
       StatementHandle, ColumnNumber, ColumnName, BufferLength, NameLengthPtr, DataTypePtr, ColumnSizePtr, DecimalDigitsPtr, NullablePtr,
       sql_return_type(sr));
@@ -447,13 +447,13 @@ static inline SQLRETURN call_SQLTables(const char *file, int line, const char *f
   int n4 = NameLength4;
   if (n4 == SQL_NTS) n4 = TableType ? (int)strlen((const char*)TableType) : 0;
 
-  LOGD(file, line, func, "SQLTables(StatementHandle:%p,CatalogName:%p(%.*s),NameLength1:%d,SchemaName:%p(%.*s),NameLength2(%d),"
+  TOD_LOGD(file, line, func, "SQLTables(StatementHandle:%p,CatalogName:%p(%.*s),NameLength1:%d,SchemaName:%p(%.*s),NameLength2(%d),"
       "TableName:%p(%.*s),NameLength3:%d,TableType:%p(%.*s),NameLength4:%d) ...",
       StatementHandle, CatalogName, n1, CatalogName, n1, SchemaName, n2, SchemaName, n2,
       TableName, n3, TableName, n3, TableType, n4, TableType, n4);
   SQLRETURN sr = SQLTables(StatementHandle, CatalogName, NameLength1, SchemaName, NameLength2, TableName, NameLength3, TableType, NameLength4);
   diag(sr, SQL_HANDLE_STMT, StatementHandle);
-  LOGD(file, line, func, "SQLTables(StatementHandle:%p,CatalogName:%p(%.*s),NameLength1:%d,SchemaName:%p(%.*s),NameLength2(%d),"
+  TOD_LOGD(file, line, func, "SQLTables(StatementHandle:%p,CatalogName:%p(%.*s),NameLength1:%d,SchemaName:%p(%.*s),NameLength2(%d),"
       "TableName:%p(%.*s),NameLength3:%d,TableType:%p(%.*s),NameLength4:%d) => %s",
       StatementHandle, CatalogName, n1, CatalogName, n1, SchemaName, n2, SchemaName, n2,
       TableName, n3, TableName, n3, TableType, n4, TableType, n4,
@@ -468,11 +468,11 @@ static inline SQLRETURN call_SQLGetInfo(const char *file, int line, const char *
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr)
 {
-  LOGD(file, line, func, "SQLGetInfo(ConnectionHandle:%p,InfoType:%s,InfoValuePtr:%p,BufferLength:%d,StringLengthPtr:%p) ...",
+  TOD_LOGD(file, line, func, "SQLGetInfo(ConnectionHandle:%p,InfoType:%s,InfoValuePtr:%p,BufferLength:%d,StringLengthPtr:%p) ...",
       ConnectionHandle, sql_info_type(InfoType), InfoValuePtr, BufferLength, StringLengthPtr);
   SQLRETURN sr = SQLGetInfo(ConnectionHandle, InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
   diag(sr, SQL_HANDLE_STMT, ConnectionHandle);
-  LOGD(file, line, func, "SQLGetInfo(ConnectionHandle:%p,InfoType:%s,InfoValuePtr:%p,BufferLength:%d,StringLengthPtr:%p) => %s",
+  TOD_LOGD(file, line, func, "SQLGetInfo(ConnectionHandle:%p,InfoType:%s,InfoValuePtr:%p,BufferLength:%d,StringLengthPtr:%p) => %s",
       ConnectionHandle, sql_info_type(InfoType), InfoValuePtr, BufferLength, StringLengthPtr,
       sql_return_type(sr));
   return sr;
@@ -481,11 +481,11 @@ static inline SQLRETURN call_SQLGetInfo(const char *file, int line, const char *
 static inline SQLRETURN call_SQLFetchScroll(const char *file, int line, const char *func,
     SQLHSTMT StatementHandle, SQLSMALLINT FetchOrientation, SQLLEN FetchOffset)
 {
-  LOGD(file, line, func, "SQLFetchScroll(StatementHandle:%p,FetchOrientation:%s,FetchOffset:%zd) ...",
+  TOD_LOGD(file, line, func, "SQLFetchScroll(StatementHandle:%p,FetchOrientation:%s,FetchOffset:%zd) ...",
       StatementHandle, sql_fetch_orientation(FetchOrientation), (size_t)FetchOffset);
   SQLRETURN sr = SQLFetchScroll(StatementHandle, FetchOrientation, FetchOffset);
   diag(sr, SQL_HANDLE_STMT, StatementHandle);
-  LOGD(file, line, func, "SQLFetchScroll(StatementHandle:%p,FetchOrientation:%s,FetchOffset:%zd) => %s",
+  TOD_LOGD(file, line, func, "SQLFetchScroll(StatementHandle:%p,FetchOrientation:%s,FetchOffset:%zd) => %s",
       StatementHandle, sql_fetch_orientation(FetchOrientation), (size_t)FetchOffset, sql_return_type(sr));
   return sr;
 }
@@ -496,11 +496,11 @@ static inline SQLRETURN call_SQLGetDiagField(const char *file, int line, const c
     SQLPOINTER DiagInfo, SQLSMALLINT BufferLength,
     SQLSMALLINT *StringLength)
 {
-  LOGD(file, line, func, "SQLGetDiagField(HandleType:%s,Handle:%p,RecNumber:%d,DiagIdentifier:%s,DiagInfo:%p,BufferLength:%d,StringLength:%p) ...",
+  TOD_LOGD(file, line, func, "SQLGetDiagField(HandleType:%s,Handle:%p,RecNumber:%d,DiagIdentifier:%s,DiagInfo:%p,BufferLength:%d,StringLength:%p) ...",
       sql_handle_type(HandleType), Handle, RecNumber, sql_diag_identifier(DiagIdentifier), DiagInfo, BufferLength, StringLength);
   SQLRETURN sr = SQLGetDiagField(HandleType, Handle, RecNumber, DiagIdentifier, DiagInfo, BufferLength, StringLength);
   diag(sr, HandleType, Handle);
-  LOGD(file, line, func, "SQLGetDiagField(HandleType:%s,Handle:%p,RecNumber:%d,DiagIdentifier:%s,DiagInfo:%p,BufferLength:%d,StringLength:%p(%d)) => %s",
+  TOD_LOGD(file, line, func, "SQLGetDiagField(HandleType:%s,Handle:%p,RecNumber:%d,DiagIdentifier:%s,DiagInfo:%p,BufferLength:%d,StringLength:%p(%d)) => %s",
       sql_handle_type(HandleType), Handle, RecNumber, sql_diag_identifier(DiagIdentifier), DiagInfo, BufferLength, StringLength, *StringLength, sql_return_type(sr));
   return sr;
 }

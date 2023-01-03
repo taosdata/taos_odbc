@@ -44,8 +44,6 @@ void descriptor_release(descriptor_t *descriptor) FA_HIDDEN;
 
 void descriptor_reclaim_buffers(descriptor_t *APD) FA_HIDDEN;
 
-logger_t* desc_get_logger(desc_t *desc) FA_HIDDEN;
-
 void desc_clr_errs(desc_t *desc) FA_HIDDEN;
 
 SQLRETURN desc_get_diag_rec(

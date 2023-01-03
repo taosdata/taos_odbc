@@ -27,7 +27,6 @@
 #include "charset.h"
 #include "conn.h"
 #include "desc.h"
-// make sure `log.h` is included ahead of `taos_helpers.h`, for the `LOG_IMPL` issue
 #include "log.h"
 #include "parser.h"
 #include "taos_helpers.h"
@@ -986,13 +985,6 @@ SQLRETURN conn_get_attr(
   }
 }
 #endif                            /* } */
-
-logger_t* conn_get_logger(conn_t *conn)
-{
-  if (!conn) return NULL;
-  if (conn->logger.logger) return &conn->logger;
-  return env_get_logger(conn->env);
-}
 
 void conn_clr_errs(conn_t *conn)
 {

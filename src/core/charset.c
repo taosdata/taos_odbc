@@ -25,7 +25,6 @@
 #include "internal.h"
 
 #include "charset.h"
-// make sure `log.h` is included ahead of `taos_helpers.h`, for the `LOG_IMPL` issue
 #include "log.h"
 
 #include <errno.h>
@@ -33,7 +32,7 @@
 size_t iconv_x(const char *file, int line, const char *func,
     iconv_t cd, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
 {
-  LOGD(file, line, func, "iconv(inbuf:%p(%p);inbytesleft:%p(%zd);outbuf:%p(%p);outbytesleft:%p(%zd)) ...",
+  TOD_LOGD(file, line, func, "iconv(inbuf:%p(%p);inbytesleft:%p(%zd);outbuf:%p(%p);outbytesleft:%p(%zd)) ...",
       inbuf, inbuf ? *inbuf : NULL,
       inbytesleft, inbytesleft ? *inbytesleft : 0,
       outbuf, outbuf ? *outbuf : NULL,
@@ -41,14 +40,14 @@ size_t iconv_x(const char *file, int line, const char *func,
   size_t n = iconv(cd, inbuf, inbytesleft, outbuf, outbytesleft);
   int e = errno;
   if (n == (size_t)-1) {
-    LOGD(file, line, func, "iconv(inbuf:%p(%p);inbytesleft:%p(%zd);outbuf:%p(%p);outbytesleft:%p(%zd)) => %zd[%d]%s[%d]",
+    TOD_LOGD(file, line, func, "iconv(inbuf:%p(%p);inbytesleft:%p(%zd);outbuf:%p(%p);outbytesleft:%p(%zd)) => %zd[%d]%s[%d]",
         inbuf, inbuf ? *inbuf : NULL,
         inbytesleft, inbytesleft ? *inbytesleft : 0,
         outbuf, outbuf ? *outbuf : NULL,
         outbytesleft, outbytesleft ? *outbytesleft : 0,
         n, e, strerror(e), E2BIG);
   } else {
-    LOGD(file, line, func, "iconv(inbuf:%p(%p);inbytesleft:%p(%zd);outbuf:%p(%p);outbytesleft:%p(%zd)) => %zd",
+    TOD_LOGD(file, line, func, "iconv(inbuf:%p(%p);inbytesleft:%p(%zd);outbuf:%p(%p);outbytesleft:%p(%zd)) => %zd",
         inbuf, inbuf ? *inbuf : NULL,
         inbytesleft, inbytesleft ? *inbytesleft : 0,
         outbuf, outbuf ? *outbuf : NULL,

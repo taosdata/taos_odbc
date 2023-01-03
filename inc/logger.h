@@ -44,6 +44,74 @@ struct logger_s {
   void *ctx;
 };
 
+#ifdef __cplusplus         /* { */
+#define ABORT_OR_THROW throw int(1)
+#else                      /* }{ */
+#include <stdlib.h>
+#define ABORT_OR_THROW abort()
+#endif                     /* } */
+
+static inline const char* color_red(void)
+{
+  return "\033[1;31m";
+}
+
+static inline const char* color_green(void)
+{
+  return "\033[1;32m";
+}
+
+static inline const char* color_yellow(void)
+{
+  return "\033[1;33m";
+}
+
+static inline const char* color_reset(void)
+{
+  return "\033[0m";
+}
+
+#define D(_fmt, ...) TOD_LOGD(_fmt, ##__VA_ARGS__)
+#define W(_fmt, ...) do {                                     \
+  TOD_LOGW("%s" _fmt "%s",                                    \
+      color_yellow(), ##__VA_ARGS__, color_reset());          \
+} while (0)
+#define E(_fmt, ...) do {                                     \
+  TOD_LOGE("%s" _fmt "%s",                                    \
+      color_red(), ##__VA_ARGS__, color_reset());             \
+} while (0)
+#define X(_fmt, ...) do {                                     \
+  TOD_LOGI("%s" _fmt "%s",                                    \
+      color_green(), ##__VA_ARGS__, color_reset());           \
+} while (0)
+
+#define A(_statement, _fmt, ...)                                        \
+  do {                                                                  \
+    if (!(_statement)) {                                                \
+      TOD_LOGF("%sassertion failed%s:[%s]" _fmt "",                     \
+          color_red(), color_reset(), #_statement, ##__VA_ARGS__);      \
+      ABORT_OR_THROW;                                                   \
+    }                                                                   \
+  } while (0)
+
+#define CHECK(_statement) do {                                          \
+  D("%s ...", #_statement);                                             \
+  if (_statement) {                                                     \
+    E("%s => %sfailure%s", #_statement, color_red(), color_reset());    \
+    return 1;                                                           \
+  }                                                                     \
+  D("%s => %ssuccess%s", #_statement, color_green(), color_reset());    \
+} while (0)
+
+#define LOG_CALL(fmt, ...)        D("" fmt " ...", ##__VA_ARGS__)
+#define LOG_FINI(r, fmt, ...) do {                                             \
+  if (r) {                                                                     \
+    D("" fmt " => %sfailure%s", ##__VA_ARGS__, color_red(), color_reset());    \
+  } else {                                                                     \
+    D("" fmt " => %ssuccess%s", ##__VA_ARGS__, color_green(), color_reset());  \
+  }                                                                            \
+} while (0)
+
 EXTERN_C_BEGIN
 
 logger_level_t tod_get_system_logger_level(void) FA_HIDDEN;

@@ -27,7 +27,6 @@
 #include "charset.h"
 #include "tls.h"
 
-// make sure `log.h` is included ahead of `taos_helpers.h`, for the `LOG_IMPL` issue
 #include "log.h"
 
 size_t tls_size(void)

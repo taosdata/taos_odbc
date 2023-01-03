@@ -25,9 +25,7 @@
 #include "internal.h"
 
 #include "desc.h"
-// make sure `log.h` is included ahead of `taos_helpers.h`, for the `LOG_IMPL` issue
 #include "log.h"
-// #include "taos_helpers.h"
 
 static void _desc_init(desc_t *desc, conn_t *conn)
 {
@@ -134,13 +132,6 @@ void descriptor_reclaim_buffers(descriptor_t *APD)
     desc_record_t *record = APD->records + i;
     record->bound = 0;
   }
-}
-
-logger_t* desc_get_logger(desc_t *desc)
-{
-  if (!desc) return NULL;
-  if (desc->logger.logger) return &desc->logger;
-  return conn_get_logger(desc->conn);
 }
 
 void desc_clr_errs(desc_t *desc)

@@ -24,9 +24,7 @@
 
 #include "parser.h"
 
-// make sure `log.h` is included ahead of `taos_helpers.h`, for the `LOG_IMPL` issue
 #include "log.h"
-// #include "taos_helpers.h"
 
 #include "parser.tab.h"
 #include "parser.lex.c"

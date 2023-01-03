@@ -35,7 +35,6 @@ stmt_t* stmt_create(conn_t *conn) FA_HIDDEN;
 stmt_t* stmt_ref(stmt_t *stmt) FA_HIDDEN;
 stmt_t* stmt_unref(stmt_t *stmt) FA_HIDDEN;
 SQLRETURN stmt_free(stmt_t *stmt) FA_HIDDEN;
-logger_t* stmt_get_logger(stmt_t *stmt) FA_HIDDEN;
 void stmt_clr_errs(stmt_t *stmt) FA_HIDDEN;
 
 SQLRETURN stmt_exec_direct(stmt_t *stmt, const char *sql, int len) FA_HIDDEN;

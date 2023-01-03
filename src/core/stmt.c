@@ -25,7 +25,6 @@
 #include "internal.h"
 
 #include "desc.h"
-// make sure `log.h` is included ahead of `taos_helpers.h`, for the `LOG_IMPL` issue
 #include "log.h"
 #include "stmt.h"
 #include "taos_helpers.h"
@@ -4889,13 +4888,6 @@ SQLRETURN stmt_free_stmt(stmt_t *stmt, SQLUSMALLINT Option)
       stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_free_statement_option(Option), Option, Option);
       return SQL_ERROR;
   }
-}
-
-logger_t* stmt_get_logger(stmt_t *stmt)
-{
-  if (!stmt) return NULL;
-  if (stmt->logger.logger) return &stmt->logger;
-  return conn_get_logger(stmt->conn);
 }
 
 void stmt_clr_errs(stmt_t *stmt)

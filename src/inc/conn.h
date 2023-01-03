@@ -76,7 +76,6 @@ conn_t* conn_create(env_t *env) FA_HIDDEN;
 conn_t* conn_ref(conn_t *conn) FA_HIDDEN;
 conn_t* conn_unref(conn_t *conn) FA_HIDDEN;
 SQLRETURN conn_free(conn_t *conn) FA_HIDDEN;
-logger_t* conn_get_logger(conn_t *conn) FA_HIDDEN;
 void conn_clr_errs(conn_t *conn) FA_HIDDEN;
 
 SQLRETURN conn_driver_connect(

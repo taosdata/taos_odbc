@@ -25,9 +25,7 @@
 #include "internal.h"
 
 #include "errs.h"
-// make sure `log.h` is included ahead of `taos_helpers.h`, for the `LOG_IMPL` issue
 #include "log.h"
-// #include "taos_helpers.h"
 
 void errs_init(errs_t *errs)
 {

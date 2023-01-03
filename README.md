@@ -108,17 +108,21 @@ rm -rf debug && cmake -B debug -DCMAKE_BUILD_TYPE=Debug && cmake --build debug &
 pushd debug >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases ODBC_TEST_CASES=$(pwd)/../tests/c/odbc_test.cases ctest --output-on-failure && echo -=Done=-; popd >/dev/null
 ```
 
-### Test with TAOS_ODBC_DEBUG
+### Test with environment variable `TAOS_ODBC_LOG_LEVEL` and `TAOS_ODBC_LOGGER`
+- TAOS_ODBC_LOG_LEVEL: VERBOSE/DEBUG/INFO/WARN/ERROR/FATAL, from low to high. the lower the level is, the more info to log
+- TAOS_ODBC_LOGGER: stderr/temp/syslog
+
 in case when some test cases fail and you wish to have more debug info, such as when and how taos_xxx API is called under the hood, you can
 ```
-pushd debug >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases ODBC_TEST_CASES=$(pwd)/../tests/c/odbc_test.cases TAOS_ODBC_DEBUG= ctest --output-on-failure && echo -=Done=-; popd >/dev/null
+pushd debug >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases ODBC_TEST_CASES=$(pwd)/../tests/c/odbc_test.cases TAOS_ODBC_LOG_LEVEL=ERROR TAOS_ODBC_LOGGER=stderr ctest --output-on-failure && echo -=Done=-; popd >/dev/null
 ```
 
 ### To make your daily life better
 ```
 export TAOS_TEST_CASES=$(pwd)/tests/taos/taos_test.cases
 export ODBC_TEST_CASES=$(pwd)/tests/c/odbc_test.cases
-export TAOS_ODBC_DEBUG=
+export TAOS_ODBC_LOG_LEVEL=ERROR
+export TAOS_ODBC_LOGGER=stderr
 ```
 and then, you can
 ```
@@ -140,17 +144,21 @@ rm -rf debug && cmake -B debug -DCMAKE_BUILD_TYPE=Debug && cmake --build debug &
 pushd debug >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases ODBC_TEST_CASES=$(pwd)/../tests/c/odbc_test.cases ctest --output-on-failure && echo -=Done=-; popd >/dev/null
 ```
 
-### Test with TAOS_ODBC_DEBUG
+### Test with environment variable `TAOS_ODBC_LOG_LEVEL` and `TAOS_ODBC_LOGGER`
+- TAOS_ODBC_LOG_LEVEL: VERBOSE/DEBUG/INFO/WARN/ERROR/FATAL, from low to high. the lower the level is, the more info to log
+- TAOS_ODBC_LOGGER: stderr/temp
+
 in case when some test cases fail and you wish to have more debug info, such as when and how taos_xxx API is called under the hood, you can
 ```
-pushd debug >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases ODBC_TEST_CASES=$(pwd)/../tests/c/odbc_test.cases TAOS_ODBC_DEBUG= ctest --output-on-failure && echo -=Done=-; popd >/dev/null
+pushd debug >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases ODBC_TEST_CASES=$(pwd)/../tests/c/odbc_test.cases TAOS_ODBC_LOG_LEVEL=ERROR TAOS_ODBC_LOGGER=stderr ctest --output-on-failure && echo -=Done=-; popd >/dev/null
 ```
 
 ### To make your daily life better
 ```
 export TAOS_TEST_CASES=$(pwd)/tests/taos/taos_test.cases
 export ODBC_TEST_CASES=$(pwd)/tests/c/odbc_test.cases
-export TAOS_ODBC_DEBUG=
+export TAOS_ODBC_LOG_LEVEL=ERROR
+export TAOS_ODBC_LOGGER=stderr
 ```
 and then, you can
 ```
@@ -194,11 +202,14 @@ HKEY_CURRENT_USER\Software\ODBC\Odbc.ini\TAOS_ODBC_DSN
 ```
 
 ### Test
-10. setup testing environment
+10. setup testing environment variable `TAOS_ODBC_LOG_LEVEL` and `TAOS_ODBC_LOGGER`
+- TAOS_ODBC_LOG_LEVEL: VERBOSE/DEBUG/INFO/WARN/ERROR/FATAL, from low to high. the lower the level is, the more info to log
+- TAOS_ODBC_LOGGER: stderr/temp
 ```
 set TAOS_TEST_CASES=%cd%\tests\taos\taos_test.cases
 set ODBC_TEST_CASES=%cd%\tests\c\odbc_test.cases
-set TAOS_ODBC_DEBUG=1
+set TAOS_ODBC_LOG_LEVEL=ERROR
+set TAOS_ODBC_LOGGER=stderr
 ```
 11. testing
 ```

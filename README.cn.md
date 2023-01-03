@@ -108,17 +108,20 @@ rm -rf debug && cmake -B debug -DCMAKE_BUILD_TYPE=Debug && cmake --build debug &
 pushd debug >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases ODBC_TEST_CASES=$(pwd)/../tests/c/odbc_test.cases ctest --output-on-failure && echo -=Done=-; popd >/dev/null
 ```
 
-### 带上TAOS_ODBC_DEBUG环境变量进行测试
+### 带上TAOS_ODBC_LOG_LEVEL/TAOS_ODBC_LOGGER环境变量进行测试
+- TAOS_ODBC_LOG_LEVEL: VERBOSE/DEBUG/INFO/WARN/ERROR/FATAL, 值由低到高。值越低，调试信息越多
+- TAOS_ODBC_LOGGER: stderr/temp/syslog
 当测试程序出现失败的时候，你可能期望看到更多的调试信息，那么你可以这样
 ```
-pushd debug >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases ODBC_TEST_CASES=$(pwd)/../tests/c/odbc_test.cases TAOS_ODBC_DEBUG= ctest --output-on-failure && echo -=Done=-; popd >/dev/null
+pushd debug >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases ODBC_TEST_CASES=$(pwd)/../tests/c/odbc_test.cases TAOS_ODBC_LOG_LEVEL=ERROR TAOS_ODBC_LOGGER=stderr ctest --output-on-failure && echo -=Done=-; popd >/dev/null
 ```
 
 ### 让每天的生活简单一点
 ```
 export TAOS_TEST_CASES=$(pwd)/tests/taos/taos_test.cases
 export ODBC_TEST_CASES=$(pwd)/tests/c/odbc_test.cases
-export TAOS_ODBC_DEBUG=
+export TAOS_ODBC_LOG_LEVEL=ERROR
+export TAOS_ODBC_LOGGER=stderr
 ```
 或者，你也可以这样
 ```
@@ -140,17 +143,20 @@ rm -rf debug && cmake -B debug -DCMAKE_BUILD_TYPE=Debug && cmake --build debug &
 pushd debug >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases ODBC_TEST_CASES=$(pwd)/../tests/c/odbc_test.cases ctest --output-on-failure && echo -=Done=-; popd >/dev/null
 ```
 
-### 带上TAOS_ODBC_DEBUG环境变量进行测试
+### 带上TAOS_ODBC_LOG_LEVEL/TAOS_ODBC_LOGGER环境变量进行测试
+- TAOS_ODBC_LOG_LEVEL: VERBOSE/DEBUG/INFO/WARN/ERROR/FATAL, 值由低到高。值越低，调试信息越多
+- TAOS_ODBC_LOGGER: stderr/temp
 当测试程序出现失败的时候，你可能期望看到更多的调试信息，那么你可以这样
 ```
-pushd debug >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases ODBC_TEST_CASES=$(pwd)/../tests/c/odbc_test.cases TAOS_ODBC_DEBUG= ctest --output-on-failure && echo -=Done=-; popd >/dev/null
+pushd debug >/dev/null && TAOS_TEST_CASES=$(pwd)/../tests/taos/taos_test.cases ODBC_TEST_CASES=$(pwd)/../tests/c/odbc_test.cases TAOS_ODBC_LOG_LEVEL=ERROR TAOS_ODBC_LOGGER=stderr ctest --output-on-failure && echo -=Done=-; popd >/dev/null
 ```
 
 ### 让每天的生活简单一点
 ```
 export TAOS_TEST_CASES=$(pwd)/tests/taos/taos_test.cases
 export ODBC_TEST_CASES=$(pwd)/tests/c/odbc_test.cases
-export TAOS_ODBC_DEBUG=
+export TAOS_ODBC_LOG_LEVEL=ERROR
+export TAOS_ODBC_LOGGER=stderr
 ```
 或者，你也可以这样
 ```
@@ -194,11 +200,14 @@ HKEY_CURRENT_USER\Software\ODBC\Odbc.ini\TAOS_ODBC_DSN
 ```
 
 ### 测试
-10. 设置相关的测试环境
+10. 设置相关的测试环境变量`TAOS_ODBC_LOG_LEVEL`及`TAOS_ODBC_LOGGER`
+- TAOS_ODBC_LOG_LEVEL: VERBOSE/DEBUG/INFO/WARN/ERROR/FATAL, 值由低到高。值越低，调试信息越多
+- TAOS_ODBC_LOGGER: stderr/temp
 ```
 set TAOS_TEST_CASES=%cd%\tests\taos\taos_test.cases
 set ODBC_TEST_CASES=%cd%\tests\c\odbc_test.cases
-set TAOS_ODBC_DEBUG=1
+set TAOS_ODBC_LOG_LEVEL=ERROR
+set TAOS_ODBC_LOGGER=stderr
 ```
 11. 开始测试
 ```

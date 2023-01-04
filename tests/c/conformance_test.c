@@ -1020,6 +1020,22 @@ static int test_case7(SQLHANDLE hconn)
   return (r || FAILED(sr)) ? -1 : 0;
 }
 
+static int test_case8(SQLHANDLE hconn)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  char buf[1024]; buf[0] = '\0';
+  SQLINTEGER len;
+  sr = CALL_SQLGetConnectAttr(hconn, SQL_CURRENT_QUALIFIER, (SQLPOINTER)buf, sizeof(buf), &len);
+  if (sr == SQL_ERROR) return -1;
+  if (sr == SQL_SUCCESS) {
+    D("SQL_CURRENT_QUALIFIER:%.*s", len, buf);
+    return 0;
+  }
+  E("sr:%s", sql_return_type(sr));
+  return -1;
+}
+
 static int _vexec_(SQLHANDLE hstmt, const char *fmt, va_list ap)
 {
   char buf[1024];
@@ -1575,6 +1591,9 @@ static int test_cases(SQLHANDLE hconn)
 
   r = test_case7(hconn);
   if (r) return r;;
+
+  r = test_case8(hconn);
+  if (r) return r;
 
   return r;
 }

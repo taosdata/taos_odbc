@@ -505,6 +505,22 @@ static inline SQLRETURN call_SQLGetDiagField(const char *file, int line, const c
   return sr;
 }
 
+static inline SQLRETURN call_SQLGetConnectAttr(const char *file, int line, const char *func,
+    SQLHDBC        ConnectionHandle,
+    SQLINTEGER     Attribute,
+    SQLPOINTER     ValuePtr,
+    SQLINTEGER     BufferLength,
+    SQLINTEGER *   StringLengthPtr)
+{
+  TOD_LOGD(file, line, func, "SQLGetConnectAttr(ConnectionHandle:%p,Attribute:%s[%d/0x%x],ValuePtr:%p,BufferLength:%d,StringLengthPtr:%p) ...",
+      sql_conn_attr(Attribute), Attribute, Attribute, ValuePtr, BufferLength, StringLengthPtr);
+  SQLRETURN sr = SQLGetConnectAttr(ConnectionHandle, Attribute, ValuePtr, BufferLength, StringLengthPtr);
+  diag(sr, SQL_HANDLE_DBC, ConnectionHandle);
+  TOD_LOGD(file, line, func, "SQLGetConnectAttr(ConnectionHandle:%p,Attribute:%s[%d/0x%x],ValuePtr:%p,BufferLength:%d,StringLengthPtr:%p(%d)) => %s",
+      sql_conn_attr(Attribute), Attribute, Attribute, ValuePtr, BufferLength, StringLengthPtr, StringLengthPtr ? *StringLengthPtr : 0, sql_return_type(sr));
+  return sr;
+}
+
 #define CALL_SQLAllocHandle(...)                   call_SQLAllocHandle(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLFreeHandle(...)                    call_SQLFreeHandle(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLSetEnvAttr(...)                    call_SQLSetEnvAttr(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
@@ -532,6 +548,7 @@ static inline SQLRETURN call_SQLGetDiagField(const char *file, int line, const c
 #define CALL_SQLGetInfo(...)                       call_SQLGetInfo(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLFetchScroll(...)                   call_SQLFetchScroll(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLGetDiagField(...)                  call_SQLGetDiagField(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
+#define CALL_SQLGetConnectAttr(...)                call_SQLGetConnectAttr(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 
 #endif // _odbc_helper_h_
 

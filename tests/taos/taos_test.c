@@ -1978,6 +1978,97 @@ static int flaw_case2(void)
   return r;
 }
 
+static int conformance_taos_query_with_question_mark(TAOS *taos, const char *sql)
+{
+  TAOS_RES *res = CALL_taos_query(taos, sql);
+  int e = CALL_taos_errno(res);
+
+  if (res) {
+    CALL_taos_free_result(res);
+    res = NULL;
+  }
+
+  if (e == 0) return 0;
+
+  return -1;
+}
+
+static int conformance_taos_stmt_prepare_step1(TAOS_STMT *stmt, const char *sql)
+{
+  int r = 0;
+  r = CALL_taos_stmt_prepare(stmt, sql, (unsigned long)strlen(sql));
+  if (r) return -1;
+
+  int insert = 0;
+  r = CALL_taos_stmt_is_insert(stmt, &insert);
+  if (r) return -1;
+
+  if (!insert) {
+    int nr_params = 0;
+    r = CALL_taos_stmt_num_params(stmt, &nr_params);
+    if (r) return -1;
+    // [-2147474431/0x80002401]invalid catalog input parameters
+    for (int i=0; i<nr_params; ++i) {
+      int type  = 0;
+      int bytes = 0;
+      r = CALL_taos_stmt_get_param(stmt, i, &type, &bytes);
+      if (r) return -1;
+    }
+    return 0;
+  }
+
+  return 0;
+}
+
+static int conformance_taos_stmt_prepare_without_question_mark(TAOS *taos, const char *sql)
+{
+  int r = 0;
+  TAOS_STMT *stmt = CALL_taos_stmt_init(taos);
+  if (!stmt) return -1;
+
+  r = conformance_taos_stmt_prepare_step1(stmt, sql);
+
+  CALL_taos_stmt_close(stmt);
+
+  return r;
+}
+
+static int conformance_tests_with_taos(TAOS *taos)
+{
+  int r = 0;
+  r = conformance_taos_query_with_question_mark(taos, "select * from information_schema.ins_configs where name = ?");
+  if (r == 0) {
+    E("expect fail, but success");
+    return -1;
+  }
+
+  r = conformance_taos_stmt_prepare_without_question_mark(taos, "select * from information_schema.ins_configs where name = 'not_exists'");
+  if (r == 0) {
+    E("expect fail, but success");
+    return -1;
+  }
+
+  return 0;
+}
+
+static int conformance_tests(void)
+{
+  const char *ip = NULL;
+  const char *user = NULL;
+  const char *pass = NULL;
+  const char *db = NULL;
+  uint16_t port = 0;
+  TAOS *taos = CALL_taos_connect(ip,user,pass,db,port);
+  if (!taos) return -1;
+
+  int r = 0;
+  r = conformance_tests_with_taos(taos);
+
+  CALL_taos_close(taos);
+
+  return r;
+}
+
 static int tests(int argc, char *argv[])
 {
   int r = 0;
@@ -2014,6 +2105,9 @@ static int tests(int argc, char *argv[])
     }
     return !r;
   }
+
+  r = conformance_tests();
+  if (r) return -1;
 
   r = process_by_args(argc, argv);
 

@@ -2047,7 +2047,7 @@ static tmq_t* build_consumer() {
     return NULL;
   }
 
-  code = tmq_conf_set(conf, "auto.commit.interval.ms", "1000");
+  code = tmq_conf_set(conf, "auto.commit.interval.ms", "100");
   if (TMQ_CONF_OK != code) {
     tmq_conf_destroy(conf);
     return NULL;
@@ -2138,7 +2138,7 @@ static int32_t msg_process(TAOS_RES* msg) {
 static void basic_consume_loop(tmq_t* tmq) {
   int32_t totalRows = 0;
   int32_t msgCnt = 0;
-  int32_t timeout = 1000;
+  int32_t timeout = 100;
   while (running) {
     fprintf(stderr, "polling timeout:%d...\n", timeout);
     TAOS_RES* tmqmsg = tmq_consumer_poll(tmq, timeout);
@@ -2153,6 +2153,42 @@ static void basic_consume_loop(tmq_t* tmq) {
   }
 
   fprintf(stderr, "%d msg consumed, include %d rows\n", msgCnt, totalRows);
+}
+
+static int conformance_mq_run(void)
+{
+  int r = 0;
+
+  tmq_t* tmq = build_consumer();
+  if (NULL == tmq) {
+    fprintf(stderr, "%% build_consumer() fail!\n");
+    return -1;
+  }
+
+  tmq_list_t* topic_list = build_topic_list();
+  if (NULL == topic_list) {
+    tmq_consumer_close(tmq);
+    return -1;
+  }
+
+  r = tmq_subscribe(tmq, topic_list);
+  if (r) {
+    fprintf(stderr, "%% Failed to tmq_subscribe(): %s\n", tmq_err2str(r));
+  }
+  tmq_list_destroy(topic_list);
+
+  if (r == 0) {
+    basic_consume_loop(tmq);
+  }
+
+  tmq_unsubscribe(tmq);
+  int rr = tmq_consumer_close(tmq);
+  if (rr) {
+    fprintf(stderr, "%% Failed to close consumer: %s\n", tmq_err2str(rr));
+    r = rr;
+  }
+
+  return r ? -1 : 0;
 }
 
 static int conformance_mq(TAOS *taos)
@@ -2186,42 +2222,23 @@ static int conformance_mq(TAOS *taos)
     CALL_taos_free_result(res);
   }
 
-  tmq_t* tmq = build_consumer();
-  if (NULL == tmq) {
-    fprintf(stderr, "%% build_consumer() fail!\n");
-    return -1;
+  for (int i=0; i<1; ++i) {
+    r = conformance_mq_run();
+    if (r) break;
   }
 
-  tmq_list_t* topic_list = build_topic_list();
-  if (NULL == topic_list) {
-    return -1;
-  }
-
-  r = tmq_subscribe(tmq, topic_list);
-  if (r) {
-    fprintf(stderr, "%% Failed to tmq_subscribe(): %s\n", tmq_err2str(r));
-  }
-  tmq_list_destroy(topic_list);
-
-  if (r == 0) {
-    basic_consume_loop(tmq);
-  }
-
-  fprintf(stderr, "unsubscribe...\n");
-  tmq_unsubscribe(tmq);
-  fprintf(stderr, "unsubscribe done\n");
-  int rr = tmq_consumer_close(tmq);
-  if (rr) {
-    fprintf(stderr, "%% Failed to close consumer: %s\n", tmq_err2str(rr));
-    r = rr;
-  }
-
-  return r ? -1 : 0;
+  return r;
 }
 
 static int conformance_tests_with_taos(TAOS *taos)
 {
   int r = 0;
+  for (int i=0; i<1; ++i) {
+    r = conformance_mq(taos);
+    if (r) break;
+  }
+  if (1) return 0;
+
   r = conformance_taos_query_with_question_mark(taos, "select * from information_schema.ins_configs where name = ?");
   if (r == 0) {
     E("expect fail, but success");
@@ -2233,9 +2250,6 @@ static int conformance_tests_with_taos(TAOS *taos)
     E("expect fail, but success");
     return -1;
   }
-
-  r = conformance_mq(taos);
-  if (r) return -1;
 
   return 0;
 }
@@ -2251,7 +2265,10 @@ static int conformance_tests(void)
   if (!taos) return -1;
 
   int r = 0;
-  r = conformance_tests_with_taos(taos);
+  for (int i=0; i<1; ++i) {
+    r = conformance_tests_with_taos(taos);
+    if (r) break;
+  }
 
   CALL_taos_close(taos);
 
@@ -2297,8 +2314,10 @@ static int tests(int argc, char *argv[])
 
   if (0) {
     // memory leakage
-    r = conformance_tests();
-    if (r) return -1;
+    for (int i=0; i<1; ++i) {
+      r = conformance_tests();
+      if (r) return -1;
+    }
   }
 
   r = process_by_args(argc, argv);

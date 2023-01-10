@@ -2642,10 +2642,12 @@ static SQLRETURN _stmt_get_taos_tags_cols_for_insert(stmt_t *stmt)
     }
     TOD_SAFE_FREE(tag_fields);
   } else {
-    OA_NIY(tagNum == 0);
-    OA_NIY(tag_fields == NULL);
+    // OA_NIY(tagNum == 0);
+    // OA_NIY(tag_fields == NULL);
     OA_NIY(stmt->tsdb_meta.tag_fields == NULL);
     OA_NIY(stmt->tsdb_meta.nr_tag_fields == 0);
+    stmt->tsdb_meta.tag_fields = tag_fields;
+    stmt->tsdb_meta.nr_tag_fields = tagNum;
     sr = _stmt_describe_cols(stmt);
   }
   return sr;
@@ -2685,12 +2687,14 @@ static SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql, size_t len)
   int r = 0;
 
   SQLRETURN sr = SQL_SUCCESS;
-  OA_NIY(stmt->stmt == NULL);
+  // OA_NIY(stmt->stmt == NULL);
 
-  stmt->stmt = CALL_taos_stmt_init(stmt->conn->taos);
-  if (!stmt->stmt) {
-    stmt_append_err_format(stmt, "HY000", CALL_taos_errno(NULL), "General error:[taosc]%s", CALL_taos_errstr(NULL));
-    return SQL_ERROR;
+  if (stmt->stmt == NULL) {
+    stmt->stmt = CALL_taos_stmt_init(stmt->conn->taos);
+    if (!stmt->stmt) {
+      stmt_append_err_format(stmt, "HY000", CALL_taos_errno(NULL), "General error:[taosc]%s", CALL_taos_errstr(NULL));
+      return SQL_ERROR;
+    }
   }
 
   conn_t *conn = stmt->conn;
@@ -3055,7 +3059,7 @@ SQLRETURN stmt_prepare(stmt_t *stmt,
     SQLCHAR      *StatementText,
     SQLINTEGER    TextLength)
 {
-  OA_NIY(stmt->stmt == NULL);
+  // OA_NIY(stmt->stmt == NULL);
 
   _stmt_close_cursor(stmt);
 

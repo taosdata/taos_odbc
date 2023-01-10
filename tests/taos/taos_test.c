@@ -2233,11 +2233,14 @@ static int conformance_mq(TAOS *taos)
 static int conformance_tests_with_taos(TAOS *taos)
 {
   int r = 0;
-  for (int i=0; i<1; ++i) {
-    r = conformance_mq(taos);
-    if (r) break;
+  if (0) {
+    // memory leakage
+    for (int i=0; i<1; ++i) {
+      r = conformance_mq(taos);
+      if (r) break;
+    }
+    if (r) return -1;
   }
-  if (1) return 0;
 
   r = conformance_taos_query_with_question_mark(taos, "select * from information_schema.ins_configs where name = ?");
   if (r == 0) {
@@ -2265,10 +2268,7 @@ static int conformance_tests(void)
   if (!taos) return -1;
 
   int r = 0;
-  for (int i=0; i<1; ++i) {
-    r = conformance_tests_with_taos(taos);
-    if (r) break;
-  }
+  r = conformance_tests_with_taos(taos);
 
   CALL_taos_close(taos);
 
@@ -2312,13 +2312,8 @@ static int tests(int argc, char *argv[])
     return !r;
   }
 
-  if (0) {
-    // memory leakage
-    for (int i=0; i<1; ++i) {
-      r = conformance_tests();
-      if (r) return -1;
-    }
-  }
+  r = conformance_tests();
+  if (r) return -1;
 
   r = process_by_args(argc, argv);
 

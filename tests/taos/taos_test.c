@@ -2033,11 +2033,11 @@ static int conformance_taos_stmt_prepare_without_question_mark(TAOS *taos, const
   return r;
 }
 
-void tmq_commit_cb_print(tmq_t* tmq, int32_t code, void* param) {
+static void tmq_commit_cb_print(tmq_t* tmq, int32_t code, void* param) {
   fprintf(stderr, "tmq_commit_cb_print() code: %d, tmq: %p, param: %p\n", code, tmq, param);
 }
 
-tmq_t* build_consumer() {
+static tmq_t* build_consumer() {
   tmq_conf_res_t code;
   tmq_conf_t*    conf = tmq_conf_new();
 
@@ -2096,7 +2096,7 @@ tmq_t* build_consumer() {
   return tmq;
 }
 
-tmq_list_t* build_topic_list() {
+static tmq_list_t* build_topic_list() {
   tmq_list_t* topicList = tmq_list_new();
   int32_t     code = tmq_list_append(topicList, "topicname");
   if (code) {
@@ -2135,7 +2135,7 @@ static int32_t msg_process(TAOS_RES* msg) {
   return rows;
 }
 
-void basic_consume_loop(tmq_t* tmq) {
+static void basic_consume_loop(tmq_t* tmq) {
   int32_t totalRows = 0;
   int32_t msgCnt = 0;
   int32_t timeout = 1000;

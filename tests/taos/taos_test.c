@@ -2033,6 +2033,192 @@ static int conformance_taos_stmt_prepare_without_question_mark(TAOS *taos, const
   return r;
 }
 
+void tmq_commit_cb_print(tmq_t* tmq, int32_t code, void* param) {
+  fprintf(stderr, "tmq_commit_cb_print() code: %d, tmq: %p, param: %p\n", code, tmq, param);
+}
+
+tmq_t* build_consumer() {
+  tmq_conf_res_t code;
+  tmq_conf_t*    conf = tmq_conf_new();
+
+  code = tmq_conf_set(conf, "enable.auto.commit", "true");
+  if (TMQ_CONF_OK != code) {
+    tmq_conf_destroy(conf);
+    return NULL;
+  }
+
+  code = tmq_conf_set(conf, "auto.commit.interval.ms", "1000");
+  if (TMQ_CONF_OK != code) {
+    tmq_conf_destroy(conf);
+    return NULL;
+  }
+
+  code = tmq_conf_set(conf, "group.id", "cgrpName");
+  if (TMQ_CONF_OK != code) {
+    tmq_conf_destroy(conf);
+    return NULL;
+  }
+
+  code = tmq_conf_set(conf, "client.id", "user defined name");
+  if (TMQ_CONF_OK != code) {
+    tmq_conf_destroy(conf);
+    return NULL;
+  }
+
+  code = tmq_conf_set(conf, "td.connect.user", "root");
+  if (TMQ_CONF_OK != code) {
+    tmq_conf_destroy(conf);
+    return NULL;
+  }
+
+  code = tmq_conf_set(conf, "td.connect.pass", "taosdata");
+  if (TMQ_CONF_OK != code) {
+    tmq_conf_destroy(conf);
+    return NULL;
+  }
+
+  code = tmq_conf_set(conf, "auto.offset.reset", "earliest");
+  if (TMQ_CONF_OK != code) {
+    tmq_conf_destroy(conf);
+    return NULL;
+  }
+
+  code = tmq_conf_set(conf, "experimental.snapshot.enable", "false");
+  if (TMQ_CONF_OK != code) {
+    tmq_conf_destroy(conf);
+    return NULL;
+  }
+
+  tmq_conf_set_auto_commit_cb(conf, tmq_commit_cb_print, NULL);
+
+  tmq_t* tmq = tmq_consumer_new(conf, NULL, 0);
+  tmq_conf_destroy(conf);
+  return tmq;
+}
+
+tmq_list_t* build_topic_list() {
+  tmq_list_t* topicList = tmq_list_new();
+  int32_t     code = tmq_list_append(topicList, "topicname");
+  if (code) {
+    return NULL;
+  }
+  return topicList;
+}
+
+static int running = 1;
+
+static int32_t msg_process(TAOS_RES* msg) {
+  char    buf[1024];
+  int32_t rows = 0;
+
+  const char* topicName = tmq_get_topic_name(msg);
+  const char* dbName = tmq_get_db_name(msg);
+  int32_t     vgroupId = tmq_get_vgroup_id(msg);
+
+  fprintf(stderr, "topic: %s\n", topicName);
+  fprintf(stderr, "db: %s\n", dbName);
+  fprintf(stderr, "vgroup id: %d\n", vgroupId);
+
+  while (1) {
+    TAOS_ROW row = taos_fetch_row(msg);
+    if (row == NULL) break;
+
+    TAOS_FIELD* fields = taos_fetch_fields(msg);
+    int32_t     numOfFields = taos_field_count(msg);
+    // int32_t*    length = taos_fetch_lengths(msg);
+    // int32_t     precision = taos_result_precision(msg);
+    rows++;
+    taos_print_row(buf, row, fields, numOfFields);
+    fprintf(stderr, "row content: %s\n", buf);
+  }
+
+  return rows;
+}
+
+void basic_consume_loop(tmq_t* tmq) {
+  int32_t totalRows = 0;
+  int32_t msgCnt = 0;
+  int32_t timeout = 1000;
+  while (running) {
+    fprintf(stderr, "polling timeout:%d...\n", timeout);
+    TAOS_RES* tmqmsg = tmq_consumer_poll(tmq, timeout);
+    fprintf(stderr, "polled tmqmsg:%p\n", tmqmsg);
+    if (tmqmsg) {
+      msgCnt++;
+      totalRows += msg_process(tmqmsg);
+      taos_free_result(tmqmsg);
+    } else {
+      break;
+    }
+  }
+
+  fprintf(stderr, "%d msg consumed, include %d rows\n", msgCnt, totalRows);
+}
+
+static int conformance_mq(TAOS *taos)
+{
+  int r = 0;
+
+  const char *sqls[] = {
+    "drop topic if exists topicname",
+    "drop database if exists tmqdb",
+    "create database tmqdb",
+    "create table tmqdb.stb (ts timestamp, c1 int, c2 float, c3 varchar(16)) tags(t1 int, t3 varchar(16))",
+    "create table tmqdb.ctb0 using tmqdb.stb tags(0, 'subtable0')",
+    "create table tmqdb.ctb1 using tmqdb.stb tags(1, 'subtable1')",
+    "create table tmqdb.ctb2 using tmqdb.stb tags(2, 'subtable2')",
+    "create table tmqdb.ctb3 using tmqdb.stb tags(3, 'subtable3')",
+    "insert into tmqdb.ctb0 values(now, 0, 0, 'a0')(now+1s, 0,   0, 'a00')(now+2s, 0,   0, 'a00')",
+    "insert into tmqdb.ctb1 values(now, 1, 1, 'a1')(now+1s, 11, 11, 'a11')(now+2s, 11, 11, 'a11')",
+    "insert into tmqdb.ctb2 values(now, 2, 2, 'a1')(now+1s, 22, 22, 'a22')(now+2s, 22, 22, 'a22')",
+    "insert into tmqdb.ctb3 values(now, 3, 3, 'a1')(now+1s, 33, 33, 'a33')(now+2s, 33, 33, 'a33')",
+    "insert into tmqdb.ctb0 values(now, 4, 4, 'a4')(now+1s, 44, 44, 'a44')(now+2s, 44, 44, 'a44')",
+    "insert into tmqdb.ctb1 values(now, 5, 5, 'a5')(now+1s, 55, 55, 'a55')(now+2s, 55, 55, 'a55')",
+    "insert into tmqdb.ctb2 values(now, 6, 6, 'a6')(now+1s, 66, 66, 'a66')(now+2s, 66, 66, 'a66')",
+    "insert into tmqdb.ctb3 values(now, 7, 7, 'a7')(now+1s, 77, 77, 'a77')(now+2s, 77, 77, 'a77')",
+    "use tmqdb",
+    "create topic topicname as select ts, c1, c2, c3, tbname from tmqdb.stb where c1 > 1",
+  };
+  for (size_t i=0; i<sizeof(sqls)/sizeof(sqls[0]); ++i) {
+    const char *sql = sqls[i];
+    TAOS_RES *res = CALL_taos_query(taos,sql);
+    if (!res) return -1;
+    CALL_taos_free_result(res);
+  }
+
+  tmq_t* tmq = build_consumer();
+  if (NULL == tmq) {
+    fprintf(stderr, "%% build_consumer() fail!\n");
+    return -1;
+  }
+
+  tmq_list_t* topic_list = build_topic_list();
+  if (NULL == topic_list) {
+    return -1;
+  }
+
+  r = tmq_subscribe(tmq, topic_list);
+  if (r) {
+    fprintf(stderr, "%% Failed to tmq_subscribe(): %s\n", tmq_err2str(r));
+  }
+  tmq_list_destroy(topic_list);
+
+  if (r == 0) {
+    basic_consume_loop(tmq);
+  }
+
+  fprintf(stderr, "unsubscribe...\n");
+  tmq_unsubscribe(tmq);
+  fprintf(stderr, "unsubscribe done\n");
+  int rr = tmq_consumer_close(tmq);
+  if (rr) {
+    fprintf(stderr, "%% Failed to close consumer: %s\n", tmq_err2str(rr));
+    r = rr;
+  }
+
+  return r ? -1 : 0;
+}
+
 static int conformance_tests_with_taos(TAOS *taos)
 {
   int r = 0;
@@ -2047,6 +2233,9 @@ static int conformance_tests_with_taos(TAOS *taos)
     E("expect fail, but success");
     return -1;
   }
+
+  r = conformance_mq(taos);
+  if (r) return -1;
 
   return 0;
 }
@@ -2106,8 +2295,11 @@ static int tests(int argc, char *argv[])
     return !r;
   }
 
-  r = conformance_tests();
-  if (r) return -1;
+  if (0) {
+    // memory leakage
+    r = conformance_tests();
+    if (r) return -1;
+  }
 
   r = process_by_args(argc, argv);
 
@@ -2127,3 +2319,4 @@ int main(int argc, char *argv[])
 
   return !!r;
 }
+

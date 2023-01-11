@@ -5284,7 +5284,6 @@ SQLRETURN stmt_col_attribute(
       if (StringLengthPtr) *StringLengthPtr = n;
       return SQL_SUCCESS;
     case SQL_DESC_UNSIGNED:
-      OA(0, "");
       switch (col->type) {
         case TSDB_DATA_TYPE_TINYINT:
         case TSDB_DATA_TYPE_SMALLINT:

@@ -348,7 +348,10 @@ SQLRETURN SQL_API SQLExecDirect(
   stmt_t *stmt = (stmt_t*)StatementHandle;
 
   stmt_clr_errs(stmt);
-  return stmt_exec_direct(stmt, (const char*)StatementText, TextLength);
+
+  const char *sql = (const char*)StatementText;
+  int n = (TextLength == SQL_NTS) ? (int)strlen(sql) : TextLength;
+  return stmt_exec_direct(stmt, sql, n);
 }
 
 SQLRETURN SQL_API SQLSetEnvAttr(

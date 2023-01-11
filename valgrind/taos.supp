@@ -315,4 +315,18 @@
    fun:stmtSetTbName
    fun:taos_stmt_set_tbname
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:allocate_dtv_entry
+   fun:allocate_and_init
+   fun:tls_get_addr_tail.isra.0
+   fun:__tls_get_addr
+   fun:taosGetSelfPthreadId
+   fun:taosBuildLogHead
+   fun:taosPrintLog
+   fun:tscCrashReportThreadFp
+}
 

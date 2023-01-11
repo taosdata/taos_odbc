@@ -2230,6 +2230,196 @@ static int conformance_mq(TAOS *taos)
   return r;
 }
 
+typedef struct prepare_checker_s           prepare_checker_t;
+struct prepare_checker_s {
+  const char                   *sql;
+  int                           tbname_required;
+  int                           nr_tags;
+  int                           nr_cols;
+  int                           nr_params;
+};
+
+static int conformance_prepare_check(prepare_checker_t *checker, int tbname_required, int nr_tags, int nr_cols, int nr_params)
+{
+  if (checker->tbname_required != tbname_required) {
+    E("`%s`: expect `tbname_required` to be (%d), but got ==(%d)==", checker->sql, checker->tbname_required, tbname_required);
+    return -1;
+  }
+  if (checker->nr_tags != nr_tags) {
+    E("`%s`: expect `nr_tags` to be (%d), but got ==(%d)==", checker->sql, checker->nr_tags, nr_tags);
+    return -1;
+  }
+  if (checker->nr_cols != nr_cols) {
+    E("`%s`: expect `nr_cols` to be (%d), but got ==(%d)==", checker->sql, checker->nr_cols, nr_cols);
+    return -1;
+  }
+  if (checker->nr_params != nr_params) {
+    E("`%s`: expect `nr_params` to be (%d), but got ==(%d)==", checker->sql, checker->nr_params, nr_params);
+    return -1;
+  }
+
+  return 0;
+}
+
+static int conformance_prepare_non_insert(TAOS_STMT *stmt, prepare_checker_t *checker)
+{
+  int r = 0;
+  int nr_params = 0;
+  r = CALL_taos_stmt_num_params(stmt, &nr_params);
+  if (r) return -1;
+
+  return conformance_prepare_check(checker, 0, 0, 0, nr_params);
+}
+
+static int conformance_prepare_insert_tags_cols_tbname_required(TAOS_STMT *stmt, prepare_checker_t *checker,
+    int *nr_tags, TAOS_FIELD_E **tags, int *nr_cols, TAOS_FIELD_E **cols)
+{
+  int r = 0;
+  r = CALL_taos_stmt_set_tbname(stmt, "__hard_coded_fake_name__");
+  if (r) return -1;
+
+  A(*nr_tags == 0, "");
+  A(*tags == NULL, "");
+
+  r = CALL_taos_stmt_get_tag_fields(stmt, nr_tags, tags);
+  if (r) return -1;
+  r = CALL_taos_stmt_get_col_fields(stmt, nr_cols, cols);
+  if (r) return -1;
+
+  return conformance_prepare_check(checker, 1, *nr_tags, *nr_cols, 0);
+}
+
+static int conformance_prepare_insert_tags_cols_no_tbname_required(TAOS_STMT *stmt, prepare_checker_t *checker,
+    int *nr_tags, TAOS_FIELD_E **tags, int *nr_cols, TAOS_FIELD_E **cols)
+{
+  (void)tags;
+  int r = 0;
+
+  r = CALL_taos_stmt_get_col_fields(stmt, nr_cols, cols);
+  if (r) return -1;
+
+  return conformance_prepare_check(checker, 0, *nr_tags, *nr_cols, 0);
+}
+
+static int conformance_prepare_insert_tags_cols(TAOS_STMT *stmt, prepare_checker_t *checker,
+    int *nr_tags, TAOS_FIELD_E **tags, int *nr_cols, TAOS_FIELD_E **cols)
+{
+  int r = 0;
+  r = CALL_taos_stmt_get_tag_fields(stmt, nr_tags, tags);
+  if (r == 0) {
+    r = CALL_taos_stmt_get_col_fields(stmt, nr_cols, cols);
+    if (r) return -1;
+
+    return conformance_prepare_check(checker, 0, *nr_tags, *nr_cols, 0);
+  }
+
+  int e = CALL_taos_errno(NULL);
+  if (e == TSDB_CODE_TSC_STMT_TBNAME_ERROR) {
+    return conformance_prepare_insert_tags_cols_tbname_required(stmt, checker, nr_tags, tags, nr_cols, cols);
+  } else if (e == TSDB_CODE_TSC_STMT_API_ERROR) {
+    return conformance_prepare_insert_tags_cols_no_tbname_required(stmt, checker, nr_tags, tags, nr_cols, cols);
+  } else {
+    return -1;
+  }
+}
+
+static int conformance_prepare_insert(TAOS_STMT *stmt, prepare_checker_t *checker)
+{
+  int r = 0;
+
+  int nr_tags = 0;
+  TAOS_FIELD_E *tags = NULL;
+  int nr_cols = 0;
+  TAOS_FIELD_E *cols = NULL;
+
+  r = conformance_prepare_insert_tags_cols(stmt, checker, &nr_tags, &tags, &nr_cols, &cols);
+
+  if (tags) {
+    CALL_taos_stmt_reclaim_fields(stmt, tags);
+    tags = NULL;
+  }
+
+  if (cols) {
+    CALL_taos_stmt_reclaim_fields(stmt, cols);
+    cols = NULL;
+  }
+
+  return r;
+}
+
+static int conformance_prepare_with_stmt(TAOS_STMT *stmt, prepare_checker_t *checker)
+{
+  int r = 0;
+
+  r = CALL_taos_stmt_prepare(stmt, checker->sql, (unsigned long)strlen(checker->sql));
+  if (r) return -1;
+
+  int is_insert = 0;
+  r = CALL_taos_stmt_is_insert(stmt, &is_insert);
+  if (r) return -1;
+
+  if (!is_insert) {
+    return conformance_prepare_non_insert(stmt, checker);
+  }
+  return conformance_prepare_insert(stmt, checker);
+}
+
+static int conformance_prepare(TAOS *taos)
+{
+  int r = 0;
+  const char *sqls[] = {
+    "show databases",
+    "drop database if exists foo",
+    "create database if not exists foo",
+    "use foo",
+    "create table t (ts timestamp, v int)",
+    "create stable s (ts timestamp, v int) tags (id int)",
+  };
+  for (size_t i=0; i<sizeof(sqls) / sizeof(sqls[0]); ++i) {
+    const char *sql = sqls[i];
+    TAOS_RES *res = CALL_taos_query(taos, sql);
+    int e = CALL_taos_errno(NULL);
+    if (res) CALL_taos_free_result(res);
+    if (e) {
+      r = -1;
+      break;
+    }
+  }
+  if (r) return -1;
+
+  prepare_checker_t checkers[] = {
+    // subtable insert
+    {"insert into suzhou using s tags (?) values (?, ?)", 0, 1, 2, 0},
+    // NOTE: taosc specific behavior
+    {"insert into suzhou using s tags (3) values (?, ?)", 0, 1, 2, 0},
+    // NOTE: taosc specific behavior
+    {"insert into suzhou using s tags (3) values (now(), 4)", 0, 1, 2, 0},
+    // subtable insert
+    {"insert into suzhou using s tags (?) (ts) values (?)", 0, 1, 1, 0},
+    // normal table insert
+    {"insert into t (ts, v) values (?, ?)", 0, 0, 2, 0},
+    // subtable insert with subtable-marker
+    {"insert into ? using s tags (?) values (?, ?)", 1, 1, 2, 0},
+    // normal table select
+    {"select * from t where ts > ? and v = ?", 0, 0, 0, 2},
+    // NOTE: taosc flaw, shall report `x` is not valid colname
+    {"select * from t where x = ?", 0, 0, 0, 1},
+  };
+
+  TAOS_STMT *stmt = CALL_taos_stmt_init(taos);
+  if (!stmt) return -1;
+
+  for (size_t i=0; i<sizeof(checkers)/sizeof(checkers[0]); ++i) {
+    prepare_checker_t *checker = checkers + i;
+    r = conformance_prepare_with_stmt(stmt, checker);
+    if (r) break;
+  }
+
+  CALL_taos_stmt_close(stmt);
+
+  return r;
+}
+
 static int conformance_tests_with_taos(TAOS *taos)
 {
   int r = 0;
@@ -2241,6 +2431,9 @@ static int conformance_tests_with_taos(TAOS *taos)
     }
     if (r) return -1;
   }
+
+  r = conformance_prepare(taos);
+  if (r) return -1;
 
   r = conformance_taos_query_with_question_mark(taos, "select * from information_schema.ins_configs where name = ?");
   if (r == 0) {

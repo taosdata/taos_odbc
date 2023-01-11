@@ -2640,7 +2640,10 @@ static SQLRETURN _stmt_get_taos_tags_cols_for_insert(stmt_t *stmt)
     } else if (e == TSDB_CODE_TSC_STMT_API_ERROR) {
       sr = _stmt_get_taos_tags_cols_for_normal_insert(stmt, r);
     }
-    TOD_SAFE_FREE(tag_fields);
+    if (tag_fields) {
+      CALL_taos_stmt_reclaim_fields(stmt->stmt, tag_fields);
+      tag_fields = NULL;
+    }
   } else {
     // OA_NIY(tagNum == 0);
     // OA_NIY(tag_fields == NULL);

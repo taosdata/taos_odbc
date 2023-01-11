@@ -1554,9 +1554,14 @@ static int test_bind_params(SQLHANDLE hconn)
   return (r || FAILED(sr)) ? -1 : 0;
 }
 
+typedef struct prepare_checker_s              prepare_checker_t;
+struct prepare_checker_s {
+  const char                     *sql;
+  SQLSMALLINT                     paramCount;
+};
+
 static int test_prepare_with_stmt(SQLHANDLE hstmt)
 {
-  int r = 0;
   SQLRETURN sr = SQL_SUCCESS;
   const char *sqls[] = {
     "show databases",
@@ -1566,47 +1571,34 @@ static int test_prepare_with_stmt(SQLHANDLE hstmt)
     "create table t (ts timestamp, v int)",
     "create stable s (ts timestamp, v int) tags (id int)",
   };
+
   for (size_t i=0; i<sizeof(sqls) / sizeof(sqls[0]); ++i) {
     const char *sql = sqls[i];
     sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
     if (sr == SQL_ERROR) return SQL_ERROR;
   }
 
-  const char *sql = NULL;
-  SQLSMALLINT paramCount = 0;
+  prepare_checker_t checkers[] = {
+    {"insert into ? using s tags (?) values (?, ?)", 4},
+    {"insert into suzhou using s tags (?) values (?, ?)", 3},
+    {"insert into suzhou using s tags (3) values (?, ?)", 3},
+  };
 
-  sql = "insert into suzhou using s tags (?) values (?, ?)";
-  sr = CALL_SQLPrepare(hstmt, (SQLCHAR*)sql, SQL_NTS);
-  if (sr == SQL_ERROR) return SQL_ERROR;
-  sr = CALL_SQLNumParams(hstmt, &paramCount);
-  if (sr == SQL_ERROR) return SQL_ERROR;
-  if (paramCount != 3) {
-    E("expected 3 params, but got ==%d==", paramCount);
-    return -1;
+  for (size_t i=0; i<sizeof(checkers)/sizeof(checkers[0]); ++i) {
+    prepare_checker_t *checker = checkers + i;
+    SQLSMALLINT paramCount = 0;
+
+    sr = CALL_SQLPrepare(hstmt, (SQLCHAR*)checker->sql, SQL_NTS);
+    if (sr == SQL_ERROR) return SQL_ERROR;
+    sr = CALL_SQLNumParams(hstmt, &paramCount);
+    if (sr == SQL_ERROR) return SQL_ERROR;
+    if (paramCount != checker->paramCount) {
+      E("`%s`:expected %d params, but got ==%d==", checker->sql, checker->paramCount, paramCount);
+      return -1;
+    }
   }
 
-  sql = "insert into suzhou using s tags (3) values (?, ?)";
-  sr = CALL_SQLPrepare(hstmt, (SQLCHAR*)sql, SQL_NTS);
-  if (sr == SQL_ERROR) return SQL_ERROR;
-  sr = CALL_SQLNumParams(hstmt, &paramCount);
-  if (sr == SQL_ERROR) return SQL_ERROR;
-  if (paramCount != 3) { // NOTE: taosc specific behavior, not ODBC compliant
-    E("expected 2 params, but got ==%d==", paramCount);
-    return -1;
-  }
-
-  // FIXME: if move this ahead, `valgrind` will report failed!!!
-  sql = "insert into ? using s tags (?) values (?, ?)";
-  sr = CALL_SQLPrepare(hstmt, (SQLCHAR*)sql, SQL_NTS);
-  if (sr == SQL_ERROR) return SQL_ERROR;
-  sr = CALL_SQLNumParams(hstmt, &paramCount);
-  if (sr == SQL_ERROR) return SQL_ERROR;
-  if (paramCount != 4) {
-    E("expected 4 params, but got ==%d==", paramCount);
-    return -1;
-  }
-
-  return r ? -1 : 0;
+  return 0;
 }
 
 static int test_prepare(SQLHANDLE hconn)

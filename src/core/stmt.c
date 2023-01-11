@@ -5280,6 +5280,26 @@ SQLRETURN stmt_col_attribute(
       }
       if (StringLengthPtr) *StringLengthPtr = n;
       return SQL_SUCCESS;
+    case SQL_DESC_UNSIGNED:
+      OA(0, "");
+      switch (col->type) {
+        case TSDB_DATA_TYPE_TINYINT:
+        case TSDB_DATA_TYPE_SMALLINT:
+        case TSDB_DATA_TYPE_INT:
+        case TSDB_DATA_TYPE_BIGINT:
+          *NumericAttributePtr = SQL_FALSE;
+          break;
+        case TSDB_DATA_TYPE_UTINYINT:
+        case TSDB_DATA_TYPE_USMALLINT:
+        case TSDB_DATA_TYPE_UINT:
+        case TSDB_DATA_TYPE_UBIGINT:
+          *NumericAttributePtr = SQL_TRUE;
+          break;
+        default:
+          stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` has no SIGNESS", taos_data_type(col->type), col->type, col->type);
+          return SQL_ERROR;
+      }
+      return SQL_SUCCESS;
     default:
     stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` not supported yet", sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier);
     return SQL_ERROR;

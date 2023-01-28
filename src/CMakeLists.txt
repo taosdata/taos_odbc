@@ -74,7 +74,9 @@ else()
     target_link_libraries(taos_odbc legacy_stdio_definitions)
     target_link_libraries(taos_odbc odbccp32)
 endif()
-set_source_files_properties(odbc.c PROPERTIES COMPILE_FLAGS -fvisibility=default)
+if(NOT TODBC_WINDOWS)
+  set_source_files_properties(odbc.c PROPERTIES COMPILE_FLAGS -fvisibility=default)
+endif()
 
 set_target_properties(taos_odbc PROPERTIES
     VERSION 0.1)

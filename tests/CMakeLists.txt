@@ -26,7 +26,9 @@ configure_file(test_config.h.in ${CMAKE_CURRENT_BINARY_DIR}/test_config.h)
 
 add_subdirectory(c)
 add_subdirectory(cpp)
-add_subdirectory(node)
-add_subdirectory(rust)
+if(NOT USE_SAN)
+  add_subdirectory(node)
+  add_subdirectory(rust)
+endif()
 add_subdirectory(taos)
 

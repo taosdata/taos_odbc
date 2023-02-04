@@ -38,7 +38,10 @@ int charset_conv_reset(charset_conv_t *cnv, const char *from, const char *to) FA
 void charset_conv_mgr_release(charset_conv_mgr_t *mgr) FA_HIDDEN;
 charset_conv_t* charset_conv_mgr_get_charset_conv(charset_conv_mgr_t *mgr, const char *fromcode, const char *tocode) FA_HIDDEN;
 
+size_t iconv_x(const char *file, int line, const char *func,
+    iconv_t cd, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft) FA_HIDDEN;
 
+#define CALL_iconv(...)   iconv_x(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 
 EXTERN_C_END
 

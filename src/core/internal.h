@@ -462,10 +462,6 @@ struct tls_s {
   charset_conv_mgr_t        *mgr;
 };
 
-size_t iconv_x(const char *file, int line, const char *func,
-    iconv_t cd, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft) FA_HIDDEN;
-
-#define CALL_iconv(...)   iconv_x(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 EXTERN_C_END
 
 #endif // _internal_h_

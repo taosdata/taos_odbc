@@ -115,6 +115,8 @@ static void _rs_release(rs_t *rs)
 {
   if (!rs->res) return;
 
+  rowset_release(&rs->rowset);
+
   if (rs->res_is_from_taos_query) CALL_taos_free_result(rs->res);
 
   rs->res_is_from_taos_query = 0;
@@ -128,7 +130,6 @@ static void _rs_release(rs_t *rs)
 
 static void _stmt_release_result(stmt_t *stmt)
 {
-  rowset_release(&stmt->rowset);
   _stmt_release_post_filter(stmt);
   _rs_release(&stmt->rs);
 }
@@ -735,7 +736,6 @@ static SQLRETURN _stmt_conv(stmt_t *stmt, mem_t *mem, charset_conv_t *cnv, const
 static void _stmt_close_cursor(stmt_t *stmt)
 {
   _stmt_reset_current_for_get_data(stmt);
-  rowset_reset(&stmt->rowset);
   _stmt_release_result(stmt);
   if (_stmt_get_rows_fetched_ptr(stmt)) *_stmt_get_rows_fetched_ptr(stmt) = 0;
 }
@@ -1224,7 +1224,7 @@ SQLRETURN stmt_bind_col(stmt_t *stmt,
 static SQLRETURN _stmt_get_data_len(stmt_t *stmt, int row, int col, const char **data, int *len)
 {
   rs_t             *rs      = &stmt->rs;
-  rowset_t         *rowset  = &stmt->rowset;
+  rowset_t         *rowset  = &rs->rowset;
 
   TAOS_RES         *res   = rs->res;
   TAOS_FIELD       *field = rs->fields + col;
@@ -1257,7 +1257,7 @@ static SQLPOINTER _stmt_get_address(stmt_t *stmt, SQLPOINTER ptr, SQLULEN octet_
 static SQLRETURN _stmt_fetch_next_rowset(stmt_t *stmt, TAOS_ROW *rows)
 {
   rs_t *rs = &stmt->rs;
-  rowset_t *rowset = &stmt->rowset;
+  rowset_t *rowset = &rs->rowset;
 
   rowset_reset(rowset);
 
@@ -2253,12 +2253,12 @@ SQLRETURN stmt_get_data(
   // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetdata-function?view=sql-server-ver16
   // https://learn.microsoft.com/en-us/sql/odbc/reference/develop-app/getting-long-data?view=sql-server-ver16
   OA_NIY(stmt->rs.res);
-  OA_NIY(stmt->rowset.rows);
+  OA_NIY(stmt->rs.rowset.rows);
 
   if (StrLen_or_IndPtr) StrLen_or_IndPtr[0] = SQL_NO_TOTAL;
 
   rs_t *rs = &stmt->rs;
-  rowset_t *rowset = &stmt->rowset;
+  rowset_t *rowset = &rs->rowset;
 
   if (Col_or_Param_Num < 1 || Col_or_Param_Num > rs->col_count) {
     stmt_append_err_format(stmt, "07009", 0, "Invalid descriptor index:#%d Col_or_Param", Col_or_Param_Num);
@@ -2295,7 +2295,7 @@ static SQLRETURN _stmt_fill_cell(stmt_t *stmt, int i_row, int i_col, int iRow)
   SQLLEN *StrLenPtr = _stmt_get_address(stmt, ARD_record->DESC_OCTET_LENGTH_PTR, sizeof(SQLLEN), i_row, ARD_header);
   SQLLEN *IndPtr = _stmt_get_address(stmt, ARD_record->DESC_INDICATOR_PTR, sizeof(SQLLEN), i_row, ARD_header);
 
-  rowset_t *rowset = &stmt->rowset;
+  rowset_t *rowset = &stmt->rs.rowset;
 
   SQLSMALLINT    TargetType       = ARD_record->DESC_CONCISE_TYPE;
   SQLPOINTER     TargetValuePtr   = dest;
@@ -2321,7 +2321,7 @@ static SQLRETURN _stmt_fill_rowset(stmt_t *stmt,
 
   if (IRD_header->DESC_ROWS_PROCESSED_PTR) *IRD_header->DESC_ROWS_PROCESSED_PTR = 0;
 
-  rowset_t *rowset = &stmt->rowset;
+  rowset_t *rowset = &stmt->rs.rowset;
 
   int iRow = 0;
   int with_info = 0;
@@ -2378,7 +2378,7 @@ static SQLRETURN _stmt_fetch(stmt_t *stmt)
   TAOS_ROW rows = NULL;
   OA_NIY(stmt->rs.res);
 
-  rowset_t *rowset = &stmt->rowset;
+  rowset_t *rowset = &stmt->rs.rowset;
 
   rowset->i_row += (int)row_array_size;
   if (rowset->i_row >= rowset->nr_rows) {
@@ -5143,7 +5143,7 @@ static SQLRETURN _stmt_get_diag_field_row_number(
 
   if (RecNumber!=1) OA_NIY(0);
 
-  rowset_t *rowset = &stmt->rowset;
+  rowset_t *rowset = &stmt->rs.rowset;
 
   switch (stmt->get_or_put_or_undef) {
     case 0x1: // get

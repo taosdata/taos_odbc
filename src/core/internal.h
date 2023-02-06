@@ -382,6 +382,14 @@ struct conn_s {
 };
 
 typedef struct rs_s                 rs_t;
+typedef struct rowset_s             rowset_t;
+
+struct rowset_s {
+  int                 i_row;
+  int                 nr_rows;
+  TAOS_ROW            rows;
+};
+
 struct rs_s {
   TAOS_RES                  *res;
   SQLLEN                     affected_row_count;
@@ -390,14 +398,9 @@ struct rs_s {
   int                       *lengths;
   int                        time_precision;
 
-  unsigned int               res_is_from_taos_query:1;
-};
+  rowset_t                   rowset;
 
-typedef struct rowset_s             rowset_t;
-struct rowset_s {
-  int                 i_row;
-  int                 nr_rows;
-  TAOS_ROW            rows;
+  unsigned int               res_is_from_taos_query:1;
 };
 
 // NOTE: this exists because of https://github.com/taosdata/TDengine/issues/17890
@@ -448,7 +451,6 @@ struct stmt_s {
   post_filter_t              post_filter;
 
   rs_t                       rs;
-  rowset_t                   rowset;
 
   mem_t                      mem;
 

@@ -1874,6 +1874,7 @@ static int test_case6(SQLHANDLE hconn)
     buf[0] = '\0';
     char *p = buf;
     size_t count = 0;
+    (void)count;
     SQLLEN BufferLength = 2;
     SQLLEN StrLen_or_Ind;
 
@@ -1955,6 +1956,7 @@ static int test_case7(SQLHANDLE hconn)
     buf[0] = '\0';
     char *p = buf;
     size_t count = 0;
+    (void)count;
     SQLLEN BufferLength = 2;
     SQLLEN StrLen_or_Ind;
 

@@ -28,6 +28,9 @@ list(APPEND common_SOURCES
     logger.c)
 
 add_library(common_obj OBJECT ${common_SOURCES})
+if(TODBC_WINDOWS)
+    add_dependencies(common_obj ex_iconv)
+endif()
 target_include_directories(common_obj PRIVATE
     ${ODBC_INCLUDE_DIRECTORY}
     ${ODBCINST_INCLUDE_DIRECTORY})

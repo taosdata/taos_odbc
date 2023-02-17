@@ -38,8 +38,6 @@
 
 #include <taos.h>
 
-#include <iconv.h>
-
 EXTERN_C_BEGIN
 
 // <TDengine/ include/util/tdef.h

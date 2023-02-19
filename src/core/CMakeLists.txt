@@ -31,6 +31,9 @@ list(APPEND core_SOURCES stmt.c)
 list(APPEND core_SOURCES tls.c)
 
 add_library(core_obj OBJECT ${core_SOURCES})
+if(TODBC_WINDOWS)
+    add_dependencies(core_obj ex_iconv)
+endif()
 target_include_directories(core_obj PRIVATE
     ${INTERNAL_INC_PATH}
     ${ODBC_INCLUDE_DIRECTORY}

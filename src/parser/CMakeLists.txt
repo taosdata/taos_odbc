@@ -28,6 +28,9 @@ set(parser_SOURCES
     parser_tab.c)
 
 add_library(parser_obj OBJECT ${parser_SOURCES})
+if(TODBC_WINDOWS)
+    add_dependencies(parser_obj ex_iconv)
+endif()
 target_include_directories(parser_obj PRIVATE
     ${INTERNAL_INC_PATH})
 set_property(TARGET parser_obj PROPERTY POSITION_INDEPENDENT_CODE 1)

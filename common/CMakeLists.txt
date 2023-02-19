@@ -40,4 +40,7 @@ list(APPEND taos_helpers_SOURCES
     taos_helpers.c)
 
 add_library(taos_helpers_obj OBJECT ${taos_helpers_SOURCES})
+if(TODBC_WINDOWS)
+    add_dependencies(taos_helpers_obj ex_iconv)
+endif()
 set_property(TARGET taos_helpers_obj PROPERTY POSITION_INDEPENDENT_CODE 1)

@@ -30,7 +30,6 @@
 #include "macros.h"
 
 #include "conn.h"
-#include "utils.h"
 
 #include <stddef.h>
 

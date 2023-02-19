@@ -32,6 +32,9 @@ add_subdirectory(os_port)
 list(APPEND odbc_SOURCES odbc.c)
 
 add_library(odbc_obj OBJECT ${odbc_SOURCES})
+if(TODBC_WINDOWS)
+    add_dependencies(odbc_obj ex_iconv)
+endif()
 target_include_directories(odbc_obj PRIVATE
     ${INTERNAL_INC_PATH}
     ${ODBC_INCLUDE_DIRECTORY}

@@ -26,7 +26,6 @@
 #define _conn_h_
 
 #include "env.h"
-#include "utils.h"
 
 #include <string.h>
 

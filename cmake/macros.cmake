@@ -43,17 +43,17 @@ macro(check_requirements)
     set(BoldWhite   "${Esc}[1;37m")
   endif()
 
-  set(TAOS_ODBC_LOCAL_REPO $ENV{HOME}/.taos_odbc)
+  set(TAOS_ODBC_LOCAL_REPO ${CMAKE_SOURCE_DIR}/.externals)
   include(CheckSymbolExists)
   include(ExternalProject)
 
   ## prepare `cjson`
-  set(CJSON_INSTALL_PATH ${TAOS_ODBC_LOCAL_REPO}/.install)
+  set(CJSON_INSTALL_PATH ${TAOS_ODBC_LOCAL_REPO}/install)
   ExternalProject_Add(ex_cjson
       GIT_REPOSITORY https://github.com/taosdata-contrib/cJSON.git
       GIT_TAG v1.7.15
       GIT_SHALLOW TRUE
-      PREFIX "${TAOS_ODBC_LOCAL_REPO}/cjson"
+      PREFIX "${TAOS_ODBC_LOCAL_REPO}/build/cjson"
       CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX:PATH=${CJSON_INSTALL_PATH}"
       CMAKE_ARGS "-DBUILD_SHARED_LIBS:BOOL=OFF"
       CMAKE_ARGS "-DENABLE_CJSON_TEST:BOOL=OFF"
@@ -61,12 +61,12 @@ macro(check_requirements)
 
   ## prepare `iconv`
   if(TODBC_WINDOWS)
-    set(ICONV_INSTALL_PATH ${TAOS_ODBC_LOCAL_REPO}/.install)
+    set(ICONV_INSTALL_PATH ${TAOS_ODBC_LOCAL_REPO}/install)
     ExternalProject_Add(ex_iconv
         GIT_REPOSITORY https://github.com/win-iconv/win-iconv.git
         GIT_TAG v0.0.8
         GIT_SHALLOW TRUE
-        PREFIX "${TAOS_ODBC_LOCAL_REPO}/iconv"
+        PREFIX "${TAOS_ODBC_LOCAL_REPO}/build/iconv"
         CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX:PATH=${ICONV_INSTALL_PATH}"
         CMAKE_ARGS "-DBUILD_STATIC:BOOL=ON"
         CMAKE_ARGS "-DBUILD_SHARED:BOOL=OFF"

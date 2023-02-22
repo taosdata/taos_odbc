@@ -336,8 +336,6 @@ struct charset_conv_s {
   char         from[64];
   char         to[64];
   iconv_t      cnv;
-  int8_t       nr_from_terminator;
-  int8_t       nr_to_terminator;
 
   struct tod_list_head        node;
 };

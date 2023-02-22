@@ -121,7 +121,7 @@ int mem_keep(mem_t *mem, size_t cap)
   return 0;
 }
 
-int mem_conv(mem_t *mem, iconv_t cnv, const char *src, size_t len, size_t nr_target_terminator)
+int mem_conv(mem_t *mem, iconv_t cnv, const char *src, size_t len)
 {
   int r = 0;
 
@@ -132,10 +132,11 @@ int mem_conv(mem_t *mem, iconv_t cnv, const char *src, size_t len, size_t nr_tar
 
   size_t n;
   int e;
+  const int TERMINATOR_MAX = 4;
 
 again:
   if (mem->base == NULL) {
-    int r = mem_keep(mem, len + nr_target_terminator);
+    int r = mem_keep(mem, len + TERMINATOR_MAX);
     if (r) return -1;
   }
 
@@ -155,13 +156,13 @@ again:
   }
 
   if (inbytesleft) return -1;
-  if (outbytesleft < 4) {
-    r = mem_expand(mem, len);
+  if (outbytesleft < TERMINATOR_MAX) {
+    r = mem_expand(mem, TERMINATOR_MAX);
     if (r) return -1;
     goto again;
   }
 
-  memset(outbuf, 0, nr_target_terminator);
+  memset(outbuf, 0, TERMINATOR_MAX);
   mem->nr = mem->cap - outbytesleft;
 
   return 0;

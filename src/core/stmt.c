@@ -712,7 +712,7 @@ static SQLRETURN _stmt_conv(stmt_t *stmt, mem_t *mem, charset_conv_t *cnv, const
     n = snprintf(p, mem->cap, "%.*s", (int)len, buf);
     OA_NIY(n >= 0);
   } else {
-    r = mem_conv(mem, cnv->cnv, buf, len, cnv->nr_to_terminator);
+    r = mem_conv(mem, cnv->cnv, buf, len);
     if (r) {
       int e = errno;
       if (e == ENOMEM) {

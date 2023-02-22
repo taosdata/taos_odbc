@@ -132,7 +132,7 @@ int mem_conv(mem_t *mem, iconv_t cnv, const char *src, size_t len)
 
   size_t n;
   int e;
-  const int TERMINATOR_MAX = 4;
+#define TERMINATOR_MAX 4
 
 again:
   if (mem->base == NULL) {
@@ -166,6 +166,8 @@ again:
   mem->nr = mem->cap - outbytesleft;
 
   return 0;
+
+#undef TERMINATOR_MAX
 }
 
 void buf_release(buf_t *buf)

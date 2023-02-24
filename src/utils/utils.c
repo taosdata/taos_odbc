@@ -227,7 +227,7 @@ void* buffers_realloc(buffers_t *buffers, size_t idx, size_t sz)
   return p;
 }
 
-typedef int (*wild_match_f)(wildex_t *wild, const char *s, size_t len, size_t inode);
+typedef int (*wild_match_f)(wildex_t *wild, const int32_t *s, size_t nr, size_t inode);
 
 typedef struct wildex_node_s             wildex_node_t;
 struct wildex_node_s {
@@ -244,22 +244,23 @@ static void _wildex_node_release(wildex_node_t *node)
 
 struct wildex_s {
   char                  *ex;
+  mem_t                  ex_ucs4;
   wildex_node_t         *nodes;
   size_t                 cap;
   size_t                 nr;
 };
 
-static int _wild_exec(wildex_t *wild, const char *s, size_t len, size_t inode);
-static int _wild_match_all(wildex_t *wild, const char *s, size_t len, size_t inode);
-static int _wild_match_one(wildex_t *wild, const char *s, size_t len, size_t inode);
-static int _wild_match_specific(wildex_t *wild, const char *s, size_t len, size_t inode);
+static int _wild_exec(wildex_t *wild, const int32_t *s, size_t nr, size_t inode);
+static int _wild_match_all(wildex_t *wild, const int32_t *s, size_t nr, size_t inode);
+static int _wild_match_one(wildex_t *wild, const int32_t *s, size_t nr, size_t inode);
+static int _wild_match_specific(wildex_t *wild, const int32_t *s, size_t nr, size_t inode);
 
-static int _wild_match_all(wildex_t *wild, const char *s, size_t len, size_t inode)
+static int _wild_match_all(wildex_t *wild, const int32_t *s, size_t nr, size_t inode)
 {
   int r = 0;
   if (inode + 1 == wild->nr) return 0;
-  const char *p = s;
-  const char *end = s + len;
+  const int32_t *p = s;
+  const int32_t *end = s + nr;
   while (p<end && *p) {
     r = _wild_exec(wild, p, end-p, inode + 1);
     if (r == 0) return 0;
@@ -268,12 +269,12 @@ static int _wild_match_all(wildex_t *wild, const char *s, size_t len, size_t ino
   return -1;
 }
 
-static int _wild_match_one(wildex_t *wild, const char *s, size_t len, size_t inode)
+static int _wild_match_one(wildex_t *wild, const int32_t *s, size_t nr, size_t inode)
 {
   if (!*s) return -1;
   wildex_node_t *node = wild->nodes + inode;
-  const char *p = s;
-  const char *end = s + len;
+  const int32_t *p = s;
+  const int32_t *end = s + nr;
   for (size_t i=node->start; i<node->end; ++i) {
     if (p == end) return -1;
     if (!*p) return -1;
@@ -286,18 +287,19 @@ static int _wild_match_one(wildex_t *wild, const char *s, size_t len, size_t ino
   return _wild_exec(wild, p, end-p, inode + 1);
 }
 
-static int _wild_match_specific(wildex_t *wild, const char *s, size_t len, size_t inode)
+static int _wild_match_specific(wildex_t *wild, const int32_t *s, size_t nr, size_t inode)
 {
   int r = 0;
   wildex_node_t *node = wild->nodes + inode;
-  if (len < node->end - node->start) return -1;
-  r = strncmp(s, wild->ex + node->start, node->end - node->start);
+  if (nr < node->end - node->start) return -1;
+  const int32_t *base = (const int32_t*)wild->ex_ucs4.base;
+  r = memcmp(s, base + node->start, node->end - node->start);
   if (r) return -1;
 
   if (inode + 1 == wild->nr) return 0;
 
-  const char *end = s + len;
-  const char *p = s + node->end - node->start;
+  const int32_t *end = s + nr;
+  const int32_t *p = s + node->end - node->start;
   return _wild_exec(wild, p, end-p, inode + 1);
 }
 
@@ -318,6 +320,7 @@ static void _wild_release(wildex_t *wild)
     free(wild->ex);
     wild->ex = NULL;
   }
+  mem_release(&wild->ex_ucs4);
 }
 
 static int _wild_append(wildex_t *wild, wild_match_f match, size_t start, size_t end)
@@ -344,20 +347,15 @@ static int _wild_comp(wildex_t *wild)
 
   wild_match_f    prev = NULL;
 
-  const char *s = wild->ex;
-  const char *p = wild->ex;
-  while (p) {
-    if (*p == 0) {
-      if (p > s) {
-        r = _wild_append(wild, _wild_match_specific, s-wild->ex, p-wild->ex);
-        if (r) return -1;
-      }
-      break;
-    }
+  const int32_t *base = (const int32_t*)wild->ex_ucs4.base;
+  const int32_t *s = base;
+  const int32_t *p = base;
+  const int32_t *end = (const int32_t*)(wild->ex_ucs4.base + wild->ex_ucs4.nr);
+  while (p < end) {
     if (*p == '%') {
       if (prev != _wild_match_all) {
         if (p > s) {
-          r = _wild_append(wild, _wild_match_specific, s-wild->ex, p-wild->ex);
+          r = _wild_append(wild, _wild_match_specific, s-base, p-base);
           if (r) return -1;
         }
         r = _wild_append(wild, _wild_match_all, 0, 0);
@@ -370,10 +368,10 @@ static int _wild_comp(wildex_t *wild)
     if (*p == '_') {
       if (prev != _wild_match_one) {
         if (p > s) {
-          r = _wild_append(wild, _wild_match_specific, s-wild->ex, p-wild->ex);
+          r = _wild_append(wild, _wild_match_specific, s-base, p-base);
           if (r) return -1;
         }
-        r = _wild_append(wild, _wild_match_one, p-wild->ex, p+1-wild->ex);
+        r = _wild_append(wild, _wild_match_one, p-base, p+1-base);
         if (r) return -1;
         prev = _wild_match_one;
       } else {
@@ -384,14 +382,22 @@ static int _wild_comp(wildex_t *wild)
       continue;
     }
     ++p;
+    prev = NULL;
+  }
+
+  if (p > s) {
+    r = _wild_append(wild, _wild_match_specific, s-base, p-base);
+    if (r) return -1;
   }
 
   return 0;
 }
 
-int wildcomp(wildex_t **pwild, const char *wildex)
+int wildcomp_ex(wildex_t **pwild, const char *charset, const char *wildex)
 {
   int r = 0;
+
+  if (!charset) charset = "UTF-8";
 
   wildex_t *wild = (wildex_t*)calloc(1, sizeof(*wild));
   if (!wild) return -1;
@@ -399,6 +405,13 @@ int wildcomp(wildex_t **pwild, const char *wildex)
   do {
     wild->ex = strdup(wildex);
     if (!wild->ex) break;
+
+    iconv_t ucs4 = iconv_open("UCS-4LE", charset);
+    if (ucs4 == (iconv_t)-1) break;
+    r = mem_conv(&wild->ex_ucs4, ucs4, wild->ex, strlen(wild->ex));
+    iconv_close(ucs4);
+    if (r) break;
+
     r = _wild_comp(wild);
     if (r == 0) {
       *pwild = wild;
@@ -412,24 +425,39 @@ int wildcomp(wildex_t **pwild, const char *wildex)
   return -1;
 }
 
-static int _wild_exec(wildex_t *wild, const char *s, size_t len, size_t inode)
+static int _wild_exec(wildex_t *wild, const int32_t *s, size_t nr, size_t inode)
 {
   if (inode == wild->nr) return -1;
 
   wildex_node_t *node = wild->nodes + inode;
   wild_match_f match = node->match;
-  return match(wild, s, len, inode);
+  return match(wild, s, nr, inode);
 }
 
-int wildexec_n(wildex_t *wild, const char *str, size_t len)
+int wildexec_n_ex(wildex_t *wild, const char *charset, const char *str, size_t len)
 {
-  const char *s = str;
+  int r = 0;
 
-  size_t inode = 0;
+  if (!str) return -1;
 
-  if (!s) return -1;
+  if (!charset) charset = "UTF-8";
 
-  return _wild_exec(wild, s, len, inode);
+  mem_t mem = {0};
+
+  do {
+    iconv_t ucs4 = iconv_open("UCS-4LE", charset);
+    if (ucs4 == (iconv_t)-1) break;
+    r = mem_conv(&mem, ucs4, str, len);
+    iconv_close(ucs4);
+    if (r) break;
+
+    const int32_t *base = (const int32_t*)mem.base;
+    r = _wild_exec(wild, base, mem.nr/sizeof(*base), 0);
+  } while (0);
+
+  mem_release(&mem);
+
+  return r;
 }
 
 void wildfree(wildex_t *wild)

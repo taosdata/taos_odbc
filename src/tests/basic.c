@@ -93,33 +93,36 @@ static int _wildcard_match(const char *ex, const char *str)
 static int test_case2(void)
 {
   int r = 0;
+  struct {
+    const char *pattern;
+    const char *content;
+    int         match;
+  } cases[] = {
+    {"hello",            "hello",              1},
+    {"%",                "hello",              1},
+    {"%%%%%%%%%%%%%%%%", "hello",              1},
+    {"_",                "h",                  1},
+    {"_____",            "hello",              1},
+    {"_%lo",             "hello",              1},
+    {"_%el%o",           "hello",              1},
+    {"_%ll%o",           "hello",              1},
+    {"_a",               "人a",                1},
+    {"a_",               "ah",                 1},
+    {"a_",               "a人",                1},
+    {"_a_",              "hah",                1},
+    {"_%好啊",           "你好啊",             1},
+    {"_%%好%%啊",        "你好啊",             1},
+    {"_%%x好%%啊",       "你好啊",             0},
+    {"你__",             "你好啊",             1},
+    {"你%_%_%",          "你好啊",             1},
+    {"你%%_%%_%%",       "你好啊",             1},
+    {"你___",            "你好啊",             0},
+  };
 
-  r = _wildcard_match("hello", "hello");
-  if (r) return -1;
-
-  r = _wildcard_match("%", "hello");
-  if (r) return -1;
-
-  r = _wildcard_match("%%%%%%%%%%%%%%%%", "hello");
-  if (r) return -1;
-
-  r = _wildcard_match("_", "h");
-  if (r) return -1;
-
-  r = _wildcard_match("_____", "hello");
-  if (r) return -1;
-
-  r = _wildcard_match("_%lo", "hello");
-  if (r) return -1;
-
-  r = _wildcard_match("_%l%o", "hello");
-  if (r) return -1;
-
-  r = _wildcard_match("_%el%o", "hello");
-  if (r) return -1;
-
-  r = _wildcard_match("_%ll%o", "hello");
-  if (r) return -1;
+  for (size_t i=0; i<sizeof(cases)/sizeof(cases[0]); ++i) {
+    r = _wildcard_match(cases[i].pattern, cases[i].content);
+    if ((!!r) != (!cases[i].match)) return -1;
+  }
 
   return 0;
 }

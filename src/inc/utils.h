@@ -105,12 +105,16 @@ void buffers_release(buffers_t *buffers) FA_HIDDEN;
 void* buffers_realloc(buffers_t *buffers, size_t idx, size_t sz) FA_HIDDEN;
 
 typedef struct wildex_s           wildex_t;
-int wildcomp(wildex_t **pwild, const char *wildex) FA_HIDDEN;
-int wildexec_n(wildex_t *wild, const char *str, size_t len) FA_HIDDEN;
-static inline int wildexec(wildex_t *wild, const char *str)
+int wildcomp_ex(wildex_t **pwild, const char *charset, const char *wildex) FA_HIDDEN;
+int wildexec_n_ex(wildex_t *wild, const char *charset, const char *str, size_t len) FA_HIDDEN;
+static inline int wildexec_ex(wildex_t *wild, const char *charset, const char *str)
 {
-  return wildexec_n(wild, str, strlen(str));
+  return wildexec_n_ex(wild, charset, str, strlen(str));
 }
+
+#define wildcomp(pwild, wildex)     wildcomp_ex(pwild, NULL, wildex)
+#define wildexec_n(pwild, str, len) wildexec_n_ex(pwild, NULL, str, len)
+#define wildexec(wild, str)         wildexec_ex(wild, NULL, str)
 
 void wildfree(wildex_t *wild) FA_HIDDEN;
 

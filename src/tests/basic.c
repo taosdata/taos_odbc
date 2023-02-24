@@ -71,7 +71,7 @@ static int test_case1(void)
   return 0;
 }
 
-static int _wildcard_match(const char *charset, const char *ex, const char *str)
+static int _wildcard_match(const char *charset, const char *ex, const char *str, const int match)
 {
   int r;
   wildex_t *wild = NULL;
@@ -83,7 +83,12 @@ static int _wildcard_match(const char *charset, const char *ex, const char *str)
   }
 
   r = wildexec_ex(wild, charset, str);
-  if (r) E("`%s` does not match by `%s`", str, ex);
+  if ((!!r) != (!match)) {
+    if (r) E("`%s` does not match by `%s`", str, ex);
+    else   E("`%s` unexpectedly match by `%s`", str, ex);
+  } else {
+    r = 0;
+  }
 
   wildfree(wild);
 
@@ -127,8 +132,8 @@ static int test_case2(void)
   };
 
   for (size_t i=0; i<sizeof(cases)/sizeof(cases[0]); ++i) {
-    r = _wildcard_match(charset, cases[i].pattern, cases[i].content);
-    if ((!!r) != (!cases[i].match)) return -1;
+    r = _wildcard_match(charset, cases[i].pattern, cases[i].content, cases[i].match);
+    if (r) return -1;
   }
 
   return 0;

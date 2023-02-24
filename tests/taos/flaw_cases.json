@@ -326,6 +326,30 @@
         "positive": true
       }
     ]
+  },{
+    "comments": "like operator",
+    "conn": {},
+    "sqls": [
+      "drop database if exists bar",
+      "create database if not exists bar",
+      "use bar",
+      "create table x (ts timestamp, name varchar(20), mark nchar(20))",
+      "insert into x (ts, name, mark) values (now(), '人a', '人a')",
+      {
+        "sql": "select name, mark from x",
+        "rs": [["人a","人a"]]
+      },{
+        "comments": "this will fail",
+        "sql": "select name, mark from x where name like '_a'",
+        "rs": [["人a","人a"]],
+        "positive": false
+      },{
+        "comments": "this will fail",
+        "sql": "select name, mark from x where mark like '_a'",
+        "rs": [["人a","人a"]],
+        "positive": false
+      }
+    ]
   }
 ]
 

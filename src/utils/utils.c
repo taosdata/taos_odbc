@@ -394,7 +394,7 @@ static int _wild_comp(wildex_t *wild)
   return 0;
 }
 
-int wildcomp_ex(wildex_t **pwild, const char *charset, const char *wildex)
+int wildcomp_n_ex(wildex_t **pwild, const char *charset, const char *wildex, size_t len)
 {
   int r = 0;
 
@@ -404,12 +404,12 @@ int wildcomp_ex(wildex_t **pwild, const char *charset, const char *wildex)
   if (!wild) return -1;
 
   do {
-    wild->ex = strdup(wildex);
+    wild->ex = strndup(wildex, len);
     if (!wild->ex) break;
 
     iconv_t ucs4 = iconv_open("UCS-4LE", charset);
     if (ucs4 == (iconv_t)-1) break;
-    r = mem_conv(&wild->ex_ucs4, ucs4, wild->ex, strlen(wild->ex));
+    r = mem_conv(&wild->ex_ucs4, ucs4, wild->ex, len);
     iconv_close(ucs4);
     if (r) break;
 

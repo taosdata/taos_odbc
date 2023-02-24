@@ -86,6 +86,7 @@ static int _wildcard_match(const char *charset, const char *ex, const char *str,
   if ((!!r) != (!match)) {
     if (r) E("`%s` does not match by `%s`", str, ex);
     else   E("`%s` unexpectedly match by `%s`", str, ex);
+    r = -1;
   } else {
     r = 0;
   }

@@ -71,18 +71,18 @@ static int test_case1(void)
   return 0;
 }
 
-static int _wildcard_match(const char *ex, const char *str)
+static int _wildcard_match(const char *charset, const char *ex, const char *str)
 {
   int r;
   wildex_t *wild = NULL;
 
-  r = wildcomp(&wild, ex);
+  r = wildcomp_ex(&wild, charset, ex);
   if (r) {
     E("failed to compile wildcard `%s`", ex);
     return -1;
   }
 
-  r = wildexec(wild, str);
+  r = wildexec_ex(wild, charset, str);
   if (r) E("`%s` does not match by `%s`", str, ex);
 
   wildfree(wild);
@@ -93,6 +93,13 @@ static int _wildcard_match(const char *ex, const char *str)
 static int test_case2(void)
 {
   int r = 0;
+
+#ifdef _WIN32            /* { */
+  const char charset[] = "GB18030";
+#else                    /* }{ */
+  const char charset[] = "UTF-8";
+#endif                   /* } */
+
   struct {
     const char *pattern;
     const char *content;
@@ -120,7 +127,7 @@ static int test_case2(void)
   };
 
   for (size_t i=0; i<sizeof(cases)/sizeof(cases[0]); ++i) {
-    r = _wildcard_match(cases[i].pattern, cases[i].content);
+    r = _wildcard_match(charset, cases[i].pattern, cases[i].content);
     if ((!!r) != (!cases[i].match)) return -1;
   }
 

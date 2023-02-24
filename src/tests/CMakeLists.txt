@@ -25,6 +25,7 @@
 add_executable(basic basic.c)
 
 if(TODBC_WINDOWS)
+  set_source_files_properties(basic.c PROPERTIES COMPILE_OPTIONS "/source-charset:utf-8")
   target_link_libraries(basic taos_odbc_a)
 else()
   target_link_libraries(basic taos_odbc_a dl)

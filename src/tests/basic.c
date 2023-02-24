@@ -130,6 +130,7 @@ static int test_case2(void)
     {"你%_%_%",          "你好啊",             1},
     {"你%%_%%_%%",       "你好啊",             1},
     {"你___",            "你好啊",             0},
+    {"",                 "",                   1},
   };
 
   for (size_t i=0; i<sizeof(cases)/sizeof(cases[0]); ++i) {

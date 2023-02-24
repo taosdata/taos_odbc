@@ -428,7 +428,10 @@ int wildcomp_n_ex(wildex_t **pwild, const char *charset, const char *wildex, siz
 
 static int _wild_exec(wildex_t *wild, const int32_t *s, size_t nr, size_t inode)
 {
-  if (inode == wild->nr) return -1;
+  if (inode == wild->nr) {
+    if (s && nr == 0) return 0;
+    return -1;
+  }
 
   wildex_node_t *node = wild->nodes + inode;
   wild_match_f match = node->match;

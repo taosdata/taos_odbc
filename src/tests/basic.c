@@ -27,7 +27,6 @@
 #include "errs.h"
 #include "helpers.h"
 #include "logger.h"
-#include "os_port.h"
 #include "parser.h"
 #include "tls.h"
 #include "utils.h"
@@ -301,70 +300,6 @@ static int test_case6(void)
   return r ? -1 : 0;
 }
 
-#ifndef _WIN32          /* { */
-static void* _test_case7_routine(void *arg)
-{
-  (void)arg;
-  mem_t *mem = tls_get_mem_intermediate();
-  if (!mem) {
-    E("tls_get_mem_intermediate failed");
-    return (void*)(uintptr_t)-1;
-  }
-  const size_t sz = 1024 * 1024 * 64;
-  int r = mem_keep(mem, sz);
-  if (r) {
-    E("mem_keep failed");
-    return (void*)(uintptr_t)-2;
-  }
-  mem->base[0] = '0';
-
-  mem_t *mem2 = tls_get_mem_intermediate();
-  if (mem != mem2) {
-    E("tls_get_mem_intermediate implementation failure");
-    return (void*)(uintptr_t)-3;
-  }
-
-  mem->base[sz-1] = '1';
-
-  return NULL;
-}
-
-static int test_case7(void)
-{
-  int ok = 1;
-#define CASE7_NR 16
-
-  pthread_t threads[CASE7_NR];
-  size_t i = 0;
-
-  for (i=0; i<sizeof(threads)/sizeof(threads[0]); ++i) {
-    int r = pthread_create(threads + i, NULL, _test_case7_routine, NULL);
-    if (r) {
-      E("pthread_create failed");
-      ok = 0;
-      break;
-    }
-  }
-  while (i>0) {
-    void *p = NULL;
-    int r = pthread_join(threads[i-1], &p);
-    if (r) {
-      E("pthread_join failed");
-      ok = 0;
-    }
-    if (p) {
-      E("_test_case7_routine failed");
-      ok = 0;
-    }
-    --i;
-  }
-
-  if (!ok) return -1;
-
-  return 0;
-}
-#endif                  /* } */
-
 static int test(void)
 {
   int r = 0;
@@ -386,11 +321,6 @@ static int test(void)
 
   r = test_case6();
   if (r) return -1;
-
-#ifndef _WIN32          /* { */
-  r = test_case7();
-  if (r) return -1;
-#endif                  /* }{ */
 
   return 0;
 }

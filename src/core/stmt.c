@@ -2342,6 +2342,34 @@ static SQLRETURN _stmt_columns_get_data(
   return SQL_ERROR;
 }
 
+static SQLRETURN _sql_c_data_type_is_fix_or_not(SQLSMALLINT TargetType, int *fix)
+{
+  switch (TargetType) {
+    case SQL_C_BIT:
+    case SQL_C_STINYINT:
+    case SQL_C_UTINYINT:
+    case SQL_C_SSHORT:
+    case SQL_C_USHORT:
+    case SQL_C_SLONG:
+    case SQL_C_ULONG:
+    case SQL_C_SBIGINT:
+    case SQL_C_UBIGINT:
+    case SQL_C_FLOAT:
+    case SQL_C_DOUBLE:
+      *fix = 1;
+      break;
+    case SQL_C_CHAR:
+    case SQL_C_WCHAR:
+    case SQL_C_BINARY:
+      *fix = 0;
+      break;
+    default:
+      return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
+}
+
 SQLRETURN stmt_get_data(
     stmt_t        *stmt,
     SQLUSMALLINT   Col_or_Param_Num,
@@ -2350,6 +2378,16 @@ SQLRETURN stmt_get_data(
     SQLLEN         BufferLength,
     SQLLEN        *StrLen_or_IndPtr)
 {
+  SQLRETURN sr = SQL_SUCCESS;
+  int fix;
+  sr = _sql_c_data_type_is_fix_or_not(TargetType, &fix);
+  if (sr != SQL_SUCCESS) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:Column[%d] `%s[0x%x/%d]` fixed-length-or-not unknown",
+        Col_or_Param_Num, sql_c_data_type(TargetType), TargetType, TargetType);
+    return SQL_ERROR;
+  }
+
   stmt->get_or_put_or_undef = 1; // TODO:
 
   if (StrLen_or_IndPtr) StrLen_or_IndPtr[0] = SQL_NO_TOTAL;
@@ -2373,7 +2411,7 @@ SQLRETURN stmt_get_data(
   }
 
   conv_from_tsdb_to_sql_c_f conv = NULL;
-  SQLRETURN sr = _stmt_get_conv_from_tsdb_to_sql_c(stmt, Col_or_Param_Num, TargetType, &conv);
+  sr = _stmt_get_conv_from_tsdb_to_sql_c(stmt, Col_or_Param_Num, TargetType, &conv);
   if (sr == SQL_ERROR) return SQL_ERROR;
 
   tsdb_to_sql_c_state_t *current = &stmt->current_for_get_data;

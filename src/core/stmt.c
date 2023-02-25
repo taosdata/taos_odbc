@@ -2252,21 +2252,6 @@ static SQLRETURN _stmt_get_data(
   return conv(stmt, current);
 }
 
-static SQLRETURN _stmt_save_to_sql_c_char(
-    stmt_t                *stmt,
-    charset_conv_t         cnv,
-    const char            *src,
-    size_t                 len,
-    SQLUSMALLINT           Col_or_Param_Num,
-    SQLSMALLINT            TargetType,
-    SQLPOINTER             TargetValuePtr,
-    SQLLEN                 BufferLength,
-    SQLLEN                *StrLen_or_IndPtr)
-{
-  SQLRETURN sr = SQL_SUCCESS;
-  int r = 0;
-}
-
 static SQLRETURN _stmt_columns_get_table_cat(
     stmt_t        *stmt,
     SQLUSMALLINT   Col_or_Param_Num,
@@ -2275,28 +2260,30 @@ static SQLRETURN _stmt_columns_get_table_cat(
     SQLLEN         BufferLength,
     SQLLEN        *StrLen_or_IndPtr)
 {
-  SQLRETURN sr = SQL_SUCCESS;
-  int r = 0;
+  (void)TargetValuePtr;
+  (void)BufferLength;
+  (void)StrLen_or_IndPtr;
+  // SQLRETURN sr = SQL_SUCCESS;
+  // int r = 0;
 
   columns_ctx_t *columns_ctx = &stmt->columns_ctx;
   if (columns_ctx->ending) return SQL_NO_DATA;
 
-  const char *data = NULL;
-  int         len  = 0;
+  // const char *data = NULL;
+  // int         len  = 0;
 
-  if (Col_or_Param_Num == columns_ctx->current_Col) {
-    data = columns_ctx->s_current;
-    len  = columns_ctx->s_current_len;
-  } else {
-    data = columns_ctx->s_catalog;
-    len  = columns_ctx->s_catalog_len;
-    columns_ctx->current_Col = Col_or_Param_Num;
-  }
+  // if (Col_or_Param_Num == columns_ctx->current_Col) {
+  //   data = columns_ctx->s_current;
+  //   len  = columns_ctx->s_current_len;
+  // } else {
+  //   data = columns_ctx->s_catalog;
+  //   len  = columns_ctx->s_catalog_len;
+  //   columns_ctx->current_Col = Col_or_Param_Num;
+  // }
 
   // charset_conv_t cnv = stmt->conn->cnv_tsdb_varchar_to_sql_c_char;
 
   switch (TargetType) {
-    case SQL_C_CHAR:
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:#%d Column[TABLE_CAT] converstion to `%s[0x%x/%d]` not implemented yet",
@@ -2317,9 +2304,6 @@ static SQLRETURN _stmt_columns_get_data(
     SQLLEN         BufferLength,
     SQLLEN        *StrLen_or_IndPtr)
 {
-  SQLRETURN sr = SQL_SUCCESS;
-  int r = 0;
-
   const SQLSMALLINT column_meta_nr = columns_get_count_of_col_meta();
 
   if (Col_or_Param_Num < 1 || Col_or_Param_Num > column_meta_nr) {
@@ -2476,7 +2460,6 @@ again:
 
 static SQLRETURN _stmt_columns_fetch_next_table(stmt_t *stmt)
 {
-  SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
 
   columns_ctx_t *columns_ctx = &stmt->columns_ctx;
@@ -2514,7 +2497,6 @@ static SQLRETURN _stmt_columns_fetch_next_table(stmt_t *stmt)
 
 static SQLRETURN _stmt_columns_fetch_filter_table(stmt_t *stmt)
 {
-  SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
 
   columns_ctx_t *columns_ctx = &stmt->columns_ctx;
@@ -2685,7 +2667,6 @@ next_table:
 
 static SQLRETURN _stmt_columns_fetch_filter_column(stmt_t *stmt)
 {
-  SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
 
   columns_ctx_t *columns_ctx = &stmt->columns_ctx;
@@ -2723,7 +2704,6 @@ static SQLRETURN _stmt_columns_fetch_filter_column(stmt_t *stmt)
 static SQLRETURN _stmt_columns_fetch(stmt_t *stmt)
 {
   SQLRETURN sr = SQL_SUCCESS;
-  int r = 0;
 
   columns_ctx_t *columns_ctx = &stmt->columns_ctx;
   if (columns_ctx->ending) return SQL_NO_DATA;
@@ -5721,25 +5701,6 @@ SQLRETURN stmt_more_results(
   return SQL_NO_DATA;
 }
 
-static SQLRETURN _stmt_new_and_conv(stmt_t *stmt, mem_t *mem, charset_conv_t *cnv, const char *buf, size_t len)
-{
-  int r = 0;
-  r = mem_conv(mem, cnv->cnv, buf, len);
-  if (r) {
-    int e = errno;
-    if (e == ENOMEM) {
-      stmt_oom(stmt);
-    } else {
-      stmt_append_err_format(stmt, "HY000", 0, "General error:charset conversion [%s] => [%s] failed:[%d]%s",
-          cnv->from, cnv->to,
-          e, strerror(e));
-    }
-    return SQL_ERROR;
-  }
-
-  return SQL_SUCCESS;
-}
-
 SQLRETURN stmt_columns(
     stmt_t         *stmt,
     SQLCHAR *CatalogName, SQLSMALLINT NameLength1,
@@ -5747,7 +5708,6 @@ SQLRETURN stmt_columns(
     SQLCHAR *TableName, SQLSMALLINT NameLength3,
     SQLCHAR *ColumnName, SQLSMALLINT NameLength4)
 {
-  SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
 
   stmt_free_stmt(stmt, SQL_CLOSE);
@@ -5782,7 +5742,6 @@ SQLRETURN stmt_columns(
 
   columns_ctx_t *columns_ctx = &stmt->columns_ctx;
   columns_ctx_release(columns_ctx);
-  columns_args_t *columns_args = &columns_ctx->columns_args;
   const char *tsdb_varchar_charset = stmt->conn->tsdb_varchar_charset;
 
   r = wildcomp_n_ex(&columns_ctx->columns_args.catalog_pattern, tsdb_varchar_charset, catalog, NameLength1);

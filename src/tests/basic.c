@@ -27,12 +27,12 @@
 #include "errs.h"
 #include "helpers.h"
 #include "logger.h"
+#include "os_port.h"
 #include "parser.h"
 #include "tls.h"
 #include "utils.h"
 
 #include <errno.h>
-#include <pthread.h>
 #include <string.h>
 
 static int test_case1(void)
@@ -301,6 +301,7 @@ static int test_case6(void)
   return r ? -1 : 0;
 }
 
+#ifndef _WIN32          /* { */
 static void* _test_case7_routine(void *arg)
 {
   (void)arg;
@@ -331,7 +332,11 @@ static void* _test_case7_routine(void *arg)
 static int test_case7(void)
 {
   int ok = 1;
-  pthread_t threads[16];
+#define CASE7_NR 16
+
+again:
+
+  pthread_t threads[CASE7_NR];
   size_t i = 0;
 
   for (i=0; i<sizeof(threads)/sizeof(threads[0]); ++i) {
@@ -355,10 +360,14 @@ static int test_case7(void)
     }
     --i;
   }
+
   if (!ok) return -1;
+
+  goto again;
 
   return 0;
 }
+#endif                  /* } */
 
 static int test(void)
 {
@@ -382,8 +391,10 @@ static int test(void)
   r = test_case6();
   if (r) return -1;
 
+#ifndef _WIN32          /* { */
   r = test_case7();
   if (r) return -1;
+#endif                  /* }{ */
 
   return 0;
 }

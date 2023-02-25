@@ -191,6 +191,7 @@ int helper_get_data_len(TAOS_RES *res, TAOS_FIELD *field, TAOS_ROW rows, int row
         *len = length;
       }
     } break;
+    default:
       return -1;
   }
 

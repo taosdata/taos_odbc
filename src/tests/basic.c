@@ -334,8 +334,6 @@ static int test_case7(void)
   int ok = 1;
 #define CASE7_NR 16
 
-again:
-
   pthread_t threads[CASE7_NR];
   size_t i = 0;
 
@@ -362,8 +360,6 @@ again:
   }
 
   if (!ok) return -1;
-
-  goto again;
 
   return 0;
 }

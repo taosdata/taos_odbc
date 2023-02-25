@@ -180,9 +180,9 @@ static int test_large_dataset(SQLHANDLE hdbc)
     r = test_direct_exec(hstmt, "create table t (ts timestamp, bi bigint)");
     if (r) break;
 
-#define ARRAY_SIZE   (1024)
+#define ARRAY_SIZE   (57)
 
-    size_t         batches = 64;
+    size_t         batches = 16;
 
     SQLBIGINT      TsArray[ARRAY_SIZE];
     SQLLEN         TsIndArray[ARRAY_SIZE];

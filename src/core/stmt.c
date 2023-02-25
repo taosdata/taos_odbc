@@ -123,7 +123,6 @@ static void _rs_release(rs_t *rs)
   rs->affected_row_count     = 0;
   rs->col_count              = 0;
   rs->fields                 = NULL;
-  rs->lengths                = NULL;
   rs->time_precision         = 0;
 }
 
@@ -400,6 +399,8 @@ static void _stmt_release(stmt_t *stmt)
   _tsdb_meta_release(stmt, &stmt->tsdb_meta);
 
   TOD_SAFE_FREE(stmt->sql);
+
+  columns_ctx_release(&stmt->columns_ctx);
 
   errs_release(&stmt->errs);
   mem_release(&stmt->mem);
@@ -814,6 +815,11 @@ static SQLRETURN _stmt_set_param_status_ptr(stmt_t *stmt, SQLUSMALLINT *param_st
 
 SQLRETURN stmt_get_row_count(stmt_t *stmt, SQLLEN *row_count_ptr)
 {
+  columns_ctx_t *columns_ctx = &stmt->columns_ctx;
+  if (columns_ctx->active) {
+    if (row_count_ptr) *row_count_ptr = 0;
+    return SQL_SUCCESS;
+  }
   rs_t *rs = &stmt->rs;
 
   if (row_count_ptr) *row_count_ptr = rs->affected_row_count;
@@ -822,6 +828,12 @@ SQLRETURN stmt_get_row_count(stmt_t *stmt, SQLLEN *row_count_ptr)
 
 SQLRETURN stmt_get_col_count(stmt_t *stmt, SQLSMALLINT *col_count_ptr)
 {
+  columns_ctx_t *columns_ctx = &stmt->columns_ctx;
+  if (columns_ctx->active) {
+    if (col_count_ptr) *col_count_ptr = columns_get_count_of_col_meta();
+    return SQL_SUCCESS;
+  }
+
   rs_t *rs = &stmt->rs;
 
   if (col_count_ptr) *col_count_ptr = rs->col_count;
@@ -2240,6 +2252,97 @@ static SQLRETURN _stmt_get_data(
   return conv(stmt, current);
 }
 
+static SQLRETURN _stmt_save_to_sql_c_char(
+    stmt_t                *stmt,
+    charset_conv_t         cnv,
+    const char            *src,
+    size_t                 len,
+    SQLUSMALLINT           Col_or_Param_Num,
+    SQLSMALLINT            TargetType,
+    SQLPOINTER             TargetValuePtr,
+    SQLLEN                 BufferLength,
+    SQLLEN                *StrLen_or_IndPtr)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
+}
+
+static SQLRETURN _stmt_columns_get_table_cat(
+    stmt_t        *stmt,
+    SQLUSMALLINT   Col_or_Param_Num,
+    SQLSMALLINT    TargetType,
+    SQLPOINTER     TargetValuePtr,
+    SQLLEN         BufferLength,
+    SQLLEN        *StrLen_or_IndPtr)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
+
+  columns_ctx_t *columns_ctx = &stmt->columns_ctx;
+  if (columns_ctx->ending) return SQL_NO_DATA;
+
+  const char *data = NULL;
+  int         len  = 0;
+
+  if (Col_or_Param_Num == columns_ctx->current_Col) {
+    data = columns_ctx->s_current;
+    len  = columns_ctx->s_current_len;
+  } else {
+    data = columns_ctx->s_catalog;
+    len  = columns_ctx->s_catalog_len;
+    columns_ctx->current_Col = Col_or_Param_Num;
+  }
+
+  // charset_conv_t cnv = stmt->conn->cnv_tsdb_varchar_to_sql_c_char;
+
+  switch (TargetType) {
+    case SQL_C_CHAR:
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:#%d Column[TABLE_CAT] converstion to `%s[0x%x/%d]` not implemented yet",
+          Col_or_Param_Num, sql_c_data_type(TargetType), TargetType, TargetType);
+      return SQL_ERROR;
+  }
+
+  stmt_append_err_format(stmt, "HY000", 0, "General error:TABLE_CAT:%.*s", columns_ctx->s_catalog_len, columns_ctx->s_catalog);
+  stmt_append_err(stmt, "HY000", 0, "General error:not supported yet");
+  return SQL_ERROR;
+}
+
+static SQLRETURN _stmt_columns_get_data(
+    stmt_t        *stmt,
+    SQLUSMALLINT   Col_or_Param_Num,
+    SQLSMALLINT    TargetType,
+    SQLPOINTER     TargetValuePtr,
+    SQLLEN         BufferLength,
+    SQLLEN        *StrLen_or_IndPtr)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
+
+  const SQLSMALLINT column_meta_nr = columns_get_count_of_col_meta();
+
+  if (Col_or_Param_Num < 1 || Col_or_Param_Num > column_meta_nr) {
+    stmt_append_err_format(stmt, "07009", 0, "Invalid descriptor index:#%d Col_or_Param", Col_or_Param_Num);
+    return SQL_ERROR;
+  }
+
+  columns_ctx_t *columns_ctx = &stmt->columns_ctx;
+  if (columns_ctx->ending) return SQL_NO_DATA;
+
+  switch (Col_or_Param_Num - 1) {
+    case 0: // TABLE_CAT
+      return _stmt_columns_get_table_cat(stmt, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, StrLen_or_IndPtr);
+      break;
+    default:
+      stmt_append_err_format(stmt, "07009", 0, "Invalid descriptor index:#%d Col_or_Param", Col_or_Param_Num);
+      return SQL_ERROR;
+  }
+
+  stmt_append_err(stmt, "HY000", 0, "General error:not supported yet");
+  return SQL_ERROR;
+}
+
 SQLRETURN stmt_get_data(
     stmt_t        *stmt,
     SQLUSMALLINT   Col_or_Param_Num,
@@ -2249,12 +2352,18 @@ SQLRETURN stmt_get_data(
     SQLLEN        *StrLen_or_IndPtr)
 {
   stmt->get_or_put_or_undef = 1; // TODO:
+
+  if (StrLen_or_IndPtr) StrLen_or_IndPtr[0] = SQL_NO_TOTAL;
+
+  columns_ctx_t *columns_ctx = &stmt->columns_ctx;
+  if (columns_ctx->active) {
+    return _stmt_columns_get_data(stmt, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, StrLen_or_IndPtr);
+  }
+
   // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetdata-function?view=sql-server-ver16
   // https://learn.microsoft.com/en-us/sql/odbc/reference/develop-app/getting-long-data?view=sql-server-ver16
   OA_NIY(stmt->rs.res);
   OA_NIY(stmt->rs.rowset.rows);
-
-  if (StrLen_or_IndPtr) StrLen_or_IndPtr[0] = SQL_NO_TOTAL;
 
   rs_t *rs = &stmt->rs;
   rowset_t *rowset = &rs->rowset;
@@ -2365,8 +2474,279 @@ again:
   return with_info ? SQL_SUCCESS_WITH_INFO : SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_columns_fetch_next_table(stmt_t *stmt)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
+
+  columns_ctx_t *columns_ctx = &stmt->columns_ctx;
+  if (columns_ctx->ending) return SQL_NO_DATA;
+
+  if (columns_ctx->tables_rowset_idx + 1 < columns_ctx->tables_rowset_num) {
+    ++columns_ctx->tables_rowset_idx;
+    return SQL_SUCCESS;
+  }
+
+  columns_ctx->tables_rowset       = NULL;
+  columns_ctx->tables_rowset_num   = 0;
+  columns_ctx->tables_rowset_idx   = 0;
+
+  r = CALL_taos_fetch_block_s(columns_ctx->tables, &columns_ctx->tables_rowset_num, &columns_ctx->tables_rowset);
+  if (r) {
+    int err = taos_errno(columns_ctx->tables);
+    const char *s = taos_errstr(columns_ctx->tables);
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:failed to fetch block:[%d]%s", err, s);
+    columns_ctx->ending = 1;
+    return SQL_ERROR;
+  }
+
+  if (columns_ctx->tables_rowset && columns_ctx->tables_rowset_num > 0) {
+    return SQL_SUCCESS;
+  }
+
+  columns_ctx->tables_rowset       = NULL;
+  columns_ctx->tables_rowset_num   = 0;
+
+  columns_ctx->ending = 1;
+  return SQL_NO_DATA;
+}
+
+static SQLRETURN _stmt_columns_fetch_filter_table(stmt_t *stmt)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
+
+  columns_ctx_t *columns_ctx = &stmt->columns_ctx;
+  if (columns_ctx->ending) return SQL_NO_DATA;
+
+  // filter by catalog/schema/table
+  for (int i=columns_ctx->tables_rowset_idx; i<columns_ctx->tables_rowset_num; ++i) {
+    const char* catalog = NULL;
+    int catalog_len = 0;
+    {
+      int col = 0;
+      TAOS_FIELD *field = columns_ctx->tables_fields + col;
+      r = helper_get_data_len(columns_ctx->tables, field, columns_ctx->tables_rowset, i, col, &catalog, &catalog_len);
+      if (r) {
+        stmt_append_err_format(stmt, "HY000", 0,
+            "General error:Column[%d/%s] conversion from `%s[0x%x/%d]` not implemented yet",
+            i + 1, field->name, taos_data_type(field->type), field->type, field->type);
+        columns_ctx->ending = 1;
+        return SQL_ERROR;
+      }
+      OW("catalog:%.*s", catalog_len, catalog);
+      r = wildexec_n_ex(columns_ctx->columns_args.catalog_pattern, stmt->conn->tsdb_varchar_charset, catalog, catalog_len);
+      if (r) {
+        OW("General error:matching Column[%d/%s] failed", i + 1, field->name);
+        continue;
+      }
+    }
+    const char* schema = NULL;
+    int schema_len = 0;
+    {
+      int col = 1;
+      TAOS_FIELD *field = columns_ctx->tables_fields + col;
+      r = helper_get_data_len(columns_ctx->tables, field, columns_ctx->tables_rowset, i, col, &schema, &schema_len);
+      if (r) {
+        stmt_append_err_format(stmt, "HY000", 0,
+            "General error:Column[%d/%s] conversion from `%s[0x%x/%d]` not implemented yet",
+            i + 1, field->name, taos_data_type(field->type), field->type, field->type);
+        columns_ctx->ending = 1;
+        return SQL_ERROR;
+      }
+      OW("schema:%.*s", schema_len, schema);
+      r = wildexec_n_ex(columns_ctx->columns_args.schema_pattern, stmt->conn->tsdb_varchar_charset, schema, schema_len);
+      if (r) {
+        OW("General error:matching Column[%d/%s] failed", i + 1, field->name);
+        continue;
+      }
+    }
+    const char* table = NULL;
+    int table_len = 0;
+    {
+      int col = 2;
+      TAOS_FIELD *field = columns_ctx->tables_fields + col;
+      r = helper_get_data_len(columns_ctx->tables, field, columns_ctx->tables_rowset, i, col, &table, &table_len);
+      if (r) {
+        stmt_append_err_format(stmt, "HY000", 0,
+            "General error:Column[%d/%s] conversion from `%s[0x%x/%d]` not implemented yet",
+            i + 1, field->name, taos_data_type(field->type), field->type, field->type);
+        columns_ctx->ending = 1;
+        return SQL_ERROR;
+      }
+      OW("table:%.*s", table_len, table);
+      r = wildexec_n_ex(columns_ctx->columns_args.table_pattern, stmt->conn->tsdb_varchar_charset, table, table_len);
+      if (r) {
+        OW("General error:matching Column[%d/%s] failed", i + 1, field->name);
+        continue;
+      }
+    }
+
+    char buf[1024]; buf[0] = '\0';
+    int n = snprintf(buf, sizeof(buf), "desc %.*s.%.*s", catalog_len, catalog, table_len, table);
+    if (n < 0) {
+      stmt_append_err(stmt, "HY000", 0, "General error:[snprintf]bad format");
+      columns_ctx->ending = 1;
+      return SQL_ERROR;
+    }
+    if ((size_t)n >= sizeof(buf)) {
+      stmt_append_err_format(stmt, "HY000", 0, "General error:[snprintf]buffer too small, size of %d is expected", n);
+      columns_ctx->ending = 1;
+      return SQL_ERROR;
+    }
+
+    TAOS *taos = stmt->conn->taos;
+    columns_ctx->table = CALL_taos_query(taos, buf);
+
+    int e;
+    const char *estr;
+
+    e = CALL_taos_errno(columns_ctx->table);
+    estr = CALL_taos_errstr(columns_ctx->table);
+
+    if (e || columns_ctx->table == NULL) {
+      columns_ctx->ending = 1;
+      stmt_append_err_format(stmt, "HY000", e, "General error:[taosc]%s", estr);
+      return SQL_ERROR;
+    }
+
+    columns_ctx->table_fields = CALL_taos_fetch_fields(columns_ctx->table);
+
+    if (columns_ctx->table_fields == NULL) {
+      e = CALL_taos_errno(columns_ctx->table);
+      estr = CALL_taos_errstr(columns_ctx->table);
+      columns_ctx->ending = 1;
+      stmt_append_err_format(stmt, "HY000", e, "General error:[taosc]%s", estr);
+      return SQL_ERROR;
+    }
+
+    columns_ctx->s_catalog         = catalog;
+    columns_ctx->s_catalog_len     = catalog_len;
+    columns_ctx->s_schema          = schema;
+    columns_ctx->s_schema_len      = schema_len;
+    columns_ctx->s_table           = table;
+    columns_ctx->s_table_len       = table_len;
+
+    return SQL_SUCCESS;
+  }
+
+  return SQL_NO_DATA;
+}
+
+static SQLRETURN _stmt_columns_fetch_next_column(stmt_t *stmt)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
+
+  columns_ctx_t *columns_ctx = &stmt->columns_ctx;
+  if (columns_ctx->ending) return SQL_NO_DATA;
+
+  if (columns_ctx->table_rowset_idx + 1 < columns_ctx->table_rowset_num) {
+    ++columns_ctx->table_rowset_idx;
+    return SQL_SUCCESS;
+  }
+
+  columns_ctx->table_rowset       = NULL;
+  columns_ctx->table_rowset_num   = 0;
+  columns_ctx->table_rowset_idx   = 0;
+
+  if (columns_ctx->table) {
+    r = CALL_taos_fetch_block_s(columns_ctx->table, &columns_ctx->table_rowset_num, &columns_ctx->table_rowset);
+    if (r) {
+      int err = taos_errno(columns_ctx->table);
+      const char *s = taos_errstr(columns_ctx->table);
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:failed to fetch block:[%d]%s", err, s);
+      return SQL_ERROR;
+    }
+
+    if (columns_ctx->table_rowset && columns_ctx->table_rowset_num > 0) {
+      OW("");
+      return SQL_SUCCESS;
+    }
+
+    columns_ctx->table              = NULL;
+    columns_ctx->table_rowset       = NULL;
+    columns_ctx->table_rowset_num   = 0;
+  }
+
+next_table:
+  sr = _stmt_columns_fetch_next_table(stmt);
+  if (sr == SQL_NO_DATA) return SQL_NO_DATA;
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  sr = _stmt_columns_fetch_filter_table(stmt);
+  if (sr == SQL_NO_DATA) goto next_table;
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_columns_fetch_filter_column(stmt_t *stmt)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
+
+  columns_ctx_t *columns_ctx = &stmt->columns_ctx;
+  if (columns_ctx->ending) return SQL_NO_DATA;
+
+  // filter by column
+  for (int i=columns_ctx->table_rowset_idx; i<columns_ctx->table_rowset_num; ++i) {
+    const char* column = NULL;
+    int column_len = 0;
+    {
+      int col = 0;
+      TAOS_FIELD *field = columns_ctx->table_fields + col;
+      r = helper_get_data_len(columns_ctx->table, field, columns_ctx->table_rowset, i, col, &column, &column_len);
+      if (r) {
+        stmt_append_err_format(stmt, "HY000", 0,
+            "General error:Column[%d/%s] conversion from `%s[0x%x/%d]` not implemented yet",
+            i + 1, field->name, taos_data_type(field->type), field->type, field->type);
+        columns_ctx->ending = 1;
+        return SQL_ERROR;
+      }
+      OW("column:%.*s", column_len, column);
+      r = wildexec_n_ex(columns_ctx->columns_args.column_pattern, stmt->conn->tsdb_varchar_charset, column, column_len);
+      if (r) {
+        OW("General error:matching Column[%d/%s] failed", i + 1, field->name);
+        continue;
+      }
+    }
+
+    return SQL_SUCCESS;
+  }
+
+  return SQL_NO_DATA;
+}
+
+static SQLRETURN _stmt_columns_fetch(stmt_t *stmt)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
+
+  columns_ctx_t *columns_ctx = &stmt->columns_ctx;
+  if (columns_ctx->ending) return SQL_NO_DATA;
+
+next_column:
+  sr = _stmt_columns_fetch_next_column(stmt);
+  if (sr == SQL_NO_DATA) return SQL_NO_DATA;
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  sr = _stmt_columns_fetch_filter_column(stmt);
+  if (sr == SQL_NO_DATA) goto next_column;
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_fetch(stmt_t *stmt)
 {
+  columns_ctx_t *columns_ctx = &stmt->columns_ctx;
+  if (columns_ctx->active) {
+    return _stmt_columns_fetch(stmt);
+  }
+
   _stmt_reset_current_for_get_data(stmt);
 
   SQLULEN row_array_size = _stmt_get_row_array_size(stmt);
@@ -2449,7 +2829,7 @@ SQLRETURN stmt_fetch_scroll(stmt_t *stmt,
 
 SQLRETURN stmt_fetch(stmt_t *stmt)
 {
-  return _stmt_fetch(stmt);
+  return stmt_fetch_scroll(stmt, SQL_FETCH_NEXT, 0);
 }
 
 static SQLRETURN _stmt_describe_tags(stmt_t *stmt)
@@ -5177,6 +5557,67 @@ SQLRETURN stmt_get_diag_field(
   }
 }
 
+static SQLRETURN _stmt_columns_col_attribute(
+    stmt_t         *stmt,
+    SQLUSMALLINT    ColumnNumber,
+    SQLUSMALLINT    FieldIdentifier,
+    SQLPOINTER      CharacterAttributePtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr,
+    SQLLEN         *NumericAttributePtr)
+{
+  int n = 0;
+
+  columns_col_meta_t *col_meta = columns_get_col_meta(ColumnNumber - 1);
+  if (!col_meta) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:ColumnNumber #%d out of range", ColumnNumber);
+    return SQL_ERROR;
+  }
+
+  switch(FieldIdentifier) {
+    case SQL_DESC_CONCISE_TYPE:
+      *NumericAttributePtr = col_meta->DESC_CONCISE_TYPE;
+      return SQL_SUCCESS;
+    case SQL_DESC_OCTET_LENGTH:
+      *NumericAttributePtr = col_meta->DESC_OCTET_LENGTH;
+      return SQL_SUCCESS;
+    // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
+    case SQL_DESC_PRECISION:
+    case SQL_COLUMN_PRECISION:
+      *NumericAttributePtr = col_meta->DESC_PRECISION;
+      return SQL_SUCCESS;
+    // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
+    case SQL_DESC_SCALE:
+    case SQL_COLUMN_SCALE:
+      *NumericAttributePtr = col_meta->DESC_SCALE;
+      return SQL_SUCCESS;
+    case SQL_DESC_AUTO_UNIQUE_VALUE:
+      *NumericAttributePtr = col_meta->DESC_AUTO_UNIQUE_VALUE;
+      return SQL_SUCCESS;
+    case SQL_DESC_UPDATABLE:
+      *NumericAttributePtr = col_meta->DESC_UPDATABLE;
+      return SQL_SUCCESS;
+    case SQL_DESC_NULLABLE:
+      *NumericAttributePtr = col_meta->DESC_NULLABLE;
+      return SQL_SUCCESS;
+    case SQL_DESC_NAME:
+      n = snprintf(CharacterAttributePtr, BufferLength, "%s", col_meta->name);
+      if (n < 0) {
+        int e = errno;
+        stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
+        return SQL_ERROR;
+      }
+      if (StringLengthPtr) *StringLengthPtr = n;
+      return SQL_SUCCESS;
+    case SQL_DESC_UNSIGNED:
+      *NumericAttributePtr = col_meta->DESC_UNSIGNED;
+      return SQL_SUCCESS;
+    default:
+    stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` not supported yet", sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier);
+    return SQL_ERROR;
+  }
+}
+
 SQLRETURN stmt_col_attribute(
     stmt_t         *stmt,
     SQLUSMALLINT    ColumnNumber,
@@ -5189,6 +5630,11 @@ SQLRETURN stmt_col_attribute(
   if (ColumnNumber == 0) {
     stmt_append_err_format(stmt, "HY000", 0, "General error:ColumnNumber #%d not supported yet", ColumnNumber);
     return SQL_ERROR;
+  }
+
+  columns_ctx_t *columns_ctx = &stmt->columns_ctx;
+  if (columns_ctx->active) {
+    return _stmt_columns_col_attribute(stmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
   }
 
   rs_t *rs = &stmt->rs;
@@ -5275,6 +5721,25 @@ SQLRETURN stmt_more_results(
   return SQL_NO_DATA;
 }
 
+static SQLRETURN _stmt_new_and_conv(stmt_t *stmt, mem_t *mem, charset_conv_t *cnv, const char *buf, size_t len)
+{
+  int r = 0;
+  r = mem_conv(mem, cnv->cnv, buf, len);
+  if (r) {
+    int e = errno;
+    if (e == ENOMEM) {
+      stmt_oom(stmt);
+    } else {
+      stmt_append_err_format(stmt, "HY000", 0, "General error:charset conversion [%s] => [%s] failed:[%d]%s",
+          cnv->from, cnv->to,
+          e, strerror(e));
+    }
+    return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
+}
+
 SQLRETURN stmt_columns(
     stmt_t         *stmt,
     SQLCHAR *CatalogName, SQLSMALLINT NameLength1,
@@ -5283,16 +5748,27 @@ SQLRETURN stmt_columns(
     SQLCHAR *ColumnName, SQLSMALLINT NameLength4)
 {
   SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
+
+  stmt_free_stmt(stmt, SQL_CLOSE);
+  stmt_free_stmt(stmt, SQL_RESET_PARAMS);
+
+  TOD_SAFE_FREE(stmt->sql);
 
   const char *catalog = (const char *)CatalogName;
   const char *schema  = (const char *)SchemaName;
   const char *table   = (const char *)TableName;
   const char *column  = (const char *)ColumnName;
 
-  if (catalog == NULL) catalog = "";
-  if (schema  == NULL) schema  = "";
-  if (table   == NULL) table   = "";
-  if (column  == NULL) column  = "";
+  if (catalog == NULL) OW("catalog is null");
+  if (schema  == NULL) OW("schema is null");
+  if (table   == NULL) OW("table is null");
+  if (column  == NULL) OW("column is null");
+
+  if (catalog == NULL) { catalog = "%"; NameLength1 = 1; }
+  if (schema  == NULL) { schema  = "%"; NameLength2 = 1; }
+  if (table   == NULL) { table   = "%"; NameLength3 = 1; }
+  if (column  == NULL) { column  = "%"; NameLength4 = 1; }
 
   if (NameLength1 == SQL_NTS) NameLength1 = (SQLSMALLINT)strlen(catalog);
   if (NameLength2 == SQL_NTS) NameLength2 = (SQLSMALLINT)strlen(schema);
@@ -5304,32 +5780,70 @@ SQLRETURN stmt_columns(
   OW("table:%.*s", (int)NameLength3, table);
   OW("column:%.*s", (int)NameLength4, column);
 
-  char buf[1024]; buf[0] = '\0';
-  snprintf(buf, sizeof(buf), "select * from information_schema.ins_tables where db_name like ? and table_name like ?");
+  columns_ctx_t *columns_ctx = &stmt->columns_ctx;
+  columns_ctx_release(columns_ctx);
+  columns_args_t *columns_args = &columns_ctx->columns_args;
+  const char *tsdb_varchar_charset = stmt->conn->tsdb_varchar_charset;
 
-  sr = stmt_prepare(stmt, (SQLCHAR*)buf, (SQLINTEGER)strlen(buf));
-  if (sr == SQL_ERROR) return SQL_ERROR;
+  r = wildcomp_n_ex(&columns_ctx->columns_args.catalog_pattern, tsdb_varchar_charset, catalog, NameLength1);
+  if (r) {
+    columns_ctx->ending = 1;
+    stmt_append_err(stmt, "HY000", 0, "General error:[wildcomp]value for `CatalogName` is not valid pattern matching string");
+    return SQL_ERROR;
+  }
+  r = wildcomp_n_ex(&columns_ctx->columns_args.schema_pattern, tsdb_varchar_charset, schema, NameLength2);
+  if (r) {
+    columns_ctx->ending = 1;
+    stmt_append_err(stmt, "HY000", 0, "General error:[wildcomp]value for `SchemaName` is not valid pattern matching string");
+    return SQL_ERROR;
+  }
+  r = wildcomp_n_ex(&columns_ctx->columns_args.table_pattern, tsdb_varchar_charset, table, NameLength3);
+  if (r) {
+    columns_ctx->ending = 1;
+    stmt_append_err(stmt, "HY000", 0, "General error:[wildcomp]value for `TableName` is not valid pattern matching string");
+    return SQL_ERROR;
+  }
+  r = wildcomp_n_ex(&columns_ctx->columns_args.column_pattern, tsdb_varchar_charset, column, NameLength4);
+  if (r) {
+    columns_ctx->ending = 1;
+    stmt_append_err(stmt, "HY000", 0, "General error:[wildcomp]value for `ColumnName` is not valid pattern matching string");
+    return SQL_ERROR;
+  }
 
-  SQLLEN StrLen_or_Ind[2];
-  StrLen_or_Ind[0] = NameLength1;
-  StrLen_or_Ind[1] = NameLength3;
+  const char sql[] = 
+    "select * from ("
+    "select db_name as TABLE_CAT, \"\" as TABLE_SCHEM, stable_name as TABLE_NAME, \"SUPER_TABLE\" as TABLE_TYPE from information_schema.ins_stables"
+    " union "
+    "select db_name as TABLE_CAT, \"\" as TABLE_SCHEM, table_name as TABLE_NAME, `type` as TABLE_TYPE from information_schema.ins_tables"
+    ") order by TABLE_CAT, TABLE_SCHEM, TABLE_NAME, TABLE_TYPE";
 
-  sr = stmt_set_attr(stmt, SQL_ATTR_PARAM_BIND_TYPE, SQL_PARAM_BIND_BY_COLUMN, 0);
-  if (sr == SQL_ERROR) return SQL_ERROR;
+  TAOS *taos = stmt->conn->taos;
+  columns_ctx->tables = CALL_taos_query(taos, sql);
+  columns_ctx->active = 1;
 
-  sr = stmt_set_attr(stmt, SQL_ATTR_PARAMSET_SIZE, (SQLPOINTER)(uintptr_t)1, 0);
-  if (sr == SQL_ERROR) return SQL_ERROR;
+  int e;
+  const char *estr;
 
-  sr = stmt_bind_param(stmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, NameLength1, 0, (SQLPOINTER)catalog, NameLength1, &StrLen_or_Ind[0]);
-  if (sr == SQL_ERROR) return SQL_ERROR;
-  sr = stmt_bind_param(stmt, 2, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, NameLength3, 0, (SQLPOINTER)table, NameLength3, &StrLen_or_Ind[1]);
-  if (sr == SQL_ERROR) return SQL_ERROR;
+  e = CALL_taos_errno(columns_ctx->tables);
+  estr = CALL_taos_errstr(columns_ctx->tables);
 
-  sr = stmt_execute(stmt);
-  if (sr == SQL_ERROR) return SQL_ERROR;
+  if (e || columns_ctx->tables == NULL) {
+    columns_ctx->ending = 1;
+    stmt_append_err_format(stmt, "HY000", e, "General error:[taosc]%s", estr);
+    return SQL_ERROR;
+  }
 
-  stmt_append_err(stmt, "HY000", 0, "General error:SQLColumns not supported yet");
-  return SQL_ERROR;
+  columns_ctx->tables_fields = CALL_taos_fetch_fields(columns_ctx->tables);
+
+  if (columns_ctx->tables_fields == NULL) {
+    e = CALL_taos_errno(columns_ctx->tables);
+    estr = CALL_taos_errstr(columns_ctx->tables);
+    columns_ctx->ending = 1;
+    stmt_append_err_format(stmt, "HY000", e, "General error:[taosc]%s", estr);
+    return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
 }
 
 #if (ODBCVER >= 0x0300)       /* { */

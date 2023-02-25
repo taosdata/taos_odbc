@@ -44,7 +44,7 @@
 
 // NOTE: if you wanna debug in detail, just define DEBUG_OOW to 1
 // NOTE: this is performance-hit, please take serious consideration in advance!!!
-#define DEBUG_OOW      0
+#define DEBUG_OOW      1
 #define OOW(fmt, ...) do {        \
   if (DEBUG_OOW) {                \
     OW(fmt, ##__VA_ARGS__);       \

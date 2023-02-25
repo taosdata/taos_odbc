@@ -35,6 +35,7 @@
 #include "env.h"
 #include "list.h"
 #include "stmt.h"
+#include "columns.h"
 
 #include <taos.h>
 
@@ -363,6 +364,9 @@ struct conn_s {
   char               *s_locale;
   char               *s_charset;
 
+  char               *sql_c_char_charset;
+  char               *tsdb_varchar_charset;
+
   charset_conv_t      cnv_sql_c_char_to_tsdb_varchar;
   charset_conv_t      cnv_tsdb_varchar_to_sql_c_char;
   charset_conv_t      cnv_tsdb_varchar_to_utf8;
@@ -391,7 +395,6 @@ struct rs_s {
   SQLLEN                     affected_row_count;
   SQLSMALLINT                col_count;
   TAOS_FIELD                *fields;
-  int                       *lengths;
   int                        time_precision;
 
   rowset_t                   rowset;
@@ -408,6 +411,57 @@ struct post_filter_s {
   void                   *ctx;
   post_filter_f           post_filter;
   post_filter_destroy_f   post_filter_destroy;
+};
+
+struct columns_args_s {
+  wildex_t        *catalog_pattern;
+  wildex_t        *schema_pattern;
+  wildex_t        *table_pattern;
+  wildex_t        *column_pattern;
+};
+
+struct columns_col_meta_s {
+  const char                 *name;
+  SQLLEN                      DESC_CONCISE_TYPE;
+  SQLLEN                      DESC_OCTET_LENGTH;
+  SQLLEN                      DESC_PRECISION;
+  SQLLEN                      DESC_SCALE;
+  SQLLEN                      DESC_AUTO_UNIQUE_VALUE;
+  SQLLEN                      DESC_UPDATABLE;
+  SQLLEN                      DESC_NULLABLE;
+  SQLLEN                      DESC_UNSIGNED;
+};
+
+struct columns_ctx_s {
+  columns_args_t    columns_args;
+  TAOS_RES         *tables;
+  TAOS_FIELD       *tables_fields;
+  TAOS_ROW          tables_rowset;
+  int               tables_rowset_num;
+  int               tables_rowset_idx;
+
+  TAOS_RES         *table;
+  TAOS_FIELD       *table_fields;
+  TAOS_ROW          table_rowset;
+  int               table_rowset_num;
+  int               table_rowset_idx;
+
+  const char       *s_catalog;
+  int               s_catalog_len;
+
+  const char       *s_schema;
+  int               s_schema_len;
+
+  const char       *s_table;
+  int               s_table_len;
+
+  SQLSMALLINT       current_Col;
+  const char       *s_current;
+  int               s_current_len;
+
+  unsigned int      active:1;
+  unsigned int      fetching:1;
+  unsigned int      ending:1;
 };
 
 struct stmt_s {
@@ -447,6 +501,8 @@ struct stmt_s {
   post_filter_t              post_filter;
 
   rs_t                       rs;
+
+  columns_ctx_t              columns_ctx;
 
   mem_t                      mem;
 

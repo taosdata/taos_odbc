@@ -54,6 +54,8 @@ static void _conn_release_information_schema_ins_configs(conn_t *conn)
   TOD_SAFE_FREE(conn->s_timezone);
   TOD_SAFE_FREE(conn->s_locale);
   TOD_SAFE_FREE(conn->s_charset);
+  TOD_SAFE_FREE(conn->sql_c_char_charset);
+  TOD_SAFE_FREE(conn->tsdb_varchar_charset);
 }
 
 static void _conn_release_iconvs(conn_t *conn)
@@ -303,6 +305,16 @@ static int _conn_setup_iconvs(conn_t *conn)
   }
   sql_c_charset = p;
 #endif
+
+  conn->sql_c_char_charset = strdup(sql_c_charset);
+  conn->tsdb_varchar_charset = strdup(tsdb_charset);
+  if (!conn->sql_c_char_charset || !conn->tsdb_varchar_charset) {
+    conn_oom(conn);
+    return -1;
+  }
+
+  sql_c_charset = conn->sql_c_char_charset;
+  tsdb_charset = conn->tsdb_varchar_charset;
 
   const char *utf8 = "UTF-8";
   const char *from, *to;
@@ -902,6 +914,9 @@ SQLRETURN conn_get_info(
       return _conn_get_identifier_quote_char(conn, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_QUOTED_IDENTIFIER_CASE:
       *(SQLUSMALLINT*)InfoValuePtr = SQL_IC_SENSITIVE;
+      return SQL_SUCCESS;
+    case SQL_MAX_CONCURRENT_ACTIVITIES:
+      *(SQLUSMALLINT*)InfoValuePtr = 0;
       return SQL_SUCCESS;
     default:
       conn_append_err_format(conn, "HY000", 0, "General error:`%s[%d/0x%x]` not implemented yet", sql_info_type(InfoType), InfoType, InfoType);

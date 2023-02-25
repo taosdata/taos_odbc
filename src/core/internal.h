@@ -30,6 +30,7 @@
 
 #include "charset.h"
 #include "conn.h"
+#include "conv.h"
 #include "desc.h"
 #include "errs.h"
 #include "env.h"
@@ -186,6 +187,39 @@ static inline int sql_succeeded(SQLRETURN sr)
   return sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO;
 }
 
+typedef enum {
+  DATA_TYPE_UNKNOWM,
+  DATA_TYPE_INT8,
+  DATA_TYPE_UINT8,
+  DATA_TYPE_INT16,
+  DATA_TYPE_UINT16,
+  DATA_TYPE_INT32,
+  DATA_TYPE_UINT32,
+  DATA_TYPE_INT64,
+  DATA_TYPE_UINT64,
+  DATA_TYPE_FLOAT,
+  DATA_TYPE_DOUBLE,
+  DATA_TYPE_STR,
+  DATA_TYPE_MAX,
+} data_type;
+
+struct data_s {
+  data_type             dt;
+  union {
+    int8_t              i8;
+    uint8_t             u8;
+    int16_t             i16;
+    uint16_t            u16;
+    int32_t             i32;
+    uint32_t            u32;
+    int64_t             i64;
+    uint64_t            u64;
+    float               flt;
+    double              dbl;
+    uintptr_t           str[3]; /* str[0]: a pointer; str[1]: a length; str[2]: charset */
+  };
+  uint8_t               is_null:1;
+};
 
 struct env_s {
   atomic_int          refc;
@@ -211,6 +245,17 @@ struct desc_header_s {
 
   // header fields else
   SQLUSMALLINT        DESC_COUNT;
+};
+
+typedef struct get_data_ctx_s            get_data_ctx_t;
+struct get_data_ctx_s {
+  SQLUSMALLINT   Col_or_Param_Num;
+  SQLSMALLINT    TargetType;
+
+  data_t         cache;
+  mem_t          mem;
+
+  unsigned int   active:1;
 };
 
 #define DATA_GET_INIT              0x0U
@@ -484,6 +529,7 @@ struct stmt_s {
   descriptor_t              *current_ARD;
 
   tsdb_to_sql_c_state_t      current_for_get_data;
+  get_data_ctx_t             get_data_ctx;
 
   char                      *sql;
 

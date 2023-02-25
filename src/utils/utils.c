@@ -23,6 +23,7 @@
  */
 
 #include "os_port.h"
+#include "tls.h"
 #include "utils.h"
 
 #include <ctype.h>
@@ -31,6 +32,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <time.h>
+
+#define TERMINATOR_MAX 4
 
 struct static_pool_s {
   size_t                        cap;
@@ -133,7 +136,6 @@ int mem_conv(mem_t *mem, iconv_t cnv, const char *src, size_t len)
 
   size_t n;
   int e;
-#define TERMINATOR_MAX 4
 
 again:
   if (mem->base == NULL) {
@@ -151,7 +153,7 @@ again:
   iconv(cnv, NULL, NULL, NULL, NULL);
   if (n == (size_t)-1) {
     if (e != E2BIG) return -1;
-    r = mem_expand(mem, len);
+    r = mem_expand(mem, inbytesleft + TERMINATOR_MAX);
     if (r) return -1;
     goto again;
   }
@@ -167,8 +169,20 @@ again:
   mem->nr = mem->cap - outbytesleft;
 
   return 0;
+}
 
-#undef TERMINATOR_MAX
+int mem_conv_ex(mem_t *mem, const char *src_charset, const char *src, size_t len, const char *dst_charset)
+{
+  charset_conv_t *cnv = tls_get_charset_conv(src_charset, dst_charset);
+  if (!cnv) return -1;
+  iconv_t ic = charset_conv_get(cnv);
+  if (ic == (iconv_t)-1) return -1;
+
+  mem_reset(mem);
+  int r = mem_conv(mem, ic, src, len);
+  // reset initial state of `iconv_t`
+  iconv(ic, NULL, NULL, NULL, NULL);
+  return r;
 }
 
 void buf_release(buf_t *buf)
@@ -684,3 +698,79 @@ int buffer_concat_replacement_n(buffer_t *str, const char *s, size_t len)
   if (str->base) str->base[str->nr] = '\0';
   return -1;
 }
+
+struct str_s {
+  char                    *charset;
+  char                    *base;
+  size_t                   cap;
+  size_t                   nr;
+};
+
+static void _str_reset(str_t *str)
+{
+  str->nr = 0;
+}
+
+void str_release(str_t *str)
+{
+  _str_reset(str);
+  TOD_SAFE_FREE(str->charset);
+  TOD_SAFE_FREE(str->base);
+  str->cap = 0;
+  str->nr = 0;
+}
+
+static int _str_expand(str_t *str, size_t delta)
+{
+  if (str->nr + delta <= str->cap) return 0;
+  size_t cap = (str->nr + delta) % 16 * 16;
+  char *base = realloc(str->base, cap + TERMINATOR_MAX);
+  if (!base) return -1;
+  str->base = base;
+  str->cap  = cap;
+  return 0;
+}
+
+str_t* str_create(const char *charset)
+{
+  if (!charset || !*charset) return NULL;
+
+  str_t *str = (str_t*)calloc(1, sizeof(*str));
+  if (!str) return NULL;
+  str->charset = strdup(charset);
+  if (!str->charset) {
+    free(str);
+    return NULL;
+  }
+
+  return str;
+}
+
+static int _str_append(str_t *str, const char *src, size_t len)
+{
+  int r = _str_expand(str, len);
+  if (r) return -1;
+  memcpy(str->base + str->nr, src, len);
+  str->nr += len;
+  return 0;
+}
+
+int str_concat(str_t *str, const char *charset, const char *src, size_t len)
+{
+  if (!str || !str->charset || !*str->charset || !charset || !src) return -1;
+  mem_t *cache = tls_get_mem_intermediate();
+  if (!cache) return -1;
+  mem_reset(cache);
+
+  int r = mem_conv_ex(cache, charset, src, len, str->charset);
+  if (r) return -1;
+  return _str_append(str, (const char*)cache->base, cache->nr);
+}
+
+void str_get(str_t *str, const char **charset, const char **src, size_t *len)
+{
+  if (charset) *charset = str ? str->charset : NULL;
+  if (src)     *src     = str ? str->base : NULL;
+  if (len)     *len     = str ? str->nr : 0;
+}
+

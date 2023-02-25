@@ -29,6 +29,11 @@
 
 #include <errno.h>
 
+iconv_t charset_conv_get(charset_conv_t *cnv)
+{
+  return cnv->cnv;
+}
+
 size_t iconv_x(const char *file, int line, const char *func,
     iconv_t cd, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
 {

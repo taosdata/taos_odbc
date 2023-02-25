@@ -85,6 +85,7 @@ void mem_reset(mem_t *mem) FA_HIDDEN;
 int mem_expand(mem_t *mem, size_t delta) FA_HIDDEN;
 int mem_keep(mem_t *mem, size_t cap) FA_HIDDEN;
 int mem_conv(mem_t *mem, iconv_t cnv, const char *src, size_t len) FA_HIDDEN;
+int mem_conv_ex(mem_t *mem, const char *src_charset, const char *src, size_t len, const char *dst_charset) FA_HIDDEN;
 
 typedef struct buf_s               buf_t;
 struct buf_s {
@@ -164,6 +165,14 @@ static inline int buffer_copy(buffer_t *str, const char *s)
   str->nr = 0;
   return buffer_copy_n(str, (const unsigned char*)s, strlen(s));
 }
+
+
+typedef struct str_s               str_t;
+
+str_t* str_create(const char *charset) FA_HIDDEN;
+void str_release(str_t *str) FA_HIDDEN;
+int str_concat(str_t *str, const char *charset, const char *src, size_t len) FA_HIDDEN;
+void str_get(str_t *str, const char **charset, const char **src, size_t *len) FA_HIDDEN;
 
 
 EXTERN_C_END

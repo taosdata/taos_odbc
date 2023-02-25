@@ -22,29 +22,20 @@
  * SOFTWARE.
  */
 
-#ifndef _charset_h_
-#define _charset_h_
+#ifndef _conv_h_
+#define _conv_h_
 
-#include "env.h"
+#include "stmt.h"
 
 EXTERN_C_BEGIN
 
-typedef struct charset_conv_s            charset_conv_t;
-typedef struct charset_conv_mgr_s        charset_conv_mgr_t;
+typedef struct data_s                   data_t;
+typedef struct data_conv_result_s       data_conv_result_t;
 
-void charset_conv_release(charset_conv_t *cnv) FA_HIDDEN;
-int charset_conv_reset(charset_conv_t *cnv, const char *from, const char *to) FA_HIDDEN;
-iconv_t charset_conv_get(charset_conv_t *cnv) FA_HIDDEN;
-
-void charset_conv_mgr_release(charset_conv_mgr_t *mgr) FA_HIDDEN;
-charset_conv_t* charset_conv_mgr_get_charset_conv(charset_conv_mgr_t *mgr, const char *fromcode, const char *tocode) FA_HIDDEN;
-
-size_t iconv_x(const char *file, int line, const char *func,
-    iconv_t cd, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft) FA_HIDDEN;
-
-#define CALL_iconv(...)   iconv_x(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
+int conv_data(data_t *src, data_t *dst) FA_HIDDEN;
 
 EXTERN_C_END
 
-#endif //  _charset_h_
+#endif //  _conv_h_
+
 

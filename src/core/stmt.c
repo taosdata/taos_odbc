@@ -126,10 +126,25 @@ static void _rs_release(rs_t *rs)
   rs->time_precision         = 0;
 }
 
+static void _get_data_ctx_reset(get_data_ctx_t *ctx)
+{
+  if (!ctx) return;
+  ctx->active = 0;
+  mem_reset(&ctx->mem);
+}
+
+static void _get_data_ctx_release(get_data_ctx_t *ctx)
+{
+  if (!ctx) return;
+  _get_data_ctx_reset(ctx);
+  mem_release(&ctx->mem);
+}
+
 static void _stmt_release_result(stmt_t *stmt)
 {
   _stmt_release_post_filter(stmt);
   _rs_release(&stmt->rs);
+  _get_data_ctx_release(&stmt->get_data_ctx);
 }
 
 static void _tsdb_meta_reset_tag_fields(stmt_t *stmt, tsdb_meta_t *tsdb_meta)
@@ -2722,6 +2737,8 @@ next_column:
 
 static SQLRETURN _stmt_fetch(stmt_t *stmt)
 {
+  _get_data_ctx_reset(&stmt->get_data_ctx);
+
   columns_ctx_t *columns_ctx = &stmt->columns_ctx;
   if (columns_ctx->active) {
     return _stmt_columns_fetch(stmt);
@@ -2795,6 +2812,8 @@ SQLRETURN stmt_fetch_scroll(stmt_t *stmt,
     SQLSMALLINT   FetchOrientation,
     SQLLEN        FetchOffset)
 {
+  _get_data_ctx_reset(&stmt->get_data_ctx);
+
   switch (FetchOrientation) {
     case SQL_FETCH_NEXT:
       (void)FetchOffset;

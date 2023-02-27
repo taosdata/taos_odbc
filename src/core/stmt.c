@@ -1092,7 +1092,7 @@ static SQLRETURN _stmt_encode(stmt_t *stmt,
   return SQL_SUCCESS;
 }
 
-static int _tsdb_timestamp_to_string(stmt_t *stmt, int64_t val, char *buf)
+static int _tsdb_timestamp_to_string(stmt_t *stmt, int64_t val, char *buf, size_t len)
 {
   int n;
   time_t  tt;
@@ -1128,7 +1128,7 @@ static int _tsdb_timestamp_to_string(stmt_t *stmt, int64_t val, char *buf)
   struct tm *p = localtime_r(&tt, &ptm);
   OA_ILE(p == &ptm);
 
-  n = sprintf(buf,
+  n = snprintf(buf, len,
       "%04d-%02d-%02d %02d:%02d:%02d.%0*d",
       ptm.tm_year + 1900, ptm.tm_mon + 1, ptm.tm_mday,
       ptm.tm_hour, ptm.tm_min, ptm.tm_sec,
@@ -1354,7 +1354,7 @@ static SQLRETURN _stmt_conv_from_tsdb_timestamp_to_sql_c_char(stmt_t *stmt, tsdb
     int64_t v = *(int64_t*)conv_state->data;
 
     char buf[64];
-    int n = _tsdb_timestamp_to_string(stmt, v, buf);
+    int n = _tsdb_timestamp_to_string(stmt, v, buf, sizeof(buf));
     OA_ILE(n > 0);
 
     SQLRETURN sr = SQL_SUCCESS;
@@ -1459,7 +1459,7 @@ static SQLRETURN _stmt_conv_from_tsdb_timestamp_to_sql_c_wchar(stmt_t *stmt, tsd
     int64_t v = *(int64_t*)conv_state->data;
 
     char buf[64];
-    int n = _tsdb_timestamp_to_string(stmt, v, buf);
+    int n = _tsdb_timestamp_to_string(stmt, v, buf, sizeof(buf));
     OA_ILE(n > 0);
 
     return _stmt_conv_to_sql_c_wchar(stmt, conv_state, buf, n);

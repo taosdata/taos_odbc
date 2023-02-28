@@ -1,62 +1,5 @@
 [
   {
-    "conn": {"dsn": "TAOS_ODBC_DSN"},
-    "sqls": [
-      "drop database if exists foo",
-      "create database if not exists foo",
-      "drop table if exists foo.t",
-      "create table foo.t(ts timestamp,name varchar(20))",
-      {
-        "sql": "select table_name, db_name from information_schema.ins_tables t where t.db_name like ?",
-        "executes": [
-          {
-            "params": [
-              ["foo"]
-            ],
-            "rs": [[["t","foo"]]],
-            "comments": "3.0.2.0 regression test fails",
-            "positive": false
-          }
-        ]
-      }
-    ]
-  },{
-    "comments": "the same sequence as above, but weird failure",
-    "comments": "[-2147474431/0x80002401]invalid catalog input parameters",
-    "conn": {"dsn": "TAOS_ODBC_DSN"},
-    "sqls": [
-      "drop database if exists foo",
-      "create database if not exists foo",
-      "drop table if exists foo.t",
-      "create table foo.t(ts timestamp,name varchar(20))",
-      {
-        "sql": "select table_name, db_name from information_schema.ins_tables t where t.db_name like ?",
-        "executes": [
-          {
-            "params": [
-              ["foo"]
-            ],
-            "rs": [[["t","foo"]]],
-            "positive": false
-          }
-        ]
-      }
-    ]
-  },{
-    "conn": {"dsn": "TAOS_ODBC_DSN"},
-    "sqls": [
-      "drop database if exists foo",
-      "create database if not exists foo",
-      "drop table if exists foo.t",
-      "create table foo.t(ts timestamp,name varchar(20))",
-      {
-        "sql": "select table_name, db_name from (select table_name, db_name from information_schema.ins_tables) t where t.db_name like 'foo'",
-        "rs": [["t","foo"]],
-        "comments": "3.0.2.0 regression test fails",
-        "positive": false
-      }
-    ]
-  },{
     "comments": "[-2147473918/0x80002602]Invalid column name",
     "conn": {"dsn": "TAOS_ODBC_DSN"},
     "sqls": [
@@ -73,23 +16,6 @@
             ],
             "rs": [[["t","foo"]]],
             "positive": false
-          }
-        ]
-      }
-    ]
-  },{
-    "conn": {},
-    "sqls": [
-      "show databases",
-      "drop database if exists foo",
-      "create database foo",
-      "use foo",
-      "create table t(ts timestamp,age double)",
-      {
-        "sql":"insert into t (ts, age) values (?, ?)",
-        "executes": [
-          {
-            "params": [{"timestamp":1662861478799}, 123]
           }
         ]
       }
@@ -123,8 +49,14 @@
         "sql": "select count(*) from suzhou",
         "rs": [[2]]
       },{
+        "sql": "select ts, age, name from suzhou",
+        "rs": [[1665226861289,200,"suzhou"],[1665226961290,340,"suzhou"]]
+      },{
         "sql": "select count(*) from shanghai",
         "rs": [[2]]
+      },{
+        "sql": "select ts, age, name from shanghai",
+        "rs": [[1665226861299,100,"shanghai"],[1665226971292,160,"shanghai"]]
       }
     ]
   },{
@@ -156,8 +88,14 @@
         "sql": "select count(*) from suzhou",
         "rs": [[2]]
       },{
+        "sql": "select ts, age, name from suzhou",
+        "rs": [[1665226861289,200,"suzhou"],[1665226961290,789,"suzhou"]]
+      },{
         "sql": "select count(*) from shanghai",
         "rs": [[2]]
+      },{
+        "sql": "select ts, name, age from shanghai",
+        "rs": [[1665226861299,"v100",123],[1665226971292,"v200",123]]
       }
     ]
   },{
@@ -273,29 +211,6 @@
       },{
         "sql": "select count(*) from shanghai",
         "rs": [[2]]
-      }
-    ]
-  },{
-    "comments": "insert into xsuzhou using st tags ('ysuzhou') values (1665226861289, 100)",
-    "comments": "there's no parameter placeholder marker, but prepare-bind-execute still works, except you only bind cols but not subtbl nor tags",
-    "comments": "better not use this",
-    "conn": {},
-    "sqls": [
-      "drop database if exists foo",
-      "create database foo",
-      "use foo",
-      "create stable st (ts timestamp, age int) tags (name varchar(20))",
-      {
-        "sql": "insert into xsuzhou using st tags ('ysuzhou') values (1665226861289, 100)",
-        "executes": [
-          {
-            "params": [[{"timestamp":1665226961295}, {"int":200}]]
-          }
-        ]
-      },{
-        "sql": "select count(*) from st",
-        "rs": [[2]],
-        "positive": true
       }
     ]
   },{

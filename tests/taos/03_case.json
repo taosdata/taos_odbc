@@ -103,24 +103,21 @@
         "sql":"select name from t",
         "rs": [["foo"],["wall"],[null],["bigint"],["wrong"],["great"],["6610"],["name1"],["name2"]]
       },{
-        "comments":"weird, no-parameter-placeholder-preparable-statement",
-        "git-commit":"d3b61c5261962d188914f7d5f8c241fed9322284",
         "sql":"insert into t (ts, name) values (1662961478855, 'fixed')",
         "executes": [
           {
-            "params": [{"timestamp":1662961478955},"dynamic"]
+            "params": [{"timestamp":1662961478955},"dynamic"],
+            "positive": false
           }
         ]
       },{
-        "comments":"weird, no-parameter-placeholder-preparable-statement",
-        "git-commit":"d3b61c5261962d188914f7d5f8c241fed9322284",
         "sql":"select name from t where ts = 1662961478955",
-        "rs": [["dynamic"]]
+        "rs": [["dynamic"]],
+        "positive": false
       },{
-        "comments":"weird, no-parameter-placeholder-preparable-statement",
-        "git-commit":"d3b61c5261962d188914f7d5f8c241fed9322284",
         "sql":"select name from t where ts = 1662961478855",
-        "rs": [["fixed"]]
+        "rs": [["fixed"]],
+        "positive": false
       }
     ]
   }

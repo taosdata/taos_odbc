@@ -62,6 +62,52 @@
 }
 {
    <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   fun:taosMemoryMalloc
+   fun:tRowBuild
+   fun:parseOneRow
+   fun:parseValues
+   fun:parseValuesClause
+   fun:parseDataClause
+   fun:parseInsertTableClauseBottom
+   fun:parseInsertTableClause
+   fun:parseInsertBody
+   fun:parseInsertSqlFromStart
+   fun:parseInsertSqlImpl
+   fun:parseInsertSql
+   fun:qParseSql
+   fun:parseSql
+   fun:stmtParseSql
+   fun:stmtGetTagFields
+   fun:taos_stmt_get_tag_fields
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   fun:taosMemoryMalloc
+   fun:tRowBuild
+   fun:parseOneRow
+   fun:parseValues
+   fun:parseValuesClause
+   fun:parseDataClause
+   fun:parseInsertTableClauseBottom
+   fun:parseInsertTableClause
+   fun:parseInsertBody
+   fun:parseInsertSqlFromStart
+   fun:parseInsertSqlImpl
+   fun:parseInsertSql
+   fun:qParseSql
+   fun:parseSql
+   fun:stmtParseSql
+   fun:stmtSetTbName
+   fun:taos_stmt_set_tbname
+}
+{
+   <insert_a_suppression_name_here>
    Memcheck:Cond
    fun:insCheckTimestamp
    fun:qBindStmtColsValue

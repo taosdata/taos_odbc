@@ -37,7 +37,8 @@ iconv_t charset_conv_get(charset_conv_t *cnv)
 size_t iconv_x(const char *file, int line, const char *func,
     iconv_t cd, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
 {
-  TOD_LOGD(file, line, func, "iconv(inbuf:%p(%p);inbytesleft:%p(%zd);outbuf:%p(%p);outbytesleft:%p(%zd)) ...",
+  tod_logger_write(tod_get_system_logger(), LOGGER_DEBUG, tod_get_system_logger_level(),
+      file, line, func, "iconv(inbuf:%p(%p);inbytesleft:%p(%zd);outbuf:%p(%p);outbytesleft:%p(%zd)) ...",
       inbuf, inbuf ? *inbuf : NULL,
       inbytesleft, inbytesleft ? *inbytesleft : 0,
       outbuf, outbuf ? *outbuf : NULL,
@@ -45,14 +46,16 @@ size_t iconv_x(const char *file, int line, const char *func,
   size_t n = iconv(cd, inbuf, inbytesleft, outbuf, outbytesleft);
   int e = errno;
   if (n == (size_t)-1) {
-    TOD_LOGD(file, line, func, "iconv(inbuf:%p(%p);inbytesleft:%p(%zd);outbuf:%p(%p);outbytesleft:%p(%zd)) => %zd[%d]%s[%d]",
+    tod_logger_write(tod_get_system_logger(), LOGGER_DEBUG, tod_get_system_logger_level(),
+        file, line, func, "iconv(inbuf:%p(%p);inbytesleft:%p(%zd);outbuf:%p(%p);outbytesleft:%p(%zd)) => %zd[%d]%s[%d]",
         inbuf, inbuf ? *inbuf : NULL,
         inbytesleft, inbytesleft ? *inbytesleft : 0,
         outbuf, outbuf ? *outbuf : NULL,
         outbytesleft, outbytesleft ? *outbytesleft : 0,
         n, e, strerror(e), E2BIG);
   } else {
-    TOD_LOGD(file, line, func, "iconv(inbuf:%p(%p);inbytesleft:%p(%zd);outbuf:%p(%p);outbytesleft:%p(%zd)) => %zd",
+    tod_logger_write(tod_get_system_logger(), LOGGER_DEBUG, tod_get_system_logger_level(),
+        file, line, func, "iconv(inbuf:%p(%p);inbytesleft:%p(%zd);outbuf:%p(%p);outbytesleft:%p(%zd)) => %zd",
         inbuf, inbuf ? *inbuf : NULL,
         inbytesleft, inbytesleft ? *inbytesleft : 0,
         outbuf, outbuf ? *outbuf : NULL,

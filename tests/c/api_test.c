@@ -176,6 +176,12 @@ static int _sql_stmt_get_long_data_by_col(SQLHANDLE stmth, SQLSMALLINT ColumnNum
         D("Column[#%d]: [[null]]", ColumnNumber);
         return 0;
       }
+      int n = strlen(p);
+      if (n == 0) {
+        BufferLength += 2;
+        A((size_t)BufferLength <= sizeof(buf), "");
+        continue;
+      }
       p += strlen(p);
       TargetValuePtr = p;
       continue;

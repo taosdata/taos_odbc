@@ -1833,32 +1833,32 @@ static int test_cases(SQLHANDLE hconn)
   if (r) return r;
 
   r = test_case1(hconn);
-  if (r) return r;;
+  if (r) return r;
 
   r = test_case2(hconn);
-  if (r) return r;;
+  if (r) return r;
 
   r = test_case3(hconn);
-  if (r) return r;;
+  if (r) return r;
 
   int non_taos = 0;
 
   r = test_case4(hconn, non_taos, 128, 113);
-  if (r) return r;;
+  if (r) return r;
 
   if (0 && !non_taos) {
     r = test_case4(hconn, non_taos, 5000, 4000);
-    if (r) return r;;
+    if (r) return r;
   }
 
   r = test_case5(hconn);
-  if (r) return r;;
+  if (r) return r;
 
   r = test_case6(hconn);
-  if (r) return r;;
+  if (r) return r;
 
   r = test_case7(hconn);
-  if (r) return r;;
+  if (r) return r;
 
   r = test_case8(hconn);
   if (r) return r;

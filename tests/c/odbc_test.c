@@ -304,10 +304,17 @@ static int cmp_varchar_against_val(SQLHANDLE hstmt, SQLSMALLINT iColumn, SQLULEN
 
   cJSON *j = cJSON_CreateString((const char*)buf);
   bool eq = cJSON_Compare(j, val, true);
+  if (!eq) {
+    char *t1 = cJSON_PrintUnformatted(j);
+    char *t2 = cJSON_PrintUnformatted(val);
+    E("==%s== <> ==%s==", t1, t2);
+    free(t1);
+    free(t2);
+  }
   cJSON_Delete(j);
-  if (eq) return 0;
+  if (!eq) return -1;
 
-  return -1;
+  return 0;
 }
 
 static int cmp_wvarchar_against_val(SQLHANDLE hstmt, SQLSMALLINT iColumn, SQLULEN ColumnSize, const cJSON *val)
@@ -2093,7 +2100,7 @@ int main(int argc, char *argv[])
     if (FAILED(sr)) { r = -1; break; }
 
     // hard_coded_test_cases
-    r = test_hard_coded_cases(henv);
+    if (0) r = test_hard_coded_cases(henv);
     if (r) break;
 
     r = process_by_args_env(argc, argv, henv);

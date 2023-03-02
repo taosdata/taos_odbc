@@ -31,6 +31,7 @@
 
 #include <errno.h>
 #include <limits.h>
+#include <math.h>
 #include <string.h>
 #include <time.h>
 #include <wchar.h>
@@ -126,18 +127,46 @@ static void _rs_release(rs_t *rs)
   rs->time_precision         = 0;
 }
 
+static void _sql_c_data_reset(sql_c_data_t *sqlc)
+{
+  if (!sqlc) return;
+  mem_reset(&sqlc->mem);
+  sqlc->is_null = 0;
+}
+
+static void _sql_c_data_release(sql_c_data_t *sqlc)
+{
+  if (!sqlc) return;
+  mem_release(&sqlc->mem);
+}
+
+static void _tsdb_data_reset(tsdb_data_t *tsdb)
+{
+  if (!tsdb) return;
+  mem_reset(&tsdb->mem);
+  tsdb->is_null = 0;
+}
+
+static void _tsdb_data_release(tsdb_data_t *tsdb)
+{
+  if (!tsdb) return;
+  mem_release(&tsdb->mem);
+}
+
 static void _get_data_ctx_reset(get_data_ctx_t *ctx)
 {
   if (!ctx) return;
   ctx->active = 0;
-  mem_reset(&ctx->mem);
+  _sql_c_data_reset(&ctx->sqlc);
+  _tsdb_data_reset(&ctx->tsdb);
 }
 
 static void _get_data_ctx_release(get_data_ctx_t *ctx)
 {
   if (!ctx) return;
   _get_data_ctx_reset(ctx);
-  mem_release(&ctx->mem);
+  _sql_c_data_release(&ctx->sqlc);
+  _tsdb_data_release(&ctx->tsdb);
 }
 
 static void _stmt_release_result(stmt_t *stmt)
@@ -670,7 +699,7 @@ static SQLRETURN _stmt_fill_IRD(stmt_t *stmt)
       default:
         stmt_append_err_format(stmt, "HY000", 0, "General error:Column[#%zd/%.*s] of `%s[%d/0x%x]` not supported yet",
             i+1, (int)sizeof(col->name), col->name, taos_data_type(col->type), col->type, col->type);
-        return SQL_ERROR; 
+        return SQL_ERROR;
     }
   }
 
@@ -1092,14 +1121,13 @@ static SQLRETURN _stmt_encode(stmt_t *stmt,
   return SQL_SUCCESS;
 }
 
-static int _tsdb_timestamp_to_string(stmt_t *stmt, int64_t val, char *buf, size_t len)
+static int _tsdb_timestamp_to_string(int64_t val, int time_precision, char *buf, size_t len)
 {
   int n;
   time_t  tt;
   int32_t ms = 0;
   int w;
-  rs_t *rs = &stmt->rs;
-  switch (rs->time_precision) {
+  switch (time_precision) {
     case 2:
       tt = (time_t)(val / 1000000000);
       ms = val % 1000000000;
@@ -1354,7 +1382,7 @@ static SQLRETURN _stmt_conv_from_tsdb_timestamp_to_sql_c_char(stmt_t *stmt, tsdb
     int64_t v = *(int64_t*)conv_state->data;
 
     char buf[64];
-    int n = _tsdb_timestamp_to_string(stmt, v, buf, sizeof(buf));
+    int n = _tsdb_timestamp_to_string(v, stmt->rs.time_precision, buf, sizeof(buf));
     OA_ILE(n > 0);
 
     SQLRETURN sr = SQL_SUCCESS;
@@ -1459,7 +1487,7 @@ static SQLRETURN _stmt_conv_from_tsdb_timestamp_to_sql_c_wchar(stmt_t *stmt, tsd
     int64_t v = *(int64_t*)conv_state->data;
 
     char buf[64];
-    int n = _tsdb_timestamp_to_string(stmt, v, buf, sizeof(buf));
+    int n = _tsdb_timestamp_to_string(v, stmt->rs.time_precision, buf, sizeof(buf));
     OA_ILE(n > 0);
 
     return _stmt_conv_to_sql_c_wchar(stmt, conv_state, buf, n);
@@ -2370,6 +2398,879 @@ static SQLRETURN _sql_c_data_type_is_fix_or_not(SQLSMALLINT TargetType, int *fix
   return SQL_SUCCESS;
 }
 
+typedef struct _stmt_get_data_args_s                _stmt_get_data_args_t;
+struct _stmt_get_data_args_s {
+  SQLUSMALLINT   Col_or_Param_Num;
+  SQLSMALLINT    TargetType;
+  SQLPOINTER     TargetValuePtr;
+  SQLLEN         BufferLength;
+  SQLLEN        *StrLen_or_IndPtr;
+};
+
+static SQLRETURN _stmt_get_data_store_tsdb(stmt_t *stmt, _stmt_get_data_args_t *args)
+{
+  // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetdata-function?view=sql-server-ver16
+  // https://learn.microsoft.com/en-us/sql/odbc/reference/develop-app/getting-long-data?view=sql-server-ver16
+  OA_NIY(stmt->rs.res);
+  OA_NIY(stmt->rs.rowset.rows);
+  OA_NIY(stmt->rs.fields);
+
+  rs_t        *rs         = &stmt->rs;
+  rowset_t    *rowset     = &rs->rowset;
+  int          i_row      = rowset->i_row;
+  int          i_col      = args->Col_or_Param_Num - 1;
+  TAOS_RES    *res        = rs->res;
+  TAOS_ROW     rows       = rowset->rows;
+  TAOS_FIELD  *field      = rs->fields + i_col;
+
+  get_data_ctx_t *ctx = &stmt->get_data_ctx;
+  _get_data_ctx_reset(ctx);
+  tsdb_data_t *tsdb = &ctx->tsdb;
+
+  if (CALL_taos_is_null(res, i_row, i_col)) {
+    tsdb->is_null = 1;
+    ctx->TargetType  = args->TargetType;
+    return SQL_SUCCESS;
+  }
+
+  int target_is_fix = 1;
+
+  switch (args->TargetType) {
+    case SQL_C_CHAR:
+    case SQL_C_WCHAR:
+    case SQL_C_BINARY:
+      target_is_fix = 0;
+      break;
+    default:
+      break;
+  }
+
+  switch(field->type) {
+    case TSDB_DATA_TYPE_BOOL:
+      {
+        uint8_t *col = (uint8_t*)rows[i_col];
+        col += i_row;
+        tsdb->b = !!*col;
+        if (target_is_fix) break;
+        tsdb->nr = snprintf(tsdb->buf, sizeof(tsdb->buf), "%d", tsdb->b);
+        tsdb->pos = tsdb->buf;
+      } break;
+    case TSDB_DATA_TYPE_TINYINT:
+      {
+        int8_t *col = (int8_t*)rows[i_col];
+        col += i_row;
+        tsdb->i8 = *col;
+        if (target_is_fix) break;
+        tsdb->nr = snprintf(tsdb->buf, sizeof(tsdb->buf), "%d", tsdb->i8);
+        tsdb->pos = tsdb->buf;
+      } break;
+    case TSDB_DATA_TYPE_UTINYINT:
+      {
+        uint8_t *col= (uint8_t*)rows[i_col];
+        col += i_row;
+        tsdb->u8 = *col;
+        if (target_is_fix) break;
+        tsdb->nr = snprintf(tsdb->buf, sizeof(tsdb->buf), "%u", tsdb->u8);
+        tsdb->pos = tsdb->buf;
+      } break;
+    case TSDB_DATA_TYPE_SMALLINT:
+      {
+        int16_t *col = (int16_t*)rows[i_col];
+        col += i_row;
+        tsdb->i16 = *col;
+        if (target_is_fix) break;
+        tsdb->nr = snprintf(tsdb->buf, sizeof(tsdb->buf), "%d", tsdb->i16);
+        tsdb->pos = tsdb->buf;
+      } break;
+    case TSDB_DATA_TYPE_USMALLINT:
+      {
+        uint16_t *col = (uint16_t*)rows[i_col];
+        col += i_row;
+        tsdb->u16 = *col;
+        if (target_is_fix) break;
+        tsdb->nr = snprintf(tsdb->buf, sizeof(tsdb->buf), "%u", tsdb->u16);
+        tsdb->pos = tsdb->buf;
+      } break;
+    case TSDB_DATA_TYPE_INT:
+      {
+        int32_t *col = (int32_t*)rows[i_col];
+        col += i_row;
+        tsdb->i32 = *col;
+        if (target_is_fix) break;
+        tsdb->nr = snprintf(tsdb->buf, sizeof(tsdb->buf), "%d", tsdb->i32);
+        tsdb->pos = tsdb->buf;
+      } break;
+    case TSDB_DATA_TYPE_UINT:
+      {
+        uint32_t *col = (uint32_t*)rows[i_col];
+        col += i_row;
+        tsdb->u32 = *col;
+        if (target_is_fix) break;
+        tsdb->nr = snprintf(tsdb->buf, sizeof(tsdb->buf), "%u", tsdb->u32);
+        tsdb->pos = tsdb->buf;
+      } break;
+    case TSDB_DATA_TYPE_BIGINT:
+      {
+        int64_t *col = (int64_t*)rows[i_col];
+        col += i_row;
+        tsdb->i64 = *col;
+        if (target_is_fix) break;
+        tsdb->nr = snprintf(tsdb->buf, sizeof(tsdb->buf), "%" PRId64 "", tsdb->i64);
+        tsdb->pos = tsdb->buf;
+      } break;
+    case TSDB_DATA_TYPE_FLOAT:
+      {
+        float *col = (float*)rows[i_col];
+        col += i_row;
+        tsdb->flt = *col;
+        if (target_is_fix) break;
+        tsdb->nr = snprintf(tsdb->buf, sizeof(tsdb->buf), "%g", (double)tsdb->flt);
+        tsdb->pos = tsdb->buf;
+      } break;
+    case TSDB_DATA_TYPE_DOUBLE:
+      {
+        double *col = (double*)rows[i_col];
+        col += i_row;
+        tsdb->dbl = *col;
+        if (target_is_fix) break;
+        tsdb->nr = snprintf(tsdb->buf, sizeof(tsdb->buf), "%g", tsdb->dbl);
+        tsdb->pos = tsdb->buf;
+      } break;
+    case TSDB_DATA_TYPE_VARCHAR:
+      {
+        int *offsets = CALL_taos_get_column_data_offset(res, i_col);
+        char *col = (char*)(rows[i_col]);
+        col += offsets[i_row];
+        int16_t length = *(int16_t*)col;
+        col += sizeof(int16_t);
+        tsdb->str.str = col;
+        tsdb->str.len = length;
+        tsdb->nr = length;
+        tsdb->pos = (const char*)col;
+      } break;
+    case TSDB_DATA_TYPE_TIMESTAMP:
+      {
+        int64_t *col = (int64_t*)rows[i_col];
+        col += i_row;
+        tsdb->ts.ts = *col;
+        tsdb->ts.precision = rs->time_precision;
+        if (target_is_fix) break;
+        tsdb->nr = _tsdb_timestamp_to_string(tsdb->ts.ts, tsdb->ts.precision, (char*)tsdb->buf, sizeof(tsdb->buf));
+        tsdb->pos = tsdb->buf;
+      } break;
+    case TSDB_DATA_TYPE_NCHAR:
+      {
+        int *offsets = CALL_taos_get_column_data_offset(res, i_col);
+        char *col = (char*)(rows[i_col]);
+        col += offsets[i_row];
+        int16_t length = *(int16_t*)col;
+        col += sizeof(int16_t);
+        tsdb->str.str = col;
+        tsdb->str.len = length;
+        tsdb->nr = length;
+        tsdb->pos = col;
+      } break;
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:Column[%d/%s] conversion from `%s[0x%x/%d]` not implemented yet",
+          i_col + 1, field->name, taos_data_type(field->type), field->type, field->type);
+      return SQL_ERROR;
+  }
+
+  tsdb->type       = field->type;
+
+  ctx->TargetType  = args->TargetType;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_get_data_prepare_ctx(stmt_t *stmt, _stmt_get_data_args_t *args)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  if (args->Col_or_Param_Num < 1 || args->Col_or_Param_Num > stmt->rs.col_count) {
+    stmt_append_err_format(stmt, "07009", 0, "Invalid descriptor index:#%d Col_or_Param", args->Col_or_Param_Num);
+    return SQL_ERROR;
+  }
+
+  sr = _stmt_get_data_store_tsdb(stmt, args);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  return sr;
+}
+
+static SQLRETURN _stmt_get_data_copy_buf_to_char(stmt_t *stmt, _stmt_get_data_args_t *args)
+{
+  get_data_ctx_t *ctx = &stmt->get_data_ctx;
+  tsdb_data_t *tsdb = &ctx->tsdb;
+  if (tsdb->pos == (const char*)-1) return SQL_NO_DATA;
+  if (args->BufferLength < 1) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:buffer too small",
+        args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+        sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+    return SQL_ERROR;
+  }
+
+  charset_conv_t *cnv = &stmt->conn->cnv_tsdb_varchar_to_sql_c_char;
+  const size_t     inbytes             = tsdb->nr;
+  const size_t     outbytes            = args->BufferLength - 1;
+
+  char            *inbuf               = (char*)tsdb->pos;
+  size_t           inbytesleft         = inbytes;
+  char            *outbuf              = (char*)args->TargetValuePtr;
+  size_t           outbytesleft        = outbytes;
+
+  size_t n = CALL_iconv(cnv->cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+  int e = errno;
+  iconv(cnv->cnv, NULL, NULL, NULL, NULL);
+  if (n == (size_t)-1) {
+    if (e != E2BIG) {
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:[iconv]Character set conversion for `%s` to `%s` failed:[%d]%s",
+          cnv->from, cnv->to, e, strerror(e));
+      return SQL_ERROR;
+    }
+  }
+  tsdb->nr = inbytesleft;
+  *(int8_t*)outbuf = 0;
+
+  if (tsdb->nr) {
+    if (args->StrLen_or_IndPtr) *args->StrLen_or_IndPtr = SQL_NO_TOTAL;
+    stmt_append_err_format(stmt, "01004", 0,
+        "String data, right truncated:[iconv]Character set conversion for `%s` to `%s`, #%zd out of #%zd bytes consumed, #%zd out of #%zd bytes converted:[%d]%s",
+        cnv->from, cnv->to, inbytes - inbytesleft, inbytes, outbytes - outbytesleft, outbytes, e, strerror(e));
+    tsdb->pos = inbuf;
+    return SQL_SUCCESS_WITH_INFO;
+  }
+
+  tsdb->pos = (const char*)-1;
+  if (args->StrLen_or_IndPtr) *args->StrLen_or_IndPtr = outbytes - outbytesleft;
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_get_data_copy_buf_to_wchar(stmt_t *stmt, _stmt_get_data_args_t *args)
+{
+  get_data_ctx_t *ctx = &stmt->get_data_ctx;
+  tsdb_data_t *tsdb = &ctx->tsdb;
+  if (tsdb->pos == (const char*)-1) return SQL_NO_DATA;
+  if (args->BufferLength < 2) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:buffer too small",
+        args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+        sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+    return SQL_ERROR;
+  }
+
+  charset_conv_t *cnv = &stmt->conn->cnv_tsdb_varchar_to_sql_c_wchar;
+  const size_t     inbytes             = tsdb->nr;
+  const size_t     outbytes            = args->BufferLength - 2;
+
+  char            *inbuf               = (char*)tsdb->pos;
+  size_t           inbytesleft         = inbytes;
+  char            *outbuf              = (char*)args->TargetValuePtr;
+  size_t           outbytesleft        = outbytes;
+
+  size_t n = CALL_iconv(cnv->cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+  int e = errno;
+  iconv(cnv->cnv, NULL, NULL, NULL, NULL);
+  if (n == (size_t)-1) {
+    if (e != E2BIG) {
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:[iconv]Character set conversion for `%s` to `%s` failed:[%d]%s",
+          cnv->from, cnv->to, e, strerror(e));
+      return SQL_ERROR;
+    }
+  }
+  tsdb->nr = inbytesleft;
+  *(int16_t*)outbuf = 0;
+
+  if (tsdb->nr) {
+    if (args->StrLen_or_IndPtr) *args->StrLen_or_IndPtr = SQL_NO_TOTAL;
+    stmt_append_err_format(stmt, "01004", 0,
+        "String data, right truncated:[iconv]Character set conversion for `%s` to `%s`, #%zd out of #%zd bytes consumed, #%zd out of #%zd bytes converted:[%d]%s",
+        cnv->from, cnv->to, inbytes - inbytesleft, inbytes, outbytes - outbytesleft, outbytes, e, strerror(e));
+    tsdb->pos = inbuf;
+    return SQL_SUCCESS_WITH_INFO;
+  }
+
+  if (args->StrLen_or_IndPtr) *args->StrLen_or_IndPtr = (outbytes - outbytesleft) / 2;
+  tsdb->pos = (const char*)-1;
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_get_data_copy_buf_to_binary(stmt_t *stmt, _stmt_get_data_args_t *args)
+{
+  get_data_ctx_t *ctx = &stmt->get_data_ctx;
+  tsdb_data_t *tsdb = &ctx->tsdb;
+  if (tsdb->pos == (const char*)-1) return SQL_NO_DATA;
+  if (args->BufferLength < 0) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:buffer too small",
+        args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+        sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+    return SQL_ERROR;
+  }
+
+  size_t n = tsdb->nr - args->BufferLength;
+  if (n > 0) n = args->BufferLength;
+  else       n = tsdb->nr;
+
+  memcpy(args->TargetValuePtr, tsdb->pos, n);
+
+  tsdb->nr = tsdb->nr - n;
+
+  if (tsdb->nr) {
+    if (args->StrLen_or_IndPtr) *args->StrLen_or_IndPtr = SQL_NO_TOTAL;
+    stmt_append_err_format(stmt, "01004", 0,
+        "String data, right truncated:Column[%d], #%zd out of #%zd bytes consumed",
+        args->Col_or_Param_Num, n, n + tsdb->nr);
+    tsdb->pos += n;
+    return SQL_SUCCESS_WITH_INFO;
+  }
+
+  if (args->StrLen_or_IndPtr) *args->StrLen_or_IndPtr = n;
+  tsdb->pos = (const char*)-1;
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_varchar_to_int64(stmt_t *stmt, const char *s, size_t nr, int64_t *v, _stmt_get_data_args_t *args)
+{
+  int r = 0;
+
+  get_data_ctx_t *ctx = &stmt->get_data_ctx;
+  tsdb_data_t *tsdb = &ctx->tsdb;
+  mem_t *tsdb_cache = &tsdb->mem;
+
+  if (s[nr]) {
+    r = mem_keep(tsdb_cache, nr + 1);
+    if (r) {
+      stmt_oom(stmt);
+      return SQL_ERROR;
+    }
+    memcpy(tsdb_cache->base, s, nr);
+    tsdb_cache->base[nr] = '\0';
+    s = (const char*)tsdb_cache->base;
+  }
+
+  char *end = NULL;
+  long long ll = strtoll(s, &end, 0);
+  int e = errno;
+  if (end) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:invalid character[0x%02x]",
+        args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+        sql_c_data_type(args->TargetType), args->TargetType, args->TargetType, *end);
+    return SQL_ERROR;
+  }
+  if (e == ERANGE) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:overflow or underflow occurs",
+        args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+        sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+    return SQL_ERROR;
+  }
+
+  *v = ll;
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_varchar_to_uint64(stmt_t *stmt, const char *s, size_t nr, uint64_t *v, _stmt_get_data_args_t *args)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  get_data_ctx_t *ctx = &stmt->get_data_ctx;
+  tsdb_data_t *tsdb = &ctx->tsdb;
+
+  int64_t i64;
+  sr = _stmt_varchar_to_int64(stmt, s, nr, &i64, args);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  if (memchr(s, '-', nr)) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:signedness conflict",
+        args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+        sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+    return SQL_ERROR;
+  }
+
+  *v = (uint64_t)i64;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_varchar_to_float(stmt_t *stmt, const char *s, size_t nr, float *v, _stmt_get_data_args_t *args)
+{
+  int r = 0;
+
+  get_data_ctx_t *ctx = &stmt->get_data_ctx;
+  tsdb_data_t *tsdb = &ctx->tsdb;
+  mem_t *tsdb_cache = &tsdb->mem;
+
+  if (s[nr]) {
+    r = mem_keep(tsdb_cache, nr + 1);
+    if (r) {
+      stmt_oom(stmt);
+      return SQL_ERROR;
+    }
+    memcpy(tsdb_cache->base, s, nr);
+    tsdb_cache->base[nr] = '\0';
+    s = (const char*)tsdb_cache->base;
+  }
+
+  char *end = NULL;
+  float flt = strtof(s, &end);
+  int e = errno;
+  if (end) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:invalid character[0x%02x]",
+        args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+        sql_c_data_type(args->TargetType), args->TargetType, args->TargetType, *end);
+    return SQL_ERROR;
+  }
+  if (fabsf(flt) == HUGE_VALF) {
+    if (e == ERANGE) {
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:overflow or underflow occurs",
+          args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+          sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+      return SQL_ERROR;
+    }
+  }
+
+  if (fpclassify(flt) == FP_ZERO) {
+    if (e == ERANGE) {
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:overflow or underflow occurs",
+          args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+          sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+      return SQL_ERROR;
+    }
+  }
+
+  *v = flt;
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_varchar_to_double(stmt_t *stmt, const char *s, size_t nr, double *v, _stmt_get_data_args_t *args)
+{
+  int r = 0;
+
+  get_data_ctx_t *ctx = &stmt->get_data_ctx;
+  tsdb_data_t *tsdb = &ctx->tsdb;
+  mem_t *tsdb_cache = &tsdb->mem;
+
+  if (s[nr]) {
+    r = mem_keep(tsdb_cache, nr + 1);
+    if (r) {
+      stmt_oom(stmt);
+      return SQL_ERROR;
+    }
+    memcpy(tsdb_cache->base, s, nr);
+    tsdb_cache->base[nr] = '\0';
+    s = (const char*)tsdb_cache->base;
+  }
+
+  char *end = NULL;
+  double dbl = strtod(s, &end);
+  int e = errno;
+  if (end) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:invalid character[0x%02x]",
+        args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+        sql_c_data_type(args->TargetType), args->TargetType, args->TargetType, *end);
+    return SQL_ERROR;
+  }
+  if (fabs(dbl) == HUGE_VAL) {
+    if (e == ERANGE) {
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:overflow or underflow occurs",
+          args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+          sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+      return SQL_ERROR;
+    }
+  }
+
+  if (fpclassify(dbl) == FP_ZERO) {
+    if (e == ERANGE) {
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:overflow or underflow occurs",
+          args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+          sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+      return SQL_ERROR;
+    }
+  }
+
+  *v = dbl;
+  return SQL_SUCCESS;
+}
+
+
+static SQLRETURN _stmt_get_data_copy_varchar(stmt_t *stmt, const char *s, size_t nr, _stmt_get_data_args_t *args)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  get_data_ctx_t *ctx = &stmt->get_data_ctx;
+  tsdb_data_t *tsdb = &ctx->tsdb;
+  int64_t i64;
+  uint64_t u64;
+  float flt;
+  double dbl;
+
+  switch (args->TargetType) {
+    case SQL_C_BIT:
+      sr = _stmt_varchar_to_int64(stmt, s, nr, &i64, args);
+      if (sr != SQL_SUCCESS) return SQL_ERROR;
+      if (i64 != 0 && i64 != 1) {
+        stmt_append_err_format(stmt, "HY000", 0,
+            "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:overflow or underflow occurs",
+            args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+            sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+        return SQL_ERROR;
+      }
+      *(int8_t*)args->TargetValuePtr = !!i64;
+      break;
+    case SQL_C_STINYINT:
+      sr = _stmt_varchar_to_int64(stmt, s, nr, &i64, args);
+      if (sr != SQL_SUCCESS) return SQL_ERROR;
+      if (i64 < INT8_MIN || i64 > INT8_MAX ) {
+        stmt_append_err_format(stmt, "HY000", 0,
+            "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:overflow or underflow occurs",
+            args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+            sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+        return SQL_ERROR;
+      }
+      *(int8_t*)args->TargetValuePtr = i64;
+      break;
+    case SQL_C_UTINYINT:
+      sr = _stmt_varchar_to_uint64(stmt, s, nr, &u64, args);
+      if (sr != SQL_SUCCESS) return SQL_ERROR;
+      if (u64 > UINT8_MAX ) {
+        stmt_append_err_format(stmt, "HY000", 0,
+            "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:overflow or underflow occurs",
+            args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+            sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+        return SQL_ERROR;
+      }
+      *(uint8_t*)args->TargetValuePtr = u64;
+      break;
+    case SQL_C_SSHORT:
+      sr = _stmt_varchar_to_int64(stmt, s, nr, &i64, args);
+      if (sr != SQL_SUCCESS) return SQL_ERROR;
+      if (i64 < INT16_MIN || i64 > INT16_MAX ) {
+        stmt_append_err_format(stmt, "HY000", 0,
+            "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:overflow or underflow occurs",
+            args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+            sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+        return SQL_ERROR;
+      }
+      *(int16_t*)args->TargetValuePtr = i64;
+      break;
+    case SQL_C_USHORT:
+      sr = _stmt_varchar_to_uint64(stmt, s, nr, &u64, args);
+      if (sr != SQL_SUCCESS) return SQL_ERROR;
+      if (u64 > UINT16_MAX ) {
+        stmt_append_err_format(stmt, "HY000", 0,
+            "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:overflow or underflow occurs",
+            args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+            sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+        return SQL_ERROR;
+      }
+      *(uint16_t*)args->TargetValuePtr = u64;
+      break;
+    case SQL_C_SLONG:
+      sr = _stmt_varchar_to_int64(stmt, s, nr, &i64, args);
+      if (sr != SQL_SUCCESS) return SQL_ERROR;
+      if (i64 < INT32_MIN || i64 > INT32_MAX ) {
+        stmt_append_err_format(stmt, "HY000", 0,
+            "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:overflow or underflow occurs",
+            args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+            sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+        return SQL_ERROR;
+      }
+      *(int32_t*)args->TargetValuePtr = i64;
+      break;
+    case SQL_C_ULONG:
+      sr = _stmt_varchar_to_uint64(stmt, s, nr, &u64, args);
+      if (sr != SQL_SUCCESS) return SQL_ERROR;
+      if (u64 > UINT32_MAX ) {
+        stmt_append_err_format(stmt, "HY000", 0,
+            "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:overflow or underflow occurs",
+            args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+            sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+        return SQL_ERROR;
+      }
+      *(uint32_t*)args->TargetValuePtr = u64;
+      break;
+    case SQL_C_SBIGINT:
+      sr = _stmt_varchar_to_int64(stmt, s, nr, &i64, args);
+      if (sr != SQL_SUCCESS) return SQL_ERROR;
+      *(int64_t*)args->TargetValuePtr = i64;
+      break;
+    case SQL_C_UBIGINT:
+      sr = _stmt_varchar_to_uint64(stmt, s, nr, &u64, args);
+      if (sr != SQL_SUCCESS) return SQL_ERROR;
+      *(uint64_t*)args->TargetValuePtr = u64;
+      break;
+    case SQL_C_FLOAT:
+      sr = _stmt_varchar_to_float(stmt, s, nr, &flt, args);
+      if (sr != SQL_SUCCESS) return SQL_ERROR;
+      *(float*)args->TargetValuePtr = flt;
+      break;
+    case SQL_C_DOUBLE:
+      sr = _stmt_varchar_to_double(stmt, s, nr, &dbl, args);
+      if (sr != SQL_SUCCESS) return SQL_ERROR;
+      *(double*)args->TargetValuePtr = dbl;
+      break;
+    case SQL_C_CHAR:
+      return _stmt_get_data_copy_buf_to_char(stmt, args);
+    case SQL_C_WCHAR:
+      return _stmt_get_data_copy_buf_to_wchar(stmt, args);
+    case SQL_C_BINARY:
+      return _stmt_get_data_copy_buf_to_binary(stmt, args);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]`not implemented yet",
+          args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+          sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+      return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_get_data_copy_nchar(stmt_t *stmt, const char *s, size_t nr, _stmt_get_data_args_t *args)
+{
+  return _stmt_get_data_copy_varchar(stmt, s, nr, args);
+}
+
+static SQLRETURN _stmt_get_data_copy_int64(stmt_t *stmt, int64_t v, _stmt_get_data_args_t *args)
+{
+  get_data_ctx_t *ctx = &stmt->get_data_ctx;
+  tsdb_data_t *tsdb = &ctx->tsdb;
+
+  switch (args->TargetType) {
+    case SQL_C_BIT:
+      *(uint8_t*)args->TargetValuePtr = !!v;
+      break;
+    case SQL_C_STINYINT:
+      *(int8_t*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_UTINYINT:
+      *(uint8_t*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_SSHORT:
+      *(int16_t*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_USHORT:
+      *(uint16_t*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_SLONG:
+      *(int32_t*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_ULONG:
+      *(uint32_t*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_SBIGINT:
+      *(int64_t*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_UBIGINT:
+      *(uint64_t*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_CHAR:
+      return _stmt_get_data_copy_buf_to_char(stmt, args);
+    case SQL_C_WCHAR:
+      return _stmt_get_data_copy_buf_to_wchar(stmt, args);
+    case SQL_C_BINARY:
+      return _stmt_get_data_copy_buf_to_binary(stmt, args);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]`not implemented yet",
+          args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+          sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+      return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_get_data_copy_uint64(stmt_t *stmt, uint64_t v, _stmt_get_data_args_t *args)
+{
+  get_data_ctx_t *ctx = &stmt->get_data_ctx;
+  tsdb_data_t *tsdb = &ctx->tsdb;
+
+  switch (args->TargetType) {
+    case SQL_C_BIT:
+      *(uint8_t*)args->TargetValuePtr = !!v;
+      break;
+    case SQL_C_STINYINT:
+      *(int8_t*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_UTINYINT:
+      *(uint8_t*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_SSHORT:
+      *(int16_t*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_USHORT:
+      *(uint16_t*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_SLONG:
+      *(int32_t*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_ULONG:
+      *(uint32_t*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_SBIGINT:
+      *(int64_t*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_UBIGINT:
+      *(uint64_t*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_CHAR:
+      return _stmt_get_data_copy_buf_to_char(stmt, args);
+    case SQL_C_WCHAR:
+      return _stmt_get_data_copy_buf_to_wchar(stmt, args);
+    case SQL_C_BINARY:
+      return _stmt_get_data_copy_buf_to_binary(stmt, args);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]`not implemented yet",
+          args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+          sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+      return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_get_data_copy_double(stmt_t *stmt, double v, _stmt_get_data_args_t *args)
+{
+  get_data_ctx_t *ctx = &stmt->get_data_ctx;
+  tsdb_data_t *tsdb = &ctx->tsdb;
+
+  switch (args->TargetType) {
+    case SQL_C_BIT:
+      *(uint8_t*)args->TargetValuePtr = !!(uint8_t)v;
+      break;
+    case SQL_C_STINYINT:
+      *(int8_t*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_UTINYINT:
+      *(uint8_t*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_SSHORT:
+      *(int16_t*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_USHORT:
+      *(uint16_t*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_SLONG:
+      *(int32_t*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_ULONG:
+      *(uint32_t*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_SBIGINT:
+      *(int64_t*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_UBIGINT:
+      *(uint64_t*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_FLOAT:
+      *(float*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_DOUBLE:
+      *(double*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_CHAR:
+      return _stmt_get_data_copy_buf_to_char(stmt, args);
+    case SQL_C_WCHAR:
+      return _stmt_get_data_copy_buf_to_wchar(stmt, args);
+    case SQL_C_BINARY:
+      return _stmt_get_data_copy_buf_to_binary(stmt, args);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]`not implemented yet",
+          args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+          sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+      return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_get_data_copy(stmt_t *stmt, _stmt_get_data_args_t *args)
+{
+  get_data_ctx_t *ctx = &stmt->get_data_ctx;
+  tsdb_data_t *tsdb = &ctx->tsdb;
+
+  if (tsdb->is_null) {
+    if (args->StrLen_or_IndPtr) {
+      *args->StrLen_or_IndPtr = SQL_NULL_DATA;
+      return SQL_SUCCESS;
+    }
+    stmt_append_err_format(stmt, "22002", 0, "Indicator variable required but not supplied:#%d Column_or_Param", args->Col_or_Param_Num);
+    return SQL_ERROR;
+  }
+
+  switch(tsdb->type) {
+    case TSDB_DATA_TYPE_BOOL:
+      return _stmt_get_data_copy_uint64(stmt, tsdb->b, args);
+    case TSDB_DATA_TYPE_TINYINT:
+      return _stmt_get_data_copy_int64(stmt, tsdb->i8, args);
+    case TSDB_DATA_TYPE_UTINYINT:
+      return _stmt_get_data_copy_uint64(stmt, tsdb->u8, args);
+    case TSDB_DATA_TYPE_SMALLINT:
+      return _stmt_get_data_copy_int64(stmt, tsdb->i16, args);
+    case TSDB_DATA_TYPE_USMALLINT:
+      return _stmt_get_data_copy_uint64(stmt, tsdb->u16, args);
+    case TSDB_DATA_TYPE_INT:
+      return _stmt_get_data_copy_int64(stmt, tsdb->i32, args);
+    case TSDB_DATA_TYPE_UINT:
+      return _stmt_get_data_copy_uint64(stmt, tsdb->u32, args);
+    case TSDB_DATA_TYPE_BIGINT:
+      return _stmt_get_data_copy_int64(stmt, tsdb->i64, args);
+    case TSDB_DATA_TYPE_FLOAT:
+      return _stmt_get_data_copy_double(stmt, tsdb->flt, args);
+    case TSDB_DATA_TYPE_DOUBLE:
+      return _stmt_get_data_copy_double(stmt, tsdb->dbl, args);
+    case TSDB_DATA_TYPE_VARCHAR:
+      return _stmt_get_data_copy_varchar(stmt, tsdb->str.str, tsdb->str.len, args);
+    case TSDB_DATA_TYPE_TIMESTAMP:
+      return _stmt_get_data_copy_int64(stmt, tsdb->ts.ts, args);
+    case TSDB_DATA_TYPE_NCHAR:
+      return _stmt_get_data_copy_nchar(stmt, tsdb->str.str, tsdb->str.len, args);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]`not implemented yet",
+          args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+          sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+      return SQL_ERROR;
+  }
+}
+
+static SQLRETURN _stmt_get_data_x(stmt_t *stmt, _stmt_get_data_args_t *args)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  get_data_ctx_t *ctx = &stmt->get_data_ctx;
+  if (!ctx->active || ctx->Col_or_Param_Num != args->Col_or_Param_Num) {
+    sr = _stmt_get_data_prepare_ctx(stmt, args);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+    ctx->active = 1;
+    ctx->Col_or_Param_Num = args->Col_or_Param_Num;
+  }
+
+  if (ctx->TargetType != args->TargetType) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:TargetType changes in successive SQLGetData call for #%d Column_or_Param", args->Col_or_Param_Num);
+    return SQL_ERROR;
+  }
+
+  return _stmt_get_data_copy(stmt, args);
+}
+
 SQLRETURN stmt_get_data(
     stmt_t        *stmt,
     SQLUSMALLINT   Col_or_Param_Num,
@@ -2378,6 +3279,15 @@ SQLRETURN stmt_get_data(
     SQLLEN         BufferLength,
     SQLLEN        *StrLen_or_IndPtr)
 {
+  _stmt_get_data_args_t args = {
+    .Col_or_Param_Num           = Col_or_Param_Num,
+    .TargetType                 = TargetType,
+    .TargetValuePtr             = TargetValuePtr,
+    .BufferLength               = BufferLength,
+    .StrLen_or_IndPtr           = StrLen_or_IndPtr,
+  };
+  if (1) return _stmt_get_data_x(stmt, &args);
+
   SQLRETURN sr = SQL_SUCCESS;
   int fix;
   sr = _sql_c_data_type_is_fix_or_not(TargetType, &fix);
@@ -5826,7 +6736,7 @@ SQLRETURN stmt_columns(
     return SQL_ERROR;
   }
 
-  const char sql[] = 
+  const char sql[] =
     "select * from ("
     "select db_name as TABLE_CAT, \"\" as TABLE_SCHEM, stable_name as TABLE_NAME, \"SUPER_TABLE\" as TABLE_TYPE from information_schema.ins_stables"
     " union "
@@ -6223,3 +7133,4 @@ SQLRETURN stmt_complete_async(
   stmt_append_err(stmt, "HY000", 0, "General error:not supported yet");
   return SQL_ERROR;
 }
+

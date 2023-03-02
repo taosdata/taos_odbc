@@ -187,6 +187,70 @@ static inline int sql_succeeded(SQLRETURN sr)
   return sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO;
 }
 
+typedef struct sql_c_data_s             sql_c_data_t;
+struct sql_c_data_s {
+  // https://learn.microsoft.com/en-us/sql/odbc/reference/appendixes/c-data-types?view=sql-server-ver16
+  SQLSMALLINT           type;
+  union {
+    uint8_t             b;
+    int8_t              i8;
+    uint8_t             u8;
+    int16_t             i16;
+    uint16_t            u16;
+    int32_t             i32;
+    uint32_t            u32;
+    int64_t             i64;
+    uint64_t            u64;
+    float               flt;
+    double              dbl;
+    struct {
+      const char *str;
+      size_t      len;
+    }                   str;
+    int64_t             ts;
+  };
+
+  mem_t          mem;
+  size_t         len;
+  size_t         cur;
+
+  uint8_t               is_null:1;
+};
+
+typedef struct tsdb_data_s              tsdb_data_t;
+struct tsdb_data_s {
+  int8_t                type;
+  union {
+    uint8_t             b;
+    int8_t              i8;
+    uint8_t             u8;
+    int16_t             i16;
+    uint16_t            u16;
+    int32_t             i32;
+    uint32_t            u32;
+    int64_t             i64;
+    uint64_t            u64;
+    float               flt;
+    double              dbl;
+    struct {
+      const char *str;
+      size_t      len;
+    }                   str;
+    struct {
+      int64_t     ts;
+      int         precision;
+    }                   ts;
+  };
+
+  char           buf[64];
+  mem_t          mem;
+
+  const char    *pos;
+  size_t         nr;
+
+  uint8_t               is_null:1;
+};
+
 typedef enum {
   DATA_TYPE_UNKNOWM,
   DATA_TYPE_INT8,
@@ -252,10 +316,10 @@ struct get_data_ctx_s {
   SQLUSMALLINT   Col_or_Param_Num;
   SQLSMALLINT    TargetType;
 
-  data_t         cache;
-  mem_t          mem;
+  tsdb_data_t    tsdb;
+  sql_c_data_t   sqlc;
 
-  unsigned int   active:1;
+  uint8_t        active:1;
 };
 
 #define DATA_GET_INIT              0x0U
@@ -412,10 +476,13 @@ struct conn_s {
   char               *sql_c_char_charset;
   char               *tsdb_varchar_charset;
 
-  charset_conv_t      cnv_sql_c_char_to_tsdb_varchar;
   charset_conv_t      cnv_tsdb_varchar_to_sql_c_char;
   charset_conv_t      cnv_tsdb_varchar_to_utf8;
+  charset_conv_t      cnv_tsdb_varchar_to_sql_c_wchar;
+
+  charset_conv_t      cnv_sql_c_char_to_tsdb_varchar;
   charset_conv_t      cnv_sql_c_char_to_utf8;
+
   charset_conv_t      cnv_utf8_to_tsdb_varchar;
   charset_conv_t      cnv_utf8_to_sql_c_char;
 

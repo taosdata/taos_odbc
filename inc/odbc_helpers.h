@@ -242,7 +242,7 @@ static inline SQLRETURN call_SQLGetData(const char *file, int line, const char *
   diag(sr, SQL_HANDLE_STMT, StatementHandle);
   char buf[1024]; buf[0] = '\0';
   const char *s = NULL;
-  if (StrLen_or_IndPtr) {
+  if ((sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO) &&StrLen_or_IndPtr) {
     SQLLEN n = *StrLen_or_IndPtr;
     if (n == SQL_NULL_DATA) {
       s = "SQL_NULL_DATA";

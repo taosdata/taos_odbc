@@ -60,11 +60,14 @@ static void _conn_release_information_schema_ins_configs(conn_t *conn)
 
 static void _conn_release_iconvs(conn_t *conn)
 {
-  charset_conv_release(&conn->cnv_sql_c_char_to_tsdb_varchar);
   charset_conv_release(&conn->cnv_tsdb_varchar_to_sql_c_char);
   charset_conv_release(&conn->cnv_tsdb_varchar_to_utf8);
-  charset_conv_release(&conn->cnv_utf8_to_tsdb_varchar);
+  charset_conv_release(&conn->cnv_tsdb_varchar_to_sql_c_wchar);
+
+  charset_conv_release(&conn->cnv_sql_c_char_to_tsdb_varchar);
   charset_conv_release(&conn->cnv_sql_c_char_to_utf8);
+
+  charset_conv_release(&conn->cnv_utf8_to_tsdb_varchar);
   charset_conv_release(&conn->cnv_utf8_to_sql_c_char);
 }
 
@@ -343,6 +346,10 @@ static int _conn_setup_iconvs(conn_t *conn)
 
       cnv = &conn->cnv_tsdb_varchar_to_sql_c_char;
       from = tsdb_charset; to = sql_c_charset;
+      if (charset_conv_reset(cnv, from, to)) break;
+
+      cnv = &conn->cnv_tsdb_varchar_to_sql_c_wchar;
+      from = tsdb_charset; to = "UCS-2LE";
       if (charset_conv_reset(cnv, from, to)) break;
 
       return 0;

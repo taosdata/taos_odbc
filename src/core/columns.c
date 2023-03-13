@@ -401,6 +401,26 @@ static SQLRETURN _describe_col(stmt_base_t *base,
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _col_attribute(stmt_base_t *base,
+    SQLUSMALLINT    ColumnNumber,
+    SQLUSMALLINT    FieldIdentifier,
+    SQLPOINTER      CharacterAttributePtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr,
+    SQLLEN         *NumericAttributePtr)
+{
+  (void)ColumnNumber;
+  (void)FieldIdentifier;
+  (void)CharacterAttributePtr;
+  (void)BufferLength;
+  (void)StringLengthPtr;
+  (void)NumericAttributePtr;
+  columns_t *columns = (columns_t*)base;
+  (void)columns;
+  stmt_append_err(columns->owner, "HY000", 0, "General error:not implemented yet");
+  return SQL_ERROR;
+}
+
 static SQLRETURN _get_num_params(stmt_base_t *base, SQLSMALLINT *ParameterCountPtr)
 {
   (void)ParameterCountPtr;
@@ -428,6 +448,16 @@ static SQLRETURN _tsdb_field_by_param(stmt_base_t *base, int i_param, TAOS_FIELD
   (void)columns;
   stmt_append_err(columns->owner, "HY000", 0, "General error:not implemented yet");
   return SQL_ERROR;
+}
+
+static SQLRETURN _row_count(stmt_base_t *base, SQLLEN *row_count_ptr)
+{
+  columns_t *columns = (columns_t*)base;
+  (void)columns;
+
+  if (row_count_ptr) *row_count_ptr = 0;
+
+  return SQL_SUCCESS;
 }
 
 static SQLRETURN _get_num_cols(stmt_base_t *base, SQLSMALLINT *ColumnCountPtr)
@@ -464,9 +494,11 @@ void columns_init(columns_t *columns, stmt_t *stmt)
   columns->base.move_to_first_on_rowset      = _move_to_first_on_rowset;
   columns->base.describe_param               = _describe_param;
   columns->base.describe_col                 = _describe_col;
+  columns->base.col_attribute                = _col_attribute;
   columns->base.get_num_params               = _get_num_params;
   columns->base.check_params                 = _check_params;
   columns->base.tsdb_field_by_param          = _tsdb_field_by_param;
+  columns->base.row_count                    = _row_count;
   columns->base.get_num_cols                 = _get_num_cols;
   columns->base.get_data                     = _get_data;
 }

@@ -225,6 +225,25 @@ static SQLRETURN _describe_col(stmt_base_t *base,
       ColumnNumber, ColumnName, BufferLength, NameLengthPtr, DataTypePtr, ColumnSizePtr, DecimalDigitsPtr, NullablePtr);
 }
 
+static SQLRETURN _col_attribute(stmt_base_t *base,
+    SQLUSMALLINT    ColumnNumber,
+    SQLUSMALLINT    FieldIdentifier,
+    SQLPOINTER      CharacterAttributePtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr,
+    SQLLEN         *NumericAttributePtr)
+{
+  tables_t *tables = (tables_t*)base;
+  (void)tables;
+  return tables->stmt.base.col_attribute(&tables->stmt.base,
+      ColumnNumber,
+      FieldIdentifier,
+      CharacterAttributePtr,
+      BufferLength,
+      StringLengthPtr,
+      NumericAttributePtr);
+}
+
 static SQLRETURN _get_num_params(stmt_base_t *base, SQLSMALLINT *ParameterCountPtr)
 {
   (void)ParameterCountPtr;
@@ -254,6 +273,14 @@ static SQLRETURN _tsdb_field_by_param(stmt_base_t *base, int i_param, TAOS_FIELD
   return SQL_ERROR;
 }
 
+static SQLRETURN _row_count(stmt_base_t *base, SQLLEN *row_count_ptr)
+{
+  tables_t *tables = (tables_t*)base;
+  (void)tables;
+
+  return tables->stmt.base.row_count(&tables->stmt.base, row_count_ptr);
+}
+
 static SQLRETURN _get_num_cols(stmt_base_t *base, SQLSMALLINT *ColumnCountPtr)
 {
   tables_t *tables = (tables_t*)base;
@@ -277,9 +304,11 @@ void tables_init(tables_t *tables, stmt_t *stmt)
   tables->base.move_to_first_on_rowset      = _move_to_first_on_rowset;
   tables->base.describe_param               = _describe_param;
   tables->base.describe_col                 = _describe_col;
+  tables->base.col_attribute                = _col_attribute;
   tables->base.get_num_params               = _get_num_params;
   tables->base.check_params                 = _check_params;
   tables->base.tsdb_field_by_param          = _tsdb_field_by_param;
+  tables->base.row_count                    = _row_count;
   tables->base.get_num_cols                 = _get_num_cols;
   tables->base.get_data                     = _get_data;
 }

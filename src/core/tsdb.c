@@ -363,6 +363,113 @@ static SQLRETURN _describe_col(stmt_base_t *base,
   return tsdb_stmt_describe_col(stmt, ColumnNumber, ColumnName, BufferLength, NameLengthPtr, DataTypePtr, ColumnSizePtr, DecimalDigitsPtr, NullablePtr);
 }
 
+static SQLRETURN _col_attribute(stmt_base_t *base,
+    SQLUSMALLINT    ColumnNumber,
+    SQLUSMALLINT    FieldIdentifier,
+    SQLPOINTER      CharacterAttributePtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr,
+    SQLLEN         *NumericAttributePtr)
+{
+  (void)ColumnNumber;
+  (void)FieldIdentifier;
+  (void)CharacterAttributePtr;
+  (void)BufferLength;
+  (void)StringLengthPtr;
+  (void)NumericAttributePtr;
+  tsdb_stmt_t *stmt = (tsdb_stmt_t*)base;
+
+  tsdb_res_t           *res          = &stmt->res;
+  tsdb_fields_t        *fields       = &res->fields;
+
+  int n = 0;
+
+  TAOS_FIELD *col = fields->fields + ColumnNumber - 1;
+
+  // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
+  switch(FieldIdentifier) {
+    case SQL_DESC_CONCISE_TYPE:
+      switch (col->type) {
+        case TSDB_DATA_TYPE_VARCHAR:
+          *NumericAttributePtr = SQL_VARCHAR;
+          return SQL_SUCCESS;
+        default:
+          stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
+              sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
+              taos_data_type(col->type));
+          return SQL_ERROR;
+      }
+      return SQL_SUCCESS;
+    case SQL_DESC_OCTET_LENGTH:
+      switch (col->type) {
+        case TSDB_DATA_TYPE_VARCHAR:
+          *NumericAttributePtr = col->bytes - 2;
+          stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` bytes[%d] not supported yet",
+              sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
+              taos_data_type(col->type), col->bytes);
+          return SQL_ERROR;
+          return SQL_SUCCESS;
+        default:
+          stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
+              sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
+              taos_data_type(col->type));
+          return SQL_ERROR;
+      }
+      // *NumericAttributePtr = IRD_record->DESC_OCTET_LENGTH;
+      return SQL_SUCCESS;
+    // // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
+    // case SQL_DESC_PRECISION:
+    // case SQL_COLUMN_PRECISION:
+    //   *NumericAttributePtr = IRD_record->DESC_PRECISION;
+    //   return SQL_SUCCESS;
+    // // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
+    // case SQL_DESC_SCALE:
+    // case SQL_COLUMN_SCALE:
+    //   *NumericAttributePtr = IRD_record->DESC_SCALE;
+    //   return SQL_SUCCESS;
+    // case SQL_DESC_AUTO_UNIQUE_VALUE:
+    //   *NumericAttributePtr = IRD_record->DESC_AUTO_UNIQUE_VALUE;
+    //   return SQL_SUCCESS;
+    // case SQL_DESC_UPDATABLE:
+    //   *NumericAttributePtr = IRD_record->DESC_UPDATABLE;
+    //   return SQL_SUCCESS;
+    // case SQL_DESC_NULLABLE:
+    //   *NumericAttributePtr = IRD_record->DESC_NULLABLE;
+    //   return SQL_SUCCESS;
+    case SQL_DESC_NAME:
+      n = snprintf(CharacterAttributePtr, BufferLength, "%.*s", (int)sizeof(col->name), col->name);
+      if (n < 0) {
+        int e = errno;
+        stmt_append_err_format(stmt->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
+        return SQL_ERROR;
+      }
+      if (StringLengthPtr) *StringLengthPtr = n;
+      return SQL_SUCCESS;
+    // case SQL_DESC_UNSIGNED:
+    //   switch (col->type) {
+    //     case TSDB_DATA_TYPE_TINYINT:
+    //     case TSDB_DATA_TYPE_SMALLINT:
+    //     case TSDB_DATA_TYPE_INT:
+    //     case TSDB_DATA_TYPE_BIGINT:
+    //       *NumericAttributePtr = SQL_FALSE;
+    //       break;
+    //     case TSDB_DATA_TYPE_UTINYINT:
+    //     case TSDB_DATA_TYPE_USMALLINT:
+    //     case TSDB_DATA_TYPE_UINT:
+    //     case TSDB_DATA_TYPE_UBIGINT:
+    //       *NumericAttributePtr = SQL_TRUE;
+    //       break;
+    //     default:
+    //       stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s[%d/0x%x]` has no SIGNESS", taos_data_type(col->type), col->type, col->type);
+    //       return SQL_ERROR;
+    //   }
+    //   return SQL_SUCCESS;
+    default:
+      stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s[%d/0x%x]` not supported yet", sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier);
+      return SQL_ERROR;
+  }
+}
+
 static SQLRETURN _get_num_params(stmt_base_t *base, SQLSMALLINT *ParameterCountPtr)
 {
   tsdb_stmt_t *stmt = (tsdb_stmt_t*)base;
@@ -388,6 +495,15 @@ static SQLRETURN _tsdb_field_by_param(stmt_base_t *base, int i_param, TAOS_FIELD
     return SQL_ERROR;
   }
   *field = p;
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _row_count(stmt_base_t *base, SQLLEN *row_count_ptr)
+{
+  tsdb_stmt_t *stmt = (tsdb_stmt_t*)base;
+  tsdb_res_t           *res          = &stmt->res;
+
+  if (row_count_ptr) *row_count_ptr = res->affected_row_count;
   return SQL_SUCCESS;
 }
 
@@ -536,9 +652,11 @@ void tsdb_stmt_init(tsdb_stmt_t *stmt, stmt_t *owner)
   stmt->base.move_to_first_on_rowset = _move_to_first_on_rowset;
   stmt->base.describe_param          = _describe_param;
   stmt->base.describe_col            = _describe_col;
+  stmt->base.col_attribute           = _col_attribute;
   stmt->base.get_num_params          = _get_num_params;
   stmt->base.check_params            = _check_params;
   stmt->base.tsdb_field_by_param     = _tsdb_field_by_param;
+  stmt->base.row_count               = _row_count;
   stmt->base.get_num_cols            = _get_num_cols;
   stmt->base.get_data                = _get_data;
 

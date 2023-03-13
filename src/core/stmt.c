@@ -710,20 +710,7 @@ static SQLRETURN _stmt_set_param_status_ptr(stmt_t *stmt, SQLUSMALLINT *param_st
 
 SQLRETURN stmt_get_row_count(stmt_t *stmt, SQLLEN *row_count_ptr)
 {
-  if (stmt->base == &stmt->columns.base) {
-    stmt_append_err(stmt, "HY000", 0, "General error:not implemented yet");
-    return SQL_ERROR;
-  }
-
-  if (stmt->base == &stmt->tables.base) {
-    stmt_append_err(stmt, "HY000", 0, "General error:not implemented yet");
-    return SQL_ERROR;
-  }
-
-  tsdb_res_t           *res          = &stmt->tsdb_stmt.res;
-
-  if (row_count_ptr) *row_count_ptr = res->affected_row_count;
-  return SQL_SUCCESS;
+  return stmt->base->row_count(stmt->base, row_count_ptr);
 }
 
 SQLRETURN stmt_get_col_count(stmt_t *stmt, SQLSMALLINT *col_count_ptr)
@@ -4515,6 +4502,10 @@ SQLRETURN stmt_col_attribute(
   if (ColumnNumber == 0) {
     stmt_append_err_format(stmt, "HY000", 0, "General error:ColumnNumber #%d not supported yet", ColumnNumber);
     return SQL_ERROR;
+  }
+
+  if (1) {
+    return stmt->base->col_attribute(stmt->base, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
   }
 
   if (stmt->base == &stmt->columns.base) {

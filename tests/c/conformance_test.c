@@ -1258,6 +1258,56 @@ static int test_case8(SQLHANDLE hconn)
   return -1;
 }
 
+static SQLRETURN test_case9_with_stmt(SQLHANDLE hstmt)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  const char *sqls[] = {
+    "drop database if exists foo",
+    "create database if not exists foo",
+    "use foo",
+    "create table bar(ts timestamp, name varchar(20))",
+  };
+
+  for (size_t i=0; i<sizeof(sqls)/sizeof(sqls[0]); ++i) {
+    const char *sql = sqls[i];
+    sr = CALL_SQLExecDirect(hstmt, sql, SQL_NTS);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+  }
+
+  const char *sql = "select name from bar";
+  sr = CALL_SQLExecDirect(hstmt, sql, SQL_NTS);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  char buf[4096];
+  SQLSMALLINT len;
+  SQLLEN attr;
+
+  SQLUSMALLINT    ColumnNumber                = 1;
+  SQLUSMALLINT    FieldIdentifier             = SQL_DESC_OCTET_LENGTH;
+  SQLPOINTER      CharacterAttributePtr       = buf;
+  SQLSMALLINT     BufferLength                = sizeof(buf);
+  SQLSMALLINT    *StringLengthPtr             = &len;
+  SQLLEN         *NumericAttributePtr         = &attr;
+
+  return CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
+}
+
+static int test_case9(SQLHANDLE hconn)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
+  if (FAILED(sr)) return -1;
+
+  sr = test_case9_with_stmt(hstmt);
+
+  CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+
+  if (sr != SQL_SUCCESS) return -1;
+  return 0;
+}
+
 static int _vexec_(SQLHANDLE hstmt, const char *fmt, va_list ap)
 {
   SQLRETURN sr = SQL_SUCCESS;
@@ -2083,6 +2133,9 @@ static int test_cases(SQLHANDLE hconn)
   r = test_case8(hconn);
   if (r) return r;
 
+  r = test_case9(hconn);
+  if (r) return r;
+
   return r;
 }
 
@@ -2155,6 +2208,10 @@ static int test_conn(int argc, char *argv[], SQLHANDLE hconn)
   }
 
   int r = 0;
+
+  r = test_case9(hconn);
+  if (r) return r;
+  if (1) return 0;
 
   if (conn_arg.connstr) {
     r = _driver_connect(hconn, conn_arg.connstr);

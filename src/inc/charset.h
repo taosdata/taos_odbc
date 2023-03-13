@@ -25,12 +25,12 @@
 #ifndef _charset_h_
 #define _charset_h_
 
-#include "env.h"
+#include "macros.h"
+#include "typedefs.h"
+
+#include <iconv.h>
 
 EXTERN_C_BEGIN
-
-typedef struct charset_conv_s            charset_conv_t;
-typedef struct charset_conv_mgr_s        charset_conv_mgr_t;
 
 void charset_conv_release(charset_conv_t *cnv) FA_HIDDEN;
 int charset_conv_reset(charset_conv_t *cnv, const char *from, const char *to) FA_HIDDEN;

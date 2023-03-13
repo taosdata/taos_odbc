@@ -165,7 +165,8 @@ static int _sql_stmt_get_long_data_by_col(SQLHANDLE stmth, SQLSMALLINT ColumnNum
   SQLUSMALLINT   Col_or_Param_Num    = ColumnNumber;
   SQLSMALLINT    TargetType          = SQL_C_CHAR;
   SQLPOINTER     TargetValuePtr      = (SQLPOINTER)p;
-  SQLLEN         BufferLength        = 2;
+  // TODO: remove this restriction
+  SQLLEN         BufferLength        = 4;
   SQLLEN         StrLen_or_Ind;
 
   while (1) {

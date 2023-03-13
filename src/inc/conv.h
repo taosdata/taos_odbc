@@ -25,12 +25,10 @@
 #ifndef _conv_h_
 #define _conv_h_
 
-#include "stmt.h"
+#include "macros.h"
+#include "typedefs.h"
 
 EXTERN_C_BEGIN
-
-typedef struct data_s                   data_t;
-typedef struct data_conv_result_s       data_conv_result_t;
 
 int conv_data(data_t *src, data_t *dst) FA_HIDDEN;
 

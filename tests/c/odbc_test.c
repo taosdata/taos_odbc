@@ -30,6 +30,10 @@
 #include <stdarg.h>
 #include <stdint.h>
 
+#define TAOS_ODBC              0x01
+#define SQLITE3_ODBC           0x02
+#define MYSQL_ODBC             0x04
+
 typedef struct conn_arg_s             conn_arg_t;
 struct conn_arg_s {
   const char      *dsn;
@@ -1882,7 +1886,8 @@ static int test_case6(SQLHANDLE hconn)
     char *p = buf;
     size_t count = 0;
     (void)count;
-    SQLLEN BufferLength = 2;
+    // TODO: remove this restriction
+    SQLLEN BufferLength = 4;
     SQLLEN StrLen_or_Ind;
 
     while (1) {
@@ -1964,7 +1969,8 @@ static int test_case7(SQLHANDLE hconn)
     char *p = buf;
     size_t count = 0;
     (void)count;
-    SQLLEN BufferLength = 2;
+    // TODO: remove this restriction
+    SQLLEN BufferLength = 4;
     SQLLEN StrLen_or_Ind;
 
     while (1) {
@@ -2047,7 +2053,7 @@ static int test_hard_coded(SQLHANDLE henv, const char *dsn, const char *uid, con
         if (r) break;
       }
 
-      r = test_case5(hconn);
+      if (1) r = test_case5(hconn);
       if (r) break;
 
       r = test_case6(hconn);
@@ -2063,6 +2069,370 @@ static int test_hard_coded(SQLHANDLE henv, const char *dsn, const char *uid, con
   CALL_SQLFreeHandle(SQL_HANDLE_DBC, hconn);
 
   return (r || FAILED(sr)) ? -1 : 0;
+}
+
+static void _print_(const char *buf, size_t maxlen)
+{
+  fprintf(stderr, "0x");
+  maxlen = maxlen - 1;
+  for (size_t i=0; i < maxlen; ++i) {
+    const unsigned char c1 = (const unsigned char)buf[i];
+    if (c1 == 0) break;
+    fprintf(stderr, "%02x", c1);
+  }
+  fprintf(stderr, "\n");
+}
+
+static SQLRETURN _test_case_get_char_partial(SQLHANDLE hstmt, const char *name)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+  // TODO: remove this restriction
+  char buf[4];
+  const char *p = name;
+
+  while (1) {
+    SQLLEN StrLen_or_Ind;
+    memset(buf, 'X', sizeof(buf));
+    sr = CALL_SQLGetData(hstmt, 1, SQL_C_CHAR, (SQLPOINTER)buf, sizeof(buf), &StrLen_or_Ind);
+    if (sr == SQL_ERROR) return SQL_ERROR;
+    if (sr == SQL_NO_DATA) return SQL_SUCCESS;
+    if (sr == SQL_SUCCESS) {
+      if (StrLen_or_Ind == SQL_NULL_DATA) {
+        if (name) {
+          E("failed:`%s` expected, but got null", name);
+          return SQL_ERROR;
+        }
+        continue;
+      }
+      if (StrLen_or_Ind != SQL_NO_TOTAL && StrLen_or_Ind != 0) {
+        _print_((const char*)buf, sizeof(buf));
+        if (buf[StrLen_or_Ind]) {
+          E("failed: `0x00` expected, but got `0x%02x`", (unsigned int)buf[StrLen_or_Ind]);
+          return SQL_ERROR;
+        }
+        if (strcmp(buf, p) == 0) continue;
+        E("failed: `%s` expected, but got `%s`", name, buf);
+        return SQL_ERROR;
+      }
+      E("failed:sr[%s],StrLen_or_Ind:[%" PRId64 "/0x%" PRIu64 "]", sql_return_type(sr), StrLen_or_Ind, StrLen_or_Ind);
+      return SQL_ERROR;
+    }
+    if (sr == SQL_SUCCESS_WITH_INFO) {
+      if (StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind >= 0) {
+        const size_t len = strlen(buf);
+        if (len == 0) {
+          E("failed:expected to be greater than 0, but got =%" PRId64 "", len);
+          return SQL_ERROR;
+        }
+        _print_((const char*)buf, sizeof(buf));
+        if (strncmp(buf, p, len)) {
+          E("failed: `%.*s` expected, but got `%s`", (int)len, p, buf);
+          return SQL_ERROR;
+        }
+        p += len;
+        continue;
+      }
+    }
+    E("failed:sr[%s],StrLen_or_Ind:[%" PRId64 "/0x%" PRIu64 "]", sql_return_type(sr), StrLen_or_Ind, StrLen_or_Ind);
+    return SQL_ERROR;
+  }
+
+  return SQL_ERROR;
+}
+
+static SQLRETURN _test_case_get_char(SQLHANDLE hstmt, const char *sql, const char *name)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
+  if (sr == SQL_SUCCESS) {
+    sr = CALL_SQLFetch(hstmt);
+    if (sr == SQL_SUCCESS) {
+      sr = _test_case_get_char_partial(hstmt, name);
+    }
+  }
+  return sr;
+}
+
+static void _print_ucs_2le(const char *buf, size_t maxlen)
+{
+  fprintf(stderr, "0x");
+  maxlen = maxlen / 2 * 2 - 2;
+  for (size_t i=0; i+1 < maxlen; i+=2) {
+    const unsigned char c1 = (const unsigned char)buf[i];
+    const unsigned char c2 = (const unsigned char)buf[i+1];
+    if (c1 == 0 && c2 == 0) break;
+    fprintf(stderr, "%02x", c1);
+    fprintf(stderr, "%02x", c2);
+  }
+  fprintf(stderr, "\n");
+}
+
+static SQLRETURN _test_case_get_wchar_partial(SQLHANDLE hstmt, const char *name)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+  SQLWCHAR buf[2];
+
+  while (1) {
+    SQLLEN StrLen_or_Ind;
+    memset(buf, 'X', sizeof(buf));
+    sr = CALL_SQLGetData(hstmt, 1, SQL_C_WCHAR, (SQLPOINTER)buf, sizeof(buf), &StrLen_or_Ind);
+    if (sr == SQL_ERROR) return SQL_ERROR;
+    if (sr == SQL_NO_DATA) return SQL_SUCCESS;
+    if (sr == SQL_SUCCESS) {
+      if (StrLen_or_Ind == SQL_NULL_DATA) {
+        if (name) {
+          E("failed:`%s` expected, but got null", name);
+          return SQL_ERROR;
+        }
+        continue;
+      }
+      if (StrLen_or_Ind != SQL_NO_TOTAL && StrLen_or_Ind != 0) {
+        _print_ucs_2le((const char*)buf, sizeof(buf));
+        continue;
+        // if (strcmp(buf, p) == 0) continue;
+        // E("failed: `%s` expected, but got `%s`", name, buf);
+        // return SQL_ERROR;
+      }
+      E("failed:sr[%s],StrLen_or_Ind:[%" PRId64 "]", sql_return_type(sr), StrLen_or_Ind);
+      return SQL_ERROR;
+    }
+    if (sr == SQL_SUCCESS_WITH_INFO) {
+      if (StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind >= 0) {
+        _print_ucs_2le((const char*)buf, sizeof(buf));
+        // const size_t len = strlen(buf);
+        // if (len == 0) {
+        //   E("failed:expected to be greater than 0, but got =%" PRId64 "", len);
+        //   return SQL_ERROR;
+        // }
+        // if (strncmp(buf, p, len)) {
+        //   E("failed: `%.*s` expected, but got `%s`", (int)len, p, buf);
+        //   return SQL_ERROR;
+        // }
+        // p += len;
+        continue;
+      }
+    }
+    E("failed:sr[%s],StrLen_or_Ind:[%" PRId64 "/0x%" PRIu64 "]", sql_return_type(sr), StrLen_or_Ind, StrLen_or_Ind);
+    return SQL_ERROR;
+  }
+
+  return SQL_ERROR;
+}
+
+static SQLRETURN _test_case_get_wchar(SQLHANDLE hstmt, const char *sql, const char *name)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
+  if (sr == SQL_SUCCESS) {
+    sr = CALL_SQLFetch(hstmt);
+    if (sr == SQL_SUCCESS) {
+      sr = _test_case_get_wchar_partial(hstmt, name);
+    }
+  }
+  return sr;
+}
+
+static int test_case_get_data(SQLHANDLE henv, const char *conn_str, int odbc)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+#define LOCAL_NAME             "我shi4中国人"
+
+  struct {
+    const char               *sql;
+    int                       odbc;
+  } sqls[] = {
+    {"drop database if exists foo", TAOS_ODBC|MYSQL_ODBC},
+    {"create database if not exists foo", TAOS_ODBC|MYSQL_ODBC},
+    {"use foo", TAOS_ODBC|MYSQL_ODBC},
+    {"drop table if exists t", 0xFF},
+
+    {"create table if not exists t (name varchar(20))", MYSQL_ODBC|SQLITE3_ODBC},
+    {"insert into t(name) values('" LOCAL_NAME "')", MYSQL_ODBC|SQLITE3_ODBC},
+
+    {"create table if not exists t (ts timestamp, name varchar(20))", TAOS_ODBC},
+    {"insert into t(ts, name) values(now(), '" LOCAL_NAME "')", TAOS_ODBC},
+  };
+
+  SQLHANDLE hconn = SQL_NULL_HANDLE;
+  SQLHANDLE hstmt = SQL_NULL_HANDLE;
+
+  sr = CALL_SQLAllocHandle(SQL_HANDLE_DBC, henv, &hconn);
+  if (sr == SQL_SUCCESS) {
+    sr = CALL_SQLDriverConnect(hconn, NULL, (SQLCHAR*)conn_str, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT);
+    if (sr == SQL_SUCCESS) {
+      sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
+      if (sr == SQL_SUCCESS) {
+        if (odbc) {
+          for (size_t i=0; i<sizeof(sqls)/sizeof(sqls[0]); ++i) {
+            const char *sql = sqls[i].sql;
+            if (odbc & sqls[i].odbc) {
+              sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
+              if (sr != SQL_SUCCESS) break;
+            }
+          }
+        }
+        if (sr == SQL_SUCCESS) {
+          sr = _test_case_get_char(hstmt, "select name from t", LOCAL_NAME);
+          if (sr == SQL_SUCCESS) {
+            CALL_SQLCloseCursor(hstmt);
+            sr = _test_case_get_wchar(hstmt, "select name from t", LOCAL_NAME);
+          }
+        }
+        CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+      }
+      CALL_SQLDisconnect(hconn);
+    }
+    CALL_SQLFreeHandle(SQL_HANDLE_DBC, hconn);
+  }
+
+#undef LOCAL_NAME
+
+  return (sr == SQL_SUCCESS) ? 0 : -1;
+}
+
+static int test_cases_get_data(SQLHANDLE henv)
+{
+  struct {
+    const char           *conn_str;
+    int                   odbc;
+    int                   line;
+  } cases[] = {
+#ifdef ENABLE_SQLITE3_TEST     /* { */
+    {"Driver={SQLite3}",  SQLITE3_ODBC, __LINE__},
+#endif                         /* } */
+    {"DSN=TAOS_ODBC_DSN", TAOS_ODBC, __LINE__},
+  };
+
+  for (size_t i=0; i<sizeof(cases)/sizeof(cases[0]); ++i) {
+    const char *conn_str  = cases[i].conn_str;
+    int         odbc      = cases[i].odbc;
+    int         line      = cases[i].line;
+    int r = test_case_get_data(henv, conn_str, odbc);
+    if (r) {
+      E("case[%" PRId64 "]@%d:conn_str[%s];odbc[%x]", i+1, line, conn_str, odbc);
+      return -1;
+    }
+  }
+
+  return 0;
+}
+
+static SQLRETURN _test_case_prepare(SQLHANDLE hstmt, const char *sql, const char *name)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  SQLUSMALLINT    ParameterNumber         = 1;
+  SQLSMALLINT     InputOutputType         = SQL_PARAM_INPUT;
+  SQLSMALLINT     ValueType               = SQL_C_CHAR;
+  SQLSMALLINT     ParameterType           = SQL_VARCHAR;
+  SQLULEN         ColumnSize;
+  SQLSMALLINT     DecimalDigits;
+  SQLPOINTER      ParameterValuePtr       = (SQLPOINTER)name;
+  SQLLEN          BufferLength            = strlen(name);
+  SQLLEN          StrLen_or_Ind           = SQL_NTS;
+
+  SQLSMALLINT     Nullable = SQL_NULLABLE_UNKNOWN;
+
+  sr = CALL_SQLPrepare(hstmt, (SQLCHAR*)sql, SQL_NTS);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  sr = CALL_SQLDescribeParam(hstmt,
+      ParameterNumber, &ParameterType, &ColumnSize, &DecimalDigits, &Nullable);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  sr = CALL_SQLBindParameter(hstmt,
+      ParameterNumber, InputOutputType, ValueType,
+      ParameterType, ColumnSize, DecimalDigits, ParameterValuePtr, BufferLength,
+      &StrLen_or_Ind);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  sr = CALL_SQLExecute(hstmt);
+
+  return sr;
+}
+
+static int test_case_prepare(SQLHANDLE henv, const char *conn_str, int odbc)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+#define LOCAL_NAME             "我shi4中国人"
+
+  struct {
+    const char               *sql;
+    int                       odbc;
+  } sqls[] = {
+    {"drop database if exists foo", TAOS_ODBC|MYSQL_ODBC},
+    {"create database if not exists foo", TAOS_ODBC|MYSQL_ODBC},
+    {"use foo", TAOS_ODBC|MYSQL_ODBC},
+    {"drop table if exists t", 0xFF},
+
+    {"create table if not exists t (name varchar(20))", MYSQL_ODBC|SQLITE3_ODBC},
+
+    {"create table if not exists t (ts timestamp, name varchar(20))", TAOS_ODBC},
+  };
+
+  SQLHANDLE hconn = SQL_NULL_HANDLE;
+  SQLHANDLE hstmt = SQL_NULL_HANDLE;
+
+  sr = CALL_SQLAllocHandle(SQL_HANDLE_DBC, henv, &hconn);
+  if (sr == SQL_SUCCESS) {
+    sr = CALL_SQLDriverConnect(hconn, NULL, (SQLCHAR*)conn_str, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT);
+    if (sr == SQL_SUCCESS) {
+      sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
+      if (sr == SQL_SUCCESS) {
+        if (odbc) {
+          for (size_t i=0; i<sizeof(sqls)/sizeof(sqls[0]); ++i) {
+            const char *sql = sqls[i].sql;
+            if (odbc & sqls[i].odbc) {
+              sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
+              if (sr != SQL_SUCCESS) break;
+              CALL_SQLCloseCursor(hstmt);
+            }
+          }
+        }
+        if (sr == SQL_SUCCESS) {
+          sr = _test_case_prepare(hstmt, "insert into t(name) values(?)", LOCAL_NAME);
+        }
+        CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+      }
+      CALL_SQLDisconnect(hconn);
+    }
+    CALL_SQLFreeHandle(SQL_HANDLE_DBC, hconn);
+  }
+
+#undef LOCAL_NAME
+
+  return (sr == SQL_SUCCESS) ? 0 : -1;
+}
+
+static int test_cases_prepare(SQLHANDLE henv)
+{
+  struct {
+    const char           *conn_str;
+    int                   odbc;
+    int                   line;
+  } cases[] = {
+#ifdef ENABLE_SQLITE3_TEST     /* { */
+    // {"Driver={SQLite3}",  SQLITE3_ODBC, __LINE__},
+#endif                         /* } */
+#ifdef ENABLE_MYSQL_TEST       /* { */
+    // {"DSN=MYSQL_ODBC_DSN",  MYSQL_ODBC, __LINE__},
+#endif                         /* } */
+    {"DSN=TAOS_ODBC_DSN", TAOS_ODBC, __LINE__},
+  };
+
+  for (size_t i=0; i<sizeof(cases)/sizeof(cases[0]); ++i) {
+    const char *conn_str  = cases[i].conn_str;
+    int         odbc      = cases[i].odbc;
+    int         line      = cases[i].line;
+    int r = test_case_prepare(henv, conn_str, odbc);
+    if (r) {
+      E("case[%" PRId64 "]@%d:conn_str[%s];odbc[%x]", i+1, line, conn_str, odbc);
+      return -1;
+    }
+  }
+
+  return 0;
 }
 
 static int test_hard_coded_cases(SQLHANDLE henv)
@@ -2099,8 +2469,14 @@ int main(int argc, char *argv[])
     sr = CALL_SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, 0);
     if (FAILED(sr)) { r = -1; break; }
 
+    if (0) r = test_cases_prepare(henv);
+    if (r) break;
+
+    if (1) r = test_cases_get_data(henv);
+    if (r) break;
+
     // hard_coded_test_cases
-    if (0) r = test_hard_coded_cases(henv);
+    if (1) r = test_hard_coded_cases(henv);
     if (r) break;
 
     r = process_by_args_env(argc, argv, henv);

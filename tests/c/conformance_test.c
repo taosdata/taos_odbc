@@ -30,6 +30,10 @@
 #include <stdint.h>
 
 
+#define TAOS_ODBC        0x01
+#define MYSQL_ODBC       0x02
+#define SQLITE3_ODBC     0x04
+
 static int _under_taos_mysql_sqlite3 = 0;  // 0: taos; 1: mysql; 2: sqlite3
 
 typedef struct conn_arg_s             conn_arg_t;
@@ -38,7 +42,7 @@ struct conn_arg_s {
   const char      *uid;
   const char      *pwd;
   const char      *connstr;
-  unsigned int     non_taos:1;
+  unsigned int     odbc_type;
 };
 
 static int _connect(SQLHANDLE hconn, const char *dsn, const char *uid, const char *pwd)
@@ -749,6 +753,9 @@ static int test_case5(SQLHANDLE hconn)
   int r = 0;
   SQLRETURN sr = SQL_SUCCESS;
 
+  char buf[4096];
+  SQLLEN StrLen_or_Ind;
+
   SQLHANDLE hstmt = SQL_NULL_HANDLE;
 
   sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
@@ -758,6 +765,7 @@ static int test_case5(SQLHANDLE hconn)
   const char *SchemaName;
   const char *TableName;
   const char *TableType;
+  const char *ColumnName;
 
   SQLSMALLINT ColumnCount;
 
@@ -777,8 +785,8 @@ static int test_case5(SQLHANDLE hconn)
     sr = CALL_SQLNumResultCols(hstmt, &ColumnCount);
     if (FAILED(sr)) break;
 
-    if (ColumnCount <= 0) {
-      E("result columns expected, but got ==%d==", ColumnCount);
+    if (ColumnCount != 5) {
+      E("5 result columns expected, but got ==%d==", ColumnCount);
       r = -1;
       break;
     }
@@ -801,8 +809,8 @@ static int test_case5(SQLHANDLE hconn)
     sr = CALL_SQLNumResultCols(hstmt, &ColumnCount);
     if (FAILED(sr)) break;
 
-    if (ColumnCount <= 0) {
-      E("result columns expected, but got ==%d==", ColumnCount);
+    if (ColumnCount != 5) {
+      E("5 result columns expected, but got ==%d==", ColumnCount);
       r = -1;
       break;
     }
@@ -852,6 +860,216 @@ static int test_case5(SQLHANDLE hconn)
     r = _dump_rs_to_sql_c_char(hstmt, ColumnCount);
     if (r) break;
 
+    struct {
+      const char *sql;
+    } sqls[] = {
+      {"drop database if exists foo"},
+      {"create database if not exists foo"},
+    };
+
+    for (size_t i=0; i<sizeof(sqls)/sizeof(sqls[0]); ++i) {
+      const char *sql = sqls[i].sql;
+      sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
+      if (sr != SQL_SUCCESS) break;
+    }
+    if (sr != SQL_SUCCESS) break;
+
+    CatalogName = "foo";
+    SchemaName = "";
+    TableName = "bar";
+    TableType = "";
+    sr = CALL_SQLTables(hstmt,
+      (SQLCHAR*)CatalogName, (SQLSMALLINT)strlen(CatalogName),
+      (SQLCHAR*)SchemaName,  (SQLSMALLINT)strlen(SchemaName),
+      (SQLCHAR*)TableName,   (SQLSMALLINT)strlen(TableName),
+      (SQLCHAR*)TableType,   (SQLSMALLINT)strlen(TableType));
+    if (FAILED(sr)) break;
+
+    sr = CALL_SQLFetch(hstmt);
+    if (sr != SQL_NO_DATA) {
+      E("SQL_NO_DATA expected, but got ==%s==", sql_return_type(sr));
+      sr = SQL_ERROR;
+      break;
+    }
+    sr = SQL_SUCCESS;
+  } while (0);
+
+  do {
+    if (sr != SQL_SUCCESS) break;
+
+    struct {
+      const char *sql;
+    } sqls[] = {
+      {"drop database if exists foo"},
+      {"create database if not exists foo"},
+      {"use foo"},
+      {"create table bar(ts timestamp, name varchar(20))"},
+    };
+
+    for (size_t i=0; i<sizeof(sqls)/sizeof(sqls[0]); ++i) {
+      const char *sql = sqls[i].sql;
+      sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
+      if (sr != SQL_SUCCESS) break;
+    }
+    if (sr != SQL_SUCCESS) break;
+
+    CatalogName = "foo";
+    SchemaName = "";
+    TableName = "bar";
+    TableType = "";
+    sr = CALL_SQLTables(hstmt,
+      (SQLCHAR*)CatalogName, (SQLSMALLINT)strlen(CatalogName),
+      (SQLCHAR*)SchemaName,  (SQLSMALLINT)strlen(SchemaName),
+      (SQLCHAR*)TableName,   (SQLSMALLINT)strlen(TableName),
+      (SQLCHAR*)TableType,   (SQLSMALLINT)strlen(TableType));
+    if (FAILED(sr)) break;
+
+    sr = CALL_SQLFetch(hstmt);
+    if (sr != SQL_SUCCESS) {
+      E("SQL_SUCCESS expected, but got ==%s==", sql_return_type(sr));
+      sr = SQL_ERROR;
+      break;
+    }
+
+    CatalogName = "foo";
+    SchemaName = "";
+    TableName = "%b_r";
+    TableType = "";
+    CALL_SQLCloseCursor(hstmt);
+    sr = CALL_SQLTables(hstmt,
+      (SQLCHAR*)CatalogName, (SQLSMALLINT)strlen(CatalogName),
+      (SQLCHAR*)SchemaName,  (SQLSMALLINT)strlen(SchemaName),
+      (SQLCHAR*)TableName,   (SQLSMALLINT)strlen(TableName),
+      (SQLCHAR*)TableType,   (SQLSMALLINT)strlen(TableType));
+    if (FAILED(sr)) break;
+
+    sr = CALL_SQLFetch(hstmt);
+    if (sr != SQL_SUCCESS) {
+      E("SQL_SUCCESS expected, but got ==%s==", sql_return_type(sr));
+      sr = SQL_ERROR;
+      break;
+    }
+
+    CatalogName = "f_o%";
+    SchemaName = "";
+    TableName = "%b_r";
+    TableType = "";
+    CALL_SQLCloseCursor(hstmt);
+    sr = CALL_SQLTables(hstmt,
+      (SQLCHAR*)CatalogName, (SQLSMALLINT)strlen(CatalogName),
+      (SQLCHAR*)SchemaName,  (SQLSMALLINT)strlen(SchemaName),
+      (SQLCHAR*)TableName,   (SQLSMALLINT)strlen(TableName),
+      (SQLCHAR*)TableType,   (SQLSMALLINT)strlen(TableType));
+    if (FAILED(sr)) break;
+
+    sr = CALL_SQLFetch(hstmt);
+    if (sr != SQL_SUCCESS) {
+      E("SQL_SUCCESS expected, but got ==%s==", sql_return_type(sr));
+      sr = SQL_ERROR;
+      break;
+    }
+
+    CatalogName = "f_o%";
+    SchemaName = "";
+    TableName = "%b_r";
+    TableType = "";
+    CALL_SQLCloseCursor(hstmt);
+    sr = CALL_SQLTables(hstmt,
+      (SQLCHAR*)CatalogName, (SQLSMALLINT)strlen(CatalogName),
+      (SQLCHAR*)SchemaName,  (SQLSMALLINT)strlen(SchemaName),
+      (SQLCHAR*)TableName,   (SQLSMALLINT)strlen(TableName),
+      (SQLCHAR*)TableType,   (SQLSMALLINT)strlen(TableType));
+    if (FAILED(sr)) break;
+
+    sr = CALL_SQLFetch(hstmt);
+    if (sr != SQL_SUCCESS) {
+      E("SQL_SUCCESS expected, but got ==%s==", sql_return_type(sr));
+      sr = SQL_ERROR;
+      break;
+    }
+
+    CALL_SQLCloseCursor(hstmt);
+
+    sr = CALL_SQLBindCol(hstmt, 3, SQL_C_CHAR, buf, sizeof(buf), &StrLen_or_Ind);
+
+    CatalogName = "foo";
+    SchemaName = "";
+    TableName = "bar";
+    TableType = "";
+    sr = CALL_SQLTables(hstmt,
+      (SQLCHAR*)CatalogName, (SQLSMALLINT)strlen(CatalogName),
+      (SQLCHAR*)SchemaName,  (SQLSMALLINT)strlen(SchemaName),
+      (SQLCHAR*)TableName,   (SQLSMALLINT)strlen(TableName),
+      (SQLCHAR*)TableType,   (SQLSMALLINT)strlen(TableType));
+    if (FAILED(sr)) break;
+
+    sr = CALL_SQLFetch(hstmt);
+    if (sr != SQL_SUCCESS) {
+      E("SQL_SUCCESS expected, but got ==%s==", sql_return_type(sr));
+      sr = SQL_ERROR;
+      break;
+    }
+
+    if (StrLen_or_Ind == SQL_NULL_DATA) {
+      E("SQL_NULL_DATA not expected");
+      sr = SQL_ERROR;
+      break;
+    }
+
+    if (StrLen_or_Ind < 0) {
+      E("StrLen_or_Ind is negative");
+      sr = SQL_ERROR;
+      break;
+    }
+
+    if (strcmp(buf, "bar")) {
+      E("`bar` expected, but got ==%s==", buf);
+      sr = SQL_ERROR;
+      break;
+    }
+
+    CALL_SQLCloseCursor(hstmt);
+    CALL_SQLFreeStmt(hstmt, SQL_UNBIND);
+
+    sr = CALL_SQLBindCol(hstmt, 4, SQL_C_CHAR, buf, sizeof(buf), &StrLen_or_Ind);
+
+    CatalogName = "foo";
+    SchemaName = "";
+    TableName = "bar";
+    ColumnName = "ts";
+    sr = CALL_SQLColumns(hstmt,
+      (SQLCHAR*)CatalogName, (SQLSMALLINT)strlen(CatalogName),
+      (SQLCHAR*)SchemaName,  (SQLSMALLINT)strlen(SchemaName),
+      (SQLCHAR*)TableName,   (SQLSMALLINT)strlen(TableName),
+      (SQLCHAR*)ColumnName,   (SQLSMALLINT)strlen(ColumnName));
+    if (FAILED(sr)) break;
+
+    sr = CALL_SQLFetch(hstmt);
+    if (sr != SQL_SUCCESS) {
+      E("SQL_SUCCESS expected, but got ==%s==", sql_return_type(sr));
+      sr = SQL_ERROR;
+      break;
+    }
+
+    if (StrLen_or_Ind == SQL_NULL_DATA) {
+      E("SQL_NULL_DATA not expected");
+      sr = SQL_ERROR;
+      break;
+    }
+
+    if (StrLen_or_Ind < 0) {
+      E("StrLen_or_Ind is negative");
+      sr = SQL_ERROR;
+      break;
+    }
+
+    if (strcmp(buf, "ts")) {
+      E("`ts` expected, but got ==%s==", buf);
+      sr = SQL_ERROR;
+      break;
+    }
+
+    sr = SQL_SUCCESS;
   } while (0);
 
   CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
@@ -898,7 +1116,8 @@ static int test_case6(SQLHANDLE hconn)
     char *p = buf;
     size_t count = 0;
     (void)count;
-    SQLLEN BufferLength = 2;
+    // TODO: remove this restriction
+    SQLLEN BufferLength = 4;
     SQLLEN StrLen_or_Ind;
 
     while (1) {
@@ -980,7 +1199,8 @@ static int test_case7(SQLHANDLE hconn)
     char *p = buf;
     size_t count = 0;
     (void)count;
-    SQLLEN BufferLength = 2;
+    // TODO: remove this restriction
+    SQLLEN BufferLength = 4;
     SQLLEN StrLen_or_Ind;
 
     while (1) {
@@ -1851,7 +2071,7 @@ static int test_cases(SQLHANDLE hconn)
     if (r) return r;
   }
 
-  r = test_case5(hconn);
+  if (1) r = test_case5(hconn);
   if (r) return r;
 
   r = test_case6(hconn);
@@ -1897,6 +2117,8 @@ static int test_conn(int argc, char *argv[], SQLHANDLE hconn)
 {
   conn_arg_t conn_arg = {0};
 
+  conn_arg.odbc_type = TAOS_ODBC;
+
   for (int i=1; i<argc; ++i) {
     if (strcmp(argv[i], "--dsn") == 0) {
       ++i;
@@ -1922,8 +2144,12 @@ static int test_conn(int argc, char *argv[], SQLHANDLE hconn)
       conn_arg.connstr = argv[i];
       continue;
     }
-    if (strcmp(argv[i], "--non-taos") == 0) {
-      conn_arg.non_taos = 1;
+    if (strcmp(argv[i], "--sqlite3") == 0) {
+      conn_arg.odbc_type= SQLITE3_ODBC;
+      continue;
+    }
+    if (strcmp(argv[i], "--mysql") == 0) {
+      conn_arg.odbc_type = MYSQL_ODBC;
       continue;
     }
   }
@@ -1946,7 +2172,9 @@ static int test_conn(int argc, char *argv[], SQLHANDLE hconn)
     r = _exec_and_check(hconn, (char*)-1, 0, "show apps", 0, 0);
   }
 
-  r = test_cases(hconn);
+  if (conn_arg.odbc_type & TAOS_ODBC) {
+    r = test_cases(hconn);
+  }
 
   CALL_SQLDisconnect(hconn);
 

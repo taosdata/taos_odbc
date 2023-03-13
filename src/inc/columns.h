@@ -25,19 +25,31 @@
 #ifndef _columns_h_
 #define _columns_h_
 
-#include "columns.h"
+#include "macros.h"
+#include "typedefs.h"
 
 EXTERN_C_BEGIN
 
-typedef struct columns_args_s              columns_args_t;
-typedef struct columns_ctx_s               columns_ctx_t;
-typedef struct columns_col_meta_s          columns_col_meta_t;
-
 void columns_args_release(columns_args_t *args) FA_HIDDEN;
-void columns_ctx_release(columns_ctx_t *ctx) FA_HIDDEN;
 
 SQLSMALLINT columns_get_count_of_col_meta(void) FA_HIDDEN;
 columns_col_meta_t* columns_get_col_meta(int i_col) FA_HIDDEN;
+
+void columns_reset(columns_t *columns) FA_HIDDEN;
+void columns_release(columns_t *columns) FA_HIDDEN;
+
+void columns_init(columns_t *columns, stmt_t *stmt) FA_HIDDEN;
+
+SQLRETURN columns_open(
+    columns_t     *columns,
+    SQLCHAR       *CatalogName,
+    SQLSMALLINT    NameLength1,
+    SQLCHAR       *SchemaName,
+    SQLSMALLINT    NameLength2,
+    SQLCHAR       *TableName,
+    SQLSMALLINT    NameLength3,
+    SQLCHAR       *ColumnName,
+    SQLSMALLINT    NameLength4) FA_HIDDEN;
 
 EXTERN_C_END
 

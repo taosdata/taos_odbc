@@ -22,6 +22,8 @@
  * SOFTWARE.
  */
 
+#include "../core/internal.h" // FIXME:
+
 #include "conn.h"
 #include "env.h"
 #include "errs.h"

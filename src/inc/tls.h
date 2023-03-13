@@ -25,11 +25,12 @@
 #ifndef _tls_h_
 #define _tls_h_
 
-#include "charset.h"
+#include "macros.h"
+#include "typedefs.h"
+
+#include "utils.h"
 
 EXTERN_C_BEGIN
-
-typedef struct tls_s              tls_t;
 
 size_t tls_size(void) FA_HIDDEN;
 tls_t* tls_get(void) FA_HIDDEN;

@@ -25,11 +25,10 @@
 #ifndef _stmt_h_
 #define _stmt_h_
 
-#include "conn.h"
+#include "macros.h"
+#include "typedefs.h"
 
 EXTERN_C_BEGIN
-
-typedef struct stmt_s              stmt_t;
 
 stmt_t* stmt_create(conn_t *conn) FA_HIDDEN;
 stmt_t* stmt_ref(stmt_t *stmt) FA_HIDDEN;
@@ -37,7 +36,12 @@ stmt_t* stmt_unref(stmt_t *stmt) FA_HIDDEN;
 SQLRETURN stmt_free(stmt_t *stmt) FA_HIDDEN;
 void stmt_clr_errs(stmt_t *stmt) FA_HIDDEN;
 
-SQLRETURN stmt_exec_direct(stmt_t *stmt, const char *sql, int len) FA_HIDDEN;
+descriptor_t* stmt_APD(stmt_t *stmt) FA_HIDDEN;
+descriptor_t* stmt_IPD(stmt_t *stmt) FA_HIDDEN;
+descriptor_t* stmt_IRD(stmt_t *stmt) FA_HIDDEN;
+descriptor_t* stmt_ARD(stmt_t *stmt) FA_HIDDEN;
+
+SQLRETURN stmt_exec_direct(stmt_t *stmt, SQLCHAR *StatementText, SQLINTEGER TextLength) FA_HIDDEN;
 SQLRETURN stmt_get_row_count(stmt_t *stmt, SQLLEN *row_count_ptr) FA_HIDDEN;
 SQLRETURN stmt_get_col_count(stmt_t *stmt, SQLSMALLINT *col_count_ptr) FA_HIDDEN;
 
@@ -117,6 +121,7 @@ void stmt_dissociate_ARD(stmt_t *stmt) FA_HIDDEN;
 SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr, SQLINTEGER StringLength) FA_HIDDEN;
 
 SQLRETURN stmt_free_stmt(stmt_t *stmt, SQLUSMALLINT Option) FA_HIDDEN;
+SQLRETURN stmt_close_cursor(stmt_t *stmt) FA_HIDDEN;
 
 SQLRETURN stmt_tables(stmt_t *stmt,
     SQLCHAR       *CatalogName,

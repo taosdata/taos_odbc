@@ -98,6 +98,14 @@
       OA_NIY(_s[_n] == '\0');                                        \
       param->conn_str.cache_sql = atoi(_s);                          \
     } while (0)
+
+    void parser_param_release(parser_param_t *param)
+    {
+      if (!param) return;
+      connection_cfg_release(&param->conn_str);
+      TOD_SAFE_FREE(param->errmsg);
+      param->row0 = 0;
+    }
 }
 
 /* Bison declarations. */

@@ -22,17 +22,33 @@
  * SOFTWARE.
  */
 
-#include "parser.h"
+#ifndef _tables_h_
+#define _tables_h_
 
-#include "../core/internal.h"        // FIXME:
-#include "conn.h"
-#include "log.h"
+#include "macros.h"
+#include "typedefs.h"
 
-#include "parser.tab.h"
-#include "parser.lex.c"
+EXTERN_C_BEGIN
 
-#include "parser.lex.h"
-#undef yylloc
-#undef yylval
-#include "parser.tab.c"
+void tables_args_release(tables_args_t *args) FA_HIDDEN;
+
+void tables_reset(tables_t *tables) FA_HIDDEN;
+void tables_release(tables_t *tables) FA_HIDDEN;
+
+void tables_init(tables_t *tables, stmt_t *stmt) FA_HIDDEN;
+
+SQLRETURN tables_open(
+    tables_t      *tables,
+    SQLCHAR       *CatalogName,
+    SQLSMALLINT    NameLength1,
+    SQLCHAR       *SchemaName,
+    SQLSMALLINT    NameLength2,
+    SQLCHAR       *TableName,
+    SQLSMALLINT    NameLength3,
+    SQLCHAR       *TableType,
+    SQLSMALLINT    NameLength4) FA_HIDDEN;
+
+EXTERN_C_END
+
+#endif //  _tables_h_
 

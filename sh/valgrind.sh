@@ -41,5 +41,6 @@ valgrind --leak-check=full                                                \
          --suppressions=${_path_to_valgrind}/sqlite3.supp                 \
          --gen-suppressions=all                                           \
          --track-origins=yes                                              \
+         --errors-for-leak-kinds=definite,indirect,possible               \
          "$@"
 

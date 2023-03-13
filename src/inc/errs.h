@@ -26,12 +26,11 @@
 #define _errs_h_
 
 #include "macros.h"
+#include "typedefs.h"
 
 #include <sqlext.h>
 
 EXTERN_C_BEGIN
-
-typedef struct errs_s            errs_t;
 
 void errs_init(errs_t *errs) FA_HIDDEN;
 void errs_append_x(errs_t *errs, const char *file, int line, const char *func, const char *data_source, const char *sql_state, int e, const char *estr) FA_HIDDEN;

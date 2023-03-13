@@ -25,6 +25,10 @@
 #include "internal.h"
 
 #include "desc.h"
+
+#include "conn.h"
+#include "errs.h"
+#include "stmt.h"
 #include "log.h"
 
 static void _desc_init(desc_t *desc, conn_t *conn)
@@ -124,14 +128,149 @@ void descriptor_init(descriptor_t *desc)
   _desc_header_init(&desc->header);
 }
 
-void descriptor_reclaim_buffers(descriptor_t *APD)
+void descriptor_reclaim_buffers(descriptor_t *descriptor)
 {
-  desc_header_t *APD_header = &APD->header;
+  desc_header_t *header = &descriptor->header;
 
-  for (SQLUSMALLINT i=0; i<APD_header->DESC_COUNT; ++i) {
-    desc_record_t *record = APD->records + i;
+  for (SQLUSMALLINT i=0; i<header->DESC_COUNT; ++i) {
+    desc_record_t *record = descriptor->records + i;
     record->bound = 0;
   }
+}
+
+SQLRETURN descriptor_keep(descriptor_t *descriptor, stmt_t *owner, size_t nr)
+{
+  if (nr <= descriptor->cap) return SQL_SUCCESS;
+
+  size_t cap = (nr + 15) / 16 * 16;
+  desc_record_t *records = (desc_record_t*)realloc(descriptor->records, sizeof(*records) * cap);
+  if (!records) {
+    stmt_oom(owner);
+    return SQL_ERROR;
+  }
+  for (size_t i = descriptor->cap; i<cap; ++i) {
+    desc_record_t *record = records + i;
+    memset(record, 0, sizeof(*record));
+  }
+  descriptor->records = records;
+  descriptor->cap     = cap;
+
+  return SQL_SUCCESS;
+}
+
+static void _unbind_col(descriptor_t *descriptor, size_t col)
+{
+  desc_header_t *header = &descriptor->header;
+  desc_record_t *records = descriptor->records;
+
+  if (col > header->DESC_COUNT) return;
+
+  desc_record_t *record = records + col - 1;
+  if (!record->bound) return;
+
+  record->bound = 0;
+
+  if (col < header->DESC_COUNT) return;
+
+  header->DESC_COUNT -= 1;
+}
+
+SQLRETURN descriptor_bind_col(descriptor_t *ARD,
+    stmt_t        *owner,
+    SQLUSMALLINT   ColumnNumber,
+    SQLSMALLINT    TargetType,
+    SQLPOINTER     TargetValuePtr,
+    SQLLEN         BufferLength,
+    SQLLEN        *StrLen_or_IndPtr)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  desc_header_t *ARD_header = &ARD->header;
+
+  if (TargetValuePtr == NULL) {
+    _unbind_col(ARD, ColumnNumber);
+    return SQL_SUCCESS;
+  }
+
+  sr = descriptor_keep(ARD, owner, ColumnNumber);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  desc_record_t *ARD_record = ARD->records + ColumnNumber - 1;
+  memset(ARD_record, 0, sizeof(*ARD_record));
+
+  switch (TargetType) {
+    case SQL_C_UTINYINT:
+      ARD_record->DESC_LENGTH            = 1;
+      ARD_record->DESC_PRECISION         = 0;
+      ARD_record->DESC_SCALE             = 0;
+      ARD_record->DESC_TYPE              = TargetType;
+      ARD_record->DESC_CONCISE_TYPE      = TargetType;
+      ARD_record->DESC_OCTET_LENGTH      = ARD_record->DESC_LENGTH;
+      break;
+    case SQL_C_SHORT:
+      ARD_record->DESC_LENGTH            = 2;
+      ARD_record->DESC_PRECISION         = 0;
+      ARD_record->DESC_SCALE             = 0;
+      ARD_record->DESC_TYPE              = TargetType;
+      ARD_record->DESC_CONCISE_TYPE      = TargetType;
+      ARD_record->DESC_OCTET_LENGTH      = ARD_record->DESC_LENGTH;
+      break;
+    case SQL_C_SLONG:
+      ARD_record->DESC_LENGTH            = 4;
+      ARD_record->DESC_PRECISION         = 0;
+      ARD_record->DESC_SCALE             = 0;
+      ARD_record->DESC_TYPE              = TargetType;
+      ARD_record->DESC_CONCISE_TYPE      = TargetType;
+      ARD_record->DESC_OCTET_LENGTH      = ARD_record->DESC_LENGTH;
+      break;
+    case SQL_C_SBIGINT:
+      ARD_record->DESC_LENGTH            = 8;
+      ARD_record->DESC_PRECISION         = 0;
+      ARD_record->DESC_SCALE             = 0;
+      ARD_record->DESC_TYPE              = TargetType;
+      ARD_record->DESC_CONCISE_TYPE      = TargetType;
+      ARD_record->DESC_OCTET_LENGTH      = ARD_record->DESC_LENGTH;
+      break;
+    case SQL_C_DOUBLE:
+      ARD_record->DESC_LENGTH            = 8;
+      ARD_record->DESC_PRECISION         = 0;
+      ARD_record->DESC_SCALE             = 0;
+      ARD_record->DESC_TYPE              = TargetType;
+      ARD_record->DESC_CONCISE_TYPE      = TargetType;
+      ARD_record->DESC_OCTET_LENGTH      = ARD_record->DESC_LENGTH;
+      break;
+    case SQL_C_CHAR:
+      ARD_record->DESC_LENGTH            = 0; // FIXME:
+      ARD_record->DESC_PRECISION         = 0;
+      ARD_record->DESC_SCALE             = 0;
+      ARD_record->DESC_TYPE              = TargetType;
+      ARD_record->DESC_CONCISE_TYPE      = TargetType;
+      ARD_record->DESC_OCTET_LENGTH      = BufferLength;
+      break;
+    case SQL_C_WCHAR:
+      ARD_record->DESC_LENGTH            = 0; // FIXME:
+      ARD_record->DESC_PRECISION         = 0;
+      ARD_record->DESC_SCALE             = 0;
+      ARD_record->DESC_TYPE              = TargetType;
+      ARD_record->DESC_CONCISE_TYPE      = TargetType;
+      ARD_record->DESC_OCTET_LENGTH      = BufferLength;
+      break;
+    default:
+      stmt_append_err_format(owner, "HY000", 0,
+          "General error:#%d Column converstion to `%s[0x%x/%d]` not implemented yet",
+          ColumnNumber, sql_c_data_type(TargetType), TargetType, TargetType);
+      return SQL_ERROR;
+      break;
+  }
+
+  ARD_record->DESC_DATA_PTR            = TargetValuePtr;
+  ARD_record->DESC_INDICATOR_PTR       = StrLen_or_IndPtr;
+  ARD_record->DESC_OCTET_LENGTH_PTR    = StrLen_or_IndPtr;
+
+  if (ColumnNumber > ARD_header->DESC_COUNT) ARD_header->DESC_COUNT = ColumnNumber;
+
+  ARD_record->bound = 1;
+  return SQL_SUCCESS;
 }
 
 void desc_clr_errs(desc_t *desc)

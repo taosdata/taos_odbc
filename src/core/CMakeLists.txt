@@ -23,14 +23,16 @@
 ###############################################################################
 
 list(APPEND core_SOURCES charset.c)
+list(APPEND core_SOURCES columns.c)
 list(APPEND core_SOURCES conn.c)
 list(APPEND core_SOURCES conv.c)
 list(APPEND core_SOURCES desc.c)
 list(APPEND core_SOURCES env.c)
 list(APPEND core_SOURCES errs.c)
 list(APPEND core_SOURCES stmt.c)
-list(APPEND core_SOURCES columns.c)
+list(APPEND core_SOURCES tables.c)
 list(APPEND core_SOURCES tls.c)
+list(APPEND core_SOURCES tsdb.c)
 
 add_library(core_obj OBJECT ${core_SOURCES})
 if(TODBC_WINDOWS)

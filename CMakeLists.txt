@@ -27,6 +27,10 @@ project(taos_odbc)
 
 set(TODBC_VERSION 0.1)
 
+option(USE_SAN "whether to use sanitizer or not" OFF)
+option(ENABLE_MYSQL_TEST "whether to test with mysql or not" OFF)
+option(ENABLE_SQLITE3_TEST "whether to test with mysql or not" OFF)
+
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   set(TODBC_LINUX TRUE)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
@@ -67,7 +71,6 @@ if(TODBC_WINDOWS)
   add_compile_options(/DICONV_CONST=)
 endif()
 
-option(USE_SAN "whether to use sanitizer or not" OFF)
 if(TODBC_DARWIN)
   message(STATUS "USE_SAN is ${USE_SAN}")
   if(USE_SAN)

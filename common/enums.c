@@ -75,6 +75,7 @@ const char *sql_c_data_type(SQLSMALLINT v)
 const char *sql_data_type(SQLSMALLINT v)
 {
   switch (v) {
+    CASE(SQL_UNKNOWN_TYPE);
     CASE(SQL_CHAR);
     CASE(SQL_VARCHAR);
     CASE(SQL_LONGVARCHAR);

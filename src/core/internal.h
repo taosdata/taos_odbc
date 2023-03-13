@@ -28,15 +28,10 @@
 #include "os_port.h"
 #include "enums.h"
 
-#include "charset.h"
-#include "conn.h"
-#include "conv.h"
-#include "desc.h"
-#include "errs.h"
-#include "env.h"
 #include "list.h"
-#include "stmt.h"
-#include "columns.h"
+#include "utils.h"
+
+#include "typedefs.h"
 
 #include <taos.h>
 
@@ -217,7 +212,6 @@ struct sql_c_data_s {
   uint8_t               is_null:1;
 };
 
-typedef struct tsdb_data_s              tsdb_data_t;
 struct tsdb_data_s {
   int8_t                type;
   union {
@@ -318,84 +312,28 @@ struct get_data_ctx_s {
 
   tsdb_data_t    tsdb;
   sql_c_data_t   sqlc;
-
-  uint8_t        active:1;
 };
 
-#define DATA_GET_INIT              0x0U
-#define DATA_GET_GETTING           0x1U
-#define DATA_GET_DONE              0x2U
-
-typedef struct tsdb_to_sql_c_state_s      tsdb_to_sql_c_state_t;
-struct tsdb_to_sql_c_state_s {
-  TAOS_FIELD          *field;
-  int                  i_col;
-  int                  i_row;
-
-  SQLSMALLINT          TargetType;
-  SQLPOINTER           TargetValuePtr;
-  SQLLEN               BufferLength;
-  SQLLEN              *StrLen_or_IndPtr;
-
-  const char          *data;
-  size_t               len;
-
-  buffer_t             cache;
-  mem_t                mem;
-
-  unsigned int         state:2; // DATA_GET_{UNKNOWN/INIT/GETTING/DONE}
-};
-
-typedef struct param_array_s              param_array_t;
-struct param_array_s {
+typedef struct tsdb_param_column_s         tsdb_param_column_t;
+struct tsdb_param_column_s {
   mem_t           mem;
   mem_t           mem_length;
   mem_t           mem_is_null;
   SQLRETURN (*conv)(stmt_t *stmt, int i_param);
 };
 
-typedef struct param_set_s                param_set_t;
-struct param_set_s {
-  int             cap_params;
-  int             nr_params;
-  param_array_t  *params;
+typedef struct tsdb_paramset_s             tsdb_paramset_t;
+struct tsdb_paramset_s {
+  int                   cap;
+  int                   nr;
+  tsdb_param_column_t  *params;
 };
 
-typedef struct tsdb_meta_s            tsdb_meta_t;
-struct tsdb_meta_s {
-  char                               *subtbl;
-  TAOS_FIELD_E                        subtbl_field;
-  TAOS_FIELD_E                       *tag_fields;
-  int                                 nr_tag_fields;
-  TAOS_FIELD_E                       *col_fields;
-  int                                 nr_col_fields;
-
-  mem_t                               mem;
-
-  unsigned int                        prepared:1;
-  unsigned int                        is_insert_stmt:1;
-  unsigned int                        subtbl_required:1;
-};
-
-typedef struct tsdb_binds_s           tsdb_binds_t;
 struct tsdb_binds_s {
   int                        cap;
   int                        nr;
 
   TAOS_MULTI_BIND           *mbs;
-};
-
-typedef SQLRETURN (*conv_from_tsdb_to_sql_c_f)(stmt_t *stmt, tsdb_to_sql_c_state_t *conv_state);
-
-typedef struct sql_c_to_tsdb_meta_s                sql_c_to_tsdb_meta_t;
-
-struct sql_c_to_tsdb_meta_s {
-  char          *src_base;
-  SQLLEN         src_len;
-  desc_record_t *IPD_record;
-  TAOS_FIELD_E  *field;
-  char          *dst_base;
-  int32_t       *dst_len;
 };
 
 struct desc_record_s {
@@ -414,8 +352,6 @@ struct desc_record_s {
   SQLSMALLINT                   DESC_UPDATABLE;
   SQLSMALLINT                   DESC_NULLABLE;
   SQLSMALLINT                   DESC_UNNAMED;
-
-  conv_from_tsdb_to_sql_c_f     conv;
 
   unsigned int                  bound:1;
 };
@@ -454,6 +390,37 @@ struct charset_conv_mgr_s {
   struct tod_list_head        convs; // charset_conv_t*
 };
 
+struct connection_cfg_s {
+  char                  *driver;
+  char                  *dsn;
+  char                  *uid;
+  char                  *pwd;
+  char                  *ip;
+  char                  *db;
+  int                    port;
+
+  // NOTE: 1.this is to hack node.odbc, which maps SQL_TINYINT to SQL_C_UTINYINT
+  //       2.node.odbc does not call SQLGetInfo/SQLColAttribute to get signess of integers
+  unsigned int           unsigned_promotion:1;
+  unsigned int           cache_sql:1;
+};
+
+struct parser_token_s {
+  const char      *text;
+  size_t           leng;
+};
+
+struct parser_param_s {
+  connection_cfg_t       conn_str;
+
+  int                    row0, col0;
+  int                    row1, col1;
+  char                  *errmsg;
+
+  unsigned int           debug_flex:1;
+  unsigned int           debug_bison:1;
+};
+
 struct conn_s {
   atomic_int          refc;
   atomic_int          stmts;
@@ -482,6 +449,7 @@ struct conn_s {
 
   charset_conv_t      cnv_sql_c_char_to_tsdb_varchar;
   charset_conv_t      cnv_sql_c_char_to_utf8;
+  charset_conv_t      cnv_sql_c_char_to_sql_c_wchar;
 
   charset_conv_t      cnv_utf8_to_tsdb_varchar;
   charset_conv_t      cnv_utf8_to_sql_c_char;
@@ -493,25 +461,13 @@ struct conn_s {
   unsigned int        fmt_time:1;
 };
 
-typedef struct rs_s                 rs_t;
-typedef struct rowset_s             rowset_t;
-
-struct rowset_s {
-  int                 i_row;
-  int                 nr_rows;
-  TAOS_ROW            rows;
-};
-
-struct rs_s {
-  TAOS_RES                  *res;
-  SQLLEN                     affected_row_count;
-  SQLSMALLINT                col_count;
-  TAOS_FIELD                *fields;
-  int                        time_precision;
-
-  rowset_t                   rowset;
-
-  unsigned int               res_is_from_taos_query:1;
+struct stmt_get_data_args_s {
+  SQLUSMALLINT   Col_or_Param_Num;
+  SQLSMALLINT    TargetType;
+  SQLPOINTER     TargetValuePtr;
+  SQLLEN         BufferLength;
+  SQLLEN        *StrLenPtr;
+  SQLLEN        *IndPtr;
 };
 
 // NOTE: this exists because of https://github.com/taosdata/TDengine/issues/17890
@@ -523,6 +479,129 @@ struct post_filter_s {
   void                   *ctx;
   post_filter_f           post_filter;
   post_filter_destroy_f   post_filter_destroy;
+};
+
+struct stmt_base_s {
+  SQLRETURN (*query)(stmt_base_t *base, const char *sql);
+  SQLRETURN (*execute)(stmt_base_t *base);
+  SQLRETURN (*fetch_rowset)(stmt_base_t *base, size_t rowset_size);
+  SQLRETURN (*fetch_row)(stmt_base_t *base);
+  void (*move_to_first_on_rowset)(stmt_base_t *base);
+  SQLRETURN (*describe_param)(stmt_base_t *base,
+      SQLUSMALLINT    ParameterNumber,
+      SQLSMALLINT    *DataTypePtr,
+      SQLULEN        *ParameterSizePtr,
+      SQLSMALLINT    *DecimalDigitsPtr,
+      SQLSMALLINT    *NullablePtr);
+  SQLRETURN (*describe_col)(stmt_base_t *base,
+      SQLUSMALLINT   ColumnNumber,
+      SQLCHAR       *ColumnName,
+      SQLSMALLINT    BufferLength,
+      SQLSMALLINT   *NameLengthPtr,
+      SQLSMALLINT   *DataTypePtr,
+      SQLULEN       *ColumnSizePtr,
+      SQLSMALLINT   *DecimalDigitsPtr,
+      SQLSMALLINT   *NullablePtr);
+  SQLRETURN (*get_num_params)(stmt_base_t *base, SQLSMALLINT *ParameterCountPtr);
+  SQLRETURN (*check_params)(stmt_base_t *base);
+  SQLRETURN (*tsdb_field_by_param)(stmt_base_t *base, int i_param, TAOS_FIELD_E **field);
+  SQLRETURN (*get_num_cols)(stmt_base_t *base, SQLSMALLINT *ColumnCountPtr);
+  SQLRETURN (*get_data)(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsdb_data_t *tsdb);
+};
+
+struct tsdb_fields_s {
+  TAOS_FIELD                *fields;
+  size_t                     nr;
+};
+
+struct tsdb_rows_block_s {
+  TAOS_ROW            rows;
+  size_t              nr;
+  size_t              rowset_size;
+  size_t              block0;        // 0-based
+  size_t              pos0;          // 1-based
+  size_t              pos;           // 1-based
+};
+
+struct tsdb_res_s {
+  TAOS_RES                  *res;
+  size_t                     affected_row_count;
+  int                        time_precision;
+  tsdb_fields_t              fields;
+  tsdb_rows_block_t          rows_block;
+
+  unsigned int               res_is_from_taos_query:1;
+};
+
+struct tsdb_params_s {
+  tsdb_stmt_t                        *owner;
+  char                               *subtbl;
+  TAOS_FIELD_E                        subtbl_field;
+  TAOS_FIELD_E                       *tag_fields;
+  int                                 nr_tag_fields;
+  TAOS_FIELD_E                       *col_fields;
+  int                                 nr_col_fields;
+
+  mem_t                               mem;
+
+  unsigned int                        prepared:1;
+  unsigned int                        is_insert_stmt:1;
+  unsigned int                        subtbl_required:1;
+};
+
+struct tsdb_stmt_s {
+  stmt_base_t                base;
+
+  stmt_t                    *owner;
+
+  TAOS_STMT                 *stmt;
+  // for insert-parameterized-statement
+  tsdb_params_t              params;
+
+  tsdb_binds_t               binds;
+
+  tsdb_res_t                 res;
+
+  unsigned int               prepared:1;
+};
+
+struct tables_args_s {
+  wildex_t        *catalog_pattern;
+  wildex_t        *schema_pattern;
+  wildex_t        *table_pattern;
+  wildex_t        *type_pattern;
+};
+
+typedef enum tables_type_e     tables_type_t;
+
+enum tables_type_e {
+  TABLES_FOR_GENERIC,
+  TABLES_FOR_CATALOGS,
+  TABLES_FOR_SCHEMAS,
+  TABLES_FOR_TABLETYPES,
+};
+
+struct tables_s {
+  stmt_base_t                base;
+  stmt_t                    *owner;
+
+  tables_args_t              tables_args;
+
+  tsdb_stmt_t                stmt;
+
+  size_t                     rowset_size;
+
+  const unsigned char       *catalog;
+  const unsigned char       *schema;
+  const unsigned char       *table;
+  const unsigned char       *type;
+
+  mem_t                      catalog_cache;
+  mem_t                      schema_cache;
+  mem_t                      table_cache;
+  mem_t                      type_cache;
+
+  tables_type_t              tables_type;
 };
 
 struct columns_args_s {
@@ -544,36 +623,25 @@ struct columns_col_meta_s {
   SQLLEN                      DESC_UNSIGNED;
 };
 
-struct columns_ctx_s {
-  columns_args_t    columns_args;
-  TAOS_RES         *tables;
-  TAOS_FIELD       *tables_fields;
-  TAOS_ROW          tables_rowset;
-  int               tables_rowset_num;
-  int               tables_rowset_idx;
+struct columns_s {
+  stmt_base_t                base;
+  stmt_t                    *owner;
 
-  TAOS_RES         *table;
-  TAOS_FIELD       *table_fields;
-  TAOS_ROW          table_rowset;
-  int               table_rowset_num;
-  int               table_rowset_idx;
+  columns_args_t             columns_args;
 
-  const char       *s_catalog;
-  int               s_catalog_len;
+  tsdb_stmt_t                stmt;
 
-  const char       *s_schema;
-  int               s_schema_len;
+  tsdb_stmt_t                desc;
 
-  const char       *s_table;
-  int               s_table_len;
+  const unsigned char       *catalog;
+  const unsigned char       *schema;
+  const unsigned char       *table;
+  const unsigned char       *column;
 
-  SQLSMALLINT       current_Col;
-  const char       *s_current;
-  int               s_current_len;
-
-  unsigned int      active:1;
-  unsigned int      fetching:1;
-  unsigned int      ending:1;
+  mem_t                      catalog_cache;
+  mem_t                      schema_cache;
+  mem_t                      table_cache;
+  mem_t                      column_cache;
 };
 
 struct stmt_s {
@@ -595,31 +663,24 @@ struct stmt_s {
   descriptor_t              *current_APD;
   descriptor_t              *current_ARD;
 
-  tsdb_to_sql_c_state_t      current_for_get_data;
   get_data_ctx_t             get_data_ctx;
 
-  char                      *sql;
+  mem_t                      sql;
 
-  TAOS_STMT                 *stmt;
-  // for non-insert-parameterized-statement
-  int                        nr_params_for_non_insert;
-
-  param_set_t                paramset;
-
-  // for insert-parameterized-statement
-  tsdb_meta_t                tsdb_meta;
+  tsdb_paramset_t                 paramset;
 
   tsdb_binds_t               tsdb_binds;
 
   post_filter_t              post_filter;
 
-  rs_t                       rs;
-
-  columns_ctx_t              columns_ctx;
+  tsdb_stmt_t                tsdb_stmt;
+  tables_t                   tables;
+  columns_t                  columns;
 
   mem_t                      mem;
 
-  unsigned int               prepared:1;
+  stmt_base_t               *base;
+
   unsigned int               get_or_put_or_undef:2; // 0x0: undef; 0x1:get; 0x2:put
   unsigned int               strict:1; // 1: param-truncation as failure
 };

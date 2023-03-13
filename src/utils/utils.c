@@ -23,8 +23,10 @@
  */
 
 #include "os_port.h"
-#include "tls.h"
 #include "utils.h"
+
+#include "charset.h"
+#include "tls.h"
 
 #include <ctype.h>
 #include <errno.h>
@@ -153,20 +155,23 @@ again:
   iconv(cnv, NULL, NULL, NULL, NULL);
   if (n == (size_t)-1) {
     if (e != E2BIG) return -1;
-    r = mem_expand(mem, inbytesleft + TERMINATOR_MAX);
+    size_t indelta = len - inbytesleft;
+    double outdelta = mem->cap - outbytesleft;
+    size_t delta = (size_t)(outdelta / indelta * inbytesleft);
+    r = mem_expand(mem, delta + TERMINATOR_MAX);
     if (r) return -1;
     goto again;
   }
 
   if (inbytesleft) return -1;
+  mem->nr = mem->cap - outbytesleft;
   if (outbytesleft < TERMINATOR_MAX) {
     r = mem_expand(mem, TERMINATOR_MAX);
     if (r) return -1;
-    goto again;
   }
 
+  outbuf = (char*)mem->base + mem->nr;
   memset(outbuf, 0, TERMINATOR_MAX);
-  mem->nr = mem->cap - outbytesleft;
 
   return 0;
 }

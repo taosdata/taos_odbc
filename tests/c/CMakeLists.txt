@@ -47,19 +47,19 @@ endif()
 
 if(ENABLE_MYSQL_TEST)
   add_test(NAME mysql_conformance_test
-      COMMAND conformance_test --dsn MYSQL_ODBC_DSN)
+      COMMAND conformance_test --dsn MYSQL_ODBC_DSN --mysql)
   if(HAVE_VALGRIND)
     add_test(NAME Vmysql_conformance_test
-        COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/conformance_test --dsn MYSQL_ODBC_DSN)
+        COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/conformance_test --dsn MYSQL_ODBC_DSN --mysql)
   endif()
 endif()
 
 if(ENABLE_SQLITE3_TEST)
   add_test(NAME sqlite3_conformance_test
-      COMMAND conformance_test --dsn SQLITE3_DSN)
+      COMMAND conformance_test --dsn SQLITE3_DSN --sqlite3)
   if(HAVE_VALGRIND)
     add_test(NAME Vsqlite3_conformance_test
-        COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/conformance_test --dsn SQLITE3_DSN)
+        COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/conformance_test --dsn SQLITE3_DSN --sqlite3)
   endif()
 endif()
 
@@ -127,11 +127,11 @@ endif()
 
 if(ENABLE_MYSQL_TEST)
   add_test(NAME mysql_odbc_test
-      COMMAND odbc_test --dsn MYSQL_ODBC_DSN)
+      COMMAND odbc_test --dsn MYSQL_ODBC_DSN --mysql)
 
   if(HAVE_VALGRIND)
     add_test(NAME Vmysql_odbc_test
-        COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/odbc_test --dsn MYSQL_ODBC_DSN)
+        COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/odbc_test --dsn MYSQL_ODBC_DSN --mysql)
   endif()
 endif()
 

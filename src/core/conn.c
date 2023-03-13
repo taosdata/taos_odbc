@@ -27,8 +27,11 @@
 #include "charset.h"
 #include "conn.h"
 #include "desc.h"
+#include "env.h"
+#include "errs.h"
 #include "log.h"
 #include "parser.h"
+#include "stmt.h"
 #include "taos_helpers.h"
 
 #ifndef _WIN32
@@ -36,6 +39,26 @@
 #endif
 #include <odbcinst.h>
 #include <string.h>
+
+void connection_cfg_release(connection_cfg_t *conn_str)
+{
+  if (!conn_str) return;
+
+  TOD_SAFE_FREE(conn_str->driver);
+  TOD_SAFE_FREE(conn_str->dsn);
+  TOD_SAFE_FREE(conn_str->uid);
+  TOD_SAFE_FREE(conn_str->pwd);
+  TOD_SAFE_FREE(conn_str->ip);
+  TOD_SAFE_FREE(conn_str->db);
+}
+
+void connection_cfg_transfer(connection_cfg_t *from, connection_cfg_t *to)
+{
+  if (from == to) return;
+  connection_cfg_release(to);
+  *to = *from;
+  memset(from, 0, sizeof(*from));
+}
 
 static void _conn_init(conn_t *conn, env_t *env)
 {
@@ -66,6 +89,7 @@ static void _conn_release_iconvs(conn_t *conn)
 
   charset_conv_release(&conn->cnv_sql_c_char_to_tsdb_varchar);
   charset_conv_release(&conn->cnv_sql_c_char_to_utf8);
+  charset_conv_release(&conn->cnv_sql_c_char_to_sql_c_wchar);
 
   charset_conv_release(&conn->cnv_utf8_to_tsdb_varchar);
   charset_conv_release(&conn->cnv_utf8_to_sql_c_char);
@@ -342,6 +366,10 @@ static int _conn_setup_iconvs(conn_t *conn)
     do {
       cnv = &conn->cnv_sql_c_char_to_tsdb_varchar;
       from = sql_c_charset; to = tsdb_charset;
+      if (charset_conv_reset(cnv, from, to)) break;
+
+      cnv = &conn->cnv_sql_c_char_to_sql_c_wchar;
+      from = sql_c_charset; to = "UCS-2LE";
       if (charset_conv_reset(cnv, from, to)) break;
 
       cnv = &conn->cnv_tsdb_varchar_to_sql_c_char;
@@ -925,6 +953,9 @@ SQLRETURN conn_get_info(
     case SQL_MAX_CONCURRENT_ACTIVITIES:
       *(SQLUSMALLINT*)InfoValuePtr = 0;
       return SQL_SUCCESS;
+    case SQL_BOOKMARK_PERSISTENCE:
+      *(SQLUINTEGER*)InfoValuePtr = 0;
+      return SQL_SUCCESS;
     default:
       conn_append_err_format(conn, "HY000", 0, "General error:`%s[%d/0x%x]` not implemented yet", sql_info_type(InfoType), InfoType, InfoType);
       return SQL_ERROR;
@@ -1086,3 +1117,4 @@ SQLRETURN conn_complete_async(
   conn_append_err(conn, "HY000", 0, "General error:not supported yet");
   return SQL_ERROR;
 }
+

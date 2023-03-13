@@ -529,6 +529,43 @@ static inline SQLRETURN call_SQLGetConnectAttr(const char *file, int line, const
   return sr;
 }
 
+static inline SQLRETURN call_SQLColumns(const char *file, int line, const char *func,
+    SQLHSTMT       StatementHandle,
+    SQLCHAR       *CatalogName,
+    SQLSMALLINT    NameLength1,
+    SQLCHAR       *SchemaName,
+    SQLSMALLINT    NameLength2,
+    SQLCHAR       *TableName,
+    SQLSMALLINT    NameLength3,
+    SQLCHAR       *ColumnName,
+    SQLSMALLINT    NameLength4)
+{
+  int n1 = NameLength1;
+  if (n1 == SQL_NTS) n1 = CatalogName ? (int)strlen((const char*)CatalogName) : 0;
+
+  int n2 = NameLength2;
+  if (n2 == SQL_NTS) n2 = SchemaName ? (int)strlen((const char*)SchemaName) : 0;
+
+  int n3 = NameLength3;
+  if (n3 == SQL_NTS) n3 = TableName ? (int)strlen((const char*)TableName) : 0;
+
+  int n4 = NameLength4;
+  if (n4 == SQL_NTS) n4 = ColumnName ? (int)strlen((const char*)ColumnName) : 0;
+
+  LOGD_ODBC(file, line, func, "SQLColumns(StatementHandle:%p,CatalogName:%p(%.*s),NameLength1:%d,SchemaName:%p(%.*s),NameLength2(%d),"
+      "TableName:%p(%.*s),NameLength3:%d,ColumnName:%p(%.*s),NameLength4:%d) ...",
+      StatementHandle, CatalogName, n1, CatalogName, n1, SchemaName, n2, SchemaName, n2,
+      TableName, n3, TableName, n3, ColumnName, n4, ColumnName, n4);
+  SQLRETURN sr = SQLColumns(StatementHandle, CatalogName, NameLength1, SchemaName, NameLength2, TableName, NameLength3, ColumnName, NameLength4);
+  diag(sr, SQL_HANDLE_STMT, StatementHandle);
+  LOGD_ODBC(file, line, func, "SQLColumns(StatementHandle:%p,CatalogName:%p(%.*s),NameLength1:%d,SchemaName:%p(%.*s),NameLength2(%d),"
+      "TableName:%p(%.*s),NameLength3:%d,ColumnName:%p(%.*s),NameLength4:%d) => %s",
+      StatementHandle, CatalogName, n1, CatalogName, n1, SchemaName, n2, SchemaName, n2,
+      TableName, n3, TableName, n3, ColumnName, n4, ColumnName, n4,
+      sql_return_type(sr));
+  return sr;
+}
+
 #define CALL_SQLAllocHandle(...)                   call_SQLAllocHandle(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLFreeHandle(...)                    call_SQLFreeHandle(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLSetEnvAttr(...)                    call_SQLSetEnvAttr(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
@@ -557,6 +594,7 @@ static inline SQLRETURN call_SQLGetConnectAttr(const char *file, int line, const
 #define CALL_SQLFetchScroll(...)                   call_SQLFetchScroll(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLGetDiagField(...)                  call_SQLGetDiagField(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLGetConnectAttr(...)                call_SQLGetConnectAttr(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
+#define CALL_SQLColumns(...)                       call_SQLColumns(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 
 #endif // _odbc_helper_h_
 

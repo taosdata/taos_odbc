@@ -25,13 +25,10 @@
 #ifndef _desc_h_
 #define _desc_h_
 
-#include "conn.h"
+#include "macros.h"
+#include "typedefs.h"
 
 EXTERN_C_BEGIN
-
-typedef struct descriptor_s        descriptor_t;
-typedef struct desc_s              desc_t;
-typedef struct desc_record_s       desc_record_t;
 
 desc_t* desc_create(conn_t *conn) FA_HIDDEN;
 desc_t* desc_ref(desc_t *desc) FA_HIDDEN;
@@ -43,6 +40,16 @@ void descriptor_init(descriptor_t *descriptor) FA_HIDDEN;
 void descriptor_release(descriptor_t *descriptor) FA_HIDDEN;
 
 void descriptor_reclaim_buffers(descriptor_t *APD) FA_HIDDEN;
+
+SQLRETURN descriptor_keep(descriptor_t *descriptor, stmt_t *owner, size_t nr) FA_HIDDEN;
+
+SQLRETURN descriptor_bind_col(descriptor_t *ARD,
+    stmt_t        *owner,
+    SQLUSMALLINT   ColumnNumber,
+    SQLSMALLINT    TargetType,
+    SQLPOINTER     TargetValuePtr,
+    SQLLEN         BufferLength,
+    SQLLEN        *StrLen_or_IndPtr) FA_HIDDEN;
 
 void desc_clr_errs(desc_t *desc) FA_HIDDEN;
 

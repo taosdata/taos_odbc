@@ -30,12 +30,12 @@
 #include "logger.h"
 #include "utils.h"
 
+#include "typedefs.h"
+
 #include <sqlext.h>
 #include <iconv.h>
 
 EXTERN_C_BEGIN
-
-typedef struct env_s              env_t;
 
 env_t* env_create(void) FA_HIDDEN;
 env_t* env_ref(env_t *env) FA_HIDDEN;

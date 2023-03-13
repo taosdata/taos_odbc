@@ -25,6 +25,8 @@
 #include "internal.h"
 
 #include "env.h"
+#include "conn.h"
+#include "errs.h"
 #include "log.h"
 #include "taos_helpers.h"
 

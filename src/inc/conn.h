@@ -25,51 +25,17 @@
 #ifndef _conn_h_
 #define _conn_h_
 
-#include "env.h"
+#include "macros.h"
+#include "typedefs.h"
 
-#include <string.h>
+#include "utils.h"
+
+#include <sql.h>
 
 EXTERN_C_BEGIN
 
-typedef struct connection_cfg_s    connection_cfg_t;
-
-struct connection_cfg_s {
-  char                  *driver;
-  char                  *dsn;
-  char                  *uid;
-  char                  *pwd;
-  char                  *ip;
-  char                  *db;
-  int                    port;
-
-  // NOTE: 1.this is to hack node.odbc, which maps SQL_TINYINT to SQL_C_UTINYINT
-  //       2.node.odbc does not call SQLGetInfo/SQLColAttribute to get signess of integers
-  unsigned int           unsigned_promotion:1;
-  unsigned int           cache_sql:1;
-};
-
-static inline void connection_cfg_release(connection_cfg_t *conn_str)
-{
-  if (!conn_str) return;
-
-  TOD_SAFE_FREE(conn_str->driver);
-  TOD_SAFE_FREE(conn_str->dsn);
-  TOD_SAFE_FREE(conn_str->uid);
-  TOD_SAFE_FREE(conn_str->pwd);
-  TOD_SAFE_FREE(conn_str->ip);
-  TOD_SAFE_FREE(conn_str->db);
-}
-
-static inline void connection_cfg_transfer(connection_cfg_t *from, connection_cfg_t *to)
-{
-  if (from == to) return;
-  connection_cfg_release(to);
-  *to = *from;
-  memset(from, 0, sizeof(*from));
-}
-
-typedef struct conn_s              conn_t;
-typedef struct desc_s              desc_t;
+void connection_cfg_release(connection_cfg_t *conn_str) FA_HIDDEN;
+void connection_cfg_transfer(connection_cfg_t *from, connection_cfg_t *to) FA_HIDDEN;
 
 conn_t* conn_create(env_t *env) FA_HIDDEN;
 conn_t* conn_ref(conn_t *conn) FA_HIDDEN;

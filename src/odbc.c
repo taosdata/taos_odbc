@@ -38,9 +38,9 @@
 #include <sqlext.h>
 #include <sqlucode.h>
 
-#ifdef _WIN32
+#ifdef _WIN32                 /* { */
 #include <odbcinst.h>
-#endif
+#endif                        /* } */
 
 // NOTE: if you wanna debug in detail, just define DEBUG_OOW to 1
 // NOTE: this is performance-hit, please take serious consideration in advance!!!
@@ -349,9 +349,7 @@ SQLRETURN SQL_API SQLExecDirect(
 
   stmt_clr_errs(stmt);
 
-  const char *sql = (const char*)StatementText;
-  int n = (TextLength == SQL_NTS) ? (int)strlen(sql) : TextLength;
-  return stmt_exec_direct(stmt, sql, n);
+  return stmt_exec_direct(stmt, StatementText, TextLength);
 }
 
 SQLRETURN SQL_API SQLSetEnvAttr(
@@ -408,7 +406,7 @@ SQLRETURN SQL_API SQLEndTran(
   }
 }
 
-#if (ODBCVER >= 0x0300)
+#if (ODBCVER >= 0x0300)                  /* { */
 SQLRETURN SQL_API SQLSetConnectAttr(
     SQLHDBC       ConnectionHandle,
     SQLINTEGER    Attribute,
@@ -424,7 +422,7 @@ SQLRETURN SQL_API SQLSetConnectAttr(
 
   return conn_set_attr(conn, Attribute, ValuePtr, StringLength);
 }
-#endif /* ODBCVER >= 0x0300 */
+#endif                                   /* } */
 
 SQLRETURN SQL_API SQLSetStmtAttr(
     SQLHSTMT      StatementHandle,
@@ -1050,7 +1048,7 @@ BOOL INSTAPI ConfigDriver(HWND hwndParent, WORD fRequest, LPCSTR lpszDriver, LPC
 
 #endif                       /* } */
 
-#if (ODBCVER >= 0x0300)
+#if (ODBCVER >= 0x0300)                  /* { */
 SQLRETURN SQL_API SQLBulkOperations(
     SQLHSTMT            StatementHandle,
     SQLSMALLINT         Operation)
@@ -1064,29 +1062,32 @@ SQLRETURN SQL_API SQLBulkOperations(
 
   return stmt_bulk_operations(stmt, Operation);
 }
-#endif  /* ODBCVER >= 0x0300 */
+#endif                                   /* } */
 
-#if 0
+#if 0                          /* { */
 SQLRETURN SQL_API SQLCancel(SQLHSTMT StatementHandle)
 {
   OOW("===");
   (void)StatementHandle;
   OA_NIY(0);
 }
-#endif
+#endif                         /* } */
 
-#if (ODBCVER >= 0x0300)
-#if 0
+#if (ODBCVER >= 0x0300)                  /* { */
 SQLRETURN SQL_API SQLCloseCursor(SQLHSTMT StatementHandle)
 {
   OOW("===");
-  (void)StatementHandle;
   // NOTE: some tiny difference in SQLFreeStmt
   // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlclosecursor-function?view=sql-server-ver16
-  return SQLFreeStmt(StatementHandle, SQL_CLOSE);
+  if (StatementHandle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
+
+  stmt_t *stmt = (stmt_t*)StatementHandle;
+
+  stmt_clr_errs(stmt);
+
+  return stmt_close_cursor(stmt);
 }
-#endif
-#endif
+#endif                                   /* } */
 
 SQLRETURN SQL_API SQLColumnPrivileges(
     SQLHSTMT      StatementHandle,
@@ -1182,7 +1183,7 @@ SQLRETURN SQL_API SQLForeignKeys(
       PKTableName, NameLength3, FKCatalogName, NameLength4, FKSchemaName, NameLength5, FKTableName, NameLength6);
 }
 
-#if (ODBCVER >= 0x0300)
+#if (ODBCVER >= 0x0300)        /* { */
 SQLRETURN SQL_API SQLGetConnectAttr(SQLHDBC ConnectionHandle,
            SQLINTEGER Attribute, SQLPOINTER Value,
            SQLINTEGER BufferLength, SQLINTEGER *StringLengthPtr)
@@ -1196,7 +1197,7 @@ SQLRETURN SQL_API SQLGetConnectAttr(SQLHDBC ConnectionHandle,
 
   return conn_get_attr(conn, Attribute, Value, BufferLength, StringLengthPtr);
 }
-#endif
+#endif                         /* } */
 
 SQLRETURN SQL_API SQLGetCursorName(
     SQLHSTMT      StatementHandle,
@@ -1265,7 +1266,7 @@ SQLRETURN SQL_API SQLGetEnvAttr(SQLHENV EnvironmentHandle,
 }
 #endif                          /* } */
 
-#if 0
+#if 0                           /* { */
 SQLRETURN SQL_API SQLGetFunctions(SQLHDBC ConnectionHandle,
            SQLUSMALLINT FunctionId,
            SQLUSMALLINT *Supported)
@@ -1276,9 +1277,9 @@ SQLRETURN SQL_API SQLGetFunctions(SQLHDBC ConnectionHandle,
   (void)Supported;
   OA_NIY(0);
 }
-#endif
+#endif                          /* } */
 
-#if (ODBCVER >= 0x0300)
+#if (ODBCVER >= 0x0300)                  /* { */
 SQLRETURN SQL_API SQLGetStmtAttr(SQLHSTMT StatementHandle,
            SQLINTEGER Attribute, SQLPOINTER Value,
            SQLINTEGER BufferLength, SQLINTEGER *StringLength)
@@ -1291,7 +1292,7 @@ SQLRETURN SQL_API SQLGetStmtAttr(SQLHSTMT StatementHandle,
   stmt_clr_errs(stmt);
   return stmt_get_attr(stmt, Attribute, Value, BufferLength, StringLength);
 }
-#endif  /* ODBCVER >= 0x0300 */
+#endif                                   /* } */
 
 SQLRETURN SQL_API SQLGetTypeInfo(SQLHSTMT StatementHandle,
            SQLSMALLINT DataType)

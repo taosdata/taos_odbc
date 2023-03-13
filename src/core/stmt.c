@@ -4410,22 +4410,12 @@ static SQLRETURN _stmt_get_diag_field_row_number(
 
   if (RecNumber!=1) OA_NIY(0);
 
+  // FIXME: get or put?
   tsdb_res_t           *res          = &stmt->tsdb_stmt.res;
   tsdb_rows_block_t    *rows_block   = &res->rows_block;
 
-  switch (stmt->get_or_put_or_undef) {
-    case 0x1: // get
-      // FIXME: experimental
-      OA(0, "");
-      *(SQLLEN*)DiagInfoPtr = (SQLLEN)rows_block->pos;
-      return SQL_SUCCESS;
-    case 0x2: // put
-      OA_NIY(0);
-      return SQL_ERROR;
-    default: // undef
-      OA_NIY(0);
-      return SQL_ERROR;
-  }
+  *(SQLLEN*)DiagInfoPtr = (SQLLEN)rows_block->pos;
+  return SQL_SUCCESS;
 }
 
 SQLRETURN stmt_get_diag_field(

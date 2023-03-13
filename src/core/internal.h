@@ -681,7 +681,6 @@ struct stmt_s {
 
   stmt_base_t               *base;
 
-  unsigned int               get_or_put_or_undef:2; // 0x0: undef; 0x1:get; 0x2:put
   unsigned int               strict:1; // 1: param-truncation as failure
 };
 

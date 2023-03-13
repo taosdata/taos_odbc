@@ -114,6 +114,7 @@ target_link_directories(odbc_test PRIVATE ${CJSON_INSTALL_PATH}/lib)
 if(NOT TODBC_WINDOWS)
     target_link_libraries(odbc_test odbc cjson pthread)
 else()
+    set_source_files_properties(odbc_test.c PROPERTIES COMPILE_OPTIONS "/source-charset:utf-8")
     target_link_libraries(odbc_test odbc32 cjson)
 endif()
 

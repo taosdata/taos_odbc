@@ -448,7 +448,7 @@ static SQLRETURN _stmt_fill_IRD(stmt_t *stmt)
   sr = descriptor_keep(IRD, stmt, fields->nr);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-  IRD_header->DESC_COUNT = fields->nr;
+  IRD_header->DESC_COUNT = (SQLUSMALLINT)fields->nr;
 
   for (size_t i=0; i<IRD_header->DESC_COUNT; ++i) {
     desc_record_t *IRD_record = IRD->records + i;
@@ -891,7 +891,7 @@ static SQLRETURN _stmt_get_data_len(stmt_t *stmt, int row, int col, const char *
   return SQL_SUCCESS;
 }
 
-static SQLPOINTER _stmt_get_address(stmt_t *stmt, SQLPOINTER ptr, SQLULEN octet_length, int i_row, desc_header_t *header)
+static SQLPOINTER _stmt_get_address(stmt_t *stmt, SQLPOINTER ptr, SQLULEN octet_length, size_t i_row, desc_header_t *header)
 {
   (void)stmt;
   if (ptr == NULL) return ptr;
@@ -1377,7 +1377,7 @@ static SQLRETURN _stmt_get_data_copy_varchar(stmt_t *stmt, const char *s, size_t
             sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
         return SQL_ERROR;
       }
-      *(int8_t*)args->TargetValuePtr = i64;
+      *(int8_t*)args->TargetValuePtr = (int8_t)i64;
       break;
     case SQL_C_UTINYINT:
       sr = _stmt_varchar_to_uint64(stmt, s, nr, &u64, args);
@@ -1389,7 +1389,7 @@ static SQLRETURN _stmt_get_data_copy_varchar(stmt_t *stmt, const char *s, size_t
             sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
         return SQL_ERROR;
       }
-      *(uint8_t*)args->TargetValuePtr = u64;
+      *(uint8_t*)args->TargetValuePtr = (uint8_t)u64;
       break;
     case SQL_C_SSHORT:
       sr = _stmt_varchar_to_int64(stmt, s, nr, &i64, args);
@@ -1401,7 +1401,7 @@ static SQLRETURN _stmt_get_data_copy_varchar(stmt_t *stmt, const char *s, size_t
             sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
         return SQL_ERROR;
       }
-      *(int16_t*)args->TargetValuePtr = i64;
+      *(int16_t*)args->TargetValuePtr = (int16_t)i64;
       break;
     case SQL_C_USHORT:
       sr = _stmt_varchar_to_uint64(stmt, s, nr, &u64, args);
@@ -1413,7 +1413,7 @@ static SQLRETURN _stmt_get_data_copy_varchar(stmt_t *stmt, const char *s, size_t
             sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
         return SQL_ERROR;
       }
-      *(uint16_t*)args->TargetValuePtr = u64;
+      *(uint16_t*)args->TargetValuePtr = (uint16_t)u64;
       break;
     case SQL_C_SLONG:
       sr = _stmt_varchar_to_int64(stmt, s, nr, &i64, args);
@@ -1425,7 +1425,7 @@ static SQLRETURN _stmt_get_data_copy_varchar(stmt_t *stmt, const char *s, size_t
             sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
         return SQL_ERROR;
       }
-      *(int32_t*)args->TargetValuePtr = i64;
+      *(int32_t*)args->TargetValuePtr = (int32_t)i64;
       break;
     case SQL_C_ULONG:
       sr = _stmt_varchar_to_uint64(stmt, s, nr, &u64, args);
@@ -1437,7 +1437,7 @@ static SQLRETURN _stmt_get_data_copy_varchar(stmt_t *stmt, const char *s, size_t
             sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
         return SQL_ERROR;
       }
-      *(uint32_t*)args->TargetValuePtr = u64;
+      *(uint32_t*)args->TargetValuePtr = (uint32_t)u64;
       break;
     case SQL_C_SBIGINT:
       sr = _stmt_varchar_to_int64(stmt, s, nr, &i64, args);
@@ -1491,22 +1491,22 @@ static SQLRETURN _stmt_get_data_copy_int64(stmt_t *stmt, int64_t v, stmt_get_dat
       *(uint8_t*)args->TargetValuePtr = !!v;
       break;
     case SQL_C_STINYINT:
-      *(int8_t*)args->TargetValuePtr = v;
+      *(int8_t*)args->TargetValuePtr = (int8_t)v;
       break;
     case SQL_C_UTINYINT:
-      *(uint8_t*)args->TargetValuePtr = v;
+      *(uint8_t*)args->TargetValuePtr = (uint8_t)v;
       break;
     case SQL_C_SSHORT:
-      *(int16_t*)args->TargetValuePtr = v;
+      *(int16_t*)args->TargetValuePtr = (int16_t)v;
       break;
     case SQL_C_USHORT:
-      *(uint16_t*)args->TargetValuePtr = v;
+      *(uint16_t*)args->TargetValuePtr = (uint16_t)v;
       break;
     case SQL_C_SLONG:
-      *(int32_t*)args->TargetValuePtr = v;
+      *(int32_t*)args->TargetValuePtr = (int32_t)v;
       break;
     case SQL_C_ULONG:
-      *(uint32_t*)args->TargetValuePtr = v;
+      *(uint32_t*)args->TargetValuePtr = (uint32_t)v;
       break;
     case SQL_C_SBIGINT:
       *(int64_t*)args->TargetValuePtr = v;
@@ -1515,7 +1515,7 @@ static SQLRETURN _stmt_get_data_copy_int64(stmt_t *stmt, int64_t v, stmt_get_dat
       *(uint64_t*)args->TargetValuePtr = v;
       break;
     case SQL_C_SHORT:
-      *(int16_t*)args->TargetValuePtr = v;
+      *(int16_t*)args->TargetValuePtr = (int16_t)v;
       break;
     case SQL_C_CHAR:
       return _stmt_get_data_copy_buf_to_char(stmt, args);
@@ -1544,22 +1544,22 @@ static SQLRETURN _stmt_get_data_copy_uint64(stmt_t *stmt, uint64_t v, stmt_get_d
       *(uint8_t*)args->TargetValuePtr = !!v;
       break;
     case SQL_C_STINYINT:
-      *(int8_t*)args->TargetValuePtr = v;
+      *(int8_t*)args->TargetValuePtr = (int8_t)v;
       break;
     case SQL_C_UTINYINT:
-      *(uint8_t*)args->TargetValuePtr = v;
+      *(uint8_t*)args->TargetValuePtr = (uint8_t)v;
       break;
     case SQL_C_SSHORT:
-      *(int16_t*)args->TargetValuePtr = v;
+      *(int16_t*)args->TargetValuePtr = (int16_t)v;
       break;
     case SQL_C_USHORT:
-      *(uint16_t*)args->TargetValuePtr = v;
+      *(uint16_t*)args->TargetValuePtr = (uint16_t)v;
       break;
     case SQL_C_SLONG:
-      *(int32_t*)args->TargetValuePtr = v;
+      *(int32_t*)args->TargetValuePtr = (int32_t)v;
       break;
     case SQL_C_ULONG:
-      *(uint32_t*)args->TargetValuePtr = v;
+      *(uint32_t*)args->TargetValuePtr = (uint32_t)v;
       break;
     case SQL_C_SBIGINT:
       *(int64_t*)args->TargetValuePtr = v;
@@ -1594,31 +1594,31 @@ static SQLRETURN _stmt_get_data_copy_double(stmt_t *stmt, double v, stmt_get_dat
       *(uint8_t*)args->TargetValuePtr = !!(uint8_t)v;
       break;
     case SQL_C_STINYINT:
-      *(int8_t*)args->TargetValuePtr = v;
+      *(int8_t*)args->TargetValuePtr = (int8_t)v;
       break;
     case SQL_C_UTINYINT:
-      *(uint8_t*)args->TargetValuePtr = v;
+      *(uint8_t*)args->TargetValuePtr = (uint8_t)v;
       break;
     case SQL_C_SSHORT:
-      *(int16_t*)args->TargetValuePtr = v;
+      *(int16_t*)args->TargetValuePtr = (int16_t)v;
       break;
     case SQL_C_USHORT:
-      *(uint16_t*)args->TargetValuePtr = v;
+      *(uint16_t*)args->TargetValuePtr = (uint16_t)v;
       break;
     case SQL_C_SLONG:
-      *(int32_t*)args->TargetValuePtr = v;
+      *(int32_t*)args->TargetValuePtr = (int32_t)v;
       break;
     case SQL_C_ULONG:
-      *(uint32_t*)args->TargetValuePtr = v;
+      *(uint32_t*)args->TargetValuePtr = (uint32_t)v;
       break;
     case SQL_C_SBIGINT:
-      *(int64_t*)args->TargetValuePtr = v;
+      *(int64_t*)args->TargetValuePtr = (int64_t)v;
       break;
     case SQL_C_UBIGINT:
-      *(uint64_t*)args->TargetValuePtr = v;
+      *(uint64_t*)args->TargetValuePtr = (uint64_t)v;
       break;
     case SQL_C_FLOAT:
-      *(float*)args->TargetValuePtr = v;
+      *(float*)args->TargetValuePtr = (float)v;
       break;
     case SQL_C_DOUBLE:
       *(double*)args->TargetValuePtr = v;
@@ -1776,7 +1776,7 @@ static SQLRETURN _stmt_fill_col(stmt_t *stmt, size_t i_row, size_t i_col)
   SQLLEN         BufferLength     = ARD_record->DESC_OCTET_LENGTH;
 
   stmt_get_data_args_t args = {
-    .Col_or_Param_Num           = i_col + 1,
+    .Col_or_Param_Num           = (SQLUSMALLINT)i_col + 1,
     .TargetType                 = TargetType,
     .TargetValuePtr             = TargetValuePtr,
     .BufferLength               = BufferLength,
@@ -1868,7 +1868,7 @@ fetch_row:
 
 static void _stmt_move_to_first_on_rowset(stmt_t *stmt)
 {
-  return stmt->base->move_to_first_on_rowset(stmt->base);
+  stmt->base->move_to_first_on_rowset(stmt->base);
 }
 
 static SQLRETURN _stmt_fetch_x(stmt_t *stmt)
@@ -4006,7 +4006,7 @@ SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr,
     case SQL_ATTR_USE_BOOKMARKS:
       if ((SQLULEN)(uintptr_t)ValuePtr == SQL_UB_OFF) return SQL_SUCCESS;
       stmt_append_err_format(stmt, "HY000", 0, "General error:`%zd/%s` for `SQL_ATTR_USE_BOOKMARKS` is not supported yet",
-          (SQLULEN)(uintptr_t)ValuePtr, sql_stmt_attr((SQLULEN)(uintptr_t)ValuePtr));
+          (SQLULEN)(uintptr_t)ValuePtr, sql_stmt_attr((SQLINTEGER)(uintptr_t)ValuePtr));
       return SQL_ERROR;
     default:
       stmt_append_err_format(stmt, "HYC00", 0, "Optional feature not implemented:`%s[0x%x/%d]` not supported yet", sql_stmt_attr(Attribute), Attribute, Attribute);
@@ -4134,10 +4134,10 @@ SQLRETURN stmt_tables(stmt_t *stmt,
   mem_reset(&stmt->sql);
 
   if (1) {
-    if (CatalogName && NameLength1 == SQL_NTS) NameLength1 = strlen((const char*)CatalogName);
-    if (SchemaName && NameLength2 == SQL_NTS) NameLength2 = strlen((const char*)SchemaName);
-    if (TableName && NameLength3 == SQL_NTS) NameLength3 = strlen((const char*)TableName);
-    if (TableType && NameLength4 == SQL_NTS) NameLength4 = strlen((const char*)TableType);
+    if (CatalogName && NameLength1 == SQL_NTS) NameLength1 = (SQLSMALLINT)strlen((const char*)CatalogName);
+    if (SchemaName && NameLength2 == SQL_NTS) NameLength2 = (SQLSMALLINT)strlen((const char*)SchemaName);
+    if (TableName && NameLength3 == SQL_NTS) NameLength3 = (SQLSMALLINT)strlen((const char*)TableName);
+    if (TableType && NameLength4 == SQL_NTS) NameLength4 = (SQLSMALLINT)strlen((const char*)TableType);
 
     sr = tables_open(&stmt->tables, CatalogName, NameLength1, SchemaName, NameLength2, TableName, NameLength3, TableType, NameLength4);
     if (sr != SQL_SUCCESS) {
@@ -4409,12 +4409,17 @@ static SQLRETURN _stmt_get_diag_field_row_number(
   (void)StringLengthPtr;
 
   if (RecNumber!=1) OA_NIY(0);
+  if (1) {
+    *(SQLLEN*)DiagInfoPtr = SQL_ROW_NUMBER_UNKNOWN;
+    return SQL_SUCCESS;
+  }
 
   // FIXME: get or put?
   tsdb_res_t           *res          = &stmt->tsdb_stmt.res;
   tsdb_rows_block_t    *rows_block   = &res->rows_block;
 
   *(SQLLEN*)DiagInfoPtr = (SQLLEN)rows_block->pos;
+
   return SQL_SUCCESS;
 }
 
@@ -4622,10 +4627,10 @@ SQLRETURN stmt_columns(
     _stmt_reset_params(stmt);
     mem_reset(&stmt->sql);
 
-    if (CatalogName && NameLength1 == SQL_NTS) NameLength1 = strlen((const char*)CatalogName);
-    if (SchemaName && NameLength2 == SQL_NTS) NameLength2 = strlen((const char*)SchemaName);
-    if (TableName && NameLength3 == SQL_NTS) NameLength3 = strlen((const char*)TableName);
-    if (ColumnName && NameLength4 == SQL_NTS) NameLength4 = strlen((const char*)ColumnName);
+    if (CatalogName && NameLength1 == SQL_NTS) NameLength1 = (SQLSMALLINT)strlen((const char*)CatalogName);
+    if (SchemaName && NameLength2 == SQL_NTS) NameLength2 = (SQLSMALLINT)strlen((const char*)SchemaName);
+    if (TableName && NameLength3 == SQL_NTS) NameLength3 = (SQLSMALLINT)strlen((const char*)TableName);
+    if (ColumnName && NameLength4 == SQL_NTS) NameLength4 = (SQLSMALLINT)strlen((const char*)ColumnName);
 
     sr = columns_open(&stmt->columns, CatalogName, NameLength1, SchemaName, NameLength2, TableName, NameLength3, ColumnName, NameLength4);
     if (sr != SQL_SUCCESS) {

@@ -398,7 +398,7 @@ static SQLRETURN _get_num_cols(stmt_base_t *base, SQLSMALLINT *ColumnCountPtr)
   tsdb_res_t        *res        = &stmt->res;
   tsdb_fields_t     *fields     = &res->fields;
 
-  *ColumnCountPtr = fields->nr;
+  *ColumnCountPtr = (SQLSMALLINT)fields->nr;
 
   return SQL_SUCCESS;
 }
@@ -411,7 +411,7 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
   tsdb_fields_t       *fields      = &res->fields;
   tsdb_rows_block_t   *rows_block  = &res->rows_block;
 
-  int          i_row      = rows_block->pos - 1;
+  int          i_row      = (int)rows_block->pos - 1;
   int          i_col      = Col_or_Param_Num - 1;
   TAOS_ROW     rows       = rows_block->rows;
   TAOS_FIELD  *field      = fields->fields + i_col;
@@ -993,7 +993,7 @@ SQLRETURN tsdb_stmt_prepare(tsdb_stmt_t *stmt, const char *sql)
     return SQL_ERROR;
   }
 
-  r = CALL_taos_stmt_prepare(stmt->stmt, sql, strlen(sql));
+  r = CALL_taos_stmt_prepare(stmt->stmt, sql, (unsigned long)strlen(sql));
   if (r) {
     stmt_append_err_format(stmt->owner, "HY000", r, "General error:[taosc]%s", CALL_taos_errstr(NULL));
     return SQL_ERROR;
@@ -1041,7 +1041,7 @@ static SQLRETURN _tsdb_stmt_guess_parameter_for_non_insert(tsdb_stmt_t *stmt, si
   SQLSMALLINT DecimalDigits = IPD_record->DESC_PRECISION;
   SQLSMALLINT Type          = IPD_record->DESC_TYPE;
 
-  TAOS_FIELD_E *tsdb_field = tsdb_stmt_get_tsdb_field_by_tsdb_params(stmt, param-1);
+  TAOS_FIELD_E *tsdb_field = tsdb_stmt_get_tsdb_field_by_tsdb_params(stmt, (int)param-1);
 
   switch (ParameterType) {
     case SQL_VARCHAR:
@@ -1072,7 +1072,7 @@ static SQLRETURN _tsdb_stmt_check_parameter(tsdb_stmt_t *stmt, size_t param)
 
   SQLSMALLINT ParameterType = IPD_record->DESC_CONCISE_TYPE;
 
-  TAOS_FIELD_E *tsdb_field = tsdb_stmt_get_tsdb_field_by_tsdb_params(stmt, param-1);
+  TAOS_FIELD_E *tsdb_field = tsdb_stmt_get_tsdb_field_by_tsdb_params(stmt, (int)param-1);
 
   switch (tsdb_field->type) {
     case TSDB_DATA_TYPE_TIMESTAMP:

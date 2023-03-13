@@ -2121,7 +2121,7 @@ static SQLRETURN _test_case_get_char_partial(SQLHANDLE hstmt, const char *name)
       if (StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind >= 0) {
         const size_t len = strlen(buf);
         if (len == 0) {
-          E("failed:expected to be greater than 0, but got =%zd", len);
+          E("failed:expected to be greater than 0, but got =%zd=", len);
           return SQL_ERROR;
         }
         _print_((const char*)buf, sizeof(buf));

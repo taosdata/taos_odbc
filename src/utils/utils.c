@@ -156,7 +156,7 @@ again:
   if (n == (size_t)-1) {
     if (e != E2BIG) return -1;
     size_t indelta = len - inbytesleft;
-    double outdelta = mem->cap - outbytesleft;
+    double outdelta = (double)(mem->cap - outbytesleft);
     size_t delta = (size_t)(outdelta / indelta * inbytesleft);
     r = mem_expand(mem, delta + TERMINATOR_MAX);
     if (r) return -1;

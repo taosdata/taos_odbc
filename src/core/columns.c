@@ -386,11 +386,11 @@ static SQLRETURN _describe_col(stmt_base_t *base,
 
   columns_col_meta_t *col_meta = columns_get_col_meta(ColumnNumber - 1);
 
-  *NameLengthPtr    = strlen(col_meta->name);
-  *DataTypePtr      = col_meta->DESC_CONCISE_TYPE;
+  *NameLengthPtr    = (SQLSMALLINT)strlen(col_meta->name);
+  *DataTypePtr      = (SQLSMALLINT)col_meta->DESC_CONCISE_TYPE;
   *ColumnSizePtr    = col_meta->DESC_OCTET_LENGTH;
   *DecimalDigitsPtr = 0;
-  *NullablePtr      = col_meta->DESC_NULLABLE;
+  *NullablePtr      = (SQLSMALLINT)col_meta->DESC_NULLABLE;
 
   int n = snprintf((char*)ColumnName, BufferLength, "%s", col_meta->name);
   if (n < 0 || n >= BufferLength) {

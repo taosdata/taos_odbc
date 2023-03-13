@@ -2114,14 +2114,14 @@ static SQLRETURN _test_case_get_char_partial(SQLHANDLE hstmt, const char *name)
         E("failed: `%s` expected, but got `%s`", name, buf);
         return SQL_ERROR;
       }
-      E("failed:sr[%s],StrLen_or_Ind:[%" PRId64 "/0x%" PRIu64 "]", sql_return_type(sr), StrLen_or_Ind, StrLen_or_Ind);
+      E("failed:sr[%s],StrLen_or_Ind:[%" PRId64 "/0x%" PRIu64 "]", sql_return_type(sr), (int64_t)StrLen_or_Ind, (uint64_t)StrLen_or_Ind);
       return SQL_ERROR;
     }
     if (sr == SQL_SUCCESS_WITH_INFO) {
       if (StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind >= 0) {
         const size_t len = strlen(buf);
         if (len == 0) {
-          E("failed:expected to be greater than 0, but got =%" PRId64 "", len);
+          E("failed:expected to be greater than 0, but got =%zd", len);
           return SQL_ERROR;
         }
         _print_((const char*)buf, sizeof(buf));
@@ -2133,7 +2133,7 @@ static SQLRETURN _test_case_get_char_partial(SQLHANDLE hstmt, const char *name)
         continue;
       }
     }
-    E("failed:sr[%s],StrLen_or_Ind:[%" PRId64 "/0x%" PRIu64 "]", sql_return_type(sr), StrLen_or_Ind, StrLen_or_Ind);
+    E("failed:sr[%s],StrLen_or_Ind:[%" PRId64 "/0x%" PRIu64 "]", sql_return_type(sr), (int64_t)StrLen_or_Ind, (uint64_t)StrLen_or_Ind);
     return SQL_ERROR;
   }
 
@@ -2194,7 +2194,7 @@ static SQLRETURN _test_case_get_wchar_partial(SQLHANDLE hstmt, const char *name)
         // E("failed: `%s` expected, but got `%s`", name, buf);
         // return SQL_ERROR;
       }
-      E("failed:sr[%s],StrLen_or_Ind:[%" PRId64 "]", sql_return_type(sr), StrLen_or_Ind);
+      E("failed:sr[%s],StrLen_or_Ind:[%" PRId64 "]", sql_return_type(sr), (int64_t)StrLen_or_Ind);
       return SQL_ERROR;
     }
     if (sr == SQL_SUCCESS_WITH_INFO) {
@@ -2213,7 +2213,7 @@ static SQLRETURN _test_case_get_wchar_partial(SQLHANDLE hstmt, const char *name)
         continue;
       }
     }
-    E("failed:sr[%s],StrLen_or_Ind:[%" PRId64 "/0x%" PRIu64 "]", sql_return_type(sr), StrLen_or_Ind, StrLen_or_Ind);
+    E("failed:sr[%s],StrLen_or_Ind:[%" PRId64 "/0x%" PRIu64 "]", sql_return_type(sr), (int64_t)StrLen_or_Ind, (uint64_t)StrLen_or_Ind);
     return SQL_ERROR;
   }
 
@@ -2312,7 +2312,7 @@ static int test_cases_get_data(SQLHANDLE henv)
     int         line      = cases[i].line;
     int r = test_case_get_data(henv, conn_str, odbc);
     if (r) {
-      E("case[%" PRId64 "]@%d:conn_str[%s];odbc[%x]", i+1, line, conn_str, odbc);
+      E("case[%zd]@%d:conn_str[%s];odbc[%x]", i+1, line, conn_str, odbc);
       return -1;
     }
   }
@@ -2427,7 +2427,7 @@ static int test_cases_prepare(SQLHANDLE henv)
     int         line      = cases[i].line;
     int r = test_case_prepare(henv, conn_str, odbc);
     if (r) {
-      E("case[%" PRId64 "]@%d:conn_str[%s];odbc[%x]", i+1, line, conn_str, odbc);
+      E("case[%zd]@%d:conn_str[%s];odbc[%x]", i+1, line, conn_str, odbc);
       return -1;
     }
   }

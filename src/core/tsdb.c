@@ -1053,13 +1053,13 @@ static SQLRETURN _tsdb_stmt_guess_parameter_for_non_insert(tsdb_stmt_t *stmt, si
   }
 
   stmt_append_err_format(stmt->owner, "HY000", 0,
-      "General error:it's not an subtbled-insert-statement and parameter marker #%" PRId64 " of [0x%x/%d]%s is sepcified,"
+      "General error:it's not an subtbled-insert-statement and parameter marker #%zd of [0x%x/%d]%s is sepcified,"
       " "
-      "but application parameter of [0x%x/%d]%s/%s, ColumnSize[%" PRId64 "], DecimalDigits[%d]",
+      "but application parameter of [0x%x/%d]%s/%s, ColumnSize[%" PRIu64 "], DecimalDigits[%d]",
       param,
       tsdb_field->type, tsdb_field->type, taos_data_type(tsdb_field->type),
       ParameterType, ParameterType, sql_data_type(ParameterType),
-      sql_data_type(Type), ColumnSize, DecimalDigits);
+      sql_data_type(Type), (uint64_t)ColumnSize, DecimalDigits);
 
   return SQL_ERROR;
 }
@@ -1094,7 +1094,7 @@ static SQLRETURN _tsdb_stmt_check_parameter(tsdb_stmt_t *stmt, size_t param)
 
       if (!stmt->params.subtbl_required || param != 1) {
         stmt_append_err_format(stmt->owner, "HY000", 0,
-            "General error:it's not an subtbled-insert-statement and parameter marker #%" PRId64 " of [0x%x/%d]%s is sepcified,"
+            "General error:it's not an subtbled-insert-statement and parameter marker #%zd of [0x%x/%d]%s is sepcified,"
             " "
             "but application parameter is of [0x%x/%d]%s",
             param,
@@ -1128,7 +1128,7 @@ static SQLRETURN _tsdb_stmt_check_parameter(tsdb_stmt_t *stmt, size_t param)
   }
 
   stmt_append_err_format(stmt->owner, "HY000", 0,
-      "General error:parameter marker #%" PRId64 " of [0x%x/%d]%s is sepcified, but application parameter is of [0x%x/%d]%s",
+      "General error:parameter marker #%zd of [0x%x/%d]%s is sepcified, but application parameter is of [0x%x/%d]%s",
       param,
       tsdb_field->type, tsdb_field->type, taos_data_type(tsdb_field->type),
       ParameterType, ParameterType, sql_data_type(ParameterType));

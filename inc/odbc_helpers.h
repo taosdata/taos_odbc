@@ -566,6 +566,28 @@ static inline SQLRETURN call_SQLColumns(const char *file, int line, const char *
   return sr;
 }
 
+static inline SQLRETURN call_SQLColAttribute(const char *file, int line, const char *func,
+    SQLHSTMT       StatementHandle,
+    SQLUSMALLINT   ColumnNumber,
+    SQLUSMALLINT   FieldIdentifier,
+    SQLPOINTER     CharacterAttributePtr,
+    SQLSMALLINT    BufferLength,
+    SQLSMALLINT   *StringLengthPtr,
+    SQLLEN        *NumericAttributePtr)
+{
+  LOGD_ODBC(file, line, func, "SQLColAttribute(StatementHandle:%p,ColumnNumber:%d,FieldIdentifier:%s,CharacterAttributePtr:%p,BufferLength(%d),"
+      "StringLengthPtr:%p,NumericAttributePtr:%p) ...",
+      StatementHandle, ColumnNumber,sql_col_attribute(FieldIdentifier),CharacterAttributePtr,BufferLength,StringLengthPtr,NumericAttributePtr);
+  SQLRETURN sr = SQLColAttribute(StatementHandle, ColumnNumber,FieldIdentifier,CharacterAttributePtr,BufferLength,StringLengthPtr,NumericAttributePtr);
+  diag(sr, SQL_HANDLE_STMT, StatementHandle);
+  LOGD_ODBC(file, line, func, "SQLColAttribute(StatementHandle:%p,ColumnNumber:%d,FieldIdentifier:%s,CharacterAttributePtr:%p,BufferLength(%d),"
+      "StringLengthPtr:%p[%d],NumericAttributePtr:%p) => %s",
+      StatementHandle, ColumnNumber,sql_col_attribute(FieldIdentifier),CharacterAttributePtr,BufferLength,
+      StringLengthPtr,StringLengthPtr?*StringLengthPtr:0,NumericAttributePtr,
+      sql_return_type(sr));
+  return sr;
+}
+
 #define CALL_SQLAllocHandle(...)                   call_SQLAllocHandle(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLFreeHandle(...)                    call_SQLFreeHandle(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLSetEnvAttr(...)                    call_SQLSetEnvAttr(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
@@ -595,6 +617,7 @@ static inline SQLRETURN call_SQLColumns(const char *file, int line, const char *
 #define CALL_SQLGetDiagField(...)                  call_SQLGetDiagField(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLGetConnectAttr(...)                call_SQLGetConnectAttr(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLColumns(...)                       call_SQLColumns(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
+#define CALL_SQLColAttribute(...)                  call_SQLColAttribute(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 
 #endif // _odbc_helper_h_
 

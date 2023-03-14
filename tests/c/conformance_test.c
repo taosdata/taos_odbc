@@ -1271,12 +1271,12 @@ static SQLRETURN test_case9_with_stmt(SQLHANDLE hstmt)
 
   for (size_t i=0; i<sizeof(sqls)/sizeof(sqls[0]); ++i) {
     const char *sql = sqls[i];
-    sr = CALL_SQLExecDirect(hstmt, sql, SQL_NTS);
+    sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
   }
 
   const char *sql = "select name from bar";
-  sr = CALL_SQLExecDirect(hstmt, sql, SQL_NTS);
+  sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   char buf[4096];
@@ -1290,12 +1290,19 @@ static SQLRETURN test_case9_with_stmt(SQLHANDLE hstmt)
   SQLSMALLINT    *StringLengthPtr             = &len;
   SQLLEN         *NumericAttributePtr         = &attr;
 
-  return CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
+  sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  D("NumericAttribute:%zd", (size_t)*NumericAttributePtr);
+
+  return SQL_SUCCESS;
 }
 
 static int test_case9(SQLHANDLE hconn)
 {
   SQLRETURN sr = SQL_SUCCESS;
+
+  SQLHANDLE hstmt;
 
   sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
   if (FAILED(sr)) return -1;
@@ -2209,10 +2216,6 @@ static int test_conn(int argc, char *argv[], SQLHANDLE hconn)
 
   int r = 0;
 
-  r = test_case9(hconn);
-  if (r) return r;
-  if (1) return 0;
-
   if (conn_arg.connstr) {
     r = _driver_connect(hconn, conn_arg.connstr);
   } else if (conn_arg.dsn) {
@@ -2222,6 +2225,10 @@ static int test_conn(int argc, char *argv[], SQLHANDLE hconn)
   }
 
   if (r) return r;
+
+  r = test_case9(hconn);
+  if (r) return r;
+  if (1) return -1;
 
   check_driver(hconn);
 

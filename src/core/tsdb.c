@@ -32,6 +32,8 @@
 #include "stmt.h"
 #include "taos_helpers.h"
 
+#include <errno.h>
+
 int tsdb_timestamp_to_string(int64_t val, int time_precision, char *buf, size_t len)
 {
   int n;

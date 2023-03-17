@@ -405,11 +405,8 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
     case SQL_DESC_OCTET_LENGTH:
       switch (col->type) {
         case TSDB_DATA_TYPE_VARCHAR:
-          *NumericAttributePtr = col->bytes - 2;
-          stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` bytes[%d] not supported yet",
-              sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-              taos_data_type(col->type), col->bytes);
-          return SQL_ERROR;
+        case TSDB_DATA_TYPE_TIMESTAMP:
+          *NumericAttributePtr = col->bytes;
           return SQL_SUCCESS;
         default:
           stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
@@ -417,27 +414,43 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
               taos_data_type(col->type));
           return SQL_ERROR;
       }
-      // *NumericAttributePtr = IRD_record->DESC_OCTET_LENGTH;
+    // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
+    case SQL_DESC_PRECISION:
+    case SQL_COLUMN_PRECISION:
+      switch (col->type) {
+        case TSDB_DATA_TYPE_VARCHAR:
+          *NumericAttributePtr = 0;
+          break;
+        default:
+          stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
+              sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
+              taos_data_type(col->type));
+          return SQL_ERROR;
+      }
       return SQL_SUCCESS;
-    // // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
-    // case SQL_DESC_PRECISION:
-    // case SQL_COLUMN_PRECISION:
-    //   *NumericAttributePtr = IRD_record->DESC_PRECISION;
-    //   return SQL_SUCCESS;
-    // // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
-    // case SQL_DESC_SCALE:
-    // case SQL_COLUMN_SCALE:
-    //   *NumericAttributePtr = IRD_record->DESC_SCALE;
-    //   return SQL_SUCCESS;
-    // case SQL_DESC_AUTO_UNIQUE_VALUE:
-    //   *NumericAttributePtr = IRD_record->DESC_AUTO_UNIQUE_VALUE;
-    //   return SQL_SUCCESS;
-    // case SQL_DESC_UPDATABLE:
-    //   *NumericAttributePtr = IRD_record->DESC_UPDATABLE;
-    //   return SQL_SUCCESS;
-    // case SQL_DESC_NULLABLE:
-    //   *NumericAttributePtr = IRD_record->DESC_NULLABLE;
-    //   return SQL_SUCCESS;
+    // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
+    case SQL_DESC_SCALE:
+    case SQL_COLUMN_SCALE:
+      switch (col->type) {
+        case TSDB_DATA_TYPE_VARCHAR:
+          *NumericAttributePtr = 0;
+          break;
+        default:
+          stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
+              sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
+              taos_data_type(col->type));
+          return SQL_ERROR;
+      }
+      return SQL_SUCCESS;
+    case SQL_DESC_AUTO_UNIQUE_VALUE:
+      *NumericAttributePtr = 0;
+      return SQL_SUCCESS;
+    case SQL_DESC_UPDATABLE:
+      *NumericAttributePtr = 0;
+      return SQL_SUCCESS;
+    case SQL_DESC_NULLABLE:
+      *NumericAttributePtr = SQL_NULLABLE_UNKNOWN;
+      return SQL_SUCCESS;
     case SQL_DESC_NAME:
       n = snprintf(CharacterAttributePtr, BufferLength, "%.*s", (int)sizeof(col->name), col->name);
       if (n < 0) {
@@ -468,6 +481,7 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
     //   return SQL_SUCCESS;
     default:
       stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s[%d/0x%x]` not supported yet", sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier);
+      OW("xxxxxxxxxxxxxxx");
       return SQL_ERROR;
   }
 }

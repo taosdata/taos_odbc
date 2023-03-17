@@ -29,7 +29,8 @@ set(TODBC_VERSION 0.1)
 
 option(USE_SAN "whether to use sanitizer or not" OFF)
 option(ENABLE_MYSQL_TEST "whether to test with mysql or not" OFF)
-option(ENABLE_SQLITE3_TEST "whether to test with mysql or not" OFF)
+option(ENABLE_SQLITE3_TEST "whether to test with sqlite3 or not" OFF)
+option(ENABLE_SQLSERVER_TEST "whether to test with sqlserver or not" OFF)
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   set(TODBC_LINUX TRUE)

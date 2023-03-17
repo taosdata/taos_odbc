@@ -63,6 +63,13 @@ if(ENABLE_SQLITE3_TEST)
   endif()
 endif()
 
+if(ENABLE_SQLSERVER_TEST)
+  if(TODBC_WINDOWS)
+    add_test(NAME sqlserver_conformance_test
+        COMMAND conformance_test --dsn SQLSERVER_ODBC_DSN --sqlserver)
+  endif()
+endif()
+
 add_executable(api_test
     $<TARGET_OBJECTS:common_obj>
     $<TARGET_OBJECTS:os_port_obj>

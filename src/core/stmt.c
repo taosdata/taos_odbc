@@ -59,6 +59,9 @@ static void _stmt_init_descriptors(stmt_t *stmt)
 
   stmt->current_APD = &stmt->APD;
   stmt->current_ARD = &stmt->ARD;
+
+  INIT_TOD_LIST_HEAD(&stmt->associated_APD_node);
+  INIT_TOD_LIST_HEAD(&stmt->associated_ARD_node);
 }
 
 static void _stmt_init(stmt_t *stmt, conn_t *conn)
@@ -4120,12 +4123,12 @@ SQLRETURN stmt_tables(stmt_t *stmt,
   _stmt_reset_params(stmt);
   mem_reset(&stmt->sql);
 
-  if (1) {
-    if (CatalogName && NameLength1 == SQL_NTS) NameLength1 = (SQLSMALLINT)strlen((const char*)CatalogName);
-    if (SchemaName && NameLength2 == SQL_NTS) NameLength2 = (SQLSMALLINT)strlen((const char*)SchemaName);
-    if (TableName && NameLength3 == SQL_NTS) NameLength3 = (SQLSMALLINT)strlen((const char*)TableName);
-    if (TableType && NameLength4 == SQL_NTS) NameLength4 = (SQLSMALLINT)strlen((const char*)TableType);
+  OW("CatalogName:%p, %d", CatalogName, NameLength1);
+  OW("SchemaName:%p, %d", SchemaName, NameLength2);
+  OW("TableName:%p, %d", TableName, NameLength3);
+  OW("TableType:%p, %d", TableType, NameLength4);
 
+  if (1) {
     sr = tables_open(&stmt->tables, CatalogName, NameLength1, SchemaName, NameLength2, TableName, NameLength3, TableType, NameLength4);
     if (sr != SQL_SUCCESS) {
       _stmt_reset_tables(stmt);

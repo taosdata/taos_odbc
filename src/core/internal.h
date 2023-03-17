@@ -609,6 +609,8 @@ struct tables_s {
   mem_t                      table_cache;
   mem_t                      type_cache;
 
+  mem_t                      table_types;
+
   tables_type_t              tables_type;
 };
 

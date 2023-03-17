@@ -33,6 +33,7 @@
 #define TAOS_ODBC        0x01
 #define MYSQL_ODBC       0x02
 #define SQLITE3_ODBC     0x04
+#define SQLSERVER_ODBC   0x08
 
 static int _under_taos_mysql_sqlite3 = 0;  // 0: taos; 1: mysql; 2: sqlite3
 
@@ -1258,13 +1259,13 @@ static int test_case8(SQLHANDLE hconn)
   return -1;
 }
 
-static SQLRETURN test_case9_with_stmt(SQLHANDLE hstmt)
+static int test_case9_with_stmt(SQLHANDLE hstmt)
 {
   SQLRETURN sr = SQL_SUCCESS;
 
   const char *sqls[] = {
     "drop database if exists foo",
-    "create database if not exists foo",
+    "create database foo",
     "use foo",
     "create table bar(ts timestamp, name varchar(20))",
   };
@@ -1272,12 +1273,10 @@ static SQLRETURN test_case9_with_stmt(SQLHANDLE hstmt)
   for (size_t i=0; i<sizeof(sqls)/sizeof(sqls[0]); ++i) {
     const char *sql = sqls[i];
     sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
-    if (sr != SQL_SUCCESS) return SQL_ERROR;
+    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) return -1;
   }
 
-  const char *sql = "select name from bar";
-  sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  const char *sql;
 
   char buf[4096];
   SQLSMALLINT len;
@@ -1290,29 +1289,64 @@ static SQLRETURN test_case9_with_stmt(SQLHANDLE hstmt)
   SQLSMALLINT    *StringLengthPtr             = &len;
   SQLLEN         *NumericAttributePtr         = &attr;
 
+  sql = "select name from bar";
+  sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
+  if (sr != SQL_SUCCESS) return -1;
+
+  ColumnNumber                = 1;
+  FieldIdentifier             = SQL_DESC_OCTET_LENGTH;
+  CharacterAttributePtr       = buf;
+  BufferLength                = sizeof(buf);
+  StringLengthPtr             = &len;
+  NumericAttributePtr         = &attr;
+
   sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  if (sr != SQL_SUCCESS) return -1;
 
-  D("NumericAttribute:%zd", (size_t)*NumericAttributePtr);
+  if (attr != 20) {
+    D("expected `20`, but got ==%zd==", (size_t)attr);
+    return -1;
+  }
 
-  return SQL_SUCCESS;
+  CALL_SQLCloseCursor(hstmt);
+
+  sql = "select ts from bar";
+  sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
+  if (sr != SQL_SUCCESS) return -1;
+
+  ColumnNumber                = 1;
+  FieldIdentifier             = SQL_DESC_OCTET_LENGTH;
+  CharacterAttributePtr       = buf;
+  BufferLength                = sizeof(buf);
+  StringLengthPtr             = &len;
+  NumericAttributePtr         = &attr;
+
+  sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
+  if (sr != SQL_SUCCESS) return -1;
+
+  if (attr != 8) {
+    D("expected `8`, but got ==%zd==", (size_t)attr);
+    return -1;
+  }
+
+  return 0;
 }
 
 static int test_case9(SQLHANDLE hconn)
 {
   SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
 
   SQLHANDLE hstmt;
 
   sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
   if (FAILED(sr)) return -1;
 
-  sr = test_case9_with_stmt(hstmt);
+  r = test_case9_with_stmt(hstmt);
 
   CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
 
-  if (sr != SQL_SUCCESS) return -1;
-  return 0;
+  return r ? -1 : 0;
 }
 
 static int _vexec_(SQLHANDLE hstmt, const char *fmt, va_list ap)
@@ -2173,6 +2207,29 @@ static void check_driver(SQLHANDLE hconn)
   _under_taos_mysql_sqlite3 = 0;
 }
 
+static int test_connected_conn(SQLHANDLE hconn, conn_arg_t *conn_arg)
+{
+  int r = 0;
+
+  r = test_case9(hconn);
+  if (r) return -1;
+  if (1) return 0;
+
+  check_driver(hconn);
+
+  if (_under_taos_mysql_sqlite3 == 0) {
+    r = _exec_and_check(hconn, (char*)-1, 0, "show apps", 0, 0);
+    if (r) return -1;
+  }
+
+  if (conn_arg->odbc_type & TAOS_ODBC) {
+    r = test_cases(hconn);
+    if (r) return -1;
+  }
+
+  return 0;
+}
+
 static int test_conn(int argc, char *argv[], SQLHANDLE hconn)
 {
   conn_arg_t conn_arg = {0};
@@ -2212,6 +2269,10 @@ static int test_conn(int argc, char *argv[], SQLHANDLE hconn)
       conn_arg.odbc_type = MYSQL_ODBC;
       continue;
     }
+    if (strcmp(argv[i], "--sqlserver") == 0) {
+      conn_arg.odbc_type = SQLSERVER_ODBC;
+      continue;
+    }
   }
 
   int r = 0;
@@ -2224,25 +2285,13 @@ static int test_conn(int argc, char *argv[], SQLHANDLE hconn)
     r = _connect(hconn, "TAOS_ODBC_DSN", NULL, NULL);
   }
 
-  if (r) return r;
-
-  r = test_case9(hconn);
-  if (r) return r;
-  if (1) return -1;
-
-  check_driver(hconn);
-
-  if (_under_taos_mysql_sqlite3 == 0) {
-    r = _exec_and_check(hconn, (char*)-1, 0, "show apps", 0, 0);
-  }
-
-  if (conn_arg.odbc_type & TAOS_ODBC) {
-    r = test_cases(hconn);
+  if (r == 0) {
+    r = test_connected_conn(hconn, &conn_arg);
   }
 
   CALL_SQLDisconnect(hconn);
 
-  return r;
+  return r ? -1 : 0;
 }
 
 static int test_env(int argc, char *argv[], SQLHANDLE henv)

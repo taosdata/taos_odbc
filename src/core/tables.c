@@ -32,6 +32,8 @@
 #include "taos_helpers.h"
 #include "tsdb.h"
 
+#include <ctype.h>
+
 void tables_args_reset(tables_args_t *args)
 {
   if (!args) return;
@@ -536,10 +538,10 @@ SQLRETURN tables_open(
 
   tables_reset(tables);
 
-  if (CatalogName && NameLength1 == SQL_NTS) NameLength1 = (SQLSMALLINT)strlen(CatalogName);
-  if (SchemaName && NameLength2 == SQL_NTS)  NameLength2 = (SQLSMALLINT)strlen(SchemaName);
-  if (TableName && NameLength3 == SQL_NTS)   NameLength3 = (SQLSMALLINT)strlen(TableName);
-  if (TableType && NameLength4 == SQL_NTS)   NameLength4 = (SQLSMALLINT)strlen(TableType);
+  if (CatalogName && NameLength1 == SQL_NTS) NameLength1 = (SQLSMALLINT)strlen((const char*)CatalogName);
+  if (SchemaName && NameLength2 == SQL_NTS)  NameLength2 = (SQLSMALLINT)strlen((const char*)SchemaName);
+  if (TableName && NameLength3 == SQL_NTS)   NameLength3 = (SQLSMALLINT)strlen((const char*)TableName);
+  if (TableType && NameLength4 == SQL_NTS)   NameLength4 = (SQLSMALLINT)strlen((const char*)TableType);
 
   OW("CatalogName:%p,%.*s", CatalogName, (int)NameLength1, CatalogName);
   OW("SchemaName:%p,%.*s", SchemaName, (int)NameLength2, SchemaName);
@@ -547,29 +549,16 @@ SQLRETURN tables_open(
   OW("TableType:%p,%.*s", TableType, (int)NameLength4, TableType);
 
   if (CatalogName && strncmp((const char*)CatalogName, SQL_ALL_CATALOGS, 1) == 0) {
-    CatalogName = SQL_ALL_CATALOGS;
-    NameLength1 = 1;
-  }
-  if (SchemaName && strncmp((const char*)SchemaName, SQL_ALL_SCHEMAS, 1) == 0) {
-    SchemaName = SQL_ALL_SCHEMAS;
-    NameLength2 = 1;
-  }
-  if (TableType && strncmp((const char*)TableType, SQL_ALL_TABLE_TYPES, 1) == 0) {
-    TableType = SQL_ALL_TABLE_TYPES;
-    NameLength4 = 1;
-  }
-
-  if (CatalogName == SQL_ALL_CATALOGS) {
     if ((!SchemaName || !*SchemaName) && (!TableName || !*TableName)) {
       return _tables_open_catalogs(tables);
     }
   }
-  if (SchemaName == SQL_ALL_SCHEMAS) {
+  if (SchemaName && strncmp((const char*)SchemaName, SQL_ALL_SCHEMAS, 1) == 0) {
     if ((!CatalogName || !*CatalogName) && (!TableName || !*TableName)) {
       return _tables_open_schemas(tables);
     }
   }
-  if (TableType == SQL_ALL_TABLE_TYPES) {
+  if (TableType && strncmp((const char*)TableType, SQL_ALL_TABLE_TYPES, 1) == 0) {
     if ((!CatalogName || !*CatalogName) && (!SchemaName || !*SchemaName) && (!TableName || !*TableName)) {
       return _tables_open_tabletypes(tables);
     }

@@ -2162,7 +2162,7 @@ static int test_cases(SQLHANDLE hconn)
     if (r) return r;
   }
 
-  if (1) r = test_case5(hconn);
+  r = test_case5(hconn);
   if (r) return r;
 
   r = test_case6(hconn);
@@ -2213,7 +2213,6 @@ static int test_connected_conn(SQLHANDLE hconn, conn_arg_t *conn_arg)
 
   r = test_case9(hconn);
   if (r) return -1;
-  if (1) return 0;
 
   check_driver(hconn);
 

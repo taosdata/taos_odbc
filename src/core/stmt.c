@@ -493,6 +493,18 @@ static SQLRETURN _stmt_fill_IRD(stmt_t *stmt)
         IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
         IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
         break;
+      case TSDB_DATA_TYPE_UBIGINT:
+        IRD_record->DESC_CONCISE_TYPE = SQL_BIGINT;
+        IRD_record->DESC_TYPE = SQL_BIGINT;
+        IRD_record->DESC_LENGTH = 20;
+        IRD_record->DESC_OCTET_LENGTH = 8;
+        IRD_record->DESC_PRECISION = 20;
+        IRD_record->DESC_SCALE = 0;
+        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+        break;
       case TSDB_DATA_TYPE_TIMESTAMP:
         IRD_record->DESC_CONCISE_TYPE = SQL_TYPE_TIMESTAMP;
         IRD_record->DESC_TYPE = SQL_DATETIME;

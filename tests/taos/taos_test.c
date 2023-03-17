@@ -2420,9 +2420,77 @@ static int conformance_prepare(TAOS *taos)
   return r;
 }
 
+static int conformance_db(TAOS *taos)
+{
+  // NOTE: bad taste for taos_get_current_db
+  char buf[4096] = "hello";
+  int r = 0;
+
+  int len;
+  TAOS_RES *res;
+  int e;
+
+  strcpy(buf, "hello");
+  len = 0;
+  r = CALL_taos_get_current_db(taos, buf, sizeof(buf), &len);
+  if (r) return -1;
+  if (strcmp(buf, "")) {
+    E("`` is expected, but got ==%s==", buf);
+    return -1;
+  }
+
+  res = CALL_taos_query(taos, "use information_schema");
+  e = taos_errno(res);
+  if (e) E("no error expected, but got ==%d==%s==", e, taos_errstr(res));
+  if (res) CALL_taos_free_result(res);
+  if (e) return -1;
+
+  strcpy(buf, "hello");
+  len = 0;
+  r = CALL_taos_get_current_db(taos, buf, 2, &len);
+  if (r == 0) {
+    E("failed is expected, but got ==%d==", r);
+    return -1;
+  }
+  if (len != 19) {
+    E("len is expected to be `19`, but got ==%d==", len);
+    return -1;
+  }
+  if (strcmp(buf, "i")) {
+    E("`i` is expected, but got ==%s==", buf);
+    return -1;
+  }
+
+  strcpy(buf, "hello");
+  len = 123;
+  r = CALL_taos_get_current_db(taos, buf, sizeof(buf), &len);
+  if (r) return -1;
+  if (strcmp(buf, "information_schema")) {
+    E("`information_schema` is expected, but got ==%s==", buf);
+    return -1;
+  }
+
+  CALL_taos_reset_current_db(taos);
+
+  strcpy(buf, "hello");
+  len = 789;
+  r = CALL_taos_get_current_db(taos, buf, sizeof(buf), &len);
+  if (r) return -1;
+  if (strcmp(buf, "")) {
+    E("`` is expected, but got ==%s==", buf);
+    return -1;
+  }
+
+  return 0;
+}
+
 static int conformance_tests_with_taos(TAOS *taos)
 {
   int r = 0;
+
+  r = conformance_db(taos);
+  if (r) return -1;
+
   if (0) {
     // memory leakage
     for (int i=0; i<1; ++i) {

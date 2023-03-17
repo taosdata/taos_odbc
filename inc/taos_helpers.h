@@ -497,7 +497,6 @@ static inline void call_taos_reset_current_db(const char *file, int line, const 
 {
   LOGD_TAOS(file, line, func, "taos_reset_current_db(taos:%p) ...", taos);
   taos_reset_current_db(taos);
-  diag_res(NULL);
   LOGD_TAOS(file, line, func, "taos_reset_current_db(taos:%p) => void", taos);
 }
 
@@ -651,6 +650,16 @@ static inline TSDB_SERVER_STATUS call_taos_check_server_status(const char *file,
   return r;
 }
 
+static inline int call_taos_get_current_db(const char *file, int line, const char *func, TAOS *taos, char *database, int len, int *required)
+{
+  LOGD_TAOS(file, line, func, "taos_get_current_db(taos:%p,database:%p,len:%d,required:%p) ...", taos, database, len, required);
+  int r = taos_get_current_db(taos, database, len, required);
+  if (r) diag_res(NULL);
+  LOGD_TAOS(file, line, func, "taos_get_current_db(taos:%p,database:%p(%.*s),len:%d,required:%p(%d)) => %d",
+      taos, database, len, database, len, required, required ? *required : 0,
+      r);
+  return r;
+}
 
 #define CALL_taos_cleanup(...) call_taos_cleanup(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 // #define CALL_taos_options(...) call_taos_options(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
@@ -764,6 +773,8 @@ static inline TSDB_SERVER_STATUS call_taos_check_server_status(const char *file,
 #define CALL_tmq_free_json_meta(...) call_tmq_free_json_meta(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 
 #define CALL_taos_check_server_status(...) call_taos_check_server_status(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
+
+#define CALL_taos_get_current_db(...) call_taos_get_current_db(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 
 
 EXTERN_C_BEGIN

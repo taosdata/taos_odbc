@@ -2430,6 +2430,8 @@ static int conformance_db(TAOS *taos)
   TAOS_RES *res;
   int e;
 
+  CALL_taos_reset_current_db(taos);
+
   strcpy(buf, "hello");
   len = 0;
   r = CALL_taos_get_current_db(taos, buf, sizeof(buf), &len);

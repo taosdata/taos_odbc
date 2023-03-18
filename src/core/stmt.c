@@ -956,8 +956,6 @@ static SQLRETURN _stmt_get_data_prepare_ctx(stmt_t *stmt, stmt_get_data_args_t *
   switch(tsdb->type) {
     case TSDB_DATA_TYPE_BOOL:
       {
-        tsdb->nr = snprintf(tsdb->buf, sizeof(tsdb->buf), "%d", tsdb->b);
-        tsdb->pos = tsdb->buf;
         tsdb->nr = snprintf(tsdb->buf, sizeof(tsdb->buf), "%s", tsdb->b ? "true" : "false");
         tsdb->pos = tsdb->buf;
       } break;

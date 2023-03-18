@@ -658,8 +658,6 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
         col += sizeof(int16_t);
         tsdb->str.str = col;
         tsdb->str.len = length;
-        tsdb->nr = length;
-        tsdb->pos = (const char*)col;
       } break;
     case TSDB_DATA_TYPE_TIMESTAMP:
       {
@@ -677,8 +675,6 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
         col += sizeof(int16_t);
         tsdb->str.str = col;
         tsdb->str.len = length;
-        tsdb->nr = length;
-        tsdb->pos = col;
       } break;
     default:
       stmt_append_err_format(stmt->owner, "HY000", 0,

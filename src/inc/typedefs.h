@@ -30,7 +30,8 @@ typedef struct charset_conv_mgr_s        charset_conv_mgr_t;
 
 typedef struct columns_args_s            columns_args_t;
 typedef struct columns_s                 columns_t;
-typedef struct columns_col_meta_s        columns_col_meta_t;
+
+typedef struct column_meta_s             column_meta_t;
 
 typedef struct connection_cfg_s          connection_cfg_t;
 

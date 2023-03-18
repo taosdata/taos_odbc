@@ -33,7 +33,7 @@ EXTERN_C_BEGIN
 void columns_args_release(columns_args_t *args) FA_HIDDEN;
 
 SQLSMALLINT columns_get_count_of_col_meta(void) FA_HIDDEN;
-columns_col_meta_t* columns_get_col_meta(int i_col) FA_HIDDEN;
+column_meta_t* columns_get_col_meta(int i_col) FA_HIDDEN;
 
 void columns_reset(columns_t *columns) FA_HIDDEN;
 void columns_release(columns_t *columns) FA_HIDDEN;

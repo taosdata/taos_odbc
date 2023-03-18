@@ -621,7 +621,7 @@ struct columns_args_s {
   wildex_t        *column_pattern;
 };
 
-struct columns_col_meta_s {
+struct column_meta_s {
   const char                 *name;
   const char                 *column_type_name;
   SQLLEN                      DESC_CONCISE_TYPE;

@@ -1277,7 +1277,6 @@ static int test_case9_with_stmt(SQLHANDLE hstmt)
       if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) return -1;
     }
 
-    int r = 0;
     const char *CatalogName = NULL;
     const char *SchemaName = NULL;
     const char *TableName = NULL;
@@ -1297,7 +1296,6 @@ static int test_case9_with_stmt(SQLHANDLE hstmt)
 
     if (ColumnCount != 5) {
       E("5 result columns expected, but got ==%d==", ColumnCount);
-      r = -1;
       return -1;
     }
 
@@ -1316,9 +1314,9 @@ static int test_case9_with_stmt(SQLHANDLE hstmt)
 
     CALL_SQLCloseCursor(hstmt);
 
-    CatalogName = (SQLCHAR*)"foo";
-    SchemaName = (SQLCHAR*)"";
-    TableName = (SQLCHAR*)"bar";
+    CatalogName = (const char*)"foo";
+    SchemaName = (const char*)"";
+    TableName = (const char*)"bar";
     const char *ColumnName = NULL;
 
     sr = CALL_SQLColumns(hstmt,
@@ -1333,7 +1331,6 @@ static int test_case9_with_stmt(SQLHANDLE hstmt)
 
     if (ColumnCount != 18) {
       E("5 result columns expected, but got ==%d==", ColumnCount);
-      r = -1;
       return -1;
     }
 
@@ -2327,7 +2324,6 @@ static int test_connected_conn(SQLHANDLE hconn, conn_arg_t *conn_arg)
 static int test_SQLColumns(SQLHANDLE hstmt)
 {
   SQLRETURN sr = SQL_SUCCESS;
-  int r = 0;
 
   const char *sqls[] = {
     "drop database if exists foo",

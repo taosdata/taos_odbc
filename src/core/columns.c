@@ -32,6 +32,8 @@
 #include "taos_helpers.h"
 #include "tsdb.h"
 
+#include <errno.h>
+
 void columns_args_reset(columns_args_t *args)
 {
   if (!args) return;
@@ -677,7 +679,7 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
 
   TAOS_FIELD fake = {0};
   int n = snprintf(fake.name, sizeof(fake.name), "%.*s", (int)col_name->str.len, col_name->str.str);
-  if (n >= sizeof(fake.name)) {
+  if (n < 0 || (size_t)n >= sizeof(fake.name)) {
     stmt_append_err_format(columns->owner, "HY000", 0, "General error:buffer too small to hold `%.*s`", (int)col_name->str.len, col_name->str.str);
     return SQL_ERROR;
   }
@@ -915,7 +917,6 @@ SQLRETURN columns_open(
     SQLSMALLINT    NameLength4)
 {
   SQLRETURN sr = SQL_SUCCESS;
-  int r = 0;
 
   columns_reset(columns);
 
@@ -935,7 +936,7 @@ SQLRETURN columns_open(
       stmt_oom(columns->owner);
       return SQL_ERROR;
     }
-    columns->column = columns->column_cache.base;
+    columns->column = (const char*)columns->column_cache.base;
     if (wildcomp_n_ex(&columns->columns_args.column_pattern, cnv->from, (const char*)ColumnName, NameLength4)) {
       stmt_append_err_format(columns->owner, "HY000", 0,
           "General error:wild compile failed for ColumnName[%.*s]", (int)NameLength4, (const char*)ColumnName);
@@ -943,7 +944,7 @@ SQLRETURN columns_open(
     }
   }
 
-  sr = tables_open(&columns->tables, CatalogName, NameLength1, SchemaName, NameLength2, TableName, NameLength3, "TABLE", SQL_NTS);
+  sr = tables_open(&columns->tables, CatalogName, NameLength1, SchemaName, NameLength2, TableName, NameLength3, (SQLCHAR*)"TABLE", SQL_NTS);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
 again:

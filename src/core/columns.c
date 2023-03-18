@@ -326,6 +326,7 @@ void columns_reset(columns_t *columns)
 
   tsdb_stmt_reset(&columns->desc);
   tables_reset(&columns->tables);
+
   tsdb_data_reset(&columns->current_catalog);
   tsdb_data_reset(&columns->current_schema);
   tsdb_data_reset(&columns->current_table);
@@ -347,6 +348,9 @@ void columns_release(columns_t *columns)
 {
   if (!columns) return;
   columns_reset(columns);
+
+  tsdb_stmt_release(&columns->desc);
+  tables_release(&columns->tables);
 
   tsdb_data_release(&columns->current_catalog);
   tsdb_data_release(&columns->current_schema);

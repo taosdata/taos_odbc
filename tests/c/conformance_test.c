@@ -1263,6 +1263,101 @@ static int test_case9_with_stmt(SQLHANDLE hstmt)
 {
   SQLRETURN sr = SQL_SUCCESS;
 
+  if (1) {
+    const char *sqls[] = {
+      "drop database if exists foo",
+      "create database foo",
+      "use foo",
+      "create table bar (ts timestamp, name varchar(20))",
+    };
+
+    for (size_t i=0; i<sizeof(sqls)/sizeof(sqls[0]); ++i) {
+      const char *sql = sqls[i];
+      sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
+      if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) return -1;
+    }
+
+    int r = 0;
+    const char *CatalogName = NULL;
+    const char *SchemaName = NULL;
+    const char *TableName = NULL;
+    const char *TableType = "TABLE,SYSTEM TABLE";
+
+    SQLSMALLINT ColumnCount = 0;
+
+    sr = CALL_SQLTables(hstmt,
+      (SQLCHAR*)CatalogName, SQL_NTS/*strlen(CatalogName)*/,
+      (SQLCHAR*)SchemaName,  SQL_NTS/*strlen(SchemaName)*/,
+      (SQLCHAR*)TableName,   SQL_NTS/*strlen(TableName)*/,
+      (SQLCHAR*)TableType,   SQL_NTS/*strlen(TableType)*/);
+    if (FAILED(sr)) return -1;
+
+    sr = CALL_SQLNumResultCols(hstmt, &ColumnCount);
+    if (FAILED(sr)) return -1;
+
+    if (ColumnCount != 5) {
+      E("5 result columns expected, but got ==%d==", ColumnCount);
+      r = -1;
+      return -1;
+    }
+
+    while (1) {
+      sr = CALL_SQLFetch(hstmt);
+      if (sr == SQL_ERROR) return -1;
+      if (sr == SQL_NO_DATA) break;
+      char catalog[1024], name[1024];
+      SQLLEN ind;
+      sr = CALL_SQLGetData(hstmt, 1, SQL_C_CHAR, (SQLPOINTER)catalog, sizeof(catalog), &ind);
+      if (FAILED(sr)) return -1;
+      sr = CALL_SQLGetData(hstmt, 3, SQL_C_CHAR, (SQLPOINTER)name, sizeof(name), &ind);
+      if (FAILED(sr)) return -1;
+      D("==%s.%s==", catalog, name);
+    }
+
+    CALL_SQLCloseCursor(hstmt);
+
+    CatalogName = (SQLCHAR*)"foo";
+    SchemaName = (SQLCHAR*)"";
+    TableName = (SQLCHAR*)"bar";
+    const char *ColumnName = NULL;
+
+    sr = CALL_SQLColumns(hstmt,
+      (SQLCHAR*)CatalogName, SQL_NTS/*strlen(CatalogName)*/,
+      (SQLCHAR*)SchemaName,  SQL_NTS/*strlen(SchemaName)*/,
+      (SQLCHAR*)TableName,   SQL_NTS/*strlen(TableName)*/,
+      (SQLCHAR*)ColumnName,  SQL_NTS/*strlen(ColumnName)*/);
+    if (FAILED(sr)) return -1;
+
+    sr = CALL_SQLNumResultCols(hstmt, &ColumnCount);
+    if (FAILED(sr)) return -1;
+
+    if (ColumnCount != 18) {
+      E("5 result columns expected, but got ==%d==", ColumnCount);
+      r = -1;
+      return -1;
+    }
+
+    while (1) {
+      sr = CALL_SQLFetch(hstmt);
+      if (sr == SQL_ERROR) return -1;
+      if (sr == SQL_NO_DATA) break;
+      for (SQLSMALLINT i=0; i<ColumnCount; ++i) {
+        W("col %d...", i+1);
+        char buf[4096];
+        SQLLEN ind;
+        sr = CALL_SQLGetData(hstmt, i+1, SQL_C_CHAR, (SQLPOINTER)buf, sizeof(buf), &ind);
+        if (FAILED(sr)) return -1;
+        if (ind == SQL_NULL_DATA) {
+          W("==col[%d]:null==", i+1);
+        } else {
+          W("==col[%d]:%s==", i+1, buf);
+        }
+      }
+    }
+
+    D("ok");
+  }
+
   const char *sqls[] = {
     "drop database if exists foo",
     "create database foo",
@@ -2229,8 +2324,249 @@ static int test_connected_conn(SQLHANDLE hconn, conn_arg_t *conn_arg)
   return 0;
 }
 
+static int test_SQLColumns(SQLHANDLE hstmt)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
+
+  const char *sqls[] = {
+    "drop database if exists foo",
+    "create database foo",
+    "use foo",
+    "create table bar (ts timestamp, name varchar(20))",
+  };
+
+  for (size_t i=0; i<sizeof(sqls)/sizeof(sqls[0]); ++i) {
+    CALL_SQLCloseCursor(hstmt);
+    const char *sql = sqls[i];
+    sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
+    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) return -1;
+  }
+
+  const char *CatalogName;
+  const char *SchemaName;
+  const char *TableName;
+  const char *ColumnName;
+  SQLSMALLINT ColumnCount;
+
+  CatalogName = "foo";
+  SchemaName = "";
+  TableName = "bar";
+  ColumnName = "ts";
+
+  CALL_SQLCloseCursor(hstmt);
+  sr = CALL_SQLColumns(hstmt,
+    (SQLCHAR*)CatalogName, (SQLSMALLINT)strlen(CatalogName),
+    (SQLCHAR*)SchemaName,  (SQLSMALLINT)strlen(SchemaName),
+    (SQLCHAR*)TableName,   (SQLSMALLINT)strlen(TableName),
+    (SQLCHAR*)ColumnName,   (SQLSMALLINT)strlen(ColumnName));
+  if (sr != SQL_SUCCESS) return -1;
+
+  sr = CALL_SQLNumResultCols(hstmt, &ColumnCount);
+  if (sr != SQL_SUCCESS) return -1;
+
+  if (ColumnCount < 18) {
+    E("at least 18 result columns expected, but got ==%d==", ColumnCount);
+    return -1;
+  }
+
+  char buf[4096];
+
+  SQLUSMALLINT    ColumnNumber;
+  SQLUSMALLINT    FieldIdentifier;
+  SQLPOINTER      CharacterAttributePtr = buf;
+  SQLSMALLINT     BufferLength;
+  SQLSMALLINT     StringLength, *StringLengthPtr;
+  SQLLEN          NumericAttribute, *NumericAttributePtr;
+
+  for (SQLSMALLINT i=0; 0 && i<ColumnCount; ++i) {
+    ColumnNumber                = i + 1;
+
+    FieldIdentifier             = SQL_DESC_CONCISE_TYPE;
+    CharacterAttributePtr       = NULL;
+    BufferLength                = 0;
+    StringLengthPtr             = &StringLength;
+    NumericAttributePtr         = &NumericAttribute;
+
+    sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
+    if (sr != SQL_SUCCESS) return -1;
+    W("Column%d:`SQL_DESC_CONCISE_TYPE`,[%d]%s", i+1, (int)NumericAttribute, sql_data_type((SQLSMALLINT)NumericAttribute));
+
+    FieldIdentifier             = SQL_DESC_OCTET_LENGTH;
+    CharacterAttributePtr       = NULL;
+    BufferLength                = 0;
+    StringLengthPtr             = &StringLength;
+    NumericAttributePtr         = &NumericAttribute;
+
+    sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
+    if (sr != SQL_SUCCESS) return -1;
+    W("Column%d:`SQL_DESC_OCTET_LENGTH`,[%d]", i+1, (int)NumericAttribute);
+
+    FieldIdentifier             = SQL_DESC_PRECISION;
+    CharacterAttributePtr       = NULL;
+    BufferLength                = 0;
+    StringLengthPtr             = &StringLength;
+    NumericAttributePtr         = &NumericAttribute;
+
+    sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
+    if (sr != SQL_SUCCESS) return -1;
+    W("Column%d:`SQL_DESC_PRECISION`,[%d]", i+1, (int)NumericAttribute);
+
+    FieldIdentifier             = SQL_DESC_SCALE;
+    CharacterAttributePtr       = NULL;
+    BufferLength                = 0;
+    StringLengthPtr             = &StringLength;
+    NumericAttributePtr         = &NumericAttribute;
+
+    sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
+    if (sr != SQL_SUCCESS) return -1;
+    W("Column%d:`SQL_DESC_SCALE`,[%d]", i+1, (int)NumericAttribute);
+
+    FieldIdentifier             = SQL_DESC_AUTO_UNIQUE_VALUE;
+    CharacterAttributePtr       = NULL;
+    BufferLength                = 0;
+    StringLengthPtr             = &StringLength;
+    NumericAttributePtr         = &NumericAttribute;
+
+    sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
+    if (sr != SQL_SUCCESS) return -1;
+    W("Column%d:`SQL_DESC_AUTO_UNIQUE_VALUE`,[%s]", i+1, NumericAttribute ? "SQL_TRUE" : "SQL_FALSE");
+
+    FieldIdentifier             = SQL_DESC_UPDATABLE;
+    CharacterAttributePtr       = NULL;
+    BufferLength                = 0;
+    StringLengthPtr             = &StringLength;
+    NumericAttributePtr         = &NumericAttribute;
+
+    sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
+    if (sr != SQL_SUCCESS) return -1;
+    W("Column%d:`SQL_DESC_UPDATABLE`,[%s]", i+1, sql_updatable(NumericAttribute));
+
+    FieldIdentifier             = SQL_DESC_NULLABLE;
+    CharacterAttributePtr       = NULL;
+    BufferLength                = 0;
+    StringLengthPtr             = &StringLength;
+    NumericAttributePtr         = &NumericAttribute;
+
+    sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
+    if (sr != SQL_SUCCESS) return -1;
+    W("Column%d:`SQL_DESC_NULLABLE`,[%s]", i+1, sql_nullable((SQLSMALLINT)NumericAttribute));
+
+    FieldIdentifier             = SQL_DESC_NAME;
+    CharacterAttributePtr       = buf;
+    BufferLength                = sizeof(buf);
+    StringLengthPtr             = &StringLength;
+    NumericAttributePtr         = &NumericAttribute;
+
+    sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
+    if (sr != SQL_SUCCESS) return -1;
+    W("Column%d:`SQL_DESC_NAME`,%d,[%.*s]", i+1, (int)StringLength, (int)StringLength, buf);
+
+    FieldIdentifier             = SQL_COLUMN_TYPE_NAME;
+    CharacterAttributePtr       = buf;
+    BufferLength                = sizeof(buf);
+    StringLengthPtr             = &StringLength;
+    NumericAttributePtr         = &NumericAttribute;
+
+    sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
+    if (sr != SQL_SUCCESS) return -1;
+    W("Column%d:`SQL_COLUMN_TYPE_NAME`,%d,[%.*s]", i+1, (int)StringLength, (int)StringLength, buf);
+
+    FieldIdentifier             = SQL_DESC_LENGTH;
+    CharacterAttributePtr       = buf;
+    BufferLength                = sizeof(buf);
+    StringLengthPtr             = &StringLength;
+    NumericAttributePtr         = &NumericAttribute;
+
+    sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
+    if (sr != SQL_SUCCESS) return -1;
+    W("Column%d:`SQL_DESC_LENGTH`,%d", i+1, (int)NumericAttribute);
+
+    FieldIdentifier             = SQL_DESC_NUM_PREC_RADIX;
+    CharacterAttributePtr       = buf;
+    BufferLength                = sizeof(buf);
+    StringLengthPtr             = &StringLength;
+    NumericAttributePtr         = &NumericAttribute;
+
+    sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
+    if (sr != SQL_SUCCESS) return -1;
+    W("Column%d:`SQL_DESC_NUM_PREC_RADIX`,%d", i+1, (int)NumericAttribute);
+
+    FieldIdentifier             = SQL_DESC_UNSIGNED;
+    CharacterAttributePtr       = buf;
+    BufferLength                = sizeof(buf);
+    StringLengthPtr             = &StringLength;
+    NumericAttributePtr         = &NumericAttribute;
+
+    sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
+    if (sr != SQL_SUCCESS) return -1;
+    W("Column%d:`SQL_DESC_UNSIGNED`,[%s]", i+1, NumericAttribute ? "SQL_TRUE" : "SQL_FALSE");
+  }
+
+  while (1) {
+    sr = CALL_SQLFetch(hstmt);
+    if (sr == SQL_ERROR) return -1;
+    if (sr == SQL_NO_DATA) break;
+
+    for (SQLSMALLINT i=0; i<ColumnCount; ++i) {
+      W("col %d...", i+1);
+      char buf[4096];
+      SQLLEN ind;
+      sr = CALL_SQLGetData(hstmt, i+1, SQL_C_CHAR, (SQLPOINTER)buf, sizeof(buf), &ind);
+      if (FAILED(sr)) return -1;
+      if (ind == SQL_NULL_DATA) {
+        W("==col[%d]:null==", i+1);
+      } else {
+        W("==col[%d]:%s==", i+1, buf);
+      }
+    }
+    break;
+  }
+
+  D("ok");
+  return 0;
+}
+
+static int test_conn_SQLColumns(SQLHANDLE hconn)
+{
+#ifndef _WIN32         /* { */
+  if (1) return 0;
+#endif                 /* } */
+  SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
+
+  const char *dsn = "SQLSERVER_ODBC_DSN";
+  const char *uid = NULL;
+  const char *pwd = NULL;
+
+  sr = CALL_SQLConnect(hconn, (SQLCHAR*)dsn, SQL_NTS, (SQLCHAR*)uid, SQL_NTS, (SQLCHAR*)pwd, SQL_NTS);
+  if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) return -1;
+
+  do {
+    SQLHANDLE hstmt;
+
+    sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
+    if (FAILED(sr)) {
+      r = -1;
+      break;
+    }
+
+    r = test_SQLColumns(hstmt);
+
+    CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+  } while (0);
+
+  CALL_SQLDisconnect(hconn);
+
+  return r ? -1 : 0;
+}
+
 static int test_conn(int argc, char *argv[], SQLHANDLE hconn)
 {
+  if (1) {
+    int r = test_conn_SQLColumns(hconn);
+    if (r) return -1;
+  }
   conn_arg_t conn_arg = {0};
 
   conn_arg.odbc_type = TAOS_ODBC;

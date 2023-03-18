@@ -771,6 +771,22 @@ static SQLRETURN _conn_get_info_driver_odbc_ver(
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _conn_get_info_driver_ver(
+    conn_t         *conn,
+    char           *buf,
+    size_t          sz,
+    SQLSMALLINT    *StringLengthPtr)
+{
+  (void)conn;
+
+  const char *ver = "01.00.0000";
+
+  int n = snprintf(buf, sz, "%s", ver);
+  if (StringLengthPtr) *StringLengthPtr = n;
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _conn_get_info_dbms_name(
     conn_t         *conn,
     char           *buf,
@@ -884,10 +900,14 @@ SQLRETURN conn_get_info(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr)
 {
+  int n = 0;
+
   // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetinfo-function?view=sql-server-ver16
   switch (InfoType) {
     case SQL_DRIVER_ODBC_VER:
       return _conn_get_info_driver_odbc_ver(conn, (char*)InfoValuePtr, (size_t)BufferLength, StringLengthPtr);
+    case SQL_DRIVER_VER:
+      return _conn_get_info_driver_ver(conn, (char*)InfoValuePtr, (size_t)BufferLength, StringLengthPtr);
     case SQL_DBMS_NAME:
       return _conn_get_info_dbms_name(conn, (char*)InfoValuePtr, (size_t)BufferLength, StringLengthPtr);
     case SQL_DRIVER_NAME:
@@ -923,7 +943,7 @@ SQLRETURN conn_get_info(
     case SQL_ASYNC_NOTIFICATION:
       *(SQLUINTEGER*)InfoValuePtr = SQL_ASYNC_NOTIFICATION_NOT_CAPABLE;
       return SQL_SUCCESS;
-#endif
+#endif                       /* } */
     case SQL_DBMS_VER:
       return _conn_get_dbms_ver(conn, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_SERVER_NAME:
@@ -955,6 +975,12 @@ SQLRETURN conn_get_info(
       return SQL_SUCCESS;
     case SQL_BOOKMARK_PERSISTENCE:
       *(SQLUINTEGER*)InfoValuePtr = 0;
+      return SQL_SUCCESS;
+    case SQL_SEARCH_PATTERN_ESCAPE:
+      n = snprintf((char*)InfoValuePtr, BufferLength, "%s", "");
+      if (StringLengthPtr) {
+        *StringLengthPtr = n;
+      }
       return SQL_SUCCESS;
     default:
       conn_append_err_format(conn, "HY000", 0, "General error:`%s[%d/0x%x]` not implemented yet", sql_info_type(InfoType), InfoType, InfoType);

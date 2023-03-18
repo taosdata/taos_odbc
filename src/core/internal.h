@@ -623,7 +623,9 @@ struct columns_args_s {
 
 struct columns_col_meta_s {
   const char                 *name;
+  const char                 *column_type_name;
   SQLLEN                      DESC_CONCISE_TYPE;
+  SQLLEN                      DESC_LENGTH;
   SQLLEN                      DESC_OCTET_LENGTH;
   SQLLEN                      DESC_PRECISION;
   SQLLEN                      DESC_SCALE;
@@ -631,6 +633,7 @@ struct columns_col_meta_s {
   SQLLEN                      DESC_UPDATABLE;
   SQLLEN                      DESC_NULLABLE;
   SQLLEN                      DESC_UNSIGNED;
+  SQLLEN                      DESC_NUM_PREC_RADIX;
 };
 
 struct columns_s {
@@ -639,18 +642,24 @@ struct columns_s {
 
   columns_args_t             columns_args;
 
-  tsdb_stmt_t                stmt;
+  tables_t                   tables;
+
+  tsdb_data_t                current_catalog;
+  tsdb_data_t                current_schema;
+  tsdb_data_t                current_table;
+  tsdb_data_t                current_table_type;
+
+  tsdb_data_t                current_col_name;
+  tsdb_data_t                current_col_type;
+  tsdb_data_t                current_col_length;
+  tsdb_data_t                current_col_note;
 
   tsdb_stmt_t                desc;
 
-  const unsigned char       *catalog;
-  const unsigned char       *schema;
-  const unsigned char       *table;
-  const unsigned char       *column;
+  int                        ordinal_order;
 
-  mem_t                      catalog_cache;
-  mem_t                      schema_cache;
-  mem_t                      table_cache;
+  const char                *column;
+
   mem_t                      column_cache;
 };
 

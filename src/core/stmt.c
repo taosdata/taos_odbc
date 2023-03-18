@@ -1007,6 +1007,8 @@ static SQLRETURN _stmt_get_data_prepare_ctx(stmt_t *stmt, stmt_get_data_args_t *
         tsdb->pos = tsdb->buf;
       } break;
     case TSDB_DATA_TYPE_VARCHAR:
+      tsdb->nr = tsdb->str.len;
+      tsdb->pos = tsdb->str.str;
       break;
     case TSDB_DATA_TYPE_TIMESTAMP:
       {
@@ -1014,6 +1016,8 @@ static SQLRETURN _stmt_get_data_prepare_ctx(stmt_t *stmt, stmt_get_data_args_t *
         tsdb->pos = tsdb->buf;
       } break;
     case TSDB_DATA_TYPE_NCHAR:
+      tsdb->nr = tsdb->str.len;
+      tsdb->pos = tsdb->str.str;
       break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
@@ -1656,6 +1660,8 @@ static SQLRETURN _stmt_get_data_copy(stmt_t *stmt, stmt_get_data_args_t *args)
     return SQL_ERROR;
   }
 
+  OW("tsdb:type:%s", taos_data_type(tsdb->type));
+
   switch(tsdb->type) {
     case TSDB_DATA_TYPE_BOOL:
       return _stmt_get_data_copy_uint64(stmt, tsdb->b, args);
@@ -1721,6 +1727,8 @@ SQLRETURN stmt_get_data(
     SQLLEN         BufferLength,
     SQLLEN        *StrLen_or_IndPtr)
 {
+  SQLRETURN sr = SQL_SUCCESS;
+
   if (Col_or_Param_Num == 0) {
     stmt_append_err(stmt, "HY000", 0, "General error:bookmark column not supported yet");
     return SQL_ERROR;
@@ -1729,11 +1737,6 @@ SQLRETURN stmt_get_data(
   size_t row_array_size = _stmt_get_row_array_size(stmt);
   if (row_array_size > 1) {
     stmt_append_err(stmt, "HY109", 0, "Invalid cursor position:The cursor was a forward-only cursor, and the rowset size was greater than one");
-    return SQL_ERROR;
-  }
-
-  if (stmt->base == &stmt->columns.base) {
-    stmt_append_err(stmt, "HY000", 0, "General error:not implemented yet");
     return SQL_ERROR;
   }
 
@@ -1746,7 +1749,13 @@ SQLRETURN stmt_get_data(
     .IndPtr                     = StrLen_or_IndPtr,
   };
 
-  return _stmt_get_data_x(stmt, &args);
+  OW("Column%d:TargetType:%s,TargetValuePtr:%p,BufferLength:%d,StrLen_or_IndPtr:%p",
+      Col_or_Param_Num, sql_c_data_type(TargetType), TargetValuePtr, (int)BufferLength, StrLen_or_IndPtr);
+  sr = _stmt_get_data_x(stmt, &args);
+  OW("Column%d:TargetType:%s,TargetValuePtr:%p,BufferLength:%d,StrLen_or_IndPtr:%p[%zd] => %s",
+      Col_or_Param_Num, sql_c_data_type(TargetType), TargetValuePtr, (int)BufferLength, StrLen_or_IndPtr, StrLen_or_IndPtr ? (size_t)*StrLen_or_IndPtr : 0,
+      sql_return_type(sr));
+  return sr;
 }
 
 static SQLRETURN _stmt_fetch_rowset(stmt_t *stmt, size_t row_array_size)
@@ -3964,16 +3973,6 @@ SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr,
 {
   (void)StringLength;
 
-  if (stmt->base == &stmt->columns.base) {
-    stmt_append_err(stmt, "HY000", 0, "General error:not implemented yet");
-    return SQL_ERROR;
-  }
-
-  if (stmt->base == &stmt->tables.base) {
-    stmt_append_err(stmt, "HY000", 0, "General error:not implemented yet");
-    return SQL_ERROR;
-  }
-
   switch (Attribute) {
     case SQL_ATTR_CURSOR_TYPE:
       return _stmt_set_cursor_type(stmt, (SQLULEN)ValuePtr);
@@ -4071,6 +4070,9 @@ SQLRETURN stmt_free_stmt(stmt_t *stmt, SQLUSMALLINT Option)
     case SQL_RESET_PARAMS:
       _stmt_reset_params(stmt);
       return SQL_SUCCESS;
+    case SQL_DROP:
+      // NOTE: don't know why windows odbc-driver-manager does not map SQL_DROP to SQLFreeHandle
+      return stmt_free(stmt);
     default:
       stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_free_statement_option(Option), Option, Option);
       return SQL_ERROR;
@@ -4444,67 +4446,6 @@ SQLRETURN stmt_get_diag_field(
   }
 }
 
-static SQLRETURN _stmt_columns_col_attribute(
-    stmt_t         *stmt,
-    SQLUSMALLINT    ColumnNumber,
-    SQLUSMALLINT    FieldIdentifier,
-    SQLPOINTER      CharacterAttributePtr,
-    SQLSMALLINT     BufferLength,
-    SQLSMALLINT    *StringLengthPtr,
-    SQLLEN         *NumericAttributePtr)
-{
-  int n = 0;
-
-  columns_col_meta_t *col_meta = columns_get_col_meta(ColumnNumber - 1);
-  if (!col_meta) {
-    stmt_append_err_format(stmt, "HY000", 0, "General error:ColumnNumber #%d out of range", ColumnNumber);
-    return SQL_ERROR;
-  }
-
-  switch(FieldIdentifier) {
-    case SQL_DESC_CONCISE_TYPE:
-      *NumericAttributePtr = col_meta->DESC_CONCISE_TYPE;
-      return SQL_SUCCESS;
-    case SQL_DESC_OCTET_LENGTH:
-      *NumericAttributePtr = col_meta->DESC_OCTET_LENGTH;
-      return SQL_SUCCESS;
-    // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
-    case SQL_DESC_PRECISION:
-    case SQL_COLUMN_PRECISION:
-      *NumericAttributePtr = col_meta->DESC_PRECISION;
-      return SQL_SUCCESS;
-    // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
-    case SQL_DESC_SCALE:
-    case SQL_COLUMN_SCALE:
-      *NumericAttributePtr = col_meta->DESC_SCALE;
-      return SQL_SUCCESS;
-    case SQL_DESC_AUTO_UNIQUE_VALUE:
-      *NumericAttributePtr = col_meta->DESC_AUTO_UNIQUE_VALUE;
-      return SQL_SUCCESS;
-    case SQL_DESC_UPDATABLE:
-      *NumericAttributePtr = col_meta->DESC_UPDATABLE;
-      return SQL_SUCCESS;
-    case SQL_DESC_NULLABLE:
-      *NumericAttributePtr = col_meta->DESC_NULLABLE;
-      return SQL_SUCCESS;
-    case SQL_DESC_NAME:
-      n = snprintf(CharacterAttributePtr, BufferLength, "%s", col_meta->name);
-      if (n < 0) {
-        int e = errno;
-        stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
-        return SQL_ERROR;
-      }
-      if (StringLengthPtr) *StringLengthPtr = n;
-      return SQL_SUCCESS;
-    case SQL_DESC_UNSIGNED:
-      *NumericAttributePtr = col_meta->DESC_UNSIGNED;
-      return SQL_SUCCESS;
-    default:
-    stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` not supported yet", sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier);
-    return SQL_ERROR;
-  }
-}
-
 SQLRETURN stmt_col_attribute(
     stmt_t         *stmt,
     SQLUSMALLINT    ColumnNumber,
@@ -4519,96 +4460,7 @@ SQLRETURN stmt_col_attribute(
     return SQL_ERROR;
   }
 
-  if (1) {
-    return stmt->base->col_attribute(stmt->base, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
-  }
-
-  if (stmt->base == &stmt->columns.base) {
-    if (0) return _stmt_columns_col_attribute(stmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
-    stmt_append_err(stmt, "HY000", 0, "General error:not implemented yet");
-    return SQL_ERROR;
-  }
-
-  if (stmt->base == &stmt->tables.base) {
-    stmt_append_err(stmt, "HY000", 0, "General error:not implemented yet");
-    return SQL_ERROR;
-  }
-
-  tsdb_res_t           *res          = &stmt->tsdb_stmt.res;
-  tsdb_fields_t        *fields       = &res->fields;
-
-  if (ColumnNumber > fields->nr) {
-    stmt_append_err_format(stmt, "HY000", 0, "General error:ColumnNumber #%d out of range", ColumnNumber);
-    return SQL_ERROR;
-  }
-
-  int n = 0;
-
-  descriptor_t *IRD = stmt_IRD(stmt);
-  desc_record_t *IRD_record = IRD->records + ColumnNumber - 1;
-
-  TAOS_FIELD *col = fields->fields + ColumnNumber - 1;
-
-  // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
-  switch(FieldIdentifier) {
-    case SQL_DESC_CONCISE_TYPE:
-      *NumericAttributePtr = IRD_record->DESC_CONCISE_TYPE;
-      return SQL_SUCCESS;
-    case SQL_DESC_OCTET_LENGTH:
-      *NumericAttributePtr = IRD_record->DESC_OCTET_LENGTH;
-      return SQL_SUCCESS;
-    // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
-    case SQL_DESC_PRECISION:
-    case SQL_COLUMN_PRECISION:
-      *NumericAttributePtr = IRD_record->DESC_PRECISION;
-      return SQL_SUCCESS;
-    // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
-    case SQL_DESC_SCALE:
-    case SQL_COLUMN_SCALE:
-      *NumericAttributePtr = IRD_record->DESC_SCALE;
-      return SQL_SUCCESS;
-    case SQL_DESC_AUTO_UNIQUE_VALUE:
-      *NumericAttributePtr = IRD_record->DESC_AUTO_UNIQUE_VALUE;
-      return SQL_SUCCESS;
-    case SQL_DESC_UPDATABLE:
-      *NumericAttributePtr = IRD_record->DESC_UPDATABLE;
-      return SQL_SUCCESS;
-    case SQL_DESC_NULLABLE:
-      *NumericAttributePtr = IRD_record->DESC_NULLABLE;
-      return SQL_SUCCESS;
-    case SQL_DESC_NAME:
-      n = snprintf(CharacterAttributePtr, BufferLength, "%.*s", (int)sizeof(col->name), col->name);
-      if (n < 0) {
-        int e = errno;
-        stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
-        return SQL_ERROR;
-      }
-      if (StringLengthPtr) *StringLengthPtr = n;
-      return SQL_SUCCESS;
-    case SQL_DESC_UNSIGNED:
-      switch (col->type) {
-        case TSDB_DATA_TYPE_TINYINT:
-        case TSDB_DATA_TYPE_SMALLINT:
-        case TSDB_DATA_TYPE_INT:
-        case TSDB_DATA_TYPE_BIGINT:
-          *NumericAttributePtr = SQL_FALSE;
-          break;
-        case TSDB_DATA_TYPE_UTINYINT:
-        case TSDB_DATA_TYPE_USMALLINT:
-        case TSDB_DATA_TYPE_UINT:
-        case TSDB_DATA_TYPE_UBIGINT:
-          *NumericAttributePtr = SQL_TRUE;
-          break;
-        default:
-          stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` has no SIGNESS", taos_data_type(col->type), col->type, col->type);
-          return SQL_ERROR;
-      }
-      return SQL_SUCCESS;
-    default:
-    stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` not supported yet", sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier);
-    return SQL_ERROR;
-  }
-  OA_NIY(0);
+  return stmt->base->col_attribute(stmt->base, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
 }
 
 SQLRETURN stmt_more_results(

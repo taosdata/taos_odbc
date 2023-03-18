@@ -218,6 +218,13 @@ again:
     int matched = 0;
     _match(tables, tsdb, &matched);
     OW("tsdb:%.*s:%s", (int)tsdb->str.len, tsdb->str.str, matched ? "matched" : "not matched");
+
+    tsdb_data_reset(tsdb);
+    sr = tables->stmt.base.get_data(&tables->stmt.base, 3, tsdb);
+    if (sr == SQL_SUCCESS) {
+      OW("table:%.*s:%s", (int)tsdb->str.len, tsdb->str.str, matched ? "matched" : "not matched");
+    }
+
     if (matched) return SQL_SUCCESS;
 
     goto again;

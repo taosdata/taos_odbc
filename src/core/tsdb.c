@@ -460,6 +460,39 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
       }
       if (StringLengthPtr) *StringLengthPtr = n;
       return SQL_SUCCESS;
+    case SQL_COLUMN_TYPE_NAME:
+      switch (col->type) {
+        case TSDB_DATA_TYPE_VARCHAR:
+          n = snprintf(CharacterAttributePtr, BufferLength, "%s", "VARCHAR");
+          if (n < 0) {
+            int e = errno;
+            stmt_append_err_format(stmt->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
+            return SQL_ERROR;
+          }
+          if (StringLengthPtr) *StringLengthPtr = n;
+          return SQL_SUCCESS;
+        default:
+          stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s` not supported yet", taos_data_type(col->type));
+          return SQL_ERROR;
+      }
+    case SQL_DESC_LENGTH:
+      switch (col->type) {
+        case TSDB_DATA_TYPE_VARCHAR:
+          *NumericAttributePtr = col->bytes;
+          return SQL_SUCCESS;
+        default:
+          stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s` not supported yet", taos_data_type(col->type));
+          return SQL_ERROR;
+      }
+    case SQL_DESC_NUM_PREC_RADIX:
+      switch (col->type) {
+        case TSDB_DATA_TYPE_VARCHAR:
+          *NumericAttributePtr = 0;
+          return SQL_SUCCESS;
+        default:
+          stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s` not supported yet", taos_data_type(col->type));
+          return SQL_ERROR;
+      }
     // case SQL_DESC_UNSIGNED:
     //   switch (col->type) {
     //     case TSDB_DATA_TYPE_TINYINT:

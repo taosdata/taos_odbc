@@ -694,3 +694,14 @@ const char *sql_statistics_reserved(SQLUSMALLINT v)
       return "SQL_unknown";
   }
 }
+
+const char *sql_updatable(SQLLEN v)
+{
+  switch (v) {
+    CASE(SQL_ATTR_READONLY);
+    CASE(SQL_ATTR_WRITE);
+    CASE(SQL_ATTR_READWRITE_UNKNOWN);
+    default:
+      return "SQL_ATTR_unknown";
+  }
+}

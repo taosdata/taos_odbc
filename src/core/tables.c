@@ -120,9 +120,12 @@ static SQLRETURN _execute(stmt_base_t *base)
 
 static SQLRETURN _fetch_rowset(stmt_base_t *base, size_t rowset_size)
 {
+  SQLRETURN sr = SQL_SUCCESS;
   tables_t *tables = (tables_t*)base;
   tables->rowset_size = rowset_size;
-  return tables->stmt.base.fetch_rowset(&tables->stmt.base, rowset_size);
+  sr = tables->stmt.base.fetch_rowset(&tables->stmt.base, rowset_size);
+  tables->pos = 0;
+  return sr;
 }
 
 static void _match(tables_t *tables, tsdb_data_t *tsdb, int *matched)
@@ -154,10 +157,13 @@ static SQLRETURN _fetch_row_with_tsdb(stmt_base_t *base, tsdb_data_t *tsdb)
 
   tables_t *tables = (tables_t*)base;
 
+  charset_conv_t *cnv = &tables->owner->conn->cnv_tsdb_varchar_to_sql_c_wchar;
+
 again:
 
   sr = tables->stmt.base.fetch_row(&tables->stmt.base);
   if (sr == SQL_NO_DATA) {
+    if (tables->pos > 0) return SQL_NO_DATA;
     sr = _fetch_rowset(base, tables->rowset_size);
     if (sr == SQL_NO_DATA) return SQL_NO_DATA;
     if (sr != SQL_SUCCESS) return SQL_ERROR;
@@ -165,11 +171,9 @@ again:
   }
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-  if (sr != TABLES_FOR_GENERIC) return SQL_SUCCESS;
+  tables->POS += 1;
 
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
-
-  charset_conv_t *cnv = &tables->owner->conn->cnv_tsdb_varchar_to_sql_c_wchar;
+  if (tables->tables_type != TABLES_FOR_GENERIC) return SQL_SUCCESS;
 
   if (tables->tables_args.catalog_pattern) {
     sr = tables->stmt.base.get_data(&tables->stmt.base, 1, tsdb);
@@ -220,10 +224,10 @@ again:
       OW("table:%.*s:%s", (int)tsdb->str.len, tsdb->str.str, matched ? "matched" : "not matched");
     }
 
-    if (matched) return SQL_SUCCESS;
-
-    goto again;
+    if (!matched) goto again;
   }
+
+  tables->pos += 1;
 
   return SQL_SUCCESS;
 }
@@ -549,12 +553,12 @@ SQLRETURN tables_open(
   OW("TableType:%p,%.*s", TableType, (int)NameLength4, TableType);
 
   if (CatalogName && strncmp((const char*)CatalogName, SQL_ALL_CATALOGS, 1) == 0) {
-    if ((!SchemaName || !*SchemaName) && (!TableName || !*TableName)) {
+    if ((!SchemaName || !*SchemaName) && (!TableName || !*TableName) && (!TableType || !*TableType)) {
       return _tables_open_catalogs(tables);
     }
   }
   if (SchemaName && strncmp((const char*)SchemaName, SQL_ALL_SCHEMAS, 1) == 0) {
-    if ((!CatalogName || !*CatalogName) && (!TableName || !*TableName)) {
+    if ((!CatalogName || !*CatalogName) && (!TableName || !*TableName)&& (!TableType || !*TableType)) {
       return _tables_open_schemas(tables);
     }
   }
@@ -624,7 +628,7 @@ SQLRETURN tables_open(
     "union all"
     " "
     "select db_name `TABLE_CAT`, '' `TABLE_SCHEM`, table_name `TABLE_NAME`,"
-    "  case when `type`='SYSTEM_TABLE' then 'SYSTEM TABLE'"
+    "  case when `type`='SYSTEM_TABLE' then 'TABLE'"
     "       when `type`='NORMAL_TABLE' then 'TABLE'"
     "       when `type`='CHILD_TABLE' then 'TABLE'"
     "       else 'UNKNOWN'"

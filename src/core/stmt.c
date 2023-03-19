@@ -4765,6 +4765,10 @@ SQLRETURN stmt_primary_keys(
     SQLCHAR       *TableName,
     SQLSMALLINT    NameLength3)
 {
+  OW("CatalogName:%p,%.*s", CatalogName, CatalogName ? (int)NameLength1 : 6, CatalogName ? CatalogName : "[null]");
+  OW("SchemaName:%p,%.*s", SchemaName, SchemaName ? (int)NameLength2 : 6, SchemaName ? SchemaName : "[null]");
+  OW("TableName:%p,%.*s", TableName, TableName ? (int)NameLength3 : 6, TableName ? TableName : "[null]");
+
   const char *catalog = (const char *)CatalogName;
   const char *schema  = (const char *)SchemaName;
   const char *table   = (const char *)TableName;
@@ -4776,10 +4780,6 @@ SQLRETURN stmt_primary_keys(
   if (NameLength1 == SQL_NTS) NameLength1 = (SQLSMALLINT)strlen(catalog);
   if (NameLength2 == SQL_NTS) NameLength2 = (SQLSMALLINT)strlen(schema);
   if (NameLength3 == SQL_NTS) NameLength3 = (SQLSMALLINT)strlen(table);
-
-  OW("catalog:%.*s", (int)NameLength1, catalog);
-  OW("schema:%.*s", (int)NameLength2, schema);
-  OW("table:%.*s", (int)NameLength3, table);
 
   stmt_append_err(stmt, "HY000", 0, "General error:not supported yet");
   return SQL_ERROR;

@@ -863,6 +863,21 @@ static SQLRETURN _conn_get_catalog_name_separator(
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _conn_get_catalog_name(
+    conn_t         *conn,
+    SQLPOINTER      InfoValuePtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr)
+{
+  (void)conn;
+  const char *catalog_name = "Y";
+  int n = snprintf((char*)InfoValuePtr, BufferLength, "%s", catalog_name);
+  if (StringLengthPtr) {
+    *StringLengthPtr = n;
+  }
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _conn_get_order_by_columns_in_select(
     conn_t         *conn,
     SQLPOINTER      InfoValuePtr,
@@ -953,6 +968,8 @@ SQLRETURN conn_get_info(
       return SQL_SUCCESS;
     case SQL_CATALOG_NAME_SEPARATOR:
       return _conn_get_catalog_name_separator(conn, InfoValuePtr, BufferLength, StringLengthPtr);
+    case SQL_CATALOG_NAME:
+      return _conn_get_catalog_name(conn, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_OJ_CAPABILITIES:
       // *(SQLUINTEGER*)InfoValuePtr = SQL_OJ_LEFT | SQL_OJ_RIGHT | SQL_OJ_FULL | SQL_OJ_NESTED | SQL_OJ_NOT_ORDERED | SQL_OJ_INNER | SQL_OJ_ALL_COMPARISON_OPS;
       *(SQLUINTEGER*)InfoValuePtr = 0;

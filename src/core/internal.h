@@ -599,6 +599,8 @@ struct tables_s {
   tsdb_stmt_t                stmt;
 
   size_t                     rowset_size;
+  size_t                     pos; // 1-based
+  size_t                     POS; // 1-based in whole set
 
   const unsigned char       *catalog;
   const unsigned char       *schema;

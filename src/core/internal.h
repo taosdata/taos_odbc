@@ -663,6 +663,16 @@ struct columns_s {
   mem_t                      column_cache;
 };
 
+struct typesinfo_s {
+  stmt_base_t                base;
+  stmt_t                    *owner;
+
+  SQLSMALLINT                data_type;
+
+  size_t                     nr;
+  size_t                     pos; // 1-based
+};
+
 struct stmt_s {
   atomic_int                 refc;
 

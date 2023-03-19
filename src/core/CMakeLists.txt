@@ -33,6 +33,7 @@ list(APPEND core_SOURCES stmt.c)
 list(APPEND core_SOURCES tables.c)
 list(APPEND core_SOURCES tls.c)
 list(APPEND core_SOURCES tsdb.c)
+list(APPEND core_SOURCES typesinfo.c)
 
 add_library(core_obj OBJECT ${core_SOURCES})
 if(TODBC_WINDOWS)

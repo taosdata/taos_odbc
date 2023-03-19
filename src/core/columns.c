@@ -312,7 +312,7 @@ SQLSMALLINT columns_get_count_of_col_meta(void)
   return nr;
 }
 
-column_meta_t* columns_get_col_meta(int i_col)
+const column_meta_t* columns_get_col_meta(int i_col)
 {
   int nr = (int)(sizeof(_columns_meta) / sizeof(_columns_meta[0]));
   if (i_col < 0) return NULL;
@@ -479,7 +479,7 @@ static SQLRETURN _describe_col(stmt_base_t *base,
 {
   columns_t *columns = (columns_t*)base;
 
-  column_meta_t *col_meta = columns_get_col_meta(ColumnNumber - 1);
+  const column_meta_t *col_meta = columns_get_col_meta(ColumnNumber - 1);
 
   *NameLengthPtr    = (SQLSMALLINT)strlen(col_meta->name);
   *DataTypePtr      = (SQLSMALLINT)col_meta->DESC_CONCISE_TYPE;
@@ -513,7 +513,7 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
   int n = 0;
   columns_t *columns = (columns_t*)base;
   (void)columns;
-  column_meta_t *col_meta = columns_get_col_meta(ColumnNumber - 1);
+  const column_meta_t *col_meta = columns_get_col_meta(ColumnNumber - 1);
   if (!col_meta) {
     stmt_append_err_format(columns->owner, "HY000", 0, "General error:column[%d] out of range", ColumnNumber);
     return SQL_ERROR;

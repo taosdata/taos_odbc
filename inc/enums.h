@@ -57,6 +57,7 @@ const char *sql_scope(SQLUSMALLINT v) FA_HIDDEN;
 const char *sql_index(SQLUSMALLINT v) FA_HIDDEN;
 const char *sql_statistics_reserved(SQLUSMALLINT v) FA_HIDDEN;
 const char *sql_updatable(SQLLEN v) FA_HIDDEN;
+const char *sql_searchable(SQLSMALLINT v) FA_HIDDEN;
 
 EXTERN_C_END
 

@@ -75,7 +75,6 @@ const char *sql_c_data_type(SQLSMALLINT v)
 const char *sql_data_type(SQLSMALLINT v)
 {
   switch (v) {
-    CASE(SQL_UNKNOWN_TYPE);
     CASE(SQL_CHAR);
     CASE(SQL_VARCHAR);
     CASE(SQL_LONGVARCHAR);
@@ -115,6 +114,7 @@ const char *sql_data_type(SQLSMALLINT v)
     CASE(SQL_INTERVAL_HOUR_TO_SECOND);
     CASE(SQL_INTERVAL_MINUTE_TO_SECOND);
     CASE(SQL_GUID);
+    CASE(SQL_ALL_TYPES);
     default:
     return "SQL_TYPE_unknown";
   }
@@ -703,5 +703,17 @@ const char *sql_updatable(SQLLEN v)
     CASE(SQL_ATTR_READWRITE_UNKNOWN);
     default:
       return "SQL_ATTR_unknown";
+  }
+}
+
+const char *sql_searchable(SQLSMALLINT v)
+{
+  switch (v) {
+    CASE(SQL_PRED_NONE);
+    CASE(SQL_PRED_CHAR);
+    CASE(SQL_PRED_BASIC);
+    CASE(SQL_SEARCHABLE);
+    default:
+      return "SQL_PRED_unknown";
   }
 }

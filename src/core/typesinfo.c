@@ -327,7 +327,7 @@ struct type_info_rec_s {
 };
 
 // NOTE: this is tricky approach
-#define NULL_FIELD       0x8000000000000000L
+#define NULL_FIELD       ((int64_t)0x8000000000000000L)
 static const type_info_rec_t _records[] = {
   {
     /* TYPE_NAME             */      "VARCHAR",

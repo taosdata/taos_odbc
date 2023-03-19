@@ -4765,9 +4765,9 @@ SQLRETURN stmt_primary_keys(
     SQLCHAR       *TableName,
     SQLSMALLINT    NameLength3)
 {
-  OW("CatalogName:%p,%.*s", CatalogName, CatalogName ? (int)NameLength1 : 6, CatalogName ? CatalogName : "[null]");
-  OW("SchemaName:%p,%.*s", SchemaName, SchemaName ? (int)NameLength2 : 6, SchemaName ? SchemaName : "[null]");
-  OW("TableName:%p,%.*s", TableName, TableName ? (int)NameLength3 : 6, TableName ? TableName : "[null]");
+  OW("CatalogName:%p,%.*s", CatalogName, CatalogName ? (int)NameLength1 : 6, CatalogName ? (const char*)CatalogName : "[null]");
+  OW("SchemaName:%p,%.*s", SchemaName, SchemaName ? (int)NameLength2 : 6, SchemaName ? (const char*)SchemaName : "[null]");
+  OW("TableName:%p,%.*s", TableName, TableName ? (int)NameLength3 : 6, TableName ? (const char*)TableName : "[null]");
 
   const char *catalog = (const char *)CatalogName;
   const char *schema  = (const char *)SchemaName;

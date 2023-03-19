@@ -669,8 +669,9 @@ struct typesinfo_s {
 
   SQLSMALLINT                data_type;
 
-  size_t                     nr;
+  size_t                     rowset_size;
   size_t                     pos; // 1-based
+  size_t                     idx; // 0-based in whole set
 };
 
 struct stmt_s {

@@ -303,27 +303,93 @@ static const column_meta_t _typesinfo_meta[] = {
   },
 };
 
-typedef struct type_info_s                  type_info_t;
-struct type_info_s {
+typedef struct type_info_rec_s                  type_info_rec_t;
+struct type_info_rec_s {
   /*  1 */ const char                *TYPE_NAME;
-  /*  2 */ int16_t                    DATA_TYPE;
-  /*  3 */ int32_t                    COLUMN_SIZE;
+  /*  2 */ int64_t                    DATA_TYPE;
+  /*  3 */ int64_t                    COLUMN_SIZE;
   /*  4 */ const char                *LITERAL_PREFIX;
   /*  5 */ const char                *LITERAL_SUFFIX;
   /*  6 */ const char                *CREATE_PARAMS;
-  /*  7 */ int16_t                    NULLABLE;
-  /*  8 */ int16_t                    CASE_SENSITIVE;
-  /*  9 */ int16_t                    SEARCHABLE;
-  /* 10 */ int16_t                    UNSIGNED_ATTRIBUTE;
-  /* 11 */ int16_t                    FIXED_PREC_SCALE;
-  /* 12 */ int16_t                    AUTO_UNIQUE_VALUE;
+  /*  7 */ int64_t                    NULLABLE;
+  /*  8 */ int64_t                    CASE_SENSITIVE;
+  /*  9 */ int64_t                    SEARCHABLE;
+  /* 10 */ int64_t                    UNSIGNED_ATTRIBUTE;
+  /* 11 */ int64_t                    FIXED_PREC_SCALE;
+  /* 12 */ int64_t                    AUTO_UNIQUE_VALUE;
   /* 13 */ const char                *LOCAL_TYPE_NAME;
-  /* 14 */ int16_t                    MINIMUM_SCALE;
-  /* 15 */ int16_t                    MAXIMUM_SCALE;
-  /* 16 */ int16_t                    SQL_DATA_TYPE;
-  /* 17 */ int16_t                    SQL_DATETIME_SUB;
-  /* 18 */ int32_t                    NUM_PREC_RADIX;
-  /* 19 */ int16_t                    INTERVAL_PRECISION;
+  /* 14 */ int64_t                    MINIMUM_SCALE;
+  /* 15 */ int64_t                    MAXIMUM_SCALE;
+  /* 16 */ int64_t                    SQL_DATA_TYPE;
+  /* 17 */ int64_t                    SQL_DATETIME_SUB;
+  /* 18 */ int64_t                    NUM_PREC_RADIX;
+  /* 19 */ int64_t                    INTERVAL_PRECISION;
+};
+
+// NOTE: this is tricky approach
+#define NULL_FIELD       0x8000000000000000L
+static const type_info_rec_t _records[] = {
+  {
+    /* TYPE_NAME             */      "VARCHAR",
+    /* DATA_TYPE             */      SQL_VARCHAR,
+    /* COLUMN_SIZE           */      16384,            // NOTE: hard-coded
+    /* LITERAL_PREFIX        */      "'",
+    /* LITERAL_SUFFIX        */      "'",
+    /* CREATE_PARAMS         */      "max length",     // NOTE: what does `max` means?
+    /* NULLABLE              */      SQL_NULLABLE,
+    /* CASE_SENSITIVE        */      SQL_FALSE,
+    /* SEARCHABLE            */      SQL_SEARCHABLE,
+    /* UNSIGNED_ATTRIBUTE    */      NULL_FIELD,
+    /* FIXED_PREC_SCALE      */      SQL_FALSE,
+    /* AUTO_UNIQUE_VALUE     */      NULL_FIELD,
+    /* LOCAL_TYPE_NAME       */      "VARCHAR",
+    /* MINIMUM_SCALE         */      NULL_FIELD,
+    /* MAXIMUM_SCALE         */      NULL_FIELD,
+    /* SQL_DATA_TYPE         */      SQL_VARCHAR,
+    /* SQL_DATETIME_SUB      */      NULL_FIELD,
+    /* NUM_PREC_RADIX        */      NULL_FIELD,
+    /* INTERVAL_PRECISION    */      NULL_FIELD,
+  },{
+    /* TYPE_NAME             */      "INT",
+    /* DATA_TYPE             */      SQL_INTEGER,
+    /* COLUMN_SIZE           */      10,
+    /* LITERAL_PREFIX        */      NULL,
+    /* LITERAL_SUFFIX        */      NULL,
+    /* CREATE_PARAMS         */      NULL,
+    /* NULLABLE              */      SQL_NULLABLE,
+    /* CASE_SENSITIVE        */      SQL_FALSE,
+    /* SEARCHABLE            */      SQL_PRED_BASIC,
+    /* UNSIGNED_ATTRIBUTE    */      SQL_FALSE,
+    /* FIXED_PREC_SCALE      */      SQL_FALSE,
+    /* AUTO_UNIQUE_VALUE     */      SQL_FALSE,
+    /* LOCAL_TYPE_NAME       */      "INT",
+    /* MINIMUM_SCALE         */      SQL_FALSE,
+    /* MAXIMUM_SCALE         */      SQL_FALSE,
+    /* SQL_DATA_TYPE         */      SQL_INTEGER,
+    /* SQL_DATETIME_SUB      */      NULL_FIELD,
+    /* NUM_PREC_RADIX        */      10,
+    /* INTERVAL_PRECISION    */      NULL_FIELD,
+  },{
+    /* TYPE_NAME             */      "TIMESTAMP",
+    /* DATA_TYPE             */      SQL_BINARY,
+    /* COLUMN_SIZE           */      8,
+    /* LITERAL_PREFIX        */      "0x",
+    /* LITERAL_SUFFIX        */      NULL,
+    /* CREATE_PARAMS         */      NULL,
+    /* NULLABLE              */      SQL_NO_NULLS,
+    /* CASE_SENSITIVE        */      SQL_FALSE,
+    /* SEARCHABLE            */      SQL_PRED_BASIC,
+    /* UNSIGNED_ATTRIBUTE    */      NULL_FIELD,
+    /* FIXED_PREC_SCALE      */      SQL_FALSE,
+    /* AUTO_UNIQUE_VALUE     */      NULL_FIELD,
+    /* LOCAL_TYPE_NAME       */      "TIMESTAMP",
+    /* MINIMUM_SCALE         */      NULL_FIELD,
+    /* MAXIMUM_SCALE         */      NULL_FIELD,
+    /* SQL_DATA_TYPE         */      SQL_BINARY,
+    /* SQL_DATETIME_SUB      */      NULL_FIELD,
+    /* NUM_PREC_RADIX        */      NULL_FIELD,
+    /* INTERVAL_PRECISION    */      NULL_FIELD,
+  }
 };
 
 SQLSMALLINT typesinfo_get_count_of_col_meta(void)
@@ -375,22 +441,46 @@ static SQLRETURN _fetch_rowset(stmt_base_t *base, size_t rowset_size)
 {
   typesinfo_t *typesinfo = (typesinfo_t*)base;
   typesinfo->rowset_size = rowset_size;
-  stmt_append_err(typesinfo->owner, "HY000", 0, "General error:not implemented yet");
-  return SQL_ERROR;
+  if (typesinfo->POS < sizeof(_records)/sizeof(_records[0])) {
+    typesinfo->pos = 0;
+    return SQL_SUCCESS;
+  }
+  return SQL_NO_DATA;
 }
 
 static SQLRETURN _fetch_row(stmt_base_t *base)
 {
   typesinfo_t *typesinfo = (typesinfo_t*)base;
 
-  stmt_append_err(typesinfo->owner, "HY000", 0, "General error:not implemented yet");
-  return SQL_ERROR;
+  if (typesinfo->pos >= typesinfo->rowset_size) return SQL_NO_DATA;
+
+again:
+
+  if (typesinfo->POS >= sizeof(_records)/sizeof(_records[0])) return SQL_NO_DATA;
+
+  typesinfo->POS += 1;
+
+  if (typesinfo->data_type != SQL_ALL_TYPES) {
+    const type_info_rec_t *rec = _records + typesinfo->POS - 1;
+    if (rec->DATA_TYPE != typesinfo->data_type) {
+      typesinfo->POS += 1;
+      goto again;
+    }
+  }
+
+  typesinfo->pos += 1;
+
+  if (typesinfo->pos == 1) {
+    typesinfo->IDX_of_first_in_rowset = typesinfo->POS - 1;    
+  }
+
+  return SQL_SUCCESS;
 }
 
 static void _move_to_first_on_rowset(stmt_base_t *base)
 {
   typesinfo_t *typesinfo = (typesinfo_t*)base;
-  typesinfo->pos = 1;
+  typesinfo->pos = typesinfo->IDX_of_first_in_rowset + 1;
 }
 
 static SQLRETURN _describe_param(stmt_base_t *base,
@@ -595,8 +685,136 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
 
   tsdb->is_null = 0;
 
-  stmt_append_err(typesinfo->owner, "HY000", 0, "General error:not implemented yet");
-  return SQL_ERROR;
+  const type_info_rec_t *rec = _records + typesinfo->POS - 1;
+
+  switch (Col_or_Param_Num) {
+    case 1: // TYPE_NAME:
+      tsdb->type = TSDB_DATA_TYPE_VARCHAR;
+      tsdb->str.str = rec->TYPE_NAME;
+      tsdb->str.len = strlen(rec->TYPE_NAME);
+      break;
+    case 2: // DATA_TYPE
+      tsdb->type = TSDB_DATA_TYPE_BIGINT;
+      tsdb->i64 = rec->DATA_TYPE;
+      break;
+    case 3: // COLUMN_SIZE
+      tsdb->type = TSDB_DATA_TYPE_BIGINT;
+      tsdb->i64 = rec->COLUMN_SIZE;
+      break;
+    case 4: // LITERAL_PREFIX
+      tsdb->type = TSDB_DATA_TYPE_VARCHAR;
+      if (rec->LITERAL_PREFIX == NULL) {
+        tsdb->is_null = 1;
+      } else {
+        tsdb->str.str = rec->LITERAL_PREFIX;
+        tsdb->str.len = strlen(rec->LITERAL_PREFIX);
+      }
+      break;
+    case 5: // LITERAL_SUFFIX
+      tsdb->type = TSDB_DATA_TYPE_VARCHAR;
+      if (rec->LITERAL_SUFFIX == NULL) {
+        tsdb->is_null = 1;
+      } else {
+        tsdb->str.str = rec->LITERAL_SUFFIX;
+        tsdb->str.len = strlen(rec->LITERAL_SUFFIX);
+      }
+      break;
+    case 6: // CREATE_PARAMS
+      tsdb->type = TSDB_DATA_TYPE_VARCHAR;
+      if (rec->CREATE_PARAMS == NULL) {
+        tsdb->is_null = 1;
+      } else {
+        tsdb->str.str = rec->CREATE_PARAMS;
+        tsdb->str.len = strlen(rec->CREATE_PARAMS);
+      }
+      break;
+    case 7: // NULLABLE
+      tsdb->type = TSDB_DATA_TYPE_BIGINT;
+      tsdb->i64 = rec->NULLABLE;
+      break;
+    case 8: // CASE_SENSITIVE
+      tsdb->type = TSDB_DATA_TYPE_BIGINT;
+      tsdb->i64 = rec->CASE_SENSITIVE;
+      break;
+    case 9: // SEARCHABLE
+      tsdb->type = TSDB_DATA_TYPE_BIGINT;
+      tsdb->i64 = rec->SEARCHABLE;
+      break;
+    case 10: // UNSIGNED_ATTRIBUTE
+      tsdb->type = TSDB_DATA_TYPE_BIGINT;
+      if (rec->UNSIGNED_ATTRIBUTE == NULL_FIELD) {
+        tsdb->is_null = 1;
+      } else {
+        tsdb->i64 = rec->UNSIGNED_ATTRIBUTE;
+      }
+      break;
+    case 11: // FIXED_PREC_SCALE
+      tsdb->type = TSDB_DATA_TYPE_BIGINT;
+      if (rec->FIXED_PREC_SCALE == NULL_FIELD) {
+        tsdb->is_null = 1;
+      } else {
+        tsdb->i64 = rec->FIXED_PREC_SCALE;
+      }
+      break;
+    case 12: // AUTO_UNIQUE_VALUE
+      tsdb->type = TSDB_DATA_TYPE_BIGINT;
+      tsdb->i64 = rec->AUTO_UNIQUE_VALUE;
+      break;
+    case 13: // LOCAL_TYPE_NAME
+      tsdb->type = TSDB_DATA_TYPE_VARCHAR;
+      tsdb->str.str = rec->LOCAL_TYPE_NAME;
+      tsdb->str.len = strlen(rec->LOCAL_TYPE_NAME);
+      break;
+    case 14: // MINIMUM_SCALE
+      tsdb->type = TSDB_DATA_TYPE_BIGINT;
+      if (rec->MINIMUM_SCALE == NULL_FIELD) {
+        tsdb->is_null = 1;
+      } else {
+        tsdb->i64 = rec->MINIMUM_SCALE;
+      }
+      break;
+    case 15: // MAXIMUM_SCALE
+      tsdb->type = TSDB_DATA_TYPE_BIGINT;
+      if (rec->MAXIMUM_SCALE == NULL_FIELD) {
+        tsdb->is_null = 1;
+      } else {
+        tsdb->i64 = rec->MAXIMUM_SCALE;
+      }
+      break;
+    case 16: // SQL_DATA_TYPE
+      tsdb->type = TSDB_DATA_TYPE_BIGINT;
+      tsdb->i64 = rec->SQL_DATA_TYPE;
+      break;
+    case 17: // SQL_DATETIME_SUB
+      tsdb->type = TSDB_DATA_TYPE_BIGINT;
+      if (rec->SQL_DATETIME_SUB == NULL_FIELD) {
+        tsdb->is_null = 1;
+      } else {
+        tsdb->i64 = rec->SQL_DATETIME_SUB;
+      }
+      break;
+    case 18: // NUM_PREC_RADIX
+      tsdb->type = TSDB_DATA_TYPE_BIGINT;
+      if (rec->NUM_PREC_RADIX == NULL_FIELD) {
+        tsdb->is_null = 1;
+      } else {
+        tsdb->i64 = rec->NUM_PREC_RADIX;
+      }
+      break;
+    case 19: // INTERVAL_PRECISION
+      tsdb->type = TSDB_DATA_TYPE_BIGINT;
+      if (rec->INTERVAL_PRECISION == NULL_FIELD) {
+        tsdb->is_null = 1;
+      } else {
+        tsdb->i64 = rec->INTERVAL_PRECISION;
+      }
+      break;
+    default:
+      stmt_append_err_format(typesinfo->owner, "HY000", 0, "General error:Column[%d] not implemented yet", Col_or_Param_Num);
+      return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
 }
 
 void typesinfo_init(typesinfo_t *typesinfo, stmt_t *stmt)

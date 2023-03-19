@@ -672,7 +672,9 @@ struct typesinfo_s {
 
   size_t                     rowset_size;
   size_t                     pos; // 1-based
-  size_t                     idx; // 0-based in whole set
+  size_t                     POS; // 1-based in whole set
+
+  size_t                     IDX_of_first_in_rowset; // 0-based
 };
 
 struct stmt_s {
@@ -707,6 +709,7 @@ struct stmt_s {
   tsdb_stmt_t                tsdb_stmt;
   tables_t                   tables;
   columns_t                  columns;
+  typesinfo_t                typesinfo;
 
   mem_t                      mem;
 

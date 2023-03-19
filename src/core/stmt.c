@@ -34,6 +34,7 @@
 #include "tables.h"
 #include "taos_helpers.h"
 #include "tsdb.h"
+#include "typesinfo.h"
 
 #include <errno.h>
 #include <limits.h>
@@ -78,6 +79,7 @@ static void _stmt_init(stmt_t *stmt, conn_t *conn)
   tsdb_stmt_init(&stmt->tsdb_stmt, stmt);
   tables_init(&stmt->tables, stmt);
   columns_init(&stmt->columns, stmt);
+  typesinfo_init(&stmt->typesinfo, stmt);
 
   stmt->base = &stmt->tsdb_stmt.base;
 
@@ -169,6 +171,7 @@ static void _stmt_reset_result(stmt_t *stmt)
   tsdb_res_reset(&stmt->tsdb_stmt.res);
   tables_reset(&stmt->tables);
   columns_reset(&stmt->columns);
+  typesinfo_reset(&stmt->typesinfo);
 
   if (_stmt_get_rows_fetched_ptr(stmt)) *_stmt_get_rows_fetched_ptr(stmt) = 0;
 }
@@ -181,6 +184,7 @@ static void _stmt_release_result(stmt_t *stmt)
   tsdb_res_release(&stmt->tsdb_stmt.res);
   tables_release(&stmt->tables);
   columns_release(&stmt->columns);
+  typesinfo_release(&stmt->typesinfo);
 
   if (_stmt_get_rows_fetched_ptr(stmt)) *_stmt_get_rows_fetched_ptr(stmt) = 0;
 }
@@ -193,6 +197,11 @@ static void _stmt_reset_tables(stmt_t *stmt)
 static void _stmt_reset_columns(stmt_t *stmt)
 {
   columns_reset(&stmt->columns);
+}
+
+static void _stmt_reset_typesinfo(stmt_t *stmt)
+{
+  typesinfo_reset(&stmt->typesinfo);
 }
 
 static void _stmt_close_result(stmt_t *stmt)
@@ -4725,8 +4734,17 @@ SQLRETURN stmt_get_type_info(
     stmt_t       *stmt,
     SQLSMALLINT   DataType)
 {
-  stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` not supported yet", sql_data_type(DataType), DataType, DataType);
-  return SQL_ERROR;
+  SQLRETURN sr = SQL_SUCCESS;
+
+  sr = typesinfo_open(&stmt->typesinfo, DataType);
+  if (sr != SQL_SUCCESS) {
+    _stmt_reset_typesinfo(stmt);
+    return SQL_ERROR;
+  }
+
+  stmt->base = &stmt->typesinfo.base;
+
+  return SQL_SUCCESS;
 }
 
 SQLRETURN stmt_param_data(

@@ -236,12 +236,6 @@ struct tsdb_data_s {
     }                   ts;
   };
 
-  char           buf[64];
-  mem_t          mem;
-
-  const char    *pos;
-  size_t         nr;
-
   uint8_t               is_null:1;
 };
 
@@ -312,6 +306,13 @@ struct get_data_ctx_s {
 
   tsdb_data_t    tsdb;
   sql_c_data_t   sqlc;
+
+  //
+  char           buf[64];
+  mem_t          mem;
+
+  const char    *pos;
+  size_t         nr;
 };
 
 typedef struct tsdb_param_column_s         tsdb_param_column_t;

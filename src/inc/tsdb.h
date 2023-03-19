@@ -34,9 +34,6 @@ EXTERN_C_BEGIN
 
 int tsdb_timestamp_to_string(int64_t val, int time_precision, char *buf, size_t len) FA_HIDDEN;
 
-void tsdb_data_reset(tsdb_data_t *tsdb) FA_HIDDEN;
-void tsdb_data_release(tsdb_data_t *tsdb) FA_HIDDEN;
-
 void tsdb_stmt_reset(tsdb_stmt_t *stmt) FA_HIDDEN;
 void tsdb_stmt_release(tsdb_stmt_t *stmt) FA_HIDDEN;
 void tsdb_params_reset_tag_fields(tsdb_params_t *params) FA_HIDDEN;

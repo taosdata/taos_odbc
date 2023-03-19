@@ -596,6 +596,9 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
   (void)tsdb;
   typesinfo_t *typesinfo = (typesinfo_t*)base;
   (void)typesinfo;
+
+  tsdb->is_null = 0;
+
   stmt_append_err(typesinfo->owner, "HY000", 0, "General error:not implemented yet");
   return SQL_ERROR;
 }

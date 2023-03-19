@@ -80,20 +80,6 @@ int tsdb_timestamp_to_string(int64_t val, int time_precision, char *buf, size_t 
   return n;
 }
 
-void tsdb_data_reset(tsdb_data_t *tsdb)
-{
-  if (!tsdb) return;
-  mem_reset(&tsdb->mem);
-  tsdb->is_null = 0;
-}
-
-void tsdb_data_release(tsdb_data_t *tsdb)
-{
-  if (!tsdb) return;
-  tsdb_data_reset(tsdb);
-  mem_release(&tsdb->mem);
-}
-
 void tsdb_stmt_reset(tsdb_stmt_t *stmt)
 {
   if (!stmt) return;
@@ -581,12 +567,12 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
   TAOS_ROW     rows       = rows_block->rows;
   TAOS_FIELD  *field      = fields->fields + i_col;
 
-  tsdb_data_reset(tsdb);
-
   if (CALL_taos_is_null(res->res, i_row, i_col)) {
     tsdb->is_null = 1;
     return SQL_SUCCESS;
   }
+
+  tsdb->is_null = 0;
 
   switch(field->type) {
     case TSDB_DATA_TYPE_BOOL:

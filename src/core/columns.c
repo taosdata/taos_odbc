@@ -327,16 +327,6 @@ void columns_reset(columns_t *columns)
   tsdb_stmt_reset(&columns->desc);
   tables_reset(&columns->tables);
 
-  tsdb_data_reset(&columns->current_catalog);
-  tsdb_data_reset(&columns->current_schema);
-  tsdb_data_reset(&columns->current_table);
-  tsdb_data_reset(&columns->current_table_type);
-
-  tsdb_data_reset(&columns->current_col_name);
-  tsdb_data_reset(&columns->current_col_type);
-  tsdb_data_reset(&columns->current_col_length);
-  tsdb_data_reset(&columns->current_col_note);
-
   mem_reset(&columns->column_cache);
 
   columns_args_reset(&columns->columns_args);
@@ -351,16 +341,6 @@ void columns_release(columns_t *columns)
 
   tsdb_stmt_release(&columns->desc);
   tables_release(&columns->tables);
-
-  tsdb_data_release(&columns->current_catalog);
-  tsdb_data_release(&columns->current_schema);
-  tsdb_data_release(&columns->current_table);
-  tsdb_data_release(&columns->current_table_type);
-
-  tsdb_data_release(&columns->current_col_name);
-  tsdb_data_release(&columns->current_col_type);
-  tsdb_data_release(&columns->current_col_length);
-  tsdb_data_release(&columns->current_col_note);
 
   mem_release(&columns->column_cache);
 
@@ -409,7 +389,6 @@ again:
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   if (columns->columns_args.column_pattern) {
-    tsdb_data_reset(tsdb);
     sr = columns->desc.base.get_data(&columns->desc.base, 1, tsdb);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
 
@@ -436,8 +415,6 @@ static SQLRETURN _fetch_row(stmt_base_t *base)
   if (sr == SQL_SUCCESS) {
     ++columns->ordinal_order;
   }
-
-  tsdb_data_release(&tsdb);
 
   return sr;
 }
@@ -651,11 +628,6 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
   tsdb_data_t *col_length      = &columns->current_col_length;
   tsdb_data_t *col_note        = &columns->current_col_note;
 
-  tsdb_data_reset(&columns->current_col_name);
-  tsdb_data_reset(&columns->current_col_type);
-  tsdb_data_reset(&columns->current_col_length);
-  tsdb_data_reset(&columns->current_col_note);
-
   sr = columns->desc.base.get_data(&columns->desc.base, 1, col_name);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
   if (col_name->type != TSDB_DATA_TYPE_VARCHAR) {
@@ -713,6 +685,8 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
         Col_or_Param_Num, (int)col_type->str.len, col_type->str.str);
     return SQL_ERROR;
   }
+
+  tsdb->is_null = 0;
 
   switch (Col_or_Param_Num) {
     case 1: // TABLE_CAT
@@ -962,19 +936,15 @@ again:
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   do {
-    tsdb_data_reset(&columns->current_catalog);
     sr = columns->tables.base.get_data(&columns->tables.base, 1, &columns->current_catalog);
     if (sr != SQL_SUCCESS) break;
 
-    tsdb_data_reset(&columns->current_schema);
     sr = columns->tables.base.get_data(&columns->tables.base, 2, &columns->current_schema);
     if (sr != SQL_SUCCESS) break;
 
-    tsdb_data_reset(&columns->current_table);
     sr = columns->tables.base.get_data(&columns->tables.base, 3, &columns->current_table);
     if (sr != SQL_SUCCESS) break;
 
-    tsdb_data_reset(&columns->current_table_type);
     sr = columns->tables.base.get_data(&columns->tables.base, 4, &columns->current_table_type);
     if (sr != SQL_SUCCESS) break;
 

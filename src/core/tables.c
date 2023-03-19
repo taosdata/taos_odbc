@@ -172,7 +172,6 @@ again:
   charset_conv_t *cnv = &tables->owner->conn->cnv_tsdb_varchar_to_sql_c_wchar;
 
   if (tables->tables_args.catalog_pattern) {
-    tsdb_data_reset(tsdb);
     sr = tables->stmt.base.get_data(&tables->stmt.base, 1, tsdb);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
 
@@ -185,7 +184,6 @@ again:
   }
 
   if (tables->tables_args.schema_pattern) {
-    tsdb_data_reset(tsdb);
     sr = tables->stmt.base.get_data(&tables->stmt.base, 2, tsdb);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
 
@@ -198,7 +196,6 @@ again:
   }
 
   if (tables->tables_args.table_pattern) {
-    tsdb_data_reset(tsdb);
     sr = tables->stmt.base.get_data(&tables->stmt.base, 3, tsdb);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
 
@@ -211,7 +208,6 @@ again:
   }
 
   if (tables->table_types.nr > 0) {
-    tsdb_data_reset(tsdb);
     sr = tables->stmt.base.get_data(&tables->stmt.base, 4, tsdb);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
 
@@ -219,7 +215,6 @@ again:
     _match(tables, tsdb, &matched);
     OW("tsdb:%.*s:%s", (int)tsdb->str.len, tsdb->str.str, matched ? "matched" : "not matched");
 
-    tsdb_data_reset(tsdb);
     sr = tables->stmt.base.get_data(&tables->stmt.base, 3, tsdb);
     if (sr == SQL_SUCCESS) {
       OW("table:%.*s:%s", (int)tsdb->str.len, tsdb->str.str, matched ? "matched" : "not matched");
@@ -240,8 +235,6 @@ static SQLRETURN _fetch_row(stmt_base_t *base)
   tsdb_data_t tsdb = {0};
 
   sr = _fetch_row_with_tsdb(base, &tsdb);
-
-  tsdb_data_release(&tsdb);
 
   return sr;
 }

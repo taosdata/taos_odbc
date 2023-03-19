@@ -117,7 +117,11 @@ static void _get_data_ctx_reset(get_data_ctx_t *ctx)
 {
   if (!ctx) return;
   _sql_c_data_reset(&ctx->sqlc);
-  tsdb_data_reset(&ctx->tsdb);
+
+  ctx->buf[0] = '\0';
+  mem_reset(&ctx->mem);
+  ctx->pos = NULL;
+  ctx->nr  = 0;
 
   // NOTE: we don't support bookmark yet, thus `0` means unset yet
   ctx->Col_or_Param_Num = 0;
@@ -128,7 +132,6 @@ static void _get_data_ctx_release(get_data_ctx_t *ctx)
   if (!ctx) return;
   _get_data_ctx_reset(ctx);
   _sql_c_data_release(&ctx->sqlc);
-  tsdb_data_release(&ctx->tsdb);
 }
 
 descriptor_t* stmt_APD(stmt_t *stmt)
@@ -956,66 +959,66 @@ static SQLRETURN _stmt_get_data_prepare_ctx(stmt_t *stmt, stmt_get_data_args_t *
   switch(tsdb->type) {
     case TSDB_DATA_TYPE_BOOL:
       {
-        tsdb->nr = snprintf(tsdb->buf, sizeof(tsdb->buf), "%s", tsdb->b ? "true" : "false");
-        tsdb->pos = tsdb->buf;
+        ctx->nr = snprintf(ctx->buf, sizeof(ctx->buf), "%s", tsdb->b ? "true" : "false");
+        ctx->pos = ctx->buf;
       } break;
     case TSDB_DATA_TYPE_TINYINT:
       {
-        tsdb->nr = snprintf(tsdb->buf, sizeof(tsdb->buf), "%d", tsdb->i8);
-        tsdb->pos = tsdb->buf;
+        ctx->nr = snprintf(ctx->buf, sizeof(ctx->buf), "%d", tsdb->i8);
+        ctx->pos = ctx->buf;
       } break;
     case TSDB_DATA_TYPE_UTINYINT:
       {
-        tsdb->nr = snprintf(tsdb->buf, sizeof(tsdb->buf), "%u", tsdb->u8);
-        tsdb->pos = tsdb->buf;
+        ctx->nr = snprintf(ctx->buf, sizeof(ctx->buf), "%u", tsdb->u8);
+        ctx->pos = ctx->buf;
       } break;
     case TSDB_DATA_TYPE_SMALLINT:
       {
-        tsdb->nr = snprintf(tsdb->buf, sizeof(tsdb->buf), "%d", tsdb->i16);
-        tsdb->pos = tsdb->buf;
+        ctx->nr = snprintf(ctx->buf, sizeof(ctx->buf), "%d", tsdb->i16);
+        ctx->pos = ctx->buf;
       } break;
     case TSDB_DATA_TYPE_USMALLINT:
       {
-        tsdb->nr = snprintf(tsdb->buf, sizeof(tsdb->buf), "%u", tsdb->u16);
-        tsdb->pos = tsdb->buf;
+        ctx->nr = snprintf(ctx->buf, sizeof(ctx->buf), "%u", tsdb->u16);
+        ctx->pos = ctx->buf;
       } break;
     case TSDB_DATA_TYPE_INT:
       {
-        tsdb->nr = snprintf(tsdb->buf, sizeof(tsdb->buf), "%d", tsdb->i32);
-        tsdb->pos = tsdb->buf;
+        ctx->nr = snprintf(ctx->buf, sizeof(ctx->buf), "%d", tsdb->i32);
+        ctx->pos = ctx->buf;
       } break;
     case TSDB_DATA_TYPE_UINT:
       {
-        tsdb->nr = snprintf(tsdb->buf, sizeof(tsdb->buf), "%u", tsdb->u32);
-        tsdb->pos = tsdb->buf;
+        ctx->nr = snprintf(ctx->buf, sizeof(ctx->buf), "%u", tsdb->u32);
+        ctx->pos = ctx->buf;
       } break;
     case TSDB_DATA_TYPE_BIGINT:
       {
-        tsdb->nr = snprintf(tsdb->buf, sizeof(tsdb->buf), "%" PRId64 "", tsdb->i64);
-        tsdb->pos = tsdb->buf;
+        ctx->nr = snprintf(ctx->buf, sizeof(ctx->buf), "%" PRId64 "", tsdb->i64);
+        ctx->pos = ctx->buf;
       } break;
     case TSDB_DATA_TYPE_FLOAT:
       {
-        tsdb->nr = snprintf(tsdb->buf, sizeof(tsdb->buf), "%g", (double)tsdb->flt);
-        tsdb->pos = tsdb->buf;
+        ctx->nr = snprintf(ctx->buf, sizeof(ctx->buf), "%g", (double)tsdb->flt);
+        ctx->pos = ctx->buf;
       } break;
     case TSDB_DATA_TYPE_DOUBLE:
       {
-        tsdb->nr = snprintf(tsdb->buf, sizeof(tsdb->buf), "%g", tsdb->dbl);
-        tsdb->pos = tsdb->buf;
+        ctx->nr = snprintf(ctx->buf, sizeof(ctx->buf), "%g", tsdb->dbl);
+        ctx->pos = ctx->buf;
       } break;
     case TSDB_DATA_TYPE_VARCHAR:
-      tsdb->nr = tsdb->str.len;
-      tsdb->pos = tsdb->str.str;
+      ctx->nr = tsdb->str.len;
+      ctx->pos = tsdb->str.str;
       break;
     case TSDB_DATA_TYPE_TIMESTAMP:
       {
-        tsdb->nr = tsdb_timestamp_to_string(tsdb->ts.ts, tsdb->ts.precision, (char*)tsdb->buf, sizeof(tsdb->buf));
-        tsdb->pos = tsdb->buf;
+        ctx->nr = tsdb_timestamp_to_string(tsdb->ts.ts, tsdb->ts.precision, (char*)ctx->buf, sizeof(ctx->buf));
+        ctx->pos = ctx->buf;
       } break;
     case TSDB_DATA_TYPE_NCHAR:
-      tsdb->nr = tsdb->str.len;
-      tsdb->pos = tsdb->str.str;
+      ctx->nr = tsdb->str.len;
+      ctx->pos = tsdb->str.str;
       break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
@@ -1032,7 +1035,7 @@ static SQLRETURN _stmt_get_data_copy_buf_to_char(stmt_t *stmt, stmt_get_data_arg
 {
   get_data_ctx_t *ctx = &stmt->get_data_ctx;
   tsdb_data_t *tsdb = &ctx->tsdb;
-  if (tsdb->pos == (const char*)-1) return SQL_NO_DATA;
+  if (ctx->pos == (const char*)-1) return SQL_NO_DATA;
   if (args->BufferLength < 4) {
     // TODO: remove this restriction
     stmt_append_err_format(stmt, "HY000", 0,
@@ -1045,10 +1048,10 @@ static SQLRETURN _stmt_get_data_copy_buf_to_char(stmt_t *stmt, stmt_get_data_arg
   }
 
   charset_conv_t *cnv = &stmt->conn->cnv_tsdb_varchar_to_sql_c_char;
-  const size_t     inbytes             = tsdb->nr;
+  const size_t     inbytes             = ctx->nr;
   const size_t     outbytes            = args->BufferLength - 1;
 
-  char            *inbuf               = (char*)tsdb->pos;
+  char            *inbuf               = (char*)ctx->pos;
   size_t           inbytesleft         = inbytes;
   char            *outbuf              = (char*)args->TargetValuePtr;
   size_t           outbytesleft        = outbytes;
@@ -1064,20 +1067,20 @@ static SQLRETURN _stmt_get_data_copy_buf_to_char(stmt_t *stmt, stmt_get_data_arg
       return SQL_ERROR;
     }
   }
-  tsdb->nr = inbytesleft;
+  ctx->nr = inbytesleft;
   *(int8_t*)outbuf = 0;
 
-  if (tsdb->nr) {
+  if (ctx->nr) {
     if (args->IndPtr) *args->IndPtr = SQL_NO_TOTAL;
     if (args->StrLenPtr) *args->StrLenPtr = SQL_NO_TOTAL;
     stmt_append_err_format(stmt, "01004", 0,
         "String data, right truncated:[iconv]Character set conversion for `%s` to `%s`, #%zd out of #%zd bytes consumed, #%zd out of #%zd bytes converted:[%d]%s",
         cnv->from, cnv->to, inbytes - inbytesleft, inbytes, outbytes - outbytesleft, outbytes, e, strerror(e));
-    tsdb->pos = inbuf;
+    ctx->pos = inbuf;
     return SQL_SUCCESS_WITH_INFO;
   }
 
-  tsdb->pos = (const char*)-1;
+  ctx->pos = (const char*)-1;
   if (args->IndPtr) *args->IndPtr = 0; // FIXME:
   if (args->StrLenPtr) *args->StrLenPtr = outbytes - outbytesleft;
   return SQL_SUCCESS;
@@ -1087,7 +1090,7 @@ static SQLRETURN _stmt_get_data_copy_buf_to_wchar(stmt_t *stmt, stmt_get_data_ar
 {
   get_data_ctx_t *ctx = &stmt->get_data_ctx;
   tsdb_data_t *tsdb = &ctx->tsdb;
-  if (tsdb->pos == (const char*)-1) return SQL_NO_DATA;
+  if (ctx->pos == (const char*)-1) return SQL_NO_DATA;
   if (args->BufferLength < 4) {
     // TODO: remove this restriction
     stmt_append_err_format(stmt, "HY000", 0,
@@ -1100,10 +1103,10 @@ static SQLRETURN _stmt_get_data_copy_buf_to_wchar(stmt_t *stmt, stmt_get_data_ar
   }
 
   charset_conv_t *cnv = &stmt->conn->cnv_tsdb_varchar_to_sql_c_wchar;
-  const size_t     inbytes             = tsdb->nr;
+  const size_t     inbytes             = ctx->nr;
   const size_t     outbytes            = args->BufferLength - 2;
 
-  char            *inbuf               = (char*)tsdb->pos;
+  char            *inbuf               = (char*)ctx->pos;
   size_t           inbytesleft         = inbytes;
   char            *outbuf              = (char*)args->TargetValuePtr;
   size_t           outbytesleft        = outbytes;
@@ -1119,22 +1122,22 @@ static SQLRETURN _stmt_get_data_copy_buf_to_wchar(stmt_t *stmt, stmt_get_data_ar
       return SQL_ERROR;
     }
   }
-  tsdb->nr = inbytesleft;
+  ctx->nr = inbytesleft;
   *(int16_t*)outbuf = 0;
 
-  if (tsdb->nr) {
+  if (ctx->nr) {
     if (args->IndPtr) *args->IndPtr = SQL_NO_TOTAL;
     if (args->StrLenPtr) *args->StrLenPtr = SQL_NO_TOTAL;
     stmt_append_err_format(stmt, "01004", 0,
         "String data, right truncated:[iconv]Character set conversion for `%s` to `%s`, #%zd out of #%zd bytes consumed, #%zd out of #%zd bytes converted:[%d]%s",
         cnv->from, cnv->to, inbytes - inbytesleft, inbytes, outbytes - outbytesleft, outbytes, e, strerror(e));
-    tsdb->pos = inbuf;
+    ctx->pos = inbuf;
     return SQL_SUCCESS_WITH_INFO;
   }
 
   if (args->IndPtr) *args->IndPtr = 0; // FIXME:
   if (args->StrLenPtr) *args->StrLenPtr = outbytes - outbytesleft;
-  tsdb->pos = (const char*)-1;
+  ctx->pos = (const char*)-1;
   return SQL_SUCCESS;
 }
 
@@ -1142,7 +1145,7 @@ static SQLRETURN _stmt_get_data_copy_buf_to_binary(stmt_t *stmt, stmt_get_data_a
 {
   get_data_ctx_t *ctx = &stmt->get_data_ctx;
   tsdb_data_t *tsdb = &ctx->tsdb;
-  if (tsdb->pos == (const char*)-1) return SQL_NO_DATA;
+  if (ctx->pos == (const char*)-1) return SQL_NO_DATA;
   if (args->BufferLength < 0) {
     stmt_append_err_format(stmt, "HY000", 0,
         "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:buffer too small",
@@ -1151,27 +1154,27 @@ static SQLRETURN _stmt_get_data_copy_buf_to_binary(stmt_t *stmt, stmt_get_data_a
     return SQL_ERROR;
   }
 
-  size_t n = tsdb->nr - args->BufferLength;
+  size_t n = ctx->nr - args->BufferLength;
   if (n > 0) n = args->BufferLength;
-  else       n = tsdb->nr;
+  else       n = ctx->nr;
 
-  memcpy(args->TargetValuePtr, tsdb->pos, n);
+  memcpy(args->TargetValuePtr, ctx->pos, n);
 
-  tsdb->nr = tsdb->nr - n;
+  ctx->nr = ctx->nr - n;
 
-  if (tsdb->nr) {
+  if (ctx->nr) {
     if (args->IndPtr) *args->IndPtr = SQL_NO_TOTAL;
     if (args->StrLenPtr) *args->StrLenPtr = SQL_NO_TOTAL;
     stmt_append_err_format(stmt, "01004", 0,
         "String data, right truncated:Column[%d], #%zd out of #%zd bytes consumed",
-        args->Col_or_Param_Num, n, n + tsdb->nr);
-    tsdb->pos += n;
+        args->Col_or_Param_Num, n, n + ctx->nr);
+    ctx->pos += n;
     return SQL_SUCCESS_WITH_INFO;
   }
 
   if (args->IndPtr) *args->IndPtr = 0; // FIXME:
   if (args->StrLenPtr) *args->StrLenPtr = n;
-  tsdb->pos = (const char*)-1;
+  ctx->pos = (const char*)-1;
   return SQL_SUCCESS;
 }
 
@@ -1181,7 +1184,7 @@ static SQLRETURN _stmt_varchar_to_int64(stmt_t *stmt, const char *s, size_t nr, 
 
   get_data_ctx_t *ctx = &stmt->get_data_ctx;
   tsdb_data_t *tsdb = &ctx->tsdb;
-  mem_t *tsdb_cache = &tsdb->mem;
+  mem_t *tsdb_cache = &ctx->mem;
 
   if (s[nr]) {
     r = mem_keep(tsdb_cache, nr + 1);
@@ -1246,7 +1249,7 @@ static SQLRETURN _stmt_varchar_to_float(stmt_t *stmt, const char *s, size_t nr, 
 
   get_data_ctx_t *ctx = &stmt->get_data_ctx;
   tsdb_data_t *tsdb = &ctx->tsdb;
-  mem_t *tsdb_cache = &tsdb->mem;
+  mem_t *tsdb_cache = &ctx->mem;
 
   if (s[nr]) {
     r = mem_keep(tsdb_cache, nr + 1);
@@ -1299,7 +1302,7 @@ static SQLRETURN _stmt_varchar_to_double(stmt_t *stmt, const char *s, size_t nr,
 
   get_data_ctx_t *ctx = &stmt->get_data_ctx;
   tsdb_data_t *tsdb = &ctx->tsdb;
-  mem_t *tsdb_cache = &tsdb->mem;
+  mem_t *tsdb_cache = &ctx->mem;
 
   if (s[nr]) {
     r = mem_keep(tsdb_cache, nr + 1);

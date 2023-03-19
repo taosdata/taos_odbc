@@ -326,10 +326,6 @@ struct type_info_s {
   /* 19 */ int16_t                    INTERVAL_PRECISION;
 };
 
-static const type_info_t _typesinfo[] = {
-  {0}
-};
-
 SQLSMALLINT typesinfo_get_count_of_col_meta(void)
 {
   SQLSMALLINT nr = (SQLSMALLINT)(sizeof(_typesinfo_meta) / sizeof(_typesinfo_meta[0]));
@@ -379,8 +375,8 @@ static SQLRETURN _fetch_rowset(stmt_base_t *base, size_t rowset_size)
 {
   typesinfo_t *typesinfo = (typesinfo_t*)base;
   typesinfo->rowset_size = rowset_size;
-  if (typesinfo->idx < sizeof(_typesinfo)/sizeof(_typesinfo[0])) return SQL_SUCCESS;
-  return SQL_NO_DATA;
+  stmt_append_err(typesinfo->owner, "HY000", 0, "General error:not implemented yet");
+  return SQL_ERROR;
 }
 
 static SQLRETURN _fetch_row(stmt_base_t *base)

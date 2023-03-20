@@ -416,6 +416,18 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
         case TSDB_DATA_TYPE_INT:
           *NumericAttributePtr = SQL_INTEGER;
           return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_TINYINT:
+          *NumericAttributePtr = SQL_TINYINT;
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_SMALLINT:
+          *NumericAttributePtr = SQL_SMALLINT;
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_BIGINT:
+          *NumericAttributePtr = SQL_BIGINT;
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_BOOL:
+          *NumericAttributePtr = SQL_BIT;
+          return SQL_SUCCESS;
         default:
           stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
               sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
@@ -430,8 +442,20 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
         case TSDB_DATA_TYPE_TIMESTAMP:
           *NumericAttributePtr = col->bytes;
           return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_BOOL:
+          *NumericAttributePtr = 1;
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_TINYINT:
+          *NumericAttributePtr = 1;
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_SMALLINT:
+          *NumericAttributePtr = 2;
+          return SQL_SUCCESS;
         case TSDB_DATA_TYPE_INT:
           *NumericAttributePtr = 4;
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_BIGINT:
+          *NumericAttributePtr = 8;
           return SQL_SUCCESS;
         default:
           stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
@@ -445,7 +469,11 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
       switch (col->type) {
         case TSDB_DATA_TYPE_VARCHAR:
         case TSDB_DATA_TYPE_NCHAR:
+        case TSDB_DATA_TYPE_BOOL:
+        case TSDB_DATA_TYPE_TINYINT:
+        case TSDB_DATA_TYPE_SMALLINT:
         case TSDB_DATA_TYPE_INT:
+        case TSDB_DATA_TYPE_BIGINT:
           *NumericAttributePtr = 0;
           break;
         case TSDB_DATA_TYPE_TIMESTAMP:
@@ -465,7 +493,11 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
         case TSDB_DATA_TYPE_VARCHAR:
         case TSDB_DATA_TYPE_NCHAR:
         case TSDB_DATA_TYPE_TIMESTAMP:
+        case TSDB_DATA_TYPE_BOOL:
+        case TSDB_DATA_TYPE_TINYINT:
+        case TSDB_DATA_TYPE_SMALLINT:
         case TSDB_DATA_TYPE_INT:
+        case TSDB_DATA_TYPE_BIGINT:
           *NumericAttributePtr = 0;
           break;
         default:
@@ -522,8 +554,44 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
           }
           if (StringLengthPtr) *StringLengthPtr = n;
           return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_BOOL:
+          n = snprintf(CharacterAttributePtr, BufferLength, "%s", "BOOL");
+          if (n < 0) {
+            int e = errno;
+            stmt_append_err_format(stmt->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
+            return SQL_ERROR;
+          }
+          if (StringLengthPtr) *StringLengthPtr = n;
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_TINYINT:
+          n = snprintf(CharacterAttributePtr, BufferLength, "%s", "TINYINT");
+          if (n < 0) {
+            int e = errno;
+            stmt_append_err_format(stmt->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
+            return SQL_ERROR;
+          }
+          if (StringLengthPtr) *StringLengthPtr = n;
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_SMALLINT:
+          n = snprintf(CharacterAttributePtr, BufferLength, "%s", "SMALLINT");
+          if (n < 0) {
+            int e = errno;
+            stmt_append_err_format(stmt->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
+            return SQL_ERROR;
+          }
+          if (StringLengthPtr) *StringLengthPtr = n;
+          return SQL_SUCCESS;
         case TSDB_DATA_TYPE_INT:
           n = snprintf(CharacterAttributePtr, BufferLength, "%s", "INT");
+          if (n < 0) {
+            int e = errno;
+            stmt_append_err_format(stmt->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
+            return SQL_ERROR;
+          }
+          if (StringLengthPtr) *StringLengthPtr = n;
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_BIGINT:
+          n = snprintf(CharacterAttributePtr, BufferLength, "%s", "BIGINT");
           if (n < 0) {
             int e = errno;
             stmt_append_err_format(stmt->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
@@ -544,8 +612,20 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
         case TSDB_DATA_TYPE_TIMESTAMP:
           *NumericAttributePtr = 8;
           return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_BOOL:
+          *NumericAttributePtr = 1;  // FIXME: or strlen(str(max(int))) ?
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_TINYINT:
+          *NumericAttributePtr = 1;  // FIXME: or strlen(str(max(int))) ?
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_SMALLINT:
+          *NumericAttributePtr = 2;  // FIXME: or strlen(str(max(int))) ?
+          return SQL_SUCCESS;
         case TSDB_DATA_TYPE_INT:
           *NumericAttributePtr = 4;  // FIXME: or strlen(str(max(int))) ?
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_BIGINT:
+          *NumericAttributePtr = 8;  // FIXME: or strlen(str(max(int))) ?
           return SQL_SUCCESS;
         default:
           stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s` not supported yet", taos_data_type(col->type));
@@ -556,7 +636,11 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
         case TSDB_DATA_TYPE_VARCHAR:
         case TSDB_DATA_TYPE_NCHAR:
         case TSDB_DATA_TYPE_TIMESTAMP:
+        case TSDB_DATA_TYPE_BOOL:
+        case TSDB_DATA_TYPE_TINYINT:
+        case TSDB_DATA_TYPE_SMALLINT:
         case TSDB_DATA_TYPE_INT:
+        case TSDB_DATA_TYPE_BIGINT:
           *NumericAttributePtr = 0;
           return SQL_SUCCESS;
         default:
@@ -584,7 +668,6 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
     //   return SQL_SUCCESS;
     default:
       stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s[%d/0x%x]` not supported yet", sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier);
-      OW("xxxxxxxxxxxxxxx");
       return SQL_ERROR;
   }
 }

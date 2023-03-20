@@ -44,7 +44,7 @@ if(NOT TODBC_WINDOWS)
   # add_compile_options(-Wall -Wextra -pedantic -Werror)
   add_compile_options(-Wall -Wextra -Werror -O0 -DODBCVER=0x0351 -fvisibility=hidden)
 else()
-  add_compile_options(/WX /DODBCVER=0x0351)
+  add_compile_options(/DODBCVER=0x0351)
 endif()
 
 include(CTest)

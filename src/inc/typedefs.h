@@ -51,6 +51,9 @@ typedef struct errs_s                    errs_t;
 typedef struct parser_token_s            parser_token_t;
 typedef struct parser_param_s            parser_param_t;
 
+typedef struct primarykeys_args_s        primarykeys_args_t;
+typedef struct primarykeys_s             primarykeys_t;
+
 typedef struct stmt_s                    stmt_t;
 typedef struct stmt_get_data_args_s      stmt_get_data_args_t;
 

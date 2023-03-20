@@ -34,40 +34,68 @@
 
 #include <errno.h>
 
-int tsdb_timestamp_to_string(int64_t val, int time_precision, char *buf, size_t len)
+static int _tsdb_timestamp_to_tm_local(int64_t val, int time_precision, struct tm *tm, int32_t *ms, int *w)
 {
-  int n;
   time_t  tt;
-  int32_t ms = 0;
-  int w;
+  int32_t xms = 0;
+  int xw;
   switch (time_precision) {
     case 2:
       tt = (time_t)(val / 1000000000);
-      ms = val % 1000000000;
-      w = 9;
+      xms = val % 1000000000;
+      xw = 9;
       break;
     case 1:
       tt = (time_t)(val / 1000000);
-      ms = val % 1000000;
-      w = 6;
+      xms = val % 1000000;
+      xw = 6;
       break;
     case 0:
       tt = (time_t)(val / 1000);
-      ms = val % 1000;
-      w = 3;
+      xms = val % 1000;
+      xw = 3;
       break;
     default:
       OA_ILE(0);
       break;
   }
 
-  if (tt <= 0 && ms < 0) {
+  if (tt <= 0 && xms < 0) {
     OA_NIY(0);
   }
 
+  struct tm *p = localtime_r(&tt, tm);
+  if (p != tm) return -1;
+  if (ms) *ms = xms;
+  if (w)  *w  = xw;
+  return 0;
+}
+
+int tsdb_timestamp_to_SQL_C_TYPE_TIMESTAMP(int64_t val, int time_precision, SQL_TIMESTAMP_STRUCT *ts)
+{
+  int32_t ms = 0;
+  int w;
   struct tm ptm = {0};
-  struct tm *p = localtime_r(&tt, &ptm);
-  OA_ILE(p == &ptm);
+  int r = _tsdb_timestamp_to_tm_local(val, time_precision, &ptm, &ms, &w);
+  if (r) return -1;
+  ts->year       = ptm.tm_year + 1900;
+  ts->month      = ptm.tm_mon + 1;
+  ts->day        = ptm.tm_mday;
+  ts->hour       = ptm.tm_hour;
+  ts->minute     = ptm.tm_min;
+  ts->second     = ptm.tm_sec;
+  ts->fraction   = ms;
+  return 0;
+}
+
+int tsdb_timestamp_to_string(int64_t val, int time_precision, char *buf, size_t len)
+{
+  int n;
+  int32_t ms = 0;
+  int w;
+  struct tm ptm = {0};
+  int r = _tsdb_timestamp_to_tm_local(val, time_precision, &ptm, &ms, &w);
+  if (r) return -1;
 
   n = snprintf(buf, len,
       "%04d-%02d-%02d %02d:%02d:%02d.%0*d",
@@ -379,7 +407,14 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
     case SQL_DESC_CONCISE_TYPE:
       switch (col->type) {
         case TSDB_DATA_TYPE_VARCHAR:
+        case TSDB_DATA_TYPE_NCHAR:
           *NumericAttributePtr = SQL_VARCHAR;
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_TIMESTAMP:
+          *NumericAttributePtr = SQL_TYPE_TIMESTAMP;
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_INT:
+          *NumericAttributePtr = SQL_INTEGER;
           return SQL_SUCCESS;
         default:
           stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
@@ -391,8 +426,12 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
     case SQL_DESC_OCTET_LENGTH:
       switch (col->type) {
         case TSDB_DATA_TYPE_VARCHAR:
+        case TSDB_DATA_TYPE_NCHAR:
         case TSDB_DATA_TYPE_TIMESTAMP:
           *NumericAttributePtr = col->bytes;
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_INT:
+          *NumericAttributePtr = 4;
           return SQL_SUCCESS;
         default:
           stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
@@ -405,7 +444,12 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
     case SQL_COLUMN_PRECISION:
       switch (col->type) {
         case TSDB_DATA_TYPE_VARCHAR:
+        case TSDB_DATA_TYPE_NCHAR:
+        case TSDB_DATA_TYPE_INT:
           *NumericAttributePtr = 0;
+          break;
+        case TSDB_DATA_TYPE_TIMESTAMP:
+          *NumericAttributePtr = 3; // FIXME: hard-coded for the moment
           break;
         default:
           stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
@@ -419,6 +463,9 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
     case SQL_COLUMN_SCALE:
       switch (col->type) {
         case TSDB_DATA_TYPE_VARCHAR:
+        case TSDB_DATA_TYPE_NCHAR:
+        case TSDB_DATA_TYPE_TIMESTAMP:
+        case TSDB_DATA_TYPE_INT:
           *NumericAttributePtr = 0;
           break;
         default:
@@ -457,6 +504,33 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
           }
           if (StringLengthPtr) *StringLengthPtr = n;
           return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_NCHAR:
+          n = snprintf(CharacterAttributePtr, BufferLength, "%s", "NCHAR");
+          if (n < 0) {
+            int e = errno;
+            stmt_append_err_format(stmt->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
+            return SQL_ERROR;
+          }
+          if (StringLengthPtr) *StringLengthPtr = n;
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_TIMESTAMP:
+          n = snprintf(CharacterAttributePtr, BufferLength, "%s", "TIMESTAMP");
+          if (n < 0) {
+            int e = errno;
+            stmt_append_err_format(stmt->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
+            return SQL_ERROR;
+          }
+          if (StringLengthPtr) *StringLengthPtr = n;
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_INT:
+          n = snprintf(CharacterAttributePtr, BufferLength, "%s", "INT");
+          if (n < 0) {
+            int e = errno;
+            stmt_append_err_format(stmt->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
+            return SQL_ERROR;
+          }
+          if (StringLengthPtr) *StringLengthPtr = n;
+          return SQL_SUCCESS;
         default:
           stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s` not supported yet", taos_data_type(col->type));
           return SQL_ERROR;
@@ -464,7 +538,14 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
     case SQL_DESC_LENGTH:
       switch (col->type) {
         case TSDB_DATA_TYPE_VARCHAR:
+        case TSDB_DATA_TYPE_NCHAR:
           *NumericAttributePtr = col->bytes;
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_TIMESTAMP:
+          *NumericAttributePtr = 8;
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_INT:
+          *NumericAttributePtr = 4;  // FIXME: or strlen(str(max(int))) ?
           return SQL_SUCCESS;
         default:
           stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s` not supported yet", taos_data_type(col->type));
@@ -473,6 +554,9 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
     case SQL_DESC_NUM_PREC_RADIX:
       switch (col->type) {
         case TSDB_DATA_TYPE_VARCHAR:
+        case TSDB_DATA_TYPE_NCHAR:
+        case TSDB_DATA_TYPE_TIMESTAMP:
+        case TSDB_DATA_TYPE_INT:
           *NumericAttributePtr = 0;
           return SQL_SUCCESS;
         default:

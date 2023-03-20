@@ -33,6 +33,7 @@
 EXTERN_C_BEGIN
 
 int tsdb_timestamp_to_string(int64_t val, int time_precision, char *buf, size_t len) FA_HIDDEN;
+int tsdb_timestamp_to_SQL_C_TYPE_TIMESTAMP(int64_t val, int time_precision, SQL_TIMESTAMP_STRUCT *ts) FA_HIDDEN;
 
 void tsdb_stmt_reset(tsdb_stmt_t *stmt) FA_HIDDEN;
 void tsdb_stmt_release(tsdb_stmt_t *stmt) FA_HIDDEN;

@@ -617,13 +617,6 @@ struct tables_s {
   tables_type_t              tables_type;
 };
 
-struct columns_args_s {
-  wildex_t        *catalog_pattern;
-  wildex_t        *schema_pattern;
-  wildex_t        *table_pattern;
-  wildex_t        *column_pattern;
-};
-
 struct column_meta_s {
   const char                 *name;
   const char                 *column_type_name;
@@ -637,6 +630,13 @@ struct column_meta_s {
   SQLLEN                      DESC_NULLABLE;
   SQLLEN                      DESC_UNSIGNED;
   SQLLEN                      DESC_NUM_PREC_RADIX;
+};
+
+struct columns_args_s {
+  wildex_t        *catalog_pattern;
+  wildex_t        *schema_pattern;
+  wildex_t        *table_pattern;
+  wildex_t        *column_pattern;
 };
 
 struct columns_s {
@@ -661,9 +661,36 @@ struct columns_s {
 
   int                        ordinal_order;
 
-  const char                *column;
-
   mem_t                      column_cache;
+};
+
+struct primarykeys_args_s {
+  wildex_t        *catalog_pattern;
+  wildex_t        *schema_pattern;
+  wildex_t        *table_pattern;
+};
+
+struct primarykeys_s {
+  stmt_base_t                base;
+  stmt_t                    *owner;
+
+  primarykeys_args_t         primarykeys_args;
+
+  tables_t                   tables;
+
+  tsdb_data_t                current_catalog;
+  tsdb_data_t                current_schema;
+  tsdb_data_t                current_table;
+  tsdb_data_t                current_table_type;
+
+  tsdb_data_t                current_col_name;
+  tsdb_data_t                current_col_type;
+  tsdb_data_t                current_col_length;
+  tsdb_data_t                current_col_note;
+
+  tsdb_stmt_t                desc;
+
+  int                        ordinal_order;
 };
 
 struct typesinfo_s {
@@ -712,6 +739,7 @@ struct stmt_s {
   tables_t                   tables;
   columns_t                  columns;
   typesinfo_t                typesinfo;
+  primarykeys_t              primarykeys;
 
   mem_t                      mem;
 

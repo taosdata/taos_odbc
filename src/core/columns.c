@@ -914,7 +914,6 @@ SQLRETURN columns_open(
       stmt_oom(columns->owner);
       return SQL_ERROR;
     }
-    columns->column = (const char*)columns->column_cache.base;
     if (wildcomp_n_ex(&columns->columns_args.column_pattern, cnv->from, (const char*)ColumnName, NameLength4)) {
       stmt_append_err_format(columns->owner, "HY000", 0,
           "General error:wild compile failed for ColumnName[%.*s]", (int)NameLength4, (const char*)ColumnName);

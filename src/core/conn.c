@@ -970,6 +970,9 @@ SQLRETURN conn_get_info(
       return _conn_get_catalog_name_separator(conn, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_CATALOG_NAME:
       return _conn_get_catalog_name(conn, InfoValuePtr, BufferLength, StringLengthPtr);
+    case SQL_CATALOG_USAGE:
+      *(SQLUINTEGER*)InfoValuePtr = SQL_CU_DML_STATEMENTS | SQL_CU_PROCEDURE_INVOCATION | SQL_CU_TABLE_DEFINITION | SQL_CU_INDEX_DEFINITION | SQL_CU_PRIVILEGE_DEFINITION;
+      return SQL_SUCCESS;
     case SQL_OJ_CAPABILITIES:
       // *(SQLUINTEGER*)InfoValuePtr = SQL_OJ_LEFT | SQL_OJ_RIGHT | SQL_OJ_FULL | SQL_OJ_NESTED | SQL_OJ_NOT_ORDERED | SQL_OJ_INNER | SQL_OJ_ALL_COMPARISON_OPS;
       *(SQLUINTEGER*)InfoValuePtr = 0;

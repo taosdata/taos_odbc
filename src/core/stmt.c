@@ -30,6 +30,7 @@
 #include "desc.h"
 #include "errs.h"
 #include "log.h"
+#include "primarykeys.h"
 #include "stmt.h"
 #include "tables.h"
 #include "taos_helpers.h"
@@ -80,6 +81,7 @@ static void _stmt_init(stmt_t *stmt, conn_t *conn)
   tables_init(&stmt->tables, stmt);
   columns_init(&stmt->columns, stmt);
   typesinfo_init(&stmt->typesinfo, stmt);
+  primarykeys_init(&stmt->primarykeys, stmt);
 
   stmt->base = &stmt->tsdb_stmt.base;
 
@@ -172,6 +174,7 @@ static void _stmt_reset_result(stmt_t *stmt)
   tables_reset(&stmt->tables);
   columns_reset(&stmt->columns);
   typesinfo_reset(&stmt->typesinfo);
+  primarykeys_reset(&stmt->primarykeys);
 
   if (_stmt_get_rows_fetched_ptr(stmt)) *_stmt_get_rows_fetched_ptr(stmt) = 0;
 }
@@ -185,6 +188,7 @@ static void _stmt_release_result(stmt_t *stmt)
   tables_release(&stmt->tables);
   columns_release(&stmt->columns);
   typesinfo_release(&stmt->typesinfo);
+  primarykeys_release(&stmt->primarykeys);
 
   if (_stmt_get_rows_fetched_ptr(stmt)) *_stmt_get_rows_fetched_ptr(stmt) = 0;
 }
@@ -202,6 +206,11 @@ static void _stmt_reset_columns(stmt_t *stmt)
 static void _stmt_reset_typesinfo(stmt_t *stmt)
 {
   typesinfo_reset(&stmt->typesinfo);
+}
+
+static void _stmt_reset_primarykeys(stmt_t *stmt)
+{
+  primarykeys_reset(&stmt->primarykeys);
 }
 
 static void _stmt_close_result(stmt_t *stmt)
@@ -1539,6 +1548,15 @@ static SQLRETURN _stmt_get_data_copy_int64(stmt_t *stmt, int64_t v, stmt_get_dat
       return _stmt_get_data_copy_buf_to_wchar(stmt, args);
     case SQL_C_BINARY:
       return _stmt_get_data_copy_buf_to_binary(stmt, args);
+    case SQL_C_TYPE_TIMESTAMP:
+      if (tsdb_timestamp_to_SQL_C_TYPE_TIMESTAMP(v, 0, (SQL_TIMESTAMP_STRUCT*)args->TargetValuePtr)) {
+        stmt_append_err_format(stmt, "HY000", 0,
+            "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed",
+            args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+            sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+        return SQL_ERROR;
+      }
+      return SQL_SUCCESS;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]`not implemented yet",
@@ -4713,6 +4731,8 @@ SQLRETURN stmt_foreign_keys(
   OW("fkschema:%.*s",  NameLength5, fkschema);
   OW("fktable:%.*s",   NameLength6, fktable);
 
+  if (1) return SQL_NO_DATA;
+
   stmt_append_err(stmt, "HY000", 0, "General error:not supported yet");
   return SQL_ERROR;
 }
@@ -4769,20 +4789,25 @@ SQLRETURN stmt_primary_keys(
   OW("SchemaName:%p,%.*s", SchemaName, SchemaName ? (int)NameLength2 : 6, SchemaName ? (const char*)SchemaName : "[null]");
   OW("TableName:%p,%.*s", TableName, TableName ? (int)NameLength3 : 6, TableName ? (const char*)TableName : "[null]");
 
-  const char *catalog = (const char *)CatalogName;
-  const char *schema  = (const char *)SchemaName;
-  const char *table   = (const char *)TableName;
+  SQLRETURN sr = SQL_SUCCESS;
 
-  if (catalog == NULL) catalog = "";
-  if (schema  == NULL) schema  = "";
-  if (table   == NULL) table   = "";
+  _stmt_close_result(stmt);
+  _stmt_reset_params(stmt);
+  mem_reset(&stmt->sql);
 
-  if (NameLength1 == SQL_NTS) NameLength1 = (SQLSMALLINT)strlen(catalog);
-  if (NameLength2 == SQL_NTS) NameLength2 = (SQLSMALLINT)strlen(schema);
-  if (NameLength3 == SQL_NTS) NameLength3 = (SQLSMALLINT)strlen(table);
+  if (CatalogName && NameLength1 == SQL_NTS) NameLength1 = (SQLSMALLINT)strlen((const char*)CatalogName);
+  if (SchemaName && NameLength2 == SQL_NTS) NameLength2 = (SQLSMALLINT)strlen((const char*)SchemaName);
+  if (TableName && NameLength3 == SQL_NTS) NameLength3 = (SQLSMALLINT)strlen((const char*)TableName);
 
-  stmt_append_err(stmt, "HY000", 0, "General error:not supported yet");
-  return SQL_ERROR;
+  sr = primarykeys_open(&stmt->primarykeys, CatalogName, NameLength1, SchemaName, NameLength2, TableName, NameLength3);
+  if (sr != SQL_SUCCESS) {
+    _stmt_reset_primarykeys(stmt);
+    return SQL_ERROR;
+  }
+
+  stmt->base = &stmt->primarykeys.base;
+
+  return SQL_SUCCESS;
 }
 
 SQLRETURN stmt_procedure_columns(

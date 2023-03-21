@@ -2797,7 +2797,6 @@ static int test_conn_SQL_catalog_functions(SQLHANDLE hconn)
       if (1 && r == 0) r = test_SQLColumns(hstmt);
       if (0 && r == 0) r = test_SQLGetTypeInfo(hstmt);
       if (r) return -1;
-      if (1) r = -1;
     } while (0);
 
     CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);

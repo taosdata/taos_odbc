@@ -105,21 +105,21 @@ static int _dump_col_info(SQLHANDLE hstmt, SQLUSMALLINT ColumnNumber)
   BufferLength                = sizeof(buf);
   sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, &StringLength, &NumericAttribute);
   if (sr != SQL_SUCCESS) return -1;
-  DUMP("Column%d.%s=%lld",ColumnNumber, sql_col_attribute(FieldIdentifier), NumericAttribute);
+  DUMP("Column%d.%s=%" PRId64 "",ColumnNumber, sql_col_attribute(FieldIdentifier), (int64_t)NumericAttribute);
 
   FieldIdentifier             = SQL_DESC_DISPLAY_SIZE;
   CharacterAttributePtr       = buf;
   BufferLength                = sizeof(buf);
   sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, &StringLength, &NumericAttribute);
   if (sr != SQL_SUCCESS) return -1;
-  DUMP("Column%d.%s=%lld",ColumnNumber, sql_col_attribute(FieldIdentifier), NumericAttribute);
+  DUMP("Column%d.%s=%" PRId64 "",ColumnNumber, sql_col_attribute(FieldIdentifier), (int64_t)NumericAttribute);
 
   FieldIdentifier             = SQL_DESC_FIXED_PREC_SCALE;
   CharacterAttributePtr       = buf;
   BufferLength                = sizeof(buf);
   sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, &StringLength, &NumericAttribute);
   if (sr != SQL_SUCCESS) return -1;
-  DUMP("Column%d.%s=%lld",ColumnNumber, sql_col_attribute(FieldIdentifier), NumericAttribute);
+  DUMP("Column%d.%s=%" PRId64 "",ColumnNumber, sql_col_attribute(FieldIdentifier), (int64_t)NumericAttribute);
 
   FieldIdentifier             = SQL_DESC_LABEL;
   CharacterAttributePtr       = buf;
@@ -133,7 +133,7 @@ static int _dump_col_info(SQLHANDLE hstmt, SQLUSMALLINT ColumnNumber)
   BufferLength                = sizeof(buf);
   sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, &StringLength, &NumericAttribute);
   if (sr != SQL_SUCCESS) return -1;
-  DUMP("Column%d.%s=%lld",ColumnNumber, sql_col_attribute(FieldIdentifier), NumericAttribute);
+  DUMP("Column%d.%s=%" PRId64 "",ColumnNumber, sql_col_attribute(FieldIdentifier), (int64_t)NumericAttribute);
 
   FieldIdentifier             = SQL_DESC_LITERAL_PREFIX;
   CharacterAttributePtr       = buf;
@@ -175,28 +175,28 @@ static int _dump_col_info(SQLHANDLE hstmt, SQLUSMALLINT ColumnNumber)
   BufferLength                = sizeof(buf);
   sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, &StringLength, &NumericAttribute);
   if (sr != SQL_SUCCESS) return -1;
-  DUMP("Column%d.%s=%lld",ColumnNumber, sql_col_attribute(FieldIdentifier), NumericAttribute);
+  DUMP("Column%d.%s=%" PRId64 "",ColumnNumber, sql_col_attribute(FieldIdentifier), (int64_t)NumericAttribute);
 
   FieldIdentifier             = SQL_DESC_OCTET_LENGTH;
   CharacterAttributePtr       = buf;
   BufferLength                = sizeof(buf);
   sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, &StringLength, &NumericAttribute);
   if (sr != SQL_SUCCESS) return -1;
-  DUMP("Column%d.%s=%lld",ColumnNumber, sql_col_attribute(FieldIdentifier), NumericAttribute);
+  DUMP("Column%d.%s=%" PRId64 "",ColumnNumber, sql_col_attribute(FieldIdentifier), (int64_t)NumericAttribute);
 
   FieldIdentifier             = SQL_DESC_PRECISION;
   CharacterAttributePtr       = buf;
   BufferLength                = sizeof(buf);
   sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, &StringLength, &NumericAttribute);
   if (sr != SQL_SUCCESS) return -1;
-  DUMP("Column%d.%s=%lld",ColumnNumber, sql_col_attribute(FieldIdentifier), NumericAttribute);
+  DUMP("Column%d.%s=%" PRId64 "",ColumnNumber, sql_col_attribute(FieldIdentifier), (int64_t)NumericAttribute);
 
   FieldIdentifier             = SQL_DESC_SCALE;
   CharacterAttributePtr       = buf;
   BufferLength                = sizeof(buf);
   sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, &StringLength, &NumericAttribute);
   if (sr != SQL_SUCCESS) return -1;
-  DUMP("Column%d.%s=%lld",ColumnNumber, sql_col_attribute(FieldIdentifier), NumericAttribute);
+  DUMP("Column%d.%s=%" PRId64 "",ColumnNumber, sql_col_attribute(FieldIdentifier), (int64_t)NumericAttribute);
 
   FieldIdentifier             = SQL_DESC_SCHEMA_NAME;
   CharacterAttributePtr       = buf;
@@ -238,7 +238,7 @@ static int _dump_col_info(SQLHANDLE hstmt, SQLUSMALLINT ColumnNumber)
   BufferLength                = sizeof(buf);
   sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, &StringLength, &NumericAttribute);
   if (sr != SQL_SUCCESS) return -1;
-  DUMP("Column%d.%s=%lld",ColumnNumber, sql_col_attribute(FieldIdentifier), NumericAttribute);
+  DUMP("Column%d.%s=%" PRId64 "",ColumnNumber, sql_col_attribute(FieldIdentifier), (int64_t)NumericAttribute);
 
   FieldIdentifier             = SQL_DESC_UNSIGNED;
   CharacterAttributePtr       = buf;

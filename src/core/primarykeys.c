@@ -202,12 +202,11 @@ static SQLRETURN _fetch_rowset(stmt_base_t *base, size_t rowset_size)
 
 static SQLRETURN _fetch_row_with_tsdb(stmt_base_t *base, tsdb_data_t *tsdb)
 {
+  (void)tsdb;
+
   SQLRETURN sr = SQL_SUCCESS;
-  int r = 0;
 
   primarykeys_t *primarykeys = (primarykeys_t*)base;
-
-  charset_conv_t *cnv = &primarykeys->owner->conn->cnv_tsdb_varchar_to_sql_c_wchar;
 
 again:
 
@@ -608,8 +607,6 @@ SQLRETURN primarykeys_open(
   OW("CatalogName:%p,%.*s", CatalogName, (int)NameLength1, CatalogName);
   OW("SchemaName:%p,%.*s", SchemaName, (int)NameLength2, SchemaName);
   OW("TableName:%p,%.*s", TableName, (int)NameLength3, TableName);
-
-  charset_conv_t *cnv = &primarykeys->owner->conn->cnv_sql_c_char_to_sql_c_wchar;
 
   sr = tables_open(&primarykeys->tables, CatalogName, NameLength1, SchemaName, NameLength2, TableName, NameLength3, (SQLCHAR*)"TABLE", SQL_NTS);
   if (sr != SQL_SUCCESS) return SQL_ERROR;

@@ -877,24 +877,24 @@ SQLRETURN stmt_bind_col(stmt_t *stmt,
   return _stmt_bind_col(stmt, ColumnNumber, TargetType, TargetValuePtr, BufferLength, StrLen_or_IndPtr);
 }
 
-static SQLRETURN _stmt_get_data_len(stmt_t *stmt, int row, int col, const char **data, int *len)
-{
-  tsdb_res_t           *res          = &stmt->tsdb_stmt.res;
-  tsdb_fields_t        *fields       = &res->fields;
-  tsdb_rows_block_t    *rows_block   = &res->rows_block;
-
-  TAOS_FIELD       *field = fields->fields + col;
-  int r = helper_get_data_len(res->res, field, rows_block->rows, row, col, data, len);
-
-  if (r) {
-    stmt_append_err_format(stmt, "HY000", 0,
-        "General error:#%d Column[%s] conversion from `%s[0x%x/%d]` not implemented yet",
-        col+1, field->name, taos_data_type(field->type), field->type, field->type);
-    return SQL_ERROR;
-  }
-
-  return SQL_SUCCESS;
-}
+// static SQLRETURN _stmt_get_data_len(stmt_t *stmt, int row, int col, const char **data, int *len)
+// {
+//   tsdb_res_t           *res          = &stmt->tsdb_stmt.res;
+//   tsdb_fields_t        *fields       = &res->fields;
+//   tsdb_rows_block_t    *rows_block   = &res->rows_block;
+// 
+//   TAOS_FIELD       *field = fields->fields + col;
+//   int r = helper_get_data_len(res->res, field, rows_block->rows, row, col, data, len);
+// 
+//   if (r) {
+//     stmt_append_err_format(stmt, "HY000", 0,
+//         "General error:#%d Column[%s] conversion from `%s[0x%x/%d]` not implemented yet",
+//         col+1, field->name, taos_data_type(field->type), field->type, field->type);
+//     return SQL_ERROR;
+//   }
+// 
+//   return SQL_SUCCESS;
+// }
 
 static SQLPOINTER _stmt_get_address(stmt_t *stmt, SQLPOINTER ptr, SQLULEN octet_length, size_t i_row, desc_header_t *header)
 {
@@ -4103,32 +4103,32 @@ void stmt_clr_errs(stmt_t *stmt)
   errs_clr(&stmt->errs);
 }
 
-static SQLRETURN _wild_post_filter(stmt_t *stmt, int row, void *ctx, int *filter)
-{
-  SQLRETURN sr = SQL_SUCCESS;
+// static SQLRETURN _wild_post_filter(stmt_t *stmt, int row, void *ctx, int *filter)
+// {
+//   SQLRETURN sr = SQL_SUCCESS;
+// 
+//   *filter = 0;
+// 
+//   const char *base;
+//   int len;
+//   sr = _stmt_get_data_len(stmt, row, 2, &base, &len);
+//   if (sr == SQL_ERROR) return SQL_ERROR;
+//   if (base == NULL) return SQL_SUCCESS;
+// 
+//   wildex_t *wild = (wildex_t*)ctx;
+//   *filter = wildexec_n(wild, base, len);
+// 
+//   return SQL_SUCCESS;
+// }
 
-  *filter = 0;
-
-  const char *base;
-  int len;
-  sr = _stmt_get_data_len(stmt, row, 2, &base, &len);
-  if (sr == SQL_ERROR) return SQL_ERROR;
-  if (base == NULL) return SQL_SUCCESS;
-
-  wildex_t *wild = (wildex_t*)ctx;
-  *filter = wildexec_n(wild, base, len);
-
-  return SQL_SUCCESS;
-}
-
-static void _wild_post_filter_destroy(stmt_t *stmt, void *ctx)
-{
-  (void)stmt;
-  wildex_t *wild = (wildex_t*)ctx;
-  if (wild) {
-    wildfree(wild);
-  }
-}
+// static void _wild_post_filter_destroy(stmt_t *stmt, void *ctx)
+// {
+//   (void)stmt;
+//   wildex_t *wild = (wildex_t*)ctx;
+//   if (wild) {
+//     wildfree(wild);
+//   }
+// }
 
 SQLRETURN stmt_tables(stmt_t *stmt,
     SQLCHAR       *CatalogName,
@@ -4140,7 +4140,6 @@ SQLRETURN stmt_tables(stmt_t *stmt,
     SQLCHAR       *TableType,
     SQLSMALLINT    NameLength4)
 {
-  int r = 0;
   SQLRETURN sr = SQL_SUCCESS;
 
   _stmt_close_result(stmt);

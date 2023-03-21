@@ -159,4 +159,3 @@ if(ENABLE_SQLITE3_TEST)
         COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/sqlite3_test)
   endif()
 endif()
-

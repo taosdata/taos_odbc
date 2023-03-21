@@ -471,16 +471,16 @@ struct stmt_get_data_args_s {
   SQLLEN        *IndPtr;
 };
 
-// NOTE: this exists because of https://github.com/taosdata/TDengine/issues/17890
-typedef struct post_filter_s        post_filter_t;
-typedef SQLRETURN (*post_filter_f)(stmt_t *stmt, int row, void *ctx, int *filter);
-typedef void (*post_filter_destroy_f)(stmt_t *stmt, void *ctx);
-
-struct post_filter_s {
-  void                   *ctx;
-  post_filter_f           post_filter;
-  post_filter_destroy_f   post_filter_destroy;
-};
+// // NOTE: this exists because of https://github.com/taosdata/TDengine/issues/17890
+// typedef struct post_filter_s        post_filter_t;
+// typedef SQLRETURN (*post_filter_f)(stmt_t *stmt, int row, void *ctx, int *filter);
+// typedef void (*post_filter_destroy_f)(stmt_t *stmt, void *ctx);
+//
+// struct post_filter_s {
+//   void                   *ctx;
+//   post_filter_f           post_filter;
+//   post_filter_destroy_f   post_filter_destroy;
+// };
 
 struct stmt_base_s {
   SQLRETURN (*query)(stmt_base_t *base, const char *sql);
@@ -732,8 +732,6 @@ struct stmt_s {
   tsdb_paramset_t                 paramset;
 
   tsdb_binds_t               tsdb_binds;
-
-  post_filter_t              post_filter;
 
   tsdb_stmt_t                tsdb_stmt;
   tables_t                   tables;

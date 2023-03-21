@@ -2329,7 +2329,7 @@ static int test_SQLColumns(SQLHANDLE hstmt)
     "drop database if exists foo",
     "create database foo",
     "use foo",
-    "create table bar (ts timestamp, name varchar(20))",
+    "create table bar (ts timestamp, name varchar(20), f float)",
   };
 
   for (size_t i=0; i<sizeof(sqls)/sizeof(sqls[0]); ++i) {
@@ -2375,6 +2375,7 @@ static int test_SQLColumns(SQLHANDLE hstmt)
   SQLSMALLINT     StringLength, *StringLengthPtr;
   SQLLEN          NumericAttribute, *NumericAttributePtr;
 
+#define DUMP(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)           /* { */
   for (SQLSMALLINT i=0; 0 && i<ColumnCount; ++i) {
     ColumnNumber                = i + 1;
 
@@ -2386,7 +2387,7 @@ static int test_SQLColumns(SQLHANDLE hstmt)
 
     sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
     if (sr != SQL_SUCCESS) return -1;
-    W("Column%d:`SQL_DESC_CONCISE_TYPE`,[%d]%s", i+1, (int)NumericAttribute, sql_data_type((SQLSMALLINT)NumericAttribute));
+    DUMP("Column%d:`SQL_DESC_CONCISE_TYPE`,[%d]%s", i+1, (int)NumericAttribute, sql_data_type((SQLSMALLINT)NumericAttribute));
 
     FieldIdentifier             = SQL_DESC_OCTET_LENGTH;
     CharacterAttributePtr       = NULL;
@@ -2396,7 +2397,7 @@ static int test_SQLColumns(SQLHANDLE hstmt)
 
     sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
     if (sr != SQL_SUCCESS) return -1;
-    W("Column%d:`SQL_DESC_OCTET_LENGTH`,[%d]", i+1, (int)NumericAttribute);
+    DUMP("Column%d:`SQL_DESC_OCTET_LENGTH`,[%d]", i+1, (int)NumericAttribute);
 
     FieldIdentifier             = SQL_DESC_PRECISION;
     CharacterAttributePtr       = NULL;
@@ -2406,7 +2407,7 @@ static int test_SQLColumns(SQLHANDLE hstmt)
 
     sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
     if (sr != SQL_SUCCESS) return -1;
-    W("Column%d:`SQL_DESC_PRECISION`,[%d]", i+1, (int)NumericAttribute);
+    DUMP("Column%d:`SQL_DESC_PRECISION`,[%d]", i+1, (int)NumericAttribute);
 
     FieldIdentifier             = SQL_DESC_SCALE;
     CharacterAttributePtr       = NULL;
@@ -2416,7 +2417,7 @@ static int test_SQLColumns(SQLHANDLE hstmt)
 
     sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
     if (sr != SQL_SUCCESS) return -1;
-    W("Column%d:`SQL_DESC_SCALE`,[%d]", i+1, (int)NumericAttribute);
+    DUMP("Column%d:`SQL_DESC_SCALE`,[%d]", i+1, (int)NumericAttribute);
 
     FieldIdentifier             = SQL_DESC_AUTO_UNIQUE_VALUE;
     CharacterAttributePtr       = NULL;
@@ -2426,7 +2427,7 @@ static int test_SQLColumns(SQLHANDLE hstmt)
 
     sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
     if (sr != SQL_SUCCESS) return -1;
-    W("Column%d:`SQL_DESC_AUTO_UNIQUE_VALUE`,[%s]", i+1, NumericAttribute ? "SQL_TRUE" : "SQL_FALSE");
+    DUMP("Column%d:`SQL_DESC_AUTO_UNIQUE_VALUE`,[%s]", i+1, NumericAttribute ? "SQL_TRUE" : "SQL_FALSE");
 
     FieldIdentifier             = SQL_DESC_UPDATABLE;
     CharacterAttributePtr       = NULL;
@@ -2436,7 +2437,7 @@ static int test_SQLColumns(SQLHANDLE hstmt)
 
     sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
     if (sr != SQL_SUCCESS) return -1;
-    W("Column%d:`SQL_DESC_UPDATABLE`,[%s]", i+1, sql_updatable(NumericAttribute));
+    DUMP("Column%d:`SQL_DESC_UPDATABLE`,[%s]", i+1, sql_updatable(NumericAttribute));
 
     FieldIdentifier             = SQL_DESC_NULLABLE;
     CharacterAttributePtr       = NULL;
@@ -2446,7 +2447,7 @@ static int test_SQLColumns(SQLHANDLE hstmt)
 
     sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
     if (sr != SQL_SUCCESS) return -1;
-    W("Column%d:`SQL_DESC_NULLABLE`,[%s]", i+1, sql_nullable((SQLSMALLINT)NumericAttribute));
+    DUMP("Column%d:`SQL_DESC_NULLABLE`,[%s]", i+1, sql_nullable((SQLSMALLINT)NumericAttribute));
 
     FieldIdentifier             = SQL_DESC_NAME;
     CharacterAttributePtr       = buf;
@@ -2456,7 +2457,7 @@ static int test_SQLColumns(SQLHANDLE hstmt)
 
     sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
     if (sr != SQL_SUCCESS) return -1;
-    W("Column%d:`SQL_DESC_NAME`,%d,[%.*s]", i+1, (int)StringLength, (int)StringLength, buf);
+    DUMP("Column%d:`SQL_DESC_NAME`,%d,[%.*s]", i+1, (int)StringLength, (int)StringLength, buf);
 
     FieldIdentifier             = SQL_COLUMN_TYPE_NAME;
     CharacterAttributePtr       = buf;
@@ -2466,7 +2467,7 @@ static int test_SQLColumns(SQLHANDLE hstmt)
 
     sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
     if (sr != SQL_SUCCESS) return -1;
-    W("Column%d:`SQL_COLUMN_TYPE_NAME`,%d,[%.*s]", i+1, (int)StringLength, (int)StringLength, buf);
+    DUMP("Column%d:`SQL_COLUMN_TYPE_NAME`,%d,[%.*s]", i+1, (int)StringLength, (int)StringLength, buf);
 
     FieldIdentifier             = SQL_DESC_LENGTH;
     CharacterAttributePtr       = buf;
@@ -2476,7 +2477,7 @@ static int test_SQLColumns(SQLHANDLE hstmt)
 
     sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
     if (sr != SQL_SUCCESS) return -1;
-    W("Column%d:`SQL_DESC_LENGTH`,%d", i+1, (int)NumericAttribute);
+    DUMP("Column%d:`SQL_DESC_LENGTH`,%d", i+1, (int)NumericAttribute);
 
     FieldIdentifier             = SQL_DESC_NUM_PREC_RADIX;
     CharacterAttributePtr       = buf;
@@ -2486,7 +2487,7 @@ static int test_SQLColumns(SQLHANDLE hstmt)
 
     sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
     if (sr != SQL_SUCCESS) return -1;
-    W("Column%d:`SQL_DESC_NUM_PREC_RADIX`,%d", i+1, (int)NumericAttribute);
+    DUMP("Column%d:`SQL_DESC_NUM_PREC_RADIX`,%d", i+1, (int)NumericAttribute);
 
     FieldIdentifier             = SQL_DESC_UNSIGNED;
     CharacterAttributePtr       = buf;
@@ -2496,7 +2497,7 @@ static int test_SQLColumns(SQLHANDLE hstmt)
 
     sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
     if (sr != SQL_SUCCESS) return -1;
-    W("Column%d:`SQL_DESC_UNSIGNED`,[%s]", i+1, NumericAttribute ? "SQL_TRUE" : "SQL_FALSE");
+    DUMP("Column%d:`SQL_DESC_UNSIGNED`,[%s]", i+1, NumericAttribute ? "SQL_TRUE" : "SQL_FALSE");
   }
 
   while (1) {
@@ -2505,19 +2506,20 @@ static int test_SQLColumns(SQLHANDLE hstmt)
     if (sr == SQL_NO_DATA) break;
 
     for (SQLSMALLINT i=0; i<ColumnCount; ++i) {
-      W("col %d...", i+1);
+      DUMP("col %d...", i+1);
       char buf[4096];
       SQLLEN ind;
       sr = CALL_SQLGetData(hstmt, i+1, SQL_C_CHAR, (SQLPOINTER)buf, sizeof(buf), &ind);
       if (FAILED(sr)) return -1;
       if (ind == SQL_NULL_DATA) {
-        W("==col[%d]:null==", i+1);
+        DUMP("==col[%d]:null==", i+1);
       } else {
-        W("==col[%d]:%s==", i+1, buf);
+        DUMP("==col[%d]:%s==", i+1, buf);
       }
     }
     break;
   }
+#undef DUMP                                                      /* } */
 
   return 0;
 }
@@ -2792,9 +2794,10 @@ static int test_conn_SQL_catalog_functions(SQLHANDLE hconn)
     }
 
     do {
-      if (0 && r == 0) r = test_SQLColumns(hstmt);
+      if (1 && r == 0) r = test_SQLColumns(hstmt);
       if (0 && r == 0) r = test_SQLGetTypeInfo(hstmt);
-      if (0) r = -1;
+      if (r) return -1;
+      if (1) r = -1;
     } while (0);
 
     CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);

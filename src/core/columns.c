@@ -708,6 +708,20 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
       stmt_append_err(columns->owner, "HY000", 0, "General error:internal logic error");
       return SQL_ERROR;
     }
+  } else if (col_type->str.len == 6 && strncmp(col_type->str.str, "DOUBLE", 6) == 0) {
+    fake.type = TSDB_DATA_TYPE_DOUBLE;
+    fake.bytes = col_length->i32;
+    if (fake.bytes != 8) {
+      stmt_append_err(columns->owner, "HY000", 0, "General error:internal logic error");
+      return SQL_ERROR;
+    }
+  } else if (col_type->str.len == 5 && strncmp(col_type->str.str, "FLOAT", 5) == 0) {
+    fake.type = TSDB_DATA_TYPE_FLOAT;
+    fake.bytes = col_length->i32;
+    if (fake.bytes != 4) {
+      stmt_append_err(columns->owner, "HY000", 0, "General error:internal logic error");
+      return SQL_ERROR;
+    }
   } else {
     stmt_append_err_format(columns->owner, "HY000", 0, "General error:not implemented yet for column[%d] `%.*s`",
         Col_or_Param_Num, (int)col_type->str.len, col_type->str.str);
@@ -784,6 +798,18 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
         OW("DATA_TYPE:[%d]%s", tsdb->i16, sql_data_type(tsdb->i16));
         break;
       }
+      if (fake.type == TSDB_DATA_TYPE_DOUBLE) {
+        tsdb->type = TSDB_DATA_TYPE_SMALLINT; // match against DATA_TYPE
+        tsdb->i16 = SQL_DOUBLE;
+        OW("DATA_TYPE:[%d]%s", tsdb->i16, sql_data_type(tsdb->i16));
+        break;
+      }
+      if (fake.type == TSDB_DATA_TYPE_FLOAT) {
+        tsdb->type = TSDB_DATA_TYPE_SMALLINT; // match against DATA_TYPE
+        tsdb->i16 = SQL_REAL;
+        OW("DATA_TYPE:[%d]%s", tsdb->i16, sql_data_type(tsdb->i16));
+        break;
+      }
       stmt_append_err_format(columns->owner, "HY000", 0, "General error:not implemented yet for column[%d] `%.*s`",
           Col_or_Param_Num, (int)col_type->str.len, col_type->str.str);
       return SQL_ERROR;
@@ -839,6 +865,18 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
       if (fake.type == TSDB_DATA_TYPE_BOOL) {
         tsdb->type = TSDB_DATA_TYPE_INT; // match against BUFFER_LENGTH
         tsdb->i32  = 1;
+        OW("BUFFER_LENGTH:[%d]", tsdb->i32);
+        break;
+      }
+      if (fake.type == TSDB_DATA_TYPE_DOUBLE) {
+        tsdb->type = TSDB_DATA_TYPE_INT; // match against BUFFER_LENGTH
+        tsdb->i32  = 8;
+        OW("BUFFER_LENGTH:[%d]", tsdb->i32);
+        break;
+      }
+      if (fake.type == TSDB_DATA_TYPE_FLOAT) {
+        tsdb->type = TSDB_DATA_TYPE_INT; // match against BUFFER_LENGTH
+        tsdb->i32  = 4;
         OW("BUFFER_LENGTH:[%d]", tsdb->i32);
         break;
       }
@@ -919,6 +957,18 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
       if (fake.type == TSDB_DATA_TYPE_BOOL) {
         tsdb->type = TSDB_DATA_TYPE_INT;
         tsdb->i32  = SQL_BIT;
+        OW("SQL_DATA_TYPE:[%s]", sql_data_type(tsdb->i32));
+        break;
+      }
+      if (fake.type == TSDB_DATA_TYPE_DOUBLE) {
+        tsdb->type = TSDB_DATA_TYPE_INT;
+        tsdb->i32  = SQL_DOUBLE;
+        OW("SQL_DATA_TYPE:[%s]", sql_data_type(tsdb->i32));
+        break;
+      }
+      if (fake.type == TSDB_DATA_TYPE_FLOAT) {
+        tsdb->type = TSDB_DATA_TYPE_INT;
+        tsdb->i32  = SQL_REAL;
         OW("SQL_DATA_TYPE:[%s]", sql_data_type(tsdb->i32));
         break;
       }

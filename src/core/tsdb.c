@@ -315,6 +315,8 @@ static SQLRETURN _execute(stmt_base_t *base)
 
 static SQLRETURN _fetch_rowset(stmt_base_t *base, size_t rowset_size)
 {
+  SQLRETURN sr = SQL_SUCCESS;
+
   tsdb_stmt_t *stmt = (tsdb_stmt_t*)base;
   tsdb_res_t           *res          = &stmt->res;
   tsdb_rows_block_t    *rows_block   = &res->rows_block;
@@ -327,7 +329,11 @@ static SQLRETURN _fetch_rowset(stmt_base_t *base, size_t rowset_size)
   }
 
   // TODO: rowset is subset of rows_block
-  return tsdb_stmt_fetch_rows_block(stmt);
+  sr = tsdb_stmt_fetch_rows_block(stmt);
+  if (sr == SQL_NO_DATA) return SQL_NO_DATA;
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  rows_block->rowset_size = rowset_size; // FIXME: what if rowset_size > rows_block->nr?
+  return SQL_SUCCESS;
 }
 
 static SQLRETURN _fetch_row(stmt_base_t *base)
@@ -428,6 +434,12 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
         case TSDB_DATA_TYPE_BOOL:
           *NumericAttributePtr = SQL_BIT;
           return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_DOUBLE:
+          *NumericAttributePtr = SQL_DOUBLE;
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_FLOAT:
+          *NumericAttributePtr = SQL_REAL;
+          return SQL_SUCCESS;
         default:
           stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
               sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
@@ -457,6 +469,12 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
         case TSDB_DATA_TYPE_BIGINT:
           *NumericAttributePtr = 8;
           return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_DOUBLE:
+          *NumericAttributePtr = 8;
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_FLOAT:
+          *NumericAttributePtr = 4;
+          return SQL_SUCCESS;
         default:
           stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
               sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
@@ -475,6 +493,12 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
         case TSDB_DATA_TYPE_INT:
         case TSDB_DATA_TYPE_BIGINT:
           *NumericAttributePtr = 0;
+          break;
+        case TSDB_DATA_TYPE_DOUBLE:
+          *NumericAttributePtr = 53;
+          break;
+        case TSDB_DATA_TYPE_FLOAT:
+          *NumericAttributePtr = 24;
           break;
         case TSDB_DATA_TYPE_TIMESTAMP:
           *NumericAttributePtr = 3; // FIXME: hard-coded for the moment
@@ -498,6 +522,8 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
         case TSDB_DATA_TYPE_SMALLINT:
         case TSDB_DATA_TYPE_INT:
         case TSDB_DATA_TYPE_BIGINT:
+        case TSDB_DATA_TYPE_DOUBLE:
+        case TSDB_DATA_TYPE_FLOAT:
           *NumericAttributePtr = 0;
           break;
         default:
@@ -599,6 +625,24 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
           }
           if (StringLengthPtr) *StringLengthPtr = n;
           return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_DOUBLE:
+          n = snprintf(CharacterAttributePtr, BufferLength, "%s", "DOUBLE");
+          if (n < 0) {
+            int e = errno;
+            stmt_append_err_format(stmt->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
+            return SQL_ERROR;
+          }
+          if (StringLengthPtr) *StringLengthPtr = n;
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_FLOAT:
+          n = snprintf(CharacterAttributePtr, BufferLength, "%s", "FLOAT");
+          if (n < 0) {
+            int e = errno;
+            stmt_append_err_format(stmt->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
+            return SQL_ERROR;
+          }
+          if (StringLengthPtr) *StringLengthPtr = n;
+          return SQL_SUCCESS;
         default:
           stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s` not supported yet", taos_data_type(col->type));
           return SQL_ERROR;
@@ -627,6 +671,12 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
         case TSDB_DATA_TYPE_BIGINT:
           *NumericAttributePtr = 8;  // FIXME: or strlen(str(max(int))) ?
           return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_DOUBLE:
+          *NumericAttributePtr = 53;  // FIXME: or strlen(str(max(int))) ?
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_FLOAT:
+          *NumericAttributePtr = 24;  // FIXME: or strlen(str(max(int))) ?
+          return SQL_SUCCESS;
         default:
           stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s` not supported yet", taos_data_type(col->type));
           return SQL_ERROR;
@@ -642,6 +692,10 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
         case TSDB_DATA_TYPE_INT:
         case TSDB_DATA_TYPE_BIGINT:
           *NumericAttributePtr = 0;
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_DOUBLE:
+        case TSDB_DATA_TYPE_FLOAT:
+          *NumericAttributePtr = 2;
           return SQL_SUCCESS;
         default:
           stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s` not supported yet", taos_data_type(col->type));

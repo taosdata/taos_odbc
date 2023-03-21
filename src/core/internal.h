@@ -485,9 +485,7 @@ struct stmt_get_data_args_s {
 struct stmt_base_s {
   SQLRETURN (*query)(stmt_base_t *base, const char *sql);
   SQLRETURN (*execute)(stmt_base_t *base);
-  SQLRETURN (*fetch_rowset)(stmt_base_t *base, size_t rowset_size);
   SQLRETURN (*fetch_row)(stmt_base_t *base);
-  void (*move_to_first_on_rowset)(stmt_base_t *base);
   SQLRETURN (*describe_param)(stmt_base_t *base,
       SQLUSMALLINT    ParameterNumber,
       SQLSMALLINT    *DataTypePtr,
@@ -526,9 +524,6 @@ struct tsdb_fields_s {
 struct tsdb_rows_block_s {
   TAOS_ROW            rows;
   size_t              nr;
-  size_t              rowset_size;
-  size_t              block0;        // 0-based
-  size_t              pos0;          // 1-based
   size_t              pos;           // 1-based
 };
 
@@ -597,10 +592,6 @@ struct tables_s {
   tables_args_t              tables_args;
 
   tsdb_stmt_t                stmt;
-
-  size_t                     rowset_size;
-  size_t                     pos; // 1-based
-  size_t                     POS; // 1-based in whole set
 
   const unsigned char       *catalog;
   const unsigned char       *schema;
@@ -699,11 +690,7 @@ struct typesinfo_s {
 
   SQLSMALLINT                data_type;
 
-  size_t                     rowset_size;
   size_t                     pos; // 1-based
-  size_t                     POS; // 1-based in whole set
-
-  size_t                     IDX_of_first_in_rowset; // 0-based
 };
 
 struct stmt_s {

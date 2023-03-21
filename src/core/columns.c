@@ -367,10 +367,45 @@ static SQLRETURN _execute(stmt_base_t *base)
   return SQL_ERROR;
 }
 
-static SQLRETURN _fetch_rowset(stmt_base_t *base, size_t rowset_size)
+static SQLRETURN _fetch_and_desc_next_table(columns_t *columns)
 {
-  columns_t *columns = (columns_t*)base;
-  return columns->desc.base.fetch_rowset(&columns->desc.base, rowset_size);
+  SQLRETURN sr = SQL_SUCCESS;
+
+  sr = columns->tables.base.fetch_row(&columns->tables.base);
+  if (sr == SQL_NO_DATA) return SQL_NO_DATA;
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  sr = columns->tables.base.get_data(&columns->tables.base, 1, &columns->current_catalog);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  sr = columns->tables.base.get_data(&columns->tables.base, 2, &columns->current_schema);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  sr = columns->tables.base.get_data(&columns->tables.base, 3, &columns->current_table);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  sr = columns->tables.base.get_data(&columns->tables.base, 4, &columns->current_table_type);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  char sql[4096];
+  int n = snprintf(sql, sizeof(sql), "desc `%.*s`.`%.*s`",
+      (int)columns->current_catalog.str.len, columns->current_catalog.str.str,
+      (int)columns->current_table.str.len, columns->current_table.str.str);
+  if (n < 0 || (size_t)n >= sizeof(sql)) {
+    stmt_append_err(columns->owner, "HY000", 0, "General error:internal logic error or buffer too small");
+    return SQL_ERROR;
+  }
+
+  tsdb_stmt_reset(&columns->desc);
+  tsdb_stmt_init(&columns->desc, columns->owner);
+
+  sr = tsdb_stmt_query(&columns->desc, sql);
+  if (sr != SQL_SUCCESS) {
+    stmt_append_err(columns->owner, "HY000", 0, "General error:internal logic error or buffer too small");
+    return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
 }
 
 static SQLRETURN _fetch_row_with_tsdb(stmt_base_t *base, tsdb_data_t *tsdb)
@@ -385,7 +420,12 @@ static SQLRETURN _fetch_row_with_tsdb(stmt_base_t *base, tsdb_data_t *tsdb)
 again:
 
   sr = columns->desc.base.fetch_row(&columns->desc.base);
-  if (sr == SQL_NO_DATA) return SQL_NO_DATA;
+  if (sr == SQL_NO_DATA) {
+    sr = _fetch_and_desc_next_table(columns);
+    if (sr == SQL_NO_DATA) return SQL_NO_DATA;
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+    goto again;
+  }
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   if (columns->columns_args.column_pattern) {
@@ -417,12 +457,6 @@ static SQLRETURN _fetch_row(stmt_base_t *base)
   }
 
   return sr;
-}
-
-static void _move_to_first_on_rowset(stmt_base_t *base)
-{
-  columns_t *columns = (columns_t*)base;
-  columns->desc.base.move_to_first_on_rowset(&columns->desc.base);
 }
 
 static SQLRETURN _describe_param(stmt_base_t *base,
@@ -1019,9 +1053,7 @@ void columns_init(columns_t *columns, stmt_t *stmt)
   tsdb_stmt_init(&columns->desc, stmt);
   columns->base.query                        = _query;
   columns->base.execute                      = _execute;
-  columns->base.fetch_rowset                 = _fetch_rowset;
   columns->base.fetch_row                    = _fetch_row;
-  columns->base.move_to_first_on_rowset      = _move_to_first_on_rowset;
   columns->base.describe_param               = _describe_param;
   columns->base.describe_col                 = _describe_col;
   columns->base.col_attribute                = _col_attribute;
@@ -1074,49 +1106,5 @@ SQLRETURN columns_open(
   sr = tables_open(&columns->tables, CatalogName, NameLength1, SchemaName, NameLength2, TableName, NameLength3, (SQLCHAR*)"TABLE", SQL_NTS);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-again:
-
-  sr = columns->tables.base.fetch_rowset(&columns->tables.base, 1);
-  if (sr == SQL_NO_DATA) return SQL_NO_DATA;
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
-
-  sr = columns->tables.base.fetch_row(&columns->tables.base);
-  if (sr == SQL_NO_DATA) goto again;
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
-
-  do {
-    sr = columns->tables.base.get_data(&columns->tables.base, 1, &columns->current_catalog);
-    if (sr != SQL_SUCCESS) break;
-
-    sr = columns->tables.base.get_data(&columns->tables.base, 2, &columns->current_schema);
-    if (sr != SQL_SUCCESS) break;
-
-    sr = columns->tables.base.get_data(&columns->tables.base, 3, &columns->current_table);
-    if (sr != SQL_SUCCESS) break;
-
-    sr = columns->tables.base.get_data(&columns->tables.base, 4, &columns->current_table_type);
-    if (sr != SQL_SUCCESS) break;
-
-    char sql[4096];
-    int n = snprintf(sql, sizeof(sql), "desc `%.*s`.`%.*s`",
-        (int)columns->current_catalog.str.len, columns->current_catalog.str.str,
-        (int)columns->current_table.str.len, columns->current_table.str.str);
-    if (n < 0 || (size_t)n >= sizeof(sql)) {
-      stmt_append_err(columns->owner, "HY000", 0, "General error:internal logic error or buffer too small");
-      sr = SQL_ERROR;
-      break;
-    }
-
-    tsdb_stmt_reset(&columns->desc);
-    tsdb_stmt_init(&columns->desc, columns->owner);
-
-    sr = tsdb_stmt_query(&columns->desc, sql);
-    if (sr != SQL_SUCCESS) {
-      stmt_append_err(columns->owner, "HY000", 0, "General error:internal logic error or buffer too small");
-      sr = SQL_ERROR;
-      break;
-    }
-  } while (0);
-
-  return sr;
+  return _fetch_and_desc_next_table(columns);
 }

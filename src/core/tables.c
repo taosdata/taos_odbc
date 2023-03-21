@@ -97,7 +97,6 @@ void tables_release(tables_t *tables)
   tables_args_release(&tables->tables_args);
 
   tables->owner = NULL;
-  tables->rowset_size = 0;
 }
 
 static SQLRETURN _query(stmt_base_t *base, const char *sql)
@@ -116,16 +115,6 @@ static SQLRETURN _execute(stmt_base_t *base)
   (void)tables;
   stmt_append_err(tables->owner, "HY000", 0, "General error:internal logic error");
   return SQL_ERROR;
-}
-
-static SQLRETURN _fetch_rowset(stmt_base_t *base, size_t rowset_size)
-{
-  SQLRETURN sr = SQL_SUCCESS;
-  tables_t *tables = (tables_t*)base;
-  tables->rowset_size = rowset_size;
-  sr = tables->stmt.base.fetch_rowset(&tables->stmt.base, rowset_size);
-  tables->pos = 0;
-  return sr;
 }
 
 static void _match(tables_t *tables, tsdb_data_t *tsdb, int *matched)
@@ -162,16 +151,8 @@ static SQLRETURN _fetch_row_with_tsdb(stmt_base_t *base, tsdb_data_t *tsdb)
 again:
 
   sr = tables->stmt.base.fetch_row(&tables->stmt.base);
-  if (sr == SQL_NO_DATA) {
-    if (tables->pos > 0) return SQL_NO_DATA;
-    sr = _fetch_rowset(base, tables->rowset_size);
-    if (sr == SQL_NO_DATA) return SQL_NO_DATA;
-    if (sr != SQL_SUCCESS) return SQL_ERROR;
-    goto again;
-  }
+  if (sr == SQL_NO_DATA) return SQL_NO_DATA;
   if (sr != SQL_SUCCESS) return SQL_ERROR;
-
-  tables->POS += 1;
 
   if (tables->tables_type != TABLES_FOR_GENERIC) return SQL_SUCCESS;
 
@@ -227,8 +208,6 @@ again:
     if (!matched) goto again;
   }
 
-  tables->pos += 1;
-
   return SQL_SUCCESS;
 }
 
@@ -241,12 +220,6 @@ static SQLRETURN _fetch_row(stmt_base_t *base)
   sr = _fetch_row_with_tsdb(base, &tsdb);
 
   return sr;
-}
-
-static void _move_to_first_on_rowset(stmt_base_t *base)
-{
-  tables_t *tables = (tables_t*)base;
-  tables->stmt.base.move_to_first_on_rowset(&tables->stmt.base);
 }
 
 static SQLRETURN _describe_param(stmt_base_t *base,
@@ -360,9 +333,7 @@ void tables_init(tables_t *tables, stmt_t *stmt)
   tsdb_stmt_init(&tables->stmt, stmt);
   tables->base.query                        = _query;
   tables->base.execute                      = _execute;
-  tables->base.fetch_rowset                 = _fetch_rowset;
   tables->base.fetch_row                    = _fetch_row;
-  tables->base.move_to_first_on_rowset      = _move_to_first_on_rowset;
   tables->base.describe_param               = _describe_param;
   tables->base.describe_col                 = _describe_col;
   tables->base.col_attribute                = _col_attribute;

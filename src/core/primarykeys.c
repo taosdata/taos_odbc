@@ -194,10 +194,42 @@ static SQLRETURN _execute(stmt_base_t *base)
   return SQL_ERROR;
 }
 
-static SQLRETURN _fetch_rowset(stmt_base_t *base, size_t rowset_size)
+static SQLRETURN _fetch_and_desc_next_table(primarykeys_t *primarykeys)
 {
-  primarykeys_t *primarykeys = (primarykeys_t*)base;
-  return primarykeys->desc.base.fetch_rowset(&primarykeys->desc.base, rowset_size);
+  SQLRETURN sr = SQL_SUCCESS;
+
+  sr = primarykeys->tables.base.fetch_row(&primarykeys->tables.base);
+  if (sr == SQL_NO_DATA) return SQL_NO_DATA;
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  sr = primarykeys->tables.base.get_data(&primarykeys->tables.base, 1, &primarykeys->current_catalog);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  sr = primarykeys->tables.base.get_data(&primarykeys->tables.base, 2, &primarykeys->current_schema);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  sr = primarykeys->tables.base.get_data(&primarykeys->tables.base, 3, &primarykeys->current_table);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  char sql[4096];
+  int n = snprintf(sql, sizeof(sql), "desc `%.*s`.`%.*s`",
+      (int)primarykeys->current_catalog.str.len, primarykeys->current_catalog.str.str,
+      (int)primarykeys->current_table.str.len, primarykeys->current_table.str.str);
+  if (n < 0 || (size_t)n >= sizeof(sql)) {
+    stmt_append_err(primarykeys->owner, "HY000", 0, "General error:internal logic error or buffer too small");
+    return SQL_ERROR;
+  }
+
+  tsdb_stmt_reset(&primarykeys->desc);
+  tsdb_stmt_init(&primarykeys->desc, primarykeys->owner);
+
+  sr = tsdb_stmt_query(&primarykeys->desc, sql);
+  if (sr != SQL_SUCCESS) {
+    stmt_append_err(primarykeys->owner, "HY000", 0, "General error:internal logic error or buffer too small");
+    return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
 }
 
 static SQLRETURN _fetch_row_with_tsdb(stmt_base_t *base, tsdb_data_t *tsdb)
@@ -211,10 +243,14 @@ static SQLRETURN _fetch_row_with_tsdb(stmt_base_t *base, tsdb_data_t *tsdb)
 again:
 
   sr = primarykeys->desc.base.fetch_row(&primarykeys->desc.base);
-  if (sr == SQL_NO_DATA) return SQL_NO_DATA;
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  if (sr == SQL_NO_DATA) {
+    sr = _fetch_and_desc_next_table(primarykeys);
+    if (sr == SQL_NO_DATA) return SQL_NO_DATA;
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+    goto again;
+  }
 
-  if (0) goto again;
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   return SQL_SUCCESS;
 }
@@ -251,12 +287,6 @@ static SQLRETURN _fetch_row(stmt_base_t *base)
   if (col_type->str.len != 9 || strncmp(col_type->str.str, "TIMESTAMP", 9)) return SQL_NO_DATA;
 
   return SQL_SUCCESS;
-}
-
-static void _move_to_first_on_rowset(stmt_base_t *base)
-{
-  primarykeys_t *primarykeys = (primarykeys_t*)base;
-  primarykeys->desc.base.move_to_first_on_rowset(&primarykeys->desc.base);
 }
 
 static SQLRETURN _describe_param(stmt_base_t *base,
@@ -573,9 +603,7 @@ void primarykeys_init(primarykeys_t *primarykeys, stmt_t *stmt)
   tsdb_stmt_init(&primarykeys->desc, stmt);
   primarykeys->base.query                        = _query;
   primarykeys->base.execute                      = _execute;
-  primarykeys->base.fetch_rowset                 = _fetch_rowset;
   primarykeys->base.fetch_row                    = _fetch_row;
-  primarykeys->base.move_to_first_on_rowset      = _move_to_first_on_rowset;
   primarykeys->base.describe_param               = _describe_param;
   primarykeys->base.describe_col                 = _describe_col;
   primarykeys->base.col_attribute                = _col_attribute;
@@ -611,46 +639,5 @@ SQLRETURN primarykeys_open(
   sr = tables_open(&primarykeys->tables, CatalogName, NameLength1, SchemaName, NameLength2, TableName, NameLength3, (SQLCHAR*)"TABLE", SQL_NTS);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-again:
-
-  sr = primarykeys->tables.base.fetch_rowset(&primarykeys->tables.base, 1);
-  if (sr == SQL_NO_DATA) return SQL_NO_DATA;
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
-
-  sr = primarykeys->tables.base.fetch_row(&primarykeys->tables.base);
-  if (sr == SQL_NO_DATA) goto again;
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
-
-  do {
-    sr = primarykeys->tables.base.get_data(&primarykeys->tables.base, 1, &primarykeys->current_catalog);
-    if (sr != SQL_SUCCESS) break;
-
-    sr = primarykeys->tables.base.get_data(&primarykeys->tables.base, 2, &primarykeys->current_schema);
-    if (sr != SQL_SUCCESS) break;
-
-    sr = primarykeys->tables.base.get_data(&primarykeys->tables.base, 3, &primarykeys->current_table);
-    if (sr != SQL_SUCCESS) break;
-
-    char sql[4096];
-    int n = snprintf(sql, sizeof(sql), "desc `%.*s`.`%.*s`",
-        (int)primarykeys->current_catalog.str.len, primarykeys->current_catalog.str.str,
-        (int)primarykeys->current_table.str.len, primarykeys->current_table.str.str);
-    if (n < 0 || (size_t)n >= sizeof(sql)) {
-      stmt_append_err(primarykeys->owner, "HY000", 0, "General error:internal logic error or buffer too small");
-      sr = SQL_ERROR;
-      break;
-    }
-
-    tsdb_stmt_reset(&primarykeys->desc);
-    tsdb_stmt_init(&primarykeys->desc, primarykeys->owner);
-
-    sr = tsdb_stmt_query(&primarykeys->desc, sql);
-    if (sr != SQL_SUCCESS) {
-      stmt_append_err(primarykeys->owner, "HY000", 0, "General error:internal logic error or buffer too small");
-      sr = SQL_ERROR;
-      break;
-    }
-  } while (0);
-
-  return sr;
+  return _fetch_and_desc_next_table(primarykeys);
 }

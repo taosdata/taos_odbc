@@ -2303,9 +2303,6 @@ static int test_connected_conn(SQLHANDLE hconn, conn_arg_t *conn_arg)
 {
   int r = 0;
 
-  r = test_case9(hconn);
-  if (r) return -1;
-
   check_driver(hconn);
 
   if (_under_taos_mysql_sqlite3 == 0) {

@@ -437,50 +437,24 @@ static SQLRETURN _execute(stmt_base_t *base)
   return SQL_ERROR;
 }
 
-static SQLRETURN _fetch_rowset(stmt_base_t *base, size_t rowset_size)
-{
-  typesinfo_t *typesinfo = (typesinfo_t*)base;
-  typesinfo->rowset_size = rowset_size;
-  if (typesinfo->POS < sizeof(_records)/sizeof(_records[0])) {
-    typesinfo->pos = 0;
-    return SQL_SUCCESS;
-  }
-  return SQL_NO_DATA;
-}
-
 static SQLRETURN _fetch_row(stmt_base_t *base)
 {
   typesinfo_t *typesinfo = (typesinfo_t*)base;
 
-  if (typesinfo->pos >= typesinfo->rowset_size) return SQL_NO_DATA;
-
 again:
 
-  if (typesinfo->POS >= sizeof(_records)/sizeof(_records[0])) return SQL_NO_DATA;
+  if (typesinfo->pos >= sizeof(_records)/sizeof(_records[0])) return SQL_NO_DATA;
 
-  typesinfo->POS += 1;
+  typesinfo->pos += 1;
 
   if (typesinfo->data_type != SQL_ALL_TYPES) {
-    const type_info_rec_t *rec = _records + typesinfo->POS - 1;
+    const type_info_rec_t *rec = _records + typesinfo->pos - 1;
     if (rec->DATA_TYPE != typesinfo->data_type) {
-      typesinfo->POS += 1;
       goto again;
     }
   }
 
-  typesinfo->pos += 1;
-
-  if (typesinfo->pos == 1) {
-    typesinfo->IDX_of_first_in_rowset = typesinfo->POS - 1;    
-  }
-
   return SQL_SUCCESS;
-}
-
-static void _move_to_first_on_rowset(stmt_base_t *base)
-{
-  typesinfo_t *typesinfo = (typesinfo_t*)base;
-  typesinfo->pos = typesinfo->IDX_of_first_in_rowset + 1;
 }
 
 static SQLRETURN _describe_param(stmt_base_t *base,
@@ -685,7 +659,7 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
 
   tsdb->is_null = 0;
 
-  const type_info_rec_t *rec = _records + typesinfo->POS - 1;
+  const type_info_rec_t *rec = _records + typesinfo->pos - 1;
 
   switch (Col_or_Param_Num) {
     case 1: // TYPE_NAME:
@@ -822,9 +796,7 @@ void typesinfo_init(typesinfo_t *typesinfo, stmt_t *stmt)
   typesinfo->owner = stmt;
   typesinfo->base.query                        = _query;
   typesinfo->base.execute                      = _execute;
-  typesinfo->base.fetch_rowset                 = _fetch_rowset;
   typesinfo->base.fetch_row                    = _fetch_row;
-  typesinfo->base.move_to_first_on_rowset      = _move_to_first_on_rowset;
   typesinfo->base.describe_param               = _describe_param;
   typesinfo->base.describe_col                 = _describe_col;
   typesinfo->base.col_attribute                = _col_attribute;

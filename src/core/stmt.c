@@ -1768,11 +1768,6 @@ SQLRETURN stmt_get_data(
   return sr;
 }
 
-static SQLRETURN _stmt_fetch_rowset(stmt_t *stmt, size_t row_array_size)
-{
-  return stmt->base->fetch_rowset(stmt->base, row_array_size);
-}
-
 static SQLRETURN _stmt_fetch_row(stmt_t *stmt)
 {
   return stmt->base->fetch_row(stmt->base);
@@ -1850,15 +1845,9 @@ static SQLRETURN _stmt_fetch_rows(stmt_t *stmt, const size_t row_array_size, siz
 
 again:
 
-  sr = _stmt_fetch_rowset(stmt, row_array_size);
-  if (sr == SQL_NO_DATA) return SQL_NO_DATA;
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
-
-fetch_row:
-
   sr = _stmt_fetch_row(stmt);
   if (sr == SQL_NO_DATA) {
-    if (i_row == 0) goto again;
+    if (*nr_rows == 0) return SQL_NO_DATA;
     return SQL_SUCCESS;
   }
   if (sr != SQL_SUCCESS) return SQL_ERROR;
@@ -1882,14 +1871,9 @@ fetch_row:
 
   *nr_rows = ++i_row;
 
-  if (i_row < row_array_size) goto fetch_row;
+  if (i_row < row_array_size) goto again;
 
   return SQL_SUCCESS;
-}
-
-static void _stmt_move_to_first_on_rowset(stmt_t *stmt)
-{
-  stmt->base->move_to_first_on_rowset(stmt->base);
 }
 
 static SQLRETURN _stmt_fetch_x(stmt_t *stmt)
@@ -1906,7 +1890,6 @@ static SQLRETURN _stmt_fetch_x(stmt_t *stmt)
 
   size_t nr_rows = 0;
   sr = _stmt_fetch_rows(stmt, row_array_size, &nr_rows);
-  _stmt_move_to_first_on_rowset(stmt);
 
   if (IRD_header->DESC_ROWS_PROCESSED_PTR) *IRD_header->DESC_ROWS_PROCESSED_PTR = nr_rows;
 

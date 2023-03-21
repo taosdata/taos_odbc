@@ -230,8 +230,6 @@ void tsdb_rows_block_reset(tsdb_rows_block_t *rows_block)
   if (!rows_block) return;
   rows_block->rows                 = NULL;
   rows_block->nr                   = 0;
-  rows_block->block0               = 0;
-  rows_block->rowset_size          = 0;
   rows_block->pos                  = 0;
 }
 
@@ -313,51 +311,24 @@ static SQLRETURN _execute(stmt_base_t *base)
   return _stmt_post_query(stmt);
 }
 
-static SQLRETURN _fetch_rowset(stmt_base_t *base, size_t rowset_size)
+static SQLRETURN _fetch_row(stmt_base_t *base)
 {
   SQLRETURN sr = SQL_SUCCESS;
 
   tsdb_stmt_t *stmt = (tsdb_stmt_t*)base;
   tsdb_res_t           *res          = &stmt->res;
   tsdb_rows_block_t    *rows_block   = &res->rows_block;
-  if (rows_block->block0 + rows_block->rowset_size < rows_block->nr) {
-    rows_block->block0     += rows_block->rowset_size;
-    rows_block->pos0        = rows_block->block0;
-    rows_block->pos         = rows_block->block0;
-    rows_block->rowset_size = rowset_size;
-    return SQL_SUCCESS;
-  }
 
-  // TODO: rowset is subset of rows_block
-  sr = tsdb_stmt_fetch_rows_block(stmt);
-  if (sr == SQL_NO_DATA) return SQL_NO_DATA;
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
-  rows_block->rowset_size = rowset_size; // FIXME: what if rowset_size > rows_block->nr?
-  return SQL_SUCCESS;
-}
-
-static SQLRETURN _fetch_row(stmt_base_t *base)
-{
-  tsdb_stmt_t *stmt = (tsdb_stmt_t*)base;
-  tsdb_res_t           *res          = &stmt->res;
-  tsdb_rows_block_t    *rows_block   = &res->rows_block;
-
+again:
   // TODO: before and after
-  if (rows_block->nr == 0) return SQL_NO_DATA;
-  if (rows_block->pos + 1 - rows_block->block0 > rows_block->rowset_size) return SQL_NO_DATA;
-  if (rows_block->pos + 1 > rows_block->nr) return SQL_NO_DATA;
+  if (rows_block->pos >= rows_block->nr) {
+    sr = tsdb_stmt_fetch_rows_block(stmt);
+    if (sr == SQL_NO_DATA) return SQL_NO_DATA;
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+    goto again;
+  }
   ++rows_block->pos;
-  if (rows_block->pos0 == rows_block->block0) rows_block->pos0 = rows_block->pos;
   return SQL_SUCCESS;
-}
-
-static void _move_to_first_on_rowset(stmt_base_t *base)
-{
-  tsdb_stmt_t *stmt = (tsdb_stmt_t*)base;
-  tsdb_res_t           *res          = &stmt->res;
-  tsdb_rows_block_t    *rows_block   = &res->rows_block;
-
-  rows_block->pos                    = rows_block->pos0;
 }
 
 static SQLRETURN _describe_param(stmt_base_t *base,
@@ -899,9 +870,7 @@ void tsdb_stmt_init(tsdb_stmt_t *stmt, stmt_t *owner)
 {
   stmt->base.query                   = _query;
   stmt->base.execute                 = _execute;
-  stmt->base.fetch_rowset            = _fetch_rowset;
   stmt->base.fetch_row               = _fetch_row;
-  stmt->base.move_to_first_on_rowset = _move_to_first_on_rowset;
   stmt->base.describe_param          = _describe_param;
   stmt->base.describe_col            = _describe_col;
   stmt->base.col_attribute           = _col_attribute;
@@ -1592,7 +1561,6 @@ SQLRETURN tsdb_stmt_fetch_rows_block(tsdb_stmt_t *stmt)
   if (nr_rows == 0) return SQL_NO_DATA;
   rows_block->rows   = rows;
   rows_block->nr     = nr_rows;
-  rows_block->block0 = 0;
   rows_block->pos    = 0;
 
   return SQL_SUCCESS;

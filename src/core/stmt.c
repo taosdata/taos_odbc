@@ -1493,6 +1493,68 @@ static SQLRETURN _stmt_get_data_copy_nchar(stmt_t *stmt, const char *s, size_t n
   return _stmt_get_data_copy_varchar(stmt, s, nr, args);
 }
 
+static SQLRETURN _stmt_get_data_copy_timestamp(stmt_t *stmt, int64_t v, int precision, stmt_get_data_args_t *args)
+{
+  get_data_ctx_t *ctx = &stmt->get_data_ctx;
+  tsdb_data_t *tsdb = &ctx->tsdb;
+
+  switch (args->TargetType) {
+    case SQL_C_BIT:
+      *(uint8_t*)args->TargetValuePtr = !!v;
+      break;
+    case SQL_C_STINYINT:
+      *(int8_t*)args->TargetValuePtr = (int8_t)v;
+      break;
+    case SQL_C_UTINYINT:
+      *(uint8_t*)args->TargetValuePtr = (uint8_t)v;
+      break;
+    case SQL_C_SSHORT:
+      *(int16_t*)args->TargetValuePtr = (int16_t)v;
+      break;
+    case SQL_C_USHORT:
+      *(uint16_t*)args->TargetValuePtr = (uint16_t)v;
+      break;
+    case SQL_C_SLONG:
+      *(int32_t*)args->TargetValuePtr = (int32_t)v;
+      break;
+    case SQL_C_ULONG:
+      *(uint32_t*)args->TargetValuePtr = (uint32_t)v;
+      break;
+    case SQL_C_SBIGINT:
+      *(int64_t*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_UBIGINT:
+      *(uint64_t*)args->TargetValuePtr = v;
+      break;
+    case SQL_C_SHORT:
+      *(int16_t*)args->TargetValuePtr = (int16_t)v;
+      break;
+    case SQL_C_CHAR:
+      return _stmt_get_data_copy_buf_to_char(stmt, args);
+    case SQL_C_WCHAR:
+      return _stmt_get_data_copy_buf_to_wchar(stmt, args);
+    case SQL_C_BINARY:
+      return _stmt_get_data_copy_buf_to_binary(stmt, args);
+    case SQL_C_TYPE_TIMESTAMP:
+      if (tsdb_timestamp_to_SQL_C_TYPE_TIMESTAMP(v, precision, (SQL_TIMESTAMP_STRUCT*)args->TargetValuePtr)) {
+        stmt_append_err_format(stmt, "HY000", 0,
+            "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed",
+            args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+            sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+        return SQL_ERROR;
+      }
+      return SQL_SUCCESS;
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]`not implemented yet",
+          args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+          sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+      return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_get_data_copy_int64(stmt_t *stmt, int64_t v, stmt_get_data_args_t *args)
 {
   get_data_ctx_t *ctx = &stmt->get_data_ctx;
@@ -1703,7 +1765,7 @@ static SQLRETURN _stmt_get_data_copy(stmt_t *stmt, stmt_get_data_args_t *args)
     case TSDB_DATA_TYPE_VARCHAR:
       return _stmt_get_data_copy_varchar(stmt, tsdb->str.str, tsdb->str.len, args);
     case TSDB_DATA_TYPE_TIMESTAMP:
-      return _stmt_get_data_copy_int64(stmt, tsdb->ts.ts, args);
+      return _stmt_get_data_copy_timestamp(stmt, tsdb->ts.ts, tsdb->ts.precision, args);
     case TSDB_DATA_TYPE_NCHAR:
       return _stmt_get_data_copy_nchar(stmt, tsdb->str.str, tsdb->str.len, args);
     default:

@@ -694,72 +694,47 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
     return SQL_ERROR;
   }
 
-  if (col_type->str.len == 9 && strncmp(col_type->str.str, "TIMESTAMP", 9) == 0) {
-    fake.type = TSDB_DATA_TYPE_TIMESTAMP;
-    fake.bytes = col_length->i32;
-    if (fake.bytes != 8) {
-      stmt_append_err(columns->owner, "HY000", 0, "General error:internal logic error");
+  static const struct {
+    const char *s;
+    int         tsdb_type;
+    int         bytes;
+  } supported[] = {
+    {"TIMESTAMP",                 TSDB_DATA_TYPE_TIMESTAMP,           8},
+    {"VARCHAR",                   TSDB_DATA_TYPE_VARCHAR,            -1},
+    {"NCHAR",                     TSDB_DATA_TYPE_NCHAR,              -1},
+    {"BOOL",                      TSDB_DATA_TYPE_BOOL,                1},
+    {"TINYINT",                   TSDB_DATA_TYPE_TINYINT,             1},
+    {"SMALLINT",                  TSDB_DATA_TYPE_SMALLINT,            2},
+    {"INT",                       TSDB_DATA_TYPE_INT,                 4},
+    {"BIGINT",                    TSDB_DATA_TYPE_BIGINT,              8},
+    {"FLOAT",                     TSDB_DATA_TYPE_FLOAT,               4},
+    {"DOUBLE",                    TSDB_DATA_TYPE_DOUBLE,              8},
+    {"TINYINT UNSIGNED",          TSDB_DATA_TYPE_UTINYINT,            1},
+    {"SMALLINT UNSIGNED",         TSDB_DATA_TYPE_USMALLINT,           2},
+    {"INT UNSIGNED",              TSDB_DATA_TYPE_UINT,                4},
+    {"BIGINT UNSIGNED",           TSDB_DATA_TYPE_UBIGINT,             8},
+  };
+
+  for (size_t i=0; i<=sizeof(supported)/sizeof(supported[0]); ++i) {
+    if (i == sizeof(supported)/sizeof(supported[0])) {
+      stmt_append_err_format(columns->owner, "HY000", 0, "General error:not implemented yet for column[%d] `%.*s`",
+          Col_or_Param_Num, (int)col_type->str.len, col_type->str.str);
       return SQL_ERROR;
     }
-  } else if (col_type->str.len == 3 && strncmp(col_type->str.str, "INT", 3) == 0) {
-    fake.type = TSDB_DATA_TYPE_INT;
+    const char *s = supported[i].s;
+    size_t len = strlen(s);
+    int tsdb_type = supported[i].tsdb_type;
+    int bytes = supported[i].bytes;
+    if (col_type->str.len != len) continue;
+    if (strncmp(col_type->str.str, s, len)) continue;
+    fake.type = tsdb_type;
     fake.bytes = col_length->i32;
-    if (fake.bytes != 4) {
-      stmt_append_err(columns->owner, "HY000", 0, "General error:internal logic error");
+    if (bytes != -1 && fake.bytes != bytes) {
+      stmt_append_err_format(columns->owner, "HY000", 0, "General error:internal logic error for Column[%d] `%.*s`, ColumnSize is expected %d, but got ==%d==",
+          Col_or_Param_Num, (int)col_type->str.len, col_type->str.str, bytes, fake.bytes);
       return SQL_ERROR;
     }
-  } else if (col_type->str.len == 7 && strncmp(col_type->str.str, "VARCHAR", 7) == 0) {
-    fake.type = TSDB_DATA_TYPE_VARCHAR;
-    fake.bytes = col_length->i32;
-  } else if (col_type->str.len == 5 && strncmp(col_type->str.str, "NCHAR", 5) == 0) {
-    fake.type = TSDB_DATA_TYPE_VARCHAR;
-    fake.bytes = col_length->i32;
-  } else if (col_type->str.len == 6 && strncmp(col_type->str.str, "BIGINT", 6) == 0) {
-    fake.type = TSDB_DATA_TYPE_BIGINT;
-    fake.bytes = col_length->i32;
-    if (fake.bytes != 8) {
-      stmt_append_err(columns->owner, "HY000", 0, "General error:internal logic error");
-      return SQL_ERROR;
-    }
-  } else if (col_type->str.len == 7 && strncmp(col_type->str.str, "TINYINT", 7) == 0) {
-    fake.type = TSDB_DATA_TYPE_TINYINT;
-    fake.bytes = col_length->i32;
-    if (fake.bytes != 1) {
-      stmt_append_err(columns->owner, "HY000", 0, "General error:internal logic error");
-      return SQL_ERROR;
-    }
-  } else if (col_type->str.len == 8 && strncmp(col_type->str.str, "SMALLINT", 8) == 0) {
-    fake.type = TSDB_DATA_TYPE_SMALLINT;
-    fake.bytes = col_length->i32;
-    if (fake.bytes != 2) {
-      stmt_append_err(columns->owner, "HY000", 0, "General error:internal logic error");
-      return SQL_ERROR;
-    }
-  } else if (col_type->str.len == 4 && strncmp(col_type->str.str, "BOOL", 4) == 0) {
-    fake.type = TSDB_DATA_TYPE_BOOL;
-    fake.bytes = col_length->i32;
-    if (fake.bytes != 1) {
-      stmt_append_err(columns->owner, "HY000", 0, "General error:internal logic error");
-      return SQL_ERROR;
-    }
-  } else if (col_type->str.len == 6 && strncmp(col_type->str.str, "DOUBLE", 6) == 0) {
-    fake.type = TSDB_DATA_TYPE_DOUBLE;
-    fake.bytes = col_length->i32;
-    if (fake.bytes != 8) {
-      stmt_append_err(columns->owner, "HY000", 0, "General error:internal logic error");
-      return SQL_ERROR;
-    }
-  } else if (col_type->str.len == 5 && strncmp(col_type->str.str, "FLOAT", 5) == 0) {
-    fake.type = TSDB_DATA_TYPE_FLOAT;
-    fake.bytes = col_length->i32;
-    if (fake.bytes != 4) {
-      stmt_append_err(columns->owner, "HY000", 0, "General error:internal logic error");
-      return SQL_ERROR;
-    }
-  } else {
-    stmt_append_err_format(columns->owner, "HY000", 0, "General error:not implemented yet for column[%d] `%.*s`",
-        Col_or_Param_Num, (int)col_type->str.len, col_type->str.str);
-    return SQL_ERROR;
+    break;
   }
 
   tsdb->is_null = 0;
@@ -790,63 +765,41 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
       OW("COLUMN_NAME:[%.*s]", (int)tsdb->str.len, tsdb->str.str);
       break;
     case 5: // DATA_TYPE
-      if (fake.type == TSDB_DATA_TYPE_TIMESTAMP) {
-        tsdb->type = TSDB_DATA_TYPE_SMALLINT; // match against DATA_TYPE
-        tsdb->i16 = SQL_TYPE_TIMESTAMP;
-        OW("DATA_TYPE:[%d]%s", tsdb->i16, sql_data_type(tsdb->i16));
+      {
+        static const struct {
+          int               tsdb_type;
+          int16_t           sql_type;
+        } supported[] = {
+          {TSDB_DATA_TYPE_TIMESTAMP,          SQL_TYPE_TIMESTAMP},
+          {TSDB_DATA_TYPE_VARCHAR,            SQL_VARCHAR},
+          {TSDB_DATA_TYPE_BOOL,               SQL_BIT},
+          {TSDB_DATA_TYPE_TINYINT,            SQL_TINYINT},
+          {TSDB_DATA_TYPE_SMALLINT,           SQL_SMALLINT},
+          {TSDB_DATA_TYPE_INT,                SQL_INTEGER},
+          {TSDB_DATA_TYPE_BIGINT,             SQL_BIGINT},
+          {TSDB_DATA_TYPE_FLOAT,              SQL_REAL},
+          {TSDB_DATA_TYPE_DOUBLE,             SQL_DOUBLE},
+          {TSDB_DATA_TYPE_UTINYINT,           SQL_TINYINT},
+          {TSDB_DATA_TYPE_USMALLINT,          SQL_SMALLINT},
+          {TSDB_DATA_TYPE_UINT,               SQL_INTEGER},
+          {TSDB_DATA_TYPE_UBIGINT,            SQL_BIGINT},
+        };
+
+        for (size_t i=0; i<=sizeof(supported)/sizeof(supported[0]); ++i) {
+          if (i == sizeof(supported)/sizeof(supported[0])) {
+            stmt_append_err_format(columns->owner, "HY000", 0, "General error:not implemented yet for column[%d] `%.*s`",
+                Col_or_Param_Num, (int)col_type->str.len, col_type->str.str);
+            return SQL_ERROR;
+          }
+          int tsdb_type = supported[i].tsdb_type;
+          int16_t sql_type = supported[i].sql_type;
+          if (fake.type != tsdb_type) continue;
+          tsdb->type = TSDB_DATA_TYPE_SMALLINT;
+          tsdb->i16 = sql_type;
+          break;
+        }
         break;
       }
-      if (fake.type == TSDB_DATA_TYPE_INT) {
-        tsdb->type = TSDB_DATA_TYPE_SMALLINT; // match against DATA_TYPE
-        tsdb->i16 = SQL_INTEGER;
-        OW("DATA_TYPE:[%d]%s", tsdb->i16, sql_data_type(tsdb->i16));
-        break;
-      }
-      if (fake.type == TSDB_DATA_TYPE_VARCHAR) {
-        tsdb->type = TSDB_DATA_TYPE_SMALLINT; // match against DATA_TYPE
-        tsdb->i16 = SQL_VARCHAR;
-        OW("DATA_TYPE:[%d]%s", tsdb->i16, sql_data_type(tsdb->i16));
-        break;
-      }
-      if (fake.type == TSDB_DATA_TYPE_BIGINT) {
-        tsdb->type = TSDB_DATA_TYPE_SMALLINT; // match against DATA_TYPE
-        tsdb->i16 = SQL_BIGINT;
-        OW("DATA_TYPE:[%d]%s", tsdb->i16, sql_data_type(tsdb->i16));
-        break;
-      }
-      if (fake.type == TSDB_DATA_TYPE_TINYINT) {
-        tsdb->type = TSDB_DATA_TYPE_SMALLINT; // match against DATA_TYPE
-        tsdb->i16 = SQL_TINYINT;
-        OW("DATA_TYPE:[%d]%s", tsdb->i16, sql_data_type(tsdb->i16));
-        break;
-      }
-      if (fake.type == TSDB_DATA_TYPE_SMALLINT) {
-        tsdb->type = TSDB_DATA_TYPE_SMALLINT; // match against DATA_TYPE
-        tsdb->i16 = SQL_SMALLINT;
-        OW("DATA_TYPE:[%d]%s", tsdb->i16, sql_data_type(tsdb->i16));
-        break;
-      }
-      if (fake.type == TSDB_DATA_TYPE_BOOL) {
-        tsdb->type = TSDB_DATA_TYPE_SMALLINT; // match against DATA_TYPE
-        tsdb->i16 = SQL_BIT;
-        OW("DATA_TYPE:[%d]%s", tsdb->i16, sql_data_type(tsdb->i16));
-        break;
-      }
-      if (fake.type == TSDB_DATA_TYPE_DOUBLE) {
-        tsdb->type = TSDB_DATA_TYPE_SMALLINT; // match against DATA_TYPE
-        tsdb->i16 = SQL_DOUBLE;
-        OW("DATA_TYPE:[%d]%s", tsdb->i16, sql_data_type(tsdb->i16));
-        break;
-      }
-      if (fake.type == TSDB_DATA_TYPE_FLOAT) {
-        tsdb->type = TSDB_DATA_TYPE_SMALLINT; // match against DATA_TYPE
-        tsdb->i16 = SQL_REAL;
-        OW("DATA_TYPE:[%d]%s", tsdb->i16, sql_data_type(tsdb->i16));
-        break;
-      }
-      stmt_append_err_format(columns->owner, "HY000", 0, "General error:not implemented yet for column[%d] `%.*s`",
-          Col_or_Param_Num, (int)col_type->str.len, col_type->str.str);
-      return SQL_ERROR;
     case 6: // TYPE_NAME
       // better approach?
       tsdb->type = TSDB_DATA_TYPE_VARCHAR;
@@ -860,63 +813,41 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
       OW("COLUMN_SIZE:[%d]", tsdb->i32);
       break;
     case 8: // BUFFER_LENGTH
-      if (fake.type == TSDB_DATA_TYPE_TIMESTAMP) {
-        tsdb->type = TSDB_DATA_TYPE_INT; // match against BUFFER_LENGTH
-        tsdb->i32  = 8;
-        OW("BUFFER_LENGTH:[%d]", tsdb->i32);
+      {
+        static const struct {
+          int               tsdb_type;
+          int               len;
+        } supported[] = {
+          {TSDB_DATA_TYPE_TIMESTAMP,          8},
+          {TSDB_DATA_TYPE_VARCHAR,            -1},
+          {TSDB_DATA_TYPE_BOOL,               1},
+          {TSDB_DATA_TYPE_TINYINT,            1},
+          {TSDB_DATA_TYPE_SMALLINT,           2},
+          {TSDB_DATA_TYPE_INT,                4},
+          {TSDB_DATA_TYPE_BIGINT,             8},
+          {TSDB_DATA_TYPE_FLOAT,              4},
+          {TSDB_DATA_TYPE_DOUBLE,             8},
+          {TSDB_DATA_TYPE_UTINYINT,           1},
+          {TSDB_DATA_TYPE_USMALLINT,          2},
+          {TSDB_DATA_TYPE_UINT,               4},
+          {TSDB_DATA_TYPE_UBIGINT,            8},
+        };
+
+        for (size_t i=0; i<=sizeof(supported)/sizeof(supported[0]); ++i) {
+          if (i == sizeof(supported)/sizeof(supported[0])) {
+            stmt_append_err_format(columns->owner, "HY000", 0, "General error:not implemented yet for column[%d] `%.*s`",
+                Col_or_Param_Num, (int)col_type->str.len, col_type->str.str);
+            return SQL_ERROR;
+          }
+          int tsdb_type = supported[i].tsdb_type;
+          int len = supported[i].len;
+          if (fake.type != tsdb_type) continue;
+          tsdb->type = TSDB_DATA_TYPE_INT;
+          tsdb->i32 = len == -1 ? fake.bytes : len;
+          break;
+        }
         break;
       }
-      if (fake.type == TSDB_DATA_TYPE_INT) {
-        tsdb->type = TSDB_DATA_TYPE_INT; // match against BUFFER_LENGTH
-        tsdb->i32  = 4;
-        OW("BUFFER_LENGTH:[%d]", tsdb->i32);
-        break;
-      }
-      if (fake.type == TSDB_DATA_TYPE_VARCHAR) {
-        tsdb->type = TSDB_DATA_TYPE_INT; // match against BUFFER_LENGTH
-        tsdb->i32  = fake.bytes;
-        OW("BUFFER_LENGTH:[%d]", tsdb->i32);
-        break;
-      }
-      if (fake.type == TSDB_DATA_TYPE_BIGINT) {
-        tsdb->type = TSDB_DATA_TYPE_INT; // match against BUFFER_LENGTH
-        tsdb->i32  = 8;
-        OW("BUFFER_LENGTH:[%d]", tsdb->i32);
-        break;
-      }
-      if (fake.type == TSDB_DATA_TYPE_TINYINT) {
-        tsdb->type = TSDB_DATA_TYPE_INT; // match against BUFFER_LENGTH
-        tsdb->i32  = 1;
-        OW("BUFFER_LENGTH:[%d]", tsdb->i32);
-        break;
-      }
-      if (fake.type == TSDB_DATA_TYPE_SMALLINT) {
-        tsdb->type = TSDB_DATA_TYPE_INT; // match against BUFFER_LENGTH
-        tsdb->i32  = 2;
-        OW("BUFFER_LENGTH:[%d]", tsdb->i32);
-        break;
-      }
-      if (fake.type == TSDB_DATA_TYPE_BOOL) {
-        tsdb->type = TSDB_DATA_TYPE_INT; // match against BUFFER_LENGTH
-        tsdb->i32  = 1;
-        OW("BUFFER_LENGTH:[%d]", tsdb->i32);
-        break;
-      }
-      if (fake.type == TSDB_DATA_TYPE_DOUBLE) {
-        tsdb->type = TSDB_DATA_TYPE_INT; // match against BUFFER_LENGTH
-        tsdb->i32  = 8;
-        OW("BUFFER_LENGTH:[%d]", tsdb->i32);
-        break;
-      }
-      if (fake.type == TSDB_DATA_TYPE_FLOAT) {
-        tsdb->type = TSDB_DATA_TYPE_INT; // match against BUFFER_LENGTH
-        tsdb->i32  = 4;
-        OW("BUFFER_LENGTH:[%d]", tsdb->i32);
-        break;
-      }
-      stmt_append_err_format(columns->owner, "HY000", 0, "General error:not implemented yet for column[%d] `%.*s`",
-          Col_or_Param_Num, (int)col_type->str.len, col_type->str.str);
-      return SQL_ERROR;
     case 9: // DECIMAL_DIGITS
       if (fake.type == TSDB_DATA_TYPE_TIMESTAMP) {
         tsdb->type = TSDB_DATA_TYPE_INT;
@@ -952,63 +883,41 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
       OW("COLUMN_DEF:[%s]", "null");
       break;
     case 14: // SQL_DATA_TYPE
-      if (fake.type == TSDB_DATA_TYPE_TIMESTAMP) {
-        tsdb->type = TSDB_DATA_TYPE_INT;
-        tsdb->i32  = SQL_TIMESTAMP; // NOTE: non-concise-type
-        OW("SQL_DATA_TYPE:[%s]", sql_data_type(tsdb->i32));
+      {
+        static const struct {
+          int               tsdb_type;
+          int               sql_type; // non-concise-type
+        } supported[] = {
+          {TSDB_DATA_TYPE_TIMESTAMP,          SQL_TIMESTAMP},
+          {TSDB_DATA_TYPE_VARCHAR,            SQL_VARCHAR},
+          {TSDB_DATA_TYPE_BOOL,               SQL_BIT},
+          {TSDB_DATA_TYPE_TINYINT,            SQL_TINYINT},
+          {TSDB_DATA_TYPE_SMALLINT,           SQL_SMALLINT},
+          {TSDB_DATA_TYPE_INT,                SQL_INTEGER},
+          {TSDB_DATA_TYPE_BIGINT,             SQL_BIGINT},
+          {TSDB_DATA_TYPE_FLOAT,              SQL_REAL},
+          {TSDB_DATA_TYPE_DOUBLE,             SQL_DOUBLE},
+          {TSDB_DATA_TYPE_UTINYINT,           SQL_TINYINT},
+          {TSDB_DATA_TYPE_USMALLINT,          SQL_SMALLINT},
+          {TSDB_DATA_TYPE_UINT,               SQL_INTEGER},
+          {TSDB_DATA_TYPE_UBIGINT,            SQL_BIGINT},
+        };
+
+        for (size_t i=0; i<=sizeof(supported)/sizeof(supported[0]); ++i) {
+          if (i == sizeof(supported)/sizeof(supported[0])) {
+            stmt_append_err_format(columns->owner, "HY000", 0, "General error:not implemented yet for column[%d] `%.*s`",
+                Col_or_Param_Num, (int)col_type->str.len, col_type->str.str);
+            return SQL_ERROR;
+          }
+          int tsdb_type = supported[i].tsdb_type;
+          int16_t sql_type = supported[i].sql_type;
+          if (fake.type != tsdb_type) continue;
+          tsdb->type = TSDB_DATA_TYPE_INT;
+          tsdb->i32 = sql_type;
+          break;
+        }
         break;
       }
-      if (fake.type == TSDB_DATA_TYPE_INT) {
-        tsdb->type = TSDB_DATA_TYPE_INT;
-        tsdb->i32  = SQL_INTEGER;
-        OW("SQL_DATA_TYPE:[%s]", sql_data_type(tsdb->i32));
-        break;
-      }
-      if (fake.type == TSDB_DATA_TYPE_VARCHAR) {
-        tsdb->type = TSDB_DATA_TYPE_INT;
-        tsdb->i32  = SQL_VARCHAR;
-        OW("SQL_DATA_TYPE:[%s]", sql_data_type(tsdb->i32));
-        break;
-      }
-      if (fake.type == TSDB_DATA_TYPE_BIGINT) {
-        tsdb->type = TSDB_DATA_TYPE_INT;
-        tsdb->i32  = SQL_BIGINT;
-        OW("SQL_DATA_TYPE:[%s]", sql_data_type(tsdb->i32));
-        break;
-      }
-      if (fake.type == TSDB_DATA_TYPE_TINYINT) {
-        tsdb->type = TSDB_DATA_TYPE_INT;
-        tsdb->i32  = SQL_TINYINT;
-        OW("SQL_DATA_TYPE:[%s]", sql_data_type(tsdb->i32));
-        break;
-      }
-      if (fake.type == TSDB_DATA_TYPE_SMALLINT) {
-        tsdb->type = TSDB_DATA_TYPE_INT;
-        tsdb->i32  = SQL_SMALLINT;
-        OW("SQL_DATA_TYPE:[%s]", sql_data_type(tsdb->i32));
-        break;
-      }
-      if (fake.type == TSDB_DATA_TYPE_BOOL) {
-        tsdb->type = TSDB_DATA_TYPE_INT;
-        tsdb->i32  = SQL_BIT;
-        OW("SQL_DATA_TYPE:[%s]", sql_data_type(tsdb->i32));
-        break;
-      }
-      if (fake.type == TSDB_DATA_TYPE_DOUBLE) {
-        tsdb->type = TSDB_DATA_TYPE_INT;
-        tsdb->i32  = SQL_DOUBLE;
-        OW("SQL_DATA_TYPE:[%s]", sql_data_type(tsdb->i32));
-        break;
-      }
-      if (fake.type == TSDB_DATA_TYPE_FLOAT) {
-        tsdb->type = TSDB_DATA_TYPE_INT;
-        tsdb->i32  = SQL_REAL;
-        OW("SQL_DATA_TYPE:[%s]", sql_data_type(tsdb->i32));
-        break;
-      }
-      stmt_append_err_format(columns->owner, "HY000", 0, "General error:not implemented yet for column[%d] `%.*s`",
-          Col_or_Param_Num, (int)col_type->str.len, col_type->str.str);
-      return SQL_ERROR;
     case 15: // SQL_DATETIME_SUB
       tsdb->type = TSDB_DATA_TYPE_INT;
       tsdb->i32  = 0;

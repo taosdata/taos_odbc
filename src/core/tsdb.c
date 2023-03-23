@@ -411,6 +411,18 @@ static SQLRETURN _col_attribute(stmt_base_t *base,
         case TSDB_DATA_TYPE_FLOAT:
           *NumericAttributePtr = SQL_REAL;
           return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_UTINYINT:
+          *NumericAttributePtr = SQL_TINYINT;
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_USMALLINT:
+          *NumericAttributePtr = SQL_SMALLINT;
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_UINT:
+          *NumericAttributePtr = SQL_INTEGER;
+          return SQL_SUCCESS;
+        case TSDB_DATA_TYPE_UBIGINT:
+          *NumericAttributePtr = SQL_BIGINT;
+          return SQL_SUCCESS;
         default:
           stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
               sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
@@ -814,6 +826,12 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
         int64_t *col = (int64_t*)rows[i_col];
         col += i_row;
         tsdb->i64 = *col;
+      } break;
+    case TSDB_DATA_TYPE_UBIGINT:
+      {
+        uint64_t *col = (uint64_t*)rows[i_col];
+        col += i_row;
+        tsdb->u64 = *col;
       } break;
     case TSDB_DATA_TYPE_FLOAT:
       {

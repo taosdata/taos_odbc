@@ -1689,6 +1689,8 @@ static SQLRETURN _stmt_get_data_copy(stmt_t *stmt, stmt_get_data_args_t *args)
       return _stmt_get_data_copy_uint64(stmt, tsdb->u32, args);
     case TSDB_DATA_TYPE_BIGINT:
       return _stmt_get_data_copy_int64(stmt, tsdb->i64, args);
+    case TSDB_DATA_TYPE_UBIGINT:
+      return _stmt_get_data_copy_uint64(stmt, tsdb->u64, args);
     case TSDB_DATA_TYPE_FLOAT:
       return _stmt_get_data_copy_double(stmt, tsdb->flt, args);
     case TSDB_DATA_TYPE_DOUBLE:

@@ -18,9 +18,10 @@ SQLBindCol
 SQLBindParameter
 SQLBrowseConnect
 SQLBulkOperations
+SQLCloseCursor
 SQLColAttribute
 SQLColumnPrivileges
-SQLColumns             (not fully implemented yet)
+SQLColumns
 SQLCompleteAsync
 SQLConnect
 SQLCopyDesc
@@ -183,7 +184,7 @@ win_flex --version
 ### Building and Installing, use Windows 11 as an example
 3. 以管理员身份运行命令提示符. https://www.makeuseof.com/windows-run-command-prompt-admin/
 4. cd至本工程的根目录.
-5. 设置编译环境, 如果你是在64位的windows 11上安装的visual studio community 2022, 那么:
+5. 可选, 设置编译环境, 如果你是在64位的windows 11上安装的visual studio community 2022, 那么:
 ```
 "\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
 ```
@@ -234,6 +235,8 @@ ctest --test-dir build --output-on-failure -C Debug
 ├── cmake
 ├── common
 ├── inc
+├── samples
+│   └── c
 ├── sh
 ├── src
 │   ├── core

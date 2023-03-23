@@ -265,6 +265,35 @@
         "positive": false
       }
     ]
+  },{
+    "conn": {},
+    "sqls": [
+      {
+        "comments": "https://github.com/taosdata/TDengine/issues/17890",
+        "comments": "this would result in SEGFAULT",
+        "xsql": "select db_name as TABLE_CAT, '' as TABLE_SCHEM, table_name as TABLE_NAME, 'TABLE' as TABLE_TYPE, table_comment as REMARKS from information_schema.ins_tables where TABLE_TYPE like ? union select db_name as TABLE_CAT, '' as TABLE_SCHEM, stable_name as TABLE_NAME, 'STABLE' as TABLE_TYPE, table_comment as REMARKS from information_schema.ins_stables where TABLE_TYPE like ?  order by TABLE_TYPE, TABLE_CAT, TABLE_SCHEM, TABLE_NAME",
+        "executes": [
+          {
+            "params": ["TABLE", "TABLE"],
+            "positive": false
+          }
+        ]
+      }
+    ]
+  },{
+    "conn": {},
+    "sqls": [
+      {
+        "comments": "https://github.com/taosdata/TDengine/issues/17890",
+        "comments": "this would result in SEGFAULT",
+        "xsql": "select * from (select db_name as TABLE_CAT, '' as TABLE_SCHEM, stable_name as TABLE_NAME, 'STABLE' as TABLE_TYPE, table_comment as REMARKS from information_schema.ins_stables union select db_name as TABLE_CAT, '' as TABLE_SCHEM, table_name as TABLE_NAME, 'TABLE' as TABLE_TYPE, table_comment as REMARKS from information_schema.ins_tables) where TABLE_TYPE in (?, ?)",
+        "executes": [
+          {
+            "params": ["TABLE", "VIEW"],
+            "positive": false
+          }
+        ]
+      }
+    ]
   }
 ]
-

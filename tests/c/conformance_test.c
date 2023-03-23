@@ -885,7 +885,6 @@ static int test_case5_with_stmt_1(SQLHANDLE hstmt)
 static int test_case5_with_stmt_2(SQLHANDLE hstmt)
 {
   SQLRETURN sr = SQL_SUCCESS;
-  int r = 0;
 
   char buf[4096];
   SQLLEN StrLen_or_Ind;

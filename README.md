@@ -18,9 +18,10 @@ SQLBindCol
 SQLBindParameter
 SQLBrowseConnect
 SQLBulkOperations
+SQLCloseCursor
 SQLColAttribute
 SQLColumnPrivileges
-SQLColumns             (not fully implemented yet)
+SQLColumns
 SQLCompleteAsync
 SQLConnect
 SQLCopyDesc
@@ -183,7 +184,7 @@ win_flex --version
 ### Building and Installing, use Windows 11 as an example
 3. Open Command Prompt as an Administrator. https://www.makeuseof.com/windows-run-command-prompt-admin/
 4. change to the root directory of this project
-5. setup building environment, if you install visual studio community 2022 on a 64-windows-platform, then:
+5. optionally, setup building environment, if you install visual studio community 2022 on a 64-windows-platform, then:
 ```
 "\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
 ```
@@ -234,6 +235,8 @@ ctest --test-dir build --output-on-failure -C Debug
 ├── cmake
 ├── common
 ├── inc
+├── samples
+│   └── c
 ├── sh
 ├── src
 │   ├── core

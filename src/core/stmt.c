@@ -997,6 +997,11 @@ static SQLRETURN _stmt_get_data_prepare_ctx(stmt_t *stmt, stmt_get_data_args_t *
         ctx->nr = snprintf(ctx->buf, sizeof(ctx->buf), "%" PRId64 "", tsdb->i64);
         ctx->pos = ctx->buf;
       } break;
+    case TSDB_DATA_TYPE_UBIGINT:
+      {
+        ctx->nr = snprintf(ctx->buf, sizeof(ctx->buf), "%" PRIu64 "", tsdb->u64);
+        ctx->pos = ctx->buf;
+      } break;
     case TSDB_DATA_TYPE_FLOAT:
       {
         ctx->nr = snprintf(ctx->buf, sizeof(ctx->buf), "%g", (double)tsdb->flt);

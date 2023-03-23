@@ -772,6 +772,7 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
         } supported[] = {
           {TSDB_DATA_TYPE_TIMESTAMP,          SQL_TYPE_TIMESTAMP},
           {TSDB_DATA_TYPE_VARCHAR,            SQL_VARCHAR},
+          {TSDB_DATA_TYPE_NCHAR,              SQL_WVARCHAR},
           {TSDB_DATA_TYPE_BOOL,               SQL_BIT},
           {TSDB_DATA_TYPE_TINYINT,            SQL_TINYINT},
           {TSDB_DATA_TYPE_SMALLINT,           SQL_SMALLINT},
@@ -820,6 +821,7 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
         } supported[] = {
           {TSDB_DATA_TYPE_TIMESTAMP,          8},
           {TSDB_DATA_TYPE_VARCHAR,            -1},
+          {TSDB_DATA_TYPE_NCHAR,              -1},
           {TSDB_DATA_TYPE_BOOL,               1},
           {TSDB_DATA_TYPE_TINYINT,            1},
           {TSDB_DATA_TYPE_SMALLINT,           2},
@@ -890,6 +892,7 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
         } supported[] = {
           {TSDB_DATA_TYPE_TIMESTAMP,          SQL_TIMESTAMP},
           {TSDB_DATA_TYPE_VARCHAR,            SQL_VARCHAR},
+          {TSDB_DATA_TYPE_NCHAR,              SQL_WVARCHAR},
           {TSDB_DATA_TYPE_BOOL,               SQL_BIT},
           {TSDB_DATA_TYPE_TINYINT,            SQL_TINYINT},
           {TSDB_DATA_TYPE_SMALLINT,           SQL_SMALLINT},

@@ -37,6 +37,7 @@
 
 #define TERMINATOR_MAX 4
 
+#define DW(fmt, ...) if (0) { fprintf(stderr, "%s[%d]:%s():" fmt "\n", __FILE__, __LINE__, __func__, ##__VA_ARGS__); }
 struct static_pool_s {
   size_t                        cap;
   size_t                        nr;
@@ -268,14 +269,15 @@ typedef int (*wild_match_f)(wildex_t *wild, const int32_t *s, size_t nr, size_t 
 typedef struct wildex_node_s             wildex_node_t;
 struct wildex_node_s {
   wild_match_f          match;
-  size_t                start, end;
+  const int32_t        *base;
+  size_t                nr;
 };
 
 static void _wildex_node_release(wildex_node_t *node)
 {
   node->match = NULL;
-  node->start = 0;
-  node->end   = 0;
+  node->base  = NULL;
+  node->nr    = 0;
 }
 
 struct wildex_s {
@@ -294,30 +296,41 @@ static int _wild_match_specific(wildex_t *wild, const int32_t *s, size_t nr, siz
 static int _wild_match_all(wildex_t *wild, const int32_t *s, size_t nr, size_t inode)
 {
   int r = 0;
+  if (inode + 1 == wild->nr) DW("nr:%zd;inode:%zd: matched", nr, inode);
   if (inode + 1 == wild->nr) return 0;
   const int32_t *p = s;
   const int32_t *end = s + nr;
   while (p<end && *p) {
     r = _wild_exec(wild, p, end-p, inode + 1);
+    if (r == 0) DW("nr:%zd;inode:%zd: matched", nr, inode);
     if (r == 0) return 0;
     ++p;
   }
+  DW("nr:%zd;inode:%zd: unmatched", nr, inode);
   return -1;
 }
 
 static int _wild_match_one(wildex_t *wild, const int32_t *s, size_t nr, size_t inode)
 {
+  if (!*s) DW("nr:%zd;inode:%zd: unmatched", nr, inode);
   if (!*s) return -1;
   wildex_node_t *node = wild->nodes + inode;
   const int32_t *p = s;
   const int32_t *end = s + nr;
-  for (size_t i=node->start; i<node->end; ++i) {
+  for (size_t i=0; i<node->nr; ++i) {
+    if (p == end) DW("nr:%zd;inode:%zd: unmatched", nr, inode);
     if (p == end) return -1;
+    if (!*p) DW("nr:%zd;inode:%zd: unmatched", nr, inode);
     if (!*p) return -1;
     ++p;
   }
 
   if (inode + 1 == wild->nr) {
+    if (p<end) {
+      DW("nr:%zd;inode:%zd: unmatched", nr, inode); 
+    } else {
+      DW("nr:%zd;inode:%zd: matched", nr, inode); 
+    }
     return (p<end) ? -1 : 0;
   }
   return _wild_exec(wild, p, end-p, inode + 1);
@@ -327,15 +340,16 @@ static int _wild_match_specific(wildex_t *wild, const int32_t *s, size_t nr, siz
 {
   int r = 0;
   wildex_node_t *node = wild->nodes + inode;
-  if (nr < node->end - node->start) return -1;
-  const int32_t *base = (const int32_t*)wild->ex_ucs4.base;
-  r = memcmp(s, base + node->start, (node->end - node->start) * sizeof(int32_t));
+  if (nr < node->nr) DW("nr:%zd;inode:%zd;node->nr:%zd: unmatched", nr, inode, node->nr); 
+  if (nr < node->nr) return -1; // FIXME:
+  r = memcmp(s, node->base, node->nr * sizeof(*node->base));
+  if (r) DW("nr:%zd;inode:%zd;node->nr:%zd: unmatched", nr, inode, node->nr); 
   if (r) return -1;
 
   if (inode + 1 == wild->nr) return 0;
 
   const int32_t *end = s + nr;
-  const int32_t *p = s + node->end - node->start;
+  const int32_t *p = s + node->nr;
   return _wild_exec(wild, p, end-p, inode + 1);
 }
 
@@ -359,7 +373,7 @@ static void _wild_release(wildex_t *wild)
   mem_release(&wild->ex_ucs4);
 }
 
-static int _wild_append(wildex_t *wild, wild_match_f match, size_t start, size_t end)
+static int _wild_append(wildex_t *wild, wild_match_f match, const int32_t *p, size_t nr)
 {
   if (wild->nr == wild->cap) {
     size_t cap = (wild->cap + 1 + 15) / 16 * 16;
@@ -371,8 +385,8 @@ static int _wild_append(wildex_t *wild, wild_match_f match, size_t start, size_t
 
   wildex_node_t *node = &wild->nodes[wild->nr++];
   node->match = match;
-  node->start = start;
-  node->end   = end;
+  node->base  = p;
+  node->nr    = nr;
 
   return 0;
 }
@@ -383,18 +397,38 @@ static int _wild_comp(wildex_t *wild)
 
   wild_match_f    prev = NULL;
 
+  int escaping = 0;
+
   const int32_t *base = (const int32_t*)wild->ex_ucs4.base;
   const int32_t *s = base;
   const int32_t *p = base;
   const int32_t *end = (const int32_t*)(wild->ex_ucs4.base + wild->ex_ucs4.nr);
   while (p < end) {
+    if (*p == '\\') {
+      if (escaping) return -1;
+      if (p > s) {
+        r = _wild_append(wild, _wild_match_specific, s, p-s);
+        if (r) return -1;
+      }
+      escaping = 1;
+      s = ++p;
+      continue;
+    }
     if (*p == '%') {
+      if (escaping) {
+        r = _wild_append(wild, _wild_match_specific, p, 1);
+        if (r) return -1;
+        prev = NULL;
+        escaping = 0;
+        s = ++p;
+        continue;
+      }
       if (prev != _wild_match_all) {
         if (p > s) {
-          r = _wild_append(wild, _wild_match_specific, s-base, p-base);
+          r = _wild_append(wild, _wild_match_specific, s, p-s);
           if (r) return -1;
         }
-        r = _wild_append(wild, _wild_match_all, 0, 0);
+        r = _wild_append(wild, _wild_match_all, NULL, 0);
         if (r) return -1;
         prev = _wild_match_all;
       }
@@ -402,27 +436,36 @@ static int _wild_comp(wildex_t *wild)
       continue;
     }
     if (*p == '_') {
+      if (escaping) {
+        r = _wild_append(wild, _wild_match_specific, p, 1);
+        if (r) return -1;
+        prev = NULL;
+        escaping = 0;
+        s = ++p;
+        continue;
+      }
       if (prev != _wild_match_one) {
         if (p > s) {
-          r = _wild_append(wild, _wild_match_specific, s-base, p-base);
+          r = _wild_append(wild, _wild_match_specific, s, p-s);
           if (r) return -1;
         }
-        r = _wild_append(wild, _wild_match_one, p-base, p+1-base);
+        r = _wild_append(wild, _wild_match_one, p, 1);
         if (r) return -1;
         prev = _wild_match_one;
       } else {
         wildex_node_t *node = wild->nodes + wild->nr - 1;
-        ++node->end;
+        ++node->nr;
       }
       s = ++p;
       continue;
     }
+    if (escaping) return -1;
     ++p;
     prev = NULL;
   }
 
   if (p > s) {
-    r = _wild_append(wild, _wild_match_specific, s-base, p-base);
+    r = _wild_append(wild, _wild_match_specific, s, p-s);
     if (r) return -1;
   }
 
@@ -450,6 +493,7 @@ int wildcomp_n_ex(wildex_t **pwild, const char *charset, const char *wildex, siz
 
     r = _wild_comp(wild);
     if (r == 0) {
+      DW("%.*s => %zd", (int)len, wildex, wild->nr);
       *pwild = wild;
       return 0;
     }
@@ -464,7 +508,9 @@ int wildcomp_n_ex(wildex_t **pwild, const char *charset, const char *wildex, siz
 static int _wild_exec(wildex_t *wild, const int32_t *s, size_t nr, size_t inode)
 {
   if (inode == wild->nr) {
+    if (s && nr == 0) DW("nr:%zd;inode:%zd: matched", nr, inode);
     if (s && nr == 0) return 0;
+    DW("nr:%zd;inode:%zd: unmatched", nr, inode);
     return -1;
   }
 

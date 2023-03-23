@@ -997,7 +997,7 @@ SQLRETURN conn_get_info(
       *(SQLUINTEGER*)InfoValuePtr = 0;
       return SQL_SUCCESS;
     case SQL_SEARCH_PATTERN_ESCAPE:
-      n = snprintf((char*)InfoValuePtr, BufferLength, "%s", "");
+      n = snprintf((char*)InfoValuePtr, BufferLength, "%s", "\\");
       if (StringLengthPtr) {
         *StringLengthPtr = n;
       }

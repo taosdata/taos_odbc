@@ -329,7 +329,7 @@ static int _wild_match_specific(wildex_t *wild, const int32_t *s, size_t nr, siz
   wildex_node_t *node = wild->nodes + inode;
   if (nr < node->end - node->start) return -1;
   const int32_t *base = (const int32_t*)wild->ex_ucs4.base;
-  r = memcmp(s, base + node->start, node->end - node->start);
+  r = memcmp(s, base + node->start, (node->end - node->start) * sizeof(int32_t));
   if (r) return -1;
 
   if (inode + 1 == wild->nr) return 0;

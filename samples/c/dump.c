@@ -273,7 +273,7 @@ static int _dump_stmt_col_info(SQLSMALLINT HandleType, SQLHANDLE Handle)
     "drop database if exists bar",
     "create database bar",
     "use bar",
-    "create table x (ts timestamp, f real, d float)",
+    "create table x (ts timestamp, d float)",
   };
 
   r = execute_sqls(hstmt, sqls, sizeof(sqls)/sizeof(sqls[0]));
@@ -295,8 +295,84 @@ static int _dump_stmt_col_info(SQLSMALLINT HandleType, SQLHANDLE Handle)
   return 0;
 }
 
+static int _dump_col(SQLHANDLE hstmt, SQLUSMALLINT ColumnNumber)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  char buf[4096];
+
+  SQLUSMALLINT   Col_or_Param_Num = ColumnNumber;
+  SQLSMALLINT    TargetType       = SQL_C_CHAR;
+  SQLPOINTER     TargetValuePtr   = buf;
+  SQLLEN         BufferLength     = sizeof(buf);
+  SQLLEN         StrLen_or_Ind;
+
+  sr = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, &StrLen_or_Ind);
+  if (sr != SQL_SUCCESS) return -1;
+  if (StrLen_or_Ind == SQL_NULL_DATA) {
+    DUMP("Column%d:[null]", Col_or_Param_Num);
+  } else {
+    DUMP("Column%d:%.*s", Col_or_Param_Num, (int)StrLen_or_Ind, buf);
+  }
+
+  return 0;
+}
+
+static int _dump_stmt_tables(SQLSMALLINT HandleType, SQLHANDLE Handle)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
+
+  if (HandleType != SQL_HANDLE_STMT) return 0;
+
+  int row = 0;
+
+  DUMP("");
+  DUMP("%s:", __func__);
+
+  SQLHANDLE hstmt = Handle;
+  const char *CatalogName;
+  const char *SchemaName;
+  const char *TableName;
+  const char *TableType;
+
+  CatalogName = "information_schema";
+  SchemaName = NULL;
+  TableName = "ins_columns";
+  TableType = "TABLE";
+  sr = CALL_SQLTables(hstmt,
+    (SQLCHAR*)CatalogName, (SQLSMALLINT)strlen(CatalogName),
+    (SQLCHAR*)SchemaName,  SchemaName ? (SQLSMALLINT)strlen(SchemaName) : 0,
+    (SQLCHAR*)TableName,   (SQLSMALLINT)strlen(TableName),
+    (SQLCHAR*)TableType,   (SQLSMALLINT)strlen(TableType));
+  DUMP("sr: %s", sql_return_type(sr));
+  if (FAILED(sr)) return -1;
+
+again:
+  sr = CALL_SQLFetch(hstmt);
+  if (sr == SQL_NO_DATA) return 0;
+  if (sr != SQL_SUCCESS) return -1;
+
+  ++row;
+  DUMP("row:%d", row);
+
+  SQLSMALLINT ColumnCount;
+  sr = CALL_SQLNumResultCols(hstmt, &ColumnCount);
+  if (sr != SQL_SUCCESS) return -1;
+
+  for (SQLSMALLINT i = 0; i<ColumnCount; ++i) {
+    r = _dump_col(hstmt, (SQLUSMALLINT)i+1);
+    if (r) return -1;
+  }
+
+  goto again;
+
+  return 0;
+}
+
 static const dump_f _dumps[] = {
   _dump_stmt_col_info,
+  _dump_stmt_tables,
 };
 
 typedef struct conn_arg_s             conn_arg_t;

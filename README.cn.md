@@ -192,6 +192,10 @@ win_flex --version
 ```
 cmake --no-warn-unused-cli -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -B build -G "Visual Studio 17 2022" -A x64
 ```
+故障处理: 如果编译的过程中, 提示错误类似<path_to_winbase.h>: warning C5105: 生成“已定义”的宏扩展具有未定义的行为, 那么请修改执行如下:
+```
+cmake --no-warn-unused-cli -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -B build -G "Visual Studio 17 2022" -A x64 -DDISABLE_C5105:BOOL=ON
+```
 7. 开始编译构建
 ```
 cmake --build build --config Debug -j 4

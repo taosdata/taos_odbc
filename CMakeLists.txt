@@ -45,11 +45,18 @@ endif()
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 11)
 
+if (TODBC_WINDOWS)
+  option(DISABLE_C5105 "whether to disable compiler warning C5105 or not" OFF)
+endif()
+
 if(NOT TODBC_WINDOWS)
   # add_compile_options(-Wall -Wextra -pedantic -Werror)
   add_compile_options(-Wall -Wextra -Werror -O0 -DODBCVER=0x0351 -fvisibility=hidden)
 else()
   add_compile_options(/WX /DODBCVER=0x0351)
+  if(DISABLE_C5105)
+    add_compile_options(/wd5105)
+  endif()
 endif()
 
 include(CTest)

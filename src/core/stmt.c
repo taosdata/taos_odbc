@@ -4389,6 +4389,8 @@ SQLRETURN stmt_foreign_keys(
     SQLCHAR       *FKTableName,
     SQLSMALLINT    NameLength6)
 {
+  (void)stmt;
+
   const char *pkcatalog            = (const char*)PKCatalogName;
   const char *pkschema             = (const char*)PKSchemaName;
   const char *pktable              = (const char*)PKTableName;

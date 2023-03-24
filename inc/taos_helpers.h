@@ -373,15 +373,6 @@ static inline int call_taos_field_count(const char *file, int line, const char *
   return r;
 }
 
-static inline int call_taos_num_fields(const char *file, int line, const char *func, TAOS_RES *res)
-{
-  LOGD_TAOS(file, line, func, "taos_num_fields(res:%p) ...", res);
-  int r = taos_num_fields(res);
-  diag_res(res);
-  LOGD_TAOS(file, line, func, "taos_num_fields(res:%p) => %d", res, r);
-  return r;
-}
-
 static inline int call_taos_affected_rows(const char *file, int line, const char *func, TAOS_RES *res)
 {
   LOGD_TAOS(file, line, func, "taos_affected_rows(res:%p) ...", res);
@@ -702,7 +693,6 @@ static inline int call_taos_get_current_db(const char *file, int line, const cha
 #define CALL_taos_free_result(...) call_taos_free_result(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_taos_kill_query(...) call_taos_kill_query(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_taos_field_count(...) call_taos_field_count(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
-#define CALL_taos_num_fields(...) call_taos_num_fields(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_taos_affected_rows(...) call_taos_affected_rows(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 
 #define CALL_taos_fetch_fields(...) call_taos_fetch_fields(__FILE__, __LINE__, __func__, ##__VA_ARGS__)

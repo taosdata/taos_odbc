@@ -374,7 +374,7 @@ static int test_query_cjson(TAOS *taos, const char *sql, const cJSON *rows)
       break;
     }
 
-    int nr_fields = CALL_taos_num_fields(res);
+    int nr_fields = CALL_taos_field_count(res);
     r = res_cmp_rows(nr_fields, res, rows);
   } while (0);
 
@@ -999,7 +999,7 @@ static int _run_execute_row_rs_mbs(executes_ctx_t *ctx, cJSON *start, int istart
     return -1;
   }
 
-  int nr_fields = CALL_taos_num_fields(res);
+  int nr_fields = CALL_taos_field_count(res);
   r = res_cmp_rows(nr_fields, res, curr_rs);
 
   return r;
@@ -1825,7 +1825,7 @@ static int test_charset_step2(TAOS_RES *res)
   int nr_fields                = 0;
 
   int r = 0;
-  nr_fields = CALL_taos_num_fields(res);
+  nr_fields = CALL_taos_field_count(res);
   if (nr_fields == -1) return -1;
   A(nr_fields == 2, "internal logic error");
 

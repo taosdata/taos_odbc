@@ -203,7 +203,7 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs_with_res(
   int nr_fields                = 0;
 
   int r = 0;
-  nr_fields = CALL_taos_num_fields(res);
+  nr_fields = CALL_taos_field_count(res);
   if (nr_fields == -1) {
     int err = taos_errno(res);
     const char *s = taos_errstr(res);

@@ -317,8 +317,6 @@ static SQLRETURN _execute(stmt_base_t *base)
 
 static SQLRETURN _get_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
 {
-  SQLRETURN sr = SQL_SUCCESS;
-
   tsdb_stmt_t *stmt = (tsdb_stmt_t*)base;
   tsdb_res_t           *res          = &stmt->res;
 

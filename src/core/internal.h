@@ -474,6 +474,7 @@ struct stmt_get_data_args_s {
 struct stmt_base_s {
   SQLRETURN (*query)(stmt_base_t *base, const char *sql);
   SQLRETURN (*execute)(stmt_base_t *base);
+  SQLRETURN (*get_fields)(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr);
   SQLRETURN (*fetch_row)(stmt_base_t *base);
   SQLRETURN (*describe_param)(stmt_base_t *base,
       SQLUSMALLINT    ParameterNumber,
@@ -490,13 +491,6 @@ struct stmt_base_s {
       SQLULEN       *ColumnSizePtr,
       SQLSMALLINT   *DecimalDigitsPtr,
       SQLSMALLINT   *NullablePtr);
-  SQLRETURN (*col_attribute)(stmt_base_t *base,
-      SQLUSMALLINT    ColumnNumber,
-      SQLUSMALLINT    FieldIdentifier,
-      SQLPOINTER      CharacterAttributePtr,
-      SQLSMALLINT     BufferLength,
-      SQLSMALLINT    *StringLengthPtr,
-      SQLLEN         *NumericAttributePtr);
   SQLRETURN (*get_num_params)(stmt_base_t *base, SQLSMALLINT *ParameterCountPtr);
   SQLRETURN (*check_params)(stmt_base_t *base);
   SQLRETURN (*tsdb_field_by_param)(stmt_base_t *base, int i_param, TAOS_FIELD_E **field);

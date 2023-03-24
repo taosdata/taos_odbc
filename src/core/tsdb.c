@@ -268,6 +268,10 @@ static SQLRETURN _stmt_post_query(tsdb_stmt_t *stmt)
     return SQL_ERROR;
   } else if (res->res) {
     res->time_precision = CALL_taos_result_precision(res->res);
+    if (res->time_precision < 0 || res->time_precision > 2) {
+      stmt_append_err_format(stmt->owner, "HY000", e, "General error:time_precision [%d] out of range", res->time_precision);
+      return SQL_ERROR;
+    }
     res->affected_row_count = CALL_taos_affected_rows(res->res);
     fields->nr = CALL_taos_field_count(res->res);
     if (fields->nr > 0) {
@@ -309,6 +313,19 @@ static SQLRETURN _execute(stmt_base_t *base)
   res->res_is_from_taos_query = 0;
 
   return _stmt_post_query(stmt);
+}
+
+static SQLRETURN _get_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  tsdb_stmt_t *stmt = (tsdb_stmt_t*)base;
+  tsdb_res_t           *res          = &stmt->res;
+
+  *fields = res->fields.fields;
+  *nr     = res->fields.nr;
+
+  return SQL_SUCCESS;
 }
 
 static SQLRETURN _fetch_row(stmt_base_t *base)
@@ -354,359 +371,6 @@ static SQLRETURN _describe_col(stmt_base_t *base,
 {
   tsdb_stmt_t *stmt = (tsdb_stmt_t*)base;
   return tsdb_stmt_describe_col(stmt, ColumnNumber, ColumnName, BufferLength, NameLengthPtr, DataTypePtr, ColumnSizePtr, DecimalDigitsPtr, NullablePtr);
-}
-
-static SQLRETURN _col_attribute(stmt_base_t *base,
-    SQLUSMALLINT    ColumnNumber,
-    SQLUSMALLINT    FieldIdentifier,
-    SQLPOINTER      CharacterAttributePtr,
-    SQLSMALLINT     BufferLength,
-    SQLSMALLINT    *StringLengthPtr,
-    SQLLEN         *NumericAttributePtr)
-{
-  (void)ColumnNumber;
-  (void)FieldIdentifier;
-  (void)CharacterAttributePtr;
-  (void)BufferLength;
-  (void)StringLengthPtr;
-  (void)NumericAttributePtr;
-  tsdb_stmt_t *stmt = (tsdb_stmt_t*)base;
-
-  tsdb_res_t           *res          = &stmt->res;
-  tsdb_fields_t        *fields       = &res->fields;
-
-  int n = 0;
-
-  TAOS_FIELD *col = fields->fields + ColumnNumber - 1;
-
-  // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
-  switch(FieldIdentifier) {
-    case SQL_DESC_CONCISE_TYPE:
-      switch (col->type) {
-        case TSDB_DATA_TYPE_VARCHAR:
-        case TSDB_DATA_TYPE_NCHAR:
-          *NumericAttributePtr = SQL_VARCHAR;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_TIMESTAMP:
-          *NumericAttributePtr = SQL_TYPE_TIMESTAMP;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_INT:
-          *NumericAttributePtr = SQL_INTEGER;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_TINYINT:
-          *NumericAttributePtr = SQL_TINYINT;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_SMALLINT:
-          *NumericAttributePtr = SQL_SMALLINT;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_BIGINT:
-          *NumericAttributePtr = SQL_BIGINT;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_BOOL:
-          *NumericAttributePtr = SQL_BIT;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_DOUBLE:
-          *NumericAttributePtr = SQL_DOUBLE;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_FLOAT:
-          *NumericAttributePtr = SQL_REAL;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_UTINYINT:
-          *NumericAttributePtr = SQL_TINYINT;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_USMALLINT:
-          *NumericAttributePtr = SQL_SMALLINT;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_UINT:
-          *NumericAttributePtr = SQL_INTEGER;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_UBIGINT:
-          *NumericAttributePtr = SQL_BIGINT;
-          return SQL_SUCCESS;
-        default:
-          stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
-              sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-              taos_data_type(col->type));
-          return SQL_ERROR;
-      }
-      return SQL_SUCCESS;
-    case SQL_DESC_OCTET_LENGTH:
-      switch (col->type) {
-        case TSDB_DATA_TYPE_VARCHAR:
-        case TSDB_DATA_TYPE_NCHAR:
-        case TSDB_DATA_TYPE_TIMESTAMP:
-          *NumericAttributePtr = col->bytes;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_BOOL:
-          *NumericAttributePtr = 1;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_TINYINT:
-          *NumericAttributePtr = 1;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_SMALLINT:
-          *NumericAttributePtr = 2;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_INT:
-          *NumericAttributePtr = 4;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_BIGINT:
-          *NumericAttributePtr = 8;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_DOUBLE:
-          *NumericAttributePtr = 8;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_FLOAT:
-          *NumericAttributePtr = 4;
-          return SQL_SUCCESS;
-        default:
-          stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
-              sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-              taos_data_type(col->type));
-          return SQL_ERROR;
-      }
-    // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
-    case SQL_DESC_PRECISION:
-    case SQL_COLUMN_PRECISION:
-      switch (col->type) {
-        case TSDB_DATA_TYPE_VARCHAR:
-        case TSDB_DATA_TYPE_NCHAR:
-        case TSDB_DATA_TYPE_BOOL:
-        case TSDB_DATA_TYPE_TINYINT:
-        case TSDB_DATA_TYPE_SMALLINT:
-        case TSDB_DATA_TYPE_INT:
-        case TSDB_DATA_TYPE_BIGINT:
-          *NumericAttributePtr = 0;
-          break;
-        case TSDB_DATA_TYPE_DOUBLE:
-          *NumericAttributePtr = 53;
-          break;
-        case TSDB_DATA_TYPE_FLOAT:
-          *NumericAttributePtr = 24;
-          break;
-        case TSDB_DATA_TYPE_TIMESTAMP:
-          *NumericAttributePtr = 3; // FIXME: hard-coded for the moment
-          break;
-        default:
-          stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
-              sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-              taos_data_type(col->type));
-          return SQL_ERROR;
-      }
-      return SQL_SUCCESS;
-    // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
-    case SQL_DESC_SCALE:
-    case SQL_COLUMN_SCALE:
-      switch (col->type) {
-        case TSDB_DATA_TYPE_VARCHAR:
-        case TSDB_DATA_TYPE_NCHAR:
-        case TSDB_DATA_TYPE_TIMESTAMP:
-        case TSDB_DATA_TYPE_BOOL:
-        case TSDB_DATA_TYPE_TINYINT:
-        case TSDB_DATA_TYPE_SMALLINT:
-        case TSDB_DATA_TYPE_INT:
-        case TSDB_DATA_TYPE_BIGINT:
-        case TSDB_DATA_TYPE_DOUBLE:
-        case TSDB_DATA_TYPE_FLOAT:
-          *NumericAttributePtr = 0;
-          break;
-        default:
-          stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
-              sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-              taos_data_type(col->type));
-          return SQL_ERROR;
-      }
-      return SQL_SUCCESS;
-    case SQL_DESC_AUTO_UNIQUE_VALUE:
-      *NumericAttributePtr = 0;
-      return SQL_SUCCESS;
-    case SQL_DESC_UPDATABLE:
-      *NumericAttributePtr = 0;
-      return SQL_SUCCESS;
-    case SQL_DESC_NULLABLE:
-      *NumericAttributePtr = SQL_NULLABLE_UNKNOWN;
-      return SQL_SUCCESS;
-    case SQL_DESC_NAME:
-      n = snprintf(CharacterAttributePtr, BufferLength, "%.*s", (int)sizeof(col->name), col->name);
-      if (n < 0) {
-        int e = errno;
-        stmt_append_err_format(stmt->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
-        return SQL_ERROR;
-      }
-      if (StringLengthPtr) *StringLengthPtr = n;
-      return SQL_SUCCESS;
-    case SQL_COLUMN_TYPE_NAME:
-      switch (col->type) {
-        case TSDB_DATA_TYPE_VARCHAR:
-          n = snprintf(CharacterAttributePtr, BufferLength, "%s", "VARCHAR");
-          if (n < 0) {
-            int e = errno;
-            stmt_append_err_format(stmt->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
-            return SQL_ERROR;
-          }
-          if (StringLengthPtr) *StringLengthPtr = n;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_NCHAR:
-          n = snprintf(CharacterAttributePtr, BufferLength, "%s", "NCHAR");
-          if (n < 0) {
-            int e = errno;
-            stmt_append_err_format(stmt->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
-            return SQL_ERROR;
-          }
-          if (StringLengthPtr) *StringLengthPtr = n;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_TIMESTAMP:
-          n = snprintf(CharacterAttributePtr, BufferLength, "%s", "TIMESTAMP");
-          if (n < 0) {
-            int e = errno;
-            stmt_append_err_format(stmt->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
-            return SQL_ERROR;
-          }
-          if (StringLengthPtr) *StringLengthPtr = n;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_BOOL:
-          n = snprintf(CharacterAttributePtr, BufferLength, "%s", "BOOL");
-          if (n < 0) {
-            int e = errno;
-            stmt_append_err_format(stmt->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
-            return SQL_ERROR;
-          }
-          if (StringLengthPtr) *StringLengthPtr = n;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_TINYINT:
-          n = snprintf(CharacterAttributePtr, BufferLength, "%s", "TINYINT");
-          if (n < 0) {
-            int e = errno;
-            stmt_append_err_format(stmt->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
-            return SQL_ERROR;
-          }
-          if (StringLengthPtr) *StringLengthPtr = n;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_SMALLINT:
-          n = snprintf(CharacterAttributePtr, BufferLength, "%s", "SMALLINT");
-          if (n < 0) {
-            int e = errno;
-            stmt_append_err_format(stmt->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
-            return SQL_ERROR;
-          }
-          if (StringLengthPtr) *StringLengthPtr = n;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_INT:
-          n = snprintf(CharacterAttributePtr, BufferLength, "%s", "INT");
-          if (n < 0) {
-            int e = errno;
-            stmt_append_err_format(stmt->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
-            return SQL_ERROR;
-          }
-          if (StringLengthPtr) *StringLengthPtr = n;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_BIGINT:
-          n = snprintf(CharacterAttributePtr, BufferLength, "%s", "BIGINT");
-          if (n < 0) {
-            int e = errno;
-            stmt_append_err_format(stmt->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
-            return SQL_ERROR;
-          }
-          if (StringLengthPtr) *StringLengthPtr = n;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_DOUBLE:
-          n = snprintf(CharacterAttributePtr, BufferLength, "%s", "DOUBLE");
-          if (n < 0) {
-            int e = errno;
-            stmt_append_err_format(stmt->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
-            return SQL_ERROR;
-          }
-          if (StringLengthPtr) *StringLengthPtr = n;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_FLOAT:
-          n = snprintf(CharacterAttributePtr, BufferLength, "%s", "FLOAT");
-          if (n < 0) {
-            int e = errno;
-            stmt_append_err_format(stmt->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
-            return SQL_ERROR;
-          }
-          if (StringLengthPtr) *StringLengthPtr = n;
-          return SQL_SUCCESS;
-        default:
-          stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s` not supported yet", taos_data_type(col->type));
-          return SQL_ERROR;
-      }
-    case SQL_DESC_LENGTH:
-      switch (col->type) {
-        case TSDB_DATA_TYPE_VARCHAR:
-        case TSDB_DATA_TYPE_NCHAR:
-          *NumericAttributePtr = col->bytes;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_TIMESTAMP:
-          *NumericAttributePtr = 8;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_BOOL:
-          *NumericAttributePtr = 1;  // FIXME: or strlen(str(max(int))) ?
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_TINYINT:
-          *NumericAttributePtr = 1;  // FIXME: or strlen(str(max(int))) ?
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_SMALLINT:
-          *NumericAttributePtr = 2;  // FIXME: or strlen(str(max(int))) ?
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_INT:
-          *NumericAttributePtr = 4;  // FIXME: or strlen(str(max(int))) ?
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_BIGINT:
-          *NumericAttributePtr = 8;  // FIXME: or strlen(str(max(int))) ?
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_DOUBLE:
-          *NumericAttributePtr = 53;  // FIXME: or strlen(str(max(int))) ?
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_FLOAT:
-          *NumericAttributePtr = 24;  // FIXME: or strlen(str(max(int))) ?
-          return SQL_SUCCESS;
-        default:
-          stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s` not supported yet", taos_data_type(col->type));
-          return SQL_ERROR;
-      }
-    case SQL_DESC_NUM_PREC_RADIX:
-      switch (col->type) {
-        case TSDB_DATA_TYPE_VARCHAR:
-        case TSDB_DATA_TYPE_NCHAR:
-        case TSDB_DATA_TYPE_TIMESTAMP:
-        case TSDB_DATA_TYPE_BOOL:
-        case TSDB_DATA_TYPE_TINYINT:
-        case TSDB_DATA_TYPE_SMALLINT:
-        case TSDB_DATA_TYPE_INT:
-        case TSDB_DATA_TYPE_BIGINT:
-          *NumericAttributePtr = 0;
-          return SQL_SUCCESS;
-        case TSDB_DATA_TYPE_DOUBLE:
-        case TSDB_DATA_TYPE_FLOAT:
-          *NumericAttributePtr = 2;
-          return SQL_SUCCESS;
-        default:
-          stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s` not supported yet", taos_data_type(col->type));
-          return SQL_ERROR;
-      }
-    case SQL_DESC_UNSIGNED:
-      switch (col->type) {
-        case TSDB_DATA_TYPE_TINYINT:
-        case TSDB_DATA_TYPE_SMALLINT:
-        case TSDB_DATA_TYPE_INT:
-        case TSDB_DATA_TYPE_BIGINT:
-          *NumericAttributePtr = SQL_FALSE;
-          break;
-        case TSDB_DATA_TYPE_UTINYINT:
-        case TSDB_DATA_TYPE_USMALLINT:
-        case TSDB_DATA_TYPE_UINT:
-        case TSDB_DATA_TYPE_UBIGINT:
-          *NumericAttributePtr = SQL_TRUE;
-          break;
-        default:
-          stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s[%d/0x%x]` has no SIGNESS", taos_data_type(col->type), col->type, col->type);
-          return SQL_ERROR;
-      }
-      return SQL_SUCCESS;
-    default:
-      stmt_append_err_format(stmt->owner, "HY000", 0, "General error:`%s[%d/0x%x]` not supported yet", sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier);
-      return SQL_ERROR;
-  }
 }
 
 static SQLRETURN _get_num_params(stmt_base_t *base, SQLSMALLINT *ParameterCountPtr)
@@ -888,10 +552,10 @@ void tsdb_stmt_init(tsdb_stmt_t *stmt, stmt_t *owner)
 {
   stmt->base.query                   = _query;
   stmt->base.execute                 = _execute;
+  stmt->base.get_fields              = _get_fields;
   stmt->base.fetch_row               = _fetch_row;
   stmt->base.describe_param          = _describe_param;
   stmt->base.describe_col            = _describe_col;
-  stmt->base.col_attribute           = _col_attribute;
   stmt->base.get_num_params          = _get_num_params;
   stmt->base.check_params            = _check_params;
   stmt->base.tsdb_field_by_param     = _tsdb_field_by_param;

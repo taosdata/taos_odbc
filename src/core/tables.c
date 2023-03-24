@@ -117,6 +117,13 @@ static SQLRETURN _execute(stmt_base_t *base)
   return SQL_ERROR;
 }
 
+static SQLRETURN _get_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
+{
+  tables_t *tables = (tables_t*)base;
+  (void)tables;
+  return tables->stmt.base.get_fields(&tables->stmt.base, fields, nr);
+}
+
 static void _match(tables_t *tables, tsdb_data_t *tsdb, int *matched)
 {
   const char *begin = (const char*)tables->table_types.base;
@@ -256,28 +263,6 @@ static SQLRETURN _describe_col(stmt_base_t *base,
       ColumnNumber, ColumnName, BufferLength, NameLengthPtr, DataTypePtr, ColumnSizePtr, DecimalDigitsPtr, NullablePtr);
 }
 
-static SQLRETURN _col_attribute(stmt_base_t *base,
-    SQLUSMALLINT    ColumnNumber,
-    SQLUSMALLINT    FieldIdentifier,
-    SQLPOINTER      CharacterAttributePtr,
-    SQLSMALLINT     BufferLength,
-    SQLSMALLINT    *StringLengthPtr,
-    SQLLEN         *NumericAttributePtr)
-{
-  tables_t *tables = (tables_t*)base;
-  (void)tables;
-  SQLRETURN sr = tables->stmt.base.col_attribute(&tables->stmt.base,
-      ColumnNumber,
-      FieldIdentifier,
-      CharacterAttributePtr,
-      BufferLength,
-      StringLengthPtr,
-      NumericAttributePtr);
-  OA(sr == SQL_SUCCESS, "%s:ColumnNumber:%d;FieldIdentifier:%s", sql_return_type(sr), ColumnNumber, sql_col_attribute(FieldIdentifier));
-
-  return sr;
-}
-
 static SQLRETURN _get_num_params(stmt_base_t *base, SQLSMALLINT *ParameterCountPtr)
 {
   (void)ParameterCountPtr;
@@ -333,10 +318,10 @@ void tables_init(tables_t *tables, stmt_t *stmt)
   tsdb_stmt_init(&tables->stmt, stmt);
   tables->base.query                        = _query;
   tables->base.execute                      = _execute;
+  tables->base.get_fields                   = _get_fields;
   tables->base.fetch_row                    = _fetch_row;
   tables->base.describe_param               = _describe_param;
   tables->base.describe_col                 = _describe_col;
-  tables->base.col_attribute                = _col_attribute;
   tables->base.get_num_params               = _get_num_params;
   tables->base.check_params                 = _check_params;
   tables->base.tsdb_field_by_param          = _tsdb_field_by_param;

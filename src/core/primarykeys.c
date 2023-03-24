@@ -136,6 +136,39 @@ static column_meta_t _primarykeys_meta[] = {
     /* SQL_DESC_NUM_PREC_RADIX         */ 0,
   },
 };
+static TAOS_FIELD _fields[] = {
+  {
+    /* 1 */
+    /* name                            */ "TABLE_CAT",
+    /* type                            */ TSDB_DATA_TYPE_VARCHAR,
+    /* bytes                           */ 1024,               /* hard-coded, big enough */
+  },{
+    /* 2 */
+    /* name                            */ "TABLE_SCHEM",
+    /* type                            */ TSDB_DATA_TYPE_VARCHAR,
+    /* bytes                           */ 1024,               /* hard-coded, big enough */
+  },{
+    /* 3 */
+    /* name                            */ "TABLE_NAME",
+    /* type                            */ TSDB_DATA_TYPE_VARCHAR,
+    /* bytes                           */ 1024,               /* hard-coded, big enough */
+  },{
+    /* 4 */
+    /* name                            */ "COLUMN_NAME",
+    /* type                            */ TSDB_DATA_TYPE_VARCHAR,
+    /* bytes                           */ 1024,               /* hard-coded, big enough */
+  },{
+    /* 5 */
+    /* name                            */ "KEY_SEQ",
+    /* type                            */ TSDB_DATA_TYPE_SMALLINT,
+    /* bytes                           */ 2,
+  },{
+    /* 6 */
+    /* name                            */ "PK_NAME",
+    /* type                            */ TSDB_DATA_TYPE_VARCHAR,
+    /* bytes                           */ 1024,               /* hard-coded, big enough */
+  },
+};
 
 SQLSMALLINT primarykeys_get_count_of_col_meta(void)
 {
@@ -192,6 +225,17 @@ static SQLRETURN _execute(stmt_base_t *base)
   (void)primarykeys;
   stmt_append_err(primarykeys->owner, "HY000", 0, "General error:internal logic error");
   return SQL_ERROR;
+}
+
+static SQLRETURN _get_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
+{
+  (void)fields;
+  (void)nr;
+  primarykeys_t *primarykeys = (primarykeys_t*)base;
+  (void)primarykeys;
+  *fields = _fields;
+  *nr = sizeof(_fields)/sizeof(_fields[0]);
+  return SQL_SUCCESS;
 }
 
 static SQLRETURN _fetch_and_desc_next_table(primarykeys_t *primarykeys)
@@ -335,103 +379,6 @@ static SQLRETURN _describe_col(stmt_base_t *base,
   }
 
   return SQL_SUCCESS;
-}
-
-static SQLRETURN _col_attribute(stmt_base_t *base,
-    SQLUSMALLINT    ColumnNumber,
-    SQLUSMALLINT    FieldIdentifier,
-    SQLPOINTER      CharacterAttributePtr,
-    SQLSMALLINT     BufferLength,
-    SQLSMALLINT    *StringLengthPtr,
-    SQLLEN         *NumericAttributePtr)
-{
-  (void)ColumnNumber;
-  (void)FieldIdentifier;
-  (void)CharacterAttributePtr;
-  (void)BufferLength;
-  (void)StringLengthPtr;
-  (void)NumericAttributePtr;
-  int n = 0;
-  primarykeys_t *primarykeys = (primarykeys_t*)base;
-  (void)primarykeys;
-  const column_meta_t *col_meta = primarykeys_get_col_meta(ColumnNumber - 1);
-  if (!col_meta) {
-    stmt_append_err_format(primarykeys->owner, "HY000", 0, "General error:column[%d] out of range", ColumnNumber);
-    return SQL_ERROR;
-  }
-
-  switch(FieldIdentifier) {
-    case SQL_DESC_CONCISE_TYPE:
-      *NumericAttributePtr = col_meta->DESC_CONCISE_TYPE;
-      OW("Column%d:[SQL_DESC_CONCISE_TYPE]:[%d]%s", ColumnNumber, (int)*NumericAttributePtr, sql_data_type((SQLSMALLINT)*NumericAttributePtr));
-      return SQL_SUCCESS;
-    case SQL_DESC_OCTET_LENGTH:
-      *NumericAttributePtr = col_meta->DESC_OCTET_LENGTH;
-      OW("Column%d:[SQL_DESC_OCTET_LENGTH]:%d", ColumnNumber, (int)*NumericAttributePtr);
-      return SQL_SUCCESS;
-    // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
-    case SQL_DESC_PRECISION:
-    case SQL_COLUMN_PRECISION:
-      *NumericAttributePtr = col_meta->DESC_PRECISION;
-      OW("Column%d:[SQL_DESC_PRECISION]:%d", ColumnNumber, (int)*NumericAttributePtr);
-      return SQL_SUCCESS;
-    // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
-    case SQL_DESC_SCALE:
-    case SQL_COLUMN_SCALE:
-      *NumericAttributePtr = col_meta->DESC_SCALE;
-      OW("Column%d:[SQL_DESC_SCALE]:%d", ColumnNumber, (int)*NumericAttributePtr);
-      return SQL_SUCCESS;
-    case SQL_DESC_AUTO_UNIQUE_VALUE:
-      *NumericAttributePtr = col_meta->DESC_AUTO_UNIQUE_VALUE;
-      OW("Column%d:[SQL_DESC_AUTO_UNIQUE_VALUE]:%d", ColumnNumber, (int)*NumericAttributePtr);
-      return SQL_SUCCESS;
-    case SQL_DESC_UPDATABLE:
-      *NumericAttributePtr = col_meta->DESC_UPDATABLE;
-      OW("Column%d:[SQL_DESC_UPDATABLE]:[%d]%s", ColumnNumber, (int)*NumericAttributePtr, sql_updatable(*NumericAttributePtr));
-      return SQL_SUCCESS;
-    case SQL_DESC_NULLABLE:
-      *NumericAttributePtr = col_meta->DESC_NULLABLE;
-      OW("Column%d:[SQL_DESC_NULLABLE]:[%d]%s", ColumnNumber, (int)*NumericAttributePtr, sql_nullable((SQLSMALLINT)*NumericAttributePtr));
-      return SQL_SUCCESS;
-    case SQL_DESC_NAME:
-      n = snprintf(CharacterAttributePtr, BufferLength, "%s", col_meta->name);
-      if (n < 0) {
-        int e = errno;
-        stmt_append_err_format(primarykeys->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
-        return SQL_ERROR;
-      }
-      if (StringLengthPtr) *StringLengthPtr = n;
-      OW("Column%d:[SQL_DESC_NAME]:%.*s", ColumnNumber, n, (const char*)CharacterAttributePtr);
-      return SQL_SUCCESS;
-    case SQL_COLUMN_TYPE_NAME:
-      n = snprintf(CharacterAttributePtr, BufferLength, "%s", col_meta->column_type_name);
-      if (n < 0) {
-        int e = errno;
-        stmt_append_err_format(primarykeys->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
-        return SQL_ERROR;
-      }
-      if (StringLengthPtr) *StringLengthPtr = n;
-      OW("Column%d:[SQL_COLUMN_TYPE_NAME]:%.*s", ColumnNumber, n, (const char*)CharacterAttributePtr);
-      return SQL_SUCCESS;
-    case SQL_DESC_LENGTH:
-      *NumericAttributePtr = col_meta->DESC_LENGTH;
-      OW("Column%d:[SQL_DESC_LENGTH]:%d", ColumnNumber, (int)*NumericAttributePtr);
-      return SQL_SUCCESS;
-    case SQL_DESC_NUM_PREC_RADIX:
-      *NumericAttributePtr = col_meta->DESC_NUM_PREC_RADIX;
-      OW("Column%d:[SQL_DESC_NUM_PREC_RADIX]:%d", ColumnNumber, (int)*NumericAttributePtr);
-      return SQL_SUCCESS;
-    case SQL_DESC_UNSIGNED:
-      *NumericAttributePtr = col_meta->DESC_UNSIGNED;
-      OW("Column%d:[SQL_DESC_UNSIGNED]:%s", ColumnNumber, ((int)*NumericAttributePtr) ? "SQL_TRUE" : "SQL_FALSE");
-      return SQL_SUCCESS;
-    default:
-      stmt_append_err_format(primarykeys->owner, "HY000", 0, "General error:`%s[%d/0x%x]` not supported yet", sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier);
-      return SQL_ERROR;
-  }
-
-  stmt_append_err(primarykeys->owner, "HY000", 0, "General error:not implemented yet");
-  return SQL_ERROR;
 }
 
 static SQLRETURN _get_num_params(stmt_base_t *base, SQLSMALLINT *ParameterCountPtr)
@@ -603,10 +550,10 @@ void primarykeys_init(primarykeys_t *primarykeys, stmt_t *stmt)
   tsdb_stmt_init(&primarykeys->desc, stmt);
   primarykeys->base.query                        = _query;
   primarykeys->base.execute                      = _execute;
+  primarykeys->base.get_fields                   = _get_fields;
   primarykeys->base.fetch_row                    = _fetch_row;
   primarykeys->base.describe_param               = _describe_param;
   primarykeys->base.describe_col                 = _describe_col;
-  primarykeys->base.col_attribute                = _col_attribute;
   primarykeys->base.get_num_params               = _get_num_params;
   primarykeys->base.check_params                 = _check_params;
   primarykeys->base.tsdb_field_by_param          = _tsdb_field_by_param;

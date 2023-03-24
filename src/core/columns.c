@@ -306,6 +306,100 @@ static column_meta_t _columns_meta[] = {
   },
 };
 
+static TAOS_FIELD _fields[] = {
+  {
+    /* 1 */
+    /* name                            */ "TABLE_CAT",
+    /* type                            */ TSDB_DATA_TYPE_VARCHAR,
+    /* bytes                           */ 1024,               /* hard-coded, big enough */
+  },{
+    /* 2 */
+    /* name                            */ "TABLE_SCHEM",
+    /* type                            */ TSDB_DATA_TYPE_VARCHAR,
+    /* bytes                           */ 1024,               /* hard-coded, big enough */
+  },{
+    /* 3 */
+    /* name                            */ "TABLE_NAME",
+    /* type                            */ TSDB_DATA_TYPE_VARCHAR,
+    /* bytes                           */ 1024,               /* hard-coded, big enough */
+  },{
+    /* 4 */
+    /* name                            */ "COLUMN_NAME",
+    /* type                            */ TSDB_DATA_TYPE_VARCHAR,
+    /* bytes                           */ 1024,               /* hard-coded, big enough */
+  },{
+    /* 5 */
+    /* name                            */ "DATA_TYPE",
+    /* type                            */ TSDB_DATA_TYPE_SMALLINT,
+    /* bytes                           */ 2,
+  },{
+    /* 6 */
+    /* name                            */ "TYPE_NAME",
+    /* type                            */ TSDB_DATA_TYPE_VARCHAR,
+    /* bytes                           */ 1024,               /* hard-coded, big enough */
+  },{
+    /* 7 */
+    /* name                            */ "COLUMN_SIZE",
+    /* type                            */ TSDB_DATA_TYPE_INT,
+    /* bytes                           */ 4,
+  },{
+    /* 8 */
+    /* name                            */ "BUFFER_LENGTH",
+    /* type                            */ TSDB_DATA_TYPE_INT,
+    /* bytes                           */ 4,
+  },{
+    /* 9 */
+    /* name                            */ "DECIMAL_DIGITS",
+    /* type                            */ TSDB_DATA_TYPE_SMALLINT,
+    /* bytes                           */ 2,
+  },{
+    /* 10 */
+    /* name                            */ "NUM_PREC_RADIX",
+    /* type                            */ TSDB_DATA_TYPE_SMALLINT,
+    /* bytes                           */ 2,
+  },{
+    /* 11 */
+    /* name                            */ "NULLABLE",
+    /* type                            */ TSDB_DATA_TYPE_SMALLINT,
+    /* bytes                           */ 2,
+  },{
+    /* 12 */
+    /* name                            */ "REMARKS",
+    /* type                            */ TSDB_DATA_TYPE_VARCHAR,
+    /* bytes                           */ 1024,               /* hard-coded, big enough */
+  },{
+    /* 13 */
+    /* name                            */ "COLUMN_DEF",
+    /* type                            */ TSDB_DATA_TYPE_VARCHAR,
+    /* bytes                           */ 1024,               /* hard-coded, big enough */
+  },{
+    /* 14 */
+    /* name                            */ "SQL_DATA_TYPE",
+    /* type                            */ TSDB_DATA_TYPE_SMALLINT,
+    /* bytes                           */ 2,
+  },{
+    /* 15 */
+    /* name                            */ "SQL_DATETIME_SUB",
+    /* type                            */ TSDB_DATA_TYPE_SMALLINT,
+    /* bytes                           */ 2,
+  },{
+    /* 16 */
+    /* name                            */ "CHAR_OCTET_LENGTH",
+    /* type                            */ TSDB_DATA_TYPE_INT,
+    /* bytes                           */ 4,
+  },{
+    /* 17 */
+    /* name                            */ "ORDINAL_POSITION",
+    /* type                            */ TSDB_DATA_TYPE_INT,
+    /* bytes                           */ 4,
+  },{
+    /* 18 */
+    /* name                            */ "IS_NULLABLE",
+    /* type                            */ TSDB_DATA_TYPE_VARCHAR,
+    /* bytes                           */ 1024,               /* hard-coded, big enough */
+  },
+};
+
 SQLSMALLINT columns_get_count_of_col_meta(void)
 {
   SQLSMALLINT nr = (SQLSMALLINT)(sizeof(_columns_meta) / sizeof(_columns_meta[0]));
@@ -365,6 +459,17 @@ static SQLRETURN _execute(stmt_base_t *base)
   (void)columns;
   stmt_append_err(columns->owner, "HY000", 0, "General error:internal logic error");
   return SQL_ERROR;
+}
+
+static SQLRETURN _get_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
+{
+  (void)fields;
+  (void)nr;
+  columns_t *columns = (columns_t*)base;
+  (void)columns;
+  *fields = _fields;
+  *nr = sizeof(_fields)/sizeof(_fields[0]);
+  return SQL_SUCCESS;
 }
 
 static SQLRETURN _fetch_and_desc_next_table(columns_t *columns)
@@ -505,103 +610,6 @@ static SQLRETURN _describe_col(stmt_base_t *base,
   }
 
   return SQL_SUCCESS;
-}
-
-static SQLRETURN _col_attribute(stmt_base_t *base,
-    SQLUSMALLINT    ColumnNumber,
-    SQLUSMALLINT    FieldIdentifier,
-    SQLPOINTER      CharacterAttributePtr,
-    SQLSMALLINT     BufferLength,
-    SQLSMALLINT    *StringLengthPtr,
-    SQLLEN         *NumericAttributePtr)
-{
-  (void)ColumnNumber;
-  (void)FieldIdentifier;
-  (void)CharacterAttributePtr;
-  (void)BufferLength;
-  (void)StringLengthPtr;
-  (void)NumericAttributePtr;
-  int n = 0;
-  columns_t *columns = (columns_t*)base;
-  (void)columns;
-  const column_meta_t *col_meta = columns_get_col_meta(ColumnNumber - 1);
-  if (!col_meta) {
-    stmt_append_err_format(columns->owner, "HY000", 0, "General error:column[%d] out of range", ColumnNumber);
-    return SQL_ERROR;
-  }
-
-  switch(FieldIdentifier) {
-    case SQL_DESC_CONCISE_TYPE:
-      *NumericAttributePtr = col_meta->DESC_CONCISE_TYPE;
-      OW("Column%d:[SQL_DESC_CONCISE_TYPE]:[%d]%s", ColumnNumber, (int)*NumericAttributePtr, sql_data_type((SQLSMALLINT)*NumericAttributePtr));
-      return SQL_SUCCESS;
-    case SQL_DESC_OCTET_LENGTH:
-      *NumericAttributePtr = col_meta->DESC_OCTET_LENGTH;
-      OW("Column%d:[SQL_DESC_OCTET_LENGTH]:%d", ColumnNumber, (int)*NumericAttributePtr);
-      return SQL_SUCCESS;
-    // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
-    case SQL_DESC_PRECISION:
-    case SQL_COLUMN_PRECISION:
-      *NumericAttributePtr = col_meta->DESC_PRECISION;
-      OW("Column%d:[SQL_DESC_PRECISION]:%d", ColumnNumber, (int)*NumericAttributePtr);
-      return SQL_SUCCESS;
-    // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
-    case SQL_DESC_SCALE:
-    case SQL_COLUMN_SCALE:
-      *NumericAttributePtr = col_meta->DESC_SCALE;
-      OW("Column%d:[SQL_DESC_SCALE]:%d", ColumnNumber, (int)*NumericAttributePtr);
-      return SQL_SUCCESS;
-    case SQL_DESC_AUTO_UNIQUE_VALUE:
-      *NumericAttributePtr = col_meta->DESC_AUTO_UNIQUE_VALUE;
-      OW("Column%d:[SQL_DESC_AUTO_UNIQUE_VALUE]:%d", ColumnNumber, (int)*NumericAttributePtr);
-      return SQL_SUCCESS;
-    case SQL_DESC_UPDATABLE:
-      *NumericAttributePtr = col_meta->DESC_UPDATABLE;
-      OW("Column%d:[SQL_DESC_UPDATABLE]:[%d]%s", ColumnNumber, (int)*NumericAttributePtr, sql_updatable(*NumericAttributePtr));
-      return SQL_SUCCESS;
-    case SQL_DESC_NULLABLE:
-      *NumericAttributePtr = col_meta->DESC_NULLABLE;
-      OW("Column%d:[SQL_DESC_NULLABLE]:[%d]%s", ColumnNumber, (int)*NumericAttributePtr, sql_nullable((SQLSMALLINT)*NumericAttributePtr));
-      return SQL_SUCCESS;
-    case SQL_DESC_NAME:
-      n = snprintf(CharacterAttributePtr, BufferLength, "%s", col_meta->name);
-      if (n < 0) {
-        int e = errno;
-        stmt_append_err_format(columns->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
-        return SQL_ERROR;
-      }
-      if (StringLengthPtr) *StringLengthPtr = n;
-      OW("Column%d:[SQL_DESC_NAME]:%.*s", ColumnNumber, n, (const char*)CharacterAttributePtr);
-      return SQL_SUCCESS;
-    case SQL_COLUMN_TYPE_NAME:
-      n = snprintf(CharacterAttributePtr, BufferLength, "%s", col_meta->column_type_name);
-      if (n < 0) {
-        int e = errno;
-        stmt_append_err_format(columns->owner, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
-        return SQL_ERROR;
-      }
-      if (StringLengthPtr) *StringLengthPtr = n;
-      OW("Column%d:[SQL_COLUMN_TYPE_NAME]:%.*s", ColumnNumber, n, (const char*)CharacterAttributePtr);
-      return SQL_SUCCESS;
-    case SQL_DESC_LENGTH:
-      *NumericAttributePtr = col_meta->DESC_LENGTH;
-      OW("Column%d:[SQL_DESC_LENGTH]:%d", ColumnNumber, (int)*NumericAttributePtr);
-      return SQL_SUCCESS;
-    case SQL_DESC_NUM_PREC_RADIX:
-      *NumericAttributePtr = col_meta->DESC_NUM_PREC_RADIX;
-      OW("Column%d:[SQL_DESC_NUM_PREC_RADIX]:%d", ColumnNumber, (int)*NumericAttributePtr);
-      return SQL_SUCCESS;
-    case SQL_DESC_UNSIGNED:
-      *NumericAttributePtr = col_meta->DESC_UNSIGNED;
-      OW("Column%d:[SQL_DESC_UNSIGNED]:%s", ColumnNumber, ((int)*NumericAttributePtr) ? "SQL_TRUE" : "SQL_FALSE");
-      return SQL_SUCCESS;
-    default:
-      stmt_append_err_format(columns->owner, "HY000", 0, "General error:`%s[%d/0x%x]` not supported yet", sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier);
-      return SQL_ERROR;
-  }
-
-  stmt_append_err(columns->owner, "HY000", 0, "General error:not implemented yet");
-  return SQL_ERROR;
 }
 
 static SQLRETURN _get_num_params(stmt_base_t *base, SQLSMALLINT *ParameterCountPtr)
@@ -965,10 +973,10 @@ void columns_init(columns_t *columns, stmt_t *stmt)
   tsdb_stmt_init(&columns->desc, stmt);
   columns->base.query                        = _query;
   columns->base.execute                      = _execute;
+  columns->base.get_fields                   = _get_fields;
   columns->base.fetch_row                    = _fetch_row;
   columns->base.describe_param               = _describe_param;
   columns->base.describe_col                 = _describe_col;
-  columns->base.col_attribute                = _col_attribute;
   columns->base.get_num_params               = _get_num_params;
   columns->base.check_params                 = _check_params;
   columns->base.tsdb_field_by_param          = _tsdb_field_by_param;

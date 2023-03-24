@@ -4155,33 +4155,6 @@ void stmt_clr_errs(stmt_t *stmt)
   errs_clr(&stmt->errs);
 }
 
-// static SQLRETURN _wild_post_filter(stmt_t *stmt, int row, void *ctx, int *filter)
-// {
-//   SQLRETURN sr = SQL_SUCCESS;
-// 
-//   *filter = 0;
-// 
-//   const char *base;
-//   int len;
-//   sr = _stmt_get_data_len(stmt, row, 2, &base, &len);
-//   if (sr == SQL_ERROR) return SQL_ERROR;
-//   if (base == NULL) return SQL_SUCCESS;
-// 
-//   wildex_t *wild = (wildex_t*)ctx;
-//   *filter = wildexec_n(wild, base, len);
-// 
-//   return SQL_SUCCESS;
-// }
-
-// static void _wild_post_filter_destroy(stmt_t *stmt, void *ctx)
-// {
-//   (void)stmt;
-//   wildex_t *wild = (wildex_t*)ctx;
-//   if (wild) {
-//     wildfree(wild);
-//   }
-// }
-
 SQLRETURN stmt_tables(stmt_t *stmt,
     SQLCHAR       *CatalogName,
     SQLSMALLINT    NameLength1,

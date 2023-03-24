@@ -192,7 +192,7 @@ win_flex --version
 ```
 cmake --no-warn-unused-cli -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -B build -G "Visual Studio 17 2022" -A x64
 ```
-TroubleShooting: if compiler error occurs during the following steps, such as: <path_to_winbase.h>: warning C5105: macro expansion producing 'defined' has undefined behavior, you can retry as below:
+**TroubleShooting**: if compiler error occurs during the following steps, such as: <path_to_winbase.h>: warning C5105: macro expansion producing 'defined' has undefined behavior, you can retry as below:
 ```
 cmake --no-warn-unused-cli -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -B build -G "Visual Studio 17 2022" -A x64 -DDISABLE_C5105:BOOL=ON
 ```

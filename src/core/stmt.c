@@ -897,7 +897,7 @@ static SQLRETURN _stmt_col_attr_DESC_OCTET_LENGTH(
 
   for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
     if (col->type != _maps[i].tsdb_type) continue;
-    if (!col->type == TSDB_DATA_TYPE_TIMESTAMP) {
+    if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
       if (!stmt->conn->cfg.timestamp_as_is) {
         tsdb_res_t *res = &stmt->tsdb_stmt.res;
         *NumericAttributePtr = (20 + (res->time_precision + 1) * 3) * 2;

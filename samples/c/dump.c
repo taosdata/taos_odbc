@@ -430,7 +430,7 @@ static int _dump_stmt_describe_col(SQLSMALLINT HandleType, SQLHANDLE Handle)
     if (sr != SQL_SUCCESS) return -1;
 
     DUMP("Column%d Name:%s, DESC_LENGTH:%" PRId64 ", DESC_PRECISION:%" PRId64 ", DESC_SCALE:%" PRId64 ", DESC_OCTET_LENGTH:%" PRId64 "",
-      i+1, buf, DESC_LENGTH, DESC_PRECISION, DESC_SCALE, DESC_OCTET_LENGTH);
+      i+1, buf, (int64_t)DESC_LENGTH, (int64_t)DESC_PRECISION, (int64_t)DESC_SCALE, (int64_t)DESC_OCTET_LENGTH);
   }
 
   return 0;

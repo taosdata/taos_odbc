@@ -829,26 +829,31 @@ static SQLRETURN _stmt_col_attr_DESC_CONCISE_TYPE(
   static struct {
     int                 tsdb_type;
     int                 sql_type;
+    int                 sql_promoted;
   } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              SQL_TYPE_TIMESTAMP},
-    {TSDB_DATA_TYPE_BOOL,                   SQL_BIT},
-    {TSDB_DATA_TYPE_TINYINT,                SQL_TINYINT},
-    {TSDB_DATA_TYPE_SMALLINT,               SQL_SMALLINT},
-    {TSDB_DATA_TYPE_INT,                    SQL_INTEGER},
-    {TSDB_DATA_TYPE_BIGINT,                 SQL_BIGINT},
-    {TSDB_DATA_TYPE_FLOAT,                  SQL_REAL},
-    {TSDB_DATA_TYPE_DOUBLE,                 SQL_DOUBLE},
-    {TSDB_DATA_TYPE_VARCHAR,                SQL_VARCHAR},
-    {TSDB_DATA_TYPE_NCHAR,                  SQL_WVARCHAR},
-    {TSDB_DATA_TYPE_UTINYINT,               SQL_TINYINT},
-    {TSDB_DATA_TYPE_USMALLINT,              SQL_SMALLINT},
-    {TSDB_DATA_TYPE_UINT,                   SQL_INTEGER},
-    {TSDB_DATA_TYPE_UBIGINT,                SQL_BIGINT},
+    {TSDB_DATA_TYPE_TIMESTAMP,              SQL_TYPE_TIMESTAMP,        SQL_TYPE_TIMESTAMP},
+    {TSDB_DATA_TYPE_BOOL,                   SQL_BIT,                   SQL_BIT},
+    {TSDB_DATA_TYPE_TINYINT,                SQL_TINYINT,               SQL_SMALLINT},
+    {TSDB_DATA_TYPE_SMALLINT,               SQL_SMALLINT,              SQL_SMALLINT},
+    {TSDB_DATA_TYPE_INT,                    SQL_INTEGER,               SQL_INTEGER},
+    {TSDB_DATA_TYPE_BIGINT,                 SQL_BIGINT,                SQL_BIGINT},
+    {TSDB_DATA_TYPE_FLOAT,                  SQL_REAL,                  SQL_REAL},
+    {TSDB_DATA_TYPE_DOUBLE,                 SQL_DOUBLE,                SQL_DOUBLE},
+    {TSDB_DATA_TYPE_VARCHAR,                SQL_VARCHAR,               SQL_VARCHAR},
+    {TSDB_DATA_TYPE_NCHAR,                  SQL_WVARCHAR,              SQL_WVARCHAR},
+    {TSDB_DATA_TYPE_UTINYINT,               SQL_TINYINT,               SQL_TINYINT},
+    {TSDB_DATA_TYPE_USMALLINT,              SQL_SMALLINT,              SQL_INTEGER},
+    {TSDB_DATA_TYPE_UINT,                   SQL_INTEGER,               SQL_BIGINT},
+    {TSDB_DATA_TYPE_UBIGINT,                SQL_BIGINT,                SQL_BIGINT},
   };
 
   for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
     if (col->type != _maps[i].tsdb_type) continue;
-    *NumericAttributePtr = _maps[i].sql_type;
+    if (stmt->conn->cfg.unsigned_promotion) {
+      *NumericAttributePtr = _maps[i].sql_promoted;
+    } else {
+      *NumericAttributePtr = _maps[i].sql_type;
+    }
     return SQL_SUCCESS;
   }
 
@@ -1002,6 +1007,7 @@ static SQLRETURN _stmt_col_attr_DESC_NAME(
     SQLSMALLINT           BufferLength,
     SQLSMALLINT          *StringLengthPtr)
 {
+  (void)FieldIdentifier;
   int n;
   n = snprintf(CharacterAttributePtr, BufferLength, "%.*s", (int)sizeof(col->name), col->name);
   if (n < 0) {
@@ -1154,6 +1160,7 @@ static SQLRETURN _stmt_col_attr_DESC_UNSIGNED(
     SQLUSMALLINT          FieldIdentifier,
     SQLLEN               *NumericAttributePtr)
 {
+  (void)FieldIdentifier;
   static struct {
     int                 tsdb_type;
     int                 unsigned_;
@@ -1991,6 +1998,7 @@ static SQLRETURN _stmt_get_data_copy_uint64(stmt_t *stmt, uint64_t v, stmt_get_d
     case SQL_C_UTINYINT:
       *(uint8_t*)args->TargetValuePtr = (uint8_t)v;
       break;
+    case SQL_C_SHORT:
     case SQL_C_SSHORT:
       *(int16_t*)args->TargetValuePtr = (int16_t)v;
       break;

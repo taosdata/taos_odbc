@@ -436,18 +436,25 @@ static int _dump_stmt_describe_col(SQLSMALLINT HandleType, SQLHANDLE Handle)
   return 0;
 }
 
-static const dump_f _dumps[] = {
-  _dump_stmt_col_info,
-  _dump_stmt_tables,
-  _dump_stmt_describe_col,
+#define RECORD(x) {x, #x}
+
+static struct {
+  dump_f                func;
+  const char           *name;
+} _dumps[] = {
+  RECORD(_dump_stmt_col_info),
+  RECORD(_dump_stmt_tables),
+  RECORD(_dump_stmt_describe_col),
 };
 
-typedef struct conn_arg_s             conn_arg_t;
-struct conn_arg_s {
+typedef struct arg_s             arg_t;
+struct arg_s {
   const char      *dsn;
   const char      *uid;
   const char      *pwd;
   const char      *connstr;
+
+  const char      *name;
 };
 
 static int _connect(SQLHANDLE hconn, const char *dsn, const char *uid, const char *pwd)
@@ -476,7 +483,7 @@ static int _driver_connect(SQLHANDLE hconn, const char *connstr)
   return 0;
 }
 
-static int dump_with_stmt(SQLHANDLE hstmt)
+static int dump_with_stmt(const arg_t *arg, SQLHANDLE hstmt)
 {
   int r = 0;
 
@@ -490,22 +497,25 @@ static int dump_with_stmt(SQLHANDLE hstmt)
   if (r) return -1;
 
   for (size_t i=0; i<sizeof(_dumps)/sizeof(_dumps[0]); ++i) {
-    r = _dumps[i](SQL_HANDLE_STMT, hstmt);
-    CALL_SQLCloseCursor(hstmt);
-    if (r) return -1;
+    if (arg->name == NULL || strcmp(arg->name, _dumps[i].name)==0) {
+      r = _dumps[i].func(SQL_HANDLE_STMT, hstmt);
+      if (r) return -1;
+    }
   }
 
   return 0;
 }
 
-static int dump_with_connected_conn(SQLHANDLE hconn)
+static int dump_with_connected_conn(const arg_t *arg, SQLHANDLE hconn)
 {
   SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
 
   for (size_t i=0; i<sizeof(_dumps)/sizeof(_dumps[0]); ++i) {
-    r = _dumps[i](SQL_HANDLE_DBC, hconn);
-    if (r) return -1;
+    if (arg->name == NULL || strcmp(arg->name, _dumps[i].name)==0) {
+      r = _dumps[i].func(SQL_HANDLE_DBC, hconn);
+      if (r) return -1;
+    }
   }
 
   SQLHANDLE hstmt;
@@ -513,62 +523,33 @@ static int dump_with_connected_conn(SQLHANDLE hconn)
   sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-  r = dump_with_stmt(hstmt);
+  r = dump_with_stmt(arg, hstmt);
 
   CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
 
   return r ? -1 : 0;
 }
 
-static int dump_with_conn(int argc, char *argv[], SQLHANDLE hconn)
+static int dump_with_conn(const arg_t *arg, SQLHANDLE hconn)
 {
-  conn_arg_t conn_arg = {0};
-
-  for (int i=1; i<argc; ++i) {
-    if (strcmp(argv[i], "--dsn") == 0) {
-      ++i;
-      if (i>=argc) break;
-      conn_arg.dsn = argv[i];
-      continue;
-    }
-    if (strcmp(argv[i], "--uid") == 0) {
-      ++i;
-      if (i>=argc) break;
-      conn_arg.uid = argv[i];
-      continue;
-    }
-    if (strcmp(argv[i], "--pwd") == 0) {
-      ++i;
-      if (i>=argc) break;
-      conn_arg.pwd = argv[i];
-      continue;
-    }
-    if (strcmp(argv[i], "--connstr") == 0) {
-      ++i;
-      if (i>=argc) break;
-      conn_arg.connstr = argv[i];
-      continue;
-    }
-  }
-
   int r = 0;
 
-  if (conn_arg.connstr) {
-    r = _driver_connect(hconn, conn_arg.connstr);
+  if (arg->connstr) {
+    r = _driver_connect(hconn, arg->connstr);
     if (r) return -1;
   } else {
-    r = _connect(hconn, conn_arg.dsn, conn_arg.uid, conn_arg.pwd);
+    r = _connect(hconn, arg->dsn, arg->uid, arg->pwd);
     if (r) return -1;
   }
 
-  r = dump_with_connected_conn(hconn);
+  r = dump_with_connected_conn(arg, hconn);
 
   CALL_SQLDisconnect(hconn);
 
   return r ? -1 : 0;
 }
 
-static int dump_with_env(int argc, char *argv[], SQLHANDLE henv)
+static int dump_with_env(const arg_t *arg, SQLHANDLE henv)
 {
   int r = 0;
   SQLRETURN sr = SQL_SUCCESS;
@@ -577,14 +558,14 @@ static int dump_with_env(int argc, char *argv[], SQLHANDLE henv)
   sr = CALL_SQLAllocHandle(SQL_HANDLE_DBC, henv, &hconn);
   if (FAILED(sr)) return -1;
 
-  r = dump_with_conn(argc, argv, hconn);
+  r = dump_with_conn(arg, hconn);
 
   CALL_SQLFreeHandle(SQL_HANDLE_DBC, hconn);
 
   return r;
 }
 
-static int dump(int argc, char *argv[])
+static int _dumping(const arg_t *arg)
 {
   int r = 0;
   SQLRETURN sr = SQL_SUCCESS;
@@ -598,7 +579,7 @@ static int dump(int argc, char *argv[])
     sr = CALL_SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, 0);
     if (FAILED(sr)) { r = -1; break; }
 
-    r = dump_with_env(argc, argv, henv);
+    r = dump_with_env(arg, henv);
     if (r) break;
   } while (0);
 
@@ -607,10 +588,69 @@ static int dump(int argc, char *argv[])
   return r;
 }
 
+static void usage(const char *arg0)
+{
+  DUMP("usage:");
+  DUMP("  %s -h", arg0);
+  DUMP("  %s --dsn <DSN> [--uid <UID>] [--pwd <PWD> [name]", arg0);
+  DUMP("  %s --connstr <connstr> [name]", arg0);
+  DUMP("");
+  DUMP("supported dump names:");
+  for (size_t i=0; i<sizeof(_dumps)/sizeof(_dumps[0]); ++i) {
+    DUMP("  %s", _dumps[i].name);
+  }
+}
+
+static int dumping(int argc, const char *argv[])
+{
+  int r = 0;
+
+  arg_t arg = {0};
+
+  for (int i=1; i<argc; ++i) {
+    if (strcmp(argv[i], "-h") == 0) {
+      usage(argv[0]);
+      return 0;
+    }
+    if (strcmp(argv[i], "--dsn") == 0) {
+      ++i;
+      if (i>=argc) break;
+      arg.dsn = argv[i];
+      continue;
+    }
+    if (strcmp(argv[i], "--uid") == 0) {
+      ++i;
+      if (i>=argc) break;
+      arg.uid = argv[i];
+      continue;
+    }
+    if (strcmp(argv[i], "--pwd") == 0) {
+      ++i;
+      if (i>=argc) break;
+      arg.pwd = argv[i];
+      continue;
+    }
+    if (strcmp(argv[i], "--connstr") == 0) {
+      ++i;
+      if (i>=argc) break;
+      arg.connstr = argv[i];
+      continue;
+    }
+
+    arg.name = argv[i];
+    r = _dumping(&arg);
+    if (r) return -11;
+  }
+
+  if (arg.name) return 0;
+
+  return _dumping(&arg);
+}
+
 int main(int argc, char *argv[])
 {
   int r = 0;
-  r = dump(argc, argv);
+  r = dumping(argc, argv);
   fprintf(stderr, "==%s==\n", r ? "failure" : "success");
   return !!r;
 }

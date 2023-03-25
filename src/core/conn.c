@@ -490,28 +490,35 @@ static void _conn_fill_out_connection_str(
       fixed_buf_sprintf(n, &buffer, "Server=%s;", conn->cfg.ip);
     }
   } else {
-    if (0) fixed_buf_sprintf(n, &buffer, "Server=;");
+    fixed_buf_sprintf(n, &buffer, "Server=;");
   }
   if (n>0) count += n;
 
   if (conn->cfg.db) {
     fixed_buf_sprintf(n, &buffer, "DB=%s;", conn->cfg.db);
   } else {
-    if (0) fixed_buf_sprintf(n, &buffer, "DB=;");
+    fixed_buf_sprintf(n, &buffer, "DB=;");
   }
   if (n>0) count += n;
 
   if (conn->cfg.unsigned_promotion) {
     fixed_buf_sprintf(n, &buffer, "UNSIGNED_PROMOTION=1;");
   } else {
-    if (0) fixed_buf_sprintf(n, &buffer, "UNSIGNED_PROMOTION=;");
+    fixed_buf_sprintf(n, &buffer, "UNSIGNED_PROMOTION=0;");
+  }
+  if (n>0) count += n;
+
+  if (conn->cfg.timestamp_as_is) {
+    fixed_buf_sprintf(n, &buffer, "TIMESTAMP_AS_IS=1;");
+  } else {
+    fixed_buf_sprintf(n, &buffer, "TIMESTAMP_AS_IS=0;");
   }
   if (n>0) count += n;
 
   if (conn->cfg.cache_sql) {
     fixed_buf_sprintf(n, &buffer, "CACHE_SQL=1;");
   } else {
-    if (0) fixed_buf_sprintf(n, &buffer, "CACHE_SQL=;");
+    fixed_buf_sprintf(n, &buffer, "CACHE_SQL=0;");
   }
   if (n>0) count += n;
 
@@ -536,6 +543,8 @@ SQLRETURN conn_driver_connect(
     SQLUSMALLINT    DriverCompletion)
 {
   (void)WindowHandle;
+  if (StringLength1 == SQL_NTS)
+  OW("%.*s", (int)(StringLength1 == SQL_NTS ? strlen(InConnectionString) : StringLength1), InConnectionString);
 
   switch (DriverCompletion) {
     case SQL_DRIVER_NOPROMPT:

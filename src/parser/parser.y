@@ -175,10 +175,10 @@ attribute:
 | SERVER '=' FQDN ':'             { SET_FQDN($3); }
 | SERVER '=' FQDN ':' DIGITS      { SET_FQDN_PORT($3, $5); }
 | UNSIGNED_PROMOTION              { SET_UNSIGNED_PROMOTION("1", 1); }
-| UNSIGNED_PROMOTION '='          { SET_UNSIGNED_PROMOTION("1", 1); }
+| UNSIGNED_PROMOTION '='
 | UNSIGNED_PROMOTION '=' DIGITS   { SET_UNSIGNED_PROMOTION($3.text, $3.leng); }
 | TIMESTAMP_AS_IS                 { SET_TIMESTAMP_AS_IS("1", 1); }
-| TIMESTAMP_AS_IS '='             { SET_TIMESTAMP_AS_IS("1", 1); }
+| TIMESTAMP_AS_IS '='
 | TIMESTAMP_AS_IS '=' DIGITS      { SET_TIMESTAMP_AS_IS($3.text, $3.leng); }
 | CACHE_SQL                       { SET_CACHE_SQL("1", 1); }
 | CACHE_SQL '='                   { SET_CACHE_SQL("1", 1); }

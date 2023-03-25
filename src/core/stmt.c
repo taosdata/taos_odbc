@@ -1075,7 +1075,7 @@ static SQLRETURN _stmt_col_attr_DESC_TYPE_NAME(
         name = "NCHAR";
       }
     }
-    int n = snprintf(CharacterAttributePtr, BufferLength, "%s", _maps[i].name);
+    int n = snprintf(CharacterAttributePtr, BufferLength, "%s", name);
     if (n < 0) {
       int e = errno;
       stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));

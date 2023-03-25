@@ -543,8 +543,6 @@ SQLRETURN conn_driver_connect(
     SQLUSMALLINT    DriverCompletion)
 {
   (void)WindowHandle;
-  if (StringLength1 == SQL_NTS)
-  OW("%.*s", (int)(StringLength1 == SQL_NTS ? strlen(InConnectionString) : StringLength1), InConnectionString);
 
   switch (DriverCompletion) {
     case SQL_DRIVER_NOPROMPT:

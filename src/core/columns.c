@@ -515,7 +515,7 @@ static SQLRETURN _fetch_and_desc_next_table(columns_t *columns)
     return SQL_ERROR;
   }
 
-  n = snprintf(sql, sizeof(sql), "select * from `%.*s`.`%.*s`",
+  n = snprintf(sql, sizeof(sql), "select * from `%.*s`.`%.*s` where 1=2",
       (int)columns->current_catalog.str.len, columns->current_catalog.str.str,
       (int)columns->current_table.str.len, columns->current_table.str.str);
   if (n < 0 || (size_t)n >= sizeof(sql)) {

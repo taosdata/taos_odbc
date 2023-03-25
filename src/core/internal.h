@@ -607,7 +607,9 @@ struct columns_s {
   tsdb_data_t                current_col_length;
   tsdb_data_t                current_col_note;
 
-  tsdb_stmt_t                desc;
+  tsdb_stmt_t                desc;      // desc <catalog>.<table_name>
+
+  tsdb_stmt_t                query;     // select * from <catalog>.<table_name>
 
   int                        ordinal_order;
 

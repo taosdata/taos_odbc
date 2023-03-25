@@ -960,12 +960,6 @@ static SQLRETURN _stmt_col_attr_DESC_PRECISION(
       }
       return SQL_SUCCESS;
     }
-    if (_maps[i].precision != -1 && _maps[i].precision != col->bytes) {
-      stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s`, precision is expected to be %d, but got ==%d==",
-          sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-          taos_data_type(col->type), _maps[i].precision, col->bytes);
-      return SQL_ERROR;
-    }
     if (_maps[i].precision == -1) {
       *NumericAttributePtr = col->bytes;
     } else {
@@ -1075,6 +1069,12 @@ static SQLRETURN _stmt_col_attr_DESC_TYPE_NAME(
 
   for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
     if (col->type != _maps[i].tsdb_type) continue;
+    const char *name = _maps[i].name;
+    if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
+      if (!stmt->conn->cfg.timestamp_as_is) {
+        name = "NCHAR";
+      }
+    }
     int n = snprintf(CharacterAttributePtr, BufferLength, "%s", _maps[i].name);
     if (n < 0) {
       int e = errno;

@@ -419,6 +419,7 @@ void columns_reset(columns_t *columns)
   if (!columns) return;
 
   tsdb_stmt_reset(&columns->desc);
+  tsdb_stmt_reset(&columns->query);
   tables_reset(&columns->tables);
 
   mem_reset(&columns->column_cache);
@@ -434,6 +435,7 @@ void columns_release(columns_t *columns)
   columns_reset(columns);
 
   tsdb_stmt_release(&columns->desc);
+  tsdb_stmt_release(&columns->query);
   tables_release(&columns->tables);
 
   mem_release(&columns->column_cache);
@@ -493,7 +495,8 @@ static SQLRETURN _fetch_and_desc_next_table(columns_t *columns)
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   char sql[4096];
-  int n = snprintf(sql, sizeof(sql), "desc `%.*s`.`%.*s`",
+  int n;
+  n = snprintf(sql, sizeof(sql), "desc `%.*s`.`%.*s`",
       (int)columns->current_catalog.str.len, columns->current_catalog.str.str,
       (int)columns->current_table.str.len, columns->current_table.str.str);
   if (n < 0 || (size_t)n >= sizeof(sql)) {
@@ -503,8 +506,24 @@ static SQLRETURN _fetch_and_desc_next_table(columns_t *columns)
 
   tsdb_stmt_reset(&columns->desc);
   tsdb_stmt_init(&columns->desc, columns->owner);
+  tsdb_stmt_reset(&columns->query);
+  tsdb_stmt_init(&columns->query, columns->owner);
 
   sr = tsdb_stmt_query(&columns->desc, sql);
+  if (sr != SQL_SUCCESS) {
+    stmt_append_err(columns->owner, "HY000", 0, "General error:internal logic error or buffer too small");
+    return SQL_ERROR;
+  }
+
+  n = snprintf(sql, sizeof(sql), "select * from `%.*s`.`%.*s`",
+      (int)columns->current_catalog.str.len, columns->current_catalog.str.str,
+      (int)columns->current_table.str.len, columns->current_table.str.str);
+  if (n < 0 || (size_t)n >= sizeof(sql)) {
+    stmt_append_err(columns->owner, "HY000", 0, "General error:internal logic error or buffer too small");
+    return SQL_ERROR;
+  }
+
+  sr = tsdb_stmt_query(&columns->query, sql);
   if (sr != SQL_SUCCESS) {
     stmt_append_err(columns->owner, "HY000", 0, "General error:internal logic error or buffer too small");
     return SQL_ERROR;
@@ -774,6 +793,13 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
           int tsdb_type = supported[i].tsdb_type;
           int16_t sql_type = supported[i].sql_type;
           if (fake.type != tsdb_type) continue;
+          if (fake.type == TSDB_DATA_TYPE_TIMESTAMP) {
+            if (!columns->owner->conn->cfg.timestamp_as_is) {
+              tsdb->type = TSDB_DATA_TYPE_SMALLINT;
+              tsdb->i16 = SQL_WVARCHAR;
+              break;
+            }
+          }
           tsdb->type = TSDB_DATA_TYPE_SMALLINT;
           tsdb->i16 = sql_type;
           break;
@@ -782,12 +808,29 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
       }
     case 6: // TYPE_NAME
       // better approach?
+      if (fake.type== TSDB_DATA_TYPE_TIMESTAMP) {
+        if (!columns->owner->conn->cfg.timestamp_as_is) {
+          tsdb->type = TSDB_DATA_TYPE_VARCHAR;
+          tsdb->str.str = "NCHAR";
+          tsdb->str.len = 5;
+          break;
+        }
+      }
       tsdb->type = TSDB_DATA_TYPE_VARCHAR;
       tsdb->str  = col_type->str;
       OW("TYPE_NAME:[%.*s]", (int)tsdb->str.len, tsdb->str.str);
       break;
     case 7: // COLUMN_SIZE
       // better approach?
+      if (fake.type== TSDB_DATA_TYPE_TIMESTAMP) {
+        if (!columns->owner->conn->cfg.timestamp_as_is) {
+          int time_precision = columns->query.res.time_precision;
+          int precision = 20 + (time_precision + 1) * 3;
+          tsdb->type = TSDB_DATA_TYPE_INT;
+          tsdb->i32  = precision;
+          return SQL_SUCCESS;
+        }
+      }
       tsdb->type = TSDB_DATA_TYPE_INT;
       tsdb->i32  = col_length->i32;
       OW("COLUMN_SIZE:[%d]", tsdb->i32);

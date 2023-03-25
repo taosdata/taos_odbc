@@ -601,7 +601,7 @@ static void usage(const char *arg0)
   }
 }
 
-static int dumping(int argc, const char *argv[])
+static int dumping(int argc, char *argv[])
 {
   int r = 0;
 

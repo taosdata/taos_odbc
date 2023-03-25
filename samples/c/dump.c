@@ -270,10 +270,8 @@ static int _dump_stmt_col_info(SQLSMALLINT HandleType, SQLHANDLE Handle)
   SQLHANDLE hstmt = Handle;
 
   const char *sqls[] = {
-    "drop database if exists bar",
-    "create database bar",
-    "use bar",
-    "create table x (ts timestamp, d float)",
+    "drop table if exists x",
+    "create table x (ts timestamp, i8 tinyint, i16 smallint, i32 int, i64 bigint, f real, d float, name varchar(20), mark nchar(2))",
   };
 
   r = execute_sqls(hstmt, sqls, sizeof(sqls)/sizeof(sqls[0]));
@@ -370,9 +368,78 @@ again:
   return 0;
 }
 
+static int _dump_stmt_describe_col(SQLSMALLINT HandleType, SQLHANDLE Handle)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
+
+  if (HandleType != SQL_HANDLE_STMT) return 0;
+
+  DUMP("");
+  DUMP("%s:", __func__);
+
+  SQLHANDLE hstmt = Handle;
+
+  const char *sqls[] = {
+    "drop table if exists x",
+    "create table x (ts timestamp, b bit, i8 tinyint, i16 smallint, i32 int, i64 bigint, f real, d float, name varchar(20), mark nchar(2))",
+  };
+
+  r = execute_sqls(hstmt, sqls, sizeof(sqls)/sizeof(sqls[0]));
+  if (r) return -1;
+
+  const char *sql = "select * from x";
+  sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
+  if (sr != SQL_SUCCESS) return -1;
+
+  SQLSMALLINT ColumnCount;
+  sr = CALL_SQLNumResultCols(hstmt, &ColumnCount);
+  if (sr != SQL_SUCCESS) return -1;
+
+  for (SQLSMALLINT i = 0; i<ColumnCount; ++i) {
+    char buf[4096];
+    SQLSMALLINT    NameLength;
+    SQLSMALLINT    DataType;
+    SQLULEN        ColumnSize;
+    SQLSMALLINT    DecimalDigits;
+    SQLSMALLINT    Nullable;
+    SQLLEN         NumericAttribute;
+
+    sr = CALL_SQLDescribeCol(hstmt, i+1, (SQLCHAR*)buf, sizeof(buf), &NameLength, &DataType, &ColumnSize, &DecimalDigits, &Nullable);
+    if (sr != SQL_SUCCESS) return -1;
+    DUMP("Column%d Name:%s, DataType:%s, ColumnSize:%" PRIu64 ", DecimalDigits:%d, Nullable:%s",
+      i+1, buf, sql_data_type(DataType), (uint64_t)ColumnSize, DecimalDigits, sql_nullable(Nullable));
+
+    sr = CALL_SQLColAttribute(hstmt, i+1, SQL_DESC_NAME, (SQLCHAR*)buf, sizeof(buf), &NameLength, &NumericAttribute);
+    if (sr != SQL_SUCCESS) return -1;
+
+    SQLLEN         DESC_LENGTH;
+    sr = CALL_SQLColAttribute(hstmt, i+1, SQL_DESC_LENGTH, NULL, 0, NULL, &DESC_LENGTH);
+    if (sr != SQL_SUCCESS) return -1;
+
+    SQLLEN         DESC_PRECISION;
+    sr = CALL_SQLColAttribute(hstmt, i+1, SQL_DESC_PRECISION, NULL, 0, NULL, &DESC_PRECISION);
+    if (sr != SQL_SUCCESS) return -1;
+
+    SQLLEN         DESC_SCALE;
+    sr = CALL_SQLColAttribute(hstmt, i+1, SQL_DESC_SCALE, NULL, 0, NULL, &DESC_SCALE);
+    if (sr != SQL_SUCCESS) return -1;
+
+    SQLLEN         DESC_OCTET_LENGTH;
+    sr = CALL_SQLColAttribute(hstmt, i+1, SQL_DESC_OCTET_LENGTH, NULL, 0, NULL, &DESC_OCTET_LENGTH);
+    if (sr != SQL_SUCCESS) return -1;
+
+    DUMP("Column%d Name:%s, DESC_LENGTH:%" PRId64 ", DESC_PRECISION:%" PRId64 ", DESC_SCALE:%" PRId64 ", DESC_OCTET_LENGTH:%" PRId64 "",
+      i+1, buf, DESC_LENGTH, DESC_PRECISION, DESC_SCALE, DESC_OCTET_LENGTH);
+  }
+
+  return 0;
+}
+
 static const dump_f _dumps[] = {
   _dump_stmt_col_info,
   _dump_stmt_tables,
+  _dump_stmt_describe_col,
 };
 
 typedef struct conn_arg_s             conn_arg_t;
@@ -413,8 +480,18 @@ static int dump_with_stmt(SQLHANDLE hstmt)
 {
   int r = 0;
 
+  const char *sqls[] = {
+    "drop database if exists bar",
+    "create database bar",
+    "use bar",
+  };
+
+  r = execute_sqls(hstmt, sqls, sizeof(sqls)/sizeof(sqls[0]));
+  if (r) return -1;
+
   for (size_t i=0; i<sizeof(_dumps)/sizeof(_dumps[0]); ++i) {
     r = _dumps[i](SQL_HANDLE_STMT, hstmt);
+    CALL_SQLCloseCursor(hstmt);
     if (r) return -1;
   }
 

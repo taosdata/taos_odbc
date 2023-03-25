@@ -820,17 +820,361 @@ static SQLRETURN _stmt_set_row_bind_offset_ptr(stmt_t *stmt, SQLULEN *row_bind_o
 //   return ARD_header->DESC_BIND_OFFSET_PTR;
 // }
 
-static SQLRETURN _stmt_describe_col(stmt_t *stmt,
-    SQLUSMALLINT   ColumnNumber,
-    SQLCHAR       *ColumnName,
-    SQLSMALLINT    BufferLength,
-    SQLSMALLINT   *NameLengthPtr,
-    SQLSMALLINT   *DataTypePtr,
-    SQLULEN       *ColumnSizePtr,
-    SQLSMALLINT   *DecimalDigitsPtr,
-    SQLSMALLINT   *NullablePtr)
+static SQLRETURN _stmt_col_attr_DESC_CONCISE_TYPE(
+    stmt_t               *stmt,
+    const TAOS_FIELD     *col,
+    SQLUSMALLINT          FieldIdentifier,
+    SQLLEN               *NumericAttributePtr)
 {
-  return stmt->base->describe_col(stmt->base, ColumnNumber, ColumnName, BufferLength, NameLengthPtr, DataTypePtr, ColumnSizePtr, DecimalDigitsPtr, NullablePtr);
+  static struct {
+    int                 tsdb_type;
+    int                 sql_type;
+  } _maps[] = {
+    {TSDB_DATA_TYPE_TIMESTAMP,              SQL_TYPE_TIMESTAMP},
+    {TSDB_DATA_TYPE_BOOL,                   SQL_BIT},
+    {TSDB_DATA_TYPE_TINYINT,                SQL_TINYINT},
+    {TSDB_DATA_TYPE_SMALLINT,               SQL_SMALLINT},
+    {TSDB_DATA_TYPE_INT,                    SQL_INTEGER},
+    {TSDB_DATA_TYPE_BIGINT,                 SQL_BIGINT},
+    {TSDB_DATA_TYPE_FLOAT,                  SQL_REAL},
+    {TSDB_DATA_TYPE_DOUBLE,                 SQL_DOUBLE},
+    {TSDB_DATA_TYPE_VARCHAR,                SQL_VARCHAR},
+    {TSDB_DATA_TYPE_NCHAR,                  SQL_WVARCHAR},
+    {TSDB_DATA_TYPE_UTINYINT,               SQL_TINYINT},
+    {TSDB_DATA_TYPE_USMALLINT,              SQL_SMALLINT},
+    {TSDB_DATA_TYPE_UINT,                   SQL_INTEGER},
+    {TSDB_DATA_TYPE_UBIGINT,                SQL_BIGINT},
+  };
+
+  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
+    if (col->type != _maps[i].tsdb_type) continue;
+    *NumericAttributePtr = _maps[i].sql_type;
+    return SQL_SUCCESS;
+  }
+
+  stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
+      sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
+      taos_data_type(col->type));
+  return SQL_ERROR;
+}
+
+static SQLRETURN _stmt_col_attr_DESC_OCTET_LENGTH(
+    stmt_t               *stmt,
+    const TAOS_FIELD     *col,
+    SQLUSMALLINT          FieldIdentifier,
+    SQLLEN               *NumericAttributePtr)
+{
+  static struct {
+    int                 tsdb_type;
+    int                 octet_length;
+  } _maps[] = {
+    {TSDB_DATA_TYPE_TIMESTAMP,              8},
+    {TSDB_DATA_TYPE_BOOL,                   1},
+    {TSDB_DATA_TYPE_TINYINT,                1},
+    {TSDB_DATA_TYPE_SMALLINT,               2},
+    {TSDB_DATA_TYPE_INT,                    4},
+    {TSDB_DATA_TYPE_BIGINT,                 8},
+    {TSDB_DATA_TYPE_FLOAT,                  4},
+    {TSDB_DATA_TYPE_DOUBLE,                 8},
+    {TSDB_DATA_TYPE_VARCHAR,                -1},
+    {TSDB_DATA_TYPE_NCHAR,                  -1},
+    {TSDB_DATA_TYPE_UTINYINT,               1},
+    {TSDB_DATA_TYPE_USMALLINT,              2},
+    {TSDB_DATA_TYPE_UINT,                   4},
+    {TSDB_DATA_TYPE_UBIGINT,                8},
+  };
+
+  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
+    if (col->type != _maps[i].tsdb_type) continue;
+    if (_maps[i].octet_length != -1 && _maps[i].octet_length != col->bytes) {
+      stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s`, octet length is expected to be %d, but got ==%d==",
+          sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
+          taos_data_type(col->type), _maps[i].octet_length, col->bytes);
+      return SQL_ERROR;
+    }
+    if (_maps[i].octet_length == -1) {
+      *NumericAttributePtr = col->bytes;
+    } else {
+      *NumericAttributePtr = _maps[i].octet_length;
+    }
+    return SQL_SUCCESS;
+  }
+  stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
+      sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
+      taos_data_type(col->type));
+  return SQL_ERROR;
+}
+
+static SQLRETURN _stmt_col_attr_DESC_PRECISION(
+    stmt_t               *stmt,
+    const TAOS_FIELD     *col,
+    SQLUSMALLINT          FieldIdentifier,
+    SQLLEN               *NumericAttributePtr)
+{
+  static struct {
+    int                 tsdb_type;
+    int                 precision;
+  } _maps[] = {
+    {TSDB_DATA_TYPE_TIMESTAMP,              -1},
+    {TSDB_DATA_TYPE_BOOL,                   1},
+    {TSDB_DATA_TYPE_TINYINT,                3},
+    {TSDB_DATA_TYPE_SMALLINT,               5},
+    {TSDB_DATA_TYPE_INT,                    10},
+    {TSDB_DATA_TYPE_BIGINT,                 19},
+    {TSDB_DATA_TYPE_FLOAT,                  24},
+    {TSDB_DATA_TYPE_DOUBLE,                 53},
+    {TSDB_DATA_TYPE_VARCHAR,                -1},
+    {TSDB_DATA_TYPE_NCHAR,                  -1},
+    {TSDB_DATA_TYPE_UTINYINT,               3},
+    {TSDB_DATA_TYPE_USMALLINT,              5},
+    {TSDB_DATA_TYPE_UINT,                   10},
+    {TSDB_DATA_TYPE_UBIGINT,                20},
+  };
+
+  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
+    if (col->type != _maps[i].tsdb_type) continue;
+    if (_maps[i].precision != -1 && _maps[i].precision != col->bytes) {
+      stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s`, precision is expected to be %d, but got ==%d==",
+          sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
+          taos_data_type(col->type), _maps[i].precision, col->bytes);
+      return SQL_ERROR;
+    }
+    if (_maps[i].precision == -1) {
+      if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
+        tsdb_res_t *res = &stmt->tsdb_stmt.res;
+        *NumericAttributePtr = (res->time_precision + 1) * 3;
+      } else {
+        *NumericAttributePtr = col->bytes;
+      }
+    } else {
+      *NumericAttributePtr = _maps[i].precision;
+    }
+    return SQL_SUCCESS;
+  }
+  stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
+      sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
+      taos_data_type(col->type));
+  return SQL_ERROR;
+}
+
+static SQLRETURN _stmt_col_attr_DESC_SCALE(
+    stmt_t               *stmt,
+    const TAOS_FIELD     *col,
+    SQLUSMALLINT          FieldIdentifier,
+    SQLLEN               *NumericAttributePtr)
+{
+  static struct {
+    int                 tsdb_type;
+    int                 scale;
+  } _maps[] = {
+    {TSDB_DATA_TYPE_TIMESTAMP,              0},
+    {TSDB_DATA_TYPE_BOOL,                   0},
+    {TSDB_DATA_TYPE_TINYINT,                0},
+    {TSDB_DATA_TYPE_SMALLINT,               0},
+    {TSDB_DATA_TYPE_INT,                    0},
+    {TSDB_DATA_TYPE_BIGINT,                 0},
+    {TSDB_DATA_TYPE_FLOAT,                  0},
+    {TSDB_DATA_TYPE_DOUBLE,                 0},
+    {TSDB_DATA_TYPE_VARCHAR,                0},
+    {TSDB_DATA_TYPE_NCHAR,                  0},
+    {TSDB_DATA_TYPE_UTINYINT,               0},
+    {TSDB_DATA_TYPE_USMALLINT,              0},
+    {TSDB_DATA_TYPE_UINT,                   0},
+    {TSDB_DATA_TYPE_UBIGINT,                0},
+  };
+
+  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
+    if (col->type != _maps[i].tsdb_type) continue;
+    *NumericAttributePtr = _maps[i].scale;
+    return SQL_SUCCESS;
+  }
+  stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
+      sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
+      taos_data_type(col->type));
+  return SQL_ERROR;
+}
+
+static SQLRETURN _stmt_col_attr_DESC_NAME(
+    stmt_t               *stmt,
+    const TAOS_FIELD     *col,
+    SQLUSMALLINT          FieldIdentifier,
+    SQLPOINTER            CharacterAttributePtr,
+    SQLSMALLINT           BufferLength,
+    SQLSMALLINT          *StringLengthPtr)
+{
+  int n;
+  n = snprintf(CharacterAttributePtr, BufferLength, "%.*s", (int)sizeof(col->name), col->name);
+  if (n < 0) {
+    int e = errno;
+    stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
+    return SQL_ERROR;
+  }
+  if (StringLengthPtr) *StringLengthPtr = n;
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_col_attr_DESC_TYPE_NAME(
+    stmt_t               *stmt,
+    const TAOS_FIELD     *col,
+    SQLUSMALLINT          FieldIdentifier,
+    SQLPOINTER            CharacterAttributePtr,
+    SQLSMALLINT           BufferLength,
+    SQLSMALLINT          *StringLengthPtr)
+{
+  static struct {
+    int                 tsdb_type;
+    const char         *name;
+  } _maps[] = {
+    {TSDB_DATA_TYPE_TIMESTAMP,              "TIMESTAMP"},
+    {TSDB_DATA_TYPE_BOOL,                   "BOOL"},
+    {TSDB_DATA_TYPE_TINYINT,                "TINYINT"},
+    {TSDB_DATA_TYPE_SMALLINT,               "SMALLINT"},
+    {TSDB_DATA_TYPE_INT,                    "INT"},
+    {TSDB_DATA_TYPE_BIGINT,                 "BIGINT"},
+    {TSDB_DATA_TYPE_FLOAT,                  "FLOAT"},
+    {TSDB_DATA_TYPE_DOUBLE,                 "DOUBLE"},
+    {TSDB_DATA_TYPE_VARCHAR,                "VARCHAR"},
+    {TSDB_DATA_TYPE_NCHAR,                  "NCHAR"},
+    {TSDB_DATA_TYPE_UTINYINT,               "TINYINT UNSIGNED"},
+    {TSDB_DATA_TYPE_USMALLINT,              "SMALLINT UNSIGNED"},
+    {TSDB_DATA_TYPE_UINT,                   "INT UNSIGNED"},
+    {TSDB_DATA_TYPE_UBIGINT,                "BIGINT UNSIGNED"},
+  };
+
+  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
+    if (col->type != _maps[i].tsdb_type) continue;
+    int n = snprintf(CharacterAttributePtr, BufferLength, "%s", _maps[i].name);
+    if (n < 0) {
+      int e = errno;
+      stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
+      return SQL_ERROR;
+    }
+    if (StringLengthPtr) *StringLengthPtr = n;
+    return SQL_SUCCESS;
+  }
+  stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
+      sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
+      taos_data_type(col->type));
+  return SQL_ERROR;
+}
+
+static SQLRETURN _stmt_col_attr_DESC_LENGTH(
+    stmt_t               *stmt,
+    const TAOS_FIELD     *col,
+    SQLUSMALLINT          FieldIdentifier,
+    SQLLEN               *NumericAttributePtr)
+{
+  static struct {
+    int                 tsdb_type;
+    int                 length;
+  } _maps[] = {
+    {TSDB_DATA_TYPE_TIMESTAMP,              -1},
+    {TSDB_DATA_TYPE_BOOL,                   1},
+    {TSDB_DATA_TYPE_TINYINT,                3},
+    {TSDB_DATA_TYPE_SMALLINT,               5},
+    {TSDB_DATA_TYPE_INT,                    10},
+    {TSDB_DATA_TYPE_BIGINT,                 19},
+    {TSDB_DATA_TYPE_FLOAT,                  7},    // FIXME: not 24 as precision
+    {TSDB_DATA_TYPE_DOUBLE,                 15},   // FIXME: not 53 as precision
+    {TSDB_DATA_TYPE_VARCHAR,                -1},
+    {TSDB_DATA_TYPE_NCHAR,                  -1},
+    {TSDB_DATA_TYPE_UTINYINT,               3},
+    {TSDB_DATA_TYPE_USMALLINT,              5},
+    {TSDB_DATA_TYPE_UINT,                   10},
+    {TSDB_DATA_TYPE_UBIGINT,                20},
+  };
+
+  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
+    if (col->type != _maps[i].tsdb_type) continue;
+    if (_maps[i].length == -1) {
+      switch (col->type) {
+        case TSDB_DATA_TYPE_TIMESTAMP: {
+          tsdb_res_t *res = &stmt->tsdb_stmt.res;
+          *NumericAttributePtr = 20 + (res->time_precision + 1) * 3;
+        } break;
+        case TSDB_DATA_TYPE_VARCHAR:
+        case TSDB_DATA_TYPE_NCHAR:
+          *NumericAttributePtr = col->bytes;
+          break;
+        default:
+          stmt_append_err(stmt, "HY000", 0, "General error:internal logic error");
+          return SQL_ERROR;
+      }
+    } else {
+      *NumericAttributePtr = _maps[i].length;
+    }
+    return SQL_SUCCESS;
+  }
+  stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
+      sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
+      taos_data_type(col->type));
+  return SQL_ERROR;
+}
+
+static SQLRETURN _stmt_col_attr_DESC_NUM_PREC_RADIX(
+    stmt_t               *stmt,
+    const TAOS_FIELD     *col,
+    SQLUSMALLINT          FieldIdentifier,
+    SQLLEN               *NumericAttributePtr)
+{
+  static struct {
+    int                 tsdb_type;
+    int                 radix;
+  } _maps[] = {
+    {TSDB_DATA_TYPE_TIMESTAMP,              10},
+    {TSDB_DATA_TYPE_BOOL,                   10},
+    {TSDB_DATA_TYPE_TINYINT,                10},
+    {TSDB_DATA_TYPE_SMALLINT,               10},
+    {TSDB_DATA_TYPE_INT,                    10},
+    {TSDB_DATA_TYPE_BIGINT,                 10},
+    {TSDB_DATA_TYPE_FLOAT,                  2},
+    {TSDB_DATA_TYPE_DOUBLE,                 2},
+    {TSDB_DATA_TYPE_VARCHAR,                10},
+    {TSDB_DATA_TYPE_NCHAR,                  10},
+    {TSDB_DATA_TYPE_UTINYINT,               10},
+    {TSDB_DATA_TYPE_USMALLINT,              10},
+    {TSDB_DATA_TYPE_UINT,                   10},
+    {TSDB_DATA_TYPE_UBIGINT,                10},
+  };
+
+  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
+    if (col->type != _maps[i].tsdb_type) continue;
+    *NumericAttributePtr = _maps[i].radix;
+    return SQL_SUCCESS;
+  }
+  stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
+      sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
+      taos_data_type(col->type));
+  return SQL_ERROR;
+}
+
+static SQLRETURN _stmt_col_attr_DESC_UNSIGNED(
+    stmt_t               *stmt,
+    const TAOS_FIELD     *col,
+    SQLUSMALLINT          FieldIdentifier,
+    SQLLEN               *NumericAttributePtr)
+{
+  static struct {
+    int                 tsdb_type;
+    int                 unsigned_;
+  } _maps[] = {
+    {TSDB_DATA_TYPE_TINYINT,                SQL_FALSE},
+    {TSDB_DATA_TYPE_SMALLINT,               SQL_FALSE},
+    {TSDB_DATA_TYPE_INT,                    SQL_FALSE},
+    {TSDB_DATA_TYPE_BIGINT,                 SQL_FALSE},
+    {TSDB_DATA_TYPE_UTINYINT,               SQL_TRUE},
+    {TSDB_DATA_TYPE_USMALLINT,              SQL_TRUE},
+    {TSDB_DATA_TYPE_UINT,                   SQL_TRUE},
+    {TSDB_DATA_TYPE_UBIGINT,                SQL_TRUE},
+  };
+
+  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
+    if (col->type != _maps[i].tsdb_type) continue;
+    *NumericAttributePtr = _maps[i].unsigned_;
+    return SQL_SUCCESS;
+  }
+  stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` has no SIGNESS", taos_data_type(col->type), col->type, col->type);
+  return SQL_ERROR;
 }
 
 SQLRETURN stmt_describe_col(stmt_t *stmt,
@@ -848,7 +1192,41 @@ SQLRETURN stmt_describe_col(stmt_t *stmt,
     return SQL_ERROR;
   }
 
-  return _stmt_describe_col(stmt, ColumnNumber, ColumnName, BufferLength, NameLengthPtr, DataTypePtr, ColumnSizePtr, DecimalDigitsPtr, NullablePtr);
+  SQLRETURN sr = SQL_SUCCESS;
+
+  TAOS_FIELD *fields;
+  size_t nr;
+  SQLLEN NumericAttribute;
+
+  sr = stmt->base->get_fields(stmt->base, &fields, &nr);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  const TAOS_FIELD *col = fields + ColumnNumber - 1;
+
+  sr = _stmt_col_attr_DESC_NAME(stmt, col, SQL_DESC_NAME, ColumnName, BufferLength, NameLengthPtr);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  if (DataTypePtr) {
+    sr = _stmt_col_attr_DESC_CONCISE_TYPE(stmt, col, SQL_DESC_CONCISE_TYPE, &NumericAttribute);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+    *DataTypePtr = (SQLSMALLINT)NumericAttribute;
+  }
+
+  if (ColumnSizePtr) {
+    sr = _stmt_col_attr_DESC_LENGTH(stmt, col, SQL_DESC_LENGTH, &NumericAttribute);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+    *ColumnSizePtr = (SQLULEN)NumericAttribute;
+  }
+
+  if (DecimalDigitsPtr) {
+    sr = _stmt_col_attr_DESC_SCALE(stmt, col, SQL_DESC_SCALE, &NumericAttribute);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+    *DecimalDigitsPtr = (SQLSMALLINT)NumericAttribute;
+  }
+
+  if (NullablePtr) *NullablePtr = SQL_NULLABLE_UNKNOWN;
+
+  return SQL_SUCCESS;
 }
 
 SQLRETURN _stmt_bind_col(stmt_t *stmt,
@@ -876,25 +1254,6 @@ SQLRETURN stmt_bind_col(stmt_t *stmt,
 
   return _stmt_bind_col(stmt, ColumnNumber, TargetType, TargetValuePtr, BufferLength, StrLen_or_IndPtr);
 }
-
-// static SQLRETURN _stmt_get_data_len(stmt_t *stmt, int row, int col, const char **data, int *len)
-// {
-//   tsdb_res_t           *res          = &stmt->tsdb_stmt.res;
-//   tsdb_fields_t        *fields       = &res->fields;
-//   tsdb_rows_block_t    *rows_block   = &res->rows_block;
-// 
-//   TAOS_FIELD       *field = fields->fields + col;
-//   int r = helper_get_data_len(res->res, field, rows_block->rows, row, col, data, len);
-// 
-//   if (r) {
-//     stmt_append_err_format(stmt, "HY000", 0,
-//         "General error:#%d Column[%s] conversion from `%s[0x%x/%d]` not implemented yet",
-//         col+1, field->name, taos_data_type(field->type), field->type, field->type);
-//     return SQL_ERROR;
-//   }
-// 
-//   return SQL_SUCCESS;
-// }
 
 static SQLPOINTER _stmt_get_address(stmt_t *stmt, SQLPOINTER ptr, SQLULEN octet_length, size_t i_row, desc_header_t *header)
 {
@@ -4249,8 +4608,6 @@ SQLRETURN stmt_col_attribute(
 
   SQLRETURN sr = SQL_SUCCESS;
 
-  tsdb_res_t        *res        = &stmt->tsdb_stmt.res;
-
   TAOS_FIELD *fields;
   size_t nr;
 
@@ -4258,163 +4615,23 @@ SQLRETURN stmt_col_attribute(
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   const TAOS_FIELD *col = fields + ColumnNumber - 1;
-  int n;
 
   // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
   switch(FieldIdentifier) {
     case SQL_DESC_CONCISE_TYPE:
-      {
-        static struct {
-          int                 tsdb_type;
-          int                 sql_type;
-        } _maps[] = {
-          {TSDB_DATA_TYPE_TIMESTAMP,              SQL_TYPE_TIMESTAMP},
-          {TSDB_DATA_TYPE_BOOL,                   SQL_BIT},
-          {TSDB_DATA_TYPE_TINYINT,                SQL_TINYINT},
-          {TSDB_DATA_TYPE_SMALLINT,               SQL_SMALLINT},
-          {TSDB_DATA_TYPE_INT,                    SQL_INTEGER},
-          {TSDB_DATA_TYPE_BIGINT,                 SQL_BIGINT},
-          {TSDB_DATA_TYPE_FLOAT,                  SQL_REAL},
-          {TSDB_DATA_TYPE_DOUBLE,                 SQL_DOUBLE},
-          {TSDB_DATA_TYPE_VARCHAR,                SQL_VARCHAR},
-          {TSDB_DATA_TYPE_NCHAR,                  SQL_WVARCHAR},
-          {TSDB_DATA_TYPE_UTINYINT,               SQL_TINYINT},
-          {TSDB_DATA_TYPE_USMALLINT,              SQL_SMALLINT},
-          {TSDB_DATA_TYPE_UINT,                   SQL_INTEGER},
-          {TSDB_DATA_TYPE_UBIGINT,                SQL_BIGINT},
-        };
-
-        for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-          if (col->type != _maps[i].tsdb_type) continue;
-          *NumericAttributePtr = _maps[i].sql_type;
-          return SQL_SUCCESS;
-        }
-
-        stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
-            sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-            taos_data_type(col->type));
-        return SQL_ERROR;
-      }
+      return _stmt_col_attr_DESC_CONCISE_TYPE(stmt, col, FieldIdentifier, NumericAttributePtr);
     case SQL_DESC_OCTET_LENGTH:
-      {
-        static struct {
-          int                 tsdb_type;
-          int                 octet_length;
-        } _maps[] = {
-          {TSDB_DATA_TYPE_TIMESTAMP,              8},
-          {TSDB_DATA_TYPE_BOOL,                   1},
-          {TSDB_DATA_TYPE_TINYINT,                1},
-          {TSDB_DATA_TYPE_SMALLINT,               2},
-          {TSDB_DATA_TYPE_INT,                    4},
-          {TSDB_DATA_TYPE_BIGINT,                 8},
-          {TSDB_DATA_TYPE_FLOAT,                  4},
-          {TSDB_DATA_TYPE_DOUBLE,                 8},
-          {TSDB_DATA_TYPE_VARCHAR,                -1},
-          {TSDB_DATA_TYPE_NCHAR,                  -1},
-          {TSDB_DATA_TYPE_UTINYINT,               1},
-          {TSDB_DATA_TYPE_USMALLINT,              2},
-          {TSDB_DATA_TYPE_UINT,                   4},
-          {TSDB_DATA_TYPE_UBIGINT,                8},
-        };
-
-        for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-          if (col->type != _maps[i].tsdb_type) continue;
-          if (_maps[i].octet_length != -1 && _maps[i].octet_length != col->bytes) {
-            stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s`, octet length is expected to be %d, but got ==%d==",
-                sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-                taos_data_type(col->type), _maps[i].octet_length, col->bytes);
-            return SQL_ERROR;
-          }
-          if (_maps[i].octet_length == -1) {
-            *NumericAttributePtr = col->bytes;
-          } else {
-            *NumericAttributePtr = _maps[i].octet_length;
-          }
-          return SQL_SUCCESS;
-        }
-        stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
-            sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-            taos_data_type(col->type));
-        return SQL_ERROR;
-      }
+      return _stmt_col_attr_DESC_OCTET_LENGTH(stmt, col, FieldIdentifier, NumericAttributePtr);
     // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
+    case SQL_DESC_LENGTH:
+      return _stmt_col_attr_DESC_LENGTH(stmt, col, FieldIdentifier, NumericAttributePtr);
     case SQL_DESC_PRECISION:
     case SQL_COLUMN_PRECISION:
-      {
-        static struct {
-          int                 tsdb_type;
-          int                 precision;
-        } _maps[] = {
-          {TSDB_DATA_TYPE_TIMESTAMP,              -1},
-          {TSDB_DATA_TYPE_BOOL,                   0},
-          {TSDB_DATA_TYPE_TINYINT,                0},
-          {TSDB_DATA_TYPE_SMALLINT,               0},
-          {TSDB_DATA_TYPE_INT,                    0},
-          {TSDB_DATA_TYPE_BIGINT,                 0},
-          {TSDB_DATA_TYPE_FLOAT,                  24},
-          {TSDB_DATA_TYPE_DOUBLE,                 53},
-          {TSDB_DATA_TYPE_VARCHAR,                0},
-          {TSDB_DATA_TYPE_NCHAR,                  0},
-          {TSDB_DATA_TYPE_UTINYINT,               0},
-          {TSDB_DATA_TYPE_USMALLINT,              0},
-          {TSDB_DATA_TYPE_UINT,                   0},
-          {TSDB_DATA_TYPE_UBIGINT,                0},
-        };
-
-        for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-          if (col->type != _maps[i].tsdb_type) continue;
-          if (_maps[i].precision != -1 && _maps[i].precision != col->bytes) {
-            stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s`, precision is expected to be %d, but got ==%d==",
-                sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-                taos_data_type(col->type), _maps[i].precision, col->bytes);
-            return SQL_ERROR;
-          }
-          if (_maps[i].precision == -1) {
-            *NumericAttributePtr = (res->time_precision + 1) * 3;
-          } else {
-            *NumericAttributePtr = _maps[i].precision;
-          }
-          return SQL_SUCCESS;
-        }
-        stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
-            sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-            taos_data_type(col->type));
-        return SQL_ERROR;
-      }
+      return _stmt_col_attr_DESC_PRECISION(stmt, col, FieldIdentifier, NumericAttributePtr);
     // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
     case SQL_DESC_SCALE:
     case SQL_COLUMN_SCALE:
-      {
-        static struct {
-          int                 tsdb_type;
-          int                 scale;
-        } _maps[] = {
-          {TSDB_DATA_TYPE_TIMESTAMP,              0},
-          {TSDB_DATA_TYPE_BOOL,                   0},
-          {TSDB_DATA_TYPE_TINYINT,                0},
-          {TSDB_DATA_TYPE_SMALLINT,               0},
-          {TSDB_DATA_TYPE_INT,                    0},
-          {TSDB_DATA_TYPE_BIGINT,                 0},
-          {TSDB_DATA_TYPE_FLOAT,                  0},
-          {TSDB_DATA_TYPE_DOUBLE,                 0},
-          {TSDB_DATA_TYPE_VARCHAR,                0},
-          {TSDB_DATA_TYPE_NCHAR,                  0},
-          {TSDB_DATA_TYPE_UTINYINT,               0},
-          {TSDB_DATA_TYPE_USMALLINT,              0},
-          {TSDB_DATA_TYPE_UINT,                   0},
-          {TSDB_DATA_TYPE_UBIGINT,                0},
-        };
-
-        for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-          if (col->type != _maps[i].tsdb_type) continue;
-          *NumericAttributePtr = _maps[i].scale;
-          return SQL_SUCCESS;
-        }
-        stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
-            sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-            taos_data_type(col->type));
-        return SQL_ERROR;
-      }
+      return _stmt_col_attr_DESC_SCALE(stmt, col, FieldIdentifier, NumericAttributePtr);
     case SQL_DESC_AUTO_UNIQUE_VALUE:
       *NumericAttributePtr = SQL_FALSE;
       break;
@@ -4425,155 +4642,13 @@ SQLRETURN stmt_col_attribute(
       *NumericAttributePtr = SQL_NULLABLE_UNKNOWN;
       break;
     case SQL_DESC_NAME:
-      n = snprintf(CharacterAttributePtr, BufferLength, "%.*s", (int)sizeof(col->name), col->name);
-      if (n < 0) {
-        int e = errno;
-        stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
-        return SQL_ERROR;
-      }
-      if (StringLengthPtr) *StringLengthPtr = n;
-      break;
-    case SQL_COLUMN_TYPE_NAME:
-      {
-        static struct {
-          int                 tsdb_type;
-          const char         *name;
-        } _maps[] = {
-          {TSDB_DATA_TYPE_TIMESTAMP,              "TIMESTAMP"},
-          {TSDB_DATA_TYPE_BOOL,                   "BOOL"},
-          {TSDB_DATA_TYPE_TINYINT,                "TINYINT"},
-          {TSDB_DATA_TYPE_SMALLINT,               "SMALLINT"},
-          {TSDB_DATA_TYPE_INT,                    "INT"},
-          {TSDB_DATA_TYPE_BIGINT,                 "BIGINT"},
-          {TSDB_DATA_TYPE_FLOAT,                  "FLOAT"},
-          {TSDB_DATA_TYPE_DOUBLE,                 "DOUBLE"},
-          {TSDB_DATA_TYPE_VARCHAR,                "VARCHAR"},
-          {TSDB_DATA_TYPE_NCHAR,                  "NCHAR"},
-          {TSDB_DATA_TYPE_UTINYINT,               "TINYINT UNSIGNED"},
-          {TSDB_DATA_TYPE_USMALLINT,              "SMALLINT UNSIGNED"},
-          {TSDB_DATA_TYPE_UINT,                   "INT UNSIGNED"},
-          {TSDB_DATA_TYPE_UBIGINT,                "BIGINT UNSIGNED"},
-        };
-
-        for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-          if (col->type != _maps[i].tsdb_type) continue;
-          n = snprintf(CharacterAttributePtr, BufferLength, "%s", _maps[i].name);
-          if (n < 0) {
-            int e = errno;
-            stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
-            return SQL_ERROR;
-          }
-          if (StringLengthPtr) *StringLengthPtr = n;
-          return SQL_SUCCESS;
-        }
-        stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
-            sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-            taos_data_type(col->type));
-        return SQL_ERROR;
-      }
-    case SQL_DESC_LENGTH:
-      {
-        static struct {
-          int                 tsdb_type;
-          int                 length;
-        } _maps[] = {
-          {TSDB_DATA_TYPE_TIMESTAMP,              -1},
-          {TSDB_DATA_TYPE_BOOL,                   5},
-          {TSDB_DATA_TYPE_TINYINT,                3},
-          {TSDB_DATA_TYPE_SMALLINT,               5},
-          {TSDB_DATA_TYPE_INT,                    10},
-          {TSDB_DATA_TYPE_BIGINT,                 19},
-          {TSDB_DATA_TYPE_FLOAT,                  7},
-          {TSDB_DATA_TYPE_DOUBLE,                 15},
-          {TSDB_DATA_TYPE_VARCHAR,                -1},
-          {TSDB_DATA_TYPE_NCHAR,                  -1},
-          {TSDB_DATA_TYPE_UTINYINT,               4},
-          {TSDB_DATA_TYPE_USMALLINT,              6},
-          {TSDB_DATA_TYPE_UINT,                   11},
-          {TSDB_DATA_TYPE_UBIGINT,                20},
-        };
-
-        for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-          if (col->type != _maps[i].tsdb_type) continue;
-          if (_maps[i].length == -1) {
-            switch (col->type) {
-              case TSDB_DATA_TYPE_TIMESTAMP:
-                *NumericAttributePtr = 20 + (res->time_precision + 1) * 3;
-                break;
-              case TSDB_DATA_TYPE_VARCHAR:
-              case TSDB_DATA_TYPE_NCHAR:
-                *NumericAttributePtr = col->bytes;
-                break;
-              default:
-                stmt_append_err(stmt, "HY000", 0, "General error:internal logic error");
-                return SQL_ERROR;
-            }
-          } else {
-            *NumericAttributePtr = _maps[i].length;
-          }
-          return SQL_SUCCESS;
-        }
-        stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
-            sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-            taos_data_type(col->type));
-        return SQL_ERROR;
-      }
+      return _stmt_col_attr_DESC_NAME(stmt, col, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr);
+    case SQL_DESC_TYPE_NAME:
+      return _stmt_col_attr_DESC_TYPE_NAME(stmt, col, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr);
     case SQL_DESC_NUM_PREC_RADIX:
-      {
-        static struct {
-          int                 tsdb_type;
-          int                 radix;
-        } _maps[] = {
-          {TSDB_DATA_TYPE_TIMESTAMP,              10},
-          {TSDB_DATA_TYPE_BOOL,                   10},
-          {TSDB_DATA_TYPE_TINYINT,                10},
-          {TSDB_DATA_TYPE_SMALLINT,               10},
-          {TSDB_DATA_TYPE_INT,                    10},
-          {TSDB_DATA_TYPE_BIGINT,                 10},
-          {TSDB_DATA_TYPE_FLOAT,                  2},
-          {TSDB_DATA_TYPE_DOUBLE,                 2},
-          {TSDB_DATA_TYPE_VARCHAR,                10},
-          {TSDB_DATA_TYPE_NCHAR,                  10},
-          {TSDB_DATA_TYPE_UTINYINT,               10},
-          {TSDB_DATA_TYPE_USMALLINT,              10},
-          {TSDB_DATA_TYPE_UINT,                   10},
-          {TSDB_DATA_TYPE_UBIGINT,                10},
-        };
-
-        for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-          if (col->type != _maps[i].tsdb_type) continue;
-          *NumericAttributePtr = _maps[i].radix;
-          return SQL_SUCCESS;
-        }
-        stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
-            sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-            taos_data_type(col->type));
-        return SQL_ERROR;
-      }
+      return _stmt_col_attr_DESC_NUM_PREC_RADIX(stmt, col, FieldIdentifier, NumericAttributePtr);
     case SQL_DESC_UNSIGNED:
-      {
-        static struct {
-          int                 tsdb_type;
-          int                 unsigned_;
-        } _maps[] = {
-          {TSDB_DATA_TYPE_TINYINT,                SQL_FALSE},
-          {TSDB_DATA_TYPE_SMALLINT,               SQL_FALSE},
-          {TSDB_DATA_TYPE_INT,                    SQL_FALSE},
-          {TSDB_DATA_TYPE_BIGINT,                 SQL_FALSE},
-          {TSDB_DATA_TYPE_UTINYINT,               SQL_TRUE},
-          {TSDB_DATA_TYPE_USMALLINT,              SQL_TRUE},
-          {TSDB_DATA_TYPE_UINT,                   SQL_TRUE},
-          {TSDB_DATA_TYPE_UBIGINT,                SQL_TRUE},
-        };
-
-        for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-          if (col->type != _maps[i].tsdb_type) continue;
-          *NumericAttributePtr = _maps[i].unsigned_;
-          return SQL_SUCCESS;
-        }
-        stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` has no SIGNESS", taos_data_type(col->type), col->type, col->type);
-        return SQL_ERROR;
-      }
+      return _stmt_col_attr_DESC_UNSIGNED(stmt, col, FieldIdentifier, NumericAttributePtr);
     default:
       stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` not supported yet", sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier);
       return SQL_ERROR;

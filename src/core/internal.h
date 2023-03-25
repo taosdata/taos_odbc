@@ -482,15 +482,6 @@ struct stmt_base_s {
       SQLULEN        *ParameterSizePtr,
       SQLSMALLINT    *DecimalDigitsPtr,
       SQLSMALLINT    *NullablePtr);
-  SQLRETURN (*describe_col)(stmt_base_t *base,
-      SQLUSMALLINT   ColumnNumber,
-      SQLCHAR       *ColumnName,
-      SQLSMALLINT    BufferLength,
-      SQLSMALLINT   *NameLengthPtr,
-      SQLSMALLINT   *DataTypePtr,
-      SQLULEN       *ColumnSizePtr,
-      SQLSMALLINT   *DecimalDigitsPtr,
-      SQLSMALLINT   *NullablePtr);
   SQLRETURN (*get_num_params)(stmt_base_t *base, SQLSMALLINT *ParameterCountPtr);
   SQLRETURN (*check_params)(stmt_base_t *base);
   SQLRETURN (*tsdb_field_by_param)(stmt_base_t *base, int i_param, TAOS_FIELD_E **field);

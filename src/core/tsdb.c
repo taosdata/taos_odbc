@@ -357,20 +357,6 @@ static SQLRETURN _describe_param(stmt_base_t *base,
   return tsdb_stmt_describe_param(stmt, ParameterNumber, DataTypePtr, ParameterSizePtr, DecimalDigitsPtr, NullablePtr);
 }
 
-static SQLRETURN _describe_col(stmt_base_t *base,
-    SQLUSMALLINT   ColumnNumber,
-    SQLCHAR       *ColumnName,
-    SQLSMALLINT    BufferLength,
-    SQLSMALLINT   *NameLengthPtr,
-    SQLSMALLINT   *DataTypePtr,
-    SQLULEN       *ColumnSizePtr,
-    SQLSMALLINT   *DecimalDigitsPtr,
-    SQLSMALLINT   *NullablePtr)
-{
-  tsdb_stmt_t *stmt = (tsdb_stmt_t*)base;
-  return tsdb_stmt_describe_col(stmt, ColumnNumber, ColumnName, BufferLength, NameLengthPtr, DataTypePtr, ColumnSizePtr, DecimalDigitsPtr, NullablePtr);
-}
-
 static SQLRETURN _get_num_params(stmt_base_t *base, SQLSMALLINT *ParameterCountPtr)
 {
   tsdb_stmt_t *stmt = (tsdb_stmt_t*)base;
@@ -553,7 +539,6 @@ void tsdb_stmt_init(tsdb_stmt_t *stmt, stmt_t *owner)
   stmt->base.get_fields              = _get_fields;
   stmt->base.fetch_row               = _fetch_row;
   stmt->base.describe_param          = _describe_param;
-  stmt->base.describe_col            = _describe_col;
   stmt->base.get_num_params          = _get_num_params;
   stmt->base.check_params            = _check_params;
   stmt->base.tsdb_field_by_param     = _tsdb_field_by_param;
@@ -862,125 +847,6 @@ SQLRETURN tsdb_stmt_describe_param(
 
   stmt_append_err(stmt->owner, "HY000", 0, "General error:not implemented yet");
   return SQL_ERROR;
-}
-
-SQLRETURN tsdb_stmt_describe_col(
-    tsdb_stmt_t   *stmt,
-    SQLUSMALLINT   ColumnNumber,
-    SQLCHAR       *ColumnName,
-    SQLSMALLINT    BufferLength,
-    SQLSMALLINT   *NameLengthPtr,
-    SQLSMALLINT   *DataTypePtr,
-    SQLULEN       *ColumnSizePtr,
-    SQLSMALLINT   *DecimalDigitsPtr,
-    SQLSMALLINT   *NullablePtr)
-{
-  // NOTE: DM to make sure ColumnNumber is valid
-  tsdb_res_t           *res          = &stmt->res;
-  tsdb_fields_t        *fields       = &res->fields;
-  TAOS_FIELD *field = fields->fields + ColumnNumber - 1;
-
-  if (DecimalDigitsPtr) *DecimalDigitsPtr = 0;
-  if (NullablePtr)      *NullablePtr      = SQL_NULLABLE_UNKNOWN;
-
-  int n;
-  n = snprintf((char*)ColumnName, BufferLength, "%.*s", (int)sizeof(field->name), field->name);
-  if (NameLengthPtr) *NameLengthPtr = n;
-
-  if (NullablePtr) *NullablePtr = SQL_NULLABLE_UNKNOWN;
-  switch (field->type) {
-    case TSDB_DATA_TYPE_TINYINT:
-      if (DataTypePtr) {
-        if (stmt->owner->conn->cfg.unsigned_promotion) {
-          *DataTypePtr   = SQL_SMALLINT;
-        } else {
-          *DataTypePtr   = SQL_TINYINT;
-        }
-      }
-      if (ColumnSizePtr)    *ColumnSizePtr = 3;
-      break;
-    case TSDB_DATA_TYPE_UTINYINT:
-      if (DataTypePtr)      *DataTypePtr   = SQL_TINYINT;
-      if (ColumnSizePtr)    *ColumnSizePtr = 3;
-      break;
-    case TSDB_DATA_TYPE_SMALLINT:
-      if (DataTypePtr)      *DataTypePtr = SQL_SMALLINT;
-      if (ColumnSizePtr)    *ColumnSizePtr = 5;
-      break;
-    case TSDB_DATA_TYPE_USMALLINT:
-      if (DataTypePtr) {
-        if (stmt->owner->conn->cfg.unsigned_promotion) {
-          *DataTypePtr   = SQL_INTEGER;
-        } else {
-          *DataTypePtr   = SQL_SMALLINT;
-        }
-      }
-      if (ColumnSizePtr)    *ColumnSizePtr = 5;
-      break;
-    case TSDB_DATA_TYPE_INT:
-      if (DataTypePtr)      *DataTypePtr = SQL_INTEGER;
-      if (ColumnSizePtr)    *ColumnSizePtr = 10;
-      break;
-    case TSDB_DATA_TYPE_UINT:
-      if (DataTypePtr) {
-        if (stmt->owner->conn->cfg.unsigned_promotion) {
-          *DataTypePtr   = SQL_BIGINT;
-        } else {
-          *DataTypePtr   = SQL_INTEGER;
-        }
-      }
-      if (ColumnSizePtr)    *ColumnSizePtr = 10;
-      break;
-    case TSDB_DATA_TYPE_BIGINT:
-      if (DataTypePtr)      *DataTypePtr = SQL_BIGINT;
-      if (ColumnSizePtr)    *ColumnSizePtr = 19; // signed bigint
-      break;
-    case TSDB_DATA_TYPE_FLOAT:
-      if (DataTypePtr)      *DataTypePtr = SQL_REAL;
-      // https://docs.microsoft.com/en-us/sql/odbc/reference/appendixes/column-size?view=sql-server-ver16
-      if (ColumnSizePtr)    *ColumnSizePtr = 7;
-      break;
-    case TSDB_DATA_TYPE_DOUBLE:
-      if (DataTypePtr)      *DataTypePtr = SQL_DOUBLE;
-      // https://docs.microsoft.com/en-us/sql/odbc/reference/appendixes/column-size?view=sql-server-ver16
-      if (ColumnSizePtr)    *ColumnSizePtr = 15;
-      break;
-    case TSDB_DATA_TYPE_VARCHAR:
-      if (DataTypePtr)      *DataTypePtr = SQL_VARCHAR;
-      if (ColumnSizePtr)    *ColumnSizePtr = field->bytes;
-      break;
-    case TSDB_DATA_TYPE_TIMESTAMP:
-      if (DataTypePtr)      *DataTypePtr = SQL_TYPE_TIMESTAMP;
-      if (DecimalDigitsPtr) {
-        *DecimalDigitsPtr = (res->time_precision + 1) * 3;
-      }
-      if (ColumnSizePtr) {
-        *ColumnSizePtr = 20 + *DecimalDigitsPtr;
-      }
-      break;
-    case TSDB_DATA_TYPE_NCHAR:
-      if (DataTypePtr)      *DataTypePtr   = SQL_WVARCHAR;
-      if (ColumnSizePtr)    *ColumnSizePtr = field->bytes;
-      break;
-    case TSDB_DATA_TYPE_BOOL:
-      if (DataTypePtr)      *DataTypePtr   = SQL_BIT;
-      if (ColumnSizePtr)    *ColumnSizePtr = 1;
-      break;
-    default:
-      stmt_append_err_format(stmt->owner, "HY000", 0,
-          "General error:`%s[%d]` for Column `%.*s[#%d]` not implemented yet",
-          taos_data_type(field->type), field->type, (int)sizeof(field->name), field->name, ColumnNumber);
-      return SQL_ERROR;
-  }
-
-  if (n >= BufferLength) {
-    stmt_append_err_format(stmt->owner, "01004", 0,
-        "String data, right truncated:Column `%.*s[#%d]` truncated to [%s]",
-        (int)sizeof(field->name), field->name, ColumnNumber, ColumnName);
-    return SQL_SUCCESS_WITH_INFO;
-  }
-
-  return SQL_SUCCESS;
 }
 
 TAOS_FIELD_E* tsdb_stmt_get_tsdb_field_by_tsdb_params(tsdb_stmt_t *stmt, int i_param)

@@ -64,16 +64,6 @@ SQLRETURN tsdb_stmt_describe_param(
     SQLULEN        *ParameterSizePtr,
     SQLSMALLINT    *DecimalDigitsPtr,
     SQLSMALLINT    *NullablePtr) FA_HIDDEN;
-SQLRETURN tsdb_stmt_describe_col(
-    tsdb_stmt_t   *stmt,
-    SQLUSMALLINT   ColumnNumber,
-    SQLCHAR       *ColumnName,
-    SQLSMALLINT    BufferLength,
-    SQLSMALLINT   *NameLengthPtr,
-    SQLSMALLINT   *DataTypePtr,
-    SQLULEN       *ColumnSizePtr,
-    SQLSMALLINT   *DecimalDigitsPtr,
-    SQLSMALLINT   *NullablePtr) FA_HIDDEN;
 TAOS_FIELD_E* tsdb_stmt_get_tsdb_field_by_tsdb_params(tsdb_stmt_t *stmt, int i_param) FA_HIDDEN;
 
 SQLRETURN tsdb_stmt_query(tsdb_stmt_t *stmt, const char *sql) FA_HIDDEN;

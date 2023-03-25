@@ -586,35 +586,6 @@ static SQLRETURN _describe_param(stmt_base_t *base,
   return SQL_ERROR;
 }
 
-static SQLRETURN _describe_col(stmt_base_t *base,
-    SQLUSMALLINT   ColumnNumber,
-    SQLCHAR       *ColumnName,
-    SQLSMALLINT    BufferLength,
-    SQLSMALLINT   *NameLengthPtr,
-    SQLSMALLINT   *DataTypePtr,
-    SQLULEN       *typesinfoizePtr,
-    SQLSMALLINT   *DecimalDigitsPtr,
-    SQLSMALLINT   *NullablePtr)
-{
-  typesinfo_t *typesinfo = (typesinfo_t*)base;
-
-  const column_meta_t *col_meta = typesinfo_get_col_meta(ColumnNumber - 1);
-
-  *NameLengthPtr    = (SQLSMALLINT)strlen(col_meta->name);
-  *DataTypePtr      = (SQLSMALLINT)col_meta->DESC_CONCISE_TYPE;
-  *typesinfoizePtr    = col_meta->DESC_OCTET_LENGTH;
-  *DecimalDigitsPtr = 0;
-  *NullablePtr      = (SQLSMALLINT)col_meta->DESC_NULLABLE;
-
-  int n = snprintf((char*)ColumnName, BufferLength, "%s", col_meta->name);
-  if (n < 0 || n >= BufferLength) {
-    stmt_append_err(typesinfo->owner, "01004", 0, "String data, right truncated");
-    return SQL_SUCCESS_WITH_INFO;
-  }
-
-  return SQL_SUCCESS;
-}
-
 static SQLRETURN _get_num_params(stmt_base_t *base, SQLSMALLINT *ParameterCountPtr)
 {
   (void)ParameterCountPtr;
@@ -812,7 +783,6 @@ void typesinfo_init(typesinfo_t *typesinfo, stmt_t *stmt)
   typesinfo->base.get_fields                   = _get_fields;
   typesinfo->base.fetch_row                    = _fetch_row;
   typesinfo->base.describe_param               = _describe_param;
-  typesinfo->base.describe_col                 = _describe_col;
   typesinfo->base.get_num_params               = _get_num_params;
   typesinfo->base.check_params                 = _check_params;
   typesinfo->base.tsdb_field_by_param          = _tsdb_field_by_param;

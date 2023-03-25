@@ -352,35 +352,6 @@ static SQLRETURN _describe_param(stmt_base_t *base,
   return SQL_ERROR;
 }
 
-static SQLRETURN _describe_col(stmt_base_t *base,
-    SQLUSMALLINT   ColumnNumber,
-    SQLCHAR       *ColumnName,
-    SQLSMALLINT    BufferLength,
-    SQLSMALLINT   *NameLengthPtr,
-    SQLSMALLINT   *DataTypePtr,
-    SQLULEN       *primarykeysizePtr,
-    SQLSMALLINT   *DecimalDigitsPtr,
-    SQLSMALLINT   *NullablePtr)
-{
-  primarykeys_t *primarykeys = (primarykeys_t*)base;
-
-  const column_meta_t *col_meta = primarykeys_get_col_meta(ColumnNumber - 1);
-
-  *NameLengthPtr    = (SQLSMALLINT)strlen(col_meta->name);
-  *DataTypePtr      = (SQLSMALLINT)col_meta->DESC_CONCISE_TYPE;
-  *primarykeysizePtr    = col_meta->DESC_OCTET_LENGTH;
-  *DecimalDigitsPtr = 0;
-  *NullablePtr      = (SQLSMALLINT)col_meta->DESC_NULLABLE;
-
-  int n = snprintf((char*)ColumnName, BufferLength, "%s", col_meta->name);
-  if (n < 0 || n >= BufferLength) {
-    stmt_append_err(primarykeys->owner, "01004", 0, "String data, right truncated");
-    return SQL_SUCCESS_WITH_INFO;
-  }
-
-  return SQL_SUCCESS;
-}
-
 static SQLRETURN _get_num_params(stmt_base_t *base, SQLSMALLINT *ParameterCountPtr)
 {
   (void)ParameterCountPtr;
@@ -553,7 +524,6 @@ void primarykeys_init(primarykeys_t *primarykeys, stmt_t *stmt)
   primarykeys->base.get_fields                   = _get_fields;
   primarykeys->base.fetch_row                    = _fetch_row;
   primarykeys->base.describe_param               = _describe_param;
-  primarykeys->base.describe_col                 = _describe_col;
   primarykeys->base.get_num_params               = _get_num_params;
   primarykeys->base.check_params                 = _check_params;
   primarykeys->base.tsdb_field_by_param          = _tsdb_field_by_param;

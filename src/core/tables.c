@@ -248,21 +248,6 @@ static SQLRETURN _describe_param(stmt_base_t *base,
   return SQL_ERROR;
 }
 
-static SQLRETURN _describe_col(stmt_base_t *base,
-    SQLUSMALLINT   ColumnNumber,
-    SQLCHAR       *ColumnName,
-    SQLSMALLINT    BufferLength,
-    SQLSMALLINT   *NameLengthPtr,
-    SQLSMALLINT   *DataTypePtr,
-    SQLULEN       *ColumnSizePtr,
-    SQLSMALLINT   *DecimalDigitsPtr,
-    SQLSMALLINT   *NullablePtr)
-{
-  tables_t *tables = (tables_t*)base;
-  return tables->stmt.base.describe_col(&tables->stmt.base,
-      ColumnNumber, ColumnName, BufferLength, NameLengthPtr, DataTypePtr, ColumnSizePtr, DecimalDigitsPtr, NullablePtr);
-}
-
 static SQLRETURN _get_num_params(stmt_base_t *base, SQLSMALLINT *ParameterCountPtr)
 {
   (void)ParameterCountPtr;
@@ -321,7 +306,6 @@ void tables_init(tables_t *tables, stmt_t *stmt)
   tables->base.get_fields                   = _get_fields;
   tables->base.fetch_row                    = _fetch_row;
   tables->base.describe_param               = _describe_param;
-  tables->base.describe_col                 = _describe_col;
   tables->base.get_num_params               = _get_num_params;
   tables->base.check_params                 = _check_params;
   tables->base.tsdb_field_by_param          = _tsdb_field_by_param;

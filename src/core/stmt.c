@@ -882,7 +882,7 @@ static SQLRETURN _stmt_col_attr_DESC_OCTET_LENGTH(
     {TSDB_DATA_TYPE_FLOAT,                  4},
     {TSDB_DATA_TYPE_DOUBLE,                 8},
     {TSDB_DATA_TYPE_VARCHAR,                -1},
-    {TSDB_DATA_TYPE_NCHAR,                  -1},
+    {TSDB_DATA_TYPE_NCHAR,                  -2},
     {TSDB_DATA_TYPE_UTINYINT,               1},
     {TSDB_DATA_TYPE_USMALLINT,              2},
     {TSDB_DATA_TYPE_UINT,                   4},
@@ -891,14 +891,14 @@ static SQLRETURN _stmt_col_attr_DESC_OCTET_LENGTH(
 
   for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
     if (col->type != _maps[i].tsdb_type) continue;
-    if (_maps[i].octet_length != -1 && _maps[i].octet_length != col->bytes) {
+    if (_maps[i].octet_length > 0 && _maps[i].octet_length != col->bytes) {
       stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s`, octet length is expected to be %d, but got ==%d==",
           sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
           taos_data_type(col->type), _maps[i].octet_length, col->bytes);
       return SQL_ERROR;
     }
-    if (_maps[i].octet_length == -1) {
-      *NumericAttributePtr = col->bytes;
+    if (_maps[i].octet_length < 0) {
+      *NumericAttributePtr = 0 - col->bytes * _maps[i].octet_length;
     } else {
       *NumericAttributePtr = _maps[i].octet_length;
     }

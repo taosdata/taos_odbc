@@ -271,7 +271,7 @@ static int _dump_stmt_col_info(SQLSMALLINT HandleType, SQLHANDLE Handle)
 
   const char *sqls[] = {
     "drop table if exists x",
-    "create table x (ts timestamp, i8 tinyint, i16 smallint, i32 int, i64 bigint, f real, d float, name varchar(20), mark nchar(2))",
+    "create table x (ts timestamp, b bit, i8 tinyint, i16 smallint, i32 int, i64 bigint, f real, d float, name varchar(20), mark nchar(2), dt datetime, dt2 datetime2(3))",
   };
 
   r = execute_sqls(hstmt, sqls, sizeof(sqls)/sizeof(sqls[0]));
@@ -382,7 +382,7 @@ static int _dump_stmt_describe_col(SQLSMALLINT HandleType, SQLHANDLE Handle)
 
   const char *sqls[] = {
     "drop table if exists x",
-    "create table x (ts timestamp, b bit, i8 tinyint, i16 smallint, i32 int, i64 bigint, f real, d float, name varchar(20), mark nchar(2))",
+    "create table x (ts timestamp, b bit, i8 tinyint, i16 smallint, i32 int, i64 bigint, f real, d float, name varchar(20), mark nchar(2), dt datetime, dt2 datetime2(3))",
   };
 
   r = execute_sqls(hstmt, sqls, sizeof(sqls)/sizeof(sqls[0]));

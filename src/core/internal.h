@@ -255,24 +255,6 @@ typedef enum {
   DATA_TYPE_MAX,
 } data_type;
 
-struct data_s {
-  data_type             dt;
-  union {
-    int8_t              i8;
-    uint8_t             u8;
-    int16_t             i16;
-    uint16_t            u16;
-    int32_t             i32;
-    uint32_t            u32;
-    int64_t             i64;
-    uint64_t            u64;
-    float               flt;
-    double              dbl;
-    uintptr_t           str[3]; /* str[0]: a pointer; str[1]: a length; str[2]: charset */
-  };
-  uint8_t               is_null:1;
-};
-
 struct env_s {
   atomic_int          refc;
 

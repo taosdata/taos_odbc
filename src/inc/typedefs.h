@@ -37,9 +37,6 @@ typedef struct connection_cfg_s          connection_cfg_t;
 
 typedef struct conn_s                    conn_t;
 
-typedef struct data_s                    data_t;
-typedef struct data_conv_result_s        data_conv_result_t;
-
 typedef struct descriptor_s              descriptor_t;
 typedef struct desc_s                    desc_t;
 typedef struct desc_record_s             desc_record_t;

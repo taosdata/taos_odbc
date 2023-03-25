@@ -1413,8 +1413,8 @@ static int test_case9_with_stmt(SQLHANDLE hstmt)
   sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr, NumericAttributePtr);
   if (sr != SQL_SUCCESS) return -1;
 
-  if (attr != 8) {
-    D("expected `8`, but got ==%zd==", (size_t)attr);
+  if (attr != 8 && attr != 46) {
+    E("expected `8` or `46`, but got ==%zd==", (size_t)attr);
     return -1;
   }
 

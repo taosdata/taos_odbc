@@ -97,6 +97,7 @@ DB            (?i:db)
 DRIVER        (?i:driver)
 SERVER        (?i:server)
 UNSIGNED_PROMOTION          (?i:unsigned_promotion)
+TIMESTAMP_AS_IS             (?i:timestamp_as_is)
 CACHE_SQL     (?i:cache_sql)
 FQDN          [-[:alnum:]]+((\.[-[:alnum:]]+)+)*(\.)?
 ID            [^\[\]{}(),;?*=!@[:space:]]+
@@ -117,6 +118,7 @@ DIGITS        [[:digit:]]+
 {DRIVER}      { R(); C(); return MKT(DRIVER); }
 {SERVER}      { R(); PUSH(SERVER); C(); return MKT(SERVER); }
 {UNSIGNED_PROMOTION}        { R(); C(); return MKT(UNSIGNED_PROMOTION); }
+{TIMESTAMP_AS_IS}           { R(); C(); return MKT(TIMESTAMP_AS_IS); }
 {CACHE_SQL}   { R(); C(); return MKT(CACHE_SQL); }
 {DIGITS}      { R(); SET_STR(); C(); return MKT(DIGITS); }
 {ID}          { R(); SET_STR(); C(); return MKT(ID); }

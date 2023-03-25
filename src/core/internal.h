@@ -403,6 +403,9 @@ struct connection_cfg_s {
   // NOTE: 1.this is to hack node.odbc, which maps SQL_TINYINT to SQL_C_UTINYINT
   //       2.node.odbc does not call SQLGetInfo/SQLColAttribute to get signess of integers
   unsigned int           unsigned_promotion:1;
+  // NOTE: this is to hack PowerBI, which seems not displace seconds-fractional,
+  //       thus, if timestamp_as_is is not set, TSDB_DATA_TYPE_TIMESTAMP would map to SQL_WVARCHAR
+  unsigned int           timestamp_as_is:1;
   unsigned int           cache_sql:1;
 };
 

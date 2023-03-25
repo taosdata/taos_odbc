@@ -849,6 +849,12 @@ static SQLRETURN _stmt_col_attr_DESC_CONCISE_TYPE(
 
   for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
     if (col->type != _maps[i].tsdb_type) continue;
+    if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
+      if (!stmt->conn->cfg.timestamp_as_is) {
+        *NumericAttributePtr = SQL_WVARCHAR;
+        return SQL_SUCCESS;
+      }
+    }
     if (stmt->conn->cfg.unsigned_promotion) {
       *NumericAttributePtr = _maps[i].sql_promoted;
     } else {
@@ -891,6 +897,13 @@ static SQLRETURN _stmt_col_attr_DESC_OCTET_LENGTH(
 
   for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
     if (col->type != _maps[i].tsdb_type) continue;
+    if (!col->type == TSDB_DATA_TYPE_TIMESTAMP) {
+      if (!stmt->conn->cfg.timestamp_as_is) {
+        tsdb_res_t *res = &stmt->tsdb_stmt.res;
+        *NumericAttributePtr = (20 + (res->time_precision + 1) * 3) * 2;
+        return SQL_SUCCESS;
+      }
+    }
     if (_maps[i].octet_length > 0 && _maps[i].octet_length != col->bytes) {
       stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s`, octet length is expected to be %d, but got ==%d==",
           sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
@@ -920,7 +933,7 @@ static SQLRETURN _stmt_col_attr_DESC_PRECISION(
     int                 tsdb_type;
     int                 precision;
   } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              -1},
+    {TSDB_DATA_TYPE_TIMESTAMP,              0},
     {TSDB_DATA_TYPE_BOOL,                   1},
     {TSDB_DATA_TYPE_TINYINT,                3},
     {TSDB_DATA_TYPE_SMALLINT,               5},
@@ -938,6 +951,15 @@ static SQLRETURN _stmt_col_attr_DESC_PRECISION(
 
   for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
     if (col->type != _maps[i].tsdb_type) continue;
+    if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
+      tsdb_res_t *res = &stmt->tsdb_stmt.res;
+      if (!stmt->conn->cfg.timestamp_as_is) {
+        *NumericAttributePtr = 20 + (res->time_precision + 1) * 3;
+      } else {
+        *NumericAttributePtr = (res->time_precision + 1) * 3;
+      }
+      return SQL_SUCCESS;
+    }
     if (_maps[i].precision != -1 && _maps[i].precision != col->bytes) {
       stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s`, precision is expected to be %d, but got ==%d==",
           sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
@@ -945,12 +967,7 @@ static SQLRETURN _stmt_col_attr_DESC_PRECISION(
       return SQL_ERROR;
     }
     if (_maps[i].precision == -1) {
-      if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
-        tsdb_res_t *res = &stmt->tsdb_stmt.res;
-        *NumericAttributePtr = (res->time_precision + 1) * 3;
-      } else {
-        *NumericAttributePtr = col->bytes;
-      }
+      *NumericAttributePtr = col->bytes;
     } else {
       *NumericAttributePtr = _maps[i].precision;
     }
@@ -990,6 +1007,15 @@ static SQLRETURN _stmt_col_attr_DESC_SCALE(
 
   for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
     if (col->type != _maps[i].tsdb_type) continue;
+    if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
+      tsdb_res_t *res = &stmt->tsdb_stmt.res;
+      if (!stmt->conn->cfg.timestamp_as_is) {
+        *NumericAttributePtr = _maps[i].scale;
+      } else {
+        *NumericAttributePtr = (res->time_precision + 1) * 3;
+      }
+      return SQL_SUCCESS;
+    }
     *NumericAttributePtr = _maps[i].scale;
     return SQL_SUCCESS;
   }
@@ -1074,7 +1100,7 @@ static SQLRETURN _stmt_col_attr_DESC_LENGTH(
     int                 tsdb_type;
     int                 length;
   } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              -1},
+    {TSDB_DATA_TYPE_TIMESTAMP,              0},
     {TSDB_DATA_TYPE_BOOL,                   1},
     {TSDB_DATA_TYPE_TINYINT,                3},
     {TSDB_DATA_TYPE_SMALLINT,               5},
@@ -1092,20 +1118,13 @@ static SQLRETURN _stmt_col_attr_DESC_LENGTH(
 
   for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
     if (col->type != _maps[i].tsdb_type) continue;
+    if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
+      tsdb_res_t *res = &stmt->tsdb_stmt.res;
+      *NumericAttributePtr = 20 + (res->time_precision + 1) * 3;
+      return SQL_SUCCESS;
+    }
     if (_maps[i].length == -1) {
-      switch (col->type) {
-        case TSDB_DATA_TYPE_TIMESTAMP: {
-          tsdb_res_t *res = &stmt->tsdb_stmt.res;
-          *NumericAttributePtr = 20 + (res->time_precision + 1) * 3;
-        } break;
-        case TSDB_DATA_TYPE_VARCHAR:
-        case TSDB_DATA_TYPE_NCHAR:
-          *NumericAttributePtr = col->bytes;
-          break;
-        default:
-          stmt_append_err(stmt, "HY000", 0, "General error:internal logic error");
-          return SQL_ERROR;
-      }
+      *NumericAttributePtr = col->bytes;
     } else {
       *NumericAttributePtr = _maps[i].length;
     }

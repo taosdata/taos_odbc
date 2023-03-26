@@ -331,7 +331,6 @@ static int _conn_setup_iconvs(conn_t *conn)
   sql_c_charset = conn->sql_c_char_charset;
   tsdb_charset = conn->tsdb_varchar_charset;
 
-  const char *utf8 = "UTF-8";
   const char *from, *to;
   charset_conv_t *cnv;
   do {

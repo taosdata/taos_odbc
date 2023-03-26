@@ -430,15 +430,10 @@ struct conn_s {
   char               *tsdb_varchar_charset;
 
   charset_conv_t      cnv_tsdb_varchar_to_sql_c_char;
-  charset_conv_t      cnv_tsdb_varchar_to_utf8;
   charset_conv_t      cnv_tsdb_varchar_to_sql_c_wchar;
 
   charset_conv_t      cnv_sql_c_char_to_tsdb_varchar;
-  charset_conv_t      cnv_sql_c_char_to_utf8;
   charset_conv_t      cnv_sql_c_char_to_sql_c_wchar;
-
-  charset_conv_t      cnv_utf8_to_tsdb_varchar;
-  charset_conv_t      cnv_utf8_to_sql_c_char;
 
   errs_t              errs;
 

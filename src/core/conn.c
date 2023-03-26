@@ -84,15 +84,10 @@ static void _conn_release_information_schema_ins_configs(conn_t *conn)
 static void _conn_release_iconvs(conn_t *conn)
 {
   charset_conv_release(&conn->cnv_tsdb_varchar_to_sql_c_char);
-  charset_conv_release(&conn->cnv_tsdb_varchar_to_utf8);
   charset_conv_release(&conn->cnv_tsdb_varchar_to_sql_c_wchar);
 
   charset_conv_release(&conn->cnv_sql_c_char_to_tsdb_varchar);
-  charset_conv_release(&conn->cnv_sql_c_char_to_utf8);
   charset_conv_release(&conn->cnv_sql_c_char_to_sql_c_wchar);
-
-  charset_conv_release(&conn->cnv_utf8_to_tsdb_varchar);
-  charset_conv_release(&conn->cnv_utf8_to_sql_c_char);
 }
 
 static void _conn_release(conn_t *conn)
@@ -340,22 +335,6 @@ static int _conn_setup_iconvs(conn_t *conn)
   const char *from, *to;
   charset_conv_t *cnv;
   do {
-    cnv = &conn->cnv_sql_c_char_to_utf8;
-    from = sql_c_charset; to = utf8;
-    if (charset_conv_reset(cnv, from, to)) break;
-
-    cnv = &conn->cnv_utf8_to_sql_c_char;
-    from = utf8; to = sql_c_charset;
-    if (charset_conv_reset(cnv, from, to)) break;
-
-    cnv = &conn->cnv_tsdb_varchar_to_utf8;
-    from = tsdb_charset; to = utf8;
-    if (charset_conv_reset(cnv, from, to)) break;
-
-    cnv = &conn->cnv_utf8_to_tsdb_varchar;
-    from = utf8; to = tsdb_charset;
-    if (charset_conv_reset(cnv, from, to)) break;
-
     do {
       cnv = &conn->cnv_sql_c_char_to_tsdb_varchar;
       from = sql_c_charset; to = tsdb_charset;

@@ -181,7 +181,6 @@ static int _conn_save_from_information_schema_ins_configs(conn_t *conn, int name
     TOD_SAFE_FREE(conn->s_##x);                                                \
     conn->s_##x = strndup(value, value_len);                                   \
     if (!conn->s_##x) return -1;                                               \
-    OD("===%s===", conn->s_##x);                                               \
     return 0;                                                                  \
   }                                                                            \
 } while (0)
@@ -250,8 +249,6 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs_with_res(
     int name_len = 0;
     r = helper_get_data_len(res, field, rows, i, col, &name, &name_len);
     if (r) {
-      OE("General error:Row[%d] Column[%s] conversion from `%s[0x%x/%d]` not implemented yet",
-          i + 1, field->name, taos_data_type(field->type), field->type, field->type);
       conn_append_err_format(conn, "HY000", 0,
           "General error:Row[%d] Column[%s] conversion from `%s[0x%x/%d]` not implemented yet",
           i + 1, field->name, taos_data_type(field->type), field->type, field->type);
@@ -264,17 +261,13 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs_with_res(
     int value_len = 0;
     r = helper_get_data_len(res, field, rows, i, col, &value, &value_len);
     if (r) {
-      OE("General error:Row[%d] Column[%s] conversion from `%s[0x%x/%d]` not implemented yet",
-          i + 1, field->name, taos_data_type(field->type), field->type, field->type);
       conn_append_err_format(conn, "HY000", 0,
           "General error:Row[%d] Column[%s] conversion from `%s[0x%x/%d]` not implemented yet",
           i + 1, field->name, taos_data_type(field->type), field->type, field->type);
       return SQL_ERROR;
     }
-    OD("%.*s: %.*s", name_len, name, value_len, value);
     r = _conn_save_from_information_schema_ins_configs(conn, name_len, name, value_len, value);
     if (r) {
-      OE("General error: save `%.*s:%.*s` failed", name_len, name, value_len, value);
       conn_append_err_format(conn, "HY000", 0,
           "General error: save `%.*s:%.*s` failed", name_len, name, value_len, value);
       return SQL_ERROR;

@@ -376,36 +376,30 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
       // better approach?
       tsdb->type = TSDB_DATA_TYPE_VARCHAR;
       tsdb->str  = primarykeys->current_catalog.str;
-      OW("TABLE_CAT:[%.*s]", (int)tsdb->str.len, tsdb->str.str);
       break;
     case 2: // TABLE_SCHEM
       // better approach?
       tsdb->type = TSDB_DATA_TYPE_VARCHAR;
       tsdb->str  = primarykeys->current_schema.str;
-      OW("TABLE_SCHEM:[%.*s]", (int)tsdb->str.len, tsdb->str.str);
       break;
     case 3: // TABLE_NAME
       // better approach?
       tsdb->type = TSDB_DATA_TYPE_VARCHAR;
       tsdb->str  = primarykeys->current_table.str;
-      OW("TABLE_NAME:[%.*s]", (int)tsdb->str.len, tsdb->str.str);
       break;
     case 4: // COLUMN_NAME
       // better approach?
       tsdb->type = TSDB_DATA_TYPE_VARCHAR;
       tsdb->str  = col_name->str;
-      OW("COLUMN_NAME:[%.*s]", (int)tsdb->str.len, tsdb->str.str);
       break;
     case 5: // KEY_SEQ
       tsdb->type = TSDB_DATA_TYPE_INT;
       tsdb->i32  = primarykeys->ordinal_order;
-      OW("KEY_SEQ:[%d]", tsdb->i32);
       break;
     case 6: // PK_NAME
       // better approach?
       tsdb->type = TSDB_DATA_TYPE_VARCHAR;
       tsdb->str  = col_name->str;
-      OW("PK_NAME:[%.*s]", (int)tsdb->str.len, tsdb->str.str);
       break;
     default:
       stmt_append_err_format(primarykeys->owner, "HY000", 0, "General error:not implemented yet for column[%d]", Col_or_Param_Num);
@@ -449,10 +443,6 @@ SQLRETURN primarykeys_open(
   if (CatalogName && NameLength1 == SQL_NTS) NameLength1 = (SQLSMALLINT)strlen((const char*)CatalogName);
   if (SchemaName && NameLength2 == SQL_NTS)  NameLength2 = (SQLSMALLINT)strlen((const char*)SchemaName);
   if (TableName && NameLength3 == SQL_NTS)   NameLength3 = (SQLSMALLINT)strlen((const char*)TableName);
-
-  OW("CatalogName:%p,%.*s", CatalogName, (int)NameLength1, CatalogName);
-  OW("SchemaName:%p,%.*s", SchemaName, (int)NameLength2, SchemaName);
-  OW("TableName:%p,%.*s", TableName, (int)NameLength3, TableName);
 
   sr = tables_open(&primarykeys->tables, CatalogName, NameLength1, SchemaName, NameLength2, TableName, NameLength3, (SQLCHAR*)"TABLE", SQL_NTS);
   if (sr != SQL_SUCCESS) return SQL_ERROR;

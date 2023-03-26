@@ -2123,8 +2123,6 @@ static SQLRETURN _stmt_get_data_copy(stmt_t *stmt, stmt_get_data_args_t *args)
     return SQL_ERROR;
   }
 
-  OW("tsdb:type:%s", taos_data_type(tsdb->type));
-
   switch(tsdb->type) {
     case TSDB_DATA_TYPE_BOOL:
       return _stmt_get_data_copy_uint64(stmt, tsdb->b, args);
@@ -2214,12 +2212,7 @@ SQLRETURN stmt_get_data(
     .IndPtr                     = StrLen_or_IndPtr,
   };
 
-  OW("Column%d:TargetType:%s,TargetValuePtr:%p,BufferLength:%d,StrLen_or_IndPtr:%p",
-      Col_or_Param_Num, sql_c_data_type(TargetType), TargetValuePtr, (int)BufferLength, StrLen_or_IndPtr);
   sr = _stmt_get_data_x(stmt, &args);
-  OW("Column%d:TargetType:%s,TargetValuePtr:%p,BufferLength:%d,StrLen_or_IndPtr:%p[%zd] => %s",
-      Col_or_Param_Num, sql_c_data_type(TargetType), TargetValuePtr, (int)BufferLength, StrLen_or_IndPtr, StrLen_or_IndPtr ? (size_t)*StrLen_or_IndPtr : 0,
-      sql_return_type(sr));
   return sr;
 }
 
@@ -2574,7 +2567,6 @@ SQLRETURN stmt_prepare(stmt_t *stmt,
     SQLCHAR      *StatementText,
     SQLINTEGER    TextLength)
 {
-  // OA_NIY(stmt->tsdb_stmt.stmt == NULL);
   SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
 
@@ -3076,6 +3068,8 @@ static SQLRETURN _stmt_check_tsdb_params_by_sql_double(stmt_t *stmt, param_state
 
 static void _dump_TAOS_FIELD_E(TAOS_FIELD_E *tsdb_field)
 {
+  if (1) return;
+
   OD("TAOS_FIELD_E::bytes:%d", tsdb_field->bytes);
   OD("TAOS_FIELD_E::name:%.*s", (int)sizeof(tsdb_field->name), tsdb_field->name);
   OD("TAOS_FIELD_E::precision:%u", tsdb_field->precision);
@@ -3197,7 +3191,6 @@ static SQLRETURN _stmt_prepare_param_data_array_from_sql_c_char_to_tsdb_varchar(
     return SQL_ERROR;
   }
   tsdb_bind->buffer = param_column->mem.base;
-  OD("i_param/buffer/buffer_length:%d/%p/%zd", param_state->i_param, tsdb_bind->buffer, tsdb_bind->buffer_length);
 
   return SQL_SUCCESS;
 }
@@ -3257,7 +3250,6 @@ static SQLRETURN _stmt_prepare_param_data_array_from_sql_c_char_to_tsdb_nchar(st
     return SQL_ERROR;
   }
   tsdb_bind->buffer = param_column->mem.base;
-  OD("i_param/buffer/buffer_length:%d/%p/%zd", param_state->i_param, tsdb_bind->buffer, tsdb_bind->buffer_length);
 
   return SQL_SUCCESS;
 }
@@ -3382,7 +3374,6 @@ static SQLRETURN _stmt_prepare_param_data_array_from_sql_c_sbigint_to_tsdb_int(s
     return SQL_ERROR;
   }
   tsdb_bind->buffer = param_column->mem.base;
-  OD("i_param/buffer/buffer_length:%d/%p/%zd", param_state->i_param, tsdb_bind->buffer, tsdb_bind->buffer_length);
 
   return SQL_SUCCESS;
 }
@@ -3405,7 +3396,6 @@ static SQLRETURN _stmt_prepare_param_data_array_from_sql_c_sbigint_to_tsdb_small
     return SQL_ERROR;
   }
   tsdb_bind->buffer = param_column->mem.base;
-  OD("i_param/buffer/buffer_length:%d/%p/%zd", param_state->i_param, tsdb_bind->buffer, tsdb_bind->buffer_length);
 
   return SQL_SUCCESS;
 }
@@ -3428,7 +3418,6 @@ static SQLRETURN _stmt_prepare_param_data_array_from_sql_c_sbigint_to_tsdb_tinyi
     return SQL_ERROR;
   }
   tsdb_bind->buffer = param_column->mem.base;
-  OD("i_param/buffer/buffer_length:%d/%p/%zd", param_state->i_param, tsdb_bind->buffer, tsdb_bind->buffer_length);
 
   return SQL_SUCCESS;
 }
@@ -3451,7 +3440,6 @@ static SQLRETURN _stmt_prepare_param_data_array_from_sql_c_sbigint_to_tsdb_bool(
     return SQL_ERROR;
   }
   tsdb_bind->buffer = param_column->mem.base;
-  OD("i_param/buffer/buffer_length:%d/%p/%zd", param_state->i_param, tsdb_bind->buffer, tsdb_bind->buffer_length);
 
   return SQL_SUCCESS;
 }
@@ -3474,7 +3462,6 @@ static SQLRETURN _stmt_prepare_param_data_array_from_sql_c_double_to_tsdb_float(
     return SQL_ERROR;
   }
   tsdb_bind->buffer = param_column->mem.base;
-  OD("i_param/buffer/buffer_length:%d/%p/%zd", param_state->i_param, tsdb_bind->buffer, tsdb_bind->buffer_length);
 
   return SQL_SUCCESS;
 }
@@ -3888,7 +3875,6 @@ static SQLRETURN _stmt_conv_param_data_from_sql_c_char_to_tsdb_varchar(stmt_t *s
     OA_NIY(0);
   } else {
     char *tsdb_varchar = tsdb_bind->buffer;
-    OD("i_param/buffer/buffer_length:%d/%p/%zd", param_state->i_param, tsdb_bind->buffer, tsdb_bind->buffer_length);
     tsdb_varchar += i_row * tsdb_bind->buffer_length;
     size_t tsdb_varchar_len = tsdb_bind->buffer_length;
 
@@ -4393,9 +4379,6 @@ SQLRETURN stmt_execute(stmt_t *stmt)
     return SQL_ERROR;
   }
 
-  OA_ILE(stmt->tsdb_stmt.stmt);
-  OA(stmt->tsdb_stmt.prepared, "seems like DM failed to secure function sequence correctly: SQLExecute before SQLPrepare?");
-
   // NOTE: no need to check whether it's prepared or not, DM would have already checked
 
   sr = _stmt_execute(stmt);
@@ -4410,9 +4393,7 @@ static SQLRETURN _stmt_set_cursor_type(stmt_t *stmt, SQLULEN cursor_type)
     case SQL_CURSOR_STATIC:
       return SQL_SUCCESS;
     default:
-      OE("General error:`%s` for `SQL_ATTR_CURSOR_TYPE` not supported yet", sql_cursor_type(cursor_type));
       stmt_append_err_format(stmt, "HY000", 0, "General error:`%s` for `SQL_ATTR_CURSOR_TYPE` not supported yet", sql_cursor_type(cursor_type));
-      OA_NIY(0);
       return SQL_ERROR;
   }
 }
@@ -4495,9 +4476,7 @@ SQLRETURN stmt_get_attr(stmt_t *stmt,
       *(SQLHANDLE*)Value = (SQLHANDLE)(&stmt->IPD);
       return SQL_SUCCESS;
     default:
-      OE("General error:`%s[0x%x/%d]` not supported yet", sql_stmt_attr(Attribute), Attribute, Attribute);
       stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_stmt_attr(Attribute), Attribute, Attribute);
-      OA_NIY(0);
       return SQL_ERROR;
   }
 }
@@ -4556,11 +4535,6 @@ SQLRETURN stmt_tables(stmt_t *stmt,
   _stmt_close_result(stmt);
   _stmt_reset_params(stmt);
   mem_reset(&stmt->sql);
-
-  OW("CatalogName:%p, %d", CatalogName, NameLength1);
-  OW("SchemaName:%p, %d", SchemaName, NameLength2);
-  OW("TableName:%p, %d", TableName, NameLength3);
-  OW("TableType:%p, %d", TableType, NameLength4);
 
   sr = tables_open(&stmt->tables, CatalogName, NameLength1, SchemaName, NameLength2, TableName, NameLength3, TableType, NameLength4);
   if (sr != SQL_SUCCESS) {
@@ -4758,11 +4732,6 @@ SQLRETURN stmt_column_privileges(
   if (NameLength3 == SQL_NTS) NameLength3 = (SQLSMALLINT)strlen(table);
   if (NameLength4 == SQL_NTS) NameLength4 = (SQLSMALLINT)strlen(column);
 
-  OW("catalog:%.*s", (int)NameLength1, catalog);
-  OW("schema:%.*s", (int)NameLength2, schema);
-  OW("table:%.*s", (int)NameLength3, table);
-  OW("column:%.*s", (int)NameLength4, column);
-
   stmt_append_err(stmt, "HY000", 0, "General error:not supported yet");
   return SQL_ERROR;
 }
@@ -4817,14 +4786,7 @@ SQLRETURN stmt_foreign_keys(
   if (NameLength3 == SQL_NTS)       NameLength3 = (SQLSMALLINT)strlen(pktable);
   if (NameLength4 == SQL_NTS)       NameLength4 = (SQLSMALLINT)strlen(fkcatalog);
   if (NameLength5 == SQL_NTS)       NameLength5 = (SQLSMALLINT)strlen(fkschema);
-  if (NameLength5 == SQL_NTS)       NameLength6 = (SQLSMALLINT)strlen(fktable);
-
-  OW("pkcatalog:%.*s", NameLength1, pkcatalog);
-  OW("pkschema:%.*s",  NameLength2, pkschema);
-  OW("pktable:%.*s",   NameLength3, pktable);
-  OW("fkcatalog:%.*s", NameLength4, fkcatalog);
-  OW("fkschema:%.*s",  NameLength5, fkschema);
-  OW("fktable:%.*s",   NameLength6, fktable);
+  if (NameLength6 == SQL_NTS)       NameLength6 = (SQLSMALLINT)strlen(fktable);
 
   return SQL_NO_DATA;
 }
@@ -4877,10 +4839,6 @@ SQLRETURN stmt_primary_keys(
     SQLCHAR       *TableName,
     SQLSMALLINT    NameLength3)
 {
-  OW("CatalogName:%p,%.*s", CatalogName, CatalogName ? (int)NameLength1 : 6, CatalogName ? (const char*)CatalogName : "[null]");
-  OW("SchemaName:%p,%.*s", SchemaName, SchemaName ? (int)NameLength2 : 6, SchemaName ? (const char*)SchemaName : "[null]");
-  OW("TableName:%p,%.*s", TableName, TableName ? (int)NameLength3 : 6, TableName ? (const char*)TableName : "[null]");
-
   SQLRETURN sr = SQL_SUCCESS;
 
   _stmt_close_result(stmt);
@@ -4928,11 +4886,6 @@ SQLRETURN stmt_procedure_columns(
   if (NameLength3 == SQL_NTS) NameLength3 = (SQLSMALLINT)strlen(proc);
   if (NameLength4 == SQL_NTS) NameLength4 = (SQLSMALLINT)strlen(column);
 
-  OW("catalog:%.*s", (int)NameLength1, catalog);
-  OW("schema:%.*s",  (int)NameLength2, schema);
-  OW("proc:%.*s",    (int)NameLength3, proc);
-  OW("column:%.*s",  (int)NameLength4, column);
-
   stmt_append_err(stmt, "HY000", 0, "General error:not supported yet");
   return SQL_ERROR;
 }
@@ -4957,10 +4910,6 @@ SQLRETURN stmt_procedures(
   if (NameLength1 == SQL_NTS) NameLength1 = (SQLSMALLINT)strlen(catalog);
   if (NameLength2 == SQL_NTS) NameLength2 = (SQLSMALLINT)strlen(schema);
   if (NameLength3 == SQL_NTS) NameLength3 = (SQLSMALLINT)strlen(proc);
-
-  OW("catalog:%.*s", (int)NameLength1, catalog);
-  OW("schema:%.*s",  (int)NameLength2, schema);
-  OW("proc:%.*s",    (int)NameLength3, proc);
 
   stmt_append_err(stmt, "HY000", 0, "General error:not supported yet");
   return SQL_ERROR;
@@ -5020,10 +4969,6 @@ SQLRETURN stmt_special_columns(
   if (NameLength2 == SQL_NTS) NameLength2 = (SQLSMALLINT)strlen(schema);
   if (NameLength3 == SQL_NTS) NameLength3 = (SQLSMALLINT)strlen(table);
 
-  OW("catalog:%.*s", (int)NameLength1, catalog);
-  OW("schema:%.*s", (int)NameLength2, schema);
-  OW("table:%.*s", (int)NameLength3, table);
-
   stmt_append_err_format(stmt, "HY000", 0, "General error:Identifier `%s[%d/0x%x]`,Scope `%s[%d/0x%x]`,Nullable `%s[%d/0x%x]` not supported yet",
       sql_special_columns_identifier(IdentifierType), IdentifierType, IdentifierType,
       sql_scope(Scope), Scope, Scope,
@@ -5049,10 +4994,6 @@ SQLRETURN stmt_statistics(
   if (NameLength1 == SQL_NTS) NameLength1 = (SQLSMALLINT)strlen(catalog);
   if (NameLength2 == SQL_NTS) NameLength2 = (SQLSMALLINT)strlen(schema);
   if (NameLength3 == SQL_NTS) NameLength3 = (SQLSMALLINT)strlen(table);
-
-  OW("catalog:%.*s", (int)NameLength1, catalog);
-  OW("schema:%.*s", (int)NameLength2, schema);
-  OW("table:%.*s", (int)NameLength3, table);
 
   stmt_append_err_format(stmt, "HY000", 0, "General error:Unique `%s[%d/0x%x]`,Reserved `%s[%d/0x%x]` not supported yet",
       sql_index(Unique), Unique, Unique,
@@ -5080,10 +5021,6 @@ SQLRETURN stmt_table_privileges(
   if (NameLength1 == SQL_NTS) NameLength1 = (SQLSMALLINT)strlen(catalog);
   if (NameLength2 == SQL_NTS) NameLength2 = (SQLSMALLINT)strlen(schema);
   if (NameLength3 == SQL_NTS) NameLength3 = (SQLSMALLINT)strlen(table);
-
-  OW("catalog:%.*s", (int)NameLength1, catalog);
-  OW("schema:%.*s", (int)NameLength2, schema);
-  OW("table:%.*s", (int)NameLength3, table);
 
   stmt_append_err(stmt, "HY000", 0, "General error:not supported yet");
   return SQL_ERROR;

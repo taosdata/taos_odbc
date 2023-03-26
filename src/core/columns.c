@@ -473,25 +473,21 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
       // better approach?
       tsdb->type = TSDB_DATA_TYPE_VARCHAR;
       tsdb->str  = columns->current_catalog.str;
-      OW("TABLE_CAT:[%.*s]", (int)tsdb->str.len, tsdb->str.str);
       break;
     case 2: // TABLE_SCHEM
       // better approach?
       tsdb->type = TSDB_DATA_TYPE_VARCHAR;
       tsdb->str  = columns->current_schema.str;
-      OW("TABLE_SCHEM:[%.*s]", (int)tsdb->str.len, tsdb->str.str);
       break;
     case 3: // TABLE_NAME
       // better approach?
       tsdb->type = TSDB_DATA_TYPE_VARCHAR;
       tsdb->str  = columns->current_table.str;
-      OW("TABLE_NAME:[%.*s]", (int)tsdb->str.len, tsdb->str.str);
       break;
     case 4: // COLUMN_NAME
       // better approach?
       tsdb->type = TSDB_DATA_TYPE_VARCHAR;
       tsdb->str  = col_name->str;
-      OW("COLUMN_NAME:[%.*s]", (int)tsdb->str.len, tsdb->str.str);
       break;
     case 5: // DATA_TYPE
       {
@@ -549,7 +545,6 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
       }
       tsdb->type = TSDB_DATA_TYPE_VARCHAR;
       tsdb->str  = col_type->str;
-      OW("TYPE_NAME:[%.*s]", (int)tsdb->str.len, tsdb->str.str);
       break;
     case 7: // COLUMN_SIZE
       // better approach?
@@ -564,7 +559,6 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
       }
       tsdb->type = TSDB_DATA_TYPE_INT;
       tsdb->i32  = col_length->i32;
-      OW("COLUMN_SIZE:[%d]", tsdb->i32);
       break;
     case 8: // BUFFER_LENGTH
       {
@@ -607,35 +601,29 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
       if (fake.type == TSDB_DATA_TYPE_TIMESTAMP) {
         tsdb->type = TSDB_DATA_TYPE_INT;
         tsdb->i32  = 3; // FIXME:
-        OW("DECIMAL_DIGITS:[%d]", tsdb->i32);
         break;
       }
       tsdb->type = TSDB_DATA_TYPE_INT;
       tsdb->i32  = 0;
-      OW("DECIMAL_DIGITS:[%d]", tsdb->i32);
       break;
     case 10: // NUM_PREC_RADIX
       tsdb->type = TSDB_DATA_TYPE_INT;
       tsdb->i32  = 10;
-      OW("NUM_PREC_RADIX:[%d]", tsdb->i32);
       break;
     case 11: // NULLABLE
       tsdb->type = TSDB_DATA_TYPE_INT;
       tsdb->i32  = SQL_NULLABLE_UNKNOWN;
-      OW("NULLABLE:[%d]", tsdb->i32);
       break;
     case 12: // REMARKS
       tsdb->type = TSDB_DATA_TYPE_VARCHAR;
       tsdb->str  = col_note->str;
       tsdb->is_null = col_note->is_null;
-      OW("REMARKS:[%.*s]", tsdb->is_null ? 4 : (int)tsdb->str.len, tsdb->is_null ? "null" : tsdb->str.str);
       break;
     case 13: // COLUMN_DEF
       tsdb->type = TSDB_DATA_TYPE_VARCHAR;
       tsdb->str.len = 0;
       tsdb->str.str = "";
       tsdb->is_null = 1;
-      OW("COLUMN_DEF:[%s]", "null");
       break;
     case 14: // SQL_DATA_TYPE
       {
@@ -678,30 +666,25 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
       tsdb->type = TSDB_DATA_TYPE_INT;
       tsdb->i32  = 0;
       tsdb->is_null = 1;
-      OW("SQL_DATATIME_SUB:[%s]", "null");
       break;
     case 16: // CHAR_OCTET_LENGTH
       if (fake.type == TSDB_DATA_TYPE_VARCHAR) {
         tsdb->type = TSDB_DATA_TYPE_INT;
         tsdb->i32  = fake.bytes;
-        OW("CHAR_OCTET_LENGTH:[%d]", tsdb->i32);
       } else {
         tsdb->type = TSDB_DATA_TYPE_INT;
         tsdb->i32  = 0;
         tsdb->is_null = 1;
-        OW("CHAR_OCTET_LENGTH:[%s]", "null");
       }
       break;
     case 17: // ORDINAL_POSITION
       tsdb->type = TSDB_DATA_TYPE_INT;
       tsdb->i32  = columns->ordinal_order;
-      OW("ORDINAL_POSITION:[%d]", tsdb->i32);
       break;
     case 18: // IS_NULLABLE
       tsdb->type = TSDB_DATA_TYPE_VARCHAR;
       tsdb->str.str = "";
       tsdb->str.len = 0;
-      OW("IS_NULLABLE:[%s]", "");
       break;
     default:
       stmt_append_err_format(columns->owner, "HY000", 0, "General error:not implemented yet for column[%d]", Col_or_Param_Num);
@@ -748,11 +731,6 @@ SQLRETURN columns_open(
   if (SchemaName && NameLength2 == SQL_NTS)  NameLength2 = (SQLSMALLINT)strlen((const char*)SchemaName);
   if (TableName && NameLength3 == SQL_NTS)   NameLength3 = (SQLSMALLINT)strlen((const char*)TableName);
   if (ColumnName && NameLength4 == SQL_NTS)  NameLength4 = (SQLSMALLINT)strlen((const char*)ColumnName);
-
-  OW("CatalogName:%p,%.*s", CatalogName, (int)NameLength1, CatalogName);
-  OW("SchemaName:%p,%.*s", SchemaName, (int)NameLength2, SchemaName);
-  OW("TableName:%p,%.*s", TableName, (int)NameLength3, TableName);
-  OW("ColumnName:%p,%.*s", ColumnName, (int)NameLength4, ColumnName);
 
   charset_conv_t *cnv = &columns->owner->conn->cnv_sql_c_char_to_sql_c_wchar;
   if (ColumnName) {

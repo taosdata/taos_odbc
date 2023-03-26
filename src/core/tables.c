@@ -205,12 +205,6 @@ again:
 
     int matched = 0;
     _match(tables, tsdb, &matched);
-    OW("tsdb:%.*s:%s", (int)tsdb->str.len, tsdb->str.str, matched ? "matched" : "not matched");
-
-    sr = tables->stmt.base.get_data(&tables->stmt.base, 3, tsdb);
-    if (sr == SQL_SUCCESS) {
-      OW("table:%.*s:%s", (int)tsdb->str.len, tsdb->str.str, matched ? "matched" : "not matched");
-    }
 
     if (!matched) goto again;
   }
@@ -423,8 +417,6 @@ static SQLRETURN _tables_parse_table_type(tables_t *tables, SQLCHAR *TableType, 
 {
   SQLRETURN sr = SQL_SUCCESS;
 
-  OW("TableType:%.*s", (int)NameLength4, TableType);
-
   const char *begin = (const char*)TableType;
   const char *end   = begin + NameLength4;
 
@@ -486,11 +478,6 @@ SQLRETURN tables_open(
   if (SchemaName && NameLength2 == SQL_NTS)  NameLength2 = (SQLSMALLINT)strlen((const char*)SchemaName);
   if (TableName && NameLength3 == SQL_NTS)   NameLength3 = (SQLSMALLINT)strlen((const char*)TableName);
   if (TableType && NameLength4 == SQL_NTS)   NameLength4 = (SQLSMALLINT)strlen((const char*)TableType);
-
-  OW("CatalogName:%p,%.*s", CatalogName, (int)NameLength1, CatalogName);
-  OW("SchemaName:%p,%.*s", SchemaName, (int)NameLength2, SchemaName);
-  OW("TableName:%p,%.*s", TableName, (int)NameLength3, TableName);
-  OW("TableType:%p,%.*s", TableType, (int)NameLength4, TableType);
 
   if (CatalogName && strncmp((const char*)CatalogName, SQL_ALL_CATALOGS, 1) == 0) {
     if ((!SchemaName || !*SchemaName) && (!TableName || !*TableName) && (!TableType || !*TableType)) {

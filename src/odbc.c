@@ -573,7 +573,6 @@ SQLRETURN SQL_API SQLGetDiagRec(
     SQLSMALLINT    *TextLengthPtr)
 {
   OOW("===");
-  OD("HandleType:%s; Handle:%p", sql_handle_type(HandleType), Handle);
   if (Handle == SQL_NULL_HANDLE) return SQL_INVALID_HANDLE;
 
   switch (HandleType) {

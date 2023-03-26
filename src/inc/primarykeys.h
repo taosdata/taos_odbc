@@ -32,9 +32,6 @@ EXTERN_C_BEGIN
 
 void primarykeys_args_release(primarykeys_args_t *args) FA_HIDDEN;
 
-SQLSMALLINT primarykeys_get_count_of_col_meta(void) FA_HIDDEN;
-const column_meta_t* primarykeys_get_col_meta(int i_col) FA_HIDDEN;
-
 void primarykeys_reset(primarykeys_t *primarykeys) FA_HIDDEN;
 void primarykeys_release(primarykeys_t *primarykeys) FA_HIDDEN;
 

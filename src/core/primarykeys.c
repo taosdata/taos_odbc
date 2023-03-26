@@ -49,93 +49,6 @@ void primarykeys_args_release(primarykeys_args_t *args)
   primarykeys_args_reset(args);
 }
 
-static column_meta_t _primarykeys_meta[] = {
-  {
-    /* 1 */
-    /* name                            */ "TABLE_CAT",
-    /* column_type_name                */ "VARCHAR",
-    /* SQL_DESC_CONCISE_TYPE           */ SQL_VARCHAR,
-    /* SQL_DESC_LENGTH                 */ 1024,               /* hard-coded, big enough */
-    /* SQL_DESC_OCTET_LENGTH           */ 1024,               /* hard-coded, big enough */
-    /* SQL_DESC_PRECISION              */ 1024,
-    /* SQL_DESC_SCALE                  */ 0,
-    /* SQL_DESC_AUTO_UNIQUE_VALUE      */ SQL_FALSE,
-    /* SQL_DESC_UPDATABLE              */ SQL_ATTR_READONLY,
-    /* SQL_DESC_NULLABLE               */ SQL_NULLABLE,
-    /* SQL_DESC_UNSIGNED               */ SQL_TRUE,
-    /* SQL_DESC_NUM_PREC_RADIX         */ 0,
-  },{
-    /* 2 */
-    /* name                            */ "TABLE_SCHEM",
-    /* column_type_name                */ "VARCHAR",
-    /* SQL_DESC_CONCISE_TYPE           */ SQL_VARCHAR,
-    /* SQL_DESC_LENGTH                 */ 1024,               /* hard-coded, big enough */
-    /* SQL_DESC_OCTET_LENGTH           */ 1024,               /* hard-coded, big enough */
-    /* SQL_DESC_PRECISION              */ 1024,
-    /* SQL_DESC_SCALE                  */ 0,
-    /* SQL_DESC_AUTO_UNIQUE_VALUE      */ SQL_FALSE,
-    /* SQL_DESC_UPDATABLE              */ SQL_ATTR_READONLY,
-    /* SQL_DESC_NULLABLE               */ SQL_NULLABLE,
-    /* SQL_DESC_UNSIGNED               */ SQL_TRUE,
-    /* SQL_DESC_NUM_PREC_RADIX         */ 0,
-  },{
-    /* 3 */
-    /* name                            */ "TABLE_NAME",
-    /* column_type_name                */ "VARCHAR",
-    /* SQL_DESC_CONCISE_TYPE           */ SQL_VARCHAR,
-    /* SQL_DESC_LENGTH                 */ 1024,               /* hard-coded, big enough */
-    /* SQL_DESC_OCTET_LENGTH           */ 1024,               /* hard-coded, big enough */
-    /* SQL_DESC_PRECISION              */ 1024,
-    /* SQL_DESC_SCALE                  */ 0,
-    /* SQL_DESC_AUTO_UNIQUE_VALUE      */ SQL_FALSE,
-    /* SQL_DESC_UPDATABLE              */ SQL_ATTR_READONLY,
-    /* SQL_DESC_NULLABLE               */ SQL_NO_NULLS,
-    /* SQL_DESC_UNSIGNED               */ SQL_TRUE,
-    /* SQL_DESC_NUM_PREC_RADIX         */ 0,
-  },{
-    /* 4 */
-    /* name                            */ "COLUMN_NAME",
-    /* column_type_name                */ "VARCHAR",
-    /* SQL_DESC_CONCISE_TYPE           */ SQL_VARCHAR,
-    /* SQL_DESC_LENGTH                 */ 1024,               /* hard-coded, big enough */
-    /* SQL_DESC_OCTET_LENGTH           */ 1024,               /* hard-coded, big enough */
-    /* SQL_DESC_PRECISION              */ 1024,
-    /* SQL_DESC_SCALE                  */ 0,
-    /* SQL_DESC_AUTO_UNIQUE_VALUE      */ SQL_FALSE,
-    /* SQL_DESC_UPDATABLE              */ SQL_ATTR_READONLY,
-    /* SQL_DESC_NULLABLE               */ SQL_NO_NULLS,
-    /* SQL_DESC_UNSIGNED               */ SQL_TRUE,
-    /* SQL_DESC_NUM_PREC_RADIX         */ 0,
-  },{
-    /* 5 */
-    /* name                            */ "KEY_SEQ",
-    /* column_type_name                */ "SMALLINT",         /* FIXME: what to fill? */
-    /* SQL_DESC_CONCISE_TYPE           */ SQL_SMALLINT,
-    /* SQL_DESC_LENGTH                 */ 5,                  /* FIXME: what to fill? */
-    /* SQL_DESC_OCTET_LENGTH           */ 2,                  /* hard-coded, big enough */
-    /* SQL_DESC_PRECISION              */ 5,
-    /* SQL_DESC_SCALE                  */ 0,
-    /* SQL_DESC_AUTO_UNIQUE_VALUE      */ SQL_FALSE,
-    /* SQL_DESC_UPDATABLE              */ SQL_ATTR_READONLY,
-    /* SQL_DESC_NULLABLE               */ SQL_NO_NULLS,
-    /* SQL_DESC_UNSIGNED               */ SQL_FALSE,          /* NOTE: check it later */
-    /* SQL_DESC_NUM_PREC_RADIX         */ 10,                 /* NOTE: check it later */
-  },{
-    /* 6 */
-    /* name                            */ "PK_NAME",
-    /* column_type_name                */ "VARCHAR",
-    /* SQL_DESC_CONCISE_TYPE           */ SQL_VARCHAR,
-    /* SQL_DESC_LENGTH                 */ 1024,               /* hard-coded, big enough */
-    /* SQL_DESC_OCTET_LENGTH           */ 1024,               /* hard-coded, big enough */
-    /* SQL_DESC_PRECISION              */ 1024,
-    /* SQL_DESC_SCALE                  */ 0,
-    /* SQL_DESC_AUTO_UNIQUE_VALUE      */ SQL_FALSE,
-    /* SQL_DESC_UPDATABLE              */ SQL_ATTR_READONLY,
-    /* SQL_DESC_NULLABLE               */ SQL_NO_NULLS,
-    /* SQL_DESC_UNSIGNED               */ SQL_TRUE,           /* NOTE: check it later */
-    /* SQL_DESC_NUM_PREC_RADIX         */ 0,
-  },
-};
 static TAOS_FIELD _fields[] = {
   {
     /* 1 */
@@ -169,20 +82,6 @@ static TAOS_FIELD _fields[] = {
     /* bytes                           */ 1024,               /* hard-coded, big enough */
   },
 };
-
-SQLSMALLINT primarykeys_get_count_of_col_meta(void)
-{
-  SQLSMALLINT nr = (SQLSMALLINT)(sizeof(_primarykeys_meta) / sizeof(_primarykeys_meta[0]));
-  return nr;
-}
-
-const column_meta_t* primarykeys_get_col_meta(int i_col)
-{
-  int nr = (int)(sizeof(_primarykeys_meta) / sizeof(_primarykeys_meta[0]));
-  if (i_col < 0) return NULL;
-  if (i_col >= nr) return NULL;
-  return _primarykeys_meta + i_col;
-}
 
 void primarykeys_reset(primarykeys_t *primarykeys)
 {
@@ -395,7 +294,9 @@ static SQLRETURN _get_num_cols(stmt_base_t *base, SQLSMALLINT *ColumnCountPtr)
 {
   (void)base;
 
-  *ColumnCountPtr = primarykeys_get_count_of_col_meta();
+  size_t nr = sizeof(_fields) / sizeof(_fields[0]);
+
+  *ColumnCountPtr = (SQLSMALLINT)nr;
 
   return SQL_SUCCESS;
 }

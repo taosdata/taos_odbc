@@ -567,21 +567,6 @@ struct tables_s {
   tables_type_t              tables_type;
 };
 
-struct column_meta_s {
-  const char                 *name;
-  const char                 *column_type_name;
-  SQLLEN                      DESC_CONCISE_TYPE;
-  SQLLEN                      DESC_LENGTH;
-  SQLLEN                      DESC_OCTET_LENGTH;
-  SQLLEN                      DESC_PRECISION;
-  SQLLEN                      DESC_SCALE;
-  SQLLEN                      DESC_AUTO_UNIQUE_VALUE;
-  SQLLEN                      DESC_UPDATABLE;
-  SQLLEN                      DESC_NULLABLE;
-  SQLLEN                      DESC_UNSIGNED;
-  SQLLEN                      DESC_NUM_PREC_RADIX;
-};
-
 struct columns_args_s {
   wildex_t        *catalog_pattern;
   wildex_t        *schema_pattern;

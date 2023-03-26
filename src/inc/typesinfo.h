@@ -30,9 +30,6 @@
 
 EXTERN_C_BEGIN
 
-SQLSMALLINT typesinfo_get_count_of_col_meta(void) FA_HIDDEN;
-const column_meta_t* typesinfo_get_col_meta(int i_col) FA_HIDDEN;
-
 void typesinfo_reset(typesinfo_t *typesinfo) FA_HIDDEN;
 void typesinfo_release(typesinfo_t *typesinfo) FA_HIDDEN;
 

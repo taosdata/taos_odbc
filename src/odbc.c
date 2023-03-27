@@ -841,6 +841,11 @@ static BOOL get_driver_dll_path(HWND hwndParent, char *buf, size_t len)
 
 static BOOL doDSNAdd(HWND	hwndParent, LPCSTR	lpszDriver, LPCSTR lpszAttributes)
 {
+  if (hwndParent) {
+    MessageBox(hwndParent, "Please use odbcconf to add DSN for TAOS ODBC Driver", "Warning!", MB_OK|MB_ICONEXCLAMATION);
+    return FALSE;
+  }
+
   BOOL r = TRUE;
 
   kv_t *kvs = NULL;
@@ -884,11 +889,6 @@ static BOOL doDSNAdd(HWND	hwndParent, LPCSTR	lpszDriver, LPCSTR lpszAttributes)
       p += strlen(p) + 1;
     }
 
-    if (hwndParent) {
-      MessageBox(hwndParent, "Please use odbcconf to add DSN for TAOS ODBC Driver", "Warning!", MB_OK|MB_ICONEXCLAMATION);
-    }
-    if (!r) break;
-
     char *v = NULL;
     v = strchr(dsn.line, '=');
     if (!v) { r = FALSE; break; }
@@ -918,6 +918,11 @@ static BOOL doDSNAdd(HWND	hwndParent, LPCSTR	lpszDriver, LPCSTR lpszAttributes)
 
 static BOOL doDSNConfig(HWND	hwndParent, LPCSTR	lpszDriver, LPCSTR lpszAttributes)
 {
+  if (hwndParent) {
+    MessageBox(hwndParent, "Please use odbcconf to config DSN for TAOS ODBC Driver", "Warning!", MB_OK|MB_ICONEXCLAMATION);
+    return FALSE;
+  }
+
   const char *p = lpszAttributes;
   while (p && *p) {
     p += strlen(p) + 1;
@@ -927,6 +932,11 @@ static BOOL doDSNConfig(HWND	hwndParent, LPCSTR	lpszDriver, LPCSTR lpszAttribute
 
 static BOOL doDSNRemove(HWND	hwndParent, LPCSTR	lpszDriver, LPCSTR lpszAttributes)
 {
+  if (hwndParent) {
+    MessageBox(hwndParent, "Please use odbcconf to remove DSN for TAOS ODBC Driver", "Warning!", MB_OK|MB_ICONEXCLAMATION);
+    return FALSE;
+  }
+
   BOOL r = TRUE;
 
   kv_t dsn = {0};

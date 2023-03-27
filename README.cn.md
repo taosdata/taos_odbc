@@ -181,7 +181,7 @@ https://github.com/lexxmark/winflexbison/releases/download/v2.5.25/win_flex_biso
 win_flex --version
 ```
 
-### Building and Installing, use Windows 11 as an example
+### 编译及安装, 以Windows 11为例
 3. 以管理员身份运行命令提示符. https://www.makeuseof.com/windows-run-command-prompt-admin/
 4. cd至本工程的根目录.
 5. 可选, 设置编译环境, 如果你是在64位的windows 11上安装的visual studio community 2022, 那么:

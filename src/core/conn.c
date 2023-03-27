@@ -579,19 +579,6 @@ void conn_disconnect(conn_t *conn)
   connection_cfg_release(&conn->cfg);
 }
 
-static void _conn_get_dbms_name(conn_t *conn, const char **name)
-{
-  OA_ILE(conn->taos);
-  const char *server = CALL_taos_get_server_info(conn->taos);
-  if (name) *name = server;
-}
-
-static void _get_driver_name(char *name, size_t sz)
-{
-  const char *client = CALL_taos_get_client_info();
-  snprintf(name, sz, "taos_odbc-0.1@taosc:%s", client);
-}
-
 static SQLRETURN _conn_commit(conn_t *conn)
 {
   int outstandings = atomic_load(&conn->outstandings);
@@ -811,8 +798,6 @@ SQLRETURN conn_get_info(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr)
 {
-  int n = 0;
-
   // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetinfo-function?view=sql-server-ver16
   switch (InfoType) {
     case SQL_DRIVER_ODBC_VER: {

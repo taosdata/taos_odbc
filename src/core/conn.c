@@ -729,100 +729,63 @@ SQLRETURN conn_connect(
   return sr;
 }
 
-static SQLRETURN _conn_get_info_driver_odbc_ver(
+static SQLRETURN _conn_set_string(
     conn_t         *conn,
-    char           *buf,
-    size_t          sz,
+    const char     *value,
+    SQLUSMALLINT    InfoType,
+    SQLPOINTER      InfoValuePtr,
+    SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr)
 {
-  (void)conn;
-
-  // https://learn.microsoft.com/en-us/sql/odbc/reference/install/driver-specification-subkeys?view=sql-server-ver16
-  // `DriverODBCVer`: This must be the same as the value returned for the SQL_DRIVER_ODBC_VER option in SQLGetInfo.
-#if (ODBCVER == 0x0351)
-  const char *ver = "03.51";
-#endif
-
-  int n = snprintf(buf, sz, "%s", ver);
+  int n = snprintf((char*)InfoValuePtr, BufferLength, "%s", value);
   if (StringLengthPtr) *StringLengthPtr = n;
 
-  return SQL_SUCCESS;
-}
-
-static SQLRETURN _conn_get_info_driver_ver(
-    conn_t         *conn,
-    char           *buf,
-    size_t          sz,
-    SQLSMALLINT    *StringLengthPtr)
-{
-  (void)conn;
-
-  const char *ver = "01.00.0000";
-
-  int n = snprintf(buf, sz, "%s", ver);
-  if (StringLengthPtr) *StringLengthPtr = n;
+  if (n >= BufferLength) {
+    conn_append_err_format(conn, "01004", 0, "String data, right truncated:`%s[%d/0x%x]`", sql_info_type(InfoType), InfoType, InfoType);
+    return SQL_SUCCESS_WITH_INFO;
+  }
 
   return SQL_SUCCESS;
 }
 
 static SQLRETURN _conn_get_info_dbms_name(
     conn_t         *conn,
-    char           *buf,
-    size_t          sz,
+    SQLUSMALLINT    InfoType,
+    SQLPOINTER      InfoValuePtr,
+    SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr)
 {
-  const char *name;
-  _conn_get_dbms_name(conn, &name);
+  const char *server = CALL_taos_get_server_info(conn->taos);
+  if (!server) {
+    conn_append_err_format(conn, "HY000", 0, "General error:`%s[%d/0x%x]` internal logic error", sql_info_type(InfoType), InfoType, InfoType);
+    return SQL_ERROR;
+  }
 
-  int n = snprintf(buf, sz, "%s", name);
-  if (StringLengthPtr) *StringLengthPtr = n;
-
-  return SQL_SUCCESS;
+  return _conn_set_string(conn, server, InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
 }
 
 static SQLRETURN _conn_get_info_driver_name(
     conn_t         *conn,
-    char           *buf,
-    size_t          sz,
+    SQLUSMALLINT    InfoType,
+    SQLPOINTER      InfoValuePtr,
+    SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr)
 {
   (void)conn;
-  char name[1024]; name[0] = '\0';
-  _get_driver_name(name, sizeof(name));
 
-  int n = snprintf(buf, sz, "%s", name);
+  const char *client = CALL_taos_get_client_info();
+  if (!client) {
+    conn_append_err_format(conn, "HY000", 0, "General error:`%s[%d/0x%x]` internal logic error", sql_info_type(InfoType), InfoType, InfoType);
+    return SQL_ERROR;
+  }
+  int n = snprintf((char*)InfoValuePtr, BufferLength, "taos_odbc-0.1@taosc:%s", client);
   if (StringLengthPtr) *StringLengthPtr = n;
 
-  return SQL_SUCCESS;
-}
-
-static SQLRETURN _conn_get_dbms_ver(
-    conn_t         *conn,
-    SQLPOINTER      InfoValuePtr,
-    SQLSMALLINT     BufferLength,
-    SQLSMALLINT    *StringLengthPtr)
-{
-  (void)conn;
-  const char *dbms_ver = "01.00.0000";
-  int n = snprintf((char*)InfoValuePtr, BufferLength, "%s", dbms_ver);
-  if (StringLengthPtr) {
-    *StringLengthPtr = n;
+  if (n >= BufferLength) {
+    conn_append_err_format(conn, "01004", 0, "String data, right truncated:`%s[%d/0x%x]`", sql_info_type(InfoType), InfoType, InfoType);
+    return SQL_SUCCESS_WITH_INFO;
   }
-  return SQL_SUCCESS;
-}
 
-static SQLRETURN _conn_get_server_name(
-    conn_t         *conn,
-    SQLPOINTER      InfoValuePtr,
-    SQLSMALLINT     BufferLength,
-    SQLSMALLINT    *StringLengthPtr)
-{
-  (void)conn;
-  const char *server_name = "";
-  int n = snprintf((char*)InfoValuePtr, BufferLength, "%s", server_name);
-  if (StringLengthPtr) {
-    *StringLengthPtr = n;
-  }
   return SQL_SUCCESS;
 }
 
@@ -841,51 +804,6 @@ static SQLRETURN _conn_get_catalog_name_separator(
   return SQL_SUCCESS;
 }
 
-static SQLRETURN _conn_get_catalog_name(
-    conn_t         *conn,
-    SQLPOINTER      InfoValuePtr,
-    SQLSMALLINT     BufferLength,
-    SQLSMALLINT    *StringLengthPtr)
-{
-  (void)conn;
-  const char *catalog_name = "Y";
-  int n = snprintf((char*)InfoValuePtr, BufferLength, "%s", catalog_name);
-  if (StringLengthPtr) {
-    *StringLengthPtr = n;
-  }
-  return SQL_SUCCESS;
-}
-
-static SQLRETURN _conn_get_order_by_columns_in_select(
-    conn_t         *conn,
-    SQLPOINTER      InfoValuePtr,
-    SQLSMALLINT     BufferLength,
-    SQLSMALLINT    *StringLengthPtr)
-{
-  (void)conn;
-  const char *order_by_columns_in_select = "N";
-  int n = snprintf((char*)InfoValuePtr, BufferLength, "%s", order_by_columns_in_select);
-  if (StringLengthPtr) {
-    *StringLengthPtr = n;
-  }
-  return SQL_SUCCESS;
-}
-
-static SQLRETURN _conn_get_identifier_quote_char(
-    conn_t         *conn,
-    SQLPOINTER      InfoValuePtr,
-    SQLSMALLINT     BufferLength,
-    SQLSMALLINT    *StringLengthPtr)
-{
-  (void)conn;
-  const char *identifier_quote_char = "`";
-  int n = snprintf((char*)InfoValuePtr, BufferLength, "%s", identifier_quote_char);
-  if (StringLengthPtr) {
-    *StringLengthPtr = n;
-  }
-  return SQL_SUCCESS;
-}
-
 SQLRETURN conn_get_info(
     conn_t         *conn,
     SQLUSMALLINT    InfoType,
@@ -897,93 +815,124 @@ SQLRETURN conn_get_info(
 
   // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetinfo-function?view=sql-server-ver16
   switch (InfoType) {
-    case SQL_DRIVER_ODBC_VER:
-      return _conn_get_info_driver_odbc_ver(conn, (char*)InfoValuePtr, (size_t)BufferLength, StringLengthPtr);
+    case SQL_DRIVER_ODBC_VER: {
+      // https://learn.microsoft.com/en-us/sql/odbc/reference/install/driver-specification-subkeys?view=sql-server-ver16
+      // `DriverODBCVer`: This must be the same as the value returned for the SQL_DRIVER_ODBC_VER option in SQLGetInfo.
+#if (ODBCVER == 0x0351)              /* { */
+      return _conn_set_string(conn, "03.51", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+#else                                /* }{ */
+#error `ODBCVER` must be equal to 0x0351
+#endif                               /* } */
+    } break;
     case SQL_DRIVER_VER:
-      return _conn_get_info_driver_ver(conn, (char*)InfoValuePtr, (size_t)BufferLength, StringLengthPtr);
-    case SQL_DBMS_NAME:
-      return _conn_get_info_dbms_name(conn, (char*)InfoValuePtr, (size_t)BufferLength, StringLengthPtr);
+      return _conn_set_string(conn, "01.00.0000", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_DRIVER_NAME:
-      return _conn_get_info_driver_name(conn, (char*)InfoValuePtr, (size_t)BufferLength, StringLengthPtr);
+      return _conn_get_info_driver_name(conn, InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+    case SQL_DBMS_VER:
+      return _conn_set_string(conn, "01.00.0000", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+    case SQL_DBMS_NAME:
+      return _conn_get_info_dbms_name(conn, InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+    case SQL_SERVER_NAME:
+      return _conn_set_string(conn, "", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_CURSOR_COMMIT_BEHAVIOR:
       *(SQLUSMALLINT*)InfoValuePtr = 0; // NOTE: refer to msdn listed above
-      return SQL_SUCCESS;
-    case SQL_CURSOR_ROLLBACK_BEHAVIOR:
+      break;
+    case SQL_CURSOR_ROLLBACK_BEHAVIOR: 
       *(SQLUSMALLINT*)InfoValuePtr = 0; // NOTE: refer to msdn listed above
-      return SQL_SUCCESS;
+      break;
     case SQL_TXN_ISOLATION_OPTION:
       *(SQLUINTEGER*)InfoValuePtr = 0; // TODO:
-      return SQL_SUCCESS;
+      break;
     case SQL_GETDATA_EXTENSIONS:
       *(SQLUINTEGER*)InfoValuePtr = SQL_GD_ANY_COLUMN | SQL_GD_ANY_ORDER /* | SQL_GD_BLOCK */ | SQL_GD_BOUND /* | SQL_GD_OUTPUT_PARAMS */;
-      return SQL_SUCCESS;
+      break;
     case SQL_MAX_COLUMN_NAME_LEN:
       *(SQLUSMALLINT*)InfoValuePtr = MAX_COLUMN_NAME_LEN;
-      return SQL_SUCCESS;
+      break;
     case SQL_MAX_CATALOG_NAME_LEN:
       *(SQLUSMALLINT*)InfoValuePtr = MAX_CATALOG_NAME_LEN;
-      return SQL_SUCCESS;
+      break;
     case SQL_MAX_SCHEMA_NAME_LEN:
       *(SQLUSMALLINT*)InfoValuePtr = MAX_SCHEMA_NAME_LEN;
-      return SQL_SUCCESS;
+      break;
     case SQL_MAX_TABLE_NAME_LEN:
       *(SQLUSMALLINT*)InfoValuePtr = MAX_TABLE_NAME_LEN;
-      return SQL_SUCCESS;
+      break;
 #if (ODBCVER >= 0x0380)      /* { */
     case SQL_ASYNC_DBC_FUNCTIONS:
       *(SQLUINTEGER*)InfoValuePtr = SQL_ASYNC_DBC_NOT_CAPABLE;
-      return SQL_SUCCESS;
+      break;
     case SQL_ASYNC_NOTIFICATION:
       *(SQLUINTEGER*)InfoValuePtr = SQL_ASYNC_NOTIFICATION_NOT_CAPABLE;
-      return SQL_SUCCESS;
+      break;
 #endif                       /* } */
-    case SQL_DBMS_VER:
-      return _conn_get_dbms_ver(conn, InfoValuePtr, BufferLength, StringLengthPtr);
-    case SQL_SERVER_NAME:
-      return _conn_get_server_name(conn, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_DTC_TRANSITION_COST:
       *(SQLUINTEGER*)InfoValuePtr = 0;
-      return SQL_SUCCESS;
+      break;
     case SQL_CATALOG_NAME_SEPARATOR:
       return _conn_get_catalog_name_separator(conn, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_CATALOG_NAME:
-      return _conn_get_catalog_name(conn, InfoValuePtr, BufferLength, StringLengthPtr);
+      return _conn_set_string(conn, "Y", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_CATALOG_USAGE:
       *(SQLUINTEGER*)InfoValuePtr = SQL_CU_DML_STATEMENTS | SQL_CU_PROCEDURE_INVOCATION | SQL_CU_TABLE_DEFINITION | SQL_CU_INDEX_DEFINITION | SQL_CU_PRIVILEGE_DEFINITION;
-      return SQL_SUCCESS;
+      break;
     case SQL_OJ_CAPABILITIES:
       // *(SQLUINTEGER*)InfoValuePtr = SQL_OJ_LEFT | SQL_OJ_RIGHT | SQL_OJ_FULL | SQL_OJ_NESTED | SQL_OJ_NOT_ORDERED | SQL_OJ_INNER | SQL_OJ_ALL_COMPARISON_OPS;
       *(SQLUINTEGER*)InfoValuePtr = 0;
-      return SQL_SUCCESS;
+      break;
     case SQL_GROUP_BY:
       *(SQLUSMALLINT*)InfoValuePtr = SQL_GB_GROUP_BY_EQUALS_SELECT;
-      return SQL_SUCCESS;
+      break;
     case SQL_IDENTIFIER_CASE:
       *(SQLUSMALLINT*)InfoValuePtr = SQL_IC_UPPER;
-      return SQL_SUCCESS;
+      break;
     case SQL_ORDER_BY_COLUMNS_IN_SELECT:
-      return _conn_get_order_by_columns_in_select(conn, InfoValuePtr, BufferLength, StringLengthPtr);
+      return _conn_set_string(conn, "N", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_IDENTIFIER_QUOTE_CHAR:
-      return _conn_get_identifier_quote_char(conn, InfoValuePtr, BufferLength, StringLengthPtr);
+      return _conn_set_string(conn, "`", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_QUOTED_IDENTIFIER_CASE:
       *(SQLUSMALLINT*)InfoValuePtr = SQL_IC_SENSITIVE;
-      return SQL_SUCCESS;
+      break;
     case SQL_MAX_CONCURRENT_ACTIVITIES:
       *(SQLUSMALLINT*)InfoValuePtr = 0;
-      return SQL_SUCCESS;
+      break;
     case SQL_BOOKMARK_PERSISTENCE:
       *(SQLUINTEGER*)InfoValuePtr = 0;
-      return SQL_SUCCESS;
+      break;
     case SQL_SEARCH_PATTERN_ESCAPE:
-      n = snprintf((char*)InfoValuePtr, BufferLength, "%s", "\\");
-      if (StringLengthPtr) {
-        *StringLengthPtr = n;
-      }
-      return SQL_SUCCESS;
+      return _conn_set_string(conn, "\\", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+    case SQL_OWNER_USAGE:
+      *(SQLUINTEGER*)InfoValuePtr = 0;
+      break;
+    case SQL_QUALIFIER_LOCATION:
+      *(SQLUSMALLINT*)InfoValuePtr = SQL_CL_START;
+      break;
+    case SQL_SQL_CONFORMANCE:
+      *(SQLUINTEGER*)InfoValuePtr = SQL_SC_SQL92_ENTRY;
+      break;
+    case SQL_MAX_COLUMNS_IN_ORDER_BY:
+      *(SQLUSMALLINT*)InfoValuePtr = 0;
+      break;
+    case SQL_MAX_IDENTIFIER_LEN:
+      *(SQLUSMALLINT*)InfoValuePtr = 192;
+      break;
+    case SQL_MAX_COLUMNS_IN_GROUP_BY:
+      *(SQLUSMALLINT*)InfoValuePtr = 0;
+      break;
+    case SQL_MAX_COLUMNS_IN_SELECT:
+      *(SQLUSMALLINT*)InfoValuePtr = 4096;
+      break;
+    case SQL_COLUMN_ALIAS:
+      return _conn_set_string(conn, "Y", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+    case SQL_CATALOG_TERM:
+      return _conn_set_string(conn, "database", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+    case SQL_OWNER_TERM:
+      return _conn_set_string(conn, "schema", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
     default:
       conn_append_err_format(conn, "HY000", 0, "General error:`%s[%d/0x%x]` not implemented yet", sql_info_type(InfoType), InfoType, InfoType);
       return SQL_ERROR;
   }
+  return SQL_SUCCESS;
 }
 
 SQLRETURN conn_end_tran(

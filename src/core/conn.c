@@ -596,10 +596,10 @@ SQLRETURN conn_driver_connect(
     if (r) {
       conn_append_err_format(
         conn, "HY000", 0,
-        "General error:[%.*s][(%d,%d)->(%d,%d):%s]",
-        StringLength1, InConnectionString,
+        "General error:[%.*s][(%d,%d)->(%d,%d):%.*s]",
+        StringLength1, (const char*)InConnectionString,
         param.row0, param.col0, param.row1, param.col1,
-        param.err_msg);
+        (int)strlen(param.err_msg), param.err_msg);
 
       break;
     }

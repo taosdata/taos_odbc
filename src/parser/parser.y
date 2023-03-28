@@ -59,14 +59,10 @@
     );
 
     #define SET_DSN(_v, _loc) do {                                                              \
-      if (param->conn_str.dsn || param->conn_str.driver) {                                      \
-        _yyerror_impl(&_loc, arg, param, "duplication of DSN", "not allowed");                  \
-        return -1;                                                                              \
-      }                                                                                         \
       if (!param) break;                                                                        \
       TOD_SAFE_FREE(param->conn_str.dsn);                                                       \
       param->conn_str.dsn = strndup(_v.text, _v.leng);                                          \
-      if (connection_cfg_init_other_fields(&param->conn_str)) {                                 \
+      if (!param->conn_str.dsn) {                                                               \
         _yyerror_impl(&_loc, arg, param, "runtime error", "out of memory");                     \
         return -1;                                                                              \
       }                                                                                         \
@@ -99,10 +95,6 @@
       }                                                                                         \
     } while (0)
     #define SET_DRIVER(_v, _loc) do {                                                           \
-      if (param->conn_str.dsn || param->conn_str.driver) {                                      \
-        _yyerror_impl(&_loc, arg, param, "duplication of Driver", "not allowed");               \
-        return -1;                                                                              \
-      }                                                                                         \
       if (!param) break;                                                                        \
       TOD_SAFE_FREE(param->conn_str.driver);                                                    \
       param->conn_str.driver = strndup(_v.text, _v.leng);                                       \
@@ -120,6 +112,7 @@
         return -1;                                                                              \
       }                                                                                         \
       param->conn_str.port = 0;                                                                 \
+      param->conn_str.port_set = 0;                                                             \
     } while (0)
     #define SET_FQDN_PORT(_v, _p, _loc) do {                                                    \
       if (!param) break;                                                                        \
@@ -132,19 +125,19 @@
       param->conn_str.port = strtol(_p.text, NULL, 10);                                         \
       param->conn_str.port_set = 1;                                                             \
     } while (0)
-    #define SET_UNSIGNED_PROMOTION(_s, _n) do {                                                 \
+    #define SET_UNSIGNED_PROMOTION(_s, _n, _loc) do {                                           \
       if (!param) break;                                                                        \
       OA_NIY(_s[_n] == '\0');                                                                   \
       param->conn_str.unsigned_promotion = !!(atoi(_s));                                        \
       param->conn_str.unsigned_promotion_set = 1;                                               \
     } while (0)
-    #define SET_TIMESTAMP_AS_IS(_s, _n) do {                                                    \
+    #define SET_TIMESTAMP_AS_IS(_s, _n, _loc) do {                                              \
       if (!param) break;                                                                        \
       OA_NIY(_s[_n] == '\0');                                                                   \
       param->conn_str.timestamp_as_is = !!(atoi(_s));                                           \
       param->conn_str.timestamp_as_is_set = 1;                                                  \
     } while (0)
-    #define SET_CACHE_SQL(_s, _n) do {                                                          \
+    #define SET_CACHE_SQL(_s, _n, _loc) do {                                                    \
       if (!param) break;                                                                        \
       OA_NIY(_s[_n] == '\0');                                                                   \
       param->conn_str.cache_sql = !!(atoi(_s));                                                 \
@@ -157,7 +150,6 @@
       connection_cfg_release(&param->conn_str);
       param->err_msg[0] = '\0';
       param->row0 = 0;
-      fprintf(stderr, "%s():param:%p\n", __func__, param);
     }
 }
 
@@ -222,15 +214,15 @@ attribute:
 | SERVER '=' FQDN                 { SET_FQDN($3, @$); }
 | SERVER '=' FQDN ':'             { SET_FQDN($3, @$); }
 | SERVER '=' FQDN ':' DIGITS      { SET_FQDN_PORT($3, $5, @$); }
-| UNSIGNED_PROMOTION              { SET_UNSIGNED_PROMOTION("1", 1); }
-| UNSIGNED_PROMOTION '='          { SET_UNSIGNED_PROMOTION("0", 1); }
-| UNSIGNED_PROMOTION '=' DIGITS   { SET_UNSIGNED_PROMOTION($3.text, $3.leng); }
-| TIMESTAMP_AS_IS                 { SET_TIMESTAMP_AS_IS("1", 1); }
-| TIMESTAMP_AS_IS '='             { SET_TIMESTAMP_AS_IS("0", 1); }
-| TIMESTAMP_AS_IS '=' DIGITS      { SET_TIMESTAMP_AS_IS($3.text, $3.leng); }
-| CACHE_SQL                       { SET_CACHE_SQL("1", 1); }
-| CACHE_SQL '='                   { SET_CACHE_SQL("0", 1); }
-| CACHE_SQL '=' DIGITS            { SET_CACHE_SQL($3.text, $3.leng); }
+| UNSIGNED_PROMOTION              { SET_UNSIGNED_PROMOTION("1", 1, @$); }
+| UNSIGNED_PROMOTION '='          { SET_UNSIGNED_PROMOTION("0", 1, @$); }
+| UNSIGNED_PROMOTION '=' DIGITS   { SET_UNSIGNED_PROMOTION($3.text, $3.leng, @$); }
+| TIMESTAMP_AS_IS                 { SET_TIMESTAMP_AS_IS("1", 1, @$); }
+| TIMESTAMP_AS_IS '='             { SET_TIMESTAMP_AS_IS("0", 1, @$); }
+| TIMESTAMP_AS_IS '=' DIGITS      { SET_TIMESTAMP_AS_IS($3.text, $3.leng, @$); }
+| CACHE_SQL                       { SET_CACHE_SQL("1", 1, @$); }
+| CACHE_SQL '='                   { SET_CACHE_SQL("0", 1, @$); }
+| CACHE_SQL '=' DIGITS            { SET_CACHE_SQL($3.text, $3.leng, @$); }
 ;
 
 %%
@@ -265,7 +257,6 @@ static void _yyerror_impl(
   param->col1 = yylloc->last_column;
   param->err_msg[0] = '\0';
   snprintf(param->err_msg, sizeof(param->err_msg), "%s:%s", title, errmsg);
-  fprintf(stderr, "%s():param:%p\n", __func__, param);
 }
 
 /* Called by yyparse on error. */
@@ -281,7 +272,6 @@ static void yyerror(
 
 int parser_parse(const char *input, size_t len, parser_param_t *param)
 {
-  fprintf(stderr, "%s():param:%p\n", __func__, param);
   yyscan_t arg = {0};
   yylex_init(&arg);
   // yyset_in(in, arg);

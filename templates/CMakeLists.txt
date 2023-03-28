@@ -53,6 +53,7 @@ if(NOT TODBC_WINDOWS)
       COMMAND cmake -E echo TAOS_ODBC_DSN is installed in ~/.odbc.ini)
 else()
   add_custom_target(install_templates
-      COMMAND odbcconf /F ${CMAKE_CURRENT_SOURCE_DIR}/win_odbcinst.in
+      COMMAND cmake -E echo odbcconf /F ${CMAKE_CURRENT_SOURCE_DIR}/win_odbcinst.in
+      COMMAND odbcconf /S /F ${CMAKE_CURRENT_SOURCE_DIR}/win_odbcinst.in
       COMMAND ${CMAKE_COMMAND} -E echo "-=Done=-")
 endif()

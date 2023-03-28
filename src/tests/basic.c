@@ -50,7 +50,7 @@ static int test_case1(void)
   // param.debug_bison = 1;
 
   const char *connection_strs[] = {
-    // " driver = {    ax bcd ; ;   }; dsn=server; uid=xxx; pwd=yyy",
+    " driver = {    ax bcd ; ;   }; dsn=server; uid=xxx; pwd=yyy",
     // https://www.connectionstrings.com/dsn/
     "DSN=myDsn;Uid=myUsername;Pwd=;",
     "FILEDSN=c:\\myDsnFile.dsn;Uid=myUsername;Pwd=;",

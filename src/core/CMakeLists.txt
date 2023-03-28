@@ -35,6 +35,11 @@ list(APPEND core_SOURCES tls.c)
 list(APPEND core_SOURCES tsdb.c)
 list(APPEND core_SOURCES typesinfo.c)
 
+if(TODBC_WINDOWS)
+  list(APPEND core_SOURCES setup.c)
+  list(APPEND core_SOURCES taos_odbc_setup.rc)
+endif()
+
 add_library(core_obj OBJECT ${core_SOURCES})
 if(TODBC_WINDOWS)
     add_dependencies(core_obj ex_iconv)

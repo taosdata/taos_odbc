@@ -606,6 +606,12 @@ SQLRETURN conn_driver_connect(
 
     connection_cfg_transfer(&param.conn_str, &conn->cfg);
 
+    r = connection_cfg_init_other_fields(&conn->cfg);
+    if (r) {
+      conn_oom(conn);
+      break;
+    }
+
     sr = _do_conn_connect(conn);
     if (!sql_succeeded(sr)) break;
 

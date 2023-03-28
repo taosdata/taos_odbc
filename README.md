@@ -74,6 +74,7 @@ SQLTables (post-filter workaround, to be removed when taosc is right in place)
 ```
 - **enable ODBC-aware software to communicate with TDengine**
 - **enable any programming language with ODBC-bindings/ODBC-plugings to communicate with TDengine, potentially**
+- **On Windows, "ODBC Data Sources (64bit)" pre-installed tool can be used to manage DSN**
 - **still going on**...
 
 ### Requirements
@@ -101,7 +102,12 @@ sudo apt install flex bison unixodbc unixodbc-dev && echo -=Done=-
 
 ### Building and Installing, use Ubuntu 20.04 as an example
 ```
-rm -rf debug && cmake -B debug -DCMAKE_BUILD_TYPE=Debug && cmake --build debug && sudo cmake --install debug && echo -=Done=-
+rm -rf debug &&
+cmake -B debug -DCMAKE_BUILD_TYPE=Debug &&
+cmake --build debug &&
+sudo cmake --install debug &&
+cmake --build debug --target install_templates &&
+echo -=Done=-
 ```
 
 ### Test
@@ -140,7 +146,12 @@ brew install flex bison unixodbc && echo -=Done=-
 
 ### Building and Installing, use MacOS Big Sur as an example
 ```
-rm -rf debug && cmake -B debug -DCMAKE_BUILD_TYPE=Debug && cmake --build debug && sudo cmake --install debug && echo -=Done=-
+rm -rf debug &&
+cmake -B debug -DCMAKE_BUILD_TYPE=Debug &&
+cmake --build debug &&
+sudo cmake --install debug &&
+cmake --build debug --target install_templates &&
+echo -=Done=-
 ```
 
 ### Test

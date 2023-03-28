@@ -86,12 +86,6 @@ void setup_fini(void)
   UnregisterClass(className, ghInstance);
 }
 
-typedef struct kv_s           kv_t;
-struct kv_s {
-  char    *line;
-  size_t   val;
-};
-
 static int get_driver_dll_path(HWND hwndParent, char *buf, size_t len)
 {
   HMODULE hm = NULL;
@@ -112,67 +106,6 @@ static int get_driver_dll_path(HWND hwndParent, char *buf, size_t len)
   return 0;
 }
 
-static void _trim_string(const char *src, size_t nr, const char **start, const char **end)
-{
-  if (nr == 0) {
-    *start = src;
-    *end = src;
-    return;
-  }
-
-  const char *p = src;
-  while (p < src + nr && isspace(*p)) ++p;
-  *start = p;
-  if (p == src + nr) {
-    *end   = p;
-    return;
-  }
-  p = src + nr - 1;
-  while (p >= *start && isspace(*p)) --p;
-  *end = p + 1;
-}
-
-static void _strim_spaces(const char *src, size_t len, char *dst, size_t n)
-{
-  if (dst && n > 0) dst[0] = '\0';
-
-  const char *end = src + len;
-  const char *p0 = src;
-  while (p0 < end && isspace(*p0)) {
-    ++p0;
-  }
-  if (p0 == end) {
-    if (dst && n > 0) dst[0] = '\0';
-    return;
-  }
-  const char *p1 = end - 1;
-  while (p1 > p0 && isspace(*p1)) {
-    --p1;
-  }
-  if (p1 > p0) {
-    snprintf(dst, n, "%.*s", (int)(p1-p0+1), p0);
-    return;
-  }
-  if (dst && n > 1) {
-    dst[0] = *p0;
-    dst[1] = '\0';
-  }
-}
-
-static void _get_kv(const char *kv, char *k, size_t kn, char *v, size_t vn)
-{
-  if (kn > 0) k[0] = '\0';
-  if (vn > 0) v[0] = '\0';
-
-  const char *p = strchr(kv, '=');
-  if (p) {
-    _strim_spaces(kv, p-kv, k, kn);
-    _strim_spaces(p+1, strlen(p+1), v, vn);
-  } else {
-    _strim_spaces(kv, strlen(kv), k, kn);
-  }
-}
-
 static const char *gDriver = NULL;
 static const char *gAttributes = NULL;
 
@@ -188,7 +121,7 @@ static INT_PTR CALLBACK SetupDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
       const char *p = lpszAttributes;
       char k[4096], v[4096];
       while (p && *p) {
-        _get_kv(p, k, sizeof(k), v, sizeof(v));
+        get_kv(p, k, sizeof(k), v, sizeof(v));
         if (tod_strcasecmp(k, "DSN") == 0) {
           if (v[0]) {
             SetDlgItemText(hDlg, IDC_EDT_DSN, (LPCSTR)v);
@@ -225,7 +158,7 @@ static INT_PTR CALLBACK SetupDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
       dsn[0] = '\0';
       UINT nr = GetDlgItemText(hDlg, IDC_EDT_DSN, (LPSTR)dsn, sizeof(dsn));
       const char *dsn_start, *dsn_end;
-      _trim_string(dsn, nr, &dsn_start, &dsn_end);
+      trim_string(dsn, nr, &dsn_start, &dsn_end);
       if (dsn_start == dsn_end) {
         MessageBox(hDlg, "DSN must be specified", "Warning", IDOK);
         return (INT_PTR)FALSE;
@@ -238,7 +171,7 @@ static INT_PTR CALLBACK SetupDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
       db[0] = '\0';
       nr = GetDlgItemText(hDlg, IDC_EDT_DB, (LPSTR)db, sizeof(db));
       const char *db_start, *db_end;
-      _trim_string(db, nr, &db_start, &db_end);
+      trim_string(db, nr, &db_start, &db_end);
       *(char*)db_end = '\0';
 
       BOOL ok = TRUE;
@@ -247,7 +180,8 @@ static INT_PTR CALLBACK SetupDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
       if (ok) ok = SQLWritePrivateProfileString(dsn_start, "Driver", driver_dll, "Odbc.ini");
       if (ok) ok = SQLWritePrivateProfileString(dsn_start, "UNSIGNED_PROMOTION", unsigned_promotion ? "1" : "0", "Odbc.ini");
       if (ok) ok = SQLWritePrivateProfileString(dsn_start, "TIMESTAMP_AS_IS", timestamp_as_is ? "1" : "0", "Odbc.ini");
-      if (ok) ok = SQLWritePrivateProfileString(dsn_start, "DB", db[0] ? db : "", "Odbc.ini");
+      if (ok) ok = SQLWritePrivateProfileString(dsn_start, "DB", db_start[0] ? db_start : "", "Odbc.ini");
+      if (ok) ok = SQLWritePrivateProfileString(dsn_start, "DB", db_start[0] ? db_start : NULL, "Odbc.ini");
       if (ok) {
         EndDialog(hDlg, LOWORD(wParam));
         return (INT_PTR)TRUE;
@@ -280,7 +214,7 @@ static BOOL doDSNAdd(HWND	hwndParent, LPCSTR	lpszDriver, LPCSTR lpszAttributes)
   dsn[0] = '\0';
   char k[4096], v[4096];
   while (p && *p) {
-    _get_kv(p, k, sizeof(k), v, sizeof(v));
+    get_kv(p, k, sizeof(k), v, sizeof(v));
     if (tod_strcasecmp(k, "DSN") == 0) {
       if (v[0]) {
         strcpy(dsn, v);
@@ -297,7 +231,7 @@ static BOOL doDSNAdd(HWND	hwndParent, LPCSTR	lpszDriver, LPCSTR lpszAttributes)
 
   p = lpszAttributes;
   while (ok && p && *p) {
-    _get_kv(p, k, sizeof(k), v, sizeof(v));
+    get_kv(p, k, sizeof(k), v, sizeof(v));
     if (tod_strcasecmp(k, "DSN") && tod_strcasecmp(k, "DRIVER")) {
       if (ok) ok = SQLWritePrivateProfileString(dsn, k, v, "Odbc.ini");
     }
@@ -334,7 +268,7 @@ static BOOL doDSNRemove(HWND	hwndParent, LPCSTR	lpszDriver, LPCSTR lpszAttribute
   const char *p = lpszAttributes;
   char k[4096], v[4096];
   while (p && *p) {
-    _get_kv(p, k, sizeof(k), v, sizeof(v));
+    get_kv(p, k, sizeof(k), v, sizeof(v));
     if (tod_strcasecmp(k, "DSN") == 0) {
       if (v[0]) {
         return SQLRemoveDSNFromIni(v);

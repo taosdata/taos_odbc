@@ -857,3 +857,45 @@ int str_concat(str_t *str, const char *charset, const char *src, size_t len)
   return r;
 }
 
+void trim_string(const char *src, size_t nr, const char **start, const char **end)
+{
+  if (nr == 0) {
+    *start = src;
+    *end = src;
+    return;
+  }
+
+  const char *P = src + nr;
+  const char *p = src;
+  while (p < P && isspace(*p)) ++p;
+  *start = p;
+  if (p == P) {
+    *end = p;
+    return;
+  }
+  p = P - 1;
+  while (p > *start && isspace(*p)) --p;
+  *end = p + 1;
+}
+
+void trim_spaces(const char *src, size_t len, char *dst, size_t n)
+{
+  const char *start, *end;
+  trim_string(src, len, &start, &end);
+  snprintf(dst, n, "%.*s", (int)(end-start), start);
+}
+
+void get_kv(const char *kv, char *k, size_t kn, char *v, size_t vn)
+{
+  if (kn > 0) k[0] = '\0';
+  if (vn > 0) v[0] = '\0';
+
+  const char *p = strchr(kv, '=');
+  if (p) {
+    trim_spaces(kv, p-kv, k, kn);
+    trim_spaces(p+1, strlen(p+1), v, vn);
+  } else {
+    trim_spaces(kv, strlen(kv), k, kn);
+  }
+}
+

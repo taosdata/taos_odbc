@@ -137,12 +137,6 @@
       param->conn_str.timestamp_as_is = !!(atoi(_s));                                           \
       param->conn_str.timestamp_as_is_set = 1;                                                  \
     } while (0)
-    #define SET_CACHE_SQL(_s, _n, _loc) do {                                                    \
-      if (!param) break;                                                                        \
-      OA_NIY(_s[_n] == '\0');                                                                   \
-      param->conn_str.cache_sql = !!(atoi(_s));                                                 \
-      param->conn_str.cache_sql_set = 1;                                                        \
-    } while (0)
 
     void parser_param_release(parser_param_t *param)
     {
@@ -171,7 +165,7 @@
 %union { parser_token_t token; }
 %union { char c; }
 
-%token DSN UID PWD DRIVER SERVER UNSIGNED_PROMOTION TIMESTAMP_AS_IS CACHE_SQL DB
+%token DSN UID PWD DRIVER SERVER UNSIGNED_PROMOTION TIMESTAMP_AS_IS DB
 %token <token> ID VALUE FQDN DIGITS
 
  /* %nterm <str>   args */ // non-terminal `input` use `str` to store
@@ -220,9 +214,6 @@ attribute:
 | TIMESTAMP_AS_IS                 { SET_TIMESTAMP_AS_IS("1", 1, @$); }
 | TIMESTAMP_AS_IS '='             { SET_TIMESTAMP_AS_IS("0", 1, @$); }
 | TIMESTAMP_AS_IS '=' DIGITS      { SET_TIMESTAMP_AS_IS($3.text, $3.leng, @$); }
-| CACHE_SQL                       { SET_CACHE_SQL("1", 1, @$); }
-| CACHE_SQL '='                   { SET_CACHE_SQL("0", 1, @$); }
-| CACHE_SQL '=' DIGITS            { SET_CACHE_SQL($3.text, $3.leng, @$); }
 ;
 
 %%

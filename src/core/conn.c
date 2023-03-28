@@ -488,13 +488,6 @@ static void _conn_fill_out_connection_str(
   }
   if (n>0) count += n;
 
-  if (conn->cfg.cache_sql) {
-    fixed_buf_sprintf(n, &buffer, "CACHE_SQL=1;");
-  } else {
-    fixed_buf_sprintf(n, &buffer, "CACHE_SQL=0;");
-  }
-  if (n>0) count += n;
-
   if (buffer.nr+1 == buffer.cap) {
     char *x = buffer.buf + buffer.nr;
     for (int i=0; i<3 && x>buffer.buf; ++i, --x) x[-1] = '.';

@@ -389,6 +389,11 @@ struct connection_cfg_s {
   //       thus, if timestamp_as_is is not set, TSDB_DATA_TYPE_TIMESTAMP would map to SQL_WVARCHAR
   unsigned int           timestamp_as_is:1;
   unsigned int           cache_sql:1;
+
+  unsigned int           unsigned_promotion_set:1;
+  unsigned int           timestamp_as_is_set:1;
+  unsigned int           cache_sql_set:1;
+  unsigned int           port_set:1;
 };
 
 struct parser_token_s {
@@ -401,10 +406,11 @@ struct parser_param_s {
 
   int                    row0, col0;
   int                    row1, col1;
-  char                  *errmsg;
+  char                   err_msg[1024];
 
   unsigned int           debug_flex:1;
   unsigned int           debug_bison:1;
+  unsigned int           oom:1;
 };
 
 struct conn_s {

@@ -50,6 +50,8 @@ void connection_cfg_release(connection_cfg_t *conn_str)
   TOD_SAFE_FREE(conn_str->pwd);
   TOD_SAFE_FREE(conn_str->ip);
   TOD_SAFE_FREE(conn_str->db);
+
+  memset(conn_str, 0, sizeof(*conn_str));
 }
 
 void connection_cfg_transfer(connection_cfg_t *from, connection_cfg_t *to)
@@ -503,6 +505,55 @@ static void _conn_fill_out_connection_str(
   }
 }
 
+int connection_cfg_init_other_fields(connection_cfg_t *cfg)
+{
+  char buf[1024];
+  buf[0] = '\0';
+
+  int r = 0;
+  if (!cfg->unsigned_promotion_set) {
+    buf[0] = '\0';
+    r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "UNSIGNED_PROMOTION", (LPCSTR)"0", (LPSTR)buf, sizeof(buf), "Odbc.ini");
+    if (r == 1) cfg->unsigned_promotion = !!atoi(buf);
+  }
+
+  r = 0;
+  if (!cfg->timestamp_as_is_set) {
+    buf[0] = '\0';
+    r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "TIMESTAMP_AS_IS", (LPCSTR)"0", (LPSTR)buf, sizeof(buf), "Odbc.ini");
+    if (r == 1) cfg->timestamp_as_is = !!atoi(buf);
+  }
+
+  if (!cfg->pwd) {
+    buf[0] = '\0';
+    r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "PWD", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
+    if (buf[0]) {
+      cfg->pwd = strdup(buf);
+      if (!cfg->pwd) return -1;
+    }
+  }
+
+  if (!cfg->uid) {
+    buf[0] = '\0';
+    r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "UID", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
+    if (buf[0]) {
+      cfg->uid = strdup(buf);
+      if (!cfg->uid) return -1;
+    }
+  }
+
+  if (!cfg->db) {
+    buf[0] = '\0';
+    r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "DB", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
+    if (buf[0]) {
+      cfg->db = strdup(buf);
+      if (!cfg->db) return -1;
+    }
+  }
+
+  return 0;
+}
+
 SQLRETURN conn_driver_connect(
     conn_t         *conn,
     SQLHWND         WindowHandle,
@@ -514,6 +565,9 @@ SQLRETURN conn_driver_connect(
     SQLUSMALLINT    DriverCompletion)
 {
   (void)WindowHandle;
+  SQLRETURN sr = SQL_SUCCESS;
+
+  if (StringLength1 == SQL_NTS) StringLength1 = (SQLSMALLINT)strlen((const char*)InConnectionString);
 
   switch (DriverCompletion) {
     case SQL_DRIVER_NOPROMPT:
@@ -536,18 +590,16 @@ SQLRETURN conn_driver_connect(
   param.debug_flex  = env_get_debug_flex(conn->env);
   param.debug_bison = env_get_debug_bison(conn->env);
 
-  if (StringLength1 == SQL_NTS) StringLength1 = (SQLSMALLINT)strlen((const char*)InConnectionString);
   int r = parser_parse((const char*)InConnectionString, StringLength1, &param);
-  SQLRETURN sr = SQL_SUCCESS;
 
   do {
     if (r) {
       conn_append_err_format(
         conn, "HY000", 0,
-        "General error:bad syntax for connection string:[%.*s][(%d,%d)->(%d,%d):%s]",
+        "General error:[%.*s][(%d,%d)->(%d,%d):%s]",
         StringLength1, InConnectionString,
         param.row0, param.col0, param.row1, param.col1,
-        param.errmsg);
+        param.err_msg);
 
       break;
     }
@@ -635,42 +687,6 @@ SQLRETURN conn_alloc_desc(conn_t *conn, SQLHANDLE *OutputHandle)
   return SQL_SUCCESS;
 }
 
-static SQLRETURN _conn_connect( conn_t *conn)
-{
-  char buf[1024];
-  buf[0] = '\0';
-
-  int r;
-  r = SQLGetPrivateProfileString((LPCSTR)conn->cfg.dsn, "UNSIGNED_PROMOTION", (LPCSTR)"0", (LPSTR)buf, sizeof(buf), NULL);
-  if (r == 1 && buf[0] == '1') conn->cfg.unsigned_promotion = 1;
-
-  if (!conn->cfg.pwd) {
-    buf[0] = '\0';
-    r = SQLGetPrivateProfileString((LPCSTR)conn->cfg.dsn, "PWD", (LPCSTR)"", (LPSTR)buf, sizeof(buf), NULL);
-    if (buf[0]) {
-      conn->cfg.pwd = strdup(buf);
-      if (!conn->cfg.pwd) {
-        conn_oom(conn);
-        return SQL_ERROR;
-      }
-    }
-  }
-
-  if (!conn->cfg.uid) {
-    buf[0] = '\0';
-    r = SQLGetPrivateProfileString((LPCSTR)conn->cfg.dsn, "UID", (LPCSTR)"", (LPSTR)buf, sizeof(buf), NULL);
-    if (buf[0]) {
-      conn->cfg.uid = strdup(buf);
-      if (!conn->cfg.uid) {
-        conn_oom(conn);
-        return SQL_ERROR;
-      }
-    }
-  }
-
-  return _do_conn_connect(conn);
-}
-
 SQLRETURN conn_connect(
     conn_t        *conn,
     SQLCHAR       *ServerName,
@@ -680,6 +696,7 @@ SQLRETURN conn_connect(
     SQLCHAR       *Authentication,
     SQLSMALLINT    NameLength3)
 {
+  int r = 0;
   if (conn->taos) {
     conn_append_err(conn, "HY000", 0, "General error:Already connected");
     return SQL_ERROR;
@@ -697,6 +714,13 @@ SQLRETURN conn_connect(
       return SQL_ERROR;
     }
   }
+
+  r = connection_cfg_init_other_fields(&conn->cfg);
+  if (r) {
+    conn_oom(conn);
+    return SQL_ERROR;
+  }
+
   if (UserName) {
     conn->cfg.uid = strndup((const char*)UserName, NameLength2);
     if (!conn->cfg.uid) {
@@ -712,8 +736,7 @@ SQLRETURN conn_connect(
     }
   }
 
-  SQLRETURN sr = _conn_connect(conn);
-  return sr;
+  return _do_conn_connect(conn);
 }
 
 static SQLRETURN _conn_set_string(

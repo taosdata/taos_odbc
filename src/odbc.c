@@ -40,6 +40,9 @@
 
 #ifdef _WIN32                 /* { */
 #include <odbcinst.h>
+#pragma comment(lib, "comctl32.lib")
+#include <commctrl.h>
+#include "resource.h"
 #endif                        /* } */
 
 // NOTE: if you wanna debug in detail, just define DEBUG_OOW to 1
@@ -104,6 +107,9 @@ tls_t* tls_get(void)
   return tls;
 }
 
+static HINSTANCE ghInstance;
+const char *className = "TAOS_ODBC_SetupLib";
+
 BOOL WINAPI DllMain(
     HINSTANCE hinstDLL, // handle to DLL module
     DWORD fdwReason,    // reason for calling function
@@ -126,6 +132,17 @@ BOOL WINAPI DllMain(
     if (tls != NULL) TlsSetValue(tls_idx, tls);
 
     atomic_fetch_add(&_nr_load, 1);
+
+    if (0) InitCommonControls();
+    ghInstance = hinstDLL;
+
+    WNDCLASSEX wcx;
+		// Get system dialog information.
+		wcx.cbSize = sizeof(wcx);
+		if (0 && !GetClassInfoEx(NULL, MAKEINTRESOURCE(32770), &wcx)) return FALSE;
+    wcx.hInstance = hinstDLL;
+    wcx.lpszClassName = className;
+    if (0 && !RegisterClassEx(&wcx)) return FALSE;
     break;
 
   case DLL_THREAD_ATTACH:
@@ -146,6 +163,7 @@ BOOL WINAPI DllMain(
     break;
 
   case DLL_PROCESS_DETACH:
+    UnregisterClass(className, ghInstance);
     atomic_fetch_sub(&_nr_load, 1);
 
     tls = tls_get();
@@ -839,11 +857,105 @@ static BOOL get_driver_dll_path(HWND hwndParent, char *buf, size_t len)
   return TRUE;
 }
 
+static void _trim_string(const char *src, size_t nr, const char **start, const char **end)
+{
+  if (nr == 0) {
+    *start = src;
+    *end = src;
+    return;
+  }
+
+  const char *p = src;
+  while (p < src + nr && isspace(*p)) ++p;
+  *start = p;
+  if (p == src + nr) {
+    *end   = p;
+    return;
+  }
+  p = src + nr - 1;
+  while (p >= *start && isspace(*p)) --p;
+  *end = p + 1;
+}
+
+static const char *gDriver = NULL;
+
+static INT_PTR CALLBACK SetupDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+  LPCSTR lpszDriver = gDriver;
+
+  UNREFERENCED_PARAMETER(lParam);
+  switch (message) {
+  case WM_INITDIALOG:
+    return (INT_PTR)TRUE;
+
+  case WM_COMMAND:
+    if (LOWORD(wParam) == IDCANCEL) {
+      EndDialog(hDlg, LOWORD(wParam));
+      return (INT_PTR)TRUE;
+    }
+
+    if (LOWORD(wParam) == IDOK) {
+      char driver_dll[MAX_PATH + 1];
+      BOOL ok = get_driver_dll_path(hDlg, driver_dll, sizeof(driver_dll));
+      if (!ok) {
+        MessageBox(hDlg, "get_driver_dll_path failed", "Warning!", MB_OK|MB_ICONEXCLAMATION);
+        return (INT_PTR)FALSE;
+      }
+
+      char dsn[4096];
+      dsn[0] = '\0';
+      UINT nr = GetDlgItemText(hDlg, IDC_EDT_DSN, (LPSTR)dsn, sizeof(dsn));
+      const char *dsn_start, *dsn_end;
+      _trim_string(dsn, nr, &dsn_start, &dsn_end);
+      if (dsn_start == dsn_end) {
+        MessageBox(hDlg, "DSN must be specified", "Warning", IDOK);
+        return (INT_PTR)FALSE;
+      }
+      *(char*)dsn_end = '\0';
+
+      UINT unsigned_promotion = !!IsDlgButtonChecked(hDlg, IDC_CHK_UNSIGNED_PROMOTION);
+      UINT timestamp_as_is = !!IsDlgButtonChecked(hDlg, IDC_CHK_TIMESTAMP_AS_IS);
+      char db[4096];
+      db[0] = '\0';
+      nr = GetDlgItemText(hDlg, IDC_EDT_DB, (LPSTR)db, sizeof(db));
+      const char *db_start, *db_end;
+      _trim_string(db, nr, &db_start, &db_end);
+      *(char*)db_end = '\0';
+
+      char buffer[4096];
+      snprintf(buffer, sizeof(buffer), "%s;%s;%d,%d",
+          dsn_start,
+          db_start,
+          unsigned_promotion, timestamp_as_is);
+      MessageBox(hDlg, buffer, "Result", IDOK);
+
+      if (ok) ok = SQLWritePrivateProfileString("ODBC Data Sources", dsn_start, lpszDriver, "Odbc.ini");
+      if (ok) ok = SQLWritePrivateProfileString(dsn_start, "Driver", driver_dll, "Odbc.ini");
+      if (ok && unsigned_promotion) {
+        ok = SQLWritePrivateProfileString(dsn_start, "UNSIGNED_PROMOTION", "1", "Odbc.ini");
+      }
+      if (ok && timestamp_as_is) {
+        ok = SQLWritePrivateProfileString(dsn_start, "TIMESTAMP_AS_IS", "1", "Odbc.ini");
+      }
+      if (ok) {
+        EndDialog(hDlg, LOWORD(wParam));
+        return (INT_PTR)TRUE;
+      }
+      return (INT_PTR)FALSE;
+    }
+    break;
+  }
+  return (INT_PTR)FALSE;
+}
+
 static BOOL doDSNAdd(HWND	hwndParent, LPCSTR	lpszDriver, LPCSTR lpszAttributes)
 {
   if (hwndParent) {
-    MessageBox(hwndParent, "Please use odbcconf to add DSN for TAOS ODBC Driver", "Warning!", MB_OK|MB_ICONEXCLAMATION);
-    return FALSE;
+    gDriver = lpszDriver;
+    INT_PTR r = DialogBox(ghInstance, MAKEINTRESOURCE(IDD_SETUP), hwndParent, SetupDlg);
+    if (r != IDOK) return FALSE;
+
+    return TRUE;
   }
 
   BOOL r = TRUE;

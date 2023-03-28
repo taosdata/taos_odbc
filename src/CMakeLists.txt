@@ -31,6 +31,10 @@ add_subdirectory(os_port)
 
 list(APPEND odbc_SOURCES odbc.c)
 
+if(TODBC_WINDOWS)
+  list(APPEND odbc_SOURCES taos_odbc_setup.rc)
+endif()
+
 add_library(odbc_obj OBJECT ${odbc_SOURCES})
 if(TODBC_WINDOWS)
     add_dependencies(odbc_obj ex_iconv)

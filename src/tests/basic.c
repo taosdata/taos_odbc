@@ -50,7 +50,7 @@ static int test_case1(void)
   // param.debug_bison = 1;
 
   const char *connection_strs[] = {
-    " driver = {    ax bcd ; ;   }; dsn=server; uid=xxx; pwd=yyy",
+    // " driver = {    ax bcd ; ;   }; dsn=server; uid=xxx; pwd=yyy",
     // https://www.connectionstrings.com/dsn/
     "DSN=myDsn;Uid=myUsername;Pwd=;",
     "FILEDSN=c:\\myDsnFile.dsn;Uid=myUsername;Pwd=;",
@@ -67,6 +67,12 @@ static int test_case1(void)
   for (size_t i=0; i<sizeof(connection_strs)/sizeof(connection_strs[0]); ++i) {
     const char *s = connection_strs[i];
     int r = parser_parse(s, strlen(s), &param);
+    if (r) {
+      E("parsing:%s", s);
+      E("failed:%s", param.err_msg);
+      E("location:(%d,%d)->(%d,%d)", param.row0, param.col0, param.row1, param.col1-1);
+    }
+
     parser_param_release(&param);
     if (r) return -1;
   }

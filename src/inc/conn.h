@@ -131,6 +131,8 @@ SQLRETURN conn_complete_async(
     conn_t      *conn,
     RETCODE     *AsyncRetCodePtr) FA_HIDDEN;
 
+int connection_cfg_init_other_fields(connection_cfg_t *cfg) FA_HIDDEN;
+
 EXTERN_C_END
 
 #endif //  _conn_h_

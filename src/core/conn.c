@@ -510,6 +510,8 @@ int connection_cfg_init_other_fields(connection_cfg_t *cfg)
   char buf[1024];
   buf[0] = '\0';
 
+  if (!cfg->dsn) return 0;
+
   int r = 0;
   if (!cfg->unsigned_promotion_set) {
     buf[0] = '\0';

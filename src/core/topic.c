@@ -79,8 +79,13 @@ static SQLRETURN _get_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
   (void)nr;
   topic_t *topic = (topic_t*)base;
   (void)topic;
-  stmt_append_err(topic->owner, "HY000", 0, "General error:not implemented yet");
-  return SQL_ERROR;
+  if (!topic->res) {
+    stmt_append_err(topic->owner, "HY000", 0, "General error:not implemented yet");
+    return SQL_ERROR;
+  }
+  if (fields) *fields = taos_fetch_fields(topic->res);
+  if (nr) *nr = taos_field_count(topic->res);
+  return SQL_SUCCESS;
 }
 
 static SQLRETURN _fetch_row(stmt_base_t *base)
@@ -390,6 +395,12 @@ SQLRETURN topic_open(
   }
 
   topic->tmq = tmq;
+
+  while (topic->res == NULL) {
+    int32_t timeout = 100;
+    topic->res = tmq_consumer_poll(topic->tmq, timeout);
+  }
+
   return SQL_SUCCESS;
 }
 

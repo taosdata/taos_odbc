@@ -440,9 +440,9 @@ static int _dump_topic(SQLSMALLINT HandleType, SQLHANDLE Handle)
 {
   SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
-  char ts[4096], name[4096];
-  SQLLEN         ts_len;
-  SQLLEN         name_len;
+  char row_buf[16384];
+  char *p;
+  char *end = row_buf + sizeof(row_buf);
 
   if (HandleType != SQL_HANDLE_STMT) return 0;
 
@@ -472,20 +472,45 @@ static int _dump_topic(SQLSMALLINT HandleType, SQLHANDLE Handle)
   sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
   if (sr != SQL_SUCCESS) return -1;
 
+  SQLSMALLINT ColumnCount;
+  sr = CALL_SQLNumResultCols(hstmt, &ColumnCount);
+  if (sr != SQL_SUCCESS) return -1;
+
 again:
 
   sr = CALL_SQLFetch(hstmt);
   if (sr == SQL_NO_DATA) return 0;
   if (sr != SQL_SUCCESS) return -1;
 
-  sr = CALL_SQLGetData(hstmt, 1, SQL_C_CHAR, ts, sizeof(ts), &ts_len);
-  if (sr != SQL_SUCCESS) return -1;
-  sr = CALL_SQLGetData(hstmt, 2, SQL_C_CHAR, name, sizeof(name), &name_len);
-  if (sr != SQL_SUCCESS) return -1;
+  row_buf[0] = '\0';
+  p = row_buf;
+  for (int i=0; i<ColumnCount; ++i) {
+    char name[4096];
+    SQLSMALLINT    NameLength;
+    SQLSMALLINT    DataType;
+    SQLULEN        ColumnSize;
+    SQLSMALLINT    DecimalDigits;
+    SQLSMALLINT    Nullable;
+    sr = CALL_SQLDescribeCol(hstmt, i+1, (SQLCHAR*)name, sizeof(name), &NameLength, &DataType, &ColumnSize, &DecimalDigits, &Nullable);
+    if (sr != SQL_SUCCESS) return -1;
 
-  DUMP("new data:ts[%s],name[%s]",
-    ts_len == SQL_NULL_DATA ? "null" : ts,
-    name_len == SQL_NULL_DATA ? "null" : name);
+    char value[4096];
+    SQLLEN Len_or_Ind;
+    sr = CALL_SQLGetData(hstmt, i+1, SQL_C_CHAR, value, sizeof(value), &Len_or_Ind);
+    if (sr != SQL_SUCCESS) return -1;
+
+    int n = snprintf(p, end - p, "%s%s:[%s]",
+        i ? ";" : "",
+        name,
+        Len_or_Ind == SQL_NULL_DATA ? "null" : value);
+    if (n < 0 || n >= end - p) {
+      E("buffer too small");
+      return -1;
+    }
+    p += n;
+  }
+
+  DUMP("new data:%s", row_buf);
 
   goto again;
 }

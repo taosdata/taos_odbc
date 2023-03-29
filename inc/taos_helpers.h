@@ -37,22 +37,33 @@
     fmt, ##__VA_ARGS__);                                                                          \
 } while (0)
 
-#define diag_res(res) do {                                           \
+#define LOGE_TAOS(file, line, func, fmt, ...) do {                                                \
+  tod_logger_write(tod_get_system_logger(), LOGGER_DEBUG, tod_get_system_logger_level(),          \
+    file, line, func,                                                                             \
+    fmt, ##__VA_ARGS__);                                                                          \
+} while (0)
+
+#define diag_res_impl(file, line, func, res) do {                    \
   TAOS_RES *__res = res;                                             \
   int _e         = taos_errno(__res);                                \
   if (!_e) break;                                                    \
   const char *_s = taos_errstr(__res);                               \
-  D("taos_errno/str(res:%p) => [%d/0x%x]%s%s%s", __res, _e, _e, color_red(), _s, color_reset());     \
+  LOGE_TAOS(file, line, func, "taos_errno/str(res:%p) => [%d/0x%x]%s%s%s", __res, _e, _e, color_red(), _s, color_reset());     \
 } while (0)
 
-#define diag_stmt(stmt) do {                                                              \
+#define diag_stmt_impl(file, line, func, stmt) do {                                       \
   TAOS_STMT *__stmt = stmt;                                                               \
   int _e          = taos_errno(NULL);                                                     \
   if (!_e) break;                                                                         \
   const char *_s1 = taos_errstr(NULL);                                                    \
   const char *_s2 = taos_stmt_errstr(__stmt);                                             \
-  D("taos_errno/str(stmt:%p) => [%d/0x%x]%s%s%s;stmt_errstr:%s%s%s", __stmt, _e, _e, color_red(), _s1, color_reset(), color_red(), _s2, color_reset());   \
+  LOGE_TAOS(file, line, func,                                                             \
+      "taos_errno/str(stmt:%p) => [%d/0x%x]%s%s%s;stmt_errstr:%s%s%s",                    \
+      __stmt, _e, _e, color_red(), _s1, color_reset(), color_red(), _s2, color_reset());  \
 } while (0)
+
+#define diag_res(fmt, ...)          diag_res_impl(file, line, func, fmt, ##__VA_ARGS__)
+#define diag_stmt(fmt, ...)         diag_stmt_impl(file, line, func, fmt, ##__VA_ARGS__)
 
 static inline void call_taos_cleanup(const char *file, int line, const char *func)
 {
@@ -594,36 +605,187 @@ static inline TAOS_RES* call_taos_schemaless_insert(const char *file, int line, 
   return res;
 }
 
+static inline tmq_list_t* call_tmq_list_new(const char *file, int line, const char *func)
+{
+  LOGD_TAOS(file, line, func, "tmq_list_new() ...");
+  tmq_list_t *r = tmq_list_new();
+  LOGD_TAOS(file, line, func, "tmq_list_new() => %p", r);
+  return r;
+}
+
+static inline int32_t     call_tmq_list_append(const char *file, int line, const char *func, tmq_list_t *topic_list, const char *name)
+{
+  LOGD_TAOS(file, line, func, "tmq_list_append(topic_list:%p, name:%s) ...", topic_list, name);
+  int32_t r = tmq_list_append(topic_list, name);
+  LOGD_TAOS(file, line, func, "tmq_list_append(topic_list:%p, name:%s) => %d", topic_list, name, r);
+  return r;
+}
+
+static inline void        call_tmq_list_destroy(const char *file, int line, const char *func, tmq_list_t *topic_list)
+{
+  LOGD_TAOS(file, line, func, "tmq_list_destroy(topic_list:%p) ...", topic_list);
+  tmq_list_destroy(topic_list);
+  LOGD_TAOS(file, line, func, "tmq_list_destroy(topic_list:%p) => void", topic_list);
+}
+
+static inline int32_t     call_tmq_list_get_size(const char *file, int line, const char *func, const tmq_list_t *topic_list)
+{
+  LOGD_TAOS(file, line, func, "tmq_list_get_size(topic_list:%p) ...", topic_list);
+  int32_t r = tmq_list_get_size(topic_list);
+  LOGD_TAOS(file, line, func, "tmq_list_get_size(topic_list:%p) => %d", topic_list, r);
+  return r;
+}
+
+static inline char**      call_tmq_list_to_c_array(const char *file, int line, const char *func, const tmq_list_t *topic_list)
+{
+  LOGD_TAOS(file, line, func, "tmq_list_to_c_array(topic_list:%p) ...", topic_list);
+  char **r = tmq_list_to_c_array(topic_list);
+  LOGD_TAOS(file, line, func, "tmq_list_to_c_array(topic_list:%p) => %p", topic_list, r);
+  return r;
+}
+
+static inline tmq_t*      call_tmq_consumer_new(const char *file, int line, const char *func, tmq_conf_t *conf, char *errstr, int32_t errstrLen)
+{
+  LOGD_TAOS(file, line, func, "tmq_consumer_new(conf:%p,errstr:%p,errstrLen:%d) ...", conf, errstr, errstrLen);
+  tmq_t *r = tmq_consumer_new(conf, errstr, errstrLen);
+  LOGD_TAOS(file, line, func, "tmq_consumer_new(conf:%p,errstr:%p[%.*s],errstrLen:%d) => %p", conf, errstr, errstrLen, errstr, errstrLen, r);
+  return r;
+}
+
+static inline const char* call_tmq_err2str(const char *file, int line, const char *func, int32_t code)
+{
+  (void)file;
+  (void)line;
+  (void)func;
+  return tmq_err2str(code);
+}
+
+static inline int32_t   call_tmq_subscribe(const char *file, int line, const char *func, tmq_t *tmq, const tmq_list_t *topic_list)
+{
+  LOGD_TAOS(file, line, func, "tmq_subscribe(tmq:%p,topic_list:%p) ...", tmq, topic_list);
+  int32_t r = tmq_subscribe(tmq, topic_list);
+  LOGD_TAOS(file, line, func, "tmq_subscribe(tmq:%p,topic_list:%p) => %d", tmq, topic_list, r);
+  return r;
+}
+
+static inline int32_t   call_tmq_unsubscribe(const char *file, int line, const char *func, tmq_t *tmq)
+{
+  LOGD_TAOS(file, line, func, "tmq_unsubscribe(tmq:%p) ...", tmq);
+  int32_t r = tmq_unsubscribe(tmq);
+  LOGD_TAOS(file, line, func, "tmq_unsubscribe(tmq:%p) => %d", tmq, r);
+  return r;
+}
+
+static inline int32_t   call_tmq_subscription(const char *file, int line, const char *func, tmq_t *tmq, tmq_list_t **topics)
+{
+  LOGD_TAOS(file, line, func, "tmq_subscription(tmq:%p,topics:%p) ...", tmq, topics);
+  int32_t r = tmq_subscription(tmq, topics);
+  LOGD_TAOS(file, line, func, "tmq_subscription(tmq:%p,topics:%p) => %d", tmq, topics, r);
+  return r;
+}
+
+static inline TAOS_RES* call_tmq_consumer_poll(const char *file, int line, const char *func, tmq_t *tmq, int64_t timeout)
+{
+  LOGD_TAOS(file, line, func, "tmq_consumer_poll(tmq:%p,timeout:%" PRId64 ") ...", tmq, timeout);
+  TAOS_RES *r = tmq_consumer_poll(tmq, timeout);
+  LOGD_TAOS(file, line, func, "tmq_consumer_poll(tmq:%p,timeout:%" PRId64 ") => %p", tmq, timeout, r);
+  return r;
+}
+
+static inline int32_t   call_tmq_consumer_close(const char *file, int line, const char *func, tmq_t *tmq)
+{
+  LOGD_TAOS(file, line, func, "tmq_consumer_close(tmq:%p) ...", tmq);
+  int32_t r = tmq_consumer_close(tmq);
+  LOGD_TAOS(file, line, func, "tmq_consumer_close(tmq:%p) => %d", tmq, r);
+  return r;
+}
+
+static inline int32_t   call_tmq_commit_sync(const char *file, int line, const char *func, tmq_t *tmq, const TAOS_RES *msg)
+{
+  LOGD_TAOS(file, line, func, "tmq_commit_sync(tmq:%p,msg:%p) ...", tmq, msg);
+  int32_t r = tmq_commit_sync(tmq, msg);
+  LOGD_TAOS(file, line, func, "tmq_commit_sync(tmq:%p,msg:%p) => %d", tmq, msg, r);
+  return r;
+}
+
+static inline void      call_tmq_commit_async(const char *file, int line, const char *func, tmq_t *tmq, const TAOS_RES *msg, tmq_commit_cb *cb, void *param)
+{
+  LOGD_TAOS(file, line, func, "tmq_commit_async(tmq:%p,msg:%p,cb:%p,param:%p) ...", tmq, msg, cb, param);
+  tmq_commit_async(tmq, msg, cb, param);
+  LOGD_TAOS(file, line, func, "tmq_commit_async(tmq:%p,msg:%p,cb:%p,param:%p) => void", tmq, msg, cb, param);
+}
+
+static inline tmq_conf_t*    call_tmq_conf_new(const char *file, int line, const char *func)
+{
+  LOGD_TAOS(file, line, func, "tmq_conf_new() ...");
+  tmq_conf_t *r = tmq_conf_new();
+  LOGD_TAOS(file, line, func, "tmq_conf_new() => %p", r);
+  return r;
+}
+
+static inline tmq_conf_res_t call_tmq_conf_set(const char *file, int line, const char *func, tmq_conf_t *conf, const char *key, const char *value)
+{
+  LOGD_TAOS(file, line, func, "tmq_conf_set(conf:%p,key:%s,value:%s) ...", conf, key, value);
+  tmq_conf_res_t r = tmq_conf_set(conf, key, value);
+  LOGD_TAOS(file, line, func, "tmq_conf_set(conf:%p,key:%s,value:%s) => %d", conf, key, value, r);
+  return r;
+}
+
+static inline void           call_tmq_conf_destroy(const char *file, int line, const char *func, tmq_conf_t *conf)
+{
+  LOGD_TAOS(file, line, func, "tmq_conf_destroy(conf:%p) ...", conf);
+  tmq_conf_destroy(conf);
+  LOGD_TAOS(file, line, func, "tmq_conf_destroy(conf:%p) => void", conf);
+}
+
+static inline void           call_tmq_conf_set_auto_commit_cb(const char *file, int line, const char *func, tmq_conf_t *conf, tmq_commit_cb *cb, void *param)
+{
+  LOGD_TAOS(file, line, func, "tmq_conf_set_auto_commit_cb(conf:%p,cb:%p,param:%p) ...", conf, cb, param);
+  tmq_conf_set_auto_commit_cb(conf, cb, param);
+  LOGD_TAOS(file, line, func, "tmq_conf_set_auto_commit_cb(conf:%p,cb:%p,param:%p) => void", conf, cb, param);
+}
+
+static inline const char* call_tmq_get_topic_name(const char *file, int line, const char *func, TAOS_RES *res)
+{
+  LOGD_TAOS(file, line, func, "tmq_get_topic_name(res:%p) ...", res);
+  const char *r = tmq_get_topic_name(res);
+  LOGD_TAOS(file, line, func, "tmq_get_topic_name(res:%p) => %s", res, r);
+  return r;
+}
+
+static inline const char* call_tmq_get_db_name(const char *file, int line, const char *func, TAOS_RES *res)
+{
+  LOGD_TAOS(file, line, func, "tmq_get_db_name(res:%p) ...", res);
+  const char *r = tmq_get_db_name(res);
+  LOGD_TAOS(file, line, func, "tmq_get_db_name(res:%p) => %s", res, r);
+  return r;
+}
+
+static inline int32_t     call_tmq_get_vgroup_id(const char *file, int line, const char *func, TAOS_RES *res)
+{
+  LOGD_TAOS(file, line, func, "tmq_get_vgroup_id(res:%p) ...", res);
+  int32_t r = tmq_get_vgroup_id(res);
+  LOGD_TAOS(file, line, func, "tmq_get_vgroup_id(res:%p) => %d", res, r);
+  return r;
+}
+
+static inline const char* call_tmq_get_table_name(const char *file, int line, const char *func, TAOS_RES *res)
+{
+  LOGD_TAOS(file, line, func, "tmq_get_table_name(res:%p) ...", res);
+  const char *r = tmq_get_table_name(res);
+  LOGD_TAOS(file, line, func, "tmq_get_table_name(res:%p) => %s", res, r);
+  return r;
+}
+
+static inline tmq_res_t   call_tmq_get_res_type(const char *file, int line, const char *func, TAOS_RES *res)
+{
+  LOGD_TAOS(file, line, func, "tmq_get_res_type(res:%p) ...", res);
+  tmq_res_t r = tmq_get_res_type(res);
+  LOGD_TAOS(file, line, func, "tmq_get_res_type(res:%p) => %d", res, r);
+  return r;
+}
+
 /*
-static inline tmq_list_t* call_tmq_list_new(const char *file, int line, const char *func);
-static inline int32_t     call_tmq_list_append(const char *file, int line, const char *func, tmq_list_t *, const char *);
-static inline void        call_tmq_list_destroy(const char *file, int line, const char *func, tmq_list_t *);
-static inline int32_t     call_tmq_list_get_size(const char *file, int line, const char *func, const tmq_list_t *);
-static inline char**      call_tmq_list_to_c_array(const char *file, int line, const char *func, const tmq_list_t *);
-
-static inline tmq_t*      call_tmq_consumer_new(const char *file, int line, const char *func, tmq_conf_t *conf, char *errstr, int32_t errstrLen);
-
-static inline const char* call_tmq_err2str(const char *file, int line, const char *func, int32_t code);
-
-static inline int32_t   call_tmq_subscribe(const char *file, int line, const char *func, tmq_t *tmq, const tmq_list_t *topic_list);
-static inline int32_t   call_tmq_unsubscribe(const char *file, int line, const char *func, tmq_t *tmq);
-static inline int32_t   call_tmq_subscription(const char *file, int line, const char *func, tmq_t *tmq, tmq_list_t **topics);
-static inline TAOS_RES* call_tmq_consumer_poll(const char *file, int line, const char *func, tmq_t *tmq, int64_t timeout);
-static inline int32_t   call_tmq_consumer_close(const char *file, int line, const char *func, tmq_t *tmq);
-static inline int32_t   call_tmq_commit_sync(const char *file, int line, const char *func, tmq_t *tmq, const TAOS_RES *msg);
-static inline void      call_tmq_commit_async(const char *file, int line, const char *func, tmq_t *tmq, const TAOS_RES *msg, tmq_commit_cb *cb, void *param);
-
-static inline tmq_conf_t*    call_tmq_conf_new(const char *file, int line, const char *func);
-static inline tmq_conf_res_t call_tmq_conf_set(const char *file, int line, const char *func, tmq_conf_t *conf, const char *key, const char *value);
-static inline void           call_tmq_conf_destroy(const char *file, int line, const char *func, tmq_conf_t *conf);
-static inline void           call_tmq_conf_set_auto_commit_cb(const char *file, int line, const char *func, tmq_conf_t *conf, tmq_commit_cb *cb, void *param);
-
-static inline const char* call_tmq_get_topic_name(const char *file, int line, const char *func, TAOS_RES *res);
-static inline const char* call_tmq_get_db_name(const char *file, int line, const char *func, TAOS_RES *res);
-static inline int32_t     call_tmq_get_vgroup_id(const char *file, int line, const char *func, TAOS_RES *res);
-
-static inline const char* call_tmq_get_table_name(const char *file, int line, const char *func, TAOS_RES *res);
-static inline tmq_res_t   call_tmq_get_res_type(const char *file, int line, const char *func, TAOS_RES *res);
 static inline int32_t     call_tmq_get_raw(const char *file, int line, const char *func, TAOS_RES *res, tmq_raw_data *raw);
 static inline int32_t     call_tmq_write_raw(const char *file, int line, const char *func, TAOS *taos, tmq_raw_data raw);
 static inline int         call_taos_write_raw_block(const char *file, int line, const char *func, TAOS *taos, int numOfRows, char *pData, const char *tbname);

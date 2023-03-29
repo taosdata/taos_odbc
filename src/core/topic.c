@@ -39,12 +39,12 @@ void topic_reset(topic_t *topic)
   if (!topic) return;
   topic->row = NULL;
   if (topic->res) {
-    taos_free_result(topic->res);
+    CALL_taos_free_result(topic->res);
     topic->res = NULL;
   }
   if (topic->tmq) {
-    tmq_unsubscribe(topic->tmq);
-    tmq_consumer_close(topic->tmq);
+    CALL_tmq_unsubscribe(topic->tmq);
+    CALL_tmq_consumer_close(topic->tmq);
     topic->tmq = NULL;
   }
 }
@@ -83,8 +83,8 @@ static SQLRETURN _get_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
     stmt_append_err(topic->owner, "HY000", 0, "General error:not implemented yet");
     return SQL_ERROR;
   }
-  if (fields) *fields = taos_fetch_fields(topic->res);
-  if (nr) *nr = taos_field_count(topic->res);
+  if (fields) *fields = CALL_taos_fetch_fields(topic->res);
+  if (nr) *nr = CALL_taos_field_count(topic->res);
   return SQL_SUCCESS;
 }
 
@@ -99,12 +99,12 @@ again:
 
   while (topic->res == NULL) {
     int32_t timeout = 100;
-    topic->res = tmq_consumer_poll(topic->tmq, timeout);
+    topic->res = CALL_tmq_consumer_poll(topic->tmq, timeout);
   }
 
-  row = taos_fetch_row(topic->res);
+  row = CALL_taos_fetch_row(topic->res);
   if (row == NULL) {
-    taos_free_result(topic->res);
+    CALL_taos_free_result(topic->res);
     topic->res = NULL;
     goto again;
   }
@@ -178,7 +178,7 @@ static SQLRETURN _get_num_cols(stmt_base_t *base, SQLSMALLINT *ColumnCountPtr)
     stmt_append_err(topic->owner, "HY000", 0, "General error:not implemented yet");
     return SQL_ERROR;
   }
-  int32_t numOfFields = taos_field_count(topic->res);
+  int32_t numOfFields = CALL_taos_field_count(topic->res);
   if (ColumnCountPtr) *ColumnCountPtr = numOfFields;
   return SQL_SUCCESS;
 }
@@ -191,10 +191,10 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
     stmt_append_err(topic->owner, "HY000", 0, "General error:not implemented yet");
     return SQL_ERROR;
   }
-  TAOS_FIELD *fields = taos_fetch_fields(topic->res);
+  TAOS_FIELD *fields = CALL_taos_fetch_fields(topic->res);
   int i = Col_or_Param_Num - 1;
 
-  int *offsets = taos_get_column_data_offset(topic->res, i);
+  int *offsets = CALL_taos_get_column_data_offset(topic->res, i);
 
   char *col = row[i];
   if (col) col += offsets ? *offsets : 0;
@@ -256,7 +256,7 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
 
     case TSDB_DATA_TYPE_TIMESTAMP:
       tsdb->ts.ts = *(int64_t*)col;
-      tsdb->ts.precision = taos_result_precision(topic->res);
+      tsdb->ts.precision = CALL_taos_result_precision(topic->res);
       break;
 
     case TSDB_DATA_TYPE_BOOL:
@@ -293,60 +293,60 @@ static void _tmq_commit_cb_print(tmq_t* tmq, int32_t code, void* param) {
 
 static tmq_t* _build_consumer() {
   tmq_conf_res_t code;
-  tmq_conf_t*    conf = tmq_conf_new();
+  tmq_conf_t*    conf = CALL_tmq_conf_new();
 
-  code = tmq_conf_set(conf, "enable.auto.commit", "true");
+  code = CALL_tmq_conf_set(conf, "enable.auto.commit", "true");
   if (TMQ_CONF_OK != code) {
-    tmq_conf_destroy(conf);
+    CALL_tmq_conf_destroy(conf);
     return NULL;
   }
 
-  code = tmq_conf_set(conf, "auto.commit.interval.ms", "100");
+  code = CALL_tmq_conf_set(conf, "auto.commit.interval.ms", "100");
   if (TMQ_CONF_OK != code) {
-    tmq_conf_destroy(conf);
+    CALL_tmq_conf_destroy(conf);
     return NULL;
   }
 
-  code = tmq_conf_set(conf, "group.id", "cgrpName");
+  code = CALL_tmq_conf_set(conf, "group.id", "cgrpName");
   if (TMQ_CONF_OK != code) {
-    tmq_conf_destroy(conf);
+    CALL_tmq_conf_destroy(conf);
     return NULL;
   }
 
-  code = tmq_conf_set(conf, "client.id", "user defined name");
+  code = CALL_tmq_conf_set(conf, "client.id", "user defined name");
   if (TMQ_CONF_OK != code) {
-    tmq_conf_destroy(conf);
+    CALL_tmq_conf_destroy(conf);
     return NULL;
   }
 
-  if (0) code = tmq_conf_set(conf, "td.connect.user", "root");
+  if (0) code = CALL_tmq_conf_set(conf, "td.connect.user", "root");
   if (TMQ_CONF_OK != code) {
-    tmq_conf_destroy(conf);
+    CALL_tmq_conf_destroy(conf);
     return NULL;
   }
 
-  if (0) code = tmq_conf_set(conf, "td.connect.pass", "taosdata");
+  if (0) code = CALL_tmq_conf_set(conf, "td.connect.pass", "taosdata");
   if (TMQ_CONF_OK != code) {
-    tmq_conf_destroy(conf);
+    CALL_tmq_conf_destroy(conf);
     return NULL;
   }
 
-  code = tmq_conf_set(conf, "auto.offset.reset", "earliest");
+  code = CALL_tmq_conf_set(conf, "auto.offset.reset", "earliest");
   if (TMQ_CONF_OK != code) {
-    tmq_conf_destroy(conf);
+    CALL_tmq_conf_destroy(conf);
     return NULL;
   }
 
-  code = tmq_conf_set(conf, "experimental.snapshot.enable", "false");
+  code = CALL_tmq_conf_set(conf, "experimental.snapshot.enable", "false");
   if (TMQ_CONF_OK != code) {
-    tmq_conf_destroy(conf);
+    CALL_tmq_conf_destroy(conf);
     return NULL;
   }
 
-  tmq_conf_set_auto_commit_cb(conf, _tmq_commit_cb_print, NULL);
+  CALL_tmq_conf_set_auto_commit_cb(conf, _tmq_commit_cb_print, NULL);
 
   tmq_t* tmq = tmq_consumer_new(conf, NULL, 0);
-  tmq_conf_destroy(conf);
+  CALL_tmq_conf_destroy(conf);
   return tmq;
 }
 
@@ -390,7 +390,7 @@ SQLRETURN topic_open(
   tmq_list_destroy(topic_list);
 
   if (r) {
-    stmt_append_err(topic->owner, "HY000", 0, "General error:tmp_subscribe() failed");
+    stmt_append_err_format(topic->owner, "HY000", 0, "General error:tmp_subscribe() failed:[%d/0x%x]%s", r, r, tmq_err2str(r));
     return SQL_ERROR;
   }
 

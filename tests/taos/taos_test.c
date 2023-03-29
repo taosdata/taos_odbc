@@ -2538,6 +2538,91 @@ static int conformance_tests(void)
   return r;
 }
 
+static int conformance_ts_with_taos(TAOS *taos)
+{
+  const char *sqls[] = {
+    "drop database if exists bar",
+    "create database bar",
+    "create table bar.foo (ts timestamp, name varchar(20))",
+    "insert into bar.foo (ts, name) values (1662861448752, 'hello')",
+  };
+  for (size_t i=0; i<sizeof(sqls)/sizeof(sqls[0]); ++i) {
+    const char *sql = sqls[i];
+    TAOS_RES *res = CALL_taos_query(taos, sql);
+    if (!res) {
+      E("res expected, but got ==null==");
+      return -1;
+    }
+    CALL_taos_free_result(res);
+    res = NULL;
+  }
+
+  const char *sql = "select ts from bar.foo";
+  TAOS_RES *res = CALL_taos_query(taos, sql);
+  if (!res) {
+    E("res expected, but got ==null==");
+    return -1;
+  }
+
+  do {
+    TAOS_FIELD *fields = CALL_taos_fetch_fields(res);
+    if (!fields) {
+      E("fields expected, but got ==null==");
+      break;
+    }
+
+    TAOS_ROW record = CALL_taos_fetch_row(res);
+    if (!record) {
+      E("record expected, but got ==null==");
+      break;
+    }
+
+    int *offsets = CALL_taos_get_column_data_offset(res, 0);
+    if (offsets) {
+      E("non offset expected, but got ==%p==", offsets);
+      break;
+    }
+
+    char *col = record[0];
+
+    TAOS_FIELD *field = fields + 0;
+    if (field->type != TSDB_DATA_TYPE_TIMESTAMP) {
+      E("TSDB_DATA_TYPE_TIMESTAMP expected, but got ==%s==", taos_data_type(field->type));
+      break;
+    }
+    int64_t v = *(int64_t*)col;
+    if (v != 1662861448752) {
+      E("1662861448752 expected, but got ==%" PRId64 "==", v);
+      break;
+    }
+
+    CALL_taos_free_result(res);
+    return 0;
+  } while (0);
+
+  CALL_taos_free_result(res);
+
+  return -1;
+}
+
+static int conformance_ts(void)
+{
+  const char *ip = NULL;
+  const char *user = NULL;
+  const char *pass = NULL;
+  const char *db = NULL;
+  uint16_t port = 0;
+  TAOS *taos = CALL_taos_connect(ip,user,pass,db,port);
+  if (!taos) return -1;
+
+  int r = 0;
+  r = conformance_ts_with_taos(taos);
+
+  CALL_taos_close(taos);
+
+  return r;
+}
+
 static int tests(int argc, char *argv[])
 {
   int r = 0;
@@ -2574,6 +2659,9 @@ static int tests(int argc, char *argv[])
     }
     return !r;
   }
+
+  r = conformance_ts();
+  if (r) return -1;
 
   r = conformance_tests();
   if (r) return -1;

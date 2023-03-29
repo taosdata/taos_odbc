@@ -45,7 +45,14 @@
     fmt, ##__VA_ARGS__);                                                                          \
 } while (0)
 
-static inline void diag(SQLRETURN sr, SQLSMALLINT HandleType, SQLHANDLE Handle)
+#define LOGE_ODBC(file, line, func, fmt, ...) do {                                                \
+  tod_logger_write(tod_get_system_logger(), LOGGER_ERROR, tod_get_system_logger_level(),          \
+    file, line, func,                                                                             \
+    fmt, ##__VA_ARGS__);                                                                          \
+} while (0)
+
+
+static inline void diag_impl(const char *file, int line, const char *func, SQLRETURN sr, SQLSMALLINT HandleType, SQLHANDLE Handle)
 {
   do {
     if (sr == SQL_SUCCESS) break;
@@ -63,12 +70,14 @@ static inline void diag(SQLRETURN sr, SQLSMALLINT HandleType, SQLHANDLE Handle)
       if (_sr == SQL_NO_DATA) break;
       if (_sr == SQL_ERROR) break;
       if (textLength == SQL_NTS)
-        D("[%s][%d]: %s%s%s", sqlState, nativeErrno, s1, messageText, s2);
+        LOGE_ODBC(file, line, func, "[%s][%d]: %s%s%s", (const char*)sqlState, nativeErrno, s1, messageText, s2);
       else
-        D("[%s][%d]: %s%.*s%s", sqlState, nativeErrno, s1, textLength, messageText, s2);
+        LOGE_ODBC(file, line, func, "[%s][%d]: %s%.*s%s", (const char*)sqlState, nativeErrno, s1, textLength, messageText, s2);
     }
   } while (0);
 }
+
+#define diag(fmt, ...) diag_impl(file, line, func, fmt, ##__VA_ARGS__)
 
 static inline SQLRETURN call_SQLAllocHandle(const char *file, int line, const char *func,
     SQLSMALLINT HandleType, SQLHANDLE InputHandle, SQLHANDLE *OutputHandle)

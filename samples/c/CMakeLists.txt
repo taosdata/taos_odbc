@@ -36,3 +36,15 @@ else()
     set_source_files_properties(dump.c PROPERTIES COMPILE_OPTIONS "/source-charset:utf-8")
     target_link_libraries(dump odbc32 cjson)
 endif()
+
+add_executable(demo_topic
+    $<TARGET_OBJECTS:common_obj>
+    $<TARGET_OBJECTS:os_port_obj>
+    demo_topic.c)
+
+if(NOT TODBC_WINDOWS)
+    target_link_libraries(demo_topic odbc pthread)
+else()
+    target_link_libraries(demo_topic odbc32)
+endif()
+

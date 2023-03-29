@@ -376,6 +376,110 @@ static int _conn_setup_iconvs(conn_t *conn)
   return -1;
 }
 
+static int _conn_get_timezone_from_res(conn_t *conn, const char *sql, TAOS_RES *res)
+{
+  int numOfRows                = 0;
+  TAOS_ROW rows                = NULL;
+  TAOS_FIELD *fields           = NULL;
+  int nr_fields                = 0;
+
+  int r = 0;
+  nr_fields = CALL_taos_field_count(res);
+  if (nr_fields == -1) {
+    int err = taos_errno(res);
+    const char *s = taos_errstr(res);
+    conn_append_err_format(conn, "HY000", 0,
+        "General error:failed to fetch # of fields from `%s`:[%d]%s", sql, err, s);
+    return -1;
+  }
+  if (nr_fields != 1) {
+    conn_append_err_format(conn, "HY000", 0,
+        "General error:# of fields from `%s` is expected 2 but got ==%d==", sql, nr_fields);
+    return -1;
+  }
+  fields = CALL_taos_fetch_fields(res);
+  if (!fields) {
+    int err = taos_errno(res);
+    const char *s = taos_errstr(res);
+    conn_append_err_format(conn, "HY000", 0,
+        "General error:failed to fetch fields from `%s`:[%d]%s", sql, err, s);
+    return -1;
+  }
+  if (fields[0].type != TSDB_DATA_TYPE_VARCHAR) {
+    conn_append_err_format(conn, "HY000", 0,
+        "General error:field[#%d] from `%s` is expected `TSDB_DATA_TYPE_VARCHAR` but got ==%s==",
+        1, sql, taos_data_type(fields[0].type));
+    return -1;
+  }
+  r = CALL_taos_fetch_block_s(res, &numOfRows, &rows);
+  if (!rows) {
+    int err = taos_errno(res);
+    const char *s = taos_errstr(res);
+    conn_append_err_format(conn, "HY000", 0,
+        "General error:failed to fetch block from `%s`:[%d]%s", sql, err, s);
+    return -1;
+  }
+
+  TAOS_FIELD *field;
+  field = fields + 0;
+  const char *ts = NULL;
+  int ts_nr = 0;
+  r = helper_get_data_len(res, field, rows, 0, 0, &ts, &ts_nr);
+  if (r) {
+    conn_append_err_format(conn, "HY000", 0,
+        "General error:conversion from `%s[0x%x/%d]` not implemented yet",
+        taos_data_type(field->type), field->type, field->type);
+    return -1;
+  }
+
+  if (ts_nr != 24 || (ts[19] != '+' && ts[19] != '-')) {
+    conn_append_err_format(conn, "HY000", 0,
+        "General error:format for `%.*s` not implemented yet",
+        ts_nr, ts);
+    return -1;
+  }
+
+  char buf[16];
+  snprintf(buf, sizeof(buf), "%.*s", 5, ts + 19);
+  int tz = 0;
+  int n = sscanf(buf, "%d", &tz);
+  if (n!=1) {
+    conn_append_err_format(conn, "HY000", 0,
+        "General error:format for `%.*s` not implemented yet",
+        ts_nr, ts);
+    return -1;
+  }
+  buf[0] = '\0';
+  snprintf(buf, sizeof(buf), "%+05d", tz);
+  if (strncmp(buf, ts + 19, 5)) {
+    conn_append_err_format(conn, "HY000", 0,
+        "General error:format for `%.*s` not implemented yet",
+        ts_nr, ts);
+    return -1;
+  }
+
+  conn->tz = tz; // +0800 for Asia/Shanghai
+  conn->tz_seconds = (tz / 100) * 60 * 60 + (tz % 100) * 60;
+
+  return 0;
+}
+
+static int _conn_get_timezone(conn_t *conn)
+{
+  const char *sql = "select to_iso8601(0) as ts";
+  TAOS_RES *res = CALL_taos_query(conn->taos, sql);
+  if (!res) {
+    int err = taos_errno(NULL);
+    const char *s = taos_errstr(NULL);
+    conn_append_err_format(conn, "HY000", 0,
+        "General error:failed to query `%s`:[%d]%s", sql, err, s);
+    return -1;
+  }
+  int r = _conn_get_timezone_from_res(conn, sql, res);
+  CALL_taos_free_result(res);
+  return r;
+}
+
 static SQLRETURN _do_conn_connect(conn_t *conn)
 {
   OA_ILE(conn->taos == NULL);
@@ -413,6 +517,8 @@ static SQLRETURN _do_conn_connect(conn_t *conn)
     sr = _conn_get_configs_from_information_schema_ins_configs(conn);
     if (sr == SQL_ERROR) break;
     r = _conn_setup_iconvs(conn);
+    if (r) break;
+    r = _conn_get_timezone(conn);
     if (r) break;
     return SQL_SUCCESS;
   } while (0);

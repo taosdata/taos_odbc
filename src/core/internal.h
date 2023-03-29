@@ -423,10 +423,19 @@ struct conn_s {
 
   // server info
   const char         *svr_info;
+  // client-side-timezone, which is set via `taos.cfg`
+  // we use 'select to_iso8601(0)' to get the timezone info per connection
+  // currently, we just get this info but not use it in anyway
+  // all timestamp would be converted into SQL_C_CHAR/WCHAR according to local-timezone of your machine, via system-call `localtime_r`
+  // which is the ODBC convention we believe
+  // if you really wanna map timestamp to timezone that is different, you might SQLGetData(...SQL_C_BIGINT...) to get the raw int64_t of timestamp,
+  // whose main part (excluding seconds fraction) represents the time in seconds since the Epoch (00:00:00 UTC, January 1, 1970)
+  int64_t             tz;         // +0800 for Asia/Shanghai
+  int64_t             tz_seconds; // +28800 for Asia/Shanghai
 
   // config from information_schema.ins_configs
   char               *s_statusInterval;
-  char               *s_timezone;
+  char               *s_timezone; // this is server-side timezone
   char               *s_locale;
   char               *s_charset;
 

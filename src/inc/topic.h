@@ -22,37 +22,27 @@
  * SOFTWARE.
  */
 
-#ifndef _helpers_h_
-#define _helpers_h_
+#ifndef _topic_h_
+#define _topic_h_
 
-#include "os_port.h"
+#include "macros.h"
+#include "typedefs.h"
 
-#include "logger.h"
-
-#include <inttypes.h>
-#include <stdio.h>
-#include <time.h>
-
-#ifdef _WIN32
-#include <windows.h>
-#else
-#include <string.h>
-#endif
+#include <taos.h>
 
 EXTERN_C_BEGIN
 
-const char *tod_strptime(const char *s, const char *format, struct tm *tm) FA_HIDDEN;
-uintptr_t tod_get_current_thread_id(void) FA_HIDDEN;
+void topic_reset(topic_t *topic) FA_HIDDEN;
+void topic_release(topic_t *topic) FA_HIDDEN;
 
-#ifdef _WIN32
-#define tod_strcasecmp      _stricmp
-#define tod_strncasecmp     _strnicmp
-#else
-#define tod_strcasecmp      strcasecmp
-#define tod_strncasecmp     strncasecmp
-#endif
+void topic_init(topic_t *topic, stmt_t *stmt) FA_HIDDEN;
+
+SQLRETURN topic_open(
+    topic_t       *topic,
+    const char    *name,
+    size_t         len) FA_HIDDEN;
 
 EXTERN_C_END
 
-#endif // _helpers_h_
+#endif //  _topic_h_
 

@@ -32,6 +32,7 @@ list(APPEND core_SOURCES primarykeys.c)
 list(APPEND core_SOURCES stmt.c)
 list(APPEND core_SOURCES tables.c)
 list(APPEND core_SOURCES tls.c)
+list(APPEND core_SOURCES topic.c)
 list(APPEND core_SOURCES tsdb.c)
 list(APPEND core_SOURCES typesinfo.c)
 

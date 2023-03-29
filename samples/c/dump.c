@@ -436,6 +436,60 @@ static int _dump_stmt_describe_col(SQLSMALLINT HandleType, SQLHANDLE Handle)
   return 0;
 }
 
+static int _dump_topic(SQLSMALLINT HandleType, SQLHANDLE Handle)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
+  char ts[4096], name[4096];
+  SQLLEN         ts_len;
+  SQLLEN         name_len;
+
+  if (HandleType != SQL_HANDLE_STMT) return 0;
+
+  DUMP("");
+  DUMP("%s:", __func__);
+
+  SQLHANDLE hstmt = Handle;
+
+  if (1) {
+    const char *sqls[] = {
+      "drop topic if exists demo",
+    };
+    execute_sqls(hstmt, sqls, sizeof(sqls)/sizeof(sqls[0]));
+  }
+
+  const char *sqls[] = {
+    "drop table if exists demo",
+    "create table demo (ts timestamp, name varchar(20))",
+    "create topic demo as select ts, name from demo",
+    "insert into demo (ts, name) values (now(), 'hello')",
+  };
+
+  r = execute_sqls(hstmt, sqls, sizeof(sqls)/sizeof(sqls[0]));
+  if (r) return -1;
+
+  const char *sql = "!topic demo";
+  sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
+  if (sr != SQL_SUCCESS) return -1;
+
+again:
+
+  sr = CALL_SQLFetch(hstmt);
+  if (sr == SQL_NO_DATA) return 0;
+  if (sr != SQL_SUCCESS) return -1;
+
+  sr = CALL_SQLGetData(hstmt, 1, SQL_C_CHAR, ts, sizeof(ts), &ts_len);
+  if (sr != SQL_SUCCESS) return -1;
+  sr = CALL_SQLGetData(hstmt, 2, SQL_C_CHAR, name, sizeof(name), &name_len);
+  if (sr != SQL_SUCCESS) return -1;
+
+  DUMP("new data:ts[%s],name[%s]",
+    ts_len == SQL_NULL_DATA ? "null" : ts,
+    name_len == SQL_NULL_DATA ? "null" : name);
+
+  goto again;
+}
+
 #define RECORD(x) {x, #x}
 
 static struct {
@@ -445,6 +499,7 @@ static struct {
   RECORD(_dump_stmt_col_info),
   RECORD(_dump_stmt_tables),
   RECORD(_dump_stmt_describe_col),
+  RECORD(_dump_topic),
 };
 
 typedef struct arg_s             arg_t;
@@ -488,6 +543,7 @@ static int dump_with_stmt(const arg_t *arg, SQLHANDLE hstmt)
   int r = 0;
 
   const char *sqls[] = {
+    "drop topic if exists demo",
     "drop database if exists bar",
     "create database bar",
     "use bar",

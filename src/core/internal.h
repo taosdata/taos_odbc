@@ -536,6 +536,17 @@ struct tsdb_stmt_s {
   unsigned int               prepared:1;
 };
 
+struct topic_s {
+  stmt_base_t                base;
+  stmt_t                    *owner;
+
+  char                       name[193];
+  tmq_t                     *tmq;
+
+  TAOS_RES                  *res;
+  TAOS_ROW                   row;
+};
+
 struct tables_args_s {
   wildex_t        *catalog_pattern;
   wildex_t        *schema_pattern;
@@ -670,7 +681,7 @@ struct stmt_s {
 
   mem_t                      sql;
 
-  tsdb_paramset_t                 paramset;
+  tsdb_paramset_t            paramset;
 
   tsdb_binds_t               tsdb_binds;
 
@@ -679,6 +690,7 @@ struct stmt_s {
   columns_t                  columns;
   typesinfo_t                typesinfo;
   primarykeys_t              primarykeys;
+  topic_t                    topic;
 
   mem_t                      mem;
 

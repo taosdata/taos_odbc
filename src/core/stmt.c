@@ -34,6 +34,7 @@
 #include "stmt.h"
 #include "tables.h"
 #include "taos_helpers.h"
+#include "topic.h"
 #include "tsdb.h"
 #include "typesinfo.h"
 
@@ -82,6 +83,7 @@ static void _stmt_init(stmt_t *stmt, conn_t *conn)
   columns_init(&stmt->columns, stmt);
   typesinfo_init(&stmt->typesinfo, stmt);
   primarykeys_init(&stmt->primarykeys, stmt);
+  topic_init(&stmt->topic, stmt);
 
   stmt->base = &stmt->tsdb_stmt.base;
 
@@ -158,6 +160,7 @@ static void _stmt_reset_result(stmt_t *stmt)
   columns_reset(&stmt->columns);
   typesinfo_reset(&stmt->typesinfo);
   primarykeys_reset(&stmt->primarykeys);
+  topic_reset(&stmt->topic);
 
   if (_stmt_get_rows_fetched_ptr(stmt)) *_stmt_get_rows_fetched_ptr(stmt) = 0;
 }
@@ -171,6 +174,7 @@ static void _stmt_release_result(stmt_t *stmt)
   columns_release(&stmt->columns);
   typesinfo_release(&stmt->typesinfo);
   primarykeys_release(&stmt->primarykeys);
+  topic_release(&stmt->topic);
 
   if (_stmt_get_rows_fetched_ptr(stmt)) *_stmt_get_rows_fetched_ptr(stmt) = 0;
 }
@@ -4311,6 +4315,7 @@ SQLRETURN _stmt_exec_direct_sql(stmt_t *stmt, const char *sql)
 
 SQLRETURN stmt_exec_direct(stmt_t *stmt, SQLCHAR *StatementText, SQLINTEGER TextLength)
 {
+  SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
 
   OA_ILE(stmt->conn);
@@ -4330,6 +4335,23 @@ SQLRETURN stmt_exec_direct(stmt_t *stmt, SQLCHAR *StatementText, SQLINTEGER Text
   if (r) {
     stmt_oom(stmt);
     return SQL_ERROR;
+  }
+
+  const char *start, *end;
+  trim_string((const char*)stmt->sql.base, stmt->sql.nr, &start, &end);
+  if (end >= start + 6) {
+    if (start[0] == '!' && tod_strncasecmp(start, "!topic", 6) == 0) {
+      const char *p0, *p1;
+      trim_string(start + 6, end - start - 6, &p0, &p1);
+      if (p1 == p0) {
+        stmt_append_err_format(stmt, "HY000", 0, "General error: no topic name is specified [%.*s]", (int)(end-start), start);
+        return SQL_ERROR;
+      }
+      sr = topic_open(&stmt->topic, p0, p1 - p0);
+      if (sr != SQL_SUCCESS) return SQL_ERROR;
+      stmt->base = &stmt->topic.base;
+      return SQL_SUCCESS;
+    }
   }
 
   if (stmt->base == &stmt->columns.base) {

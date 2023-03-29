@@ -59,6 +59,8 @@ typedef struct tables_s                  tables_t;
 
 typedef struct tls_s                     tls_t;
 
+typedef struct topic_s                   topic_t;
+
 typedef struct tsdb_stmt_s               tsdb_stmt_t;
 typedef struct tsdb_params_s             tsdb_params_t;
 typedef struct tsdb_binds_s              tsdb_binds_t;

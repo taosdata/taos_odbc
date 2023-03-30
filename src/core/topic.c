@@ -99,6 +99,7 @@ static SQLRETURN _get_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
 
   if (fields) *fields = topic->fields;
   if (nr) *nr = topic->fields_nr;
+
   return SQL_SUCCESS;
 }
 
@@ -133,7 +134,7 @@ static SQLRETURN _topic_desc_tripple(topic_t *topic)
   for (size_t i=0; i<nr; ++i) {
     TAOS_FIELD *field = fields + i;
     for (size_t j=0; j<sizeof(pseudos)/sizeof(pseudos[0]); ++j) {
-      if (tod_strncasecmp(field->name, pseudos[i], sizeof(field->name))) {
+      if (tod_strncasecmp(field->name, pseudos[i], sizeof(field->name)) == 0) {
         stmt_append_err_format(topic->owner, "HY000", 0,
             "General error:column[%" PRId64 "]`%.*s` in select list conflicts with the pseudo-name:[%s]",
             i+1, (int)sizeof(field->name), field->name, pseudos[i]);
@@ -154,7 +155,7 @@ static SQLRETURN _topic_desc_tripple(topic_t *topic)
   }
   topic->fields_nr = nr + 3;
 
-  memcpy(topic->fields + 3, fields, nr);
+  memcpy(topic->fields + 3, fields, nr * sizeof(*fields));
   snprintf(topic->fields[0].name, sizeof(topic->fields[0].name), "_topic_name");
   snprintf(topic->fields[1].name, sizeof(topic->fields[1].name), "_db_name");
   snprintf(topic->fields[2].name, sizeof(topic->fields[2].name), "_vgroup_id");

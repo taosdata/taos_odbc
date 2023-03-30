@@ -52,148 +52,119 @@ void bridge_taos_stmt_reclaim_fields(TAOS_STMT *stmt, TAOS_FIELD_E *fields)
 #endif
 }
 
-int helper_get_data_len(TAOS_RES *res, TAOS_FIELD *field, TAOS_ROW rows, int row, int col, const char **data, int *len)
+int helper_get_tsdb(TAOS_RES *res, TAOS_FIELD *fields, int time_precision, TAOS_ROW rows, int i_row, int i_col, tsdb_data_t *tsdb, char *buf, size_t len)
 {
+  TAOS_FIELD *field = fields + i_col;
+
+  if (CALL_taos_is_null(res, i_row, i_col)) {
+    tsdb->is_null = 1;
+    return 0;
+  }
+
+  tsdb->is_null = 0;
+
   switch(field->type) {
     case TSDB_DATA_TYPE_BOOL:
-      if (CALL_taos_is_null(res, row, col)) {
-        *data = NULL;
-        *len = 0;
-      } else {
-        unsigned char *base = (unsigned char*)rows[col];
-        base += row;
-        *data = (const char*)base;
-        *len = sizeof(*base);
+      {
+        uint8_t *col = (uint8_t*)rows[i_col];
+        col += i_row;
+        tsdb->b = !!*col;
       } break;
     case TSDB_DATA_TYPE_TINYINT:
-      if (CALL_taos_is_null(res, row, col)) {
-        *data = NULL;
-        *len = 0;
-      } else {
-        unsigned char *base = (unsigned char*)rows[col];
-        base += row;
-        *data = (const char*)base;
-        *len = sizeof(*base);
+      {
+        int8_t *col = (int8_t*)rows[i_col];
+        col += i_row;
+        tsdb->i8 = *col;
       } break;
     case TSDB_DATA_TYPE_UTINYINT:
-      if (CALL_taos_is_null(res, row, col)) {
-        *data = NULL;
-        *len = 0;
-      } else {
-        unsigned char *base = (unsigned char*)rows[col];
-        base += row;
-        *data = (const char*)base;
-        *len = sizeof(*base);
+      {
+        uint8_t *col= (uint8_t*)rows[i_col];
+        col += i_row;
+        tsdb->u8 = *col;
       } break;
     case TSDB_DATA_TYPE_SMALLINT:
-      if (CALL_taos_is_null(res, row, col)) {
-        *data = NULL;
-        *len = 0;
-      } else {
-        int16_t *base = (int16_t*)rows[col];
-        base += row;
-        *data = (const char*)base;
-        *len = sizeof(*base);
+      {
+        int16_t *col = (int16_t*)rows[i_col];
+        col += i_row;
+        tsdb->i16 = *col;
       } break;
     case TSDB_DATA_TYPE_USMALLINT:
-      if (CALL_taos_is_null(res, row, col)) {
-        *data = NULL;
-        *len = 0;
-      } else {
-        uint16_t *base = (uint16_t*)rows[col];
-        base += row;
-        *data = (const char*)base;
-        *len = sizeof(*base);
+      {
+        uint16_t *col = (uint16_t*)rows[i_col];
+        col += i_row;
+        tsdb->u16 = *col;
       } break;
     case TSDB_DATA_TYPE_INT:
-      if (CALL_taos_is_null(res, row, col)) {
-        *data = NULL;
-        *len = 0;
-      } else {
-        int32_t *base = (int32_t*)rows[col];
-        base += row;
-        *data = (const char*)base;
-        *len = sizeof(*base);
+      {
+        int32_t *col = (int32_t*)rows[i_col];
+        col += i_row;
+        tsdb->i32 = *col;
       } break;
     case TSDB_DATA_TYPE_UINT:
-      if (CALL_taos_is_null(res, row, col)) {
-        *data = NULL;
-        *len = 0;
-      } else {
-        uint32_t *base = (uint32_t*)rows[col];
-        base += row;
-        *data = (const char*)base;
-        *len = sizeof(*base);
+      {
+        uint32_t *col = (uint32_t*)rows[i_col];
+        col += i_row;
+        tsdb->u32 = *col;
       } break;
     case TSDB_DATA_TYPE_BIGINT:
-      if (CALL_taos_is_null(res, row, col)) {
-        *data = NULL;
-        *len = 0;
-      } else {
-        int64_t *base = (int64_t*)rows[col];
-        base += row;
-        *data = (const char*)base;
-        *len = sizeof(*base);
+      {
+        int64_t *col = (int64_t*)rows[i_col];
+        col += i_row;
+        tsdb->i64 = *col;
+      } break;
+    case TSDB_DATA_TYPE_UBIGINT:
+      {
+        uint64_t *col = (uint64_t*)rows[i_col];
+        col += i_row;
+        tsdb->u64 = *col;
       } break;
     case TSDB_DATA_TYPE_FLOAT:
-      if (CALL_taos_is_null(res, row, col)) {
-        *data = NULL;
-        *len = 0;
-      } else {
-        float *base = (float*)rows[col];
-        base += row;
-        *data = (const char*)base;
-        *len = sizeof(*base);
+      {
+        float *col = (float*)rows[i_col];
+        col += i_row;
+        tsdb->flt = *col;
       } break;
     case TSDB_DATA_TYPE_DOUBLE:
-      if (CALL_taos_is_null(res, row, col)) {
-        *data = NULL;
-        *len = 0;
-      } else {
-        double *base = (double*)rows[col];
-        base += row;
-        *data = (const char*)base;
-        *len = sizeof(*base);
+      {
+        double *col = (double*)rows[i_col];
+        col += i_row;
+        tsdb->dbl = *col;
       } break;
-    case TSDB_DATA_TYPE_VARCHAR: {
-      int *offsets = CALL_taos_get_column_data_offset(res, col);
-      // OA_ILE(offsets);
-      if (offsets[row] == -1) {
-        *data = NULL;
-        *len = 0;
-      } else {
-        char *base = (char*)(rows[col]);
-        base += offsets[row];
-        int16_t length = *(int16_t*)base;
-        base += sizeof(int16_t);
-        *data = base;
-        *len = length;
-      }
-    } break;
-    case TSDB_DATA_TYPE_TIMESTAMP: {
-      int64_t *base = (int64_t*)rows[col];
-      base += row;
-      *data = (const char*)base;
-      *len = sizeof(*base);
-    } break;
-    case TSDB_DATA_TYPE_NCHAR: {
-      int *offsets = CALL_taos_get_column_data_offset(res, col);
-      // OA_ILE(offsets);
-      if (offsets[row] == -1) {
-        *data = NULL;
-        *len = 0;
-      } else {
-        char *base = (char*)(rows[col]);
-        base += offsets[row];
-        int16_t length = *(int16_t*)base;
-        base += sizeof(int16_t);
-        *data = base;
-        *len = length;
-      }
-    } break;
+    case TSDB_DATA_TYPE_VARCHAR:
+      {
+        int *offsets = CALL_taos_get_column_data_offset(res, i_col);
+        char *col = (char*)(rows[i_col]);
+        col += offsets[i_row];
+        int16_t length = *(int16_t*)col;
+        col += sizeof(int16_t);
+        tsdb->str.str = col;
+        tsdb->str.len = length;
+      } break;
+    case TSDB_DATA_TYPE_TIMESTAMP:
+      {
+        int64_t *col = (int64_t*)rows[i_col];
+        col += i_row;
+        tsdb->ts.ts = *col;
+        tsdb->ts.precision = time_precision;
+      } break;
+    case TSDB_DATA_TYPE_NCHAR:
+      {
+        int *offsets = CALL_taos_get_column_data_offset(res, i_col);
+        char *col = (char*)(rows[i_col]);
+        col += offsets[i_row];
+        int16_t length = *(int16_t*)col;
+        col += sizeof(int16_t);
+        tsdb->str.str = col;
+        tsdb->str.len = length;
+      } break;
     default:
+      snprintf(buf, len, "Column[%d/%s] conversion from `%s[0x%x/%d]` not implemented yet",
+          i_col + 1, field->name, taos_data_type(field->type), field->type, field->type);
       return -1;
   }
 
+  tsdb->type   = field->type;
+
   return 0;
 }
+

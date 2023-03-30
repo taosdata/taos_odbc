@@ -67,7 +67,6 @@ typedef struct tsdb_binds_s              tsdb_binds_t;
 typedef struct tsdb_res_s                tsdb_res_t;
 typedef struct tsdb_fields_s             tsdb_fields_t;
 typedef struct tsdb_rows_block_s         tsdb_rows_block_t;
-typedef struct tsdb_data_s               tsdb_data_t;
 
 typedef struct typesinfo_s               typesinfo_t;
 

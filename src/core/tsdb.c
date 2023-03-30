@@ -417,117 +417,13 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
   int          i_row      = (int)rows_block->pos - 1;
   int          i_col      = Col_or_Param_Num - 1;
   TAOS_ROW     rows       = rows_block->rows;
-  TAOS_FIELD  *field      = fields->fields + i_col;
 
-  if (CALL_taos_is_null(res->res, i_row, i_col)) {
-    tsdb->is_null = 1;
-    return SQL_SUCCESS;
+  char buf[4096];
+  int r = helper_get_tsdb(res->res, fields->fields, res->time_precision, rows, i_row, i_col, tsdb, buf, sizeof(buf));
+  if (r) {
+    stmt_append_err_format(stmt->owner, "HY000", 0, "General error:%.*s", (int)strlen(buf), buf);
+    return SQL_ERROR;
   }
-
-  tsdb->is_null = 0;
-
-  switch(field->type) {
-    case TSDB_DATA_TYPE_BOOL:
-      {
-        uint8_t *col = (uint8_t*)rows[i_col];
-        col += i_row;
-        tsdb->b = !!*col;
-      } break;
-    case TSDB_DATA_TYPE_TINYINT:
-      {
-        int8_t *col = (int8_t*)rows[i_col];
-        col += i_row;
-        tsdb->i8 = *col;
-      } break;
-    case TSDB_DATA_TYPE_UTINYINT:
-      {
-        uint8_t *col= (uint8_t*)rows[i_col];
-        col += i_row;
-        tsdb->u8 = *col;
-      } break;
-    case TSDB_DATA_TYPE_SMALLINT:
-      {
-        int16_t *col = (int16_t*)rows[i_col];
-        col += i_row;
-        tsdb->i16 = *col;
-      } break;
-    case TSDB_DATA_TYPE_USMALLINT:
-      {
-        uint16_t *col = (uint16_t*)rows[i_col];
-        col += i_row;
-        tsdb->u16 = *col;
-      } break;
-    case TSDB_DATA_TYPE_INT:
-      {
-        int32_t *col = (int32_t*)rows[i_col];
-        col += i_row;
-        tsdb->i32 = *col;
-      } break;
-    case TSDB_DATA_TYPE_UINT:
-      {
-        uint32_t *col = (uint32_t*)rows[i_col];
-        col += i_row;
-        tsdb->u32 = *col;
-      } break;
-    case TSDB_DATA_TYPE_BIGINT:
-      {
-        int64_t *col = (int64_t*)rows[i_col];
-        col += i_row;
-        tsdb->i64 = *col;
-      } break;
-    case TSDB_DATA_TYPE_UBIGINT:
-      {
-        uint64_t *col = (uint64_t*)rows[i_col];
-        col += i_row;
-        tsdb->u64 = *col;
-      } break;
-    case TSDB_DATA_TYPE_FLOAT:
-      {
-        float *col = (float*)rows[i_col];
-        col += i_row;
-        tsdb->flt = *col;
-      } break;
-    case TSDB_DATA_TYPE_DOUBLE:
-      {
-        double *col = (double*)rows[i_col];
-        col += i_row;
-        tsdb->dbl = *col;
-      } break;
-    case TSDB_DATA_TYPE_VARCHAR:
-      {
-        int *offsets = CALL_taos_get_column_data_offset(res->res, i_col);
-        char *col = (char*)(rows[i_col]);
-        col += offsets[i_row];
-        int16_t length = *(int16_t*)col;
-        col += sizeof(int16_t);
-        tsdb->str.str = col;
-        tsdb->str.len = length;
-      } break;
-    case TSDB_DATA_TYPE_TIMESTAMP:
-      {
-        int64_t *col = (int64_t*)rows[i_col];
-        col += i_row;
-        tsdb->ts.ts = *col;
-        tsdb->ts.precision = res->time_precision;
-      } break;
-    case TSDB_DATA_TYPE_NCHAR:
-      {
-        int *offsets = CALL_taos_get_column_data_offset(res->res, i_col);
-        char *col = (char*)(rows[i_col]);
-        col += offsets[i_row];
-        int16_t length = *(int16_t*)col;
-        col += sizeof(int16_t);
-        tsdb->str.str = col;
-        tsdb->str.len = length;
-      } break;
-    default:
-      stmt_append_err_format(stmt->owner, "HY000", 0,
-          "General error:Column[%d/%s] conversion from `%s[0x%x/%d]` not implemented yet",
-          i_col + 1, field->name, taos_data_type(field->type), field->type, field->type);
-      return SQL_ERROR;
-  }
-
-  tsdb->type   = field->type;
 
   return SQL_SUCCESS;
 }

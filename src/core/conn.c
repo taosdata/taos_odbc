@@ -198,6 +198,8 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs_with_res(
   TAOS_FIELD *fields           = NULL;
   int nr_fields                = 0;
 
+  int time_precision = CALL_taos_result_precision(res);
+
   int r = 0;
   nr_fields = CALL_taos_field_count(res);
   if (nr_fields == -1) {
@@ -237,36 +239,34 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs_with_res(
     return SQL_ERROR;
   }
   for (int i=0; i<numOfRows; ++i) {
-    TAOS_FIELD *field;
-    int col;
+    char buf[4096];
 
-    col = 0;
-    field = fields + col;
-    const char *name = NULL;
-    int name_len = 0;
-    r = helper_get_data_len(res, field, rows, i, col, &name, &name_len);
+    tsdb_data_t name = {0};
+    r = helper_get_tsdb(res, fields, time_precision, rows, i, 0, &name, buf, sizeof(buf));
     if (r) {
-      conn_append_err_format(conn, "HY000", 0,
-          "General error:Row[%d] Column[%s] conversion from `%s[0x%x/%d]` not implemented yet",
-          i + 1, field->name, taos_data_type(field->type), field->type, field->type);
+      conn_append_err_format(conn, "HY000", 0, "General error:%.*s", (int)strlen(buf), buf);
+      return SQL_ERROR;
+    }
+    if (name.type != TSDB_DATA_TYPE_VARCHAR || name.is_null) {
+      conn_append_err(conn, "HY000", 0, "General error:internal logic error or taosc conformance issue");
       return SQL_ERROR;
     }
 
-    col = 1;
-    field = fields + col;
-    const char *value = NULL;
-    int value_len = 0;
-    r = helper_get_data_len(res, field, rows, i, col, &value, &value_len);
+    tsdb_data_t value = {0};
+    r = helper_get_tsdb(res, fields, time_precision, rows, i, 1, &value, buf, sizeof(buf));
     if (r) {
-      conn_append_err_format(conn, "HY000", 0,
-          "General error:Row[%d] Column[%s] conversion from `%s[0x%x/%d]` not implemented yet",
-          i + 1, field->name, taos_data_type(field->type), field->type, field->type);
+      conn_append_err_format(conn, "HY000", 0, "General error:%.*s", (int)strlen(buf), buf);
       return SQL_ERROR;
     }
-    r = _conn_save_from_information_schema_ins_configs(conn, name_len, name, value_len, value);
+    if (value.type != TSDB_DATA_TYPE_VARCHAR || value.is_null) {
+      conn_append_err(conn, "HY000", 0, "General error:internal logic error or taosc conformance issue");
+      return SQL_ERROR;
+    }
+
+    r = _conn_save_from_information_schema_ins_configs(conn, name.str.len, name.str.str, value.str.len, value.str.str);
     if (r) {
       conn_append_err_format(conn, "HY000", 0,
-          "General error: save `%.*s:%.*s` failed", name_len, name, value_len, value);
+          "General error: save `%.*s:%.*s` failed", (int)name.str.len, name.str.str, (int)value.str.len, value.str.str);
       return SQL_ERROR;
     }
   }
@@ -383,6 +383,8 @@ static int _conn_get_timezone_from_res(conn_t *conn, const char *sql, TAOS_RES *
   TAOS_FIELD *fields           = NULL;
   int nr_fields                = 0;
 
+  int time_precision = CALL_taos_result_precision(res);
+
   int r = 0;
   nr_fields = CALL_taos_field_count(res);
   if (nr_fields == -1) {
@@ -420,41 +422,41 @@ static int _conn_get_timezone_from_res(conn_t *conn, const char *sql, TAOS_RES *
     return -1;
   }
 
-  TAOS_FIELD *field;
-  field = fields + 0;
-  const char *ts = NULL;
-  int ts_nr = 0;
-  r = helper_get_data_len(res, field, rows, 0, 0, &ts, &ts_nr);
+  char buf[4096];
+
+  tsdb_data_t ts = {0};
+  r = helper_get_tsdb(res, fields, time_precision, rows, 0, 0, &ts, buf, sizeof(buf));
   if (r) {
-    conn_append_err_format(conn, "HY000", 0,
-        "General error:conversion from `%s[0x%x/%d]` not implemented yet",
-        taos_data_type(field->type), field->type, field->type);
-    return -1;
+    conn_append_err_format(conn, "HY000", 0, "General error:%.*s", (int)strlen(buf), buf);
+    return SQL_ERROR;
+  }
+  if (ts.type != TSDB_DATA_TYPE_VARCHAR || ts.is_null) {
+    conn_append_err(conn, "HY000", 0, "General error:internal logic error or taosc conformance issue");
+    return SQL_ERROR;
   }
 
-  if (ts_nr != 24 || (ts[19] != '+' && ts[19] != '-')) {
+  if (ts.str.len != 24 || (ts.str.str[19] != '+' && ts.str.str[19] != '-')) {
     conn_append_err_format(conn, "HY000", 0,
         "General error:format for `%.*s` not implemented yet",
-        ts_nr, ts);
+        (int)ts.str.len, ts.str.str);
     return -1;
   }
 
-  char buf[16];
-  snprintf(buf, sizeof(buf), "%.*s", 5, ts + 19);
+  snprintf(buf, sizeof(buf), "%.*s", 5, ts.str.str + 19);
   int tz = 0;
   int n = sscanf(buf, "%d", &tz);
   if (n!=1) {
     conn_append_err_format(conn, "HY000", 0,
         "General error:format for `%.*s` not implemented yet",
-        ts_nr, ts);
+        (int)ts.str.len, ts.str.str);
     return -1;
   }
   buf[0] = '\0';
   snprintf(buf, sizeof(buf), "%+05d", tz);
-  if (strncmp(buf, ts + 19, 5)) {
+  if (strncmp(buf, ts.str.str + 19, 5)) {
     conn_append_err_format(conn, "HY000", 0,
         "General error:format for `%.*s` not implemented yet",
-        ts_nr, ts);
+        (int)ts.str.len, ts.str.str);
     return -1;
   }
 

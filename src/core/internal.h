@@ -33,6 +33,8 @@
 
 #include "typedefs.h"
 
+#include "taos_helpers.h"
+
 #include <taos.h>
 
 EXTERN_C_BEGIN
@@ -208,33 +210,6 @@ struct sql_c_data_s {
   mem_t          mem;
   size_t         len;
   size_t         cur;
-
-  uint8_t               is_null:1;
-};
-
-struct tsdb_data_s {
-  int8_t                type;
-  union {
-    uint8_t             b;
-    int8_t              i8;
-    uint8_t             u8;
-    int16_t             i16;
-    uint16_t            u16;
-    int32_t             i32;
-    uint32_t            u32;
-    int64_t             i64;
-    uint64_t            u64;
-    float               flt;
-    double              dbl;
-    struct {
-      const char *str;
-      size_t      len;
-    }                   str;
-    struct {
-      int64_t     ts;
-      int         precision;
-    }                   ts;
-  };
 
   uint8_t               is_null:1;
 };

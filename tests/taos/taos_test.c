@@ -1823,6 +1823,7 @@ static int test_charset_step2(TAOS_RES *res)
   TAOS_ROW rows                = NULL;
   TAOS_FIELD *fields           = NULL;
   int nr_fields                = 0;
+  int time_precision = CALL_taos_result_precision(res);
 
   int r = 0;
   nr_fields = CALL_taos_field_count(res);
@@ -1836,25 +1837,18 @@ static int test_charset_step2(TAOS_RES *res)
   if (r) return -1;
   A(numOfRows == 1, "internal logic error");
 
-  TAOS_FIELD *field;
-  int col;
+  char buf[4096];
 
-  col = 0;
-  field = fields + col;
-  const char *name = NULL;
-  int name_len = 0;
-  r = helper_get_data_len(res, field, rows, 0, col, &name, &name_len);
+  tsdb_data_t name = {0};
+  r = helper_get_tsdb(res, fields, time_precision, rows, 0, 0, &name, buf, sizeof(buf));
   if (r) return -1;
 
-  col = 1;
-  field = fields + col;
-  const char *wname = NULL;
-  int wname_len = 0;
-  r = helper_get_data_len(res, field, rows, 0, col, &wname, &wname_len);
+  tsdb_data_t wname = {0};
+  r = helper_get_tsdb(res, fields, time_precision, rows, 0, 1, &wname, buf, sizeof(buf));
   if (r) return -1;
 
-  D("name:%.*s", name_len, name);
-  D("wname:%.*s", wname_len, wname);
+  D("name:%.*s", (int)name.str.len, name.str.str);
+  D("wname:%.*s", (int)wname.str.len, wname.str.str);
 
   return 0;
 }

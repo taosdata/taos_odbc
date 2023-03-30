@@ -931,7 +931,35 @@ static inline int call_taos_get_current_db(const char *file, int line, const cha
 
 EXTERN_C_BEGIN
 
-int helper_get_data_len(TAOS_RES *res, TAOS_FIELD *field, TAOS_ROW rows, int row, int col, const char **data, int *len) FA_HIDDEN;
+typedef struct tsdb_data_s               tsdb_data_t;
+struct tsdb_data_s {
+  int8_t                type;
+  union {
+    uint8_t             b;
+    int8_t              i8;
+    uint8_t             u8;
+    int16_t             i16;
+    uint16_t            u16;
+    int32_t             i32;
+    uint32_t            u32;
+    int64_t             i64;
+    uint64_t            u64;
+    float               flt;
+    double              dbl;
+    struct {
+      const char *str;
+      size_t      len;
+    }                   str;
+    struct {
+      int64_t     ts;
+      int         precision;
+    }                   ts;
+  };
+
+  uint8_t               is_null:1;
+};
+
+int helper_get_tsdb(TAOS_RES *res, TAOS_FIELD *fields, int time_precision, TAOS_ROW rows, int i_row, int i_col, tsdb_data_t *tsdb, char *buf, size_t len) FA_HIDDEN;
 
 EXTERN_C_END
 

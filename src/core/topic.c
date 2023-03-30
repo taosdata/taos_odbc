@@ -40,9 +40,9 @@ static void _topic_reset_res(topic_t *topic)
   if (!topic->res) return;
   CALL_taos_free_result(topic->res);
   topic->res = NULL;
-  topic->res_topic_name        = NULL;
-  topic->res_db_name           = NULL;
-  topic->res_vgroup_id         = 0;
+  topic->res_topic_name    = NULL;
+  topic->res_db_name       = NULL;
+  topic->res_vgroup_id     = 0;
 }
 
 static void _topic_reset_tmq(topic_t *topic)
@@ -105,16 +105,20 @@ static SQLRETURN _get_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
 
 static SQLRETURN _topic_desc_tripple(topic_t *topic)
 {
-  topic->res_topic_name = CALL_tmq_get_topic_name(topic->res);
-  if (!topic->res_topic_name) {
+  const char *res_topic_name = CALL_tmq_get_topic_name(topic->res);
+  if (!res_topic_name || !*res_topic_name) {
     stmt_append_err(topic->owner, "HY000", 0, "General error:tmq_get_topic_name failed");
     return SQL_ERROR;
   }
-  topic->res_db_name    = CALL_tmq_get_db_name(topic->res);
-  if (!topic->res_db_name) {
+  topic->res_topic_name = res_topic_name;
+
+  const char *res_db_name    = CALL_tmq_get_db_name(topic->res);
+  if (!res_db_name || !*res_db_name) {
     stmt_append_err(topic->owner, "HY000", 0, "General error:tmq_get_db_name failed");
     return SQL_ERROR;
   }
+  topic->res_db_name = res_db_name;
+
   topic->res_vgroup_id  = CALL_tmq_get_vgroup_id(topic->res);
 
   TAOS_FIELD *fields = CALL_taos_fetch_fields(topic->res);
@@ -182,10 +186,12 @@ again:
   while (topic->res == NULL) {
     int32_t timeout = 100;
     topic->res = CALL_tmq_consumer_poll(topic->tmq, timeout);
+    if (topic->res) {
+      sr = _topic_desc_tripple(topic);
+      if (sr != SQL_SUCCESS) return SQL_ERROR;
+    }
   }
 
-  sr = _topic_desc_tripple(topic);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   row = CALL_taos_fetch_row(topic->res);
   if (row == NULL) {
@@ -276,10 +282,13 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
   }
 
   TAOS_FIELD *fields = topic->fields;
+
   int i = Col_or_Param_Num - 1;
+
   TAOS_FIELD *field = fields + i;
 
   if (i == 0) {
+    tsdb->is_null                = 0;
     tsdb->type                   = TSDB_DATA_TYPE_VARCHAR;
     tsdb->str.str                = topic->res_topic_name;
     tsdb->str.len                = strlen(topic->res_topic_name);
@@ -287,6 +296,7 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
   }
 
   if (i == 1) {
+    tsdb->is_null                = 0;
     tsdb->type                   = TSDB_DATA_TYPE_VARCHAR;
     tsdb->str.str                = topic->res_db_name;
     tsdb->str.len                = strlen(topic->res_db_name);
@@ -294,6 +304,7 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
   }
 
   if (i == 2) {
+    tsdb->is_null                = 0;
     tsdb->type                   = TSDB_DATA_TYPE_INT;
     tsdb->i32                    = topic->res_vgroup_id;
     return SQL_SUCCESS;
@@ -503,10 +514,11 @@ SQLRETURN topic_open(
   while (topic->res == NULL) {
     int32_t timeout = 100;
     topic->res = CALL_tmq_consumer_poll(topic->tmq, timeout);
+    if (topic->res) {
+      sr = _topic_desc_tripple(topic);
+      if (sr != SQL_SUCCESS) return SQL_ERROR;
+    }
   }
-
-  sr = _topic_desc_tripple(topic);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   return SQL_SUCCESS;
 }

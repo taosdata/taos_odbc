@@ -959,7 +959,7 @@ struct tsdb_data_s {
   uint8_t               is_null:1;
 };
 
-int helper_get_tsdb(TAOS_RES *res, TAOS_FIELD *fields, int time_precision, TAOS_ROW rows, int i_row, int i_col, tsdb_data_t *tsdb, char *buf, size_t len) FA_HIDDEN;
+int helper_get_tsdb(TAOS_RES *res, int block, TAOS_FIELD *fields, int time_precision, TAOS_ROW rows, int i_row, int i_col, tsdb_data_t *tsdb, char *buf, size_t len) FA_HIDDEN;
 
 EXTERN_C_END
 

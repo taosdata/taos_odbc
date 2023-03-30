@@ -1758,6 +1758,17 @@ static int _flaw_case1_step3(TAOS_STMT *stmt)
   return 0;
 }
 
+static int _execute_sqls(TAOS *taos, const char **sqls, size_t nr)
+{
+  for (size_t i=0; i<nr; ++i) {
+    const char *sql = sqls[i];
+    TAOS_RES *res = CALL_taos_query(taos,sql);
+    if (!res) return -1;
+    CALL_taos_free_result(res);
+  }
+  return 0;
+}
+
 static int _flaw_case1_step2(TAOS *taos)
 {
   int r = 0;
@@ -1768,12 +1779,9 @@ static int _flaw_case1_step2(TAOS *taos)
     "drop table if exists foo.t",
     "create table foo.t(ts timestamp,name varchar(20))",
   };
-  for (size_t i=0; i<sizeof(sqls)/sizeof(sqls[0]); ++i) {
-    const char *sql = sqls[i];
-    TAOS_RES *res = CALL_taos_query(taos,sql);
-    if (!res) return -1;
-    CALL_taos_free_result(res);
-  }
+
+  r = _execute_sqls(taos, sqls, sizeof(sqls)/sizeof(sqls[0]));
+  if (r) return -1;
 
   TAOS_STMT *stmt = NULL;
 
@@ -1840,11 +1848,11 @@ static int test_charset_step2(TAOS_RES *res)
   char buf[4096];
 
   tsdb_data_t name = {0};
-  r = helper_get_tsdb(res, fields, time_precision, rows, 0, 0, &name, buf, sizeof(buf));
+  r = helper_get_tsdb(res, 1, fields, time_precision, rows, 0, 0, &name, buf, sizeof(buf));
   if (r) return -1;
 
   tsdb_data_t wname = {0};
-  r = helper_get_tsdb(res, fields, time_precision, rows, 0, 1, &wname, buf, sizeof(buf));
+  r = helper_get_tsdb(res, 1, fields, time_precision, rows, 0, 1, &wname, buf, sizeof(buf));
   if (r) return -1;
 
   D("name:%.*s", (int)name.str.len, name.str.str);
@@ -2480,9 +2488,109 @@ static int conformance_db(TAOS *taos)
   return 0;
 }
 
+static int conformance_fetch_imple(TAOS_RES *res, int block, char *name, size_t nr)
+{
+  int r = 0;
+
+  int nr_fields = CALL_taos_field_count(res);
+  if (nr_fields != 2) {
+    E("expected to have 2 fields, but got ==%d==", nr_fields);
+    return -1;
+  }
+
+  TAOS_FIELD *fields = CALL_taos_fetch_fields(res);
+  if (!fields) {
+    E("fields expected, but got ==null==");
+    return -1;
+  }
+
+  int time_precision = CALL_taos_result_precision(res);
+
+  TAOS_ROW record;
+  int numOfRows;
+  TAOS_ROW rows;
+
+  if (block) {
+    r = CALL_taos_fetch_block_s(res, &numOfRows, &rows);
+    if (r) return -1;
+    if (numOfRows == 0 || rows == NULL) {
+      E("rows expected, but got ==null==");
+      return -1;
+    }
+  } else {
+    record = CALL_taos_fetch_row(res);
+    if (!record) {
+      E("record expected, but got ==null==");
+      return -1;
+    }
+  }
+
+  char buf[4096];
+  tsdb_data_t tsdb = {0};
+
+  r = helper_get_tsdb(res, block, fields, time_precision, block ? rows : record, 0, 1, &tsdb, buf, sizeof(buf));
+  if (r) {
+    E("failed:%s", buf);
+    return -1;
+  }
+  if (tsdb.type != TSDB_DATA_TYPE_VARCHAR) {
+    E("TSDB_DATA_TYPE_VARCHAR is expected, but got ==%s==", taos_data_type(tsdb.type));
+    return -1;
+  }
+  if (tsdb.is_null) {
+    E("non-null is expected, but got ==null==");
+    return -1;
+  }
+  snprintf(name, nr, "%.*s", (int)tsdb.str.len, tsdb.str.str);
+
+  return 0;
+}
+
+static int conformance_fetch_one_row_or_block(TAOS *taos)
+{
+  int r = 0;
+  TAOS_RES *res;
+
+  const char *sqls[] = {
+    "drop database if exists bar",
+    "create database if not exists bar",
+    "create table bar.demo (ts timestamp, name varchar(20))",
+    "insert into bar.demo (ts, name) values (now(), '测试1')",
+    "insert into bar.demo (ts, name) values (now(), '测试1')",
+  };
+
+  r = _execute_sqls(taos, sqls, sizeof(sqls)/sizeof(sqls[0]));
+  if (r) return -1;
+
+  const char *sql = "select * from bar.demo";
+  char name_one_row[4096], name_block[4096];
+
+  res = CALL_taos_query(taos, sql);
+  if (!res) return -1;
+  r = conformance_fetch_imple(res, 0, name_one_row, sizeof(name_one_row));
+  CALL_taos_free_result(res);
+  if (r) return -1;
+
+  res = CALL_taos_query(taos, sql);
+  if (!res) return -1;
+  r = conformance_fetch_imple(res, 1, name_block, sizeof(name_block));
+  CALL_taos_free_result(res);
+  if (r) return -1;
+
+  if (strcmp(name_one_row, name_block)) {
+    E("differ:%s<>%s", name_one_row, name_block);
+    return -1;
+  }
+
+  return 0;
+}
+
 static int conformance_tests_with_taos(TAOS *taos)
 {
   int r = 0;
+
+  r = conformance_fetch_one_row_or_block(taos);
+  if (r) return -1;
 
   r = conformance_db(taos);
   if (r) return -1;

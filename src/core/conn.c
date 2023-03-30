@@ -242,7 +242,7 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs_with_res(
     char buf[4096];
 
     tsdb_data_t name = {0};
-    r = helper_get_tsdb(res, fields, time_precision, rows, i, 0, &name, buf, sizeof(buf));
+    r = helper_get_tsdb(res, 1, fields, time_precision, rows, i, 0, &name, buf, sizeof(buf));
     if (r) {
       conn_append_err_format(conn, "HY000", 0, "General error:%.*s", (int)strlen(buf), buf);
       return SQL_ERROR;
@@ -253,7 +253,7 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs_with_res(
     }
 
     tsdb_data_t value = {0};
-    r = helper_get_tsdb(res, fields, time_precision, rows, i, 1, &value, buf, sizeof(buf));
+    r = helper_get_tsdb(res, 1, fields, time_precision, rows, i, 1, &value, buf, sizeof(buf));
     if (r) {
       conn_append_err_format(conn, "HY000", 0, "General error:%.*s", (int)strlen(buf), buf);
       return SQL_ERROR;
@@ -425,7 +425,7 @@ static int _conn_get_timezone_from_res(conn_t *conn, const char *sql, TAOS_RES *
   char buf[4096];
 
   tsdb_data_t ts = {0};
-  r = helper_get_tsdb(res, fields, time_precision, rows, 0, 0, &ts, buf, sizeof(buf));
+  r = helper_get_tsdb(res, 1, fields, time_precision, rows, 0, 0, &ts, buf, sizeof(buf));
   if (r) {
     conn_append_err_format(conn, "HY000", 0, "General error:%.*s", (int)strlen(buf), buf);
     return SQL_ERROR;

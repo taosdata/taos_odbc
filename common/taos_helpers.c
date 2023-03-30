@@ -52,7 +52,7 @@ void bridge_taos_stmt_reclaim_fields(TAOS_STMT *stmt, TAOS_FIELD_E *fields)
 #endif
 }
 
-int helper_get_tsdb(TAOS_RES *res, TAOS_FIELD *fields, int time_precision, TAOS_ROW rows, int i_row, int i_col, tsdb_data_t *tsdb, char *buf, size_t len)
+int helper_get_tsdb(TAOS_RES *res, int block, TAOS_FIELD *fields, int time_precision, TAOS_ROW rows, int i_row, int i_col, tsdb_data_t *tsdb, char *buf, size_t len)
 {
   TAOS_FIELD *field = fields + i_col;
 
@@ -131,12 +131,18 @@ int helper_get_tsdb(TAOS_RES *res, TAOS_FIELD *fields, int time_precision, TAOS_
         tsdb->dbl = *col;
       } break;
     case TSDB_DATA_TYPE_VARCHAR:
-      {
+    case TSDB_DATA_TYPE_NCHAR:
+      if (block) {
         int *offsets = CALL_taos_get_column_data_offset(res, i_col);
         char *col = (char*)(rows[i_col]);
         col += offsets[i_row];
         int16_t length = *(int16_t*)col;
         col += sizeof(int16_t);
+        tsdb->str.str = col;
+        tsdb->str.len = length;
+      } else {
+        char *col = (char*)(rows[i_col]);
+        int16_t length = ((int16_t*)col)[-1];
         tsdb->str.str = col;
         tsdb->str.len = length;
       } break;
@@ -146,16 +152,6 @@ int helper_get_tsdb(TAOS_RES *res, TAOS_FIELD *fields, int time_precision, TAOS_
         col += i_row;
         tsdb->ts.ts = *col;
         tsdb->ts.precision = time_precision;
-      } break;
-    case TSDB_DATA_TYPE_NCHAR:
-      {
-        int *offsets = CALL_taos_get_column_data_offset(res, i_col);
-        char *col = (char*)(rows[i_col]);
-        col += offsets[i_row];
-        int16_t length = *(int16_t*)col;
-        col += sizeof(int16_t);
-        tsdb->str.str = col;
-        tsdb->str.len = length;
       } break;
     default:
       snprintf(buf, len, "Column[%d/%s] conversion from `%s[0x%x/%d]` not implemented yet",

@@ -419,7 +419,7 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
   TAOS_ROW     rows       = rows_block->rows;
 
   char buf[4096];
-  int r = helper_get_tsdb(res->res, fields->fields, res->time_precision, rows, i_row, i_col, tsdb, buf, sizeof(buf));
+  int r = helper_get_tsdb(res->res, 1, fields->fields, res->time_precision, rows, i_row, i_col, tsdb, buf, sizeof(buf));
   if (r) {
     stmt_append_err_format(stmt->owner, "HY000", 0, "General error:%.*s", (int)strlen(buf), buf);
     return SQL_ERROR;

@@ -75,6 +75,7 @@ SQLTables (暂时使用post-filter来补救一下，等待taosc有新的实现�
 - **ODBC应用程序将可以利用该驱动实现对TDengine时序数据库的操作**
 - **相信，任何具有ODBC-绑定/插件的编程语言、框架，利用该驱动，也可实现对TDengine时序数据库的操作**
 - **Windows平台下，可以使用Windows系统自带的"ODBC数据源管理程序(64位)"来管理DSN**
+- **支持TDengine主题订阅，参见samples/c/demo_topic.c**
 - **持续开发中**...
 
 ### 所需的依赖

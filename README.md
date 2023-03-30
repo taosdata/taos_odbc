@@ -75,6 +75,7 @@ SQLTables (post-filter workaround, to be removed when taosc is right in place)
 - **enable ODBC-aware software to communicate with TDengine**
 - **enable any programming language with ODBC-bindings/ODBC-plugings to communicate with TDengine, potentially**
 - **On Windows, "ODBC Data Sources (64bit)" pre-installed tool can be used to manage DSN**
+- **Support TDengine data subscription feature，refer to samples/c/demo_topic.c**
 - **still going on**...
 
 ### Requirements

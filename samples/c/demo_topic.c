@@ -61,26 +61,36 @@ static int _topic_demo_topic(SQLSMALLINT HandleType, SQLHANDLE Handle)
 
   SQLHANDLE hstmt = Handle;
 
-  if (1) {
+  if (0) {
     const char *sqls[] = {
       "drop topic if exists demo",
     };
     execute_sqls(hstmt, sqls, sizeof(sqls)/sizeof(sqls[0]));
   }
 
-  const char *sqls[] = {
-    "drop table if exists demo",
-    "create table demo (ts timestamp, name varchar(20))",
-    "create topic demo as select ts, name from demo",
-    "insert into demo (ts, name) values (now(), 'hello')",
-  };
+  if (0) {
+    const char *sqls[] = {
+      "drop table if exists demo",
+      "create table demo (ts timestamp, name varchar(20))",
+      "create topic demo as select ts, name from demo",
+      "insert into demo (ts, name) values (now(), 'hello')",
+    };
 
-  r = execute_sqls(hstmt, sqls, sizeof(sqls)/sizeof(sqls[0]));
-  if (r) return -1;
+    r = execute_sqls(hstmt, sqls, sizeof(sqls)/sizeof(sqls[0]));
+    if (r) return -1;
+  }
 
-  const char *sql = "!topic demo";
+  const char *topic = "demo";
+  char sql[4096];
+  snprintf(sql, sizeof(sql), "!topic %s", topic);
   sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
-  if (sr != SQL_SUCCESS) return -1;
+  if (sr != SQL_SUCCESS) {
+    DUMP("'%s' failed, you might create the specific topic and then rerun this demo\n"
+         "eg.:\n"
+         "create topic %s as select * from ...",
+         sql, topic);
+    return -1;
+  }
 
   SQLSMALLINT ColumnCount;
   sr = CALL_SQLNumResultCols(hstmt, &ColumnCount);
@@ -174,15 +184,17 @@ static int topic_demo_with_stmt(const arg_t *arg, SQLHANDLE hstmt)
 {
   int r = 0;
 
-  const char *sqls[] = {
-    "drop topic if exists demo",
-    "drop database if exists bar",
-    "create database bar",
-    "use bar",
-  };
+  if (0) {
+    const char *sqls[] = {
+      "drop topic if exists demo",
+      "drop database if exists bar",
+      "create database bar",
+      "use bar",
+    };
 
-  r = execute_sqls(hstmt, sqls, sizeof(sqls)/sizeof(sqls[0]));
-  if (r) return -1;
+    r = execute_sqls(hstmt, sqls, sizeof(sqls)/sizeof(sqls[0]));
+    if (r) return -1;
+  }
 
   for (size_t i=0; i<sizeof(_topic_demos)/sizeof(_topic_demos[0]); ++i) {
     if (arg->name == NULL || strcmp(arg->name, _topic_demos[i].name)==0) {

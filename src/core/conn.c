@@ -263,7 +263,7 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs_with_res(
       return SQL_ERROR;
     }
 
-    r = _conn_save_from_information_schema_ins_configs(conn, name.str.len, name.str.str, value.str.len, value.str.str);
+    r = _conn_save_from_information_schema_ins_configs(conn, (int)name.str.len, name.str.str, (int)value.str.len, value.str.str);
     if (r) {
       conn_append_err_format(conn, "HY000", 0,
           "General error: save `%.*s:%.*s` failed", (int)name.str.len, name.str.str, (int)value.str.len, value.str.str);

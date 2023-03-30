@@ -136,7 +136,7 @@ static SQLRETURN _topic_desc_tripple(topic_t *topic)
     for (size_t j=0; j<sizeof(pseudos)/sizeof(pseudos[0]); ++j) {
       if (tod_strncasecmp(field->name, pseudos[i], sizeof(field->name)) == 0) {
         stmt_append_err_format(topic->owner, "HY000", 0,
-            "General error:column[%" PRId64 "]`%.*s` in select list conflicts with the pseudo-name:[%s]",
+            "General error:column[%zd]`%.*s` in select list conflicts with the pseudo-name:[%s]",
             i+1, (int)sizeof(field->name), field->name, pseudos[i]);
         return SQL_ERROR;
       }

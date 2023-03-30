@@ -160,9 +160,9 @@ static SQLRETURN _topic_desc_tripple(topic_t *topic)
   snprintf(topic->fields[1].name, sizeof(topic->fields[1].name), "_db_name");
   snprintf(topic->fields[2].name, sizeof(topic->fields[2].name), "_vgroup_id");
   topic->fields[0].type = TSDB_DATA_TYPE_VARCHAR;
-  topic->fields[0].bytes = strlen(topic->res_topic_name);
+  topic->fields[0].bytes = (int32_t)strlen(topic->res_topic_name);
   topic->fields[1].type = TSDB_DATA_TYPE_VARCHAR;
-  topic->fields[1].bytes = strlen(topic->res_db_name);
+  topic->fields[1].bytes = (int32_t)strlen(topic->res_db_name);
   topic->fields[2].type = TSDB_DATA_TYPE_INT;
   topic->fields[2].bytes = sizeof(int32_t);
 
@@ -262,7 +262,7 @@ static SQLRETURN _get_num_cols(stmt_base_t *base, SQLSMALLINT *ColumnCountPtr)
     stmt_append_err(topic->owner, "HY000", 0, "General error:not implemented yet");
     return SQL_ERROR;
   }
-  if (ColumnCountPtr) *ColumnCountPtr = topic->fields_nr;
+  if (ColumnCountPtr) *ColumnCountPtr = (SQLSMALLINT)topic->fields_nr;
   return SQL_SUCCESS;
 }
 

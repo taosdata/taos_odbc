@@ -34,19 +34,32 @@
 
 #include <errno.h>
 
+static void _topic_reset_res(topic_t *topic)
+{
+  if (!topic) return;
+  if (!topic->res) return;
+  CALL_taos_free_result(topic->res);
+  topic->res = NULL;
+  topic->res_topic_name        = NULL;
+  topic->res_db_name           = NULL;
+  topic->res_vgroup_id         = 0;
+}
+
+static void _topic_reset_tmq(topic_t *topic)
+{
+  if (!topic) return;
+  if (!topic->tmq) return;
+  CALL_tmq_unsubscribe(topic->tmq);
+  CALL_tmq_consumer_close(topic->tmq);
+  topic->tmq = NULL;
+}
+
 void topic_reset(topic_t *topic)
 {
   if (!topic) return;
   topic->row = NULL;
-  if (topic->res) {
-    CALL_taos_free_result(topic->res);
-    topic->res = NULL;
-  }
-  if (topic->tmq) {
-    CALL_tmq_unsubscribe(topic->tmq);
-    CALL_tmq_consumer_close(topic->tmq);
-    topic->tmq = NULL;
-  }
+  _topic_reset_res(topic);
+  _topic_reset_tmq(topic);
 }
 
 void topic_release(topic_t *topic)
@@ -83,13 +96,81 @@ static SQLRETURN _get_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
     stmt_append_err(topic->owner, "HY000", 0, "General error:not implemented yet");
     return SQL_ERROR;
   }
-  if (fields) *fields = CALL_taos_fetch_fields(topic->res);
-  if (nr) *nr = CALL_taos_field_count(topic->res);
+
+  if (fields) *fields = topic->fields;
+  if (nr) *nr = topic->fields_nr;
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _topic_desc_tripple(topic_t *topic)
+{
+  topic->res_topic_name = CALL_tmq_get_topic_name(topic->res);
+  if (!topic->res_topic_name) {
+    stmt_append_err(topic->owner, "HY000", 0, "General error:tmq_get_topic_name failed");
+    return SQL_ERROR;
+  }
+  topic->res_db_name    = CALL_tmq_get_db_name(topic->res);
+  if (!topic->res_db_name) {
+    stmt_append_err(topic->owner, "HY000", 0, "General error:tmq_get_db_name failed");
+    return SQL_ERROR;
+  }
+  topic->res_vgroup_id  = CALL_tmq_get_vgroup_id(topic->res);
+
+  TAOS_FIELD *fields = CALL_taos_fetch_fields(topic->res);
+  if (!fields) {
+    stmt_append_err_format(topic->owner, "HY000", 0,
+        "General error:taos_fetch_fields failed:[%d]%s",
+        taos_errno(topic->res), taos_errstr(topic->res));
+    return SQL_ERROR;
+  }
+  size_t nr = CALL_taos_field_count(topic->res);
+
+  const char *pseudos[] = {
+    "_topic_name",
+    "_db_name",
+    "_vgroup_id",
+  };
+  for (size_t i=0; i<nr; ++i) {
+    TAOS_FIELD *field = fields + i;
+    for (size_t j=0; j<sizeof(pseudos)/sizeof(pseudos[0]); ++j) {
+      if (tod_strncasecmp(field->name, pseudos[i], sizeof(field->name))) {
+        stmt_append_err_format(topic->owner, "HY000", 0,
+            "General error:column[%" PRId64 "]`%.*s` in select list conflicts with the pseudo-name:[%s]",
+            i+1, (int)sizeof(field->name), field->name, pseudos[i]);
+        return SQL_ERROR;
+      }
+    }
+  }
+
+  if (nr + 3 > topic->fields_cap) {
+    size_t cap = (nr + 3 + 15) / 16 * 16;
+    TAOS_FIELD *p = (TAOS_FIELD*)realloc(topic->fields, sizeof(*p) * cap);
+    if (!p) {
+      stmt_oom(topic->owner);
+      return SQL_ERROR;
+    }
+    topic->fields        = p;
+    topic->fields_cap    = cap;
+  }
+  topic->fields_nr = nr + 3;
+
+  memcpy(topic->fields + 3, fields, nr);
+  snprintf(topic->fields[0].name, sizeof(topic->fields[0].name), "_topic_name");
+  snprintf(topic->fields[1].name, sizeof(topic->fields[1].name), "_db_name");
+  snprintf(topic->fields[2].name, sizeof(topic->fields[2].name), "_vgroup_id");
+  topic->fields[0].type = TSDB_DATA_TYPE_VARCHAR;
+  topic->fields[0].bytes = strlen(topic->res_topic_name);
+  topic->fields[1].type = TSDB_DATA_TYPE_VARCHAR;
+  topic->fields[1].bytes = strlen(topic->res_db_name);
+  topic->fields[2].type = TSDB_DATA_TYPE_INT;
+  topic->fields[2].bytes = sizeof(int32_t);
+
   return SQL_SUCCESS;
 }
 
 static SQLRETURN _fetch_row(stmt_base_t *base)
 {
+  SQLRETURN sr = SQL_SUCCESS;
   topic_t *topic = (topic_t*)base;
   (void)topic;
 
@@ -102,10 +183,12 @@ again:
     topic->res = CALL_tmq_consumer_poll(topic->tmq, timeout);
   }
 
+  sr = _topic_desc_tripple(topic);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
   row = CALL_taos_fetch_row(topic->res);
   if (row == NULL) {
-    CALL_taos_free_result(topic->res);
-    topic->res = NULL;
+    _topic_reset_res(topic);
     goto again;
   }
 
@@ -178,8 +261,7 @@ static SQLRETURN _get_num_cols(stmt_base_t *base, SQLSMALLINT *ColumnCountPtr)
     stmt_append_err(topic->owner, "HY000", 0, "General error:not implemented yet");
     return SQL_ERROR;
   }
-  int32_t numOfFields = CALL_taos_field_count(topic->res);
-  if (ColumnCountPtr) *ColumnCountPtr = numOfFields;
+  if (ColumnCountPtr) *ColumnCountPtr = topic->fields_nr;
   return SQL_SUCCESS;
 }
 
@@ -191,15 +273,35 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
     stmt_append_err(topic->owner, "HY000", 0, "General error:not implemented yet");
     return SQL_ERROR;
   }
-  TAOS_FIELD *fields = CALL_taos_fetch_fields(topic->res);
+
+  TAOS_FIELD *fields = topic->fields;
   int i = Col_or_Param_Num - 1;
-
-  int *offsets = CALL_taos_get_column_data_offset(topic->res, i);
-
-  char *col = row[i];
-  if (col) col += offsets ? *offsets : 0;
-
   TAOS_FIELD *field = fields + i;
+
+  if (i == 0) {
+    tsdb->type                   = TSDB_DATA_TYPE_VARCHAR;
+    tsdb->str.str                = topic->res_topic_name;
+    tsdb->str.len                = strlen(topic->res_topic_name);
+    return SQL_SUCCESS;
+  }
+
+  if (i == 1) {
+    tsdb->type                   = TSDB_DATA_TYPE_VARCHAR;
+    tsdb->str.str                = topic->res_db_name;
+    tsdb->str.len                = strlen(topic->res_db_name);
+    return SQL_SUCCESS;
+  }
+
+  if (i == 2) {
+    tsdb->type                   = TSDB_DATA_TYPE_INT;
+    tsdb->i32                    = topic->res_vgroup_id;
+    return SQL_SUCCESS;
+  }
+
+  int *offsets = CALL_taos_get_column_data_offset(topic->res, i-3);
+
+  char *col = row[i-3];
+  if (col) col += offsets ? *offsets : 0;
 
   tsdb->type = field->type;
   if (col == NULL) {
@@ -345,14 +447,14 @@ static tmq_t* _build_consumer() {
 
   CALL_tmq_conf_set_auto_commit_cb(conf, _tmq_commit_cb_print, NULL);
 
-  tmq_t* tmq = tmq_consumer_new(conf, NULL, 0);
+  tmq_t* tmq = CALL_tmq_consumer_new(conf, NULL, 0);
   CALL_tmq_conf_destroy(conf);
   return tmq;
 }
 
 static tmq_list_t* _build_topic_list(const char *topic_name) {
-  tmq_list_t* topicList = tmq_list_new();
-  int32_t     code = tmq_list_append(topicList, topic_name);
+  tmq_list_t* topicList = CALL_tmq_list_new();
+  int32_t     code = CALL_tmq_list_append(topicList, topic_name);
   if (code) {
     return NULL;
   }
@@ -365,6 +467,7 @@ SQLRETURN topic_open(
     size_t         len)
 {
   OA_ILE(topic->tmq == NULL);
+  SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
 
   int n = snprintf(topic->name, sizeof(topic->name), "%.*s", (int)len, name);
@@ -381,13 +484,13 @@ SQLRETURN topic_open(
 
   tmq_list_t* topic_list = _build_topic_list(topic->name);
   if (NULL == topic_list) {
-    tmq_consumer_close(tmq);
+    CALL_tmq_consumer_close(tmq);
     stmt_append_err(topic->owner, "HY000", 0, "General error:build_topic_list() failed");
     return SQL_ERROR;
   }
 
-  r = tmq_subscribe(tmq, topic_list);
-  tmq_list_destroy(topic_list);
+  r = CALL_tmq_subscribe(tmq, topic_list);
+  CALL_tmq_list_destroy(topic_list);
 
   if (r) {
     stmt_append_err_format(topic->owner, "HY000", 0, "General error:tmp_subscribe() failed:[%d/0x%x]%s", r, r, tmq_err2str(r));
@@ -398,8 +501,11 @@ SQLRETURN topic_open(
 
   while (topic->res == NULL) {
     int32_t timeout = 100;
-    topic->res = tmq_consumer_poll(topic->tmq, timeout);
+    topic->res = CALL_tmq_consumer_poll(topic->tmq, timeout);
   }
+
+  sr = _topic_desc_tripple(topic);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   return SQL_SUCCESS;
 }

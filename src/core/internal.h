@@ -544,6 +544,14 @@ struct topic_s {
   tmq_t                     *tmq;
 
   TAOS_RES                  *res;
+  const char                *res_topic_name;
+  const char                *res_db_name;
+  int32_t                    res_vgroup_id;
+
+  TAOS_FIELD                *fields;
+  size_t                     fields_cap;
+  size_t                     fields_nr;
+
   TAOS_ROW                   row;
 };
 

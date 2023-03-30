@@ -406,10 +406,10 @@ static void _tmq_commit_cb_print(tmq_t* tmq, int32_t code, void* param) {
 }
 
 static tmq_t* _build_consumer() {
-  tmq_conf_res_t code;
+  tmq_conf_res_t code = TMQ_CONF_OK;
   tmq_conf_t*    conf = CALL_tmq_conf_new();
 
-  code = CALL_tmq_conf_set(conf, "enable.auto.commit", "true");
+  if (0) code = CALL_tmq_conf_set(conf, "enable.auto.commit", "true");
   if (TMQ_CONF_OK != code) {
     CALL_tmq_conf_destroy(conf);
     return NULL;
@@ -421,13 +421,13 @@ static tmq_t* _build_consumer() {
     return NULL;
   }
 
-  code = CALL_tmq_conf_set(conf, "group.id", "cgrpName");
+  if (1) code = CALL_tmq_conf_set(conf, "group.id", "cgrpName");
   if (TMQ_CONF_OK != code) {
     CALL_tmq_conf_destroy(conf);
     return NULL;
   }
 
-  code = CALL_tmq_conf_set(conf, "client.id", "user defined name");
+  if (0) code = CALL_tmq_conf_set(conf, "client.id", "user defined name");
   if (TMQ_CONF_OK != code) {
     CALL_tmq_conf_destroy(conf);
     return NULL;
@@ -445,13 +445,13 @@ static tmq_t* _build_consumer() {
     return NULL;
   }
 
-  code = CALL_tmq_conf_set(conf, "auto.offset.reset", "earliest");
+  if (0) code = CALL_tmq_conf_set(conf, "auto.offset.reset", "earliest");
   if (TMQ_CONF_OK != code) {
     CALL_tmq_conf_destroy(conf);
     return NULL;
   }
 
-  code = CALL_tmq_conf_set(conf, "experimental.snapshot.enable", "false");
+  if (0) code = CALL_tmq_conf_set(conf, "experimental.snapshot.enable", "false");
   if (TMQ_CONF_OK != code) {
     CALL_tmq_conf_destroy(conf);
     return NULL;

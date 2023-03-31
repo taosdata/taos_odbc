@@ -611,6 +611,16 @@ static inline SQLRETURN call_SQLGetTypeInfo(const char *file, int line, const ch
   return sr;
 }
 
+static inline SQLRETURN call_SQLMoreResults(const char *file, int line, const char *func,
+    SQLHSTMT StatementHandle)
+{
+  LOGD_ODBC(file, line, func, "SQLMoreResults(StatementHandle:%p) ...", StatementHandle);
+  SQLRETURN sr = SQLMoreResults(StatementHandle);
+  diag(sr, SQL_HANDLE_STMT, StatementHandle);
+  LOGD_ODBC(file, line, func, "SQLMoreResults(StatementHandle:%p) => %s", StatementHandle, sql_return_type(sr));
+  return sr;
+}
+
 #define CALL_SQLAllocHandle(...)                   call_SQLAllocHandle(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLFreeHandle(...)                    call_SQLFreeHandle(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLSetEnvAttr(...)                    call_SQLSetEnvAttr(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
@@ -642,6 +652,7 @@ static inline SQLRETURN call_SQLGetTypeInfo(const char *file, int line, const ch
 #define CALL_SQLColumns(...)                       call_SQLColumns(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLColAttribute(...)                  call_SQLColAttribute(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLGetTypeInfo(...)                   call_SQLGetTypeInfo(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
+#define CALL_SQLMoreResults(...)                   call_SQLMoreResults(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 
 #endif // _odbc_helper_h_
 

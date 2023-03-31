@@ -35,10 +35,27 @@
 
 #include <errno.h>
 
+static void _topic_cfg_reset_names(topic_cfg_t *cfg)
+{
+  if (!cfg) return;
+  for (size_t i=0; i<cfg->names_nr; ++i) {
+    TOD_SAFE_FREE(cfg->names[i]);
+  }
+  cfg->names_nr = 0;
+}
+
+static void _topic_cfg_release_names(topic_cfg_t *cfg)
+{
+  if (!cfg) return;
+  _topic_cfg_reset_names(cfg);
+  TOD_SAFE_FREE(cfg->names);
+  cfg->names_cap = 0;
+}
+
 void topic_cfg_release(topic_cfg_t *cfg)
 {
   if (!cfg) return;
-  TOD_SAFE_FREE(cfg->name);
+  _topic_cfg_release_names(cfg);
   kvs_release(&cfg->kvs);
 }
 
@@ -47,10 +64,21 @@ void topic_cfg_transfer(topic_cfg_t *from, topic_cfg_t *to)
   if (from == to) return;
   topic_cfg_release(to);
 
-  to->name   = from->name;
-  from->name = NULL;
+  memcpy(to, from, sizeof(*from));
+  memset(from, 0, sizeof(*from));
+}
 
-  kvs_transfer(&from->kvs, &to->kvs);
+int topic_cfg_append_kv(topic_cfg_t *cfg, const char *k, size_t kn, const char *v, size_t vn)
+{
+  kvs_t *kvs = &cfg->kvs;
+  return kvs_append(kvs, k, kn, v, vn);
+}
+
+static void _topic_release_tripple(topic_t *topic)
+{
+  mem_release(&topic->res_topic_name);
+  mem_release(&topic->res_db_name);
+  topic->res_vgroup_id     = 0;
 }
 
 static void _topic_reset_res(topic_t *topic)
@@ -58,9 +86,6 @@ static void _topic_reset_res(topic_t *topic)
   if (!topic->res) return;
   CALL_taos_free_result(topic->res);
   topic->res = NULL;
-  topic->res_topic_name    = NULL;
-  topic->res_db_name       = NULL;
-  topic->res_vgroup_id     = 0;
 }
 
 static void _topic_reset_tmq(topic_t *topic)
@@ -95,6 +120,7 @@ void topic_release(topic_t *topic)
   TOD_SAFE_FREE(topic->fields);
   topic->fields_cap = 0;
   _topic_release_conf(topic);
+  _topic_release_tripple(topic);
 }
 
 static SQLRETURN _query(stmt_base_t *base, const char *sql)
@@ -134,19 +160,33 @@ static SQLRETURN _get_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
 
 static SQLRETURN _topic_desc_tripple(topic_t *topic)
 {
+  int r = 0;
+  int topic_change = 0;
+
   const char *res_topic_name = CALL_tmq_get_topic_name(topic->res);
   if (!res_topic_name || !*res_topic_name) {
     stmt_append_err(topic->owner, "HY000", 0, "General error:tmq_get_topic_name failed");
     return SQL_ERROR;
   }
-  topic->res_topic_name = res_topic_name;
+  if (topic->res_topic_name.base && strcmp((const char*)topic->res_topic_name.base, res_topic_name)) {
+    topic_change = 1;
+  }
+  r = mem_copy(&topic->res_topic_name, res_topic_name);
+  if (r) {
+    stmt_oom(topic->owner);
+    return SQL_ERROR;
+  }
 
   const char *res_db_name    = CALL_tmq_get_db_name(topic->res);
   if (!res_db_name || !*res_db_name) {
     stmt_append_err(topic->owner, "HY000", 0, "General error:tmq_get_db_name failed");
     return SQL_ERROR;
   }
-  topic->res_db_name = res_db_name;
+  r = mem_copy(&topic->res_db_name, res_db_name);
+  if (r) {
+    stmt_oom(topic->owner);
+    return SQL_ERROR;
+  }
 
   topic->res_vgroup_id  = CALL_tmq_get_vgroup_id(topic->res);
 
@@ -193,11 +233,13 @@ static SQLRETURN _topic_desc_tripple(topic_t *topic)
   snprintf(topic->fields[1].name, sizeof(topic->fields[1].name), "_db_name");
   snprintf(topic->fields[2].name, sizeof(topic->fields[2].name), "_vgroup_id");
   topic->fields[0].type = TSDB_DATA_TYPE_VARCHAR;
-  topic->fields[0].bytes = (int32_t)strlen(topic->res_topic_name);
+  topic->fields[0].bytes = (int32_t)topic->res_topic_name.nr;
   topic->fields[1].type = TSDB_DATA_TYPE_VARCHAR;
-  topic->fields[1].bytes = (int32_t)strlen(topic->res_db_name);
+  topic->fields[1].bytes = (int32_t)topic->res_db_name.nr;
   topic->fields[2].type = TSDB_DATA_TYPE_INT;
   topic->fields[2].bytes = sizeof(int32_t);
+
+  if (topic_change) return SQL_NO_DATA;
 
   return SQL_SUCCESS;
 }
@@ -217,10 +259,10 @@ again:
     topic->res = CALL_tmq_consumer_poll(topic->tmq, timeout);
     if (topic->res) {
       sr = _topic_desc_tripple(topic);
+      if (sr == SQL_NO_DATA) return SQL_NO_DATA;
       if (sr != SQL_SUCCESS) return SQL_ERROR;
     }
   }
-
 
   row = CALL_taos_fetch_row(topic->res);
   if (row == NULL) {
@@ -229,6 +271,14 @@ again:
   }
 
   topic->row = row;
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _more_results(stmt_base_t *base)
+{
+  topic_t *topic = (topic_t*)base;
+  (void)topic;
+  if (!topic->res) return SQL_NO_DATA;
   return SQL_SUCCESS;
 }
 
@@ -319,16 +369,16 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
   if (i == 0) {
     tsdb->is_null                = 0;
     tsdb->type                   = TSDB_DATA_TYPE_VARCHAR;
-    tsdb->str.str                = topic->res_topic_name;
-    tsdb->str.len                = strlen(topic->res_topic_name);
+    tsdb->str.str                = (const char*)topic->res_topic_name.base;
+    tsdb->str.len                = topic->res_topic_name.nr;
     return SQL_SUCCESS;
   }
 
   if (i == 1) {
     tsdb->is_null                = 0;
     tsdb->type                   = TSDB_DATA_TYPE_VARCHAR;
-    tsdb->str.str                = topic->res_db_name;
-    tsdb->str.len                = strlen(topic->res_db_name);
+    tsdb->str.str                = (const char*)topic->res_db_name.base;
+    tsdb->str.len                = topic->res_db_name.nr;
     return SQL_SUCCESS;
   }
 
@@ -421,6 +471,7 @@ void topic_init(topic_t *topic, stmt_t *stmt)
   topic->base.execute                      = _execute;
   topic->base.get_fields                   = _get_fields;
   topic->base.fetch_row                    = _fetch_row;
+  topic->base.more_results                 = _more_results;
   topic->base.describe_param               = _describe_param;
   topic->base.get_num_params               = _get_num_params;
   topic->base.check_params                 = _check_params;
@@ -485,7 +536,6 @@ static SQLRETURN _build_consumer(topic_t *topic)
   return SQL_SUCCESS;
 }
 
-
 static SQLRETURN _topic_open(
     topic_t       *topic,
     tmq_list_t    *topicList)
@@ -493,11 +543,13 @@ static SQLRETURN _topic_open(
   SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
 
-  int32_t code = CALL_tmq_list_append(topicList, topic->cfg.name);
-  if (code) {
-    stmt_append_err_format(topic->owner, "HY000", 0, "General error:[taosc]tmq_list_append failed:[%d]%s",
-        taos_errno(NULL), taos_errstr(NULL)); // FIXME: taos_errstr?
-    return SQL_ERROR;
+  for (size_t i=0; i<topic->cfg.names_nr; ++i) {
+    int32_t code = CALL_tmq_list_append(topicList, topic->cfg.names[i]);
+    if (code) {
+      stmt_append_err_format(topic->owner, "HY000", 0, "General error:[taosc]tmq_list_append failed:[%d]%s",
+          taos_errno(NULL), taos_errstr(NULL)); // FIXME: taos_errstr?
+      return SQL_ERROR;
+    }
   }
 
   r = CALL_tmq_subscribe(topic->tmq, topicList);
@@ -513,6 +565,7 @@ static SQLRETURN _topic_open(
     topic->res = CALL_tmq_consumer_poll(topic->tmq, timeout);
     if (topic->res) {
       sr = _topic_desc_tripple(topic);
+      if (sr == SQL_NO_DATA) return SQL_NO_DATA;
       if (sr != SQL_SUCCESS) return SQL_ERROR;
     }
   }
@@ -529,7 +582,7 @@ SQLRETURN topic_open(
 
   topic_cfg_transfer(cfg, &topic->cfg);
   cfg = &topic->cfg;
-  if (!cfg->name) {
+  if (!cfg->names || cfg->names_nr == 0) {
     stmt_append_err(topic->owner, "HY000", 0, "General error:topic name not specified");
     return SQL_ERROR;
   }
@@ -547,15 +600,6 @@ SQLRETURN topic_open(
   if (sr != SQL_SUCCESS) {
     topic_reset(topic);
     return SQL_ERROR;
-  }
-
-  while (topic->res == NULL) {
-    int32_t timeout = 100;
-    topic->res = CALL_tmq_consumer_poll(topic->tmq, timeout);
-    if (topic->res) {
-      sr = _topic_desc_tripple(topic);
-      if (sr != SQL_SUCCESS) return SQL_ERROR;
-    }
   }
 
   return SQL_SUCCESS;

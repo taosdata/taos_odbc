@@ -313,6 +313,12 @@ static SQLRETURN _fetch_row(stmt_base_t *base)
   return sr;
 }
 
+static SQLRETURN _more_results(stmt_base_t *base)
+{
+  (void)base;
+  return SQL_NO_DATA;
+}
+
 static SQLRETURN _describe_param(stmt_base_t *base,
     SQLUSMALLINT    ParameterNumber,
     SQLSMALLINT    *DataTypePtr,
@@ -703,6 +709,7 @@ void columns_init(columns_t *columns, stmt_t *stmt)
   columns->base.execute                      = _execute;
   columns->base.get_fields                   = _get_fields;
   columns->base.fetch_row                    = _fetch_row;
+  columns->base.more_results                 = _more_results;
   columns->base.describe_param               = _describe_param;
   columns->base.get_num_params               = _get_num_params;
   columns->base.check_params                 = _check_params;

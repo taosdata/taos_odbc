@@ -375,7 +375,9 @@ struct parser_token_s {
 };
 
 struct topic_cfg_s {
-  char                  *name;
+  char                 **names;
+  size_t                 names_cap;
+  size_t                 names_nr;
 
   kvs_t                  kvs;
 };
@@ -452,6 +454,7 @@ struct stmt_base_s {
   SQLRETURN (*execute)(stmt_base_t *base);
   SQLRETURN (*get_fields)(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr);
   SQLRETURN (*fetch_row)(stmt_base_t *base);
+  SQLRETURN (*more_results)(stmt_base_t *base);
   SQLRETURN (*describe_param)(stmt_base_t *base,
       SQLUSMALLINT    ParameterNumber,
       SQLSMALLINT    *DataTypePtr,
@@ -530,8 +533,8 @@ struct topic_s {
   tmq_t                     *tmq;
 
   TAOS_RES                  *res;
-  const char                *res_topic_name;
-  const char                *res_db_name;
+  mem_t                      res_topic_name;
+  mem_t                      res_db_name;
   int32_t                    res_vgroup_id;
 
   TAOS_FIELD                *fields;
@@ -700,7 +703,8 @@ struct tls_s {
 
 void topic_cfg_release(topic_cfg_t *cfg) FA_HIDDEN;
 void topic_cfg_transfer(topic_cfg_t *from, topic_cfg_t *to) FA_HIDDEN;
-
+int topic_cfg_append_name(topic_cfg_t *cfg, const char *name, size_t len) FA_HIDDEN;
+int topic_cfg_append_kv(topic_cfg_t *cfg, const char *k, size_t kn, const char *v, size_t vn) FA_HIDDEN;
 
 EXTERN_C_END
 

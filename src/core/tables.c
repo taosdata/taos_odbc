@@ -223,6 +223,12 @@ static SQLRETURN _fetch_row(stmt_base_t *base)
   return sr;
 }
 
+static SQLRETURN _more_results(stmt_base_t *base)
+{
+  (void)base;
+  return SQL_NO_DATA;
+}
+
 static SQLRETURN _describe_param(stmt_base_t *base,
     SQLUSMALLINT    ParameterNumber,
     SQLSMALLINT    *DataTypePtr,
@@ -299,6 +305,7 @@ void tables_init(tables_t *tables, stmt_t *stmt)
   tables->base.execute                      = _execute;
   tables->base.get_fields                   = _get_fields;
   tables->base.fetch_row                    = _fetch_row;
+  tables->base.more_results                 = _more_results;
   tables->base.describe_param               = _describe_param;
   tables->base.get_num_params               = _get_num_params;
   tables->base.check_params                 = _check_params;

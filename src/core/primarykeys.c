@@ -232,6 +232,12 @@ static SQLRETURN _fetch_row(stmt_base_t *base)
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _more_results(stmt_base_t *base)
+{
+  (void)base;
+  return SQL_NO_DATA;
+}
+
 static SQLRETURN _describe_param(stmt_base_t *base,
     SQLUSMALLINT    ParameterNumber,
     SQLSMALLINT    *DataTypePtr,
@@ -418,6 +424,7 @@ void primarykeys_init(primarykeys_t *primarykeys, stmt_t *stmt)
   primarykeys->base.execute                      = _execute;
   primarykeys->base.get_fields                   = _get_fields;
   primarykeys->base.fetch_row                    = _fetch_row;
+  primarykeys->base.more_results                 = _more_results;
   primarykeys->base.describe_param               = _describe_param;
   primarykeys->base.get_num_params               = _get_num_params;
   primarykeys->base.check_params                 = _check_params;

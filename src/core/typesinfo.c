@@ -283,6 +283,12 @@ again:
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _more_results(stmt_base_t *base)
+{
+  (void)base;
+  return SQL_NO_DATA;
+}
+
 static SQLRETURN _describe_param(stmt_base_t *base,
     SQLUSMALLINT    ParameterNumber,
     SQLSMALLINT    *DataTypePtr,
@@ -500,6 +506,7 @@ void typesinfo_init(typesinfo_t *typesinfo, stmt_t *stmt)
   typesinfo->base.execute                      = _execute;
   typesinfo->base.get_fields                   = _get_fields;
   typesinfo->base.fetch_row                    = _fetch_row;
+  typesinfo->base.more_results                 = _more_results;
   typesinfo->base.describe_param               = _describe_param;
   typesinfo->base.get_num_params               = _get_num_params;
   typesinfo->base.check_params                 = _check_params;

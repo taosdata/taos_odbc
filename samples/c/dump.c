@@ -639,7 +639,7 @@ static int dumping(int argc, char *argv[])
 
     arg.name = argv[i];
     r = _dumping(&arg);
-    if (r) return -11;
+    if (r) return -1;
   }
 
   if (arg.name) return 0;

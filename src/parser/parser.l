@@ -83,8 +83,8 @@ do {                                              \
 
 %x TAOS_ODBC_EXT
 %x TAOS_ODBC_EXT_TOPIC
-%x TAOS_ODBC_EXT_TOPIC_TNAME
-%x TAOS_ODBC_EXT_TOPIC_TKEY
+%x TAOS_ODBC_EXT_TOPIC_LP
+%x TAOS_ODBC_EXT_TOPIC_EQ
 %x EQ
 %x CURLY
 %x SERVER
@@ -108,10 +108,12 @@ VALUE         [^\[\]{}(),;?*=!@[:space:]]+
 VALUEX        [^{}[:space:]][^{}]*[^{}[:space:]]
 
 
+LP            [{]
+RP            [}]
 TOPIC         (?i:topic)
 TNAME         [_[:alpha:]][_[:alnum:]]*
 TKEY          [_[:alpha:]][_.[:alnum:]]*
-TVAL          [-_.\[\]{}(),?*!@[:alnum:]]+
+TVAL          [-_.\[\](),?*!@[:alnum:]]+
 
 DIGITS        [[:digit:]]+
 %%
@@ -143,23 +145,23 @@ DIGITS        [[:digit:]]+
 }
 
 <TAOS_ODBC_EXT_TOPIC>{
-{TNAME}       { R(); SET_STR(); CHG(TAOS_ODBC_EXT_TOPIC_TNAME); C(); return MKT(TNAME); }
+{TNAME}       { R(); SET_STR(); C(); return MKT(TNAME); }
+{LP}          { R(); PUSH(TAOS_ODBC_EXT_TOPIC_LP); C(); return *yytext; }
 {SP}          { R(); C(); } /* eat */
 {LN}          { R(); L(); } /* eat */
 .             { R(); C(); return *yytext; } /* let bison to handle */
 }
 
-<TAOS_ODBC_EXT_TOPIC_TNAME>{
-";"           { R(); POP(); C(); return *yytext; }
-{TKEY}        { R(); SET_STR(); PUSH(TAOS_ODBC_EXT_TOPIC_TKEY); C(); return MKT(TKEY); }
+<TAOS_ODBC_EXT_TOPIC_LP>{
+{RP}          { R(); POP(); C(); return *yytext; }
+{TKEY}        { R(); SET_STR(); C(); return MKT(TKEY); }
+"="           { R(); PUSH(TAOS_ODBC_EXT_TOPIC_EQ); C(); return *yytext; }
 {SP}          { R(); C(); } /* eat */
 {LN}          { R(); L(); } /* eat */
 .             { R(); C(); return *yytext; } /* let bison to handle */
 }
 
-<TAOS_ODBC_EXT_TOPIC_TKEY>{
-"="           { R(); C(); return *yytext; }
-";"           { R(); POP(); C(); return *yytext; }
+<TAOS_ODBC_EXT_TOPIC_EQ>{
 {TVAL}        { R(); SET_STR(); POP(); C(); return MKT(TVAL); }
 {DIGITS}      { R(); SET_STR(); POP(); C(); return MKT(TVAL); }
 {SP}          { R(); C(); } /* eat */

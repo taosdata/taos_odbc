@@ -207,6 +207,19 @@ int mem_conv_ex(mem_t *mem, const char *src_charset, const char *src, size_t len
   return r;
 }
 
+int mem_copy(mem_t *mem, const char *src)
+{
+  int r = 0;
+  size_t len = strlen(src);
+  mem_reset(mem);
+  r = mem_keep(mem, len + 1);
+  if (r) return -1;
+  memcpy(mem->base, src, len);
+  mem->base[len] = '\0';
+  mem->nr = len;
+  return 0;
+}
+
 void buf_release(buf_t *buf)
 {
   if (buf->base) {

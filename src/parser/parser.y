@@ -57,12 +57,12 @@
         const char *errsg
     );
 
-    static int parser_param_set_topic_name(parser_param_t *param, const char *name, size_t len);
+    static int parser_param_append_topic_name(parser_param_t *param, const char *name, size_t len);
     static int parser_param_append_topic_conf(parser_param_t *param, const char *k, size_t kn, const char *v, size_t vn);
 
     #define SET_TOPIC(_v, _loc) do {                                                            \
       if (!param) break;                                                                        \
-      if (parser_param_set_topic_name(param, _v.text, _v.leng)) {                               \
+      if (parser_param_append_topic_name(param, _v.text, _v.leng)) {                               \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
         return -1;                                                                              \
       }                                                                                         \
@@ -211,8 +211,14 @@ input:
 ;
 
 topic:
-  '!' TOPIC TNAME                { SET_TOPIC($3, @$); }
-| '!' TOPIC TNAME tconfs         { SET_TOPIC($3, @$); }
+  '!' TOPIC names
+| '!' TOPIC names '{' '}'
+| '!' TOPIC names '{' tconfs '}'
+;
+
+names:
+  TNAME                     { SET_TOPIC($1, @$); }
+| names TNAME               { SET_TOPIC($2, @$); }
 ;
 
 tconfs:
@@ -305,12 +311,19 @@ static void yyerror(
   _yyerror_impl(yylloc, arg, param, errmsg);
 }
 
-static int parser_param_set_topic_name(parser_param_t *param, const char *name, size_t len)
+static int parser_param_append_topic_name(parser_param_t *param, const char *name, size_t len)
 {
   topic_cfg_t *cfg = &param->topic_cfg;
-  TOD_SAFE_FREE(cfg->name);
-  cfg->name = strndup(name, len);
-  if (!cfg->name) return -1;
+  if (cfg->names_nr == cfg->names_cap) {
+    size_t cap = cfg->names_cap + 16;
+    char **names = (char**)realloc(cfg->names, sizeof(*names) * cap);
+    if (!names) return -1;
+    cfg->names = names;
+    cfg->names_cap = cap;
+  }
+  cfg->names[cfg->names_nr] = strndup(name, len);
+  if (!cfg->names[cfg->names_nr]) return -1;
+  cfg->names_nr += 1;
   param->type = 1;
   return 0;
 }
@@ -318,8 +331,7 @@ static int parser_param_set_topic_name(parser_param_t *param, const char *name, 
 static int parser_param_append_topic_conf(parser_param_t *param, const char *k, size_t kn, const char *v, size_t vn)
 {
   topic_cfg_t *cfg = &param->topic_cfg;
-  kvs_t *kvs = &cfg->kvs;
-  return kvs_append(kvs, k, kn, v, vn);
+  return topic_cfg_append_kv(cfg, k, kn, v, vn);
 }
 
 int parser_parse(const char *input, size_t len, parser_param_t *param)

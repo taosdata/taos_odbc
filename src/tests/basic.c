@@ -36,7 +36,9 @@
 #include <errno.h>
 #include <string.h>
 
-static int test_case1(void)
+#define DUMP(fmt, ...)          printf(fmt "\n", ##__VA_ARGS__)
+
+static int test_parser(void)
 {
   env_t *env = env_create();
 
@@ -65,10 +67,12 @@ static int test_case1(void)
     "Driver={MySQL ODBC 3.51 driver};server=lmtest:378378378378;database=lmdb;uid=mysqluser;pwd=pass;",
     // !topic
     "!topic demo",
-    "!topic demo helloworld",
-    "!topic demo helloworld=good",
-    "!topic demo helloworld=good helloworld=good",
-    "!topic demo"
+    "!topic demo {}",
+    "!topic demo {helloworld}",
+    "!topic demo {helloworld=good}",
+    "!topic demo {helloworld=good helloworld=good}",
+    "!topic demo foo {helloworld=good helloworld=good}",
+    "!topic demo {"
     " enable.auto.commit=true"
     " auto.commit.interval.ms=100"
     " group.id=cgrpName"
@@ -76,7 +80,8 @@ static int test_case1(void)
     " td.connect.user=root"
     " td.connect.pass=taosdata"
     " auto.offset.reset=earliest"
-    " experimental.snapshot.enable=false",
+    " experimental.snapshot.enable=false"
+    "}",
   };
   for (size_t i=0; i<sizeof(connection_strs)/sizeof(connection_strs[0]); ++i) {
     const char *s = connection_strs[i];
@@ -119,7 +124,7 @@ static int _wildcard_match(const char *charset, const char *ex, const char *str,
   return r ? -1 : 0;
 }
 
-static int test_case2(void)
+static int test_wildmatch(void)
 {
   int r = 0;
 
@@ -167,7 +172,7 @@ static int test_case2(void)
   return 0;
 }
 
-static int test_case3(void)
+static int test_basename_dirname(void)
 {
   const char *path = "/Users/foo/bar.txt";
   char buf[PATH_MAX + 1];
@@ -200,36 +205,36 @@ static int test_case3(void)
   return 0;
 }
 
-static int test_case4_tick = 0;
-static void test_case4_init(void)
+static int test_pthread_once_tick = 0;
+static void test_pthread_once_init(void)
 {
-  ++test_case4_tick;
+  ++test_pthread_once_tick;
 }
 
-static int test_case4_step(void)
+static int test_pthread_once_step(void)
 {
   static pthread_once_t once = PTHREAD_ONCE_INIT;
   int r = 0;
-  r = pthread_once(&once, test_case4_init);
+  r = pthread_once(&once, test_pthread_once_init);
   if (r) return -1;
-  if (test_case4_tick != 1) return -1;
+  if (test_pthread_once_tick != 1) return -1;
 
   return 0;
 }
 
-static int test_case4(void)
+static int test_pthread_once(void)
 {
   int r = 0;
-  r = test_case4_step();
+  r = test_pthread_once_step();
   if (r) return -1;
 
-  r = test_case4_step();
+  r = test_pthread_once_step();
   if (r) return -1;
 
   return 0;
 }
 
-static int test_case5(void)
+static int test_iconv(void)
 {
   int r = 0;
 
@@ -304,7 +309,7 @@ static int get_int(void)
   return tick++;
 }
 
-static int test_case6(void)
+static int test_buffer(void)
 {
   buffer_t str = {0};
   buffer_concat_fmt(&str, "%d", get_int());
@@ -325,35 +330,73 @@ static int test_case6(void)
   return r ? -1 : 0;
 }
 
-static int test(void)
+typedef int (*test_case_f)(void);
+
+#define RECORD(x) {x, #x}
+
+static struct {
+  test_case_f           func;
+  const char           *name;
+} _cases[] = {
+  RECORD(test_parser),
+  RECORD(test_wildmatch),
+  RECORD(test_basename_dirname),
+  RECORD(test_pthread_once),
+  RECORD(test_iconv),
+  RECORD(test_buffer),
+};
+
+static void usage(const char *arg0)
+{
+  DUMP("usage:");
+  DUMP("  %s -h", arg0);
+  DUMP("");
+  DUMP("supported test cases:");
+  for (size_t i=0; i<sizeof(_cases)/sizeof(_cases[0]); ++i) {
+    DUMP("  %s", _cases[i].name);
+  }
+}
+
+static int run(const char *test_case)
 {
   int r = 0;
 
-  r = test_case1();
-  if (r) return -1;
+  int tested = 0;
 
-  r = test_case2();
-  if (r) return -1;
+  for (size_t i=0; i<sizeof(_cases)/sizeof(_cases[0]); ++i) {
+    const char *name = _cases[i].name;
+    if (!test_case || strcmp(name, test_case) == 0) {
+      tested = 1;
+      r = _cases[i].func();
+      if (r) return -1;
+    }
+  }
 
-  r = test_case3();
-  if (r) return -1;
-
-  r = test_case4();
-  if (r) return -1;
-
-  r = test_case5();
-  if (r) return -1;
-
-  r = test_case6();
-  if (r) return -1;
+  if (!tested) {
+    fprintf(stderr, "test case [%s] not exists\n", test_case);
+    return -1;
+  }
 
   return 0;
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
   int r = 0;
-  r = test();
+
+  int tested = 0;
+
+  for (int i=1; i<argc; ++i) {
+    if (strcmp(argv[i], "-h") == 0) {
+      usage(argv[0]);
+      return 0;
+    }
+    tested = 1;
+    r = run(argv[i]);
+    if (r) return -1;
+  }
+
+  if (!tested) r = run(NULL);
 
   fprintf(stderr,"==%s==\n", r ? "failure" : "success");
 

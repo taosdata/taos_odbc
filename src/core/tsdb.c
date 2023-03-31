@@ -346,6 +346,12 @@ again:
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _more_results(stmt_base_t *base)
+{
+  (void)base;
+  return SQL_NO_DATA;
+}
+
 static SQLRETURN _describe_param(stmt_base_t *base,
       SQLUSMALLINT    ParameterNumber,
       SQLSMALLINT    *DataTypePtr,
@@ -434,6 +440,7 @@ void tsdb_stmt_init(tsdb_stmt_t *stmt, stmt_t *owner)
   stmt->base.execute                 = _execute;
   stmt->base.get_fields              = _get_fields;
   stmt->base.fetch_row               = _fetch_row;
+  stmt->base.more_results            = _more_results;
   stmt->base.describe_param          = _describe_param;
   stmt->base.get_num_params          = _get_num_params;
   stmt->base.check_params            = _check_params;

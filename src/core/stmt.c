@@ -1320,7 +1320,7 @@ static SQLRETURN _stmt_get_data_prepare_ctx(stmt_t *stmt, stmt_get_data_args_t *
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   if (args->Col_or_Param_Num < 1 || args->Col_or_Param_Num > ColumnCount) {
-    stmt_append_err_format(stmt, "07009", 0, "Invalid descriptor index:#%d Col_or_Param", args->Col_or_Param_Num);
+    stmt_append_err_format(stmt, "07009", 0, "Invalid descriptor index:#%d Col_or_Param, %d ColumnCount", args->Col_or_Param_Num, ColumnCount);
     return SQL_ERROR;
   }
 
@@ -4349,7 +4349,7 @@ SQLRETURN stmt_exec_direct(stmt_t *stmt, SQLCHAR *StatementText, SQLINTEGER Text
       stmt_append_err_format(stmt, "HY000", 0, "General error:parsing:%.*s", (int)(end-start), start);
       stmt_append_err_format(stmt, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)", param.row0, param.col0, param.row1, param.col1-1);
       stmt_append_err_format(stmt, "HY000", 0, "General error:failed:%.*s", (int)strlen(param.err_msg), param.err_msg);
-      stmt_append_err(stmt, "HY000", 0, "General error:taos_odbc_extended syntax for `topic`:!topic <name> [<key[=<val>]>]*");
+      stmt_append_err(stmt, "HY000", 0, "General error:taos_odbc_extended syntax for `topic`:!topic [<name>]+ [{[<key[=<val>]>]*}]?");
 
       parser_param_release(&param);
       return SQL_ERROR;
@@ -4700,9 +4700,7 @@ SQLRETURN stmt_col_attribute(
 SQLRETURN stmt_more_results(
     stmt_t         *stmt)
 {
-  (void)stmt;
-  // FIXME:
-  return SQL_NO_DATA;
+  return stmt->base->more_results(stmt->base);
 }
 
 SQLRETURN stmt_columns(

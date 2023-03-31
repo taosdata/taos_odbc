@@ -80,47 +80,53 @@ static int _topic_demo_topic(SQLSMALLINT HandleType, SQLHANDLE Handle)
     if (r) return -1;
   }
 
-  const char *topic = "demo";
-  char sql[4096];
-  // syntax: !topic <name> [<key[=<val>]>]*
+  int demo_limit = 0;
+  SQLSMALLINT ColumnCount;
+
+  char name[4096], value[4096];
+  SQLSMALLINT    NameLength;
+  SQLSMALLINT    DataType;
+  SQLULEN        ColumnSize;
+  SQLSMALLINT    DecimalDigits;
+  SQLSMALLINT    Nullable;
+
+  // syntax: !topic [<name>]+ [{[<key[=<val>]>]*}]?
   // ref: https://github.com/taosdata/TDengine/blob/main/docs/en/07-develop/07-tmq.mdx#create-a-consumer
-  snprintf(sql, sizeof(sql), "!topic %s enable.auto.commit=true group.id=cgrpName", topic);
+  const char *sql = "!topic demo good {enable.auto.commit=true group.id=cgrpName auto.commit.interval.ms=100}";
+
   sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
   if (sr != SQL_SUCCESS) {
     DUMP("'%s' failed, you might create the specific topic and then rerun this demo\n"
          "eg.:\n"
-         "create topic %s as select * from ...",
-         sql, topic);
+         "create topic demo as select * from ...\n"
+         "create topic good as select * from ...",
+         sql);
     return -1;
   }
 
-  SQLSMALLINT ColumnCount;
+describe:
+
   sr = CALL_SQLNumResultCols(hstmt, &ColumnCount);
   if (sr != SQL_SUCCESS) return -1;
 
-  int tick = 0;
-
-again:
-
-  if (tick++ >= 5) return 0;
+fetch:
 
   sr = CALL_SQLFetch(hstmt);
-  if (sr == SQL_NO_DATA) return 0;
+  if (sr == SQL_NO_DATA) {
+    sr = CALL_SQLMoreResults(hstmt);
+    if (sr == SQL_NO_DATA) return 0;
+    if (sr == SQL_SUCCESS) goto describe;
+  }
   if (sr != SQL_SUCCESS) return -1;
+
+  if (demo_limit++ >= 5) return 0;
 
   row_buf[0] = '\0';
   p = row_buf;
   for (int i=0; i<ColumnCount; ++i) {
-    char name[4096];
-    SQLSMALLINT    NameLength;
-    SQLSMALLINT    DataType;
-    SQLULEN        ColumnSize;
-    SQLSMALLINT    DecimalDigits;
-    SQLSMALLINT    Nullable;
     sr = CALL_SQLDescribeCol(hstmt, i+1, (SQLCHAR*)name, sizeof(name), &NameLength, &DataType, &ColumnSize, &DecimalDigits, &Nullable);
     if (sr != SQL_SUCCESS) return -1;
 
-    char value[4096];
     SQLLEN Len_or_Ind;
     sr = CALL_SQLGetData(hstmt, i+1, SQL_C_CHAR, value, sizeof(value), &Len_or_Ind);
     if (sr != SQL_SUCCESS) return -1;
@@ -138,7 +144,7 @@ again:
 
   DUMP("new data:%s", row_buf);
 
-  goto again;
+  goto fetch;
 }
 
 #define RECORD(x) {x, #x}

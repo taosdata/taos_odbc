@@ -374,8 +374,15 @@ struct parser_token_s {
   size_t           leng;
 };
 
+struct topic_cfg_s {
+  char                  *name;
+
+  kvs_t                  kvs;
+};
+
 struct parser_param_s {
   connection_cfg_t       conn_str;
+  topic_cfg_t            topic_cfg;
 
   int                    row0, col0;
   int                    row1, col1;
@@ -384,6 +391,7 @@ struct parser_param_s {
   unsigned int           debug_flex:1;
   unsigned int           debug_bison:1;
   unsigned int           oom:1;
+  unsigned int           type:1;
 };
 
 struct conn_s {
@@ -516,6 +524,9 @@ struct topic_s {
   stmt_t                    *owner;
 
   char                       name[193];
+  topic_cfg_t                cfg;
+
+  tmq_conf_t                *conf;
   tmq_t                     *tmq;
 
   TAOS_RES                  *res;
@@ -686,6 +697,10 @@ struct tls_s {
   mem_t                      intermediate;
   charset_conv_mgr_t        *mgr;
 };
+
+void topic_cfg_release(topic_cfg_t *cfg) FA_HIDDEN;
+void topic_cfg_transfer(topic_cfg_t *from, topic_cfg_t *to) FA_HIDDEN;
+
 
 EXTERN_C_END
 

@@ -82,7 +82,9 @@ static int _topic_demo_topic(SQLSMALLINT HandleType, SQLHANDLE Handle)
 
   const char *topic = "demo";
   char sql[4096];
-  snprintf(sql, sizeof(sql), "!topic %s", topic);
+  // syntax: !topic <name> [<key[=<val>]>]*
+  // ref: https://github.com/taosdata/TDengine/blob/main/docs/en/07-develop/07-tmq.mdx#create-a-consumer
+  snprintf(sql, sizeof(sql), "!topic %s enable.auto.commit=true group.id=cgrpName", topic);
   sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
   if (sr != SQL_SUCCESS) {
     DUMP("'%s' failed, you might create the specific topic and then rerun this demo\n"
@@ -96,7 +98,11 @@ static int _topic_demo_topic(SQLSMALLINT HandleType, SQLHANDLE Handle)
   sr = CALL_SQLNumResultCols(hstmt, &ColumnCount);
   if (sr != SQL_SUCCESS) return -1;
 
+  int tick = 0;
+
 again:
+
+  if (tick++ >= 5) return 0;
 
   sr = CALL_SQLFetch(hstmt);
   if (sr == SQL_NO_DATA) return 0;

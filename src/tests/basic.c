@@ -63,14 +63,28 @@ static int test_case1(void)
     "Driver={MySQL ODBC 3.51 driver};server=lm.test;database=lmdb;uid=mysqluser;pwd=pass;",
     "Driver={MySQL ODBC 3.51 driver};server=lmtest:378;database=lmdb;uid=mysqluser;pwd=pass;",
     "Driver={MySQL ODBC 3.51 driver};server=lmtest:378378378378;database=lmdb;uid=mysqluser;pwd=pass;",
+    // !topic
+    "!topic demo",
+    "!topic demo helloworld",
+    "!topic demo helloworld=good",
+    "!topic demo helloworld=good helloworld=good",
+    "!topic demo"
+    " enable.auto.commit=true"
+    " auto.commit.interval.ms=100"
+    " group.id=cgrpName"
+    " client.id=user_defined_name"
+    " td.connect.user=root"
+    " td.connect.pass=taosdata"
+    " auto.offset.reset=earliest"
+    " experimental.snapshot.enable=false",
   };
   for (size_t i=0; i<sizeof(connection_strs)/sizeof(connection_strs[0]); ++i) {
     const char *s = connection_strs[i];
     int r = parser_parse(s, strlen(s), &param);
     if (r) {
       E("parsing:%s", s);
-      E("failed:%s", param.err_msg);
       E("location:(%d,%d)->(%d,%d)", param.row0, param.col0, param.row1, param.col1-1);
+      E("failed:%s", param.err_msg);
     }
 
     parser_param_release(&param);

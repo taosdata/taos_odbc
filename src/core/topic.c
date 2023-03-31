@@ -29,14 +29,32 @@
 #include "desc.h"
 #include "errs.h"
 #include "log.h"
+#include "parser.h"
 #include "stmt.h"
 #include "taos_helpers.h"
 
 #include <errno.h>
 
+void topic_cfg_release(topic_cfg_t *cfg)
+{
+  if (!cfg) return;
+  TOD_SAFE_FREE(cfg->name);
+  kvs_release(&cfg->kvs);
+}
+
+void topic_cfg_transfer(topic_cfg_t *from, topic_cfg_t *to)
+{
+  if (from == to) return;
+  topic_cfg_release(to);
+
+  to->name   = from->name;
+  from->name = NULL;
+
+  kvs_transfer(&from->kvs, &to->kvs);
+}
+
 static void _topic_reset_res(topic_t *topic)
 {
-  if (!topic) return;
   if (!topic->res) return;
   CALL_taos_free_result(topic->res);
   topic->res = NULL;
@@ -47,7 +65,6 @@ static void _topic_reset_res(topic_t *topic)
 
 static void _topic_reset_tmq(topic_t *topic)
 {
-  if (!topic) return;
   if (!topic->tmq) return;
   CALL_tmq_unsubscribe(topic->tmq);
   CALL_tmq_consumer_close(topic->tmq);
@@ -60,12 +77,24 @@ void topic_reset(topic_t *topic)
   topic->row = NULL;
   _topic_reset_res(topic);
   _topic_reset_tmq(topic);
+  topic->fields_nr = 0;
+}
+
+static void _topic_release_conf(topic_t *topic)
+{
+  if (!topic->conf) return;
+  CALL_tmq_conf_destroy(topic->conf);
+  topic->conf = NULL;
 }
 
 void topic_release(topic_t *topic)
 {
   if (!topic) return;
   topic_reset(topic);
+  topic_cfg_release(&topic->cfg);
+  TOD_SAFE_FREE(topic->fields);
+  topic->fields_cap = 0;
+  _topic_release_conf(topic);
 }
 
 static SQLRETURN _query(stmt_base_t *base, const char *sql)
@@ -401,115 +430,124 @@ void topic_init(topic_t *topic, stmt_t *stmt)
   topic->base.get_data                     = _get_data;
 }
 
-static void _tmq_commit_cb_print(tmq_t* tmq, int32_t code, void* param) {
+static void _tmq_commit_cb_print(tmq_t* tmq, int32_t code, void* param)
+{
   if (0) fprintf(stderr, "%s(): code: %d, tmq: %p, param: %p\n", __func__, code, tmq, param);
 }
 
-static tmq_t* _build_consumer() {
+static SQLRETURN _build_consumer(topic_t *topic)
+{
+  // https://github.com/taosdata/TDengine/blob/main/docs/en/07-develop/07-tmq.mdx#create-a-consumer
+  // td.connect.ip
+  // td.connect.user
+  // td.connect.pass
+  // td.connect.port
+  // group.id
+  // client.id
+  // auto.offset.reset
+  // enable.auto.commit
+  // auto.commit.interval.ms
+  // experimental.snapshot.enable
+  // msg.with.table.name
+
+  _topic_release_conf(topic);
+
   tmq_conf_res_t code = TMQ_CONF_OK;
-  tmq_conf_t*    conf = CALL_tmq_conf_new();
 
-  if (0) code = CALL_tmq_conf_set(conf, "enable.auto.commit", "true");
-  if (TMQ_CONF_OK != code) {
-    CALL_tmq_conf_destroy(conf);
-    return NULL;
+  topic->conf = CALL_tmq_conf_new();
+  if (!topic->conf) {
+    stmt_oom(topic->owner);
+    return SQL_ERROR;
   }
+  tmq_conf_t *conf = topic->conf;
 
-  code = CALL_tmq_conf_set(conf, "auto.commit.interval.ms", "100");
-  if (TMQ_CONF_OK != code) {
-    CALL_tmq_conf_destroy(conf);
-    return NULL;
-  }
-
-  if (1) code = CALL_tmq_conf_set(conf, "group.id", "cgrpName");
-  if (TMQ_CONF_OK != code) {
-    CALL_tmq_conf_destroy(conf);
-    return NULL;
-  }
-
-  if (0) code = CALL_tmq_conf_set(conf, "client.id", "user defined name");
-  if (TMQ_CONF_OK != code) {
-    CALL_tmq_conf_destroy(conf);
-    return NULL;
-  }
-
-  if (0) code = CALL_tmq_conf_set(conf, "td.connect.user", "root");
-  if (TMQ_CONF_OK != code) {
-    CALL_tmq_conf_destroy(conf);
-    return NULL;
-  }
-
-  if (0) code = CALL_tmq_conf_set(conf, "td.connect.pass", "taosdata");
-  if (TMQ_CONF_OK != code) {
-    CALL_tmq_conf_destroy(conf);
-    return NULL;
-  }
-
-  if (0) code = CALL_tmq_conf_set(conf, "auto.offset.reset", "earliest");
-  if (TMQ_CONF_OK != code) {
-    CALL_tmq_conf_destroy(conf);
-    return NULL;
-  }
-
-  if (0) code = CALL_tmq_conf_set(conf, "experimental.snapshot.enable", "false");
-  if (TMQ_CONF_OK != code) {
-    CALL_tmq_conf_destroy(conf);
-    return NULL;
+  kvs_t *kvs = &topic->cfg.kvs;
+  for (size_t i=0; i<kvs->nr; ++i) {
+    kv_t *kv = kvs->kvs + i;
+    if (!kv->val) continue;
+    code = CALL_tmq_conf_set(conf, kv->key, kv->val);
+    if (code != TMQ_CONF_OK) {
+      stmt_append_err_format(topic->owner, "HY000", 0,
+          "General error:[taosc]tmq_conf_set(%s=%s) failed",
+          kv->key, kv->val);
+      return SQL_ERROR;
+    }
   }
 
   CALL_tmq_conf_set_auto_commit_cb(conf, _tmq_commit_cb_print, NULL);
 
-  tmq_t* tmq = CALL_tmq_consumer_new(conf, NULL, 0);
-  CALL_tmq_conf_destroy(conf);
-  return tmq;
+  _topic_reset_tmq(topic);
+  topic->tmq = CALL_tmq_consumer_new(conf, NULL, 0);
+  if (!topic->tmq) {
+    stmt_append_err(topic->owner, "HY000", 0, "General error:[taosc]tmq_consumer_new failed:reason unknown, but don't forget to specifi `group.id`");
+    return SQL_ERROR;
+  }
+  return SQL_SUCCESS;
 }
 
-static tmq_list_t* _build_topic_list(const char *topic_name) {
-  tmq_list_t* topicList = CALL_tmq_list_new();
-  int32_t     code = CALL_tmq_list_append(topicList, topic_name);
+
+static SQLRETURN _topic_open(
+    topic_t       *topic,
+    tmq_list_t    *topicList)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
+
+  int32_t code = CALL_tmq_list_append(topicList, topic->cfg.name);
   if (code) {
-    return NULL;
+    stmt_append_err_format(topic->owner, "HY000", 0, "General error:[taosc]tmq_list_append failed:[%d]%s",
+        taos_errno(NULL), taos_errstr(NULL)); // FIXME: taos_errstr?
+    return SQL_ERROR;
   }
-  return topicList;
+
+  r = CALL_tmq_subscribe(topic->tmq, topicList);
+
+  if (r) {
+    stmt_append_err_format(topic->owner, "HY000", 0, "General error:[taosc]:tmq_subscribe failed:[%d/0x%x]%s",
+        r, r, tmq_err2str(r));
+    return SQL_ERROR;
+  }
+
+  while (topic->res == NULL) {
+    int32_t timeout = 100;
+    topic->res = CALL_tmq_consumer_poll(topic->tmq, timeout);
+    if (topic->res) {
+      sr = _topic_desc_tripple(topic);
+      if (sr != SQL_SUCCESS) return SQL_ERROR;
+    }
+  }
+
+  return SQL_SUCCESS;
 }
 
 SQLRETURN topic_open(
     topic_t       *topic,
-    const char    *name,
-    size_t         len)
+    topic_cfg_t   *cfg)
 {
   OA_ILE(topic->tmq == NULL);
   SQLRETURN sr = SQL_SUCCESS;
-  int r = 0;
 
-  int n = snprintf(topic->name, sizeof(topic->name), "%.*s", (int)len, name);
-  if (n<0 || (size_t)n >= sizeof(topic->name)) {
-    stmt_append_err_format(topic->owner, "HY000", 0, "General error:buffer too small to hold topic `%.*s`", (int)len, name);
+  topic_cfg_transfer(cfg, &topic->cfg);
+  cfg = &topic->cfg;
+  if (!cfg->name) {
+    stmt_append_err(topic->owner, "HY000", 0, "General error:topic name not specified");
     return SQL_ERROR;
   }
 
-  tmq_t* tmq = _build_consumer();
-  if (NULL == tmq) {
-    stmt_append_err(topic->owner, "HY000", 0, "General error:build_consumer() failed");
+  sr = _build_consumer(topic);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  tmq_list_t* topicList = CALL_tmq_list_new();
+  if (!topicList) {
+    stmt_oom(topic->owner);
     return SQL_ERROR;
   }
-
-  tmq_list_t* topic_list = _build_topic_list(topic->name);
-  if (NULL == topic_list) {
-    CALL_tmq_consumer_close(tmq);
-    stmt_append_err(topic->owner, "HY000", 0, "General error:build_topic_list() failed");
+  sr = _topic_open(topic, topicList);
+  CALL_tmq_list_destroy(topicList);
+  if (sr != SQL_SUCCESS) {
+    topic_reset(topic);
     return SQL_ERROR;
   }
-
-  r = CALL_tmq_subscribe(tmq, topic_list);
-  CALL_tmq_list_destroy(topic_list);
-
-  if (r) {
-    stmt_append_err_format(topic->owner, "HY000", 0, "General error:tmp_subscribe() failed:[%d/0x%x]%s", r, r, tmq_err2str(r));
-    return SQL_ERROR;
-  }
-
-  topic->tmq = tmq;
 
   while (topic->res == NULL) {
     int32_t timeout = 100;

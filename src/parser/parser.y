@@ -48,7 +48,6 @@
         YYLTYPE *yylloc,                   // match %define locations
         yyscan_t arg,                      // match %param
         parser_param_t *param,             // match %parse-param
-        const char *title,
         const char *errmsg
     );
     static void yyerror(
@@ -58,12 +57,39 @@
         const char *errsg
     );
 
+    static int parser_param_set_topic_name(parser_param_t *param, const char *name, size_t len);
+    static int parser_param_append_topic_conf(parser_param_t *param, const char *k, size_t kn, const char *v, size_t vn);
+
+    #define SET_TOPIC(_v, _loc) do {                                                            \
+      if (!param) break;                                                                        \
+      if (parser_param_set_topic_name(param, _v.text, _v.leng)) {                               \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
+        return -1;                                                                              \
+      }                                                                                         \
+    } while (0)
+
+    #define SET_TOPIC_KEY(_k, _loc) do {                                                        \
+      if (!param) break;                                                                        \
+      if (parser_param_append_topic_conf(param, _k.text, _k.leng, NULL, 0)) {                   \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
+        return -1;                                                                              \
+      }                                                                                         \
+    } while (0)
+
+    #define SET_TOPIC_KEY_VAL(_k, _v, _loc) do {                                                \
+      if (!param) break;                                                                        \
+      if (parser_param_append_topic_conf(param, _k.text, _k.leng, _v.text, _v.leng)) {          \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
+        return -1;                                                                              \
+      }                                                                                         \
+    } while (0)
+
     #define SET_DSN(_v, _loc) do {                                                              \
       if (!param) break;                                                                        \
       TOD_SAFE_FREE(param->conn_str.dsn);                                                       \
       param->conn_str.dsn = strndup(_v.text, _v.leng);                                          \
       if (!param->conn_str.dsn) {                                                               \
-        _yyerror_impl(&_loc, arg, param, "runtime error", "out of memory");                     \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
         return -1;                                                                              \
       }                                                                                         \
     } while (0)
@@ -72,7 +98,7 @@
       TOD_SAFE_FREE(param->conn_str.uid);                                                       \
       param->conn_str.uid = strndup(_v.text, _v.leng);                                          \
       if (!param->conn_str.uid) {                                                               \
-        _yyerror_impl(&_loc, arg, param, "runtime error", "out of memory");                     \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
         return -1;                                                                              \
       }                                                                                         \
     } while (0)
@@ -81,7 +107,7 @@
       TOD_SAFE_FREE(param->conn_str.db);                                                        \
       param->conn_str.db = strndup(_v.text, _v.leng);                                           \
       if (!param->conn_str.db) {                                                                \
-        _yyerror_impl(&_loc, arg, param, "runtime error", "out of memory");                     \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
         return -1;                                                                              \
       }                                                                                         \
     } while (0)
@@ -90,7 +116,7 @@
       TOD_SAFE_FREE(param->conn_str.pwd);                                                       \
       param->conn_str.pwd = strndup(_v.text, _v.leng);                                          \
       if (!param->conn_str.pwd) {                                                               \
-        _yyerror_impl(&_loc, arg, param, "runtime error", "out of memory");                     \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
         return -1;                                                                              \
       }                                                                                         \
     } while (0)
@@ -99,7 +125,7 @@
       TOD_SAFE_FREE(param->conn_str.driver);                                                    \
       param->conn_str.driver = strndup(_v.text, _v.leng);                                       \
       if (!param->conn_str.driver) {                                                            \
-        _yyerror_impl(&_loc, arg, param, "runtime error", "out of memory");                     \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
         return -1;                                                                              \
       }                                                                                         \
     } while (0)
@@ -108,7 +134,7 @@
       TOD_SAFE_FREE(param->conn_str.ip);                                                        \
       param->conn_str.ip = strndup(_v.text, _v.leng);                                           \
       if (!param->conn_str.ip) {                                                                \
-        _yyerror_impl(&_loc, arg, param, "runtime error", "out of memory");                     \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
         return -1;                                                                              \
       }                                                                                         \
       param->conn_str.port = 0;                                                                 \
@@ -119,7 +145,7 @@
       TOD_SAFE_FREE(param->conn_str.ip);                                                        \
       param->conn_str.ip = strndup(_v.text, _v.leng);                                           \
       if (!param->conn_str.ip) {                                                                \
-        _yyerror_impl(&_loc, arg, param, "runtime error", "out of memory");                     \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
         return -1;                                                                              \
       }                                                                                         \
       param->conn_str.port = strtol(_p.text, NULL, 10);                                         \
@@ -142,8 +168,10 @@
     {
       if (!param) return;
       connection_cfg_release(&param->conn_str);
+      topic_cfg_release(&param->topic_cfg);
       param->err_msg[0] = '\0';
       param->row0 = 0;
+      param->type = 0;
     }
 }
 
@@ -166,7 +194,9 @@
 %union { char c; }
 
 %token DSN UID PWD DRIVER SERVER UNSIGNED_PROMOTION TIMESTAMP_AS_IS DB
+%token TOPIC
 %token <token> ID VALUE FQDN DIGITS
+%token <token> TNAME TKEY TVAL
 
  /* %nterm <str>   args */ // non-terminal `input` use `str` to store
                            // token value as well
@@ -177,6 +207,22 @@
 input:
   %empty
 | connect_str
+| topic
+;
+
+topic:
+  '!' TOPIC TNAME                { SET_TOPIC($3, @$); }
+| '!' TOPIC TNAME tconfs         { SET_TOPIC($3, @$); }
+;
+
+tconfs:
+  tconf
+| tconfs tconf
+;
+
+tconf:
+  TKEY                           { SET_TOPIC_KEY($1, @$); }
+| TKEY '=' TVAL                  { SET_TOPIC_KEY_VAL($1, $3, @$); }
 ;
 
 connect_str:
@@ -222,7 +268,6 @@ static void _yyerror_impl(
     YYLTYPE *yylloc,                   // match %define locations
     yyscan_t arg,                      // match %param
     parser_param_t *param,             // match %parse-param
-    const char *title,
     const char *errmsg
 )
 {
@@ -233,10 +278,9 @@ static void _yyerror_impl(
   (void)errmsg;
 
   if (!param) {
-    fprintf(stderr, "(%d,%d)->(%d,%d):%s:%s\n",
+    fprintf(stderr, "(%d,%d)->(%d,%d):%s\n",
         yylloc->first_line, yylloc->first_column,
         yylloc->last_line, yylloc->last_column - 1,
-        title,
         errmsg);
 
     return;
@@ -247,7 +291,7 @@ static void _yyerror_impl(
   param->row1 = yylloc->last_line;
   param->col1 = yylloc->last_column;
   param->err_msg[0] = '\0';
-  snprintf(param->err_msg, sizeof(param->err_msg), "%s:%s", title, errmsg);
+  snprintf(param->err_msg, sizeof(param->err_msg), "%s", errmsg);
 }
 
 /* Called by yyparse on error. */
@@ -258,7 +302,24 @@ static void yyerror(
     const char *errmsg
 )
 {
-  _yyerror_impl(yylloc, arg, param, "bad syntax for connection string", errmsg);
+  _yyerror_impl(yylloc, arg, param, errmsg);
+}
+
+static int parser_param_set_topic_name(parser_param_t *param, const char *name, size_t len)
+{
+  topic_cfg_t *cfg = &param->topic_cfg;
+  TOD_SAFE_FREE(cfg->name);
+  cfg->name = strndup(name, len);
+  if (!cfg->name) return -1;
+  param->type = 1;
+  return 0;
+}
+
+static int parser_param_append_topic_conf(parser_param_t *param, const char *k, size_t kn, const char *v, size_t vn)
+{
+  topic_cfg_t *cfg = &param->topic_cfg;
+  kvs_t *kvs = &cfg->kvs;
+  return kvs_append(kvs, k, kn, v, vn);
 }
 
 int parser_parse(const char *input, size_t len, parser_param_t *param)

@@ -697,12 +697,23 @@ SQLRETURN conn_driver_connect(
 
   do {
     if (r) {
+      conn_append_err_format(conn, "HY000", 0, "General error:parsing:%.*s", StringLength1, (const char*)InConnectionString);
+      conn_append_err_format(conn, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)", param.row0, param.col0, param.row1, param.col1-1);
+      conn_append_err_format(conn, "HY000", 0, "General error:failed:%.*s", (int)strlen(param.err_msg), param.err_msg);
+      conn_append_err(conn, "HY000", 0, "General error:supported connection string syntax:[<key[=<val>]>]+");
+      break;
+    }
+    if (param.type != 0) {
+      conn_append_err_format(conn, "HY000", 0, "General error:parsing:%.*s", StringLength1, (const char*)InConnectionString);
+      conn_append_err(conn, "HY000", 0, "General error:failed:taos_odbc_extended syntax not allowed here");
+      break;
+    }
+
+    if (param.type != 0) {
       conn_append_err_format(
         conn, "HY000", 0,
-        "General error:[%.*s][(%d,%d)->(%d,%d):%.*s]",
-        StringLength1, (const char*)InConnectionString,
-        param.row0, param.col0, param.row1, param.col1,
-        (int)strlen(param.err_msg), param.err_msg);
+        "General error:not valid connection string [%.*s]",
+        StringLength1, (const char*)InConnectionString);
 
       break;
     }

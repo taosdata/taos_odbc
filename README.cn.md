@@ -276,6 +276,7 @@ ctest --test-dir build --output-on-failure -C Debug
 ## TDengine 引用及出处
 - https://tdengine.com
 - https://github.com/taosdata/TDengine
+- https://github.com/taosdata/TDengine/blob/main/docs/en/07-develop/07-tmq.mdx#create-a-consumer
 
 ## ODBC 引用及出处
 - https://learn.microsoft.com/en-us/sql/odbc/reference/introduction-to-odbc?view=sql-server-ver16

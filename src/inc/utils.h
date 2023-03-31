@@ -185,6 +185,26 @@ void trim_string(const char *src, size_t nr, const char **start, const char **en
 void trim_spaces(const char *src, size_t len, char *dst, size_t n) FA_HIDDEN;
 void get_kv(const char *kv, char *k, size_t kn, char *v, size_t vn) FA_HIDDEN;
 
+typedef struct kv_s                      kv_t;
+struct kv_s {
+  char            *key;
+  char            *val;
+};
+void kv_release(kv_t *kv);
+int kv_set(kv_t *kv, const char *k, size_t kn, const char *v, size_t vn) FA_HIDDEN;
+
+typedef struct kvs_s                     kvs_t;
+struct kvs_s {
+  kv_t                  *kvs;
+  size_t                 cap;
+  size_t                 nr;
+};
+void kvs_reset(kvs_t *kvs);
+void kvs_release(kvs_t *kvs);
+void kvs_transfer(kvs_t *from, kvs_t *to);
+int kvs_append(kvs_t *kvs, const char *k, size_t kn, const char *v, size_t vn) FA_HIDDEN;
+
+
 EXTERN_C_END
 
 #endif // _utils_h_

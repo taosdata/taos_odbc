@@ -30,6 +30,7 @@
 #include "desc.h"
 #include "errs.h"
 #include "log.h"
+#include "parser.h"
 #include "primarykeys.h"
 #include "stmt.h"
 #include "tables.h"
@@ -4339,19 +4340,35 @@ SQLRETURN stmt_exec_direct(stmt_t *stmt, SQLCHAR *StatementText, SQLINTEGER Text
 
   const char *start, *end;
   trim_string((const char*)stmt->sql.base, stmt->sql.nr, &start, &end);
-  if (end >= start + 6) {
-    if (start[0] == '!' && tod_strncasecmp(start, "!topic", 6) == 0) {
-      const char *p0, *p1;
-      trim_string(start + 6, end - start - 6, &p0, &p1);
-      if (p1 == p0) {
-        stmt_append_err_format(stmt, "HY000", 0, "General error: no topic name is specified [%.*s]", (int)(end-start), start);
-        return SQL_ERROR;
-      }
-      sr = topic_open(&stmt->topic, p0, p1 - p0);
-      if (sr != SQL_SUCCESS) return SQL_ERROR;
-      stmt->base = &stmt->topic.base;
-      return SQL_SUCCESS;
+  if (end > start && start[0] == '!') {
+    parser_param_t param = {0};
+    // param.debug_flex = 1;
+    // param.debug_bison = 1;
+    int r = parser_parse(start, end-start, &param);
+    if (r) {
+      stmt_append_err_format(stmt, "HY000", 0, "General error:parsing:%.*s", (int)(end-start), start);
+      stmt_append_err_format(stmt, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)", param.row0, param.col0, param.row1, param.col1-1);
+      stmt_append_err_format(stmt, "HY000", 0, "General error:failed:%.*s", (int)strlen(param.err_msg), param.err_msg);
+      stmt_append_err(stmt, "HY000", 0, "General error:taos_odbc_extended syntax for `topic`:!topic <name> [<key[=<val>]>]*");
+
+      parser_param_release(&param);
+      return SQL_ERROR;
     }
+
+    if (param.type != 1) {
+      stmt_append_err_format(stmt, "HY000", 0, "General error:parsing:%.*s", (int)(end-start), start);
+      stmt_append_err(stmt, "HY000", 0, "General error:failed:connection string not allowed here");
+
+      parser_param_release(&param);
+      return SQL_ERROR;
+    }
+
+    sr = topic_open(&stmt->topic, &param.topic_cfg);
+    parser_param_release(&param);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    stmt->base = &stmt->topic.base;
+    return SQL_SUCCESS;
   }
 
   if (stmt->base == &stmt->columns.base) {

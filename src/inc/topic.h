@@ -39,8 +39,7 @@ void topic_init(topic_t *topic, stmt_t *stmt) FA_HIDDEN;
 
 SQLRETURN topic_open(
     topic_t       *topic,
-    const char    *name,
-    size_t         len) FA_HIDDEN;
+    topic_cfg_t   *cfg) FA_HIDDEN;
 
 EXTERN_C_END
 

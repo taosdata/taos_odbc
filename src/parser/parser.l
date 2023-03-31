@@ -81,6 +81,10 @@ do {                                              \
 %option never-interactive
 %option nounistd
 
+%x TAOS_ODBC_EXT
+%x TAOS_ODBC_EXT_TOPIC
+%x TAOS_ODBC_EXT_TOPIC_TNAME
+%x TAOS_ODBC_EXT_TOPIC_TKEY
 %x EQ
 %x CURLY
 %x SERVER
@@ -103,13 +107,18 @@ ID            [^\[\]{}(),;?*=!@[:space:]]+
 VALUE         [^\[\]{}(),;?*=!@[:space:]]+
 VALUEX        [^{}[:space:]][^{}]*[^{}[:space:]]
 
+
+TOPIC         (?i:topic)
+TNAME         [_[:alpha:]][_[:alnum:]]*
+TKEY          [_[:alpha:]][_.[:alnum:]]*
+TVAL          [-_.\[\]{}(),?*!@[:alnum:]]+
+
 DIGITS        [[:digit:]]+
 %%
 
-<<EOF>> { int state; TOP_STATE(state);
-          if (state != INITIAL) return -1;
+<<EOF>> { if (0) { int state; TOP_STATE(state); if (state != INITIAL) return -1; }
           yyterminate(); }
-
+"!"           { R(); PUSH(TAOS_ODBC_EXT); C(); return *yytext; }
 {DSN}         { R(); C(); return MKT(DSN); }
 {UID}         { R(); C(); return MKT(UID); }
 {PWD}         { R(); C(); return MKT(PWD); }
@@ -125,6 +134,38 @@ DIGITS        [[:digit:]]+
 {SP}          { R(); C(); } /* eat */
 {LN}          { R(); L(); } /* eat */
 .             { R(); C(); return *yytext; } /* let bison to handle */
+
+<TAOS_ODBC_EXT>{
+{TOPIC}       { R(); CHG(TAOS_ODBC_EXT_TOPIC); C(); return MKT(TOPIC); }
+{SP}          { R(); C(); } /* eat */
+{LN}          { R(); L(); } /* eat */
+.             { R(); C(); return *yytext; } /* let bison to handle */
+}
+
+<TAOS_ODBC_EXT_TOPIC>{
+{TNAME}       { R(); SET_STR(); CHG(TAOS_ODBC_EXT_TOPIC_TNAME); C(); return MKT(TNAME); }
+{SP}          { R(); C(); } /* eat */
+{LN}          { R(); L(); } /* eat */
+.             { R(); C(); return *yytext; } /* let bison to handle */
+}
+
+<TAOS_ODBC_EXT_TOPIC_TNAME>{
+";"           { R(); POP(); C(); return *yytext; }
+{TKEY}        { R(); SET_STR(); PUSH(TAOS_ODBC_EXT_TOPIC_TKEY); C(); return MKT(TKEY); }
+{SP}          { R(); C(); } /* eat */
+{LN}          { R(); L(); } /* eat */
+.             { R(); C(); return *yytext; } /* let bison to handle */
+}
+
+<TAOS_ODBC_EXT_TOPIC_TKEY>{
+"="           { R(); C(); return *yytext; }
+";"           { R(); POP(); C(); return *yytext; }
+{TVAL}        { R(); SET_STR(); POP(); C(); return MKT(TVAL); }
+{DIGITS}      { R(); SET_STR(); POP(); C(); return MKT(TVAL); }
+{SP}          { R(); C(); } /* eat */
+{LN}          { R(); L(); } /* eat */
+.             { R(); C(); return *yytext; } /* let bison to handle */
+}
 
 <SERVER>{
 "="       { R(); CHG(SERVER_EQ); C(); return *yytext; }

@@ -899,3 +899,85 @@ void get_kv(const char *kv, char *k, size_t kn, char *v, size_t vn)
   }
 }
 
+void kv_release(kv_t *kv)
+{
+  if (!kv) return;
+  TOD_SAFE_FREE(kv->key);
+  TOD_SAFE_FREE(kv->val);
+}
+
+int kv_set(kv_t *kv, const char *k, size_t kn, const char *v, size_t vn)
+{
+  kv_release(kv);
+
+  do {
+    kv->key = strndup(k, kn);
+    if (!kv->key) break;
+
+    if (!v) return 0;
+
+    kv->val = strndup(v, vn);
+    if (!kv->val) break;
+
+    return 0;
+  } while (0);
+
+  kv_release(kv);
+
+  return -1;
+}
+
+void kvs_reset(kvs_t *kvs)
+{
+  if (!kvs) return;
+
+  for (size_t i=0; i<kvs->nr; ++i) {
+    kv_t *kv = kvs->kvs + i;
+    kv_release(kv);
+  }
+  kvs->nr = 0;
+}
+
+void kvs_release(kvs_t *kvs)
+{
+  if (!kvs) return;
+  kvs_reset(kvs);
+  TOD_SAFE_FREE(kvs->kvs);
+  kvs->cap = 0;
+}
+
+void kvs_transfer(kvs_t *from, kvs_t *to)
+{
+  if (from == to) return;
+
+  kvs_release(to);
+
+  memcpy(to, from, sizeof(*from));
+  memset(from, 0, sizeof(*from));
+}
+
+int kvs_append(kvs_t *kvs, const char *k, size_t kn, const char *v, size_t vn)
+{
+  int r = 0;
+
+  if (kvs->nr >= kvs->cap) {
+    size_t cap = kvs->cap + 16;
+    kv_t *kv = (kv_t*)realloc(kvs->kvs, sizeof(*kv) * cap);
+    if (!kv) return -1;
+    kvs->kvs = kv;
+    kvs->cap = cap;
+  }
+
+  kv_t *kv = kvs->kvs + kvs->nr;
+  kv->key = NULL;
+  kv->val = NULL;
+
+  r = kv_set(kv, k, kn, v, vn);
+  if (r) return -1;
+
+  kvs->nr += 1;
+
+  return 0;
+}
+
+

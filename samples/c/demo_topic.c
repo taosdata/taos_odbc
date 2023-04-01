@@ -27,9 +27,6 @@
 #include <stdarg.h>
 #include <stdint.h>
 
-#include <unistd.h>
-
-
 #define DUMP(fmt, ...)          printf(fmt "\n", ##__VA_ARGS__)
 
 typedef int (*topic_demo_f)(SQLSMALLINT HandleType, SQLHANDLE Handle);

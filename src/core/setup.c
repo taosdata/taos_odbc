@@ -35,7 +35,7 @@
 #include "stmt.h"
 #include "tls.h"
 
-#include "parser.h"
+#include "conn_parser.h"
 
 #include <string.h>
 

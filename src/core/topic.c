@@ -29,7 +29,7 @@
 #include "desc.h"
 #include "errs.h"
 #include "log.h"
-#include "parser.h"
+#include "conn_parser.h"
 #include "stmt.h"
 #include "taos_helpers.h"
 

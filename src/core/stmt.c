@@ -30,7 +30,7 @@
 #include "desc.h"
 #include "errs.h"
 #include "log.h"
-#include "parser.h"
+#include "conn_parser.h"
 #include "primarykeys.h"
 #include "stmt.h"
 #include "tables.h"

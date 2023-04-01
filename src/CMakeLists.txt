@@ -50,7 +50,7 @@ list(APPEND taos_odbc_a_SOURCES
     $<TARGET_OBJECTS:odbc_obj>
     $<TARGET_OBJECTS:utils_obj>
     $<TARGET_OBJECTS:os_port_obj>
-    $<TARGET_OBJECTS:parser_obj>
+    $<TARGET_OBJECTS:conn_parser_obj>
     $<TARGET_OBJECTS:taos_helpers_obj>)
 
 add_library(taos_odbc_a STATIC ${taos_odbc_a_SOURCES})

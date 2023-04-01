@@ -22,17 +22,17 @@
  * SOFTWARE.
  */
 
-#include "parser.h"
+#include "conn_parser.h"
 
 #include "../core/internal.h"        // FIXME:
 #include "conn.h"
 #include "log.h"
 
-#include "parser.tab.h"
-#include "parser.lex.c"
+#include "conn_parser.tab.h"
+#include "conn_parser.lex.c"
 
-#include "parser.lex.h"
+#include "conn_parser.lex.h"
 #undef yylloc
 #undef yylval
-#include "parser.tab.c"
+#include "conn_parser.tab.c"
 

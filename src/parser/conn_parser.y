@@ -30,8 +30,8 @@
 }
 
 %code requires {
-    #define YYSTYPE       PARSER_YYSTYPE
-    #define YYLTYPE       PARSER_YYLTYPE
+    #define YYSTYPE       CONN_PARSER_YYSTYPE
+    #define YYLTYPE       CONN_PARSER_YYLTYPE
     #ifndef YY_TYPEDEF_YY_SCANNER_T
     #define YY_TYPEDEF_YY_SCANNER_T
     typedef void* yyscan_t;

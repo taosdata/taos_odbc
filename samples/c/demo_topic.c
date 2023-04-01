@@ -91,7 +91,9 @@ static int _topic_demo_topic(SQLSMALLINT HandleType, SQLHANDLE Handle)
 
   // syntax: !topic [<name>]+ [{[<key[=<val>]>]*}]?
   // ref: https://github.com/taosdata/TDengine/blob/main/docs/en/07-develop/07-tmq.mdx#create-a-consumer
-  const char *sql = "!topic demo good {enable.auto.commit=true group.id=cgrpName auto.commit.interval.ms=100}";
+  // NOTE: although both 'enable.auto.commit' and 'auto.commit.interval.ms' are still valid,
+  //       taos_odbc chooses it's owner way to call `tmq_commit_sync` under the hood.
+  const char *sql = "!topic demo good {group.id=cgrpName enable.auto.commit=false auto.commit.interval.ms=10000}";
 
   sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
   if (sr != SQL_SUCCESS) {
@@ -110,6 +112,11 @@ describe:
 
 fetch:
 
+  if (demo_limit == 10) {
+    DUMP("demo_limit of #%d has been reached", demo_limit);
+    return 0;
+  }
+
   sr = CALL_SQLFetch(hstmt);
   if (sr == SQL_NO_DATA) {
     sr = CALL_SQLMoreResults(hstmt);
@@ -118,7 +125,7 @@ fetch:
   }
   if (sr != SQL_SUCCESS) return -1;
 
-  if (demo_limit++ >= 5) return 0;
+  demo_limit++;
 
   row_buf[0] = '\0';
   p = row_buf;

@@ -551,6 +551,7 @@ struct topic_s {
   TAOS_ROW                   row;
 
   uint8_t                    subscribed:1;
+  uint8_t                    do_not_commit:1;
 };
 
 struct tables_args_s {

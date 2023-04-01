@@ -81,11 +81,21 @@ static void _topic_release_tripple(topic_t *topic)
   topic->res_vgroup_id     = 0;
 }
 
-static void _topic_reset_res(topic_t *topic)
+static void _topic_reset_res(topic_t *topic, SQLRETURN *psr)
 {
-  if (!topic->res) return;
+  SQLRETURN sr = SQL_SUCCESS;
+  if (topic->res && !topic->do_not_commit) {
+    int r = CALL_tmq_commit_sync(topic->tmq, topic->res);
+    if (r) {
+      stmt_append_err_format(topic->owner, "HY000", 0, "General error:[taosc]tmq_commit_sync failed:[%d/0x%x]%s",
+          r, r, tmq_err2str(r));
+      topic->do_not_commit = 1;
+      sr = SQL_ERROR;
+    }
+  }
   CALL_taos_free_result(topic->res);
   topic->res = NULL;
+  if (psr) *psr = sr;
 }
 
 static void _topic_reset_tmq(topic_t *topic)
@@ -103,7 +113,7 @@ void topic_reset(topic_t *topic)
 {
   if (!topic) return;
   topic->row = NULL;
-  _topic_reset_res(topic);
+  _topic_reset_res(topic, NULL);
   _topic_reset_tmq(topic);
   topic->fields_nr = 0;
 }
@@ -250,6 +260,7 @@ static SQLRETURN _topic_desc_tripple(topic_t *topic)
 static SQLRETURN _fetch_row(stmt_base_t *base)
 {
   SQLRETURN sr = SQL_SUCCESS;
+
   topic_t *topic = (topic_t*)base;
   (void)topic;
 
@@ -263,13 +274,19 @@ again:
     if (topic->res) {
       sr = _topic_desc_tripple(topic);
       if (sr == SQL_NO_DATA) return SQL_NO_DATA;
-      if (sr != SQL_SUCCESS) return SQL_ERROR;
+      if (sr != SQL_SUCCESS) {
+        topic->do_not_commit = 1;
+        return SQL_ERROR;
+      }
     }
   }
 
   row = CALL_taos_fetch_row(topic->res);
   if (row == NULL) {
-    _topic_reset_res(topic);
+    // NOTE: once no row is available, which implicitly means that user has traversed all rows within current res
+    //       this seems the right time to call tmq_commit_sync
+    _topic_reset_res(topic, &sr);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
     goto again;
   }
 
@@ -528,7 +545,7 @@ static SQLRETURN _build_consumer(topic_t *topic)
     }
   }
 
-  CALL_tmq_conf_set_auto_commit_cb(conf, _tmq_commit_cb_print, NULL);
+  if (0) CALL_tmq_conf_set_auto_commit_cb(conf, _tmq_commit_cb_print, NULL);
 
   _topic_reset_tmq(topic);
   topic->tmq = CALL_tmq_consumer_new(conf, NULL, 0);

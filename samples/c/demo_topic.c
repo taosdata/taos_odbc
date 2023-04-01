@@ -27,6 +27,8 @@
 #include <stdarg.h>
 #include <stdint.h>
 
+#include <unistd.h>
+
 
 #define DUMP(fmt, ...)          printf(fmt "\n", ##__VA_ARGS__)
 

@@ -382,9 +382,17 @@ struct topic_cfg_s {
   kvs_t                  kvs;
 };
 
+enum parser_param_load_e {
+  PARAM_LOAD_UNKNOWN,
+  PARAM_LOAD_CONN_STR,
+  PARAM_LOAD_TOPIC_CFG,
+};
+
 struct parser_param_s {
   connection_cfg_t       conn_str;
   topic_cfg_t            topic_cfg;
+
+  parser_param_load_t    load_type;
 
   int                    row0, col0;
   int                    row1, col1;
@@ -393,7 +401,6 @@ struct parser_param_s {
   unsigned int           debug_flex:1;
   unsigned int           debug_bison:1;
   unsigned int           oom:1;
-  unsigned int           type:1;
 };
 
 struct conn_s {

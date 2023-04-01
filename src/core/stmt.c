@@ -4355,9 +4355,10 @@ SQLRETURN stmt_exec_direct(stmt_t *stmt, SQLCHAR *StatementText, SQLINTEGER Text
       return SQL_ERROR;
     }
 
-    if (param.type != 1) {
+    if (param.load_type != PARAM_LOAD_TOPIC_CFG) {
       stmt_append_err_format(stmt, "HY000", 0, "General error:parsing:%.*s", (int)(end-start), start);
-      stmt_append_err(stmt, "HY000", 0, "General error:failed:connection string not allowed here");
+      stmt_append_err(stmt, "HY000", 0, "General error:taos_odbc_extended syntax for `topic` is expected, but failed");
+      stmt_append_err(stmt, "HY000", 0, "General error:taos_odbc_extended syntax for `topic`:!topic [<name>]+ [{[<key[=<val>]>]*}]?");
 
       parser_param_release(&param);
       return SQL_ERROR;

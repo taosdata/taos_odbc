@@ -171,7 +171,7 @@
       topic_cfg_release(&param->topic_cfg);
       param->err_msg[0] = '\0';
       param->row0 = 0;
-      param->type = 0;
+      param->load_type = PARAM_LOAD_UNKNOWN;
     }
 }
 
@@ -206,8 +206,8 @@
 
 input:
   %empty
-| connect_str
-| topic
+| connect_str               { param->load_type = PARAM_LOAD_CONN_STR; }
+| topic                     { param->load_type = PARAM_LOAD_TOPIC_CFG; }
 ;
 
 topic:
@@ -324,7 +324,6 @@ static int parser_param_append_topic_name(parser_param_t *param, const char *nam
   cfg->names[cfg->names_nr] = strndup(name, len);
   if (!cfg->names[cfg->names_nr]) return -1;
   cfg->names_nr += 1;
-  param->type = 1;
   return 0;
 }
 

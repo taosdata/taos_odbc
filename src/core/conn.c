@@ -703,18 +703,9 @@ SQLRETURN conn_driver_connect(
       conn_append_err(conn, "HY000", 0, "General error:supported connection string syntax:[<key[=<val>]>]+");
       break;
     }
-    if (param.type != 0) {
+    if (param.load_type != PARAM_LOAD_CONN_STR) {
       conn_append_err_format(conn, "HY000", 0, "General error:parsing:%.*s", StringLength1, (const char*)InConnectionString);
-      conn_append_err(conn, "HY000", 0, "General error:failed:taos_odbc_extended syntax not allowed here");
-      break;
-    }
-
-    if (param.type != 0) {
-      conn_append_err_format(
-        conn, "HY000", 0,
-        "General error:not valid connection string [%.*s]",
-        StringLength1, (const char*)InConnectionString);
-
+      conn_append_err(conn, "HY000", 0, "General error:connection string is expected, but failed");
       break;
     }
 

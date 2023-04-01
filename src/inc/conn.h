@@ -34,8 +34,9 @@
 
 EXTERN_C_BEGIN
 
-void connection_cfg_release(connection_cfg_t *conn_str) FA_HIDDEN;
-void connection_cfg_transfer(connection_cfg_t *from, connection_cfg_t *to) FA_HIDDEN;
+void conn_cfg_release(conn_cfg_t *conn_str) FA_HIDDEN;
+void conn_cfg_transfer(conn_cfg_t *from, conn_cfg_t *to) FA_HIDDEN;
+int conn_cfg_init_other_fields(conn_cfg_t *cfg) FA_HIDDEN;
 
 conn_t* conn_create(env_t *env) FA_HIDDEN;
 conn_t* conn_ref(conn_t *conn) FA_HIDDEN;
@@ -130,8 +131,6 @@ SQLRETURN conn_browse_connect(
 SQLRETURN conn_complete_async(
     conn_t      *conn,
     RETCODE     *AsyncRetCodePtr) FA_HIDDEN;
-
-int connection_cfg_init_other_fields(connection_cfg_t *cfg) FA_HIDDEN;
 
 EXTERN_C_END
 

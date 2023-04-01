@@ -40,24 +40,24 @@
 #include <odbcinst.h>
 #include <string.h>
 
-void connection_cfg_release(connection_cfg_t *conn_str)
+void conn_cfg_release(conn_cfg_t *conn_cfg)
 {
-  if (!conn_str) return;
+  if (!conn_cfg) return;
 
-  TOD_SAFE_FREE(conn_str->driver);
-  TOD_SAFE_FREE(conn_str->dsn);
-  TOD_SAFE_FREE(conn_str->uid);
-  TOD_SAFE_FREE(conn_str->pwd);
-  TOD_SAFE_FREE(conn_str->ip);
-  TOD_SAFE_FREE(conn_str->db);
+  TOD_SAFE_FREE(conn_cfg->driver);
+  TOD_SAFE_FREE(conn_cfg->dsn);
+  TOD_SAFE_FREE(conn_cfg->uid);
+  TOD_SAFE_FREE(conn_cfg->pwd);
+  TOD_SAFE_FREE(conn_cfg->ip);
+  TOD_SAFE_FREE(conn_cfg->db);
 
-  memset(conn_str, 0, sizeof(*conn_str));
+  memset(conn_cfg, 0, sizeof(*conn_cfg));
 }
 
-void connection_cfg_transfer(connection_cfg_t *from, connection_cfg_t *to)
+void conn_cfg_transfer(conn_cfg_t *from, conn_cfg_t *to)
 {
   if (from == to) return;
-  connection_cfg_release(to);
+  conn_cfg_release(to);
   *to = *from;
   memset(from, 0, sizeof(*from));
 }
@@ -103,7 +103,7 @@ static void _conn_release(conn_t *conn)
   env_unref(conn->env);
   conn->env = NULL;
 
-  connection_cfg_release(&conn->cfg);
+  conn_cfg_release(&conn->cfg);
   _conn_release_information_schema_ins_configs(conn);
   _conn_release_iconvs(conn);
   errs_release(&conn->errs);
@@ -485,7 +485,7 @@ static int _conn_get_timezone(conn_t *conn)
 static SQLRETURN _do_conn_connect(conn_t *conn)
 {
   OA_ILE(conn->taos == NULL);
-  const connection_cfg_t *cfg = &conn->cfg;
+  const conn_cfg_t *cfg = &conn->cfg;
 
   conn->taos = CALL_taos_connect(cfg->ip, cfg->uid, cfg->pwd, cfg->db, cfg->port);
   if (!conn->taos) {
@@ -606,7 +606,7 @@ static void _conn_fill_out_connection_str(
   }
 }
 
-int connection_cfg_init_other_fields(connection_cfg_t *cfg)
+int conn_cfg_init_other_fields(conn_cfg_t *cfg)
 {
   char buf[1024];
   buf[0] = '\0';
@@ -709,9 +709,9 @@ SQLRETURN conn_driver_connect(
       break;
     }
 
-    connection_cfg_transfer(&param.conn_str, &conn->cfg);
+    conn_cfg_transfer(&param.conn_cfg, &conn->cfg);
 
-    r = connection_cfg_init_other_fields(&conn->cfg);
+    r = conn_cfg_init_other_fields(&conn->cfg);
     if (r) {
       conn_oom(conn);
       break;
@@ -739,7 +739,7 @@ void conn_disconnect(conn_t *conn)
     CALL_taos_close(conn->taos);
     conn->taos = NULL;
   }
-  connection_cfg_release(&conn->cfg);
+  conn_cfg_release(&conn->cfg);
 }
 
 static SQLRETURN _conn_commit(conn_t *conn)
@@ -817,7 +817,7 @@ SQLRETURN conn_connect(
   if (NameLength2 == SQL_NTS) NameLength2 = UserName ? (SQLSMALLINT)strlen((const char*)UserName) : 0;
   if (NameLength3 == SQL_NTS) NameLength3 = Authentication ? (SQLSMALLINT)strlen((const char*)Authentication) : 0;
 
-  connection_cfg_release(&conn->cfg);
+  conn_cfg_release(&conn->cfg);
   if (ServerName) {
     conn->cfg.dsn = strndup((const char*)ServerName, NameLength1);
     if (!conn->cfg.dsn) {
@@ -826,7 +826,7 @@ SQLRETURN conn_connect(
     }
   }
 
-  r = connection_cfg_init_other_fields(&conn->cfg);
+  r = conn_cfg_init_other_fields(&conn->cfg);
   if (r) {
     conn_oom(conn);
     return SQL_ERROR;

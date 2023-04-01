@@ -348,7 +348,7 @@ struct charset_conv_mgr_s {
   struct tod_list_head        convs; // charset_conv_t*
 };
 
-struct connection_cfg_s {
+struct conn_cfg_s {
   char                  *driver;
   char                  *dsn;
   char                  *uid;
@@ -389,7 +389,7 @@ enum parser_param_load_e {
 };
 
 struct parser_param_s {
-  connection_cfg_t       conn_str;
+  conn_cfg_t             conn_cfg;
   topic_cfg_t            topic_cfg;
 
   parser_param_load_t    load_type;
@@ -411,7 +411,7 @@ struct conn_s {
 
   env_t              *env;
 
-  connection_cfg_t    cfg;
+  conn_cfg_t          cfg;
 
   // server info
   const char         *svr_info;

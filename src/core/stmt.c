@@ -4341,17 +4341,17 @@ SQLRETURN stmt_exec_direct(stmt_t *stmt, SQLCHAR *StatementText, SQLINTEGER Text
   const char *start, *end;
   trim_string((const char*)stmt->sql.base, stmt->sql.nr, &start, &end);
   if (end > start && start[0] == '!') {
-    parser_param_t param = {0};
+    conn_parser_param_t param = {0};
     // param.debug_flex = 1;
     // param.debug_bison = 1;
-    int r = parser_parse(start, end-start, &param);
+    int r = conn_parser_parse(start, end-start, &param);
     if (r) {
       stmt_append_err_format(stmt, "HY000", 0, "General error:parsing:%.*s", (int)(end-start), start);
       stmt_append_err_format(stmt, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)", param.row0, param.col0, param.row1, param.col1-1);
       stmt_append_err_format(stmt, "HY000", 0, "General error:failed:%.*s", (int)strlen(param.err_msg), param.err_msg);
       stmt_append_err(stmt, "HY000", 0, "General error:taos_odbc_extended syntax for `topic`:!topic [<name>]+ [{[<key[=<val>]>]*}]?");
 
-      parser_param_release(&param);
+      conn_parser_param_release(&param);
       return SQL_ERROR;
     }
 
@@ -4360,12 +4360,12 @@ SQLRETURN stmt_exec_direct(stmt_t *stmt, SQLCHAR *StatementText, SQLINTEGER Text
       stmt_append_err(stmt, "HY000", 0, "General error:taos_odbc_extended syntax for `topic` is expected, but failed");
       stmt_append_err(stmt, "HY000", 0, "General error:taos_odbc_extended syntax for `topic`:!topic [<name>]+ [{[<key[=<val>]>]*}]?");
 
-      parser_param_release(&param);
+      conn_parser_param_release(&param);
       return SQL_ERROR;
     }
 
     sr = topic_open(&stmt->topic, &param.topic_cfg);
-    parser_param_release(&param);
+    conn_parser_param_release(&param);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
 
     stmt->base = &stmt->topic.base;

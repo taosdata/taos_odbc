@@ -47,22 +47,22 @@
     static void _yyerror_impl(
         YYLTYPE *yylloc,                   // match %define locations
         yyscan_t arg,                      // match %param
-        parser_param_t *param,             // match %parse-param
+        conn_parser_param_t *param,        // match %parse-param
         const char *errmsg
     );
     static void yyerror(
         YYLTYPE *yylloc,                   // match %define locations
         yyscan_t arg,                      // match %param
-        parser_param_t *param,             // match %parse-param
+        conn_parser_param_t *param,        // match %parse-param
         const char *errsg
     );
 
-    static int parser_param_append_topic_name(parser_param_t *param, const char *name, size_t len);
-    static int parser_param_append_topic_conf(parser_param_t *param, const char *k, size_t kn, const char *v, size_t vn);
+    static int conn_parser_param_append_topic_name(conn_parser_param_t *param, const char *name, size_t len);
+    static int conn_parser_param_append_topic_conf(conn_parser_param_t *param, const char *k, size_t kn, const char *v, size_t vn);
 
     #define SET_TOPIC(_v, _loc) do {                                                            \
       if (!param) break;                                                                        \
-      if (parser_param_append_topic_name(param, _v.text, _v.leng)) {                               \
+      if (conn_parser_param_append_topic_name(param, _v.text, _v.leng)) {                               \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
         return -1;                                                                              \
       }                                                                                         \
@@ -70,7 +70,7 @@
 
     #define SET_TOPIC_KEY(_k, _loc) do {                                                        \
       if (!param) break;                                                                        \
-      if (parser_param_append_topic_conf(param, _k.text, _k.leng, NULL, 0)) {                   \
+      if (conn_parser_param_append_topic_conf(param, _k.text, _k.leng, NULL, 0)) {                   \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
         return -1;                                                                              \
       }                                                                                         \
@@ -78,7 +78,7 @@
 
     #define SET_TOPIC_KEY_VAL(_k, _v, _loc) do {                                                \
       if (!param) break;                                                                        \
-      if (parser_param_append_topic_conf(param, _k.text, _k.leng, _v.text, _v.leng)) {          \
+      if (conn_parser_param_append_topic_conf(param, _k.text, _k.leng, _v.text, _v.leng)) {          \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
         return -1;                                                                              \
       }                                                                                         \
@@ -164,7 +164,7 @@
       param->conn_cfg.timestamp_as_is_set = 1;                                                  \
     } while (0)
 
-    void parser_param_release(parser_param_t *param)
+    void conn_parser_param_release(conn_parser_param_t *param)
     {
       if (!param) return;
       conn_cfg_release(&param->conn_cfg);
@@ -187,7 +187,7 @@
 %verbose
 
 %param { yyscan_t arg }
-%parse-param { parser_param_t *param }
+%parse-param { conn_parser_param_t *param }
 
 // union members
 %union { parser_token_t token; }
@@ -273,7 +273,7 @@ attribute:
 static void _yyerror_impl(
     YYLTYPE *yylloc,                   // match %define locations
     yyscan_t arg,                      // match %param
-    parser_param_t *param,             // match %parse-param
+    conn_parser_param_t *param,             // match %parse-param
     const char *errmsg
 )
 {
@@ -304,14 +304,14 @@ static void _yyerror_impl(
 static void yyerror(
     YYLTYPE *yylloc,                   // match %define locations
     yyscan_t arg,                      // match %param
-    parser_param_t *param,             // match %parse-param
+    conn_parser_param_t *param,             // match %parse-param
     const char *errmsg
 )
 {
   _yyerror_impl(yylloc, arg, param, errmsg);
 }
 
-static int parser_param_append_topic_name(parser_param_t *param, const char *name, size_t len)
+static int conn_parser_param_append_topic_name(conn_parser_param_t *param, const char *name, size_t len)
 {
   topic_cfg_t *cfg = &param->topic_cfg;
   if (cfg->names_nr == cfg->names_cap) {
@@ -327,13 +327,13 @@ static int parser_param_append_topic_name(parser_param_t *param, const char *nam
   return 0;
 }
 
-static int parser_param_append_topic_conf(parser_param_t *param, const char *k, size_t kn, const char *v, size_t vn)
+static int conn_parser_param_append_topic_conf(conn_parser_param_t *param, const char *k, size_t kn, const char *v, size_t vn)
 {
   topic_cfg_t *cfg = &param->topic_cfg;
   return topic_cfg_append_kv(cfg, k, kn, v, vn);
 }
 
-int parser_parse(const char *input, size_t len, parser_param_t *param)
+int conn_parser_parse(const char *input, size_t len, conn_parser_param_t *param)
 {
   yyscan_t arg = {0};
   yylex_init(&arg);

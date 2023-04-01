@@ -44,8 +44,8 @@ typedef struct env_s                     env_t;
 typedef struct errs_s                    errs_t;
 
 typedef struct parser_token_s            parser_token_t;
-typedef struct parser_param_s            parser_param_t;
-typedef enum   parser_param_load_e       parser_param_load_t;
+typedef struct conn_parser_param_s       conn_parser_param_t;
+typedef enum   conn_parser_param_load_e  conn_parser_param_load_t;
 
 typedef struct primarykeys_args_s        primarykeys_args_t;
 typedef struct primarykeys_s             primarykeys_t;

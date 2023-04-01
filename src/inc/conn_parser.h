@@ -22,8 +22,8 @@
  * SOFTWARE.
  */
 
-#ifndef _parser_h_
-#define _parser_h_
+#ifndef _conn_parser_h_
+#define _conn_parser_h_
 
 // https://docs.microsoft.com/en-us/sql/odbc/reference/syntax/sqldriverconnect-function?view=sql-server-ver16
 
@@ -34,12 +34,12 @@
 
 EXTERN_C_BEGIN
 
-void parser_param_release(parser_param_t *param) FA_HIDDEN;
+void conn_parser_param_release(conn_parser_param_t *param) FA_HIDDEN;
 
-int parser_parse(const char *input, size_t len,
-    parser_param_t *param) FA_HIDDEN;
+int conn_parser_parse(const char *input, size_t len,
+    conn_parser_param_t *param) FA_HIDDEN;
 
 EXTERN_C_END
 
-#endif // _parser_h_
+#endif // _conn_parser_h_
 

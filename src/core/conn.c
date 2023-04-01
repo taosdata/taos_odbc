@@ -689,11 +689,11 @@ SQLRETURN conn_driver_connect(
     return SQL_ERROR;
   }
 
-  parser_param_t param = {0};
+  conn_parser_param_t param = {0};
   param.debug_flex  = env_get_debug_flex(conn->env);
   param.debug_bison = env_get_debug_bison(conn->env);
 
-  int r = parser_parse((const char*)InConnectionString, StringLength1, &param);
+  int r = conn_parser_parse((const char*)InConnectionString, StringLength1, &param);
 
   do {
     if (r) {
@@ -722,11 +722,11 @@ SQLRETURN conn_driver_connect(
 
     _conn_fill_out_connection_str(conn, OutConnectionString, BufferLength, StringLength2Ptr);
 
-    parser_param_release(&param);
+    conn_parser_param_release(&param);
     return SQL_SUCCESS;
   } while (0);
 
-  parser_param_release(&param);
+  conn_parser_param_release(&param);
   return SQL_ERROR;
 }
 

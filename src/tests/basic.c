@@ -47,7 +47,7 @@ static int test_parser(void)
 
   env_unref(env);
 
-  parser_param_t param = {0};
+  conn_parser_param_t param = {0};
   // param.debug_flex = 1;
   // param.debug_bison = 1;
 
@@ -85,14 +85,14 @@ static int test_parser(void)
   };
   for (size_t i=0; i<sizeof(connection_strs)/sizeof(connection_strs[0]); ++i) {
     const char *s = connection_strs[i];
-    int r = parser_parse(s, strlen(s), &param);
+    int r = conn_parser_parse(s, strlen(s), &param);
     if (r) {
       E("parsing:%s", s);
       E("location:(%d,%d)->(%d,%d)", param.row0, param.col0, param.row1, param.col1-1);
       E("failed:%s", param.err_msg);
     }
 
-    parser_param_release(&param);
+    conn_parser_param_release(&param);
     if (r) return -1;
   }
 

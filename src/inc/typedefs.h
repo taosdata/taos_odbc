@@ -33,6 +33,7 @@ typedef struct columns_s                 columns_t;
 
 typedef struct conn_cfg_s                conn_cfg_t;
 
+typedef struct conn_parser_param_s       conn_parser_param_t;
 typedef struct conn_s                    conn_t;
 
 typedef struct descriptor_s              descriptor_t;
@@ -43,9 +44,9 @@ typedef struct env_s                     env_t;
 
 typedef struct errs_s                    errs_t;
 
-typedef struct parser_token_s            parser_token_t;
-typedef struct conn_parser_param_s       conn_parser_param_t;
 typedef struct ext_parser_param_s        ext_parser_param_t;
+
+typedef struct parser_token_s            parser_token_t;
 
 typedef struct primarykeys_args_s        primarykeys_args_t;
 typedef struct primarykeys_s             primarykeys_t;
@@ -54,6 +55,9 @@ typedef struct stmt_s                    stmt_t;
 typedef struct stmt_get_data_args_s      stmt_get_data_args_t;
 
 typedef struct stmt_base_s               stmt_base_t;
+
+typedef struct sqls_cfg_s                sqls_cfg_t;
+typedef struct sqls_parser_param_s       sqls_parser_param_t;
 
 typedef struct tables_args_s             tables_args_t;
 typedef struct tables_s                  tables_t;

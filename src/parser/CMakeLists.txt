@@ -35,6 +35,9 @@ target_include_directories(conn_parser_obj PRIVATE
     ${INTERNAL_INC_PATH})
 set_property(TARGET conn_parser_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
 
+
+
+
 parser_gen(ext_parser)
 
 set(ext_parser_SOURCES
@@ -47,4 +50,20 @@ endif()
 target_include_directories(ext_parser_obj PRIVATE
     ${INTERNAL_INC_PATH})
 set_property(TARGET ext_parser_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
+
+
+
+
+parser_gen(sqls_parser)
+
+set(sqls_parser_SOURCES
+    sqls_parser_tab.c)
+
+add_library(sqls_parser_obj OBJECT ${sqls_parser_SOURCES})
+if(TODBC_WINDOWS)
+    add_dependencies(sqls_parser_obj ex_iconv)
+endif()
+target_include_directories(sqls_parser_obj PRIVATE
+    ${INTERNAL_INC_PATH})
+set_property(TARGET sqls_parser_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
 

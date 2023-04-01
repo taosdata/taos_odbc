@@ -22,31 +22,16 @@
  * SOFTWARE.
  */
 
-#ifndef _topic_h_
-#define _topic_h_
+#include "sqls_parser.h"
 
-#include "macros.h"
-#include "typedefs.h"
+#include "../core/internal.h"        // FIXME:
+#include "log.h"
 
-#include <taos.h>
+#include "sqls_parser.tab.h"
+#include "sqls_parser.lex.c"
 
-EXTERN_C_BEGIN
-
-void topic_cfg_release(topic_cfg_t *cfg) FA_HIDDEN;
-void topic_cfg_transfer(topic_cfg_t *from, topic_cfg_t *to) FA_HIDDEN;
-int topic_cfg_append_name(topic_cfg_t *cfg, const char *name, size_t len) FA_HIDDEN;
-int topic_cfg_append_kv(topic_cfg_t *cfg, const char *k, size_t kn, const char *v, size_t vn) FA_HIDDEN;
-
-void topic_reset(topic_t *topic) FA_HIDDEN;
-void topic_release(topic_t *topic) FA_HIDDEN;
-
-void topic_init(topic_t *topic, stmt_t *stmt) FA_HIDDEN;
-
-SQLRETURN topic_open(
-    topic_t       *topic,
-    topic_cfg_t   *cfg) FA_HIDDEN;
-
-EXTERN_C_END
-
-#endif //  _topic_h_
+#include "sqls_parser.lex.h"
+#undef yylloc
+#undef yylval
+#include "sqls_parser.tab.c"
 

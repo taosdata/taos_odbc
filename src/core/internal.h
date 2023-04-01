@@ -382,6 +382,12 @@ struct topic_cfg_s {
   kvs_t                  kvs;
 };
 
+struct sqls_cfg_s {
+  char                 **sqls;
+  size_t                 sqls_cap;
+  size_t                 sqls_nr;
+};
+
 struct conn_parser_param_s {
   conn_cfg_t             conn_cfg;
 
@@ -396,6 +402,18 @@ struct conn_parser_param_s {
 
 struct ext_parser_param_s {
   topic_cfg_t            topic_cfg;
+
+  int                    row0, col0;
+  int                    row1, col1;
+  char                   err_msg[1024];
+
+  unsigned int           debug_flex:1;
+  unsigned int           debug_bison:1;
+  unsigned int           oom:1;
+};
+
+struct sqls_parser_param_s {
+  sqls_cfg_t             sqls_cfg;
 
   int                    row0, col0;
   int                    row1, col1;
@@ -714,10 +732,8 @@ struct tls_s {
   charset_conv_mgr_t        *mgr;
 };
 
-void topic_cfg_release(topic_cfg_t *cfg) FA_HIDDEN;
-void topic_cfg_transfer(topic_cfg_t *from, topic_cfg_t *to) FA_HIDDEN;
-int topic_cfg_append_name(topic_cfg_t *cfg, const char *name, size_t len) FA_HIDDEN;
-int topic_cfg_append_kv(topic_cfg_t *cfg, const char *k, size_t kn, const char *v, size_t vn) FA_HIDDEN;
+void sqls_cfg_release(sqls_cfg_t *cfg) FA_HIDDEN;
+void sqls_cfg_transfer(sqls_cfg_t *from, sqls_cfg_t *to) FA_HIDDEN;
 
 EXTERN_C_END
 

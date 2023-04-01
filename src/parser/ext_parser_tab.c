@@ -25,7 +25,7 @@
 #include "ext_parser.h"
 
 #include "../core/internal.h"        // FIXME:
-#include "conn.h"
+#include "topic.h"
 #include "log.h"
 
 #include "ext_parser.tab.h"

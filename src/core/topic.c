@@ -91,7 +91,10 @@ static void _topic_reset_res(topic_t *topic)
 static void _topic_reset_tmq(topic_t *topic)
 {
   if (!topic->tmq) return;
-  CALL_tmq_unsubscribe(topic->tmq);
+  if (topic->subscribed) {
+    CALL_tmq_unsubscribe(topic->tmq);
+    topic->subscribed = 0;
+  }
   CALL_tmq_consumer_close(topic->tmq);
   topic->tmq = NULL;
 }
@@ -553,6 +556,7 @@ static SQLRETURN _topic_open(
   }
 
   r = CALL_tmq_subscribe(topic->tmq, topicList);
+  topic->subscribed = (r == 0);
 
   if (r) {
     stmt_append_err_format(topic->owner, "HY000", 0, "General error:[taosc]:tmq_subscribe failed:[%d/0x%x]%s",

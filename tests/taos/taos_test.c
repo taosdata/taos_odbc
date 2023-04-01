@@ -2173,18 +2173,21 @@ static int conformance_mq_run(void)
     return -1;
   }
 
-  r = tmq_subscribe(tmq, topic_list);
+  int subscribed = 0;
+  r = CALL_tmq_subscribe(tmq, topic_list);
   if (r) {
     fprintf(stderr, "%% Failed to tmq_subscribe(): %s\n", tmq_err2str(r));
+  } else {
+    subscribed = 1;
   }
-  tmq_list_destroy(topic_list);
+  CALL_tmq_list_destroy(topic_list);
 
   if (r == 0) {
     basic_consume_loop(tmq);
   }
 
-  tmq_unsubscribe(tmq);
-  int rr = tmq_consumer_close(tmq);
+  if (subscribed) CALL_tmq_unsubscribe(tmq);
+  int rr = CALL_tmq_consumer_close(tmq);
   if (rr) {
     fprintf(stderr, "%% Failed to close consumer: %s\n", tmq_err2str(rr));
     r = rr;

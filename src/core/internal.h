@@ -542,6 +542,8 @@ struct topic_s {
   size_t                     fields_nr;
 
   TAOS_ROW                   row;
+
+  uint8_t                    subscribed:1;
 };
 
 struct tables_args_s {

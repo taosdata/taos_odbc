@@ -81,98 +81,63 @@ do {                                              \
 %option never-interactive
 %option nounistd
 
-%x EQ
-%x CURLY
-%x SERVER
-%x SERVER_EQ
-%x FQDN
-%x COLON
+%x TAOS_ODBC_EXT
+%x TAOS_ODBC_EXT_TOPIC
+%x TAOS_ODBC_EXT_TOPIC_LP
+%x TAOS_ODBC_EXT_TOPIC_EQ
 
 SP            [ \t]
 LN            "\r\n"|"\n\r"|[\f\r\n]
-DSN           (?i:dsn)
-UID           (?i:uid)
-PWD           (?i:pwd)
-DB            (?i:db)
-DRIVER        (?i:driver)
-SERVER        (?i:server)
-UNSIGNED_PROMOTION          (?i:unsigned_promotion)
-TIMESTAMP_AS_IS             (?i:timestamp_as_is)
-FQDN          [-[:alnum:]]+((\.[-[:alnum:]]+)+)*(\.)?
-ID            [^\[\]{}(),;?*=!@[:space:]]+
-VALUE         [^\[\]{}(),;?*=!@[:space:]]+
-VALUEX        [^{}[:space:]][^{}]*[^{}[:space:]]
+
+
+LP            [{]
+RP            [}]
+TOPIC         (?i:topic)
+TNAME         [_[:alpha:]][_[:alnum:]]*
+TKEY          [_[:alpha:]][_.[:alnum:]]*
+TVAL          [-_.\[\](),?*!@[:alnum:]]+
 
 DIGITS        [[:digit:]]+
 %%
 
 <<EOF>> { if (0) { int state; TOP_STATE(state); if (state != INITIAL) return -1; }
           yyterminate(); }
-{DSN}         { R(); C(); return MKT(DSN); }
-{UID}         { R(); C(); return MKT(UID); }
-{PWD}         { R(); C(); return MKT(PWD); }
-{DB}          { R(); C(); return MKT(DB); }
-{DRIVER}      { R(); C(); return MKT(DRIVER); }
-{SERVER}      { R(); PUSH(SERVER); C(); return MKT(SERVER); }
-{UNSIGNED_PROMOTION}        { R(); C(); return MKT(UNSIGNED_PROMOTION); }
-{TIMESTAMP_AS_IS}           { R(); C(); return MKT(TIMESTAMP_AS_IS); }
+"!"           { R(); PUSH(TAOS_ODBC_EXT); C(); return *yytext; }
 {DIGITS}      { R(); SET_STR(); C(); return MKT(DIGITS); }
-{ID}          { R(); SET_STR(); C(); return MKT(ID); }
-"="           { R(); PUSH(EQ); C(); return *yytext; }
-"{"           { R(); PUSH(CURLY); C(); return *yytext; }       /* "}" */
 {SP}          { R(); C(); } /* eat */
 {LN}          { R(); L(); } /* eat */
 .             { R(); C(); return *yytext; } /* let bison to handle */
 
-<SERVER>{
-"="       { R(); CHG(SERVER_EQ); C(); return *yytext; }
-{SP}      { R(); C(); } /* eat */
-{LN}      { R(); L(); } /* eat */
-";"       { R(); POP(); C(); return *yytext; }
-.         { R(); C(); return *yytext; } /* let bison to handle */
+<TAOS_ODBC_EXT>{
+{TOPIC}       { R(); CHG(TAOS_ODBC_EXT_TOPIC); C(); return MKT(TOPIC); }
+{SP}          { R(); C(); } /* eat */
+{LN}          { R(); L(); } /* eat */
+.             { R(); C(); return *yytext; } /* let bison to handle */
 }
 
-<SERVER_EQ>{
-{SP}      { R(); C(); } /* eat */
-{LN}      { R(); L(); } /* eat */
-{FQDN}    { R(); SET_STR(); CHG(FQDN); C(); return MKT(FQDN); }
-";"       { R(); POP(); C(); return *yytext; }
-.         { R(); C(); return *yytext; } /* let bison to handle */
+<TAOS_ODBC_EXT_TOPIC>{
+{TNAME}       { R(); SET_STR(); C(); return MKT(TNAME); }
+{LP}          { R(); PUSH(TAOS_ODBC_EXT_TOPIC_LP); C(); return *yytext; }
+{SP}          { R(); C(); } /* eat */
+{LN}          { R(); L(); } /* eat */
+.             { R(); C(); return *yytext; } /* let bison to handle */
 }
 
-<FQDN>{
-":"       { R(); CHG(COLON); C(); return ':'; }
-";"       { R(); POP(); C(); return ';'; }
-{SP}      { R(); POP(); C(); }
-{LN}      { R(); POP(); L(); }
-.         { R(); C(); return *yytext; } /* let bison to handle */
+<TAOS_ODBC_EXT_TOPIC_LP>{
+{RP}          { R(); POP(); C(); return *yytext; }
+{TKEY}        { R(); SET_STR(); C(); return MKT(TKEY); }
+"="           { R(); PUSH(TAOS_ODBC_EXT_TOPIC_EQ); C(); return *yytext; }
+{SP}          { R(); C(); } /* eat */
+{LN}          { R(); L(); } /* eat */
+.             { R(); C(); return *yytext; } /* let bison to handle */
 }
 
-<COLON>{
-{DIGITS}  { R(); POP(); SET_STR(); C(); return MKT(DIGITS); }
-";"       { R(); POP(); C(); return ';'; }
-{SP}      { R(); POP(); C(); }
-{LN}      { R(); POP(); L(); }
-.         { R(); C(); return *yytext; } /* let bison to handle */
-}
-
-<EQ>{
-{SP}      { R(); C(); } /* eat */
-{LN}      { R(); L(); } /* eat */
-"{"       { R(); CHG(CURLY); C(); return *yytext; }       /* "}" */
-{DIGITS}  { R(); POP(); SET_STR(); C(); return MKT(DIGITS); }
-{VALUE}   { R(); POP(); SET_STR(); C(); return MKT(VALUE); }
-";"       { R(); POP(); C(); return *yytext; }
-.         { R(); C(); return *yytext; } /* let bison to handle */
-}
-
-<CURLY>{
-{SP}      { R(); C(); } /* eat */
-{LN}      { R(); L(); } /* eat */
-  /* "{" */
-"}"       { R(); POP(); C(); return *yytext; }
-{VALUEX}  { R(); SET_STR(); C(); return MKT(VALUE); }
-.         { R(); C(); return *yytext; } /* let bison to handle */
+<TAOS_ODBC_EXT_TOPIC_EQ>{
+{TVAL}        { R(); SET_STR(); POP(); C(); return MKT(TVAL); }
+{DIGITS}      { R(); SET_STR(); POP(); C(); return MKT(TVAL); }
+{SP}          { R(); C(); } /* eat */
+{LN}          { R(); L(); } /* eat */
+.             { R(); C(); return *yytext; } /* let bison to handle */
 }
 
 %%

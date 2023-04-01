@@ -30,6 +30,7 @@
 #include "helpers.h"
 #include "logger.h"
 #include "conn_parser.h"
+#include "ext_parser.h"
 #include "tls.h"
 #include "utils.h"
 
@@ -38,7 +39,7 @@
 
 #define DUMP(fmt, ...)          printf(fmt "\n", ##__VA_ARGS__)
 
-static int test_parser(void)
+static int test_conn_parser(void)
 {
   env_t *env = env_create();
 
@@ -65,6 +66,37 @@ static int test_parser(void)
     "Driver={MySQL ODBC 3.51 driver};server=lm.test;database=lmdb;uid=mysqluser;pwd=pass;",
     "Driver={MySQL ODBC 3.51 driver};server=lmtest:378;database=lmdb;uid=mysqluser;pwd=pass;",
     "Driver={MySQL ODBC 3.51 driver};server=lmtest:378378378378;database=lmdb;uid=mysqluser;pwd=pass;",
+  };
+  for (size_t i=0; i<sizeof(connection_strs)/sizeof(connection_strs[0]); ++i) {
+    const char *s = connection_strs[i];
+    int r = conn_parser_parse(s, strlen(s), &param);
+    if (r) {
+      E("parsing:%s", s);
+      E("location:(%d,%d)->(%d,%d)", param.row0, param.col0, param.row1, param.col1-1);
+      E("failed:%s", param.err_msg);
+    }
+
+    conn_parser_param_release(&param);
+    if (r) return -1;
+  }
+
+  return 0;
+}
+
+static int test_ext_parser(void)
+{
+  env_t *env = env_create();
+
+  conn_t *conn = conn_create(env);
+  conn_unref(conn);
+
+  env_unref(env);
+
+  ext_parser_param_t param = {0};
+  // param.debug_flex = 1;
+  // param.debug_bison = 1;
+
+  const char *text[] = {
     // !topic
     "!topic demo",
     "!topic demo {}",
@@ -83,16 +115,16 @@ static int test_parser(void)
     " experimental.snapshot.enable=false"
     "}",
   };
-  for (size_t i=0; i<sizeof(connection_strs)/sizeof(connection_strs[0]); ++i) {
-    const char *s = connection_strs[i];
-    int r = conn_parser_parse(s, strlen(s), &param);
+  for (size_t i=0; i<sizeof(text)/sizeof(text[0]); ++i) {
+    const char *s = text[i];
+    int r = ext_parser_parse(s, strlen(s), &param);
     if (r) {
       E("parsing:%s", s);
       E("location:(%d,%d)->(%d,%d)", param.row0, param.col0, param.row1, param.col1-1);
       E("failed:%s", param.err_msg);
     }
 
-    conn_parser_param_release(&param);
+    ext_parser_param_release(&param);
     if (r) return -1;
   }
 
@@ -338,7 +370,8 @@ static struct {
   test_case_f           func;
   const char           *name;
 } _cases[] = {
-  RECORD(test_parser),
+  RECORD(test_conn_parser),
+  RECORD(test_ext_parser),
   RECORD(test_wildmatch),
   RECORD(test_basename_dirname),
   RECORD(test_pthread_once),

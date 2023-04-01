@@ -57,33 +57,6 @@
         const char *errsg
     );
 
-    static int conn_parser_param_append_topic_name(conn_parser_param_t *param, const char *name, size_t len);
-    static int conn_parser_param_append_topic_conf(conn_parser_param_t *param, const char *k, size_t kn, const char *v, size_t vn);
-
-    #define SET_TOPIC(_v, _loc) do {                                                            \
-      if (!param) break;                                                                        \
-      if (conn_parser_param_append_topic_name(param, _v.text, _v.leng)) {                               \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
-      }                                                                                         \
-    } while (0)
-
-    #define SET_TOPIC_KEY(_k, _loc) do {                                                        \
-      if (!param) break;                                                                        \
-      if (conn_parser_param_append_topic_conf(param, _k.text, _k.leng, NULL, 0)) {                   \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
-      }                                                                                         \
-    } while (0)
-
-    #define SET_TOPIC_KEY_VAL(_k, _v, _loc) do {                                                \
-      if (!param) break;                                                                        \
-      if (conn_parser_param_append_topic_conf(param, _k.text, _k.leng, _v.text, _v.leng)) {          \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
-      }                                                                                         \
-    } while (0)
-
     #define SET_DSN(_v, _loc) do {                                                              \
       if (!param) break;                                                                        \
       TOD_SAFE_FREE(param->conn_cfg.dsn);                                                       \
@@ -168,10 +141,8 @@
     {
       if (!param) return;
       conn_cfg_release(&param->conn_cfg);
-      topic_cfg_release(&param->topic_cfg);
       param->err_msg[0] = '\0';
       param->row0 = 0;
-      param->load_type = PARAM_LOAD_UNKNOWN;
     }
 }
 
@@ -206,29 +177,7 @@
 
 input:
   %empty
-| connect_str               { param->load_type = PARAM_LOAD_CONN_STR; }
-| topic                     { param->load_type = PARAM_LOAD_TOPIC_CFG; }
-;
-
-topic:
-  '!' TOPIC names
-| '!' TOPIC names '{' '}'
-| '!' TOPIC names '{' tconfs '}'
-;
-
-names:
-  TNAME                     { SET_TOPIC($1, @$); }
-| names TNAME               { SET_TOPIC($2, @$); }
-;
-
-tconfs:
-  tconf
-| tconfs tconf
-;
-
-tconf:
-  TKEY                           { SET_TOPIC_KEY($1, @$); }
-| TKEY '=' TVAL                  { SET_TOPIC_KEY_VAL($1, $3, @$); }
+| connect_str
 ;
 
 connect_str:
@@ -309,28 +258,6 @@ static void yyerror(
 )
 {
   _yyerror_impl(yylloc, arg, param, errmsg);
-}
-
-static int conn_parser_param_append_topic_name(conn_parser_param_t *param, const char *name, size_t len)
-{
-  topic_cfg_t *cfg = &param->topic_cfg;
-  if (cfg->names_nr == cfg->names_cap) {
-    size_t cap = cfg->names_cap + 16;
-    char **names = (char**)realloc(cfg->names, sizeof(*names) * cap);
-    if (!names) return -1;
-    cfg->names = names;
-    cfg->names_cap = cap;
-  }
-  cfg->names[cfg->names_nr] = strndup(name, len);
-  if (!cfg->names[cfg->names_nr]) return -1;
-  cfg->names_nr += 1;
-  return 0;
-}
-
-static int conn_parser_param_append_topic_conf(conn_parser_param_t *param, const char *k, size_t kn, const char *v, size_t vn)
-{
-  topic_cfg_t *cfg = &param->topic_cfg;
-  return topic_cfg_append_kv(cfg, k, kn, v, vn);
 }
 
 int conn_parser_parse(const char *input, size_t len, conn_parser_param_t *param)

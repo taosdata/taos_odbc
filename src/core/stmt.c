@@ -32,6 +32,7 @@
 #include "log.h"
 #include "conn_parser.h"
 #include "ext_parser.h"
+#include "sqls_parser.h"
 #include "primarykeys.h"
 #include "stmt.h"
 #include "tables.h"
@@ -394,6 +395,7 @@ static void _stmt_release(stmt_t *stmt)
 
   _stmt_release_descriptors(stmt);
 
+  mem_release(&stmt->raw);
   mem_release(&stmt->sql);
 
   errs_release(&stmt->errs);
@@ -4260,6 +4262,46 @@ static SQLRETURN _stmt_execute(stmt_t *stmt)
   return stmt->base->execute(stmt->base);
 }
 
+// static SQLRETURN _stmt_preprocess(stmt_t *stmt, const char *sqls)
+// {
+//   const char *start, *end;
+//   trim_left(sqls, -1, &start);
+//   if (start[0] == '!') {
+//     ext_parser_param_t param = {0};
+//     // param.ctx.debug_flex = 1;
+//     // param.ctx.debug_bison = 1;
+//     size_t nr = strlen(start);
+//     int r = ext_parser_parse(start, nr, &param);
+//     if (r) {
+//       stmt_append_err_format(stmt, "HY000", 0, "General error:parsing:%.*s", (int)nr, start);
+//       stmt_append_err_format(stmt, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+//       stmt_append_err_format(stmt, "HY000", 0, "General error:failed:%.*s", (int)strlen(param.ctx.err_msg), param.ctx.err_msg);
+//       stmt_append_err(stmt, "HY000", 0, "General error:taos_odbc_extended syntax for `topic`:!topic [<name>]+ [{[<key[=<val>]>]*}]?");
+//
+//       ext_parser_param_release(&param);
+//       return SQL_ERROR;
+//     }
+//     ext_parser_param_release(&param);
+//     return SQL_SUCCESS;
+//   } else {
+//     sqls_parser_param_t param = {0};
+//     // param.ctx.debug_flex = 1;
+//     // param.ctx.debug_bison = 1;
+//     size_t nr = strlen(sqls);
+//     int r = sqls_parser_parse(start, nr, &param);
+//     if (r) {
+//       stmt_append_err_format(stmt, "HY000", 0, "General error:parsing:%.*s", (int)(end-start), start);
+//       stmt_append_err_format(stmt, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+//       stmt_append_err_format(stmt, "HY000", 0, "General error:failed:%.*s", (int)strlen(param.ctx.err_msg), param.ctx.err_msg);
+//
+//       sqls_parser_param_release(&param);
+//       return SQL_ERROR;
+//     }
+//     sqls_parser_param_release(&param);
+//     return SQL_SUCCESS;
+//   }
+// }
+
 static SQLRETURN _stmt_query(stmt_t *stmt, const char *sql)
 {
   return stmt->base->query(stmt->base, sql);
@@ -4566,6 +4608,7 @@ SQLRETURN stmt_tables(stmt_t *stmt,
 
   _stmt_close_result(stmt);
   _stmt_reset_params(stmt);
+  mem_reset(&stmt->raw);
   mem_reset(&stmt->sql);
 
   sr = tables_open(&stmt->tables, CatalogName, NameLength1, SchemaName, NameLength2, TableName, NameLength3, TableType, NameLength4);
@@ -4707,6 +4750,7 @@ SQLRETURN stmt_columns(
 
   _stmt_close_result(stmt);
   _stmt_reset_params(stmt);
+  mem_reset(&stmt->raw);
   mem_reset(&stmt->sql);
 
   if (CatalogName && NameLength1 == SQL_NTS) NameLength1 = (SQLSMALLINT)strlen((const char*)CatalogName);
@@ -4873,6 +4917,7 @@ SQLRETURN stmt_primary_keys(
 
   _stmt_close_result(stmt);
   _stmt_reset_params(stmt);
+  mem_reset(&stmt->raw);
   mem_reset(&stmt->sql);
 
   if (CatalogName && NameLength1 == SQL_NTS) NameLength1 = (SQLSMALLINT)strlen((const char*)CatalogName);

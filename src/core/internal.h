@@ -702,6 +702,8 @@ struct stmt_s {
 
   get_data_ctx_t             get_data_ctx;
 
+  mem_t                      raw;
+
   mem_t                      sql;
 
   tsdb_paramset_t            paramset;

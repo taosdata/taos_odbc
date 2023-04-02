@@ -365,6 +365,78 @@ static int test_iconv(void)
   return r ? -1 : 0;
 }
 
+
+static int _test_iconv_perf_gen_iconv(iconv_t *cnv)
+{
+  const char *tocode = "GB18030";
+  const char *fromcode = "UTF-8";
+
+  *cnv = iconv_open(tocode, fromcode);
+  if (!*cnv) {
+    int e = errno;
+    E("iconv_open(tocode:%s, fromcode:%s) failed:[%d]%s", tocode, fromcode, e, strerror(e));
+    return -1;
+  }
+
+  return 0;
+}
+
+static int _test_iconv_perf(iconv_t cnv)
+{
+  int r = 0;
+
+  const char src[] = "hello";
+  char buf[4096];
+
+  for (size_t i=0; i<1024*16; ++i) {
+    char          *inbuf                = (char*)src;
+    size_t         inbytesleft          = sizeof(src);
+    char          *outbuf               = buf;
+    size_t         outbytesleft         = sizeof(buf);
+
+    if (cnv == NULL) {
+      iconv_t cv;
+      r = _test_iconv_perf_gen_iconv(&cv);
+      if (r) return -1;
+
+      r = iconv(cv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+
+      iconv_close(cv);
+    } else {
+      r = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+    }
+
+    if (r) return -1;
+  }
+
+  return 0;
+}
+
+static int test_iconv_perf_reuse(void)
+{
+  int r = 0;
+
+  iconv_t cnv;
+  r = _test_iconv_perf_gen_iconv(&cnv);
+  if (r) return -1;
+
+  r = _test_iconv_perf(cnv);
+
+  iconv_close(cnv);
+
+  return r;
+}
+
+static int test_iconv_perf_on_the_fly(void)
+{
+  int r = 0;
+
+  iconv_t cnv = NULL;
+
+  r = _test_iconv_perf(cnv);
+
+  return r;
+}
 static int get_int(void)
 {
   static int tick = 0;
@@ -444,6 +516,8 @@ static struct {
   RECORD(test_basename_dirname),
   RECORD(test_pthread_once),
   RECORD(test_iconv),
+  RECORD(test_iconv_perf_reuse),
+  RECORD(test_iconv_perf_on_the_fly),
   RECORD(test_buffer),
   RECORD(test_trim),
 };

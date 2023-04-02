@@ -384,6 +384,7 @@ static int _test_iconv_perf_gen_iconv(iconv_t *cnv)
 static int _test_iconv_perf(iconv_t cnv)
 {
   int r = 0;
+  size_t n = 0;
 
   const char src[] = "hello";
   char buf[4096];
@@ -399,11 +400,13 @@ static int _test_iconv_perf(iconv_t cnv)
       r = _test_iconv_perf_gen_iconv(&cv);
       if (r) return -1;
 
-      r = iconv(cv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+      n = iconv(cv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+      if (n == (size_t)-1) r = -1;
 
       iconv_close(cv);
     } else {
-      r = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+      n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+      if (n == (size_t)-1) r = -1;
     }
 
     if (r) return -1;

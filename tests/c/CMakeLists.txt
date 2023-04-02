@@ -159,3 +159,26 @@ if(ENABLE_SQLITE3_TEST)
         COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/sqlite3_test)
   endif()
 endif()
+
+add_executable(test_threads
+    $<TARGET_OBJECTS:common_obj>
+    $<TARGET_OBJECTS:os_port_obj>
+    test_threads.c)
+add_dependencies(test_threads ex_cjson)
+
+target_include_directories(test_threads PRIVATE ${CJSON_INSTALL_PATH}/include)
+target_link_directories(test_threads PRIVATE ${CJSON_INSTALL_PATH}/lib)
+if(NOT TODBC_WINDOWS)
+    target_link_libraries(test_threads odbc cjson pthread)
+else()
+    set_source_files_properties(test_threads.c PROPERTIES COMPILE_OPTIONS "/source-charset:utf-8")
+    target_link_libraries(test_threads odbc32 cjson)
+endif()
+
+add_test(NAME test_threads
+    COMMAND test_threads)
+
+if(HAVE_VALGRIND)
+  add_test(NAME Vtest_threads
+      COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/test_threads)
+endif()

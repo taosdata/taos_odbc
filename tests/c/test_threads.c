@@ -47,7 +47,7 @@ static int execute_sqls(SQLHANDLE hstmt, const char **sqls, size_t nr)
 
 static int _test_threads(SQLSMALLINT HandleType, SQLHANDLE Handle)
 {
-  SQLRETURN sr = SQL_SUCCESS;
+  // SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
   if (HandleType != SQL_HANDLE_STMT) return 0;
 
@@ -244,9 +244,9 @@ static int _run_with_arg_in_thread(const arg_t *arg)
 static DWORD _routine_win(LPVOID ctx)
 {
   int r = 0;
-  const arg_t *arg = (const arg_t*)ctx;
-  r = _run_with_arg_in_thread(arg);
-  return r;
+  r = _run_with_arg_in_thread((const arg_t*)arg);
+  if (r) return -1;
+  return 0;
 }
 
 static int _run_with_arg(const arg_t *arg)
@@ -282,6 +282,49 @@ again:
       if (exitCodes[i]) r = -1;
     }
     CloseHandle(hThreads[i]);
+  }
+
+  if (r) return r;
+
+  goto again;
+}
+#else                        /* }{ */
+#include <pthread.h>
+static void* _start_routine(void *arg)
+{
+  int r = 0;
+  r = _run_with_arg_in_thread((const arg_t*)arg);
+  if (r) return (void*)-1;
+  return 0;
+}
+
+static int _run_with_arg(const arg_t *arg)
+{
+  pthread_t threads[16]     = {0};
+
+  int r = 0;
+  size_t i = 0;
+  size_t nr = 0;
+
+again:
+  r = 0;
+  i = 0;
+  nr = 0;
+
+  for (i=0; i<16; ++i) {
+    r = pthread_create(threads + i, NULL, _start_routine, (void*)arg);
+    if (r) {
+      E("pthread_create failed");
+      r = -1;
+      break;
+    }
+    ++nr;
+  }
+
+  for (size_t i=0; i<nr; ++i) {
+    void *p = NULL;
+    pthread_join(threads[i], &p);
+    if (p) r = -1;
   }
 
   if (r) return r;

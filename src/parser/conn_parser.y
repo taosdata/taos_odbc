@@ -141,8 +141,8 @@
     {
       if (!param) return;
       conn_cfg_release(&param->conn_cfg);
-      param->err_msg[0] = '\0';
-      param->row0 = 0;
+      param->ctx.err_msg[0] = '\0';
+      param->ctx.row0 = 0;
     }
 }
 
@@ -235,18 +235,18 @@ static void _yyerror_impl(
   if (!param) {
     fprintf(stderr, "(%d,%d)->(%d,%d):%s\n",
         yylloc->first_line, yylloc->first_column,
-        yylloc->last_line, yylloc->last_column - 1,
+        yylloc->last_line, yylloc->last_column,
         errmsg);
 
     return;
   }
 
-  param->row0 = yylloc->first_line;
-  param->col0 = yylloc->first_column;
-  param->row1 = yylloc->last_line;
-  param->col1 = yylloc->last_column;
-  param->err_msg[0] = '\0';
-  snprintf(param->err_msg, sizeof(param->err_msg), "%s", errmsg);
+  param->ctx.row0 = yylloc->first_line;
+  param->ctx.col0 = yylloc->first_column;
+  param->ctx.row1 = yylloc->last_line;
+  param->ctx.col1 = yylloc->last_column;
+  param->ctx.err_msg[0] = '\0';
+  snprintf(param->ctx.err_msg, sizeof(param->ctx.err_msg), "%s", errmsg);
 }
 
 /* Called by yyparse on error. */
@@ -265,8 +265,8 @@ int conn_parser_parse(const char *input, size_t len, conn_parser_param_t *param)
   yyscan_t arg = {0};
   yylex_init(&arg);
   // yyset_in(in, arg);
-  int debug_flex = param ? param->debug_flex : 0;
-  int debug_bison = param ? param->debug_bison: 0;
+  int debug_flex = param ? param->ctx.debug_flex : 0;
+  int debug_bison = param ? param->ctx.debug_bison: 0;
   yyset_debug(debug_flex, arg);
   yydebug = debug_bison;
   // yyset_extra(param, arg);

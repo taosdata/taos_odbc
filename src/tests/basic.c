@@ -31,6 +31,7 @@
 #include "logger.h"
 #include "conn_parser.h"
 #include "ext_parser.h"
+#include "sqls_parser.h"
 #include "tls.h"
 #include "utils.h"
 
@@ -41,16 +42,9 @@
 
 static int test_conn_parser(void)
 {
-  env_t *env = env_create();
-
-  conn_t *conn = conn_create(env);
-  conn_unref(conn);
-
-  env_unref(env);
-
   conn_parser_param_t param = {0};
-  // param.debug_flex = 1;
-  // param.debug_bison = 1;
+  // param.ctx.debug_flex = 1;
+  // param.ctx.debug_bison = 1;
 
   const char *connection_strs[] = {
     " driver = {    ax bcd ; ;   }; dsn=server; uid=xxx; pwd=yyy",
@@ -72,8 +66,8 @@ static int test_conn_parser(void)
     int r = conn_parser_parse(s, strlen(s), &param);
     if (r) {
       E("parsing:%s", s);
-      E("location:(%d,%d)->(%d,%d)", param.row0, param.col0, param.row1, param.col1-1);
-      E("failed:%s", param.err_msg);
+      E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+      E("failed:%s", param.ctx.err_msg);
     }
 
     conn_parser_param_release(&param);
@@ -85,16 +79,9 @@ static int test_conn_parser(void)
 
 static int test_ext_parser(void)
 {
-  env_t *env = env_create();
-
-  conn_t *conn = conn_create(env);
-  conn_unref(conn);
-
-  env_unref(env);
-
   ext_parser_param_t param = {0};
-  // param.debug_flex = 1;
-  // param.debug_bison = 1;
+  // param.ctx.debug_flex = 1;
+  // param.ctx.debug_bison = 1;
 
   const char *text[] = {
     // !topic
@@ -120,11 +107,54 @@ static int test_ext_parser(void)
     int r = ext_parser_parse(s, strlen(s), &param);
     if (r) {
       E("parsing:%s", s);
-      E("location:(%d,%d)->(%d,%d)", param.row0, param.col0, param.row1, param.col1-1);
-      E("failed:%s", param.err_msg);
+      E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+      E("failed:%s", param.ctx.err_msg);
     }
 
     ext_parser_param_release(&param);
+    if (r) return -1;
+  }
+
+  return 0;
+}
+
+static void _sql_found(int row0, int col0, int row1, int col1, void *arg)
+{
+  const char *s = (const char*)arg;
+  const char *start = s, *end = s;
+  locate_str(s, row0, col0, row1, col1, &start, &end);
+  DUMP("==found:[%d]\n%.*s", (int)(end - start), (int)(end - start), start);
+}
+
+static int test_sqls_parser(void)
+{
+  const char *sqls[] = {
+    "insert into t (ts, name)",
+    "insert into t (ts, name) values (now(), value)",
+    "select * from a;select * from b;insert into t (ts, name) values (now(), \"hello\")",
+    "select * from a;select * from b;insert into t (ts, name) values (now(), \"世界\")",
+    "    select * from a   ;   select * from b     ;     insert into t (ts, name) values (now(), \"世界\")      ",
+    "select 34 as `abc`",
+    "    select * \r\n from a  \r\n ;  select * \nfrom b     ;     insert into \nt (ts, \nname) values (now(), \"世界\")  ;;;;;;    ",
+    "    select * from \f a  ;   select * from b     ;  \r   insert \rinto t (ts, name) values (now(), \"世界\")      ",
+  };
+  for (size_t i=0; i<sizeof(sqls)/sizeof(sqls[0]); ++i) {
+    const char *s = sqls[i];
+
+    sqls_parser_param_t param = {0};
+    // param.ctx.debug_flex = 1;
+    // param.ctx.debug_bison = 1;
+    param.sql_found = _sql_found;
+    param.arg       = (void*)s;
+
+    DUMP("parsing:%s ...", s);
+    int r = sqls_parser_parse(s, strlen(s), &param);
+    if (r) {
+      E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+      E("failed:%s", param.ctx.err_msg);
+    }
+
+    sqls_parser_param_release(&param);
     if (r) return -1;
   }
 
@@ -362,6 +392,43 @@ static int test_buffer(void)
   return r ? -1 : 0;
 }
 
+static int test_trim(void)
+{
+  struct {
+    const char *src;
+    const char *chk;
+  } _cases[] = {
+    {"", ""},
+    {" ", ""},
+    {"  ", ""},
+    {"abc", "abc"},
+    {" abc", "abc"},
+    {"  abc", "abc"},
+    {"abc ", "abc"},
+    {"abc  ", "abc"},
+    {" abc", "abc"},
+    {" abc ", "abc"},
+    {" abc  ", "abc"},
+    {"  abc", "abc"},
+    {"  abc ", "abc"},
+    {"  abc  ", "abc"},
+    {"a\0b", "a"},
+  };
+
+  for (size_t i=0; i<sizeof(_cases)/sizeof(_cases[0]); ++i) {
+    const char *start, *end;
+    const char *src = _cases[i].src;
+    const char *chk = _cases[i].chk;
+    trim_string(src, -1, &start, &end);
+    size_t nr = end - start;
+    if (strncmp(chk, start, nr) == 0 && chk[nr] == '\0') continue;
+    DUMP("case[%zd]:expecting `%s`, but got ==%.*s==", i+1, chk, (int)nr, start);
+    return -1;
+  }
+
+  return 0;
+}
+
 typedef int (*test_case_f)(void);
 
 #define RECORD(x) {x, #x}
@@ -372,11 +439,13 @@ static struct {
 } _cases[] = {
   RECORD(test_conn_parser),
   RECORD(test_ext_parser),
+  RECORD(test_sqls_parser),
   RECORD(test_wildmatch),
   RECORD(test_basename_dirname),
   RECORD(test_pthread_once),
   RECORD(test_iconv),
   RECORD(test_buffer),
+  RECORD(test_trim),
 };
 
 static void usage(const char *arg0)

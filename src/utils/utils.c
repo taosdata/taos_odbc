@@ -870,25 +870,61 @@ int str_concat(str_t *str, const char *charset, const char *src, size_t len)
   return r;
 }
 
-void trim_string(const char *src, size_t nr, const char **start, const char **end)
+static void _trim_left(const char *src, size_t nr, const char **first)
 {
-  if (nr == 0) {
-    *start = src;
-    *end = src;
+  *first = src + nr;
+  if (nr == 0) return;
+
+  const char *end = src + nr;
+  const char *p = src;
+  while (isspace(*p)) ++p;
+  *first = p;
+  if (p == end) *first = src + nr;
+}
+
+static void _trim_right(const char *src, size_t nr, const char **last)
+{
+  *last = src + nr;
+  if (nr == 0) return;
+
+  const char *p = src + nr;
+  while (p > src) {
+    if (isspace(*--p)) continue;
+    *last = p + 1;
     return;
   }
 
-  const char *P = src + nr;
-  const char *p = src;
-  while (p < P && isspace(*p)) ++p;
-  *start = p;
-  if (p == P) {
-    *end = p;
-    return;
-  }
-  p = P - 1;
-  while (p > *start && isspace(*p)) --p;
-  *end = p + 1;
+  if (isspace(*src)) return;
+  *last = src + 1;
+}
+
+void trim_left(const char *src, size_t nr, const char **first)
+{
+  if (nr == (size_t)-1) nr = strlen(src);
+  else                  nr = strnlen(src, nr);
+
+  _trim_left(src, nr, first);
+}
+
+void trim_right(const char *src, size_t nr, const char **last)
+{
+  if (nr == (size_t)-1) nr = strlen(src);
+  else                  nr = strnlen(src, nr);
+
+  _trim_right(src, nr, last);
+}
+
+void trim_string(const char *src, size_t nr, const char **start, const char **end)
+{
+  if (nr == (size_t)-1) nr = strlen(src);
+  else                  nr = strnlen(src, nr);
+
+  *start = src + nr;
+  *end   = src + nr;
+
+  _trim_left(src, nr, start);
+  if (!*start) return;
+  _trim_right(*start, src + nr - *start, end);
 }
 
 void trim_spaces(const char *src, size_t len, char *dst, size_t n)
@@ -991,6 +1027,53 @@ int kvs_append(kvs_t *kvs, const char *k, size_t kn, const char *v, size_t vn)
   kvs->nr += 1;
 
   return 0;
+}
+
+void locate_str(const char *src, int row0, int col0, int row1, int col1, const char **start, const char **end)
+{
+  const char *s = src;
+  for (int i=1; i<row0; ++i) {
+    while (*s) {
+      if (*s == '\r') {
+        ++s;
+        if (*s == '\n') ++s;
+        break;
+      }
+      if (*s == '\n') {
+        ++s;
+        if (*s == '\r') ++s;
+        break;
+      }
+      if (*s == '\f') {
+        ++s;
+        break;
+      }
+      ++s;
+    }
+    if (!*s) return;
+  }
+  *start = s + col0 - 1;
+  for (int i=row0; i<row1; ++i) {
+    while (*s) {
+      if (*s == '\r') {
+        ++s;
+        if (*s == '\n') ++s;
+        break;
+      }
+      if (*s == '\n') {
+        ++s;
+        if (*s == '\r') ++s;
+        break;
+      }
+      if (*s == '\f') {
+        ++s;
+        break;
+      }
+      ++s;
+    }
+    if (!*s) return;
+  }
+  *end = s + col1 - 1;
 }
 
 

@@ -4343,13 +4343,13 @@ SQLRETURN stmt_exec_direct(stmt_t *stmt, SQLCHAR *StatementText, SQLINTEGER Text
   trim_string((const char*)stmt->sql.base, stmt->sql.nr, &start, &end);
   if (end > start && start[0] == '!') {
     ext_parser_param_t param = {0};
-    // param.debug_flex = 1;
-    // param.debug_bison = 1;
+    // param.ctx.debug_flex = 1;
+    // param.ctx.debug_bison = 1;
     int r = ext_parser_parse(start, end-start, &param);
     if (r) {
       stmt_append_err_format(stmt, "HY000", 0, "General error:parsing:%.*s", (int)(end-start), start);
-      stmt_append_err_format(stmt, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)", param.row0, param.col0, param.row1, param.col1-1);
-      stmt_append_err_format(stmt, "HY000", 0, "General error:failed:%.*s", (int)strlen(param.err_msg), param.err_msg);
+      stmt_append_err_format(stmt, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+      stmt_append_err_format(stmt, "HY000", 0, "General error:failed:%.*s", (int)strlen(param.ctx.err_msg), param.ctx.err_msg);
       stmt_append_err(stmt, "HY000", 0, "General error:taos_odbc_extended syntax for `topic`:!topic [<name>]+ [{[<key[=<val>]>]*}]?");
 
       ext_parser_param_release(&param);

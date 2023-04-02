@@ -57,12 +57,19 @@
         const char *errsg
     );
 
+    #define FOUND(_loc) do {                                     \
+      if (param->sql_found) {                                    \
+        param->sql_found(_loc.first_line, _loc.first_column,     \
+            _loc.last_line, _loc.last_column, param->arg);       \
+      }                                                          \
+    } while (0)
+
     void sqls_parser_param_release(sqls_parser_param_t *param)
     {
       if (!param) return;
       sqls_cfg_release(&param->sqls_cfg);
-      param->err_msg[0] = '\0';
-      param->row0 = 0;
+      param->ctx.err_msg[0] = '\0';
+      param->ctx.row0 = 0;
     }
 }
 
@@ -84,6 +91,8 @@
 %union { parser_token_t token; }
 %union { char c; }
 
+%token TOKEN ERROR STR
+
  /* %nterm <str>   args */ // non-terminal `input` use `str` to store
                            // token value as well
  /* %destructor { free($$); } <str> */
@@ -91,7 +100,49 @@
 %% /* The grammar follows. */
 
 input:
+  sqls
+| sqls delimit
+;
+
+sqls:
   %empty
+| sql                       { FOUND(@1); }
+| sqls delimit sql          { FOUND(@3); }
+;
+
+sql:
+  token
+| sql token
+;
+
+token:
+  TOKEN
+| qm
+| '(' ')'
+| '{' '}'
+| '[' ']'
+| '(' sql ')'
+| '{' sql '}'
+| '[' sql ']'
+;
+
+qm:
+  '"' '"'
+| '"' str '"'
+| '\'' '\''
+| '\'' str '\''
+| '`' '`'
+| '`' str '`'
+;
+
+str:
+  STR
+| str STR
+;
+
+delimit:
+  ';'
+| delimit ';'
 ;
 
 %%
@@ -112,18 +163,18 @@ static void _yyerror_impl(
   if (!param) {
     fprintf(stderr, "(%d,%d)->(%d,%d):%s\n",
         yylloc->first_line, yylloc->first_column,
-        yylloc->last_line, yylloc->last_column - 1,
+        yylloc->last_line, yylloc->last_column,
         errmsg);
 
     return;
   }
 
-  param->row0 = yylloc->first_line;
-  param->col0 = yylloc->first_column;
-  param->row1 = yylloc->last_line;
-  param->col1 = yylloc->last_column;
-  param->err_msg[0] = '\0';
-  snprintf(param->err_msg, sizeof(param->err_msg), "%s", errmsg);
+  param->ctx.row0 = yylloc->first_line;
+  param->ctx.col0 = yylloc->first_column;
+  param->ctx.row1 = yylloc->last_line;
+  param->ctx.col1 = yylloc->last_column;
+  param->ctx.err_msg[0] = '\0';
+  snprintf(param->ctx.err_msg, sizeof(param->ctx.err_msg), "%s", errmsg);
 }
 
 /* Called by yyparse on error. */
@@ -161,8 +212,8 @@ int sqls_parser_parse(const char *input, size_t len, sqls_parser_param_t *param)
   yyscan_t arg = {0};
   yylex_init(&arg);
   // yyset_in(in, arg);
-  int debug_flex = param ? param->debug_flex : 0;
-  int debug_bison = param ? param->debug_bison: 0;
+  int debug_flex = param ? param->ctx.debug_flex : 0;
+  int debug_bison = param ? param->ctx.debug_bison: 0;
   yyset_debug(debug_flex, arg);
   yydebug = debug_bison;
   // yyset_extra(param, arg);

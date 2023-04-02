@@ -690,16 +690,16 @@ SQLRETURN conn_driver_connect(
   }
 
   conn_parser_param_t param = {0};
-  param.debug_flex  = env_get_debug_flex(conn->env);
-  param.debug_bison = env_get_debug_bison(conn->env);
+  param.ctx.debug_flex  = env_get_debug_flex(conn->env);
+  param.ctx.debug_bison = env_get_debug_bison(conn->env);
 
   int r = conn_parser_parse((const char*)InConnectionString, StringLength1, &param);
 
   do {
     if (r) {
       conn_append_err_format(conn, "HY000", 0, "General error:parsing:%.*s", StringLength1, (const char*)InConnectionString);
-      conn_append_err_format(conn, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)", param.row0, param.col0, param.row1, param.col1-1);
-      conn_append_err_format(conn, "HY000", 0, "General error:failed:%.*s", (int)strlen(param.err_msg), param.err_msg);
+      conn_append_err_format(conn, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+      conn_append_err_format(conn, "HY000", 0, "General error:failed:%.*s", (int)strlen(param.ctx.err_msg), param.ctx.err_msg);
       conn_append_err(conn, "HY000", 0, "General error:supported connection string syntax:[<key[=<val>]>]+");
       break;
     }

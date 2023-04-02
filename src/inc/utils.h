@@ -182,6 +182,8 @@ int str_keep(str_t *str, size_t cap) FA_HIDDEN;
 int str_expand(str_t *str, size_t delta) FA_HIDDEN;
 int str_concat(str_t *str, const char *charset, const char *src, size_t len) FA_HIDDEN;
 
+void trim_left(const char *src, size_t nr, const char **first) FA_HIDDEN;
+void trim_right(const char *src, size_t nr, const char **last) FA_HIDDEN;
 void trim_string(const char *src, size_t nr, const char **start, const char **end) FA_HIDDEN;
 void trim_spaces(const char *src, size_t len, char *dst, size_t n) FA_HIDDEN;
 void get_kv(const char *kv, char *k, size_t kn, char *v, size_t vn) FA_HIDDEN;
@@ -205,6 +207,9 @@ void kvs_release(kvs_t *kvs);
 void kvs_transfer(kvs_t *from, kvs_t *to);
 int kvs_append(kvs_t *kvs, const char *k, size_t kn, const char *v, size_t vn) FA_HIDDEN;
 
+
+// 1-based row/col
+void locate_str(const char *s, int row0, int col0, int row1, int col1, const char **start, const char **end) FA_HIDDEN;
 
 EXTERN_C_END
 

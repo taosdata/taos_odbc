@@ -388,9 +388,7 @@ struct sqls_cfg_s {
   size_t                 sqls_nr;
 };
 
-struct conn_parser_param_s {
-  conn_cfg_t             conn_cfg;
-
+struct parser_ctx_s {
   int                    row0, col0;
   int                    row1, col1;
   char                   err_msg[1024];
@@ -398,30 +396,27 @@ struct conn_parser_param_s {
   unsigned int           debug_flex:1;
   unsigned int           debug_bison:1;
   unsigned int           oom:1;
+};
+
+struct conn_parser_param_s {
+  conn_cfg_t             conn_cfg;
+
+  parser_ctx_t           ctx;
 };
 
 struct ext_parser_param_s {
   topic_cfg_t            topic_cfg;
 
-  int                    row0, col0;
-  int                    row1, col1;
-  char                   err_msg[1024];
-
-  unsigned int           debug_flex:1;
-  unsigned int           debug_bison:1;
-  unsigned int           oom:1;
+  parser_ctx_t           ctx;
 };
 
 struct sqls_parser_param_s {
   sqls_cfg_t             sqls_cfg;
 
-  int                    row0, col0;
-  int                    row1, col1;
-  char                   err_msg[1024];
+  void (*sql_found)(int row0, int col0, int row1, int col1, void *arg);
+  void                  *arg;
 
-  unsigned int           debug_flex:1;
-  unsigned int           debug_bison:1;
-  unsigned int           oom:1;
+  parser_ctx_t           ctx;
 };
 
 struct conn_s {

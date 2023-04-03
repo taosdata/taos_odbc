@@ -34,7 +34,13 @@
 
 typedef int (*test_f)(SQLSMALLINT HandleType, SQLHANDLE Handle);
 
-static int execute_sqls(SQLHANDLE hstmt, const char **sqls, size_t nr)
+typedef struct sql_s                 sql_t;
+struct sql_s {
+  const char                *sql;
+  uint8_t                    forcibly:1;
+};
+
+static int execute_sqls_with_stmt(SQLHANDLE hstmt, const char **sqls, size_t nr)
 {
   SQLRETURN sr = SQL_SUCCESS;
 
@@ -59,31 +65,12 @@ static int _test_threads(SQLSMALLINT HandleType, SQLHANDLE Handle)
 
   SQLHANDLE hstmt = Handle;
 
-  if (0) {
-    const char *sqls[] = {
-      "drop topic if exists demo",
-    };
-    execute_sqls(hstmt, sqls, sizeof(sqls)/sizeof(sqls[0]));
-  }
-
-  if (0) {
-    const char *sqls[] = {
-      "drop table if exists demo",
-      "create table demo (ts timestamp, name varchar(20))",
-      "create topic demo as select ts, name from demo",
-      "insert into demo (ts, name) values (now(), 'hello')",
-    };
-
-    r = execute_sqls(hstmt, sqls, sizeof(sqls)/sizeof(sqls[0]));
-    if (r) return -1;
-  }
-
   if (1) {
     const char *sqls[] = {
       "select * from information_schema.ins_configs",
     };
 
-    r = execute_sqls(hstmt, sqls, sizeof(sqls)/sizeof(sqls[0]));
+    r = execute_sqls_with_stmt(hstmt, sqls, sizeof(sqls)/sizeof(sqls[0]));
     if (r) return -1;
   }
 
@@ -141,18 +128,6 @@ static int test_with_stmt(const arg_t *arg, SQLHANDLE hstmt)
 {
   int r = 0;
 
-  if (0) {
-    const char *sqls[] = {
-      "drop topic if exists demo",
-      "drop database if exists bar",
-      "create database bar",
-      "use bar",
-    };
-
-    r = execute_sqls(hstmt, sqls, sizeof(sqls)/sizeof(sqls[0]));
-    if (r) return -1;
-  }
-
   for (size_t i=0; i<sizeof(_tests)/sizeof(_tests[0]); ++i) {
     if (arg->name == NULL || strcmp(arg->name, _tests[i].name)==0) {
       r = _tests[i].func(SQL_HANDLE_STMT, hstmt);
@@ -163,7 +138,22 @@ static int test_with_stmt(const arg_t *arg, SQLHANDLE hstmt)
   return 0;
 }
 
-static int test_with_connected_conn(const arg_t *arg, SQLHANDLE hconn)
+static int execute_sqls(SQLHANDLE hstmt, sql_t *sqls, size_t nr)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  for (size_t i=0; i<nr; ++i) {
+    sql_t *sql = sqls + i;
+    sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql->sql, SQL_NTS);
+    CALL_SQLCloseCursor(hstmt);
+    if (sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO) continue;
+    if (sql->forcibly) return -1;
+  }
+
+  return 0;
+}
+
+static int test_with_connected_conn(const arg_t *arg, SQLHANDLE hconn, sql_t *sqls, size_t nr)
 {
   SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
@@ -180,14 +170,15 @@ static int test_with_connected_conn(const arg_t *arg, SQLHANDLE hconn)
   sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-  if (1) r = test_with_stmt(arg, hstmt);
+  r = execute_sqls(hstmt, sqls, nr);
+  if (r == 0) r = test_with_stmt(arg, hstmt);
 
   CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
 
   return r ? -1 : 0;
 }
 
-static int test_with_conn(const arg_t *arg, SQLHANDLE hconn)
+static int test_with_conn(const arg_t *arg, SQLHANDLE hconn, sql_t *sqls, size_t nr)
 {
   int r = 0;
 
@@ -199,14 +190,14 @@ static int test_with_conn(const arg_t *arg, SQLHANDLE hconn)
     if (r) return -1;
   }
 
-  if (1) r = test_with_connected_conn(arg, hconn);
+  r = test_with_connected_conn(arg, hconn, sqls, nr);
 
   CALL_SQLDisconnect(hconn);
 
   return r ? -1 : 0;
 }
 
-static int test_with_env(const arg_t *arg, SQLHANDLE henv)
+static int test_with_env(const arg_t *arg, SQLHANDLE henv, sql_t *sqls, size_t nr)
 {
   int r = 0;
   SQLRETURN sr = SQL_SUCCESS;
@@ -215,14 +206,14 @@ static int test_with_env(const arg_t *arg, SQLHANDLE henv)
   sr = CALL_SQLAllocHandle(SQL_HANDLE_DBC, henv, &hconn);
   if (FAILED(sr)) return -1;
 
-  if (1) r = test_with_conn(arg, hconn);
+  r = test_with_conn(arg, hconn, sqls, nr);
 
   CALL_SQLFreeHandle(SQL_HANDLE_DBC, hconn);
 
   return r;
 }
 
-static int _run_with_arg_in_thread(const arg_t *arg)
+static int _run_with_arg_in_thread(const arg_t *arg, sql_t *sqls, size_t nr)
 {
   int r = 0;
   SQLRETURN sr = SQL_SUCCESS;
@@ -236,7 +227,7 @@ static int _run_with_arg_in_thread(const arg_t *arg)
     sr = CALL_SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, 0);
     if (FAILED(sr)) { r = -1; break; }
 
-    if (1) r = test_with_env(arg, henv);
+    r = test_with_env(arg, henv, sqls, nr);
     if (r) break;
   } while (0);
 
@@ -268,7 +259,7 @@ static int _thread_routine(const arg_t *arg)
   _init_pthread_once();
   W("%d:%x:thread:running", GetProcessId(GetCurrentProcess()), GetCurrentThreadId());
   if (0) get_nr_load();
-  else   r = _run_with_arg_in_thread((const arg_t*)arg);
+  else   r = _run_with_arg_in_thread((const arg_t*)arg, NULL, 0);
   W("%d:%x:thread:return:%d", GetProcessId(GetCurrentProcess()), GetCurrentThreadId(), r);
   if (r) return -1;
   return 0;
@@ -425,10 +416,10 @@ static void usage(const char *arg0)
   }
 }
 
-static int _run_with_arg(const arg_t *arg)
+static int _run_with_arg(const arg_t *arg, sql_t *sqls, size_t nr)
 {
   int r = 0;
-  r = _run_with_arg_in_thread(arg);
+  r = _run_with_arg_in_thread(arg, sqls, nr);
   if (r) return -1;
 
   int tick = 0;
@@ -448,6 +439,21 @@ static int _run(int argc, char *argv[])
 {
   int r = 0;
   arg_t arg = {0};
+  arg.dsn = "TAOS_ODBC_DSN";
+  arg.threads = 8;
+  arg.limit = 2;
+
+  sql_t sqls[] = {
+    { "drop topic if exists demo", 0},
+    { "drop topic if exists good", 0},
+    { "drop database if exists foobar", 1},
+    { "create database if not exists foobar", 1},
+    { "create table foobar.demo (ts timestamp, name varchar(20))", 1},
+    { "create topic demo as select * from foobar.demo", 1},
+    { "create table foobar.good (ts timestamp, i32 int, name varchar(20))", 1},
+    { "create topic good as select * from foobar.good", 1},
+    { "insert into foobar.demo (ts, name) values (now(), 'hello')", 1},
+  };
 
   for (int i=1; i<argc; ++i) {
     if (strcmp(argv[i], "-h") == 0) {
@@ -492,48 +498,22 @@ static int _run(int argc, char *argv[])
     }
 
     arg.name = argv[i];
-    r = _run_with_arg(&arg);
+    r = _run_with_arg(&arg, sqls, sizeof(sqls)/sizeof(sqls[0]));
     if (r) return -1;
   }
 
   if (arg.name) return 0;
 
-  return _run_with_arg(&arg);
+  return _run_with_arg(&arg, sqls, sizeof(sqls)/sizeof(sqls[0]));
 }
 
 int main(int argc, char *argv[])
 {
   int r = 0;
-  void *h1 = NULL;
 
-  if (0) {
-#ifdef __APPLE__
-    const char *so = "libtaos_odbc.dylib";
-#elif defined(_WIN32)
-    const char *so = "C:/Program Files/taos_odbc/bin/taos_odbc.dll";
-#else
-    const char *so = "libtaos_odbc.so";
-#endif
-    void *h1 = dlopen(so, RTLD_NOW);
-    if (h1 == NULL) {
-      E("%s", dlerror());
-      r = -1;
-    }
+  r = _run(argc, argv);
 
-    if (r == 0) {
-      get_nr_load = dlsym(h1, "get_nr_load");
-      if (!get_nr_load) {
-        E("`get_nr_load` not exported in [%s]", so);
-        r = -1;
-      } else {
-        get_nr_load();
-      }
-    }
-  }
-
-  if (r == 0) r = _run(argc, argv);
-  if (h1) dlclose(h1);
   fprintf(stderr, "==%s==\n", r ? "failure" : "success");
+
   return !!r;
 }
-

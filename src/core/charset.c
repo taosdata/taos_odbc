@@ -69,9 +69,9 @@ size_t iconv_x(const char *file, int line, const char *func,
 void charset_conv_release(charset_conv_t *cnv)
 {
   if (!cnv) return;
-  if (cnv->cnv) {
+  if (cnv->cnv && cnv->cnv!=(iconv_t)-1) {
     iconv_close(cnv->cnv);
-    cnv->cnv = NULL;
+    cnv->cnv = (iconv_t)-1;
   }
   cnv->from[0] = '\0';
   cnv->to[0] = '\0';
@@ -84,7 +84,8 @@ int charset_conv_reset(charset_conv_t *cnv, const char *from, const char *to)
   do {
     if (1 || tod_strcasecmp(from, to)) {
       cnv->cnv = iconv_open(to, from);
-      if (!cnv->cnv) return -1;
+      if (cnv->cnv == (iconv_t)-1) return -1;
+      if (cnv->cnv == NULL) return -1;
     }
     snprintf(cnv->from, sizeof(cnv->from), "%s", from);
     snprintf(cnv->to, sizeof(cnv->to), "%s", to);
@@ -116,6 +117,7 @@ charset_conv_t* charset_conv_mgr_get_charset_conv(charset_conv_mgr_t *mgr, const
 
   charset_conv_t *cnv = (charset_conv_t*)calloc(1, sizeof(*cnv));
   if (!cnv) return NULL;
+  cnv->cnv = (iconv_t)-1;
   do {
     int r = charset_conv_reset(cnv, fromcode, tocode);
     if (r) break;

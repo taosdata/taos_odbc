@@ -65,7 +65,7 @@ charset_conv_t* tls_get_charset_conv(const char *fromcode, const char *tocode)
   if (!tls) return NULL;
 
   if (tls->mgr == NULL) {
-    charset_conv_mgr_t *mgr = (charset_conv_mgr_t*)calloc(1, sizeof(*tls->mgr));
+    charset_conv_mgr_t *mgr = (charset_conv_mgr_t*)calloc(1, sizeof(*mgr));
     if (!mgr) return NULL;
     r = _charset_conv_mgr_init(mgr);
     if (r) {

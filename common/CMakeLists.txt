@@ -44,3 +44,5 @@ if(TODBC_WINDOWS)
     add_dependencies(taos_helpers_obj ex_iconv)
 endif()
 set_property(TARGET taos_helpers_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
+target_include_directories(taos_helpers_obj PRIVATE
+    ${CMAKE_CURRENT_BINARY_DIR}/..)

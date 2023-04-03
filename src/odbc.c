@@ -39,7 +39,7 @@
 
 // NOTE: if you wanna debug in detail, just define DEBUG_OOW to 1
 // NOTE: this is performance-hit, please take serious consideration in advance!!!
-#define DEBUG_OOW      1
+#define DEBUG_OOW      0
 #define OOW(fmt, ...) do {        \
   if (DEBUG_OOW) {                \
     OW(fmt, ##__VA_ARGS__);       \
@@ -92,10 +92,20 @@ static void init_global(void)
 }
 
 #ifdef _WIN32                  /* { */
-static DWORD tls_idx;
+static DWORD tls_idx = 0;
+
+#define TRACE_LEAK(fmt, ...) if (0) { OE(fmt, ##__VA_ARGS__); }
+
 tls_t* tls_get(void)
 {
   tls_t *tls = TlsGetValue(tls_idx);
+  if (tls) return tls;
+
+  tls = (tls_t*)LocalAlloc(LPTR, tls_size());
+  TRACE_LEAK("%d:%x:process:tls_get:tls:%p", GetProcessId(GetCurrentProcess()), GetCurrentThreadId(), tls);
+  if (tls) TlsSetValue(tls_idx, tls);
+  if (tls) OA(tls == TlsGetValue(tls_idx), "");
+
   return tls;
 }
 
@@ -106,7 +116,7 @@ BOOL WINAPI DllMain(
 {
   init_global();
 
-  tls_t *tls;
+  tls_t *tls = NULL;
 
   // Perform actions based on the reason for calling.
   switch (fdwReason)
@@ -115,26 +125,28 @@ BOOL WINAPI DllMain(
     // Initialize once for each new process.
     // Return FALSE to fail DLL load.
     if ((tls_idx = TlsAlloc()) == TLS_OUT_OF_INDEXES) {
+      TRACE_LEAK("%d:%x:process:attach:tls_idx:%d", GetProcessId(GetCurrentProcess()), GetCurrentThreadId(), tls_idx);
       return FALSE;
     }
-    tls = (tls_t*)LocalAlloc(LPTR, tls_size());
-    if (tls != NULL) TlsSetValue(tls_idx, tls);
+    tls = tls_get();
+    TRACE_LEAK("%d:%x:process:attach:tls_idx:%d", GetProcessId(GetCurrentProcess()), GetCurrentThreadId(), tls_idx);
 
     atomic_fetch_add(&_nr_load, 1);
 
     return setup_init(hinstDLL);
 
   case DLL_THREAD_ATTACH:
+    // TRACE_LEAK("thread attach");
     // Do thread-specific initialization.
     tls = tls_get();
-    if (tls) break;
-    tls = (tls_t*)LocalAlloc(LPTR, tls_size());
-    if (tls != NULL) TlsSetValue(tls_idx, tls);
+    TRACE_LEAK("%d:%x:thread:attach:tls_idx:%d", GetProcessId(GetCurrentProcess()), GetCurrentThreadId(), tls_idx);
     break;
 
   case DLL_THREAD_DETACH:
+    // TRACE_LEAK("thread detach");
     // Do thread-specific cleanup.
     tls = tls_get();
+    TRACE_LEAK("%d:%x:thread:detach:tls_idx:%d", GetProcessId(GetCurrentProcess()), GetCurrentThreadId(), tls_idx);
     if (tls != NULL) {
       tls_release(tls);
       LocalFree((HLOCAL)tls);
@@ -146,12 +158,14 @@ BOOL WINAPI DllMain(
     atomic_fetch_sub(&_nr_load, 1);
 
     tls = tls_get();
+    TRACE_LEAK("%d:%x:process:detach:tls_idx:%d", GetProcessId(GetCurrentProcess()), GetCurrentThreadId(), tls_idx);
     if (tls != NULL) {
       tls_release(tls);
       LocalFree((HLOCAL)tls);
     }
 
     TlsFree(tls_idx); 
+    tls_idx = 0;
 
     if (lpvReserved != NULL)
     {

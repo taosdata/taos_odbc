@@ -50,4 +50,5 @@ target_include_directories(core_obj PRIVATE
     ${ODBC_INCLUDE_DIRECTORY}
     ${ODBCINST_INCLUDE_DIRECTORY})
 set_property(TARGET core_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
-
+target_include_directories(core_obj PRIVATE
+    ${CMAKE_CURRENT_BINARY_DIR}/../..)

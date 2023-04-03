@@ -31,4 +31,3 @@ if(NOT USE_SAN)
   add_subdirectory(rust)
 endif()
 add_subdirectory(taos)
-

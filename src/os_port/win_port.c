@@ -27,6 +27,7 @@
 #include <stdio.h>
 #ifdef _WIN32
 #include <psapi.h>
+#pragma comment(lib, "psapi.lib")
 #endif
 
 struct tm* localtime_r(const time_t *clock, struct tm *result)

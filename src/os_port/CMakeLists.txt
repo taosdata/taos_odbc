@@ -29,6 +29,7 @@ if(TODBC_WINDOWS)
     list(APPEND os_port_SOURCES
         win_port.c
         win_port.cpp)
+    set_source_files_properties(win_port.c PROPERTIES COMPILE_OPTIONS "/D_WIN32_WINNT=0x0600")
 endif()
 
 add_library(os_port_obj OBJECT ${os_port_SOURCES})

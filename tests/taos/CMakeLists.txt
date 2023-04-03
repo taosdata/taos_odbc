@@ -33,9 +33,12 @@ target_include_directories(taos_test PRIVATE ${CJSON_INSTALL_PATH}/include)
 target_link_directories(taos_test PRIVATE ${CJSON_INSTALL_PATH}/lib)
 # NOTE: cJSON_xxx exported in `libtaos.so`
 if(TODBC_WINDOWS)
-  target_link_libraries(taos_test cjson taos)
+  target_link_libraries(taos_test cjson)
 else()
-  target_link_libraries(taos_test cjson taos dl pthread)
+  target_link_libraries(taos_test cjson dl pthread)
+endif()
+if(NOT FAKE_TAOS)
+  target_link_libraries(taos_test taos)
 endif()
 
 add_test(NAME taos_test

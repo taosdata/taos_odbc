@@ -31,6 +31,7 @@ option(USE_SAN "whether to use sanitizer or not" OFF)
 option(ENABLE_MYSQL_TEST "whether to test with mysql or not" OFF)
 option(ENABLE_SQLITE3_TEST "whether to test with sqlite3 or not" OFF)
 option(ENABLE_SQLSERVER_TEST "whether to test with sqlserver or not" OFF)
+option(FAKE_TAOS "whether to fake `taos` or not" OFF)
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   set(TODBC_LINUX TRUE)
@@ -86,6 +87,8 @@ if(TODBC_DARWIN)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -fsanitize=undefined -fsanitize-recover=all -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fno-sanitize=shift-base -fno-sanitize=alignment")
   endif()
 endif()
+
+configure_file(inc/taos_odbc_config.h.in ${CMAKE_CURRENT_BINARY_DIR}/taos_odbc_config.h)
 
 add_subdirectory(common)
 add_subdirectory(src)

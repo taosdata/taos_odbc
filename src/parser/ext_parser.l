@@ -134,7 +134,6 @@ DIGITS        [[:digit:]]+
 
 <TAOS_ODBC_EXT_TOPIC_EQ>{
 {TVAL}        { R(); SET_STR(); POP(); C(); return MKT(TVAL); }
-{DIGITS}      { R(); SET_STR(); POP(); C(); return MKT(TVAL); }
 {SP}          { R(); C(); } /* eat */
 {LN}          { R(); L(); } /* eat */
 .             { R(); C(); return *yytext; } /* let bison to handle */

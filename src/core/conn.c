@@ -34,6 +34,8 @@
 #include "stmt.h"
 #include "taos_helpers.h"
 
+#include "taos_odbc_config.h"
+
 #ifndef _WIN32
 #include <locale.h>
 #endif
@@ -275,6 +277,10 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs_with_res(
 
 static SQLRETURN _conn_get_configs_from_information_schema_ins_configs(conn_t *conn)
 {
+#ifdef FAKE_TAOS            /* { */
+  if (1) return SQL_SUCCESS;
+#endif                      /* } */
+
   TAOS *taos = conn->taos;
   OA_ILE(taos);
   const char *sql = "select * from information_schema.ins_configs";
@@ -323,6 +329,10 @@ static int _conn_setup_iconvs(conn_t *conn)
   sql_c_charset = p;
 #endif
 
+#ifdef FAKE_TAOS            /* { */
+  sql_c_charset = "GB18030";
+  tsdb_charset = "UTF-8";
+#endif                      /* } */
   conn->sql_c_char_charset = strdup(sql_c_charset);
   conn->tsdb_varchar_charset = strdup(tsdb_charset);
   if (!conn->sql_c_char_charset || !conn->tsdb_varchar_charset) {
@@ -468,6 +478,11 @@ static int _conn_get_timezone_from_res(conn_t *conn, const char *sql, TAOS_RES *
 
 static int _conn_get_timezone(conn_t *conn)
 {
+#ifdef FAKE_TAOS            /* { */
+  conn->tz = 800;
+  conn->tz_seconds = 28800;
+  return 0;
+#endif                      /* } */
   const char *sql = "select to_iso8601(0) as ts";
   TAOS_RES *res = CALL_taos_query(conn->taos, sql);
   if (!res) {

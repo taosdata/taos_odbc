@@ -32,6 +32,14 @@
 
 #define DUMP(fmt, ...)          printf(fmt "\n", ##__VA_ARGS__)
 
+typedef enum thread_create_e      thread_create_t;
+enum thread_create_e {
+  USE_UNKNOWN,
+  USE_CreateThread,
+  USE__beginthreadex,
+  USE_pthread_create,
+};
+
 typedef int (*test_f)(SQLSMALLINT HandleType, SQLHANDLE Handle);
 
 typedef struct sql_s                 sql_t;
@@ -93,7 +101,8 @@ struct arg_s {
   const char      *pwd;
   const char      *connstr;
   int              threads;
-  int              limit;
+  int              executes;
+  thread_create_t  thread_create;
 
   const char      *name;
 };
@@ -266,8 +275,7 @@ static int _thread_routine(const arg_t *arg)
 }
 
 #ifdef _WIN32                /* { */
-#if 1            /* { */
-static DWORD _routine_win(LPVOID arg)
+static DWORD _routine_CreateThread(LPVOID arg)
 {
   int r = 0;
   r = _thread_routine((const arg_t*)arg);
@@ -275,7 +283,7 @@ static DWORD _routine_win(LPVOID arg)
   return 0;
 }
 
-static int _run_with_arg_once(const arg_t *arg)
+static int _run_with_arg_CreateThread(const arg_t *arg)
 {
   HANDLE threads[16]   = {0};
   DWORD dwThreadIds[16] = {0};
@@ -291,7 +299,7 @@ static int _run_with_arg_once(const arg_t *arg)
 
   size_t count = arg->threads;
   for (i=0; i<count && i < sizeof(threads)/sizeof(threads[0]); ++i) {
-    threads[i] = CreateThread(NULL, 0, _routine_win, (LPVOID)arg, CREATE_SUSPENDED, dwThreadIds + i);
+    threads[i] = CreateThread(NULL, 0, _routine_CreateThread, (LPVOID)arg, CREATE_SUSPENDED, dwThreadIds + i);
     W("%d:%x:thread:create", GetProcessId(GetCurrentProcess()), GetThreadId(threads[i]));
     if (!threads[i]) {
       E("CreateThread failed");
@@ -313,8 +321,8 @@ static int _run_with_arg_once(const arg_t *arg)
 
   return r;
 }
-#else            /* }{ */
-static unsigned __stdcall _start_address_for_beginthreadex(void *arg)
+
+static unsigned __stdcall _routine__beginthreadex(void *arg)
 {
   int r = 0;
   r = _thread_routine((const arg_t*)arg);
@@ -322,12 +330,8 @@ static unsigned __stdcall _start_address_for_beginthreadex(void *arg)
   return 0;
 }
 
-static int _run_with_arg_once(const arg_t *arg)
+static int _run_with_arg__beginthreadex(const arg_t *arg)
 {
-  while (0) {
-    int r = _run_with_arg_in_thread(arg);
-    if (r) return -1;
-  }
   HANDLE threads[16]   = {0};
   unsigned threadIds[16] = {0};
   DWORD exitCodes[16]   = {0};
@@ -339,8 +343,8 @@ static int _run_with_arg_once(const arg_t *arg)
   nr = 0;
 
   for (size_t i=0; i<16; ++i) {
-    threads[i] = (HANDLE)_beginthreadex(NULL, 0, _start_address_for_beginthreadex, (void*)arg, CREATE_SUSPENDED, threadIds + i);
-    E("%d:%x:thread:create", GetProcessId(GetCurrentProcess()), GetThreadId(threads[i]));
+    threads[i] = (HANDLE)_beginthreadex(NULL, 0, _routine__beginthreadex, (void*)arg, CREATE_SUSPENDED, threadIds + i);
+    W("%d:%x:thread:create", GetProcessId(GetCurrentProcess()), GetThreadId(threads[i]));
     if (!threads[i]) {
       E("_beginthreadex failed");
       r = -1;
@@ -352,7 +356,7 @@ static int _run_with_arg_once(const arg_t *arg)
 
   for (size_t i=0; i<nr; ++i) {
     DWORD dw = WaitForSingleObject(threads[i], INFINITE);
-    E("%d:%x:thread:join:%d", GetProcessId(GetCurrentProcess()), GetThreadId(threads[i]), dw);
+    W("%d:%x:thread:join:%d", GetProcessId(GetCurrentProcess()), GetThreadId(threads[i]), dw);
     GetExitCodeThread(threads[i], exitCodes + i);
     if (exitCodes[i]) r = -1;
     CloseHandle(threads[i]);
@@ -360,10 +364,9 @@ static int _run_with_arg_once(const arg_t *arg)
 
   return r;
 }
-#endif           /* } */
 #else                        /* }{ */
 #include <pthread.h>
-static void* _start_routine(void *arg)
+static void* _routine_pthread_create(void *arg)
 {
   int r = 0;
   r = _thread_routine((const arg_t*)arg);
@@ -371,7 +374,7 @@ static void* _start_routine(void *arg)
   return 0;
 }
 
-static int _run_with_arg_once(const arg_t *arg)
+static int _run_with_arg_pthread_create(const arg_t *arg)
 {
   pthread_t threads[16]     = {0};
 
@@ -384,7 +387,7 @@ static int _run_with_arg_once(const arg_t *arg)
   nr = 0;
 
   for (i=0; i<16; ++i) {
-    r = pthread_create(threads + i, NULL, _start_routine, (void*)arg);
+    r = pthread_create(threads + i, NULL, _routine_pthread_create, (void*)arg);
     if (r) {
       E("pthread_create failed");
       r = -1;
@@ -403,17 +406,27 @@ static int _run_with_arg_once(const arg_t *arg)
 }
 #endif                       /* } */
 
-static void usage(const char *arg0)
+static int _run_with_arg_once(const arg_t *arg)
 {
-  DUMP("usage:");
-  DUMP("  %s -h", arg0);
-  DUMP("  %s --dsn <DSN> [--uid <UID>] [--pwd <PWD> [name]", arg0);
-  DUMP("  %s --connstr <connstr> [name]", arg0);
-  DUMP("");
-  DUMP("supported test names:");
-  for (size_t i=0; i<sizeof(_tests)/sizeof(_tests[0]); ++i) {
-    DUMP("  %s", _tests[i].name);
+#ifdef _WIN32                /* { */
+  switch (arg->thread_create) {
+    case USE_CreateThread:
+      return _run_with_arg_CreateThread(arg);
+    case USE__beginthreadex:
+      return _run_with_arg__beginthreadex(arg);
+    default:
+      E("internal logic error");
+      return -1;
   }
+#else                        /* }{ */
+  switch (arg->thread_create) {
+    case USE_pthread_create:
+      return _run_with_arg_pthread_create(arg);
+    default:
+      E("internal logic error");
+      return -1;
+  }
+#endif                       /* } */
 }
 
 static int _run_with_arg(const arg_t *arg, sql_t *sqls, size_t nr)
@@ -424,15 +437,54 @@ static int _run_with_arg(const arg_t *arg, sql_t *sqls, size_t nr)
 
   int tick = 0;
 
+  int interval = 5;
+  const time_t t_0 = time(NULL) - interval;
+  time_t t0 = t_0;
+
 again:
 
-  if (tick++ < arg->limit) {
+  if (tick++ < arg->executes) {
     r = _run_with_arg_once(arg);
     if (r) return -1;
+    time_t t1 = time(NULL);
+    double delta = difftime(t1, t0);
+    if (0 && delta >= interval) {
+      struct tm v;
+      localtime_r(&t1, &v);
+      char buf[64];
+      strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &v);
+      DUMP("%s:executed:%d;avg:%.3f", buf, tick, ((double)tick)/difftime(t1, t_0));
+      t0 = t1;
+    }
     goto again;
   }
 
   return 0;
+}
+
+static void usage(const char *arg0)
+{
+  DUMP("usage:");
+  DUMP("  %s -h", arg0);
+  DUMP("  %s [options] [name]...", arg0);
+  DUMP("options:");
+  DUMP("  --dsn <DSN>                 DSN");
+  DUMP("  --uid <UID>                 UID");
+  DUMP("  --pwd <PWD>                 PWD");
+  DUMP("  --connstr <connstr>         Connection string");
+  DUMP("  --threads <num>             # of threads running concurrently");
+  DUMP("  --executes <num>            # of executes for each test");
+#ifdef _WIN32                              /* { */
+  DUMP("  --CreateThread              Using `CreateThread`");
+  DUMP("  _beginthreadex              Using `_beginthreadex`");
+#else                                      /* }{ */
+  DUMP("  pthread_create              Using `pthread_create`");
+#endif                                     /* { */
+  DUMP("");
+  DUMP("supported test names:");
+  for (size_t i=0; i<sizeof(_tests)/sizeof(_tests[0]); ++i) {
+    DUMP("  %s", _tests[i].name);
+  }
 }
 
 static int _run(int argc, char *argv[])
@@ -441,7 +493,12 @@ static int _run(int argc, char *argv[])
   arg_t arg = {0};
   arg.dsn = "TAOS_ODBC_DSN";
   arg.threads = 8;
-  arg.limit = 2;
+  arg.executes = 2;
+#ifdef _WIN32                /* { */
+  arg.thread_create = USE_CreateThread;
+#else                        /* }{ */
+  arg.thread_create = USE_pthread_create;
+#endif                       /* } */
 
   sql_t sqls[] = {
     { "drop topic if exists demo", 0},
@@ -490,12 +547,27 @@ static int _run(int argc, char *argv[])
       arg.threads = atoi(argv[i]);
       continue;
     }
-    if (strcmp(argv[i], "--limit") == 0) {
+    if (strcmp(argv[i], "--executes") == 0) {
       ++i;
       if (i>=argc) break;
-      arg.limit = atoi(argv[i]);
+      arg.executes = atoi(argv[i]);
       continue;
     }
+#ifdef _WIN32                              /* { */
+    if (strcmp(argv[i], "--CreateThread") == 0) {
+      arg.thread_create = USE_CreateThread;
+      continue;
+    }
+    if (strcmp(argv[i], "--_beginthreadex") == 0) {
+      arg.thread_create = USE__beginthreadex;
+      continue;
+    }
+#else                                      /* }{ */
+    if (strcmp(argv[i], "--pthread_create") == 0) {
+      arg.thread_create = USE_pthread_create;
+      continue;
+    }
+#endif                                     /* { */
 
     arg.name = argv[i];
     r = _run_with_arg(&arg, sqls, sizeof(sqls)/sizeof(sqls[0]));

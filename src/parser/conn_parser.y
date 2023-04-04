@@ -124,6 +124,15 @@
       param->conn_cfg.port = strtol(_p.text, NULL, 10);                                         \
       param->conn_cfg.port_set = 1;                                                             \
     } while (0)
+    #define SET_DATABASE(_v, _loc) do {                                                         \
+      if (!param) break;                                                                        \
+      TOD_SAFE_FREE(param->conn_cfg.db);                                                        \
+      param->conn_cfg.db = strndup(_v.text, _v.leng);                                           \
+      if (!param->conn_cfg.db) {                                                                \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
+        return -1;                                                                              \
+      }                                                                                         \
+    } while (0)
     #define SET_UNSIGNED_PROMOTION(_s, _n, _loc) do {                                           \
       if (!param) break;                                                                        \
       OA_NIY(_s[_n] == '\0');                                                                   \
@@ -164,7 +173,7 @@
 %union { parser_token_t token; }
 %union { char c; }
 
-%token DSN UID PWD DRIVER SERVER UNSIGNED_PROMOTION TIMESTAMP_AS_IS DB
+%token DSN UID PWD DRIVER SERVER DATABASE UNSIGNED_PROMOTION TIMESTAMP_AS_IS DB
 %token TOPIC
 %token <token> ID VALUE FQDN DIGITS
 %token <token> TNAME TKEY TVAL
@@ -209,6 +218,7 @@ attribute:
 | SERVER '=' FQDN                 { SET_FQDN($3, @$); }
 | SERVER '=' FQDN ':'             { SET_FQDN($3, @$); }
 | SERVER '=' FQDN ':' DIGITS      { SET_FQDN_PORT($3, $5, @$); }
+| DATABASE '=' VALUE              { SET_DATABASE($3, @$); }
 | UNSIGNED_PROMOTION              { SET_UNSIGNED_PROMOTION("1", 1, @$); }
 | UNSIGNED_PROMOTION '='          { SET_UNSIGNED_PROMOTION("0", 1, @$); }
 | UNSIGNED_PROMOTION '=' DIGITS   { SET_UNSIGNED_PROMOTION($3.text, $3.leng, @$); }

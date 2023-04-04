@@ -40,36 +40,175 @@
 
 #define DUMP(fmt, ...)          printf(fmt "\n", ##__VA_ARGS__)
 
+static int cmp_strs(const char *s1, const char *s2)
+{
+  int r = 0;
+  if ((!!s1) ^ (!!s2)) {
+    return s1 ? 1 : -1;
+  }
+  if (s1 && (r=strcmp(s1, s2))) {
+    return r;
+  }
+
+  return 0;
+}
+
 static int test_conn_parser(void)
 {
   conn_parser_param_t param = {0};
   // param.ctx.debug_flex = 1;
   // param.ctx.debug_bison = 1;
 
-  const char *connection_strs[] = {
-    " driver = {    ax bcd ; ;   }; dsn=server; uid=xxx; pwd=yyy",
-    // https://www.connectionstrings.com/dsn/
-    "DSN=myDsn;Uid=myUsername;Pwd=;",
-    "FILEDSN=c:\\myDsnFile.dsn;Uid=myUsername;Pwd=;",
-    "Driver={any odbc driver's name};OdbcKey1=someValue;OdbcKey2=someValue;",
-    // http://lunar.lyris.com/help/Content/sample_odbc_connection_str.html
-    "Driver={SQL Server};Server=lmtest;Database=lmdb;Uid=sa;Pwd=pass",
-    "DSN=DSN_Name;Server=lmtest;Uid=lmuser;Pwd=pass",
-    "Driver={MySQL ODBC 3.51 driver};server=lmtest;database=lmdb;uid=mysqluser;pwd=pass;",
-    "Driver={MySQL ODBC 3.51 driver};server=lmtest;database=lmdb;uid=mysqluser;pwd=pass;",
-    "Driver={MySQL ODBC 3.51 driver};server=lm.test;database=lmdb;uid=mysqluser;pwd=pass;",
-    "Driver={MySQL ODBC 3.51 driver};server=lmtest:378;database=lmdb;uid=mysqluser;pwd=pass;",
-    "Driver={MySQL ODBC 3.51 driver};server=lmtest:378378378378;database=lmdb;uid=mysqluser;pwd=pass;",
+  const struct {
+    int                        line;
+    const char                *conn_str;
+    conn_cfg_t                 expected;
+  } _cases[] = {
+    {
+      __LINE__,
+      " driver = {    ax bcd ; ;   }; dsn=server; uid=xxx; pwd=yyy",
+      {
+        .driver                 = "ax bcd ; ;",
+        .dsn                    = "server",
+        .uid                    = "xxx",
+        .pwd                    = "yyy",
+      },
+    },{
+      // https://www.connectionstrings.com/dsn/
+      __LINE__,
+      "DSN=myDsn;Uid=myUsername;Pwd=;",
+      {
+        .dsn                    = "myDsn",
+        .uid                    = "myUsername",
+      },
+    },{
+      __LINE__,
+      "FILEDSN=c:\\myDsnFile.dsn;Uid=myUsername;Pwd=;",
+      {
+        .uid                    = "myUsername",
+      },
+    },{
+      __LINE__,
+      "Driver={any odbc driver's name};OdbcKey1=someValue;OdbcKey2=someValue;",
+      {
+        .driver                 = "any odbc driver's name",
+      },
+    },{
+      __LINE__,
+      // http://lunar.lyris.com/help/Content/sample_odbc_connection_str.html
+      "Driver={SQL Server};Server=lmtest;Database=lmdb;Uid=sa;Pwd=pass",
+      {
+        .driver                 = "SQL Server",
+        .uid                    = "sa",
+        .pwd                    = "pass",
+        .ip                     = "lmtest",
+        .db                     = "lmdb",
+      },
+    },{
+      __LINE__,
+      "DSN=DSN_Name;Server=lmtest;Uid=lmuser;Pwd=pass",
+      {
+        .dsn                    = "DSN_Name",
+        .uid                    = "lmuser",
+        .pwd                    = "pass",
+        .ip                     = "lmtest",
+      },
+    },{
+      __LINE__,
+      "Driver={MySQL ODBC 3.51 driver};server=lmtest;database=lmdb;uid=mysqluser;pwd=pass;",
+      {
+        .driver                 = "MySQL ODBC 3.51 driver",
+        .uid                    = "mysqluser",
+        .pwd                    = "pass",
+        .ip                     = "lmtest",
+        .db                     = "lmdb",
+      },
+    },{
+      __LINE__,
+      "Driver={MySQL ODBC 3.51 driver};server=lm.test;database=lmdb;uid=mysqluser;pwd=pass;",
+      {
+        .driver                 = "MySQL ODBC 3.51 driver",
+        .uid                    = "mysqluser",
+        .pwd                    = "pass",
+        .ip                     = "lm.test",
+        .db                     = "lmdb",
+      },
+    },{
+      __LINE__,
+      "Driver={MySQL ODBC 3.51 driver};server=lmtest:378;database=lmdb;uid=mysqluser;pwd=pass;",
+      {
+        .driver                 = "MySQL ODBC 3.51 driver",
+        .uid                    = "mysqluser",
+        .pwd                    = "pass",
+        .ip                     = "lmtest",
+        .db                     = "lmdb",
+        .port                   = 378,
+      },
+    },{
+      __LINE__,
+      "Driver={MySQL ODBC 3.51 driver};server=lmtest:378378;database=lmdb;uid=mysqluser;pwd=pass;",
+      {
+        .driver                 = "MySQL ODBC 3.51 driver",
+        .uid                    = "mysqluser",
+        .pwd                    = "pass",
+        .ip                     = "lmtest",
+        .db                     = "lmdb",
+        .port                   = 378378,
+      },
+    },{
+      __LINE__,
+      "Driver={MySQL ODBC 3.51 中文 driver};server=lmtest:378378378;database=lmdb;uid=mysqluser;pwd=pass;性别=你猜",
+      {
+        .driver                 = "MySQL ODBC 3.51 中文 driver",
+        .uid                    = "mysqluser",
+        .pwd                    = "pass",
+        .ip                     = "lmtest",
+        .db                     = "lmdb",
+        .port                   = 378378378,
+      },
+    },
   };
-  for (size_t i=0; i<sizeof(connection_strs)/sizeof(connection_strs[0]); ++i) {
-    const char *s = connection_strs[i];
+
+  const size_t _cases_nr = sizeof(_cases)/sizeof(_cases[0]);
+  for (size_t i=0; i<_cases_nr; ++i) {
+    const conn_cfg_t *expected = &_cases[i].expected;
+    const char *s = _cases[i].conn_str;
+    const int line = _cases[i].line;
+    conn_cfg_t *parsed = &param.conn_cfg;
     int r = conn_parser_parse(s, strlen(s), &param);
     if (r) {
-      E("parsing:%s", s);
+      E("parsing[@line:%d]:%s", line, s);
       E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
       E("failed:%s", param.ctx.err_msg);
+    } else if (cmp_strs(expected->driver, parsed->driver)) {
+      E("parsing[@line:%d]:%s", line, s);
+      E("driver expected to be `%s`, but got ==%s==", expected->driver, parsed->driver);
+      r = -1;
+    } else if (cmp_strs(expected->dsn, parsed->dsn)) {
+      E("parsing[@line:%d]:%s", line, s);
+      E("dsn expected to be `%s`, but got ==%s==", expected->dsn, parsed->dsn);
+      r = -1;
+    } else if (cmp_strs(expected->uid, parsed->uid)) {
+      E("parsing[@line:%d]:%s", line, s);
+      E("uid expected to be `%s`, but got ==%s==", expected->uid, parsed->uid);
+      r = -1;
+    } else if (cmp_strs(expected->pwd, parsed->pwd)) {
+      E("parsing[@line:%d]:%s", line, s);
+      E("pwd expected to be `%s`, but got ==%s==", expected->pwd, parsed->pwd);
+      r = -1;
+    } else if (cmp_strs(expected->ip, parsed->ip)) {
+      E("parsing[@line:%d]:%s", line, s);
+      E("ip expected to be `%s`, but got ==%s==", expected->ip, parsed->ip);
+      r = -1;
+    } else if (cmp_strs(expected->db, parsed->db)) {
+      E("parsing[@line:%d]:%s", line, s);
+      E("db expected to be `%s`, but got ==%s==", expected->db, parsed->db);
+      r = -1;
+    } else if (expected->port != parsed->port) {
+      E("parsing[@line:%d]:%s", line, s);
+      E("port expected to be `%d`, but got ==%d==", expected->port, parsed->port);
+      r = -1;
     }
-
     conn_parser_param_release(&param);
     if (r) return -1;
   }

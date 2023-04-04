@@ -436,6 +436,125 @@ static int _dump_stmt_describe_col(SQLSMALLINT HandleType, SQLHANDLE Handle)
   return 0;
 }
 
+static int _execute_file_impl(SQLHANDLE hstmt, const char *env, const char *fn, FILE *f)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
+
+  char buf[4096];
+  size_t nr;
+
+  buf[0] = '\0';
+  nr = fread(buf, 1, sizeof(buf)-1, f);
+  if (ferror(f)) {
+    DUMP("reading file `%s` set by env `%s` failed", fn, env);
+    return -1;
+  }
+  if (!feof(f)) {
+    DUMP("buffer too small to hold content of file `%s` set by env `%s`", fn, env);
+    return -1;
+  }
+  buf[nr] = '\0';
+
+  sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)buf, SQL_NTS);
+  if (sr != SQL_SUCCESS) return -1;
+
+  SQLSMALLINT ColumnCount;
+  SQLLEN RowCount;
+  int i_row = 0;
+  char row_buf[1024*64];
+  const char *end = row_buf + sizeof(row_buf);
+  char *p;
+  char name[193];
+  char value[1024];
+  SQLSMALLINT    NameLength;
+  SQLSMALLINT    DataType;
+  SQLULEN        ColumnSize;
+  SQLSMALLINT    DecimalDigits;
+  SQLSMALLINT    Nullable;
+
+describe:
+
+  sr = CALL_SQLNumResultCols(hstmt, &ColumnCount);
+  if (sr != SQL_SUCCESS) return -1;
+
+fetch:
+
+  if (ColumnCount > 0) {
+    DUMP("");
+    DUMP("dumping result set:");
+    sr = CALL_SQLFetch(hstmt);
+  } else {
+    sr = CALL_SQLRowCount(hstmt, &RowCount);
+    if (sr != SQL_SUCCESS) return -1;
+    DUMP("");
+    DUMP("rows affected:%zd", (size_t)RowCount);
+    sr = SQL_NO_DATA;
+  }
+
+  if (sr == SQL_NO_DATA) {
+    sr = CALL_SQLMoreResults(hstmt);
+    if (sr == SQL_NO_DATA) return 0;
+    if (sr == SQL_SUCCESS) goto describe;
+  }
+  if (sr != SQL_SUCCESS) return -1;
+
+  row_buf[0] = '\0';
+  p = row_buf;
+  for (int i=0; i<ColumnCount; ++i) {
+    sr = CALL_SQLDescribeCol(hstmt, i+1, (SQLCHAR*)name, sizeof(name), &NameLength, &DataType, &ColumnSize, &DecimalDigits, &Nullable);
+    if (sr != SQL_SUCCESS) return -1;
+
+    SQLLEN Len_or_Ind;
+    sr = CALL_SQLGetData(hstmt, i+1, SQL_C_CHAR, value, sizeof(value), &Len_or_Ind);
+    if (sr != SQL_SUCCESS) return -1;
+
+    int n = snprintf(p, end - p, "%s%s:[%s]",
+        i ? ";" : "",
+        name,
+        Len_or_Ind == SQL_NULL_DATA ? "null" : value);
+    if (n < 0 || n >= end - p) {
+      E("buffer too small");
+      return -1;
+    }
+    p += n;
+  }
+
+  DUMP("%-4d:%s", ++i_row, row_buf);
+
+  goto fetch;
+}
+
+static int _execute_file(SQLSMALLINT HandleType, SQLHANDLE Handle)
+{
+  int r = 0;
+
+  if (HandleType != SQL_HANDLE_STMT) return 0;
+
+  DUMP("");
+  DUMP("%s:", __func__);
+
+  const char *env = "TAOS_ODBC_SQL_FILE";
+  const char *fn = getenv(env);
+  if (!fn) {
+    DUMP("env `%s` not set yet", env);
+    return -1;
+  }
+
+  FILE *f;
+
+  f = fopen(fn, "r");
+  if (!f) {
+    DUMP("open file `%s` set by env `%s` failed:[%d]%s", fn, env, errno, strerror(errno));
+    return -1;
+  }
+
+  r = _execute_file_impl(Handle, env, fn, f);
+  fclose(f);
+
+  return r ? -1 : 0;
+}
+
 #define RECORD(x) {x, #x}
 
 static struct {
@@ -445,6 +564,7 @@ static struct {
   RECORD(_dump_stmt_col_info),
   RECORD(_dump_stmt_tables),
   RECORD(_dump_stmt_describe_col),
+  RECORD(_execute_file),
 };
 
 typedef struct arg_s             arg_t;
@@ -488,8 +608,7 @@ static int dump_with_stmt(const arg_t *arg, SQLHANDLE hstmt)
   int r = 0;
 
   const char *sqls[] = {
-    "drop database if exists bar",
-    "create database bar",
+    "create database if not exists bar",
     "use bar",
   };
 

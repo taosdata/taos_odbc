@@ -621,6 +621,19 @@ static inline SQLRETURN call_SQLMoreResults(const char *file, int line, const ch
   return sr;
 }
 
+static inline SQLRETURN call_SQLRowCount(const char *file, int line, const char *func,
+    SQLHSTMT StatementHandle, SQLLEN *RowCountPtr)
+{
+  LOGD_ODBC(file, line, func, "SQLRowCount(StatementHandle:%p,RowCountPtr:%p) ...", StatementHandle, RowCountPtr);
+  SQLLEN nr = 0;
+  SQLRETURN sr = SQLRowCount(StatementHandle, &nr);
+  diag(sr, SQL_HANDLE_STMT, StatementHandle);
+  LOGD_ODBC(file, line, func, "SQLRowCount(StatementHandle:%p,RowCountPtr:%p[%zd]) => %s",
+      StatementHandle, RowCountPtr, nr, sql_return_type(sr));
+  if (RowCountPtr) *RowCountPtr = nr;
+  return sr;
+}
+
 #define CALL_SQLAllocHandle(...)                   call_SQLAllocHandle(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLFreeHandle(...)                    call_SQLFreeHandle(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLSetEnvAttr(...)                    call_SQLSetEnvAttr(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
@@ -653,6 +666,7 @@ static inline SQLRETURN call_SQLMoreResults(const char *file, int line, const ch
 #define CALL_SQLColAttribute(...)                  call_SQLColAttribute(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLGetTypeInfo(...)                   call_SQLGetTypeInfo(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLMoreResults(...)                   call_SQLMoreResults(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
+#define CALL_SQLRowCount(...)                      call_SQLRowCount(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 
 #endif // _odbc_helper_h_
 

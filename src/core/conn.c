@@ -36,9 +36,6 @@
 
 #include "taos_odbc_config.h"
 
-#ifndef _WIN32
-#include <locale.h>
-#endif
 #include <odbcinst.h>
 #include <string.h>
 

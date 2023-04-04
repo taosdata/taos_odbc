@@ -33,6 +33,9 @@
 #include "stmt.h"
 #include "tls.h"
 
+#ifndef _WIN32
+#include <locale.h>
+#endif
 #include <sql.h>
 #include <sqlext.h>
 #include <sqlucode.h>
@@ -84,7 +87,7 @@ static void _init_charsets(void)
       break;
   }
 #else
-  const char *locale = setlocale(LC_CTYPE, NULL);
+  const char *locale = setlocale(LC_CTYPE, "");
   if (!locale) return;
   snprintf(_global.locale_or_ACP, sizeof(_global.locale_or_ACP), "%d", acp);
 

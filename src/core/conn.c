@@ -108,6 +108,7 @@ static void _conn_release(conn_t *conn)
   conn_cfg_release(&conn->cfg);
   _conn_release_information_schema_ins_configs(conn);
   _conn_release_iconvs(conn);
+
   errs_release(&conn->errs);
 
   return;
@@ -472,7 +473,6 @@ static int _conn_get_timezone(conn_t *conn)
 
 static SQLRETURN _do_conn_connect(conn_t *conn)
 {
-  OA_ILE(conn->taos == NULL);
   const conn_cfg_t *cfg = &conn->cfg;
 
   conn->taos = CALL_taos_connect(cfg->ip, cfg->uid, cfg->pwd, cfg->db, cfg->port);
@@ -670,11 +670,6 @@ SQLRETURN conn_driver_connect(
           "General error:`%s[%d/0x%x]` not supported yet",
           sql_driver_completion(DriverCompletion), DriverCompletion, DriverCompletion);
       return SQL_ERROR;
-  }
-
-  if (conn->taos) {
-    conn_append_err(conn, "HY000", 0, "General error:Already connected");
-    return SQL_ERROR;
   }
 
   conn_parser_param_t param = {0};

@@ -87,6 +87,9 @@ size_t env_conv(env_t *env, iconv_t cnv, mem_t *mem, const char *src, char **pds
 int tod_get_debug_flex(void) FA_HIDDEN;
 int tod_get_debug_bison(void) FA_HIDDEN;
 
+const char* tod_get_sql_c_charset(void) FA_HIDDEN;
+const char* tod_get_locale_or_ACP(void) FA_HIDDEN;
+
 EXTERN_C_END
 
 #endif // _env_h_

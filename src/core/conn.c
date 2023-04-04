@@ -301,33 +301,11 @@ static int _conn_setup_iconvs(conn_t *conn)
 {
   _conn_release_iconvs(conn);
   const char *tsdb_charset = conn->s_charset;
-  const char *sql_c_charset = "";
-
-#ifdef _WIN32
-  UINT acp = GetACP();
-  switch (acp) {
-    case 936:
-      sql_c_charset = "GB18030";
-      break;
-    case 65001:
-      sql_c_charset = "UTF-8";
-      break;
-    default:
-      conn_append_err_format(conn, "HY000", 0,
-          "General error:current code page [%d] not implemented yet", acp);
-      return -1;
-  }
-#else
-  const char *locale = setlocale(LC_CTYPE, NULL);
-  const char *p = locale ? strchr(locale, '.') : NULL;
-  p = p ? p + 1 : NULL;
-  if (!p) {
-    conn_append_err_format(conn, "HY000", 0,
-        "General error:current locale [%s] not implemented yet", locale);
+  const char *sql_c_charset = tod_get_sql_c_charset();
+  if (!sql_c_charset) {
+    conn_append_err_format(conn, "HY000", 0, "General error:current locale_or_ACP [%s]:not implemented yet", tod_get_locale_or_ACP());
     return -1;
   }
-  sql_c_charset = p;
-#endif
 
 #ifdef FAKE_TAOS            /* { */
   sql_c_charset = "GB18030";
@@ -367,15 +345,9 @@ static int _conn_setup_iconvs(conn_t *conn)
     } while (0);
 
     _conn_release_iconvs(conn);
-#ifdef _WIN32
     conn_append_err_format(conn, "HY000", 0,
-        "General error:conversion between current code page [%d]%s <=> charset [%s] not supported yet",
-        acp, sql_c_charset, tsdb_charset);
-#else
-    conn_append_err_format(conn, "HY000", 0,
-        "General error:conversion between current charset [%s] of locale [%s] <=> charset [%s] not supported yet",
-        p, locale, tsdb_charset);
-#endif
+        "General error:conversion between current locale_or_ACP [%s], charset %s <=> charset [%s] not supported yet",
+        tod_get_locale_or_ACP(), sql_c_charset, tsdb_charset);
     return -1;
   } while (0);
 
@@ -388,6 +360,11 @@ static int _conn_setup_iconvs(conn_t *conn)
 
 static int _conn_get_timezone_from_res(conn_t *conn, const char *sql, TAOS_RES *res)
 {
+#ifdef FAKE_TAOS            /* { */
+  conn->tz = 800;
+  conn->tz_seconds = 28800;
+  return 0;
+#else                       /* }{ */
   int numOfRows                = 0;
   TAOS_ROW rows                = NULL;
   TAOS_FIELD *fields           = NULL;
@@ -474,15 +451,11 @@ static int _conn_get_timezone_from_res(conn_t *conn, const char *sql, TAOS_RES *
   conn->tz_seconds = (tz / 100) * 60 * 60 + (tz % 100) * 60;
 
   return 0;
+#endif                      /* } */
 }
 
 static int _conn_get_timezone(conn_t *conn)
 {
-#ifdef FAKE_TAOS            /* { */
-  conn->tz = 800;
-  conn->tz_seconds = 28800;
-  return 0;
-#endif                      /* } */
   const char *sql = "select to_iso8601(0) as ts";
   TAOS_RES *res = CALL_taos_query(conn->taos, sql);
   if (!res) {

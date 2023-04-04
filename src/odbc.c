@@ -46,10 +46,6 @@
   }                               \
 } while (0)
 
-static atomic_int    _nr_load               = 0;
-static unsigned int  _taos_odbc_debug_flex  = 0;
-static unsigned int  _taos_odbc_debug_bison = 0;
-
 static int check_env_bool(const char *name)
 {
   const char *val = tod_getenv(name);
@@ -60,25 +56,76 @@ static int check_env_bool(const char *name)
   return atoi(val);
 }
 
+typedef struct global_s                  global_t;
+struct global_s {
+  atomic_int    nr_load;
+  unsigned int  taos_odbc_debug_flex;
+  unsigned int  taos_odbc_debug_bison;
+
+  char          locale_or_ACP[64];
+  char          sql_c_charset[64];
+};
+
+static global_t _global;
+
+static void _init_charsets(void)
+{
+#ifdef _WIN32
+  UINT acp = GetACP();
+  snprintf(_global.locale_or_ACP, sizeof(_global.locale_or_ACP), "%d", acp);
+  switch (acp) {
+    case 936:
+      snprintf(_global.sql_c_charset, sizeof(_global.sql_c_charset), "GB18030");
+      break;
+    case 65001:
+      snprintf(_global.sql_c_charset, sizeof(_global.sql_c_charset), "UTF-8");
+      break;
+    default:
+      break;
+  }
+#else
+  const char *locale = setlocale(LC_CTYPE, NULL);
+  if (!locale) return;
+  snprintf(_global.locale_or_ACP, sizeof(_global.locale_or_ACP), "%d", acp);
+
+  const char *p = strchr(locale, '.');
+  p = p ? p + 1 : locale;
+  snprintf(_global.sql_c_charset, sizeof(_global.sql_c_charset), "%s", p);
+#endif
+}
+
 static void _init_once(void)
 {
-  _taos_odbc_debug_flex  = check_env_bool("TAOS_ODBC_DEBUG_FLEX");
-  _taos_odbc_debug_bison = check_env_bool("TAOS_ODBC_DEBUG_BISON");
+  _global.taos_odbc_debug_flex  = check_env_bool("TAOS_ODBC_DEBUG_FLEX");
+  _global.taos_odbc_debug_bison = check_env_bool("TAOS_ODBC_DEBUG_BISON");
+  _init_charsets();
 }
 
 int tod_get_debug_flex(void)
 {
-  return !!_taos_odbc_debug_flex;
+  return !!_global.taos_odbc_debug_flex;
 }
 
 int tod_get_debug_bison(void)
 {
-  return !!_taos_odbc_debug_bison;
+  return !!_global.taos_odbc_debug_bison;
+}
+
+const char* tod_get_sql_c_charset(void)
+{
+  if (!_global.sql_c_charset[0]) return NULL;
+  return _global.sql_c_charset;
+}
+
+const char* tod_get_locale_or_ACP(void)
+{
+  if (!_global.locale_or_ACP[0]) return NULL;
+  return _global.locale_or_ACP;
 }
 
 int get_nr_load(void)
 {
-  return atomic_load(&_nr_load);
+  return atomic_load(&_global.nr_load);
 }
 
 static void init_global(void)
@@ -131,7 +178,7 @@ BOOL WINAPI DllMain(
     tls = tls_get();
     TRACE_LEAK("%d:%x:process:attach:tls_idx:%d", GetProcessId(GetCurrentProcess()), GetCurrentThreadId(), tls_idx);
 
-    atomic_fetch_add(&_nr_load, 1);
+    atomic_fetch_add(&_global.nr_load, 1);
 
     return setup_init(hinstDLL);
 
@@ -155,7 +202,7 @@ BOOL WINAPI DllMain(
 
   case DLL_PROCESS_DETACH:
     setup_fini();
-    atomic_fetch_sub(&_nr_load, 1);
+    atomic_fetch_sub(&_global.nr_load, 1);
 
     tls = tls_get();
     TRACE_LEAK("%d:%x:process:detach:tls_idx:%d", GetProcessId(GetCurrentProcess()), GetCurrentThreadId(), tls_idx);

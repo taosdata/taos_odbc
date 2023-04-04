@@ -61,8 +61,6 @@ static int _env_init(env_t *env)
   static pthread_once_t          once;
   pthread_once(&once, _init_once);
 
-  // TODO:
-
   env->debug_flex  = tod_get_debug_flex();
   env->debug_bison = tod_get_debug_bison();
 

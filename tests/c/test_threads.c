@@ -258,17 +258,13 @@ static void _init_pthread_once(void)
   pthread_once(&_once, _init_tick);
 }
 
-static int (*get_nr_load)(void);
-static void *taos_odbc_so;
-
 static int _thread_routine(const arg_t *arg)
 {
   int r = 0;
   _init_pthread_once();
   _init_pthread_once();
   W("%d:%x:thread:running", GetProcessId(GetCurrentProcess()), GetCurrentThreadId());
-  if (0) get_nr_load();
-  else   r = _run_with_arg_in_thread((const arg_t*)arg, NULL, 0);
+  r = _run_with_arg_in_thread((const arg_t*)arg, NULL, 0);
   W("%d:%x:thread:return:%d", GetProcessId(GetCurrentProcess()), GetCurrentThreadId(), r);
   if (r) return -1;
   return 0;

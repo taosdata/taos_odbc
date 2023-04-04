@@ -791,10 +791,6 @@ SQLRETURN conn_connect(
     SQLSMALLINT    NameLength3)
 {
   int r = 0;
-  if (conn->taos) {
-    conn_append_err(conn, "HY000", 0, "General error:Already connected");
-    return SQL_ERROR;
-  }
 
   if (NameLength1 == SQL_NTS) NameLength1 = ServerName ? (SQLSMALLINT)strlen((const char*)ServerName) : 0;
   if (NameLength2 == SQL_NTS) NameLength2 = UserName ? (SQLSMALLINT)strlen((const char*)UserName) : 0;

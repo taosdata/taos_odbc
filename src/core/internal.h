@@ -450,11 +450,11 @@ struct conn_s {
   char               *sql_c_char_charset;
   char               *tsdb_varchar_charset;
 
-  charset_conv_t      cnv_tsdb_varchar_to_sql_c_char;
-  charset_conv_t      cnv_tsdb_varchar_to_sql_c_wchar;
+  charset_conv_t      _cnv_tsdb_varchar_to_sql_c_char;
+  charset_conv_t      _cnv_tsdb_varchar_to_sql_c_wchar;
 
-  charset_conv_t      cnv_sql_c_char_to_tsdb_varchar;
-  charset_conv_t      cnv_sql_c_char_to_sql_c_wchar;
+  charset_conv_t      _cnv_sql_c_char_to_tsdb_varchar;
+  charset_conv_t      _cnv_sql_c_char_to_sql_c_wchar;
 
   errs_t              errs;
 

@@ -25,10 +25,11 @@
 #include "internal.h"
 
 #include "columns.h"
-#include "tables.h"
 
+#include "conn.h"
 #include "errs.h"
 #include "log.h"
+#include "tables.h"
 #include "taos_helpers.h"
 #include "tsdb.h"
 
@@ -269,7 +270,9 @@ static SQLRETURN _fetch_row_with_tsdb(stmt_base_t *base, tsdb_data_t *tsdb)
 
   columns_t *columns = (columns_t*)base;
 
-  charset_conv_t *cnv = &columns->owner->conn->cnv_tsdb_varchar_to_sql_c_wchar;
+  charset_conv_t *cnv = NULL;
+  sr = conn_get_cnv_tsdb_varchar_to_sql_c_wchar(columns->owner->conn, &cnv);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
 
 again:
 
@@ -739,7 +742,10 @@ SQLRETURN columns_open(
   if (TableName && NameLength3 == SQL_NTS)   NameLength3 = (SQLSMALLINT)strlen((const char*)TableName);
   if (ColumnName && NameLength4 == SQL_NTS)  NameLength4 = (SQLSMALLINT)strlen((const char*)ColumnName);
 
-  charset_conv_t *cnv = &columns->owner->conn->cnv_sql_c_char_to_sql_c_wchar;
+  charset_conv_t *cnv = NULL;
+  sr = conn_get_cnv_sql_c_char_to_sql_c_wchar(columns->owner->conn, &cnv);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
   if (ColumnName) {
     if (mem_conv(&columns->column_cache, cnv->cnv, (const char*)ColumnName, NameLength4)) {
       stmt_oom(columns->owner);

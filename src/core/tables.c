@@ -27,6 +27,7 @@
 #include "tables.h"
 
 #include "charset.h"
+#include "conn.h"
 #include "errs.h"
 #include "log.h"
 #include "taos_helpers.h"
@@ -153,7 +154,9 @@ static SQLRETURN _fetch_row_with_tsdb(stmt_base_t *base, tsdb_data_t *tsdb)
 
   tables_t *tables = (tables_t*)base;
 
-  charset_conv_t *cnv = &tables->owner->conn->cnv_tsdb_varchar_to_sql_c_wchar;
+  charset_conv_t *cnv = NULL;
+  sr = conn_get_cnv_tsdb_varchar_to_sql_c_wchar(tables->owner->conn, &cnv);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
 
 again:
 
@@ -398,7 +401,12 @@ static SQLRETURN _tables_open_tabletypes(tables_t *tables)
 
 static SQLRETURN _tables_add_table_type(tables_t *tables, SQLCHAR *TableType, SQLSMALLINT NameLength4, const char *begin, const char *p)
 {
-  charset_conv_t *cnv = &tables->owner->conn->cnv_sql_c_char_to_tsdb_varchar;
+  SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
+
+  charset_conv_t *cnv = NULL;
+  sr = conn_get_cnv_sql_c_char_to_tsdb_varchar(tables->owner->conn, &cnv);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   char *t = (char*)tables->table_types.base + tables->table_types.nr;
   char       *inbuf                 = (char*)begin;
@@ -502,7 +510,10 @@ SQLRETURN tables_open(
     }
   }
 
-  charset_conv_t *cnv = &tables->owner->conn->cnv_sql_c_char_to_sql_c_wchar;
+  charset_conv_t *cnv = NULL;
+  sr = conn_get_cnv_sql_c_char_to_sql_c_wchar(tables->owner->conn, &cnv);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
   if (CatalogName) {
     if (mem_conv(&tables->catalog_cache, cnv->cnv, (const char*)CatalogName, NameLength1)) {
       stmt_oom(tables->owner);

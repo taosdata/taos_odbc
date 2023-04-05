@@ -34,6 +34,7 @@
 
 EXTERN_C_BEGIN
 
+void sqls_parser_param_reset(sqls_parser_param_t *param) FA_HIDDEN;
 void sqls_parser_param_release(sqls_parser_param_t *param) FA_HIDDEN;
 
 int sqls_parser_parse(const char *input, size_t len,

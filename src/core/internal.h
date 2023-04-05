@@ -369,6 +369,21 @@ struct conn_cfg_s {
   unsigned int           port_set:1;
 };
 
+struct parser_nterm_s {
+  size_t           start;
+  size_t           end;
+};
+
+struct sqls_s {
+  parser_nterm_t        *sqls;
+  size_t                 cap;
+  size_t                 nr;
+
+  size_t                 pos; // 1-based
+
+  uint8_t                failed:1;
+};
+
 struct parser_token_s {
   const char      *text;
   size_t           leng;
@@ -382,16 +397,14 @@ struct topic_cfg_s {
   kvs_t                  kvs;
 };
 
-struct sqls_cfg_s {
-  char                 **sqls;
-  size_t                 sqls_cap;
-  size_t                 sqls_nr;
-};
-
 struct parser_ctx_s {
   int                    row0, col0;
   int                    row1, col1;
   char                   err_msg[1024];
+
+  // globally 0-based
+  size_t                 token_start;
+  size_t                 token_end;
 
   unsigned int           debug_flex:1;
   unsigned int           debug_bison:1;
@@ -411,9 +424,7 @@ struct ext_parser_param_s {
 };
 
 struct sqls_parser_param_s {
-  sqls_cfg_t             sqls_cfg;
-
-  void (*sql_found)(int row0, int col0, int row1, int col1, void *arg);
+  int (*sql_found)(sqls_parser_param_t *param, size_t start, size_t end, void *arg);
   void                  *arg;
 
   parser_ctx_t           ctx;
@@ -703,6 +714,7 @@ struct stmt_s {
   get_data_ctx_t             get_data_ctx;
 
   mem_t                      raw;
+  sqls_t                     sqls;
 
   mem_t                      sql;
 
@@ -728,9 +740,6 @@ struct tls_s {
   mem_t                      intermediate;
   charset_conv_mgr_t        *mgr;
 };
-
-void sqls_cfg_release(sqls_cfg_t *cfg) FA_HIDDEN;
-void sqls_cfg_transfer(sqls_cfg_t *from, sqls_cfg_t *to) FA_HIDDEN;
 
 EXTERN_C_END
 

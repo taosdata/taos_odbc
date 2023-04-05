@@ -45,16 +45,19 @@
 #define R() do {                                  \
     yylloc->first_column = yylloc->last_column ;  \
     yylloc->first_line   = yylloc->last_line;     \
+    yyextra->token_start = yyextra->token_end;    \
 } while (0)
 
 #define L() do {                                  \
     yylloc->last_line   += 1;                     \
     yylloc->last_column  = 1;                     \
+    yyextra->token_end += yyleng;                 \
 } while (0)
 
 #define C()                                       \
 do {                                              \
     yylloc->last_column += yyleng;                \
+    yyextra->token_end += yyleng;                 \
 } while (0)
 
 #define SET_STR() do {                            \
@@ -69,6 +72,7 @@ do {                                              \
 %}
 
 %option bison-bridge bison-locations reentrant
+%option extra-type="parser_ctx_t *"
 %option nounistd
 %option noyywrap noinput nounput
 %option verbose
@@ -86,7 +90,7 @@ do {                                              \
 
 SP            [ \t]
 LN            "\r\n"|"\n\r"|[\f\r\n]
-PUNC          [-~!@#$%^&*_+=|:,.?/]
+PUNC          [-~!@#$%^&*_+=|:,.?/<>]
 ESCAPE        [\\][rntfb\\]
 LP            "("
 RP            ")"

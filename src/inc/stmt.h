@@ -292,6 +292,9 @@ SQLRETURN stmt_complete_async(
     stmt_t      *stmt,
     RETCODE     *AsyncRetCodePtr) FA_HIDDEN;
 
+void sqls_reset(sqls_t *sqls) FA_HIDDEN;
+void sqls_release(sqls_t *sqls) FA_HIDDEN;
+
 EXTERN_C_END
 
 #endif //  _stmt_h_

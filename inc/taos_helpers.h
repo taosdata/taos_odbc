@@ -363,7 +363,7 @@ static inline void call_taos_free_result(const char *file, int line, const char 
 {
   LOGD_TAOS(file, line, func, "taos_free_result(res:%p) ...", res);
   taos_free_result(res);
-  diag_res(NULL);
+  if (0) diag_res(NULL);
   LOGD_TAOS(file, line, func, "taos_free_result(res:%p) => void", res);
 }
 

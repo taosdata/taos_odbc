@@ -47,6 +47,7 @@ typedef struct errs_s                    errs_t;
 typedef struct ext_parser_param_s        ext_parser_param_t;
 
 typedef struct parser_ctx_s              parser_ctx_t;
+typedef struct parser_nterm_s            parser_nterm_t;
 typedef struct parser_token_s            parser_token_t;
 
 typedef struct primarykeys_args_s        primarykeys_args_t;
@@ -57,7 +58,7 @@ typedef struct stmt_get_data_args_s      stmt_get_data_args_t;
 
 typedef struct stmt_base_s               stmt_base_t;
 
-typedef struct sqls_cfg_s                sqls_cfg_t;
+typedef struct sqls_s                    sqls_t;
 typedef struct sqls_parser_param_s       sqls_parser_param_t;
 
 typedef struct tables_args_s             tables_args_t;

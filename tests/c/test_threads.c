@@ -102,6 +102,7 @@ struct arg_s {
   const char      *connstr;
   int              threads;
   int              executes;
+  int              progress;
   thread_create_t  thread_create;
 
   const char      *name;
@@ -444,7 +445,7 @@ again:
     if (r) return -1;
     time_t t1 = time(NULL);
     double delta = difftime(t1, t0);
-    if (0 && delta >= interval) {
+    if (arg->progress && delta >= interval) {
       struct tm v;
       localtime_r(&t1, &v);
       char buf[64];
@@ -470,6 +471,7 @@ static void usage(const char *arg0)
   DUMP("  --connstr <connstr>         Connection string");
   DUMP("  --threads <num>             # of threads running concurrently");
   DUMP("  --executes <num>            # of executes for each test");
+  DUMP("  --progress                  show progress");
 #ifdef _WIN32                              /* { */
   DUMP("  --CreateThread              Using `CreateThread`");
   DUMP("  _beginthreadex              Using `_beginthreadex`");
@@ -490,6 +492,7 @@ static int _run(int argc, char *argv[])
   arg.dsn = "TAOS_ODBC_DSN";
   arg.threads = 8;
   arg.executes = 2;
+  arg.progress = 0;
 #ifdef _WIN32                /* { */
   arg.thread_create = USE_CreateThread;
 #else                        /* }{ */
@@ -547,6 +550,10 @@ static int _run(int argc, char *argv[])
       ++i;
       if (i>=argc) break;
       arg.executes = atoi(argv[i]);
+      continue;
+    }
+    if (strcmp(argv[i], "--progress") == 0) {
+      arg.progress = 1;
       continue;
     }
 #ifdef _WIN32                              /* { */

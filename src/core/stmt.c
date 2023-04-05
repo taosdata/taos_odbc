@@ -48,6 +48,22 @@
 #include <time.h>
 #include <wchar.h>
 
+void sqls_reset(sqls_t *sqls)
+{
+  if (!sqls) return;
+  sqls->nr     = 0;
+  sqls->pos    = 0;
+  sqls->failed = 0;
+}
+
+void sqls_release(sqls_t *sqls)
+{
+  if (!sqls) return;
+  sqls_reset(sqls);
+  TOD_SAFE_FREE(sqls->sqls);
+  sqls->cap = 0;
+}
+
 static void _stmt_release_descriptors(stmt_t *stmt)
 {
   descriptor_release(&stmt->APD);
@@ -402,6 +418,7 @@ static void _stmt_release(stmt_t *stmt)
   mem_release(&stmt->mem);
   _tsdb_paramset_release(&stmt->paramset);
   tsdb_binds_release(&stmt->tsdb_binds);
+  sqls_release(&stmt->sqls);
 
   int prev = atomic_fetch_sub(&stmt->conn->stmts, 1);
   OA_ILE(prev >= 1);
@@ -4273,46 +4290,6 @@ static SQLRETURN _stmt_execute(stmt_t *stmt)
   return stmt->base->execute(stmt->base);
 }
 
-// static SQLRETURN _stmt_preprocess(stmt_t *stmt, const char *sqls)
-// {
-//   const char *start, *end;
-//   trim_left(sqls, -1, &start);
-//   if (start[0] == '!') {
-//     ext_parser_param_t param = {0};
-//     // param.ctx.debug_flex = 1;
-//     // param.ctx.debug_bison = 1;
-//     size_t nr = strlen(start);
-//     int r = ext_parser_parse(start, nr, &param);
-//     if (r) {
-//       stmt_append_err_format(stmt, "HY000", 0, "General error:parsing:%.*s", (int)nr, start);
-//       stmt_append_err_format(stmt, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
-//       stmt_append_err_format(stmt, "HY000", 0, "General error:failed:%.*s", (int)strlen(param.ctx.err_msg), param.ctx.err_msg);
-//       stmt_append_err(stmt, "HY000", 0, "General error:taos_odbc_extended syntax for `topic`:!topic [<name>]+ [{[<key[=<val>]>]*}]?");
-//
-//       ext_parser_param_release(&param);
-//       return SQL_ERROR;
-//     }
-//     ext_parser_param_release(&param);
-//     return SQL_SUCCESS;
-//   } else {
-//     sqls_parser_param_t param = {0};
-//     // param.ctx.debug_flex = 1;
-//     // param.ctx.debug_bison = 1;
-//     size_t nr = strlen(sqls);
-//     int r = sqls_parser_parse(start, nr, &param);
-//     if (r) {
-//       stmt_append_err_format(stmt, "HY000", 0, "General error:parsing:%.*s", (int)(end-start), start);
-//       stmt_append_err_format(stmt, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
-//       stmt_append_err_format(stmt, "HY000", 0, "General error:failed:%.*s", (int)strlen(param.ctx.err_msg), param.ctx.err_msg);
-//
-//       sqls_parser_param_release(&param);
-//       return SQL_ERROR;
-//     }
-//     sqls_parser_param_release(&param);
-//     return SQL_SUCCESS;
-//   }
-// }
-
 static SQLRETURN _stmt_query(stmt_t *stmt, const char *sql)
 {
   return stmt->base->query(stmt->base, sql);
@@ -4368,22 +4345,96 @@ SQLRETURN _stmt_exec_direct_sql(stmt_t *stmt, const char *sql)
   return sr;
 }
 
-SQLRETURN stmt_exec_direct(stmt_t *stmt, SQLCHAR *StatementText, SQLINTEGER TextLength)
+// static void _sql_found(int row0, int col0, int row1, int col1, void *arg)
+// {
+//   stmt_t *stmt = (stmt_t*)arg;
+//   mem_t *sql = &stmt->sql;
+//   const char *s = (const char*)sql->base;
+//   const char *start = s, *end = s;
+//   locate_str(s, row0, col0, row1, col1, &start, &end);
+// }
+
+static int _stmt_sql_found(sqls_parser_param_t *param, size_t start, size_t end, void *arg)
+{
+  stmt_t *stmt = (stmt_t*)arg;
+  sqls_t *sqls = &stmt->sqls;
+  --end;
+
+  if (sqls->nr >= sqls->cap) {
+    size_t cap = sqls->cap + 16;
+    parser_nterm_t *nterms = (parser_nterm_t*)realloc(sqls->sqls, sizeof(*nterms) * cap);
+    if (!nterms) {
+      stmt_oom(stmt);
+      return -1;
+    }
+    sqls->sqls = nterms;
+    sqls->cap  = cap;
+  }
+
+  sqls->sqls[sqls->nr].start = start;
+  sqls->sqls[sqls->nr].end   = end;
+  sqls->nr += 1;
+
+  return 0;
+}
+
+
+SQLRETURN _stmt_cache_and_parse(stmt_t *stmt, sqls_parser_param_t *param, const char *sql, size_t len)
 {
   SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
 
-  OA_ILE(stmt->conn);
-  OA_ILE(stmt->conn->taos);
+  mem_reset(&stmt->raw);
+  sqls_reset(&stmt->sqls);
 
-  // column-binds remain valid among executes
-  _stmt_close_result(stmt);
+  r = mem_keep(&stmt->raw, len + 1);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
 
-  const char *sql = (const char*)StatementText;
+  memcpy(stmt->raw.base, sql, len);
+  stmt->raw.nr = len;
+  stmt->raw.base[len] = '\0';
 
-  size_t len = TextLength;
-  if (TextLength == SQL_NTS) len = strlen(sql);
-  else                       len = strnlen(sql, TextLength);
+  r = sqls_parser_parse(sql, len, param);
+  if (r) {
+    E("location:(%d,%d)->(%d,%d)", param->ctx.row0, param->ctx.col0, param->ctx.row1, param->ctx.col1);
+    E("failed:%s", param->ctx.err_msg);
+    stmt_append_err_format(stmt, "HY000", 0, "General error:parsing:%.*s", (int)len, sql);
+    stmt_append_err_format(stmt, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)", param->ctx.row0, param->ctx.col0, param->ctx.row1, param->ctx.col1);
+    stmt_append_err_format(stmt, "HY000", 0, "General error:failed:%.*s", (int)strlen(param->ctx.err_msg), param->ctx.err_msg);
+
+    return SQL_ERROR;
+  } else if (stmt->sqls.failed) {
+    return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
+}
+
+SQLRETURN _stmt_get_next_sql(stmt_t *stmt, const char **sql, size_t *len)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  sqls_t *sqls = &stmt->sqls;
+  if (sqls->pos + 1 > sqls->nr) return SQL_NO_DATA;
+
+  ++sqls->pos;
+
+  parser_nterm_t *nterms = stmt->sqls.sqls + stmt->sqls.pos - 1;
+  *sql = (const char*)stmt->raw.base + nterms->start;
+  *len = nterms->end - nterms->start;
+
+  return SQL_SUCCESS;
+}
+
+SQLRETURN _stmt_exec_direct_with_simple_sql(stmt_t *stmt, const char *sql, size_t len)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
+
+  mem_reset(&stmt->sql);
 
   charset_conv_t *cnv = NULL;
   sr = conn_get_cnv_sql_c_char_to_tsdb_varchar(stmt->conn, &cnv);
@@ -4401,7 +4452,7 @@ SQLRETURN stmt_exec_direct(stmt_t *stmt, SQLCHAR *StatementText, SQLINTEGER Text
     ext_parser_param_t param = {0};
     // param.ctx.debug_flex = 1;
     // param.ctx.debug_bison = 1;
-    int r = ext_parser_parse(start, end-start, &param);
+    r = ext_parser_parse(start, end-start, &param);
     if (r) {
       stmt_append_err_format(stmt, "HY000", 0, "General error:parsing:%.*s", (int)(end-start), start);
       stmt_append_err_format(stmt, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
@@ -4431,6 +4482,39 @@ SQLRETURN stmt_exec_direct(stmt_t *stmt, SQLCHAR *StatementText, SQLINTEGER Text
   }
 
   return _stmt_exec_direct_sql(stmt, (const char*)stmt->sql.base);
+}
+
+SQLRETURN stmt_exec_direct(stmt_t *stmt, SQLCHAR *StatementText, SQLINTEGER TextLength)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
+
+  // column-binds remain valid among executes
+  _stmt_close_result(stmt);
+
+  const char *sql = (const char*)StatementText;
+
+  size_t len = TextLength;
+  if (TextLength == SQL_NTS) len = strlen(sql);
+  else                       len = strnlen(sql, TextLength);
+
+  sqls_parser_param_t param = {0};
+  // param.ctx.debug_flex = 1;
+  // param.ctx.debug_bison = 1;
+  param.sql_found = _stmt_sql_found;
+  param.arg       = stmt;
+
+  sr = _stmt_cache_and_parse(stmt, &param, sql, len);
+  sqls_parser_param_release(&param);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  sr = _stmt_get_next_sql(stmt, &sql, &len);
+  if (sr == SQL_NO_DATA) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:empty sql statement");
+    return SQL_ERROR;
+  }
+
+  return _stmt_exec_direct_with_simple_sql(stmt, sql, len);
 }
 
 static SQLRETURN _stmt_set_row_array_size(stmt_t *stmt, SQLULEN row_array_size)
@@ -4750,7 +4834,23 @@ SQLRETURN stmt_col_attribute(
 SQLRETURN stmt_more_results(
     stmt_t         *stmt)
 {
-  return stmt->base->more_results(stmt->base);
+  SQLRETURN sr = SQL_SUCCESS;
+
+  if (stmt->base == &stmt->topic.base) {
+    return stmt->base->more_results(stmt->base);
+  }
+
+  if (stmt->base == &stmt->tsdb_stmt.base) {
+    const char *sql = NULL;
+    size_t len = 0;
+
+    sr = _stmt_get_next_sql(stmt, &sql, &len);
+    if (sr == SQL_NO_DATA) return SQL_NO_DATA;
+
+    return _stmt_exec_direct_with_simple_sql(stmt, sql, len);
+  }
+
+  return SQL_NO_DATA;
 }
 
 SQLRETURN stmt_columns(

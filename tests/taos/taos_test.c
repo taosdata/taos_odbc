@@ -360,6 +360,12 @@ static int test_query_cjson(TAOS *taos, const char *sql, const cJSON *rows)
   int r = 0;
 
   TAOS_RES *res = CALL_taos_query(taos, sql);
+  int e = CALL_taos_errno(res);
+  if (e) {
+    if (res) CALL_taos_free_result(res);
+    E("query failed");
+    return -1;
+  }
   if (!res) {
     if (rows) {
       E("no result is returned");
@@ -1639,20 +1645,45 @@ static int flaw_case_under_stmt(TAOS_STMT *stmt, int *tagNum, TAOS_FIELD_E **tag
 static int flaw_case_prepare_database(TAOS *taos)
 {
   TAOS_RES   *res  = NULL;
+  int e = 0;
 
   res = CALL_taos_query(taos, "drop database if exists foo");
+  e = CALL_taos_errno(res);
+  if (e) {
+    if (res) CALL_taos_free_result(res);
+    E("query failed");
+    return -1;
+  }
   if (!res) return -1;
   if (res) { CALL_taos_free_result(res); res = NULL; }
 
   res = CALL_taos_query(taos, "create database foo");
+  e = CALL_taos_errno(res);
+  if (e) {
+    if (res) CALL_taos_free_result(res);
+    E("query failed");
+    return -1;
+  }
   if (!res) return -1;
   if (res) { CALL_taos_free_result(res); res = NULL; }
 
   res = CALL_taos_query(taos, "use foo");
+  e = CALL_taos_errno(res);
+  if (e) {
+    if (res) CALL_taos_free_result(res);
+    E("query failed");
+    return -1;
+  }
   if (!res) return -1;
   if (res) { CALL_taos_free_result(res); res = NULL; }
 
   res = CALL_taos_query(taos, "create table st (ts timestamp, age int) tags (name varchar(20))");
+  e = CALL_taos_errno(res);
+  if (e) {
+    if (res) CALL_taos_free_result(res);
+    E("query failed");
+    return -1;
+  }
   if (!res) return -1;
   if (res) { CALL_taos_free_result(res); res = NULL; }
 
@@ -1763,6 +1794,12 @@ static int _execute_sqls(TAOS *taos, const char **sqls, size_t nr)
   for (size_t i=0; i<nr; ++i) {
     const char *sql = sqls[i];
     TAOS_RES *res = CALL_taos_query(taos,sql);
+    int e = CALL_taos_errno(res);
+    if (e) {
+      if (res) CALL_taos_free_result(res);
+      E("query failed");
+      return -1;
+    }
     if (!res) return -1;
     CALL_taos_free_result(res);
   }
@@ -1865,6 +1902,12 @@ static int test_charset_step1(TAOS *taos)
 {
   const char *sql = "select name, wname from wall.t";
   TAOS_RES *res = CALL_taos_query(taos,sql);
+  int e = CALL_taos_errno(res);
+  if (e) {
+    if (res) CALL_taos_free_result(res);
+    E("query failed");
+    return -1;
+  }
   if (!res) return -1;
 
   int r = test_charset_step2(res);
@@ -1937,6 +1980,12 @@ static int _flaw_case2_step2(TAOS *taos)
   for (size_t i=0; i<sizeof(sqls)/sizeof(sqls[0]); ++i) {
     const char *sql = sqls[i];
     TAOS_RES *res = CALL_taos_query(taos,sql);
+    int e = CALL_taos_errno(res);
+    if (e) {
+      if (res) CALL_taos_free_result(res);
+      E("query failed");
+      return -1;
+    }
     if (!res) return -1;
     CALL_taos_free_result(res);
   }
@@ -2223,6 +2272,12 @@ static int conformance_mq(TAOS *taos)
   for (size_t i=0; i<sizeof(sqls)/sizeof(sqls[0]); ++i) {
     const char *sql = sqls[i];
     TAOS_RES *res = CALL_taos_query(taos,sql);
+    int e = CALL_taos_errno(res);
+    if (e) {
+      if (res) CALL_taos_free_result(res);
+      E("query failed");
+      return -1;
+    }
     if (!res) return -1;
     CALL_taos_free_result(res);
   }
@@ -2569,12 +2624,24 @@ static int conformance_fetch_one_row_or_block(TAOS *taos)
   char name_one_row[4096], name_block[4096];
 
   res = CALL_taos_query(taos, sql);
+  int e = CALL_taos_errno(res);
+  if (e) {
+    if (res) CALL_taos_free_result(res);
+    E("query failed");
+    return -1;
+  }
   if (!res) return -1;
   r = conformance_fetch_imple(res, 0, name_one_row, sizeof(name_one_row));
   CALL_taos_free_result(res);
   if (r) return -1;
 
   res = CALL_taos_query(taos, sql);
+  e = CALL_taos_errno(res);
+  if (e) {
+    if (res) CALL_taos_free_result(res);
+    E("query failed");
+    return -1;
+  }
   if (!res) return -1;
   r = conformance_fetch_imple(res, 1, name_block, sizeof(name_block));
   CALL_taos_free_result(res);
@@ -2654,6 +2721,12 @@ static int conformance_ts_with_taos(TAOS *taos)
   for (size_t i=0; i<sizeof(sqls)/sizeof(sqls[0]); ++i) {
     const char *sql = sqls[i];
     TAOS_RES *res = CALL_taos_query(taos, sql);
+    int e = CALL_taos_errno(res);
+    if (e) {
+      if (res) CALL_taos_free_result(res);
+      E("query failed");
+      return -1;
+    }
     if (!res) {
       E("res expected, but got ==null==");
       return -1;
@@ -2664,6 +2737,12 @@ static int conformance_ts_with_taos(TAOS *taos)
 
   const char *sql = "select ts from bar.foo";
   TAOS_RES *res = CALL_taos_query(taos, sql);
+  int e = CALL_taos_errno(res);
+  if (e) {
+    if (res) CALL_taos_free_result(res);
+    E("query failed");
+    return -1;
+  }
   if (!res) {
     E("res expected, but got ==null==");
     return -1;

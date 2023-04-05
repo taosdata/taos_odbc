@@ -257,46 +257,150 @@ static int test_ext_parser(void)
   return 0;
 }
 
-static void _sql_found(int row0, int col0, int row1, int col1, void *arg)
+typedef struct sqls_check_s         sqls_check_t;
+struct sqls_check_s {
+  const char                *sqls;
+  const char * const        *expects;
+  size_t                     expects_cap;
+  size_t                     idx;
+
+  uint8_t                    failed:1;
+};
+
+static int _sql_found(sqls_parser_param_t *param, size_t _start, size_t _end, void *arg)
 {
-  const char *s = (const char*)arg;
-  const char *start = s, *end = s;
-  locate_str(s, row0, col0, row1, col1, &start, &end);
-  DUMP("==found:[%d]\n%.*s", (int)(end - start), (int)(end - start), start);
+  sqls_check_t *check = (sqls_check_t*)arg;
+  const char *sqls = check->sqls;
+  --_end;
+
+  if (check->idx >= check->expects_cap) {
+    E("expected:<empty>");
+    E("but  got:[%.*s]", (int)(_end - _start), sqls + _start);
+    check->failed = 1;
+    return -1;
+  }
+
+  const char *expected = check->expects[check->idx];
+  if (strlen(expected) != (_end - _start)) {
+    E("expected:[%s]", expected);
+    E("but  got:[%.*s]", (int)(_end - _start), sqls + _start);
+    check->failed = 1;
+    return -1;
+  }
+  if (strncmp(expected, sqls + _start, _end - _start)) {
+    E("expected:[%s]", expected);
+    E("but  got:[%.*s]", (int)(_end - _start), sqls + _start);
+    check->failed = 1;
+    return -1;
+  }
+  ++check->idx;
+  return 0;
 }
 
 static int test_sqls_parser(void)
 {
-  const char *sqls[] = {
-    "insert into t (ts, name)",
-    "insert into t (ts, name) values (now(), value)",
-    "select * from a;select * from b;insert into t (ts, name) values (now(), \"hello\")",
-    "select * from a;select * from b;insert into t (ts, name) values (now(), \"世界\")",
-    "    select * from a   ;   select * from b     ;     insert into t (ts, name) values (now(), \"世界\")      ",
-    "select 34 as `abc`",
-    "    select * \r\n from a  \r\n ;  select * \nfrom b     ;     insert into \nt (ts, \nname) values (now(), \"世界\")  ;;;;;;    ",
-    "    select * from \f a  ;   select * from b     ;  \r   insert \rinto t (ts, name) values (now(), \"世界\")      ",
+  const struct {
+    const char *sqls;
+    const char *expects[16];
+  } _cases[] = {
+    {
+      "insert into t (ts, name)",
+      {
+        "insert into t (ts, name)",
+      },
+    },{
+      "insert into t (ts, name) values (now(), value)",
+      {
+        "insert into t (ts, name) values (now(), value)",
+      },
+    },{
+      "select * from a;xselect * from bb;insert into t (ts, name) values (now(), \"hello\")",
+      {
+        "select * from a",
+        "xselect * from bb",
+        "insert into t (ts, name) values (now(), \"hello\")",
+      },
+    },{
+      "select * from a;select * from bb;insert into t (ts, name) values (now(), \"世界\")",
+      {
+        "select * from a",
+        "select * from bb",
+        "insert into t (ts, name) values (now(), \"世界\")",
+      },
+    },{
+      "    select * from a   ;   select * from b     ;     insert into t (ts, name) values (now(), \"世界\")      ",
+      {
+        "select * from a",
+        "select * from b",
+        "insert into t (ts, name) values (now(), \"世界\")",
+      },
+    },{
+      "select 34 as `abc`",
+      {
+        "select 34 as `abc`",
+      },
+    },{
+      "    select * \r\n from a  \r\n ;  select * \nfrom b     ;     insert into \nt (ts, \nname) values (now(), \"世界\")  ;;;;;;    ",
+      {
+        "select * \r\n from a",
+        "select * \nfrom b",
+        "insert into \nt (ts, \nname) values (now(), \"世界\")",
+      },
+    },{
+      "    select * from \f a  ;   select * from b     ;  \r   insert \rinto t (ts, name) values (now(), \"x世界\")      ",
+      {
+        "select * from \f a",
+        "select * from b",
+        "insert \rinto t (ts, name) values (now(), \"x世界\")",
+      },
+    },{
+      "",
+    },{
+      "ab",
+      {
+        "ab",
+      },
+    },{
+      ";;;;;ab;;;;;;;",
+      {
+        "ab",
+      },
+    },{
+      "!topic demo good {group.id=cgrpName enable.auto.commit=false auto.commit.interval.ms=10000}",
+      {
+        "!topic demo good {group.id=cgrpName enable.auto.commit=false auto.commit.interval.ms=10000}",
+      },
+    }
   };
-  for (size_t i=0; i<sizeof(sqls)/sizeof(sqls[0]); ++i) {
-    const char *s = sqls[i];
+  for (size_t i=0; i<sizeof(_cases)/sizeof(_cases[0]); ++i) {
+    const char  *sqls    = _cases[i].sqls;
+    char const * const *expects = _cases[i].expects;
+
+    sqls_check_t check = {
+      .sqls        = sqls,
+      .expects     = expects,
+      .expects_cap = sizeof(_cases[0].expects)/sizeof(_cases[0].expects[0]),
+      .failed      = 0,
+    };
 
     sqls_parser_param_t param = {0};
     // param.ctx.debug_flex = 1;
     // param.ctx.debug_bison = 1;
     param.sql_found = _sql_found;
-    param.arg       = (void*)s;
+    param.arg       = &check;
 
-    DUMP("parsing:%s ...", s);
-    int r = sqls_parser_parse(s, strlen(s), &param);
+    D("parsing:\n%s ...", sqls);
+    int r = sqls_parser_parse(sqls, strlen(sqls), &param);
     if (r) {
       E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
       E("failed:%s", param.ctx.err_msg);
+    } else if (check.failed) {
+      return -1;
     }
 
     sqls_parser_param_release(&param);
     if (r) return -1;
   }
-
   return 0;
 }
 
@@ -711,7 +815,7 @@ int main(int argc, char *argv[])
     }
     tested = 1;
     r = run(argv[i]);
-    if (r) return -1;
+    if (r) return 1;
   }
 
   if (!tested) r = run(NULL);

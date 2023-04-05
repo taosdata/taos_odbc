@@ -57,17 +57,28 @@
         const char *errsg
     );
 
-    #define FOUND(_loc) do {                                     \
-      if (param->sql_found) {                                    \
-        param->sql_found(_loc.first_line, _loc.first_column,     \
-            _loc.last_line, _loc.last_column, param->arg);       \
-      }                                                          \
+    #define SET_TOKEN_BOUND(_rr, _start, _end) do {    \
+      _rr.start = _start;                              \
+      _rr.end   = _end;                                \
     } while (0)
+
+    #define FOUND(_start, _end) do {                                            \
+      if (param->sql_found) {                                                   \
+        int r = param->sql_found(param, _start, _end, param->arg);              \
+        if (r) return 0;                                                        \
+      }                                                                         \
+    } while (0)
+
+    void sqls_parser_param_reset(sqls_parser_param_t *param)
+    {
+      if (!param) return;
+      param->ctx.err_msg[0] = '\0';
+      param->ctx.row0 = 0;
+    }
 
     void sqls_parser_param_release(sqls_parser_param_t *param)
     {
       if (!param) return;
-      sqls_cfg_release(&param->sqls_cfg);
       param->ctx.err_msg[0] = '\0';
       param->ctx.row0 = 0;
     }
@@ -90,8 +101,15 @@
 // union members
 %union { parser_token_t token; }
 %union { char c; }
+%union { parser_nterm_t nterm; }
 
 %token TOKEN ERROR STR
+%token LP RP LC RC LB RB
+%token QM SQ AA
+
+%nterm <nterm> lc rc lp rp lb rb
+%nterm <nterm> qm sq aa sc
+%nterm <nterm> token str any_token sql quoted strs delimit sqls
 
  /* %nterm <str>   args */ // non-terminal `input` use `str` to store
                            // token value as well
@@ -105,44 +123,92 @@ input:
 ;
 
 sqls:
-  %empty
-| sql                       { FOUND(@1); }
-| sqls delimit sql          { FOUND(@3); }
+  %empty                    { SET_TOKEN_BOUND($$, 0, 0); }
+| sql                       { SET_TOKEN_BOUND($$, $1.start, $1.end); FOUND($1.start, $1.end+1); }
+| sqls delimit sql          { SET_TOKEN_BOUND($$, $1.start, $3.end); FOUND($3.start, $3.end+1); }
 ;
 
 sql:
-  token
-| sql token
+  any_token            { SET_TOKEN_BOUND($$, $1.start, $1.end); }
+| sql any_token        { SET_TOKEN_BOUND($$, $1.start, $2.end); }
+;
+
+any_token:
+  token                { SET_TOKEN_BOUND($$, $1.start, $1.end); }
+| quoted               { SET_TOKEN_BOUND($$, $1.start, $1.end); }
+| lc rc                { SET_TOKEN_BOUND($$, $1.start, $2.end); }
+| lp rp                { SET_TOKEN_BOUND($$, $1.start, $2.end); }
+| lb rb                { SET_TOKEN_BOUND($$, $1.start, $2.end); }
+| lc sql rc            { SET_TOKEN_BOUND($$, $1.start, $3.end); }
+| lp sql rp            { SET_TOKEN_BOUND($$, $1.start, $3.end); }
+| lb sql rb            { SET_TOKEN_BOUND($$, $1.start, $3.end); }
 ;
 
 token:
-  TOKEN
-| qm
-| '(' ')'
-| '{' '}'
-| '[' ']'
-| '(' sql ')'
-| '{' sql '}'
-| '[' sql ']'
+  TOKEN        { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end); }
+;
+
+lc:
+  '('          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end); }
+;
+
+rc:
+  ')'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end); }
+;
+
+lp:
+  '{'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end); }
+;
+
+rp:
+  '}'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end); }
+;
+
+lb:
+  '['          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end); }
+;
+
+rb:
+  ']'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end); }
+;
+
+quoted:
+  qm qm        { SET_TOKEN_BOUND($$, $1.start, $2.end); }
+| qm strs qm   { SET_TOKEN_BOUND($$, $1.start, $3.end); }
+| sq sq        { SET_TOKEN_BOUND($$, $1.start, $2.end); }
+| sq strs sq   { SET_TOKEN_BOUND($$, $1.start, $3.end); }
+| aa aa        { SET_TOKEN_BOUND($$, $1.start, $2.end); }
+| aa strs aa   { SET_TOKEN_BOUND($$, $1.start, $3.end); }
 ;
 
 qm:
-  '"' '"'
-| '"' str '"'
-| '\'' '\''
-| '\'' str '\''
-| '`' '`'
-| '`' str '`'
+  '"'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end); }
+;
+
+sq:
+  '\''         { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end); }
+;
+
+aa:
+  '`'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end); }
+;
+
+strs:
+  str          { SET_TOKEN_BOUND($$, $1.start, $1.end); }
+| strs str     { SET_TOKEN_BOUND($$, $1.start, $2.end); }
 ;
 
 str:
-  STR
-| str STR
+  STR          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end); }
 ;
 
 delimit:
-  ';'
-| delimit ';'
+  sc           { SET_TOKEN_BOUND($$, $1.start, $1.end); }
+| delimit sc   { SET_TOKEN_BOUND($$, $1.start, $2.end); }
+;
+
+sc:
+  ';'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end); }
 ;
 
 %%
@@ -188,29 +254,10 @@ static void yyerror(
   _yyerror_impl(yylloc, arg, param, errmsg);
 }
 
-void sqls_cfg_reset(sqls_cfg_t *cfg)
-{
-  if (!cfg) return;
-  for (size_t i=0; i<cfg->sqls_nr; ++i) {
-    TOD_SAFE_FREE(cfg->sqls[i]);
-  }
-  cfg->sqls_nr = 0;
-}
-
-void sqls_cfg_release(sqls_cfg_t *cfg)
-{
-  if (!cfg) return;
-  sqls_cfg_reset(cfg);
-  TOD_SAFE_FREE(cfg->sqls);
-  cfg->sqls_cap = 0;
-}
-
-void sqls_cfg_transfer(sqls_cfg_t *from, sqls_cfg_t *to) FA_HIDDEN;
-
 int sqls_parser_parse(const char *input, size_t len, sqls_parser_param_t *param)
 {
   yyscan_t arg = {0};
-  yylex_init(&arg);
+  yylex_init_extra(&param->ctx, &arg);
   // yyset_in(in, arg);
   int debug_flex = param ? param->ctx.debug_flex : 0;
   int debug_bison = param ? param->ctx.debug_bison: 0;

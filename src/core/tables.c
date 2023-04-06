@@ -402,7 +402,6 @@ static SQLRETURN _tables_open_tabletypes(tables_t *tables)
 static SQLRETURN _tables_add_table_type(tables_t *tables, SQLCHAR *TableType, SQLSMALLINT NameLength4, const char *begin, const char *p)
 {
   SQLRETURN sr = SQL_SUCCESS;
-  int r = 0;
 
   charset_conv_t *cnv = NULL;
   sr = conn_get_cnv_sql_c_char_to_tsdb_varchar(tables->owner->conn, &cnv);

@@ -264,9 +264,9 @@ static int _thread_routine(const arg_t *arg)
   int r = 0;
   _init_pthread_once();
   _init_pthread_once();
-  W("%d:%x:thread:running", GetProcessId(GetCurrentProcess()), GetCurrentThreadId());
+  W("%zd:%zx:thread:running", tod_get_current_process_id(), tod_get_current_thread_id());
   r = _run_with_arg_in_thread((const arg_t*)arg, NULL, 0);
-  W("%d:%x:thread:return:%d", GetProcessId(GetCurrentProcess()), GetCurrentThreadId(), r);
+  W("%zd:%zx:thread:return:%d", tod_get_current_process_id(), tod_get_current_thread_id(), r);
   if (r) return -1;
   return 0;
 }
@@ -367,7 +367,7 @@ static void* _routine_pthread_create(void *arg)
 {
   int r = 0;
   r = _thread_routine((const arg_t*)arg);
-  if (r) return -1;
+  if (r) return (void*)-1;
   return 0;
 }
 

@@ -89,7 +89,7 @@ static void _init_charsets(void)
 #else
   const char *locale = setlocale(LC_CTYPE, "");
   if (!locale) return;
-  snprintf(_global.locale_or_ACP, sizeof(_global.locale_or_ACP), "%d", acp);
+  snprintf(_global.locale_or_ACP, sizeof(_global.locale_or_ACP), "%s", locale);
 
   const char *p = strchr(locale, '.');
   p = p ? p + 1 : locale;
@@ -273,13 +273,13 @@ __attribute__((constructor)) void _initialize(void)
 {
   init_global();
   // yes, no check return value
-  atomic_fetch_add(&_nr_load, 1);
+  atomic_fetch_add(&_global.nr_load, 1);
 }
 
 __attribute__((destructor)) void _deinitialize(void)
 {
   // yes, no check return value
-  atomic_fetch_sub(&_nr_load, 1);
+  atomic_fetch_sub(&_global.nr_load, 1);
 }
 #endif                         /* } */
 

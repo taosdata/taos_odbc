@@ -24,6 +24,7 @@
 
 #include "odbc_helpers.h"
 
+#include <errno.h>
 #include <stdarg.h>
 #include <stdint.h>
 
@@ -471,7 +472,6 @@ static int _dump_stmt_describe_col(SQLSMALLINT HandleType, SQLHANDLE Handle)
 static int _execute_file_impl(SQLHANDLE hstmt, const char *env, const char *fn, FILE *f)
 {
   SQLRETURN sr = SQL_SUCCESS;
-  int r = 0;
 
   char buf[4096];
   size_t nr;

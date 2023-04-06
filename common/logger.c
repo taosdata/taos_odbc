@@ -51,6 +51,17 @@ uintptr_t tod_get_current_thread_id(void)
 #endif                    /* } */
 }
 
+uintptr_t tod_get_current_process_id(void)
+{
+#ifdef _WIN32             /* { */
+  DWORD tid = GetProcessId(GetCurrentProcess());
+  return tid;
+#else                     /* }{ */
+  pid_t pid = getpid();
+  return pid;
+#endif                    /* } */
+}
+
 static char logger_level_char(logger_level_t level)
 {
   switch (level) {

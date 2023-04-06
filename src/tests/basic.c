@@ -269,6 +269,8 @@ struct sqls_check_s {
 
 static int _sql_found(sqls_parser_param_t *param, size_t _start, size_t _end, void *arg)
 {
+  (void)param;
+
   sqls_check_t *check = (sqls_check_t*)arg;
   const char *sqls = check->sqls;
   --_end;
@@ -355,6 +357,9 @@ static int test_sqls_parser(void)
       },
     },{
       "",
+      {
+        NULL,
+      },
     },{
       "ab",
       {
@@ -395,6 +400,10 @@ static int test_sqls_parser(void)
       E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
       E("failed:%s", param.ctx.err_msg);
     } else if (check.failed) {
+      return -1;
+    } else if (expects[check.idx]) {
+      E("expected:[%s]", check.expects[check.idx]);
+      E("but  got:<null>");
       return -1;
     }
 

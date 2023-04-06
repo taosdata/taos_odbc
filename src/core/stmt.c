@@ -1387,9 +1387,10 @@ static SQLRETURN _stmt_col_attr_set_empty_string(
     SQLSMALLINT           BufferLength,
     SQLSMALLINT          *StringLengthPtr)
 {
+  (void)col;
   (void)FieldIdentifier;
   int n;
-  n = snprintf(CharacterAttributePtr, BufferLength, "");
+  n = snprintf(CharacterAttributePtr, BufferLength, "%s", "");
   if (n < 0) {
     int e = errno;
     stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
@@ -3421,7 +3422,6 @@ static SQLRETURN _stmt_prepare_param_data_array_from_sql_c_char_to_tsdb_varchar(
   SQLRETURN sr = SQL_SUCCESS;
 
   int nr_paramset_size                    = param_state->nr_paramset_size;
-  desc_record_t        *APD_record        = param_state->APD_record;
   TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
   tsdb_param_column_t  *param_column      = param_state->param_column;
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
@@ -3476,7 +3476,6 @@ static SQLRETURN _stmt_prepare_param_data_array_from_sql_c_char_to_tsdb_nchar(st
   SQLRETURN sr = SQL_SUCCESS;
 
   int nr_paramset_size                    = param_state->nr_paramset_size;
-  desc_record_t        *APD_record        = param_state->APD_record;
   TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
   tsdb_param_column_t  *param_column      = param_state->param_column;
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
@@ -4562,17 +4561,10 @@ SQLRETURN _stmt_exec_direct_sql(stmt_t *stmt, const char *sql)
   return sr;
 }
 
-// static void _sql_found(int row0, int col0, int row1, int col1, void *arg)
-// {
-//   stmt_t *stmt = (stmt_t*)arg;
-//   mem_t *sql = &stmt->sql;
-//   const char *s = (const char*)sql->base;
-//   const char *start = s, *end = s;
-//   locate_str(s, row0, col0, row1, col1, &start, &end);
-// }
-
 static int _stmt_sql_found(sqls_parser_param_t *param, size_t start, size_t end, void *arg)
 {
+  (void)param;
+
   stmt_t *stmt = (stmt_t*)arg;
   sqls_t *sqls = &stmt->sqls;
   --end;
@@ -4595,10 +4587,8 @@ static int _stmt_sql_found(sqls_parser_param_t *param, size_t start, size_t end,
   return 0;
 }
 
-
 SQLRETURN _stmt_cache_and_parse(stmt_t *stmt, sqls_parser_param_t *param, const char *sql, size_t len)
 {
-  SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
 
   mem_reset(&stmt->raw);
@@ -4632,8 +4622,6 @@ SQLRETURN _stmt_cache_and_parse(stmt_t *stmt, sqls_parser_param_t *param, const 
 
 SQLRETURN _stmt_get_next_sql(stmt_t *stmt, const char **sql, size_t *len)
 {
-  SQLRETURN sr = SQL_SUCCESS;
-
   sqls_t *sqls = &stmt->sqls;
   if (sqls->pos + 1 > sqls->nr) return SQL_NO_DATA;
 
@@ -4704,7 +4692,6 @@ SQLRETURN _stmt_exec_direct_with_simple_sql(stmt_t *stmt, const char *sql, size_
 SQLRETURN stmt_exec_direct(stmt_t *stmt, SQLCHAR *StatementText, SQLINTEGER TextLength)
 {
   SQLRETURN sr = SQL_SUCCESS;
-  int r = 0;
 
   // column-binds remain valid among executes
   _stmt_close_result(stmt);

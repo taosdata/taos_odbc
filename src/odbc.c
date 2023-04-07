@@ -281,6 +281,7 @@ BOOL WINAPI DllMain(
 #else                          /* }{ */
 static pthread_once_t key_once = PTHREAD_ONCE_INIT;
 static pthread_key_t tls_key;
+static int key_inited = 0;
 
 static void _tls_destroy(void *val)
 {
@@ -296,6 +297,7 @@ static void _tls_init(void)
     fprintf(stderr, "pthread_key_create failed: [%d]%s\n", e, strerror(e));
     abort();
   }
+  key_inited = 1;
 }
 
 tls_t* tls_get(void)
@@ -329,6 +331,13 @@ __attribute__((constructor)) void _initialize(void)
 
 __attribute__((destructor)) void _deinitialize(void)
 {
+  if (key_inited) {
+    tls_t *tls = (tls_t*)pthread_getspecific(tls_key);
+    if (tls) {
+      _tls_destroy(tls);
+    }
+    pthread_setspecific(tls_key, NULL);
+  }
   // yes, no check return value
   atomic_fetch_sub(&_global.nr_load, 1);
 }

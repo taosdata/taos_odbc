@@ -515,6 +515,15 @@ static SQLRETURN _do_conn_connect(conn_t *conn)
         break;
       }
     }
+    if (0) {
+      const char *from = "UTF-8";
+      const char *to   = "GB18030";
+      charset_conv_t *cnv = tls_get_charset_conv(from, to);
+      if (!cnv) {
+        env_oom(conn->env);
+        break;
+      }
+    }
     return SQL_SUCCESS;
   } while (0);
   conn_disconnect(conn);

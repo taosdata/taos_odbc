@@ -49,6 +49,8 @@
   }                               \
 } while (0)
 
+#define TRACE_LEAK(fmt, ...) if (1) { OE("%zx:%zx:%d[%s]:" fmt, tod_get_current_process_id(), tod_get_current_thread_id(), tls_idx_state, tls_idx_state_str(tls_idx_state), ##__VA_ARGS__); }
+
 static int check_env_bool(const char *name)
 {
   const char *val = tod_getenv(name);
@@ -143,18 +145,39 @@ static void init_global(void)
 
 #ifdef _WIN32                  /* { */
 static DWORD tls_idx = 0;
+static DWORD dwTlsIndex; // address of shared memory
+#define TLS_IDX_UNINITIALIZED -1
+#define TLS_IDX_INITIALIZED    0
+#define TLS_IDX_FINALIZED      1
+static int8_t tls_idx_state = TLS_IDX_UNINITIALIZED;
 
-#define TRACE_LEAK(fmt, ...) if (0) { OE(fmt, ##__VA_ARGS__); }
+static const char *tls_idx_state_str(uint8_t state)
+{
+  switch (state) {
+    case TLS_IDX_UNINITIALIZED: return "TLS_IDX_INITIALIZED";
+    case TLS_IDX_INITIALIZED: return "TLS_IDX_INITIALIZED";
+    case TLS_IDX_FINALIZED: return "TLS_IDX_FINALIZED";
+    default: return "TLS_IDX_UNKNOWN";
+  }
+}
 
 tls_t* tls_get(void)
 {
+  if (tls_idx_state != TLS_IDX_INITIALIZED) {
+    TRACE_LEAK("thread:tls_get:failed");
+    return NULL;
+  }
   tls_t *tls = TlsGetValue(tls_idx);
   if (tls) return tls;
 
   tls = (tls_t*)LocalAlloc(LPTR, tls_size());
-  TRACE_LEAK("%d:%x:process:tls_get:tls:%p", GetProcessId(GetCurrentProcess()), GetCurrentThreadId(), tls);
-  if (tls) TlsSetValue(tls_idx, tls);
+  if (tls && !TlsSetValue(tls_idx, tls)) {
+    LocalFree((HLOCAL)tls);
+    TRACE_LEAK("thread:tls_get:failed");
+    return NULL;
+  }
   if (tls) OA(tls == TlsGetValue(tls_idx), "");
+  TRACE_LEAK("thread:tls_get#alloc:%p", tls);
 
   return tls;
 }
@@ -174,12 +197,18 @@ BOOL WINAPI DllMain(
   case DLL_PROCESS_ATTACH:
     // Initialize once for each new process.
     // Return FALSE to fail DLL load.
-    if ((tls_idx = TlsAlloc()) == TLS_OUT_OF_INDEXES) {
-      TRACE_LEAK("%d:%x:process:attach:tls_idx:%d", GetProcessId(GetCurrentProcess()), GetCurrentThreadId(), tls_idx);
+
+    if (tls_idx_state != TLS_IDX_UNINITIALIZED) {
+      TRACE_LEAK("process:attach:failed_check");
       return FALSE;
     }
-    tls = tls_get();
-    TRACE_LEAK("%d:%x:process:attach:tls_idx:%d", GetProcessId(GetCurrentProcess()), GetCurrentThreadId(), tls_idx);
+
+    if ((tls_idx = TlsAlloc()) == TLS_OUT_OF_INDEXES) {
+      TRACE_LEAK("process:attach:failed");
+      return FALSE;
+    }
+    tls_idx_state = TLS_IDX_INITIALIZED;
+    TRACE_LEAK("process:attach:ok");
 
     atomic_fetch_add(&_global.nr_load, 1);
 
@@ -188,18 +217,33 @@ BOOL WINAPI DllMain(
   case DLL_THREAD_ATTACH:
     // TRACE_LEAK("thread attach");
     // Do thread-specific initialization.
-    tls = tls_get();
-    TRACE_LEAK("%d:%x:thread:attach:tls_idx:%d", GetProcessId(GetCurrentProcess()), GetCurrentThreadId(), tls_idx);
+    // tls = (tls_t*)LocalAlloc(LPTR, tls_size());
+    // if (tls && !TlsSetValue(tls_idx, tls)) {
+    //   LocalFree((HLOCAL)tls);
+    //   tls = NULL;
+    // }
+    if (tls_idx_state != TLS_IDX_INITIALIZED) {
+      TRACE_LEAK("thread:attach:failed_check");
+    } else {
+      TRACE_LEAK("thread:attach:ok");
+    }
+
     break;
 
   case DLL_THREAD_DETACH:
     // TRACE_LEAK("thread detach");
     // Do thread-specific cleanup.
-    tls = tls_get();
-    TRACE_LEAK("%d:%x:thread:detach:tls_idx:%d", GetProcessId(GetCurrentProcess()), GetCurrentThreadId(), tls_idx);
-    if (tls != NULL) {
+    if (tls_idx_state != TLS_IDX_INITIALIZED) {
+      TRACE_LEAK("thread:detach:failed_check");
+    }
+    tls_t *tls = TlsGetValue(tls_idx);
+    TRACE_LEAK("thread:detach:ok");
+    if (tls) {
+      TRACE_LEAK("thread:tls_release#free:%p", tls);
       tls_release(tls);
       LocalFree((HLOCAL)tls);
+      tls = NULL;
+      TlsSetValue(tls_idx, NULL);
     }
     break;
 
@@ -207,15 +251,22 @@ BOOL WINAPI DllMain(
     setup_fini();
     atomic_fetch_sub(&_global.nr_load, 1);
 
-    tls = tls_get();
-    TRACE_LEAK("%d:%x:process:detach:tls_idx:%d", GetProcessId(GetCurrentProcess()), GetCurrentThreadId(), tls_idx);
-    if (tls != NULL) {
+    if (tls_idx_state != TLS_IDX_INITIALIZED) {
+      TRACE_LEAK("process:detach:failed_check");
+    }
+    tls = TlsGetValue(tls_idx);
+    TRACE_LEAK("process:detach:ok");
+    if (tls) {
+      TRACE_LEAK("process:tls_release#free:%p", tls);
       tls_release(tls);
       LocalFree((HLOCAL)tls);
+      tls = NULL;
+      TlsSetValue(tls_idx, NULL);
     }
 
     TlsFree(tls_idx); 
     tls_idx = 0;
+    tls_idx_state = TLS_IDX_FINALIZED;
 
     if (lpvReserved != NULL)
     {

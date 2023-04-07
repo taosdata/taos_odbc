@@ -83,7 +83,7 @@ BOOL setup_init(HINSTANCE hinstDLL)
 
 void setup_fini(void)
 {
-  UnregisterClass(className, ghInstance);
+  if (0) UnregisterClass(className, ghInstance);
 }
 
 static int get_driver_dll_path(HWND hwndParent, char *buf, size_t len)

@@ -35,7 +35,6 @@
 #include <sys/syscall.h>
 #endif                   /* } */
 
-
 uintptr_t tod_get_current_thread_id(void)
 {
 #ifdef _WIN32             /* { */
@@ -75,87 +74,93 @@ static char logger_level_char(logger_level_t level)
   }
 }
 
+#ifdef _WIN32                /* { */
+#define TEMP_MAX_PATH         MAX_PATH
+#define DEFAULT_TEMP_PATH     "C:\\Windows\\Temp"
+#else                        /* }{ */
+#define TEMP_MAX_PATH         PATH_MAX
+#define DEFAULT_TEMP_PATH     "/tmp"
+#endif                       /* } */
+
 static logger_level_t _system_logger_level = LOGGER_ERROR;
+
+typedef struct logger_temp_s               logger_temp_t;
+struct logger_temp_s {
+  FILE                  *file;
+};
+
+struct logger_s {
+  void (*logger)(const char *log);
+  union {
+    logger_temp_t           temp;
+  };
+};
+
+static logger_t         _system_logger = {NULL};
+
+static void logger_to_temp(const char *log);
+
+static void _exit_routine(void)
+{
+  if (_system_logger.logger == logger_to_temp) {
+    logger_temp_t *temp = &_system_logger.temp;
+    if (temp->file) {
+      fclose(temp->file);
+      temp->file = NULL;
+    }
+  }
+}
 
 static void _init_system_logger_level(void)
 {
+  atexit(_exit_routine);
   const char *env = getenv("TAOS_ODBC_LOG_LEVEL");
   if (!env) {
     fprintf(stderr,
         "environment variable `TAOS_ODBC_LOG_LEVEL` could be set as `VERBOSE/DEBUG/INFO/WARN/ERROR/FATAL`, but not set. system logger level fall back to `ERROR`\n");
     return;
   }
-  if (0 == tod_strcasecmp(env, "VERBOSE")) {
-    _system_logger_level = LOGGER_VERBOSE;
-    return;
-  }
-  if (0 == tod_strcasecmp(env, "DEBUG")) {
-    _system_logger_level = LOGGER_DEBUG;
-    return;
-  }
-  if (0 == tod_strcasecmp(env, "INFO")) {
-    _system_logger_level = LOGGER_INFO;
-    return;
-  }
-  if (0 == tod_strcasecmp(env, "WARN")) {
-    _system_logger_level = LOGGER_WARN;
-    return;
-  }
-  if (0 == tod_strcasecmp(env, "ERROR")) {
-    _system_logger_level = LOGGER_ERROR;
-    return;
-  }
-  if (0 == tod_strcasecmp(env, "FATAL")) {
-    _system_logger_level = LOGGER_FATAL;
-    return;
+#define RECORD(x) {#x, LOGGER_##x}
+  struct {
+    const char             *name;
+    int                     level;
+  } _levels[] = {
+    RECORD(VERBOSE),
+    RECORD(DEBUG),
+    RECORD(INFO),
+    RECORD(WARN),
+    RECORD(ERROR),
+    RECORD(FATAL),
+  };
+#undef RECORD
+  for (size_t i=0; i<sizeof(_levels)/sizeof(_levels[0]); ++i) {
+    if (0 == tod_strcasecmp(env, _levels[i].name)) {
+      _system_logger_level = _levels[i].level;
+      return;
+    }
   }
   fprintf(stderr,
       "environment variable `TAOS_ODBC_LOG_LEVEL` shall be set as `VERBOSE/DEBUG/INFO/WARN/ERROR/FATAL`, but got `%s`. system logger level fall back to `ERROR`\n",
       env);
 }
 
-logger_level_t tod_get_system_logger_level(void)
+static void logger_to_temp(const char *log)
 {
-  static int init = 0;
-  if (!init) {
-    static pthread_once_t once;
-    pthread_once(&once, _init_system_logger_level);
-    init = 1;
+  FILE *file = _system_logger.temp.file;
+  if (file) {
+    fprintf(file, "%s\n", log);
   }
-  return _system_logger_level;
-}
-
-#ifdef _WIN32                /* { */
-static char           _temp_file[MAX_PATH+1];
-#else                        /* }{ */
-static char           _temp_file[PATH_MAX+1];
-#endif                       /* } */
-
-static logger_t         _system_logger = {
-  .logger             = NULL,
-  .ctx                = NULL,
-};
-
-static void logger_to_temp(const char *log, void *ctx)
-{
-  (void)ctx;
-  FILE *f = fopen(_temp_file, "a");
-  if (!f) return;
-  fprintf(f, "%s\n", log);
-  fclose(f);
 }
 
 #ifdef _WIN32              /* { */
-static void logger_to_event(const char *log, void *ctx)
+static void logger_to_event(const char *log)
 {
-  (void)ctx;
   (void)log;
   // TODO:
 }
 #elif !defined(__APPLE__)  /* }{ */
-static void logger_to_syslog(const char *log, void *ctx)
+static void logger_to_syslog(const char *log)
 {
-  (void)ctx;
   int priority = LOG_SYSLOG | LOG_USER | LOG_INFO;
   syslog(priority, "%s", log);
 }
@@ -186,29 +191,22 @@ static void _init_system_logger(void)
 
   if (0 == tod_strcasecmp(env, "temp")) {
     const char *temp = getenv("TEMP");
-    if (!temp) {
-#ifdef _WIN32             /* { */
-      temp = "C:\\Windows\\Temp";
-#else                     /* }{ */
-      temp = "/tmp";
-#endif                    /* } */
-    }
+    if (!temp) temp = DEFAULT_TEMP_PATH;
+    char _temp_file[TEMP_MAX_PATH+1];
     snprintf(_temp_file, sizeof(_temp_file), "%s/taos_odbc.log", temp);
-    _system_logger.logger   = logger_to_temp;
-    _system_logger.ctx      = NULL;
+    _system_logger.logger    = logger_to_temp;
+    _system_logger.temp.file = fopen(_temp_file, "a");
     return;
   }
 
 #ifdef _WIN32              /* { */
   if (0 && 0 == tod_strcasecmp(env, "event")) {
     _system_logger.logger   = logger_to_event;
-    _system_logger.ctx      = NULL;
     return;
   }
 #elif !defined(__APPLE__)  /* }{ */
   if (0 == tod_strcasecmp(env, "syslog")) {
     _system_logger.logger   = logger_to_syslog;
-    _system_logger.ctx      = NULL;
     return;
   }
 #endif                     /* } */
@@ -232,14 +230,31 @@ static void _init_system_logger(void)
   return;
 }
 
-logger_t* tod_get_system_logger(void)
+static void _init_all(void)
+{
+  _init_system_logger_level();
+  _init_system_logger();
+}
+
+static void _init_all_once(void)
 {
   static int init = 0;
   if (!init) {
     static pthread_once_t once;
-    pthread_once(&once, _init_system_logger);
+    pthread_once(&once, _init_all);
     init = 1;
   }
+}
+
+logger_level_t tod_get_system_logger_level(void)
+{
+  _init_all_once();
+  return _system_logger_level;
+}
+
+logger_t* tod_get_system_logger(void)
+{
+  _init_all_once();
   return &_system_logger;
 }
 
@@ -257,7 +272,11 @@ void tod_logger_write_impl(logger_t *logger, logger_level_t request, logger_leve
   size_t l = sizeof(buf);
   int n;
 
-  n = snprintf(p, l, "%c:%zx:%s[%d]:%s():", logger_level_char(request), tod_get_current_thread_id(), fn, line, func);
+  LARGE_INTEGER ticks = {0}, freq = {0};
+  QueryPerformanceCounter(&ticks);
+  QueryPerformanceFrequency(&freq);
+
+  n = snprintf(p, l, "%c:%.3fs:%zx:%s[%d]:%s():", logger_level_char(request), (double)ticks.QuadPart/freq.QuadPart, tod_get_current_thread_id(), fn, line, func);
   p += n;
   l -= n;
 
@@ -268,7 +287,6 @@ void tod_logger_write_impl(logger_t *logger, logger_level_t request, logger_leve
 
   fprintf(stderr, "%s\n", buf);
   if (logger && logger->logger) {
-    logger->logger(buf, logger->ctx);
+    logger->logger(buf);
   }
 }
-

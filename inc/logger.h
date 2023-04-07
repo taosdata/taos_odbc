@@ -39,10 +39,6 @@ typedef enum logger_level_e {
 typedef void (*logger_f)(const char *log, void *ctx);
 
 typedef struct logger_s            logger_t;
-struct logger_s {
-  void (*logger)(const char *log, void *ctx);
-  void *ctx;
-};
 
 #ifdef __cplusplus         /* { */
 #define ABORT_OR_THROW throw int(1)
@@ -51,23 +47,28 @@ struct logger_s {
 #define ABORT_OR_THROW abort()
 #endif                     /* } */
 
+#define LOG_USE_COLOR           0
 static inline const char* color_red(void)
 {
+  if (!LOG_USE_COLOR) return "";
   return "\033[1;31m";
 }
 
 static inline const char* color_green(void)
 {
+  if (!LOG_USE_COLOR) return "";
   return "\033[1;32m";
 }
 
 static inline const char* color_yellow(void)
 {
+  if (!LOG_USE_COLOR) return "";
   return "\033[1;33m";
 }
 
 static inline const char* color_reset(void)
 {
+  if (!LOG_USE_COLOR) return "";
   return "\033[0m";
 }
 

@@ -474,7 +474,7 @@ static void usage(const char *arg0)
   DUMP("  --progress                  show progress");
 #ifdef _WIN32                              /* { */
   DUMP("  --CreateThread              Using `CreateThread`");
-  DUMP("  _beginthreadex              Using `_beginthreadex`");
+  DUMP("  --_beginthreadex            Using `_beginthreadex`");
 #else                                      /* }{ */
   DUMP("  pthread_create              Using `pthread_create`");
 #endif                                     /* { */

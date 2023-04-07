@@ -33,8 +33,8 @@
 #include "conn_parser.h"
 #include "stmt.h"
 #include "taos_helpers.h"
-
 #include "taos_odbc_config.h"
+#include "tls.h"
 
 #include <odbcinst.h>
 #include <string.h>
@@ -507,6 +507,18 @@ static SQLRETURN _do_conn_connect(conn_t *conn)
     if (r) break;
     r = _conn_get_timezone(conn);
     if (r) break;
+    if (0) {
+      mem_t *mem = tls_get_mem_intermediate();
+      if (!mem) {
+        env_oom(conn->env);
+        break;
+      }
+      r = mem_keep(mem, 1024 * 1024 /* 1024 * 4 */);
+      if (r) {
+        env_oom(conn->env);
+        break;
+      }
+    }
     return SQL_SUCCESS;
   } while (0);
   conn_disconnect(conn);

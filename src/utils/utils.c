@@ -120,7 +120,7 @@ int mem_expand(mem_t *mem, size_t delta)
 
 int mem_keep(mem_t *mem, size_t cap)
 {
-  if (cap < mem->cap) return 0;
+  if (cap <= mem->cap) return 0;
   unsigned char *p = realloc(mem->base, cap);
   if (!p) return -1;
   mem->base = p;

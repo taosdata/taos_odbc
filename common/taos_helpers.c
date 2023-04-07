@@ -174,6 +174,7 @@ void taos_cleanup(void)
 
 setConfRet taos_set_config(const char *config)
 {
+  (void)config;
   setConfRet r = {0, "unknown setConfRet"};
   return r;
 }
@@ -185,11 +186,21 @@ int taos_init(void)
 
 TAOS* taos_connect(const char *ip, const char *user, const char *pass, const char *db, uint16_t port)
 {
+  (void)ip;
+  (void)user;
+  (void)pass;
+  (void)db;
+  (void)port;
   return (TAOS*)1;
 }
 
 TAOS* taos_connect_auth(const char *ip, const char *user, const char *auth, const char *db, uint16_t port)
 {
+  (void)ip;
+  (void)user;
+  (void)auth;
+  (void)db;
+  (void)port;
   return (TAOS*)1;
 }
 
@@ -200,6 +211,7 @@ void taos_close(TAOS *taos)
 
 const char* taos_data_type(int type)
 {
+  (void)type;
   return "unknown taos_data_type";
 }
 
@@ -411,6 +423,9 @@ int taos_select_db(TAOS *taos, const char *db)
 
 int taos_print_row(char *str, TAOS_ROW row, TAOS_FIELD *fields, int num_fields)
 {
+  (void)row;
+  (void)fields;
+  (void)num_fields;
   if (str) *str = '\0';
   return 0;
 }

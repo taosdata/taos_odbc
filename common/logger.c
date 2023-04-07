@@ -82,21 +82,20 @@ static char logger_level_char(logger_level_t level)
 #define DEFAULT_TEMP_PATH     "/tmp"
 #endif                       /* } */
 
-static logger_level_t _system_logger_level = LOGGER_ERROR;
-
 typedef struct logger_temp_s               logger_temp_t;
 struct logger_temp_s {
   FILE                  *file;
 };
 
 struct logger_s {
+  logger_level_t            level;
   void (*logger)(const char *log);
   union {
     logger_temp_t           temp;
   };
 };
 
-static logger_t         _system_logger = {NULL};
+static logger_t         _system_logger;
 
 static void logger_to_temp(const char *log);
 
@@ -113,7 +112,6 @@ static void _exit_routine(void)
 
 static void _init_system_logger_level(void)
 {
-  atexit(_exit_routine);
   const char *env = getenv("TAOS_ODBC_LOG_LEVEL");
   if (!env) {
     fprintf(stderr,
@@ -135,7 +133,7 @@ static void _init_system_logger_level(void)
 #undef RECORD
   for (size_t i=0; i<sizeof(_levels)/sizeof(_levels[0]); ++i) {
     if (0 == tod_strcasecmp(env, _levels[i].name)) {
-      _system_logger_level = _levels[i].level;
+      _system_logger.level = _levels[i].level;
       return;
     }
   }
@@ -232,6 +230,9 @@ static void _init_system_logger(void)
 
 static void _init_all(void)
 {
+  atexit(_exit_routine);
+  memset(&_system_logger, 0, sizeof(_system_logger));
+  _system_logger.level = LOGGER_ERROR;
   _init_system_logger_level();
   _init_system_logger();
 }
@@ -249,7 +250,7 @@ static void _init_all_once(void)
 logger_level_t tod_get_system_logger_level(void)
 {
   _init_all_once();
-  return _system_logger_level;
+  return _system_logger.level;
 }
 
 logger_t* tod_get_system_logger(void)
@@ -272,11 +273,21 @@ void tod_logger_write_impl(logger_t *logger, logger_level_t request, logger_leve
   size_t l = sizeof(buf);
   int n;
 
+  double tick;
+
+#ifdef _WIN32               /* { */
   LARGE_INTEGER ticks = {0}, freq = {0};
   QueryPerformanceCounter(&ticks);
   QueryPerformanceFrequency(&freq);
+  tick = (double)ticks.QuadPart/freq.QuadPart;
+#else                       /* }{ */
+  struct timespec ts = {0};
 
-  n = snprintf(p, l, "%c:%.3fs:%zx:%s[%d]:%s():", logger_level_char(request), (double)ticks.QuadPart/freq.QuadPart, tod_get_current_thread_id(), fn, line, func);
+  clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
+  tick = ts.tv_sec + (double)ts.tv_nsec / 1000000;
+#endif                      /* } */
+
+  n = snprintf(p, l, "%c:%.3fs:%zx:%s[%d]:%s():", logger_level_char(request), tick, tod_get_current_thread_id(), fn, line, func);
   p += n;
   l -= n;
 

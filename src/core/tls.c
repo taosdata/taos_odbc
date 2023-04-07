@@ -42,6 +42,7 @@ void tls_release(tls_t *tls)
     free(tls->mgr);
     tls->mgr = NULL;
   }
+  TOD_SAFE_FREE(tls->leakage);
 }
 
 mem_t* tls_get_mem_intermediate(void)
@@ -78,3 +79,14 @@ charset_conv_t* tls_get_charset_conv(const char *fromcode, const char *tocode)
   return charset_conv_mgr_get_charset_conv(tls->mgr, fromcode, tocode);
 }
 
+// debug leakage only
+int tls_leakage_potential(void)
+{
+  tls_t *tls = tls_get();
+  if (!tls) return -1;
+  if (!tls->leakage) {
+    tls->leakage = malloc(1024 * 1024 /* * 4 */);
+    if (!tls->leakage) return -1;
+  }
+  return 0;
+}

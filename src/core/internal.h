@@ -739,6 +739,8 @@ struct stmt_s {
 struct tls_s {
   mem_t                      intermediate;
   charset_conv_mgr_t        *mgr;
+  // debug leakage only
+  char                      *leakage;
 };
 
 EXTERN_C_END

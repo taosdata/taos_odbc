@@ -40,6 +40,9 @@ mem_t* tls_get_mem_intermediate(void) FA_HIDDEN;
 charset_conv_t* tls_get_charset_conv(const char *fromcode, const char *tocode) FA_HIDDEN;
 
 
+// debug leakage only
+int tls_leakage_potential(void) FA_HIDDEN;
+
 EXTERN_C_END
 
 #endif //  _tls_h_

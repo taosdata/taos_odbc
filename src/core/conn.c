@@ -298,6 +298,7 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs(conn_t *c
 static int _conn_setup_iconvs(conn_t *conn)
 {
   _conn_release_iconvs(conn);
+  // FIXME: we know conn->s_charset is actually server-side config rather than client-side
   const char *tsdb_charset = conn->s_charset;
   const char *sql_c_charset = tod_get_sql_c_charset();
   if (!sql_c_charset) {

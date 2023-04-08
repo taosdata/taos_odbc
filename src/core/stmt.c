@@ -468,204 +468,882 @@ SQLRETURN stmt_free(stmt_t *stmt)
   return SQL_SUCCESS;
 }
 
+static int _stmt_time_precision(stmt_t *stmt)
+{
+  int time_precision = 0;
+  if (stmt->base == &stmt->tsdb_stmt.base) {
+    time_precision = stmt->tsdb_stmt.res.time_precision;
+  }
+  return time_precision;
+}
+
+static SQLRETURN _stmt_col_DESC_TYPE(
+    stmt_t               *stmt,
+    const TAOS_FIELD     *col,
+    SQLLEN               *NumericAttributePtr)
+{
+  static struct {
+    int                 tsdb_type;
+    int                 sql_type;
+    int                 sql_promoted;
+  } _maps[] = {
+    {TSDB_DATA_TYPE_TIMESTAMP,              SQL_TYPE_TIMESTAMP,        SQL_DATETIME},
+    {TSDB_DATA_TYPE_BOOL,                   SQL_BIT,                   SQL_BIT},
+    {TSDB_DATA_TYPE_TINYINT,                SQL_TINYINT,               SQL_SMALLINT},
+    {TSDB_DATA_TYPE_SMALLINT,               SQL_SMALLINT,              SQL_SMALLINT},
+    {TSDB_DATA_TYPE_INT,                    SQL_INTEGER,               SQL_INTEGER},
+    {TSDB_DATA_TYPE_BIGINT,                 SQL_BIGINT,                SQL_BIGINT},
+    {TSDB_DATA_TYPE_FLOAT,                  SQL_REAL,                  SQL_REAL},
+    {TSDB_DATA_TYPE_DOUBLE,                 SQL_DOUBLE,                SQL_DOUBLE},
+    {TSDB_DATA_TYPE_VARCHAR,                SQL_VARCHAR,               SQL_VARCHAR},
+    {TSDB_DATA_TYPE_NCHAR,                  SQL_WVARCHAR,              SQL_WVARCHAR},
+    {TSDB_DATA_TYPE_UTINYINT,               SQL_TINYINT,               SQL_TINYINT},
+    {TSDB_DATA_TYPE_USMALLINT,              SQL_SMALLINT,              SQL_INTEGER},
+    {TSDB_DATA_TYPE_UINT,                   SQL_INTEGER,               SQL_BIGINT},
+    {TSDB_DATA_TYPE_UBIGINT,                SQL_BIGINT,                SQL_BIGINT},
+  };
+
+  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
+    if (col->type != _maps[i].tsdb_type) continue;
+    if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
+      if (!stmt->conn->cfg.timestamp_as_is) {
+        *NumericAttributePtr = SQL_WVARCHAR;
+        return SQL_SUCCESS;
+      }
+    }
+    if (stmt->conn->cfg.unsigned_promotion) {
+      *NumericAttributePtr = _maps[i].sql_promoted;
+    } else {
+      *NumericAttributePtr = _maps[i].sql_type;
+    }
+    return SQL_SUCCESS;
+  }
+
+  return SQL_ERROR;
+}
+
+static SQLRETURN _stmt_col_DESC_CONCISE_TYPE(
+    stmt_t               *stmt,
+    const TAOS_FIELD     *col,
+    SQLLEN               *NumericAttributePtr)
+{
+  static struct {
+    int                 tsdb_type;
+    int                 sql_type;
+    int                 sql_promoted;
+  } _maps[] = {
+    {TSDB_DATA_TYPE_TIMESTAMP,              SQL_TYPE_TIMESTAMP,        SQL_TYPE_TIMESTAMP},
+    {TSDB_DATA_TYPE_BOOL,                   SQL_BIT,                   SQL_BIT},
+    {TSDB_DATA_TYPE_TINYINT,                SQL_TINYINT,               SQL_SMALLINT},
+    {TSDB_DATA_TYPE_SMALLINT,               SQL_SMALLINT,              SQL_SMALLINT},
+    {TSDB_DATA_TYPE_INT,                    SQL_INTEGER,               SQL_INTEGER},
+    {TSDB_DATA_TYPE_BIGINT,                 SQL_BIGINT,                SQL_BIGINT},
+    {TSDB_DATA_TYPE_FLOAT,                  SQL_REAL,                  SQL_REAL},
+    {TSDB_DATA_TYPE_DOUBLE,                 SQL_DOUBLE,                SQL_DOUBLE},
+    {TSDB_DATA_TYPE_VARCHAR,                SQL_VARCHAR,               SQL_VARCHAR},
+    {TSDB_DATA_TYPE_NCHAR,                  SQL_WVARCHAR,              SQL_WVARCHAR},
+    {TSDB_DATA_TYPE_UTINYINT,               SQL_TINYINT,               SQL_TINYINT},
+    {TSDB_DATA_TYPE_USMALLINT,              SQL_SMALLINT,              SQL_INTEGER},
+    {TSDB_DATA_TYPE_UINT,                   SQL_INTEGER,               SQL_BIGINT},
+    {TSDB_DATA_TYPE_UBIGINT,                SQL_BIGINT,                SQL_BIGINT},
+  };
+
+  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
+    if (col->type != _maps[i].tsdb_type) continue;
+    if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
+      if (!stmt->conn->cfg.timestamp_as_is) {
+        *NumericAttributePtr = SQL_WVARCHAR;
+        return SQL_SUCCESS;
+      }
+    }
+    if (stmt->conn->cfg.unsigned_promotion) {
+      *NumericAttributePtr = _maps[i].sql_promoted;
+    } else {
+      *NumericAttributePtr = _maps[i].sql_type;
+    }
+    return SQL_SUCCESS;
+  }
+
+  return SQL_ERROR;
+}
+
+static SQLRETURN _stmt_col_DESC_OCTET_LENGTH(
+    stmt_t               *stmt,
+    const TAOS_FIELD     *col,
+    SQLLEN               *NumericAttributePtr)
+{
+  int time_precision = _stmt_time_precision(stmt);
+
+  static struct {
+    int                 tsdb_type;
+    int                 octet_length;
+  } _maps[] = {
+    {TSDB_DATA_TYPE_TIMESTAMP,              8},
+    {TSDB_DATA_TYPE_BOOL,                   1},
+    {TSDB_DATA_TYPE_TINYINT,                1},
+    {TSDB_DATA_TYPE_SMALLINT,               2},
+    {TSDB_DATA_TYPE_INT,                    4},
+    {TSDB_DATA_TYPE_BIGINT,                 8},
+    {TSDB_DATA_TYPE_FLOAT,                  4},
+    {TSDB_DATA_TYPE_DOUBLE,                 8},
+    {TSDB_DATA_TYPE_VARCHAR,                -1},
+    {TSDB_DATA_TYPE_NCHAR,                  -2},
+    {TSDB_DATA_TYPE_UTINYINT,               1},
+    {TSDB_DATA_TYPE_USMALLINT,              2},
+    {TSDB_DATA_TYPE_UINT,                   4},
+    {TSDB_DATA_TYPE_UBIGINT,                8},
+  };
+
+  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
+    if (col->type != _maps[i].tsdb_type) continue;
+    if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
+      if (!stmt->conn->cfg.timestamp_as_is) {
+        *NumericAttributePtr = (20 + (time_precision + 1) * 3) * 2;
+        return SQL_SUCCESS;
+      }
+    }
+    if (_maps[i].octet_length > 0 && _maps[i].octet_length != col->bytes) {
+      stmt_append_err_format(stmt, "HY000", 0, "General error:octet length for `%s` is expected to be %d, but got ==%d==",
+          taos_data_type(col->type), _maps[i].octet_length, col->bytes);
+      return SQL_ERROR;
+    }
+    if (_maps[i].octet_length < 0) {
+      *NumericAttributePtr = 0 - col->bytes * _maps[i].octet_length;
+    } else {
+      *NumericAttributePtr = _maps[i].octet_length;
+    }
+    return SQL_SUCCESS;
+  }
+  return SQL_ERROR;
+}
+
+static SQLRETURN _stmt_col_DESC_PRECISION(
+    stmt_t               *stmt,
+    const TAOS_FIELD     *col,
+    SQLLEN               *NumericAttributePtr)
+{
+  int time_precision = _stmt_time_precision(stmt);
+
+  static struct {
+    int                 tsdb_type;
+    int                 precision;
+  } _maps[] = {
+    {TSDB_DATA_TYPE_TIMESTAMP,              0},
+    {TSDB_DATA_TYPE_BOOL,                   1},
+    {TSDB_DATA_TYPE_TINYINT,                3},
+    {TSDB_DATA_TYPE_SMALLINT,               5},
+    {TSDB_DATA_TYPE_INT,                    10},
+    {TSDB_DATA_TYPE_BIGINT,                 19},
+    {TSDB_DATA_TYPE_FLOAT,                  24},
+    {TSDB_DATA_TYPE_DOUBLE,                 53},
+    {TSDB_DATA_TYPE_VARCHAR,                -1},
+    {TSDB_DATA_TYPE_NCHAR,                  -1},
+    {TSDB_DATA_TYPE_UTINYINT,               3},
+    {TSDB_DATA_TYPE_USMALLINT,              5},
+    {TSDB_DATA_TYPE_UINT,                   10},
+    {TSDB_DATA_TYPE_UBIGINT,                20},
+  };
+
+  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
+    if (col->type != _maps[i].tsdb_type) continue;
+    if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
+      if (!stmt->conn->cfg.timestamp_as_is) {
+        *NumericAttributePtr = 20 + (time_precision + 1) * 3;
+      } else {
+        *NumericAttributePtr = (time_precision + 1) * 3;
+      }
+      return SQL_SUCCESS;
+    }
+    if (_maps[i].precision == -1) {
+      *NumericAttributePtr = col->bytes;
+    } else {
+      *NumericAttributePtr = _maps[i].precision;
+    }
+    return SQL_SUCCESS;
+  }
+  return SQL_ERROR;
+}
+
+static SQLRETURN _stmt_col_DESC_SCALE(
+    stmt_t               *stmt,
+    const TAOS_FIELD     *col,
+    SQLLEN               *NumericAttributePtr)
+{
+  int time_precision = _stmt_time_precision(stmt);
+
+  static struct {
+    int                 tsdb_type;
+    int                 scale;
+  } _maps[] = {
+    {TSDB_DATA_TYPE_TIMESTAMP,              0},
+    {TSDB_DATA_TYPE_BOOL,                   0},
+    {TSDB_DATA_TYPE_TINYINT,                0},
+    {TSDB_DATA_TYPE_SMALLINT,               0},
+    {TSDB_DATA_TYPE_INT,                    0},
+    {TSDB_DATA_TYPE_BIGINT,                 0},
+    {TSDB_DATA_TYPE_FLOAT,                  0},
+    {TSDB_DATA_TYPE_DOUBLE,                 0},
+    {TSDB_DATA_TYPE_VARCHAR,                0},
+    {TSDB_DATA_TYPE_NCHAR,                  0},
+    {TSDB_DATA_TYPE_UTINYINT,               0},
+    {TSDB_DATA_TYPE_USMALLINT,              0},
+    {TSDB_DATA_TYPE_UINT,                   0},
+    {TSDB_DATA_TYPE_UBIGINT,                0},
+  };
+
+  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
+    if (col->type != _maps[i].tsdb_type) continue;
+    if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
+      if (!stmt->conn->cfg.timestamp_as_is) {
+        *NumericAttributePtr = _maps[i].scale;
+      } else {
+        *NumericAttributePtr = (time_precision + 1) * 3;
+      }
+      return SQL_SUCCESS;
+    }
+    *NumericAttributePtr = _maps[i].scale;
+    return SQL_SUCCESS;
+  }
+  return SQL_ERROR;
+}
+
+static SQLRETURN _stmt_col_DESC_DISPLAY_SIZE(
+    stmt_t               *stmt,
+    const TAOS_FIELD     *col,
+    SQLLEN               *NumericAttributePtr)
+{
+  int time_precision = _stmt_time_precision(stmt);
+
+  static struct {
+    int                 tsdb_type;
+    int                 display_size;
+  } _maps[] = {
+    {TSDB_DATA_TYPE_TIMESTAMP,              8},
+    {TSDB_DATA_TYPE_BOOL,                   1},
+    {TSDB_DATA_TYPE_TINYINT,                4},
+    {TSDB_DATA_TYPE_SMALLINT,               6},
+    {TSDB_DATA_TYPE_INT,                   11},
+    {TSDB_DATA_TYPE_BIGINT,                20},
+    {TSDB_DATA_TYPE_FLOAT,                 14},
+    {TSDB_DATA_TYPE_DOUBLE,                24},
+    {TSDB_DATA_TYPE_VARCHAR,                -1},
+    {TSDB_DATA_TYPE_NCHAR,                  -2},
+    {TSDB_DATA_TYPE_UTINYINT,               3},
+    {TSDB_DATA_TYPE_USMALLINT,              5},
+    {TSDB_DATA_TYPE_UINT,                  10},
+    {TSDB_DATA_TYPE_UBIGINT,               20},
+  };
+
+  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
+    if (col->type != _maps[i].tsdb_type) continue;
+    if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
+      if (!stmt->conn->cfg.timestamp_as_is) {
+        *NumericAttributePtr = 20 + (time_precision + 1) * 3;
+        return SQL_SUCCESS;
+      }
+    }
+    if (_maps[i].display_size < 0) {
+      *NumericAttributePtr = -col->bytes;
+    } else {
+      *NumericAttributePtr = _maps[i].display_size;
+    }
+    return SQL_SUCCESS;
+  }
+  return SQL_ERROR;
+}
+
+static SQLRETURN _stmt_col_DESC_SEARCHABLE(
+    stmt_t               *stmt,
+    const TAOS_FIELD     *col,
+    SQLLEN               *NumericAttributePtr)
+{
+  int time_precision = _stmt_time_precision(stmt);
+
+  static struct {
+    int                 tsdb_type;
+    int                 display_size;
+  } _maps[] = {
+    {TSDB_DATA_TYPE_TIMESTAMP,              SQL_SEARCHABLE},
+    {TSDB_DATA_TYPE_BOOL,                   SQL_PRED_BASIC},
+    {TSDB_DATA_TYPE_TINYINT,                SQL_PRED_BASIC},
+    {TSDB_DATA_TYPE_SMALLINT,               SQL_PRED_BASIC},
+    {TSDB_DATA_TYPE_INT,                    SQL_PRED_BASIC},
+    {TSDB_DATA_TYPE_BIGINT,                 SQL_PRED_BASIC},
+    {TSDB_DATA_TYPE_FLOAT,                  SQL_PRED_BASIC},
+    {TSDB_DATA_TYPE_DOUBLE,                 SQL_PRED_BASIC},
+    {TSDB_DATA_TYPE_VARCHAR,                SQL_SEARCHABLE},
+    {TSDB_DATA_TYPE_NCHAR,                  SQL_SEARCHABLE},
+    {TSDB_DATA_TYPE_UTINYINT,               SQL_PRED_BASIC},
+    {TSDB_DATA_TYPE_USMALLINT,              SQL_PRED_BASIC},
+    {TSDB_DATA_TYPE_UINT,                   SQL_PRED_BASIC},
+    {TSDB_DATA_TYPE_UBIGINT,                SQL_PRED_BASIC},
+  };
+
+  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
+    if (col->type != _maps[i].tsdb_type) continue;
+    if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
+      if (!stmt->conn->cfg.timestamp_as_is) {
+        *NumericAttributePtr = 20 + (time_precision + 1) * 3;
+        return SQL_SUCCESS;
+      }
+    }
+    if (_maps[i].display_size < 0) {
+      *NumericAttributePtr = -col->bytes;
+    } else {
+      *NumericAttributePtr = _maps[i].display_size;
+    }
+    return SQL_SUCCESS;
+  }
+  return SQL_ERROR;
+}
+
+static SQLRETURN _stmt_col_DESC_NAME(
+    stmt_t               *stmt,
+    const TAOS_FIELD     *col,
+    SQLPOINTER            CharacterAttributePtr,
+    SQLSMALLINT           BufferLength,
+    SQLSMALLINT          *StringLengthPtr)
+{
+  int n;
+  n = snprintf(CharacterAttributePtr, BufferLength, "%.*s", (int)sizeof(col->name), col->name);
+  if (n < 0) {
+    int e = errno;
+    stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
+    return SQL_ERROR;
+  }
+  if (StringLengthPtr) *StringLengthPtr = n;
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_col_DESC_TYPE_NAME(
+    stmt_t               *stmt,
+    const TAOS_FIELD     *col,
+    SQLPOINTER            CharacterAttributePtr,
+    SQLSMALLINT           BufferLength,
+    SQLSMALLINT          *StringLengthPtr)
+{
+  static struct {
+    int                 tsdb_type;
+    const char         *name;
+  } _maps[] = {
+    {TSDB_DATA_TYPE_TIMESTAMP,              "TIMESTAMP"},
+    {TSDB_DATA_TYPE_BOOL,                   "BOOL"},
+    {TSDB_DATA_TYPE_TINYINT,                "TINYINT"},
+    {TSDB_DATA_TYPE_SMALLINT,               "SMALLINT"},
+    {TSDB_DATA_TYPE_INT,                    "INT"},
+    {TSDB_DATA_TYPE_BIGINT,                 "BIGINT"},
+    {TSDB_DATA_TYPE_FLOAT,                  "FLOAT"},
+    {TSDB_DATA_TYPE_DOUBLE,                 "DOUBLE"},
+    {TSDB_DATA_TYPE_VARCHAR,                "VARCHAR"},
+    {TSDB_DATA_TYPE_NCHAR,                  "NCHAR"},
+    {TSDB_DATA_TYPE_UTINYINT,               "TINYINT UNSIGNED"},
+    {TSDB_DATA_TYPE_USMALLINT,              "SMALLINT UNSIGNED"},
+    {TSDB_DATA_TYPE_UINT,                   "INT UNSIGNED"},
+    {TSDB_DATA_TYPE_UBIGINT,                "BIGINT UNSIGNED"},
+  };
+
+  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
+    if (col->type != _maps[i].tsdb_type) continue;
+    const char *name = _maps[i].name;
+    if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
+      if (!stmt->conn->cfg.timestamp_as_is) {
+        name = "NCHAR";
+      }
+    }
+    int n = snprintf(CharacterAttributePtr, BufferLength, "%s", name);
+    if (n < 0) {
+      int e = errno;
+      stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
+      return SQL_ERROR;
+    }
+    if (StringLengthPtr) *StringLengthPtr = n;
+    return SQL_SUCCESS;
+  }
+  return SQL_ERROR;
+}
+
+static SQLRETURN _stmt_col_DESC_LENGTH(
+    stmt_t               *stmt,
+    const TAOS_FIELD     *col,
+    SQLLEN               *NumericAttributePtr)
+{
+  int time_precision = _stmt_time_precision(stmt);
+
+  static struct {
+    int                 tsdb_type;
+    int                 length;
+  } _maps[] = {
+    {TSDB_DATA_TYPE_TIMESTAMP,              0},
+    {TSDB_DATA_TYPE_BOOL,                   1},
+    {TSDB_DATA_TYPE_TINYINT,                3},
+    {TSDB_DATA_TYPE_SMALLINT,               5},
+    {TSDB_DATA_TYPE_INT,                    10},
+    {TSDB_DATA_TYPE_BIGINT,                 19},
+    {TSDB_DATA_TYPE_FLOAT,                  7},    // FIXME: not 24 as precision
+    {TSDB_DATA_TYPE_DOUBLE,                 15},   // FIXME: not 53 as precision
+    {TSDB_DATA_TYPE_VARCHAR,                -1},
+    {TSDB_DATA_TYPE_NCHAR,                  -1},
+    {TSDB_DATA_TYPE_UTINYINT,               3},
+    {TSDB_DATA_TYPE_USMALLINT,              5},
+    {TSDB_DATA_TYPE_UINT,                   10},
+    {TSDB_DATA_TYPE_UBIGINT,                20},
+  };
+
+  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
+    if (col->type != _maps[i].tsdb_type) continue;
+    if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
+      *NumericAttributePtr = 20 + (time_precision + 1) * 3;
+      return SQL_SUCCESS;
+    }
+    if (_maps[i].length == -1) {
+      *NumericAttributePtr = col->bytes;
+    } else {
+      *NumericAttributePtr = _maps[i].length;
+    }
+    return SQL_SUCCESS;
+  }
+  return SQL_ERROR;
+}
+
+static SQLRETURN _stmt_col_DESC_NUM_PREC_RADIX(
+    stmt_t               *stmt,
+    const TAOS_FIELD     *col,
+    SQLLEN               *NumericAttributePtr)
+{
+  (void)stmt;
+  static struct {
+    int                 tsdb_type;
+    int                 radix;
+  } _maps[] = {
+    {TSDB_DATA_TYPE_TIMESTAMP,              10},
+    {TSDB_DATA_TYPE_BOOL,                   10},
+    {TSDB_DATA_TYPE_TINYINT,                10},
+    {TSDB_DATA_TYPE_SMALLINT,               10},
+    {TSDB_DATA_TYPE_INT,                    10},
+    {TSDB_DATA_TYPE_BIGINT,                 10},
+    {TSDB_DATA_TYPE_FLOAT,                  2},
+    {TSDB_DATA_TYPE_DOUBLE,                 2},
+    {TSDB_DATA_TYPE_VARCHAR,                10},
+    {TSDB_DATA_TYPE_NCHAR,                  10},
+    {TSDB_DATA_TYPE_UTINYINT,               10},
+    {TSDB_DATA_TYPE_USMALLINT,              10},
+    {TSDB_DATA_TYPE_UINT,                   10},
+    {TSDB_DATA_TYPE_UBIGINT,                10},
+  };
+
+  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
+    if (col->type != _maps[i].tsdb_type) continue;
+    *NumericAttributePtr = _maps[i].radix;
+    return SQL_SUCCESS;
+  }
+  return SQL_ERROR;
+}
+
+static SQLRETURN _stmt_col_DESC_UNSIGNED(
+    stmt_t               *stmt,
+    const TAOS_FIELD     *col,
+    SQLLEN               *NumericAttributePtr)
+{
+  (void)stmt;
+
+  static struct {
+    int                 tsdb_type;
+    int                 unsigned_;
+  } _maps[] = {
+    {TSDB_DATA_TYPE_TIMESTAMP,              SQL_TRUE},
+    {TSDB_DATA_TYPE_BOOL,                   SQL_TRUE},
+    {TSDB_DATA_TYPE_TINYINT,                SQL_FALSE},
+    {TSDB_DATA_TYPE_SMALLINT,               SQL_FALSE},
+    {TSDB_DATA_TYPE_INT,                    SQL_FALSE},
+    {TSDB_DATA_TYPE_BIGINT,                 SQL_FALSE},
+    {TSDB_DATA_TYPE_FLOAT,                  SQL_FALSE},
+    {TSDB_DATA_TYPE_DOUBLE,                 SQL_FALSE},
+    {TSDB_DATA_TYPE_VARCHAR,                SQL_TRUE},
+    {TSDB_DATA_TYPE_NCHAR,                  SQL_TRUE},
+    {TSDB_DATA_TYPE_UTINYINT,               SQL_TRUE},
+    {TSDB_DATA_TYPE_USMALLINT,              SQL_TRUE},
+    {TSDB_DATA_TYPE_UINT,                   SQL_TRUE},
+    {TSDB_DATA_TYPE_UBIGINT,                SQL_TRUE},
+  };
+
+  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
+    if (col->type != _maps[i].tsdb_type) continue;
+    *NumericAttributePtr = _maps[i].unsigned_;
+    return SQL_SUCCESS;
+  }
+  return SQL_ERROR;
+}
+
+static SQLRETURN _stmt_col_DESC_LITERAL_SUFFIX(
+    stmt_t               *stmt,
+    const TAOS_FIELD     *col,
+    SQLPOINTER            CharacterAttributePtr,
+    SQLSMALLINT           BufferLength,
+    SQLSMALLINT          *StringLengthPtr)
+{
+  static struct {
+    int                 tsdb_type;
+    const char         *suffix;
+  } _maps[] = {
+    {TSDB_DATA_TYPE_TIMESTAMP,              "'"},
+    {TSDB_DATA_TYPE_BOOL,                   ""},
+    {TSDB_DATA_TYPE_TINYINT,                ""},
+    {TSDB_DATA_TYPE_SMALLINT,               ""},
+    {TSDB_DATA_TYPE_INT,                    ""},
+    {TSDB_DATA_TYPE_BIGINT,                 ""},
+    {TSDB_DATA_TYPE_FLOAT,                  ""},
+    {TSDB_DATA_TYPE_DOUBLE,                 ""},
+    {TSDB_DATA_TYPE_VARCHAR,                "'"},
+    {TSDB_DATA_TYPE_NCHAR,                  "'"},
+    {TSDB_DATA_TYPE_UTINYINT,               ""},
+    {TSDB_DATA_TYPE_USMALLINT,              ""},
+    {TSDB_DATA_TYPE_UINT,                   ""},
+    {TSDB_DATA_TYPE_UBIGINT,                ""},
+  };
+
+  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
+    if (col->type != _maps[i].tsdb_type) continue;
+    const char *suffix = _maps[i].suffix;
+    int n = snprintf(CharacterAttributePtr, BufferLength, "%s", suffix);
+    if (n < 0) {
+      int e = errno;
+      stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
+      return SQL_ERROR;
+    }
+    if (StringLengthPtr) *StringLengthPtr = n;
+    return SQL_SUCCESS;
+  }
+  return SQL_ERROR;
+}
+
+static SQLRETURN _stmt_col_set_empty_string(
+    stmt_t               *stmt,
+    SQLPOINTER            CharacterAttributePtr,
+    SQLSMALLINT           BufferLength,
+    SQLSMALLINT          *StringLengthPtr)
+{
+  int n;
+  n = snprintf(CharacterAttributePtr, BufferLength, "%s", "");
+  if (n < 0) {
+    int e = errno;
+    stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
+    return SQL_ERROR;
+  }
+  if (StringLengthPtr) *StringLengthPtr = n;
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_col_copy_string(
+    stmt_t         *stmt,
+    const SQLCHAR  *name,
+    size_t          name_bytes,
+    SQLPOINTER      CharacterAttributePtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr)
+{
+  int n = 0;
+  n = snprintf((char*)CharacterAttributePtr, BufferLength, "%.*s", (int)name_bytes, name);
+  if (n < 0) {
+    int e = errno;
+    stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
+    return SQL_ERROR;
+  }
+  if (StringLengthPtr) *StringLengthPtr = n;
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_fill_IRD(stmt_t *stmt)
 {
   SQLRETURN sr = SQL_SUCCESS;
 
-  tsdb_res_t        *res        = &stmt->tsdb_stmt.res;
-  tsdb_fields_t     *fields     = &res->fields;
+  int time_precision = _stmt_time_precision(stmt);
+
+  TAOS_FIELD *fields;
+  size_t nr;
+  sr = stmt->base->get_fields(stmt->base, &fields, &nr);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   descriptor_t *IRD = stmt_IRD(stmt);
   desc_header_t *IRD_header = &IRD->header;
 
-  sr = descriptor_keep(IRD, stmt, fields->nr);
+  sr = descriptor_keep(IRD, stmt, nr);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-  IRD_header->DESC_COUNT = (SQLUSMALLINT)fields->nr;
+  IRD_header->DESC_COUNT = (SQLUSMALLINT)nr;
 
   for (size_t i=0; i<IRD_header->DESC_COUNT; ++i) {
     desc_record_t *IRD_record = IRD->records + i;
-    TAOS_FIELD *col = fields->fields + i;
-    switch (col->type) {
-      case TSDB_DATA_TYPE_VARCHAR:
-        IRD_record->DESC_CONCISE_TYPE = SQL_VARCHAR;
-        IRD_record->DESC_TYPE = SQL_VARCHAR;
-        IRD_record->DESC_LENGTH = col->bytes;
-        IRD_record->DESC_OCTET_LENGTH = col->bytes;
-        IRD_record->DESC_PRECISION = 0;
-        IRD_record->DESC_SCALE = 0;
-        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-        break;
-      case TSDB_DATA_TYPE_NCHAR:
-        IRD_record->DESC_CONCISE_TYPE = SQL_WVARCHAR;
-        IRD_record->DESC_TYPE = SQL_WVARCHAR;
-        IRD_record->DESC_LENGTH = col->bytes;
-        IRD_record->DESC_OCTET_LENGTH = col->bytes;
-        IRD_record->DESC_PRECISION = 0;
-        IRD_record->DESC_SCALE = 0;
-        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-        break;
-      case TSDB_DATA_TYPE_BIGINT:
-        IRD_record->DESC_CONCISE_TYPE = SQL_BIGINT;
-        IRD_record->DESC_TYPE = SQL_BIGINT;
-        IRD_record->DESC_LENGTH = 19;
-        IRD_record->DESC_OCTET_LENGTH = 8;
-        IRD_record->DESC_PRECISION = 19;
-        IRD_record->DESC_SCALE = 0;
-        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-        break;
-      case TSDB_DATA_TYPE_UBIGINT:
-        IRD_record->DESC_CONCISE_TYPE = SQL_BIGINT;
-        IRD_record->DESC_TYPE = SQL_BIGINT;
-        IRD_record->DESC_LENGTH = 20;
-        IRD_record->DESC_OCTET_LENGTH = 8;
-        IRD_record->DESC_PRECISION = 20;
-        IRD_record->DESC_SCALE = 0;
-        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-        break;
-      case TSDB_DATA_TYPE_TIMESTAMP:
-        IRD_record->DESC_CONCISE_TYPE = SQL_TYPE_TIMESTAMP;
-        IRD_record->DESC_TYPE = SQL_DATETIME;
-        IRD_record->DESC_LENGTH = 20 + (res->time_precision + 1) * 3;
-        IRD_record->DESC_OCTET_LENGTH = 16;
-        IRD_record->DESC_PRECISION = 20 + (res->time_precision + 1) *3;
-        IRD_record->DESC_SCALE = (res->time_precision + 1) * 3;
-        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-        break;
-      case TSDB_DATA_TYPE_DOUBLE:
-        IRD_record->DESC_CONCISE_TYPE = SQL_DOUBLE;
-        IRD_record->DESC_TYPE = SQL_DOUBLE;
-        IRD_record->DESC_LENGTH = 15;
-        IRD_record->DESC_OCTET_LENGTH = 8;
-        IRD_record->DESC_PRECISION = 15;
-        IRD_record->DESC_SCALE = 0;
-        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-        break;
-      case TSDB_DATA_TYPE_INT:
-        // FIXME: promotion?
-        IRD_record->DESC_CONCISE_TYPE = SQL_INTEGER;
-        IRD_record->DESC_TYPE = SQL_INTEGER;
-        IRD_record->DESC_LENGTH = 10;
-        IRD_record->DESC_OCTET_LENGTH = 4;
-        IRD_record->DESC_PRECISION = 10;
-        IRD_record->DESC_SCALE = 0;
-        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-        break;
-      case TSDB_DATA_TYPE_FLOAT:
-        IRD_record->DESC_CONCISE_TYPE = SQL_REAL;
-        IRD_record->DESC_TYPE = SQL_REAL;
-        IRD_record->DESC_LENGTH = 7;
-        IRD_record->DESC_OCTET_LENGTH = 4;
-        IRD_record->DESC_PRECISION = 7;
-        IRD_record->DESC_SCALE = 0;
-        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-        break;
-      case TSDB_DATA_TYPE_SMALLINT:
-        // FIXME: promotion?
-        IRD_record->DESC_CONCISE_TYPE = SQL_SMALLINT;
-        IRD_record->DESC_TYPE = SQL_SMALLINT;
-        IRD_record->DESC_LENGTH = 5;
-        IRD_record->DESC_OCTET_LENGTH = 2;
-        IRD_record->DESC_PRECISION = 5;
-        IRD_record->DESC_SCALE = 0;
-        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-        break;
-      case TSDB_DATA_TYPE_TINYINT:
-        // FIXME: promotion?
-        IRD_record->DESC_CONCISE_TYPE = SQL_TINYINT;
-        IRD_record->DESC_TYPE = SQL_TINYINT;
-        IRD_record->DESC_LENGTH = 3;
-        IRD_record->DESC_OCTET_LENGTH = 1;
-        IRD_record->DESC_PRECISION = 3;
-        IRD_record->DESC_SCALE = 0;
-        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-        break;
-      case TSDB_DATA_TYPE_BOOL:
-        // FIXME: promotion?
-        IRD_record->DESC_CONCISE_TYPE = SQL_BIT;
-        IRD_record->DESC_TYPE = SQL_BIT;
-        IRD_record->DESC_LENGTH = 1;
-        IRD_record->DESC_OCTET_LENGTH = 1;
-        IRD_record->DESC_PRECISION = 1;
-        IRD_record->DESC_SCALE = 0;
-        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-        break;
-      case TSDB_DATA_TYPE_UTINYINT:
-        // FIXME: promotion?
-        IRD_record->DESC_CONCISE_TYPE = SQL_TINYINT;
-        IRD_record->DESC_TYPE = SQL_TINYINT;
-        IRD_record->DESC_LENGTH = 3;
-        IRD_record->DESC_OCTET_LENGTH = 1;
-        IRD_record->DESC_PRECISION = 3;
-        IRD_record->DESC_SCALE = 0;
-        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-        break;
-      case TSDB_DATA_TYPE_USMALLINT:
-        // FIXME: promotion?
-        IRD_record->DESC_CONCISE_TYPE = SQL_SMALLINT;
-        IRD_record->DESC_TYPE = SQL_SMALLINT;
-        IRD_record->DESC_LENGTH = 5;
-        IRD_record->DESC_OCTET_LENGTH = 2;
-        IRD_record->DESC_PRECISION = 5;
-        IRD_record->DESC_SCALE = 0;
-        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-        break;
-      case TSDB_DATA_TYPE_UINT:
-        // FIXME: promotion?
-        IRD_record->DESC_CONCISE_TYPE = SQL_INTEGER;
-        IRD_record->DESC_TYPE = SQL_INTEGER;
-        IRD_record->DESC_LENGTH = 10;
-        IRD_record->DESC_OCTET_LENGTH = 4;
-        IRD_record->DESC_PRECISION = 10;
-        IRD_record->DESC_SCALE = 0;
-        IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-        IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-        IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-        IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-        break;
-      default:
-        stmt_append_err_format(stmt, "HY000", 0, "General error:Column[#%zd/%.*s] of `%s[%d/0x%x]` not supported yet",
-            i+1, (int)sizeof(col->name), col->name, taos_data_type(col->type), col->type, col->type);
-        return SQL_ERROR;
+    TAOS_FIELD *col = fields + i;
+
+    SQLSMALLINT StringLength = 0;
+
+    IRD_record->tsdb_type = col->type;
+
+    IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+
+    sr = _stmt_col_set_empty_string(stmt, IRD_record->DESC_BASE_COLUMN_NAME, sizeof(IRD_record->DESC_BASE_COLUMN_NAME), &StringLength);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    sr = _stmt_col_set_empty_string(stmt, IRD_record->DESC_BASE_TABLE_NAME, sizeof(IRD_record->DESC_BASE_TABLE_NAME), &StringLength);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    IRD_record->DESC_CASE_SENSITIVE = SQL_FALSE;
+
+    sr = _stmt_col_set_empty_string(stmt, IRD_record->DESC_CATALOG_NAME, sizeof(IRD_record->DESC_CATALOG_NAME), &StringLength);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    sr = _stmt_col_DESC_CONCISE_TYPE(stmt, col, &IRD_record->DESC_CONCISE_TYPE);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    IRD_record->DESC_DATA_PTR = NULL;
+    IRD_record->DESC_COUNT = IRD_header->DESC_COUNT; // FIXME:
+
+    sr = _stmt_col_DESC_DISPLAY_SIZE(stmt, col, &IRD_record->DESC_DISPLAY_SIZE);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    IRD_record->DESC_FIXED_PREC_SCALE = 0;
+
+    sr = _stmt_col_DESC_NAME(stmt, col, IRD_record->DESC_LABEL, sizeof(IRD_record->DESC_LABEL), &StringLength);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    sr = _stmt_col_DESC_LENGTH(stmt, col, &IRD_record->DESC_LENGTH);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    sr = _stmt_col_DESC_LITERAL_SUFFIX(stmt, col, IRD_record->DESC_LITERAL_PREFIX, sizeof(IRD_record->DESC_LITERAL_PREFIX), &StringLength);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    sr = _stmt_col_DESC_LITERAL_SUFFIX(stmt, col, IRD_record->DESC_LITERAL_SUFFIX, sizeof(IRD_record->DESC_LITERAL_SUFFIX), &StringLength);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    sr = _stmt_col_DESC_TYPE_NAME(stmt, col, IRD_record->DESC_LOCAL_TYPE_NAME, sizeof(IRD_record->DESC_LOCAL_TYPE_NAME), &StringLength);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    sr = _stmt_col_DESC_NAME(stmt, col, IRD_record->DESC_NAME, sizeof(IRD_record->DESC_NAME), &StringLength);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+    if (i == 0 && col->type == TSDB_DATA_TYPE_TIMESTAMP) IRD_record->DESC_NULLABLE = SQL_NO_NULLS;
+
+    sr = _stmt_col_DESC_NUM_PREC_RADIX(stmt, col, &IRD_record->DESC_NUM_PREC_RADIX);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    sr = _stmt_col_DESC_OCTET_LENGTH(stmt, col, &IRD_record->DESC_OCTET_LENGTH);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    sr = _stmt_col_DESC_PRECISION(stmt, col, &IRD_record->DESC_PRECISION);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    sr = _stmt_col_DESC_SCALE(stmt, col, &IRD_record->DESC_SCALE);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    sr = _stmt_col_set_empty_string(stmt, IRD_record->DESC_SCHEMA_NAME, sizeof(IRD_record->DESC_SCHEMA_NAME), &StringLength);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    sr = _stmt_col_DESC_SEARCHABLE(stmt, col, &IRD_record->DESC_SEARCHABLE);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    sr = _stmt_col_set_empty_string(stmt, IRD_record->DESC_TABLE_NAME, sizeof(IRD_record->DESC_TABLE_NAME), &StringLength);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    sr = _stmt_col_DESC_TYPE(stmt, col, &IRD_record->DESC_TYPE);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    sr = _stmt_col_DESC_TYPE_NAME(stmt, col, IRD_record->DESC_TYPE_NAME, sizeof(IRD_record->DESC_TYPE_NAME), &StringLength);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+
+    sr = _stmt_col_DESC_UNSIGNED(stmt, col, &IRD_record->DESC_UNSIGNED);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+
+    if (1) continue;
+
+    for (size_t i=0; i<IRD_header->DESC_COUNT; ++i) {
+      desc_record_t *IRD_record = IRD->records + i;
+      TAOS_FIELD *col = fields + i;
+      switch (col->type) {
+        case TSDB_DATA_TYPE_VARCHAR:
+          IRD_record->DESC_CONCISE_TYPE = SQL_VARCHAR;
+          IRD_record->DESC_TYPE = SQL_VARCHAR;
+          IRD_record->DESC_LENGTH = col->bytes;
+          IRD_record->DESC_OCTET_LENGTH = col->bytes;
+          IRD_record->DESC_PRECISION = 0;
+          IRD_record->DESC_SCALE = 0;
+          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+          break;
+        case TSDB_DATA_TYPE_NCHAR:
+          IRD_record->DESC_CONCISE_TYPE = SQL_WVARCHAR;
+          IRD_record->DESC_TYPE = SQL_WVARCHAR;
+          IRD_record->DESC_LENGTH = col->bytes;
+          IRD_record->DESC_OCTET_LENGTH = col->bytes;
+          IRD_record->DESC_PRECISION = 0;
+          IRD_record->DESC_SCALE = 0;
+          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+          break;
+        case TSDB_DATA_TYPE_BIGINT:
+          IRD_record->DESC_CONCISE_TYPE = SQL_BIGINT;
+          IRD_record->DESC_TYPE = SQL_BIGINT;
+          IRD_record->DESC_LENGTH = 19;
+          IRD_record->DESC_OCTET_LENGTH = 8;
+          IRD_record->DESC_PRECISION = 19;
+          IRD_record->DESC_SCALE = 0;
+          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+          break;
+        case TSDB_DATA_TYPE_UBIGINT:
+          IRD_record->DESC_CONCISE_TYPE = SQL_BIGINT;
+          IRD_record->DESC_TYPE = SQL_BIGINT;
+          IRD_record->DESC_LENGTH = 20;
+          IRD_record->DESC_OCTET_LENGTH = 8;
+          IRD_record->DESC_PRECISION = 20;
+          IRD_record->DESC_SCALE = 0;
+          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+          break;
+        case TSDB_DATA_TYPE_TIMESTAMP:
+          IRD_record->DESC_CONCISE_TYPE = SQL_TYPE_TIMESTAMP;
+          IRD_record->DESC_TYPE = SQL_DATETIME;
+          IRD_record->DESC_LENGTH = 20 + (time_precision + 1) * 3;
+          IRD_record->DESC_OCTET_LENGTH = 16;
+          IRD_record->DESC_PRECISION = 20 + (time_precision + 1) *3;
+          IRD_record->DESC_SCALE = (time_precision + 1) * 3;
+          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+          break;
+        case TSDB_DATA_TYPE_DOUBLE:
+          IRD_record->DESC_CONCISE_TYPE = SQL_DOUBLE;
+          IRD_record->DESC_TYPE = SQL_DOUBLE;
+          IRD_record->DESC_LENGTH = 15;
+          IRD_record->DESC_OCTET_LENGTH = 8;
+          IRD_record->DESC_PRECISION = 15;
+          IRD_record->DESC_SCALE = 0;
+          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+          break;
+        case TSDB_DATA_TYPE_INT:
+          // FIXME: promotion?
+          IRD_record->DESC_CONCISE_TYPE = SQL_INTEGER;
+          IRD_record->DESC_TYPE = SQL_INTEGER;
+          IRD_record->DESC_LENGTH = 10;
+          IRD_record->DESC_OCTET_LENGTH = 4;
+          IRD_record->DESC_PRECISION = 10;
+          IRD_record->DESC_SCALE = 0;
+          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+          break;
+        case TSDB_DATA_TYPE_FLOAT:
+          IRD_record->DESC_CONCISE_TYPE = SQL_REAL;
+          IRD_record->DESC_TYPE = SQL_REAL;
+          IRD_record->DESC_LENGTH = 7;
+          IRD_record->DESC_OCTET_LENGTH = 4;
+          IRD_record->DESC_PRECISION = 7;
+          IRD_record->DESC_SCALE = 0;
+          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+          break;
+        case TSDB_DATA_TYPE_SMALLINT:
+          // FIXME: promotion?
+          IRD_record->DESC_CONCISE_TYPE = SQL_SMALLINT;
+          IRD_record->DESC_TYPE = SQL_SMALLINT;
+          IRD_record->DESC_LENGTH = 5;
+          IRD_record->DESC_OCTET_LENGTH = 2;
+          IRD_record->DESC_PRECISION = 5;
+          IRD_record->DESC_SCALE = 0;
+          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+          break;
+        case TSDB_DATA_TYPE_TINYINT:
+          // FIXME: promotion?
+          IRD_record->DESC_CONCISE_TYPE = SQL_TINYINT;
+          IRD_record->DESC_TYPE = SQL_TINYINT;
+          IRD_record->DESC_LENGTH = 3;
+          IRD_record->DESC_OCTET_LENGTH = 1;
+          IRD_record->DESC_PRECISION = 3;
+          IRD_record->DESC_SCALE = 0;
+          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+          break;
+        case TSDB_DATA_TYPE_BOOL:
+          // FIXME: promotion?
+          IRD_record->DESC_CONCISE_TYPE = SQL_BIT;
+          IRD_record->DESC_TYPE = SQL_BIT;
+          IRD_record->DESC_LENGTH = 1;
+          IRD_record->DESC_OCTET_LENGTH = 1;
+          IRD_record->DESC_PRECISION = 1;
+          IRD_record->DESC_SCALE = 0;
+          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+          break;
+        case TSDB_DATA_TYPE_UTINYINT:
+          // FIXME: promotion?
+          IRD_record->DESC_CONCISE_TYPE = SQL_TINYINT;
+          IRD_record->DESC_TYPE = SQL_TINYINT;
+          IRD_record->DESC_LENGTH = 3;
+          IRD_record->DESC_OCTET_LENGTH = 1;
+          IRD_record->DESC_PRECISION = 3;
+          IRD_record->DESC_SCALE = 0;
+          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+          break;
+        case TSDB_DATA_TYPE_USMALLINT:
+          // FIXME: promotion?
+          IRD_record->DESC_CONCISE_TYPE = SQL_SMALLINT;
+          IRD_record->DESC_TYPE = SQL_SMALLINT;
+          IRD_record->DESC_LENGTH = 5;
+          IRD_record->DESC_OCTET_LENGTH = 2;
+          IRD_record->DESC_PRECISION = 5;
+          IRD_record->DESC_SCALE = 0;
+          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+          break;
+        case TSDB_DATA_TYPE_UINT:
+          // FIXME: promotion?
+          IRD_record->DESC_CONCISE_TYPE = SQL_INTEGER;
+          IRD_record->DESC_TYPE = SQL_INTEGER;
+          IRD_record->DESC_LENGTH = 10;
+          IRD_record->DESC_OCTET_LENGTH = 4;
+          IRD_record->DESC_PRECISION = 10;
+          IRD_record->DESC_SCALE = 0;
+          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
+          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
+          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
+          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
+          break;
+        default:
+          stmt_append_err_format(stmt, "HY000", 0, "General error:Column[#%zd/%.*s] of `%s[%d/0x%x]` not supported yet",
+              i+1, (int)sizeof(col->name), col->name, taos_data_type(col->type), col->type, col->type);
+          return SQL_ERROR;
+      }
     }
   }
 
@@ -847,607 +1525,6 @@ static SQLRETURN _stmt_set_row_bind_offset_ptr(stmt_t *stmt, SQLULEN *row_bind_o
 //   return ARD_header->DESC_BIND_OFFSET_PTR;
 // }
 
-static SQLRETURN _stmt_col_attr_DESC_TYPE(
-    stmt_t               *stmt,
-    const TAOS_FIELD     *col,
-    SQLUSMALLINT          FieldIdentifier,
-    SQLLEN               *NumericAttributePtr)
-{
-  static struct {
-    int                 tsdb_type;
-    int                 sql_type;
-    int                 sql_promoted;
-  } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              SQL_TYPE_TIMESTAMP,        SQL_DATETIME},
-    {TSDB_DATA_TYPE_BOOL,                   SQL_BIT,                   SQL_BIT},
-    {TSDB_DATA_TYPE_TINYINT,                SQL_TINYINT,               SQL_SMALLINT},
-    {TSDB_DATA_TYPE_SMALLINT,               SQL_SMALLINT,              SQL_SMALLINT},
-    {TSDB_DATA_TYPE_INT,                    SQL_INTEGER,               SQL_INTEGER},
-    {TSDB_DATA_TYPE_BIGINT,                 SQL_BIGINT,                SQL_BIGINT},
-    {TSDB_DATA_TYPE_FLOAT,                  SQL_REAL,                  SQL_REAL},
-    {TSDB_DATA_TYPE_DOUBLE,                 SQL_DOUBLE,                SQL_DOUBLE},
-    {TSDB_DATA_TYPE_VARCHAR,                SQL_VARCHAR,               SQL_VARCHAR},
-    {TSDB_DATA_TYPE_NCHAR,                  SQL_WVARCHAR,              SQL_WVARCHAR},
-    {TSDB_DATA_TYPE_UTINYINT,               SQL_TINYINT,               SQL_TINYINT},
-    {TSDB_DATA_TYPE_USMALLINT,              SQL_SMALLINT,              SQL_INTEGER},
-    {TSDB_DATA_TYPE_UINT,                   SQL_INTEGER,               SQL_BIGINT},
-    {TSDB_DATA_TYPE_UBIGINT,                SQL_BIGINT,                SQL_BIGINT},
-  };
-
-  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-    if (col->type != _maps[i].tsdb_type) continue;
-    if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
-      if (!stmt->conn->cfg.timestamp_as_is) {
-        *NumericAttributePtr = SQL_WVARCHAR;
-        return SQL_SUCCESS;
-      }
-    }
-    if (stmt->conn->cfg.unsigned_promotion) {
-      *NumericAttributePtr = _maps[i].sql_promoted;
-    } else {
-      *NumericAttributePtr = _maps[i].sql_type;
-    }
-    return SQL_SUCCESS;
-  }
-
-  stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
-      sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-      taos_data_type(col->type));
-  return SQL_ERROR;
-}
-
-static SQLRETURN _stmt_col_attr_DESC_CONCISE_TYPE(
-    stmt_t               *stmt,
-    const TAOS_FIELD     *col,
-    SQLUSMALLINT          FieldIdentifier,
-    SQLLEN               *NumericAttributePtr)
-{
-  static struct {
-    int                 tsdb_type;
-    int                 sql_type;
-    int                 sql_promoted;
-  } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              SQL_TYPE_TIMESTAMP,        SQL_TYPE_TIMESTAMP},
-    {TSDB_DATA_TYPE_BOOL,                   SQL_BIT,                   SQL_BIT},
-    {TSDB_DATA_TYPE_TINYINT,                SQL_TINYINT,               SQL_SMALLINT},
-    {TSDB_DATA_TYPE_SMALLINT,               SQL_SMALLINT,              SQL_SMALLINT},
-    {TSDB_DATA_TYPE_INT,                    SQL_INTEGER,               SQL_INTEGER},
-    {TSDB_DATA_TYPE_BIGINT,                 SQL_BIGINT,                SQL_BIGINT},
-    {TSDB_DATA_TYPE_FLOAT,                  SQL_REAL,                  SQL_REAL},
-    {TSDB_DATA_TYPE_DOUBLE,                 SQL_DOUBLE,                SQL_DOUBLE},
-    {TSDB_DATA_TYPE_VARCHAR,                SQL_VARCHAR,               SQL_VARCHAR},
-    {TSDB_DATA_TYPE_NCHAR,                  SQL_WVARCHAR,              SQL_WVARCHAR},
-    {TSDB_DATA_TYPE_UTINYINT,               SQL_TINYINT,               SQL_TINYINT},
-    {TSDB_DATA_TYPE_USMALLINT,              SQL_SMALLINT,              SQL_INTEGER},
-    {TSDB_DATA_TYPE_UINT,                   SQL_INTEGER,               SQL_BIGINT},
-    {TSDB_DATA_TYPE_UBIGINT,                SQL_BIGINT,                SQL_BIGINT},
-  };
-
-  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-    if (col->type != _maps[i].tsdb_type) continue;
-    if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
-      if (!stmt->conn->cfg.timestamp_as_is) {
-        *NumericAttributePtr = SQL_WVARCHAR;
-        return SQL_SUCCESS;
-      }
-    }
-    if (stmt->conn->cfg.unsigned_promotion) {
-      *NumericAttributePtr = _maps[i].sql_promoted;
-    } else {
-      *NumericAttributePtr = _maps[i].sql_type;
-    }
-    return SQL_SUCCESS;
-  }
-
-  stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
-      sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-      taos_data_type(col->type));
-  return SQL_ERROR;
-}
-
-static SQLRETURN _stmt_col_attr_DESC_OCTET_LENGTH(
-    stmt_t               *stmt,
-    const TAOS_FIELD     *col,
-    SQLUSMALLINT          FieldIdentifier,
-    SQLLEN               *NumericAttributePtr)
-{
-  static struct {
-    int                 tsdb_type;
-    int                 octet_length;
-  } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              8},
-    {TSDB_DATA_TYPE_BOOL,                   1},
-    {TSDB_DATA_TYPE_TINYINT,                1},
-    {TSDB_DATA_TYPE_SMALLINT,               2},
-    {TSDB_DATA_TYPE_INT,                    4},
-    {TSDB_DATA_TYPE_BIGINT,                 8},
-    {TSDB_DATA_TYPE_FLOAT,                  4},
-    {TSDB_DATA_TYPE_DOUBLE,                 8},
-    {TSDB_DATA_TYPE_VARCHAR,                -1},
-    {TSDB_DATA_TYPE_NCHAR,                  -2},
-    {TSDB_DATA_TYPE_UTINYINT,               1},
-    {TSDB_DATA_TYPE_USMALLINT,              2},
-    {TSDB_DATA_TYPE_UINT,                   4},
-    {TSDB_DATA_TYPE_UBIGINT,                8},
-  };
-
-  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-    if (col->type != _maps[i].tsdb_type) continue;
-    if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
-      if (!stmt->conn->cfg.timestamp_as_is) {
-        tsdb_res_t *res = &stmt->tsdb_stmt.res;
-        *NumericAttributePtr = (20 + (res->time_precision + 1) * 3) * 2;
-        return SQL_SUCCESS;
-      }
-    }
-    if (_maps[i].octet_length > 0 && _maps[i].octet_length != col->bytes) {
-      stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s`, octet length is expected to be %d, but got ==%d==",
-          sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-          taos_data_type(col->type), _maps[i].octet_length, col->bytes);
-      return SQL_ERROR;
-    }
-    if (_maps[i].octet_length < 0) {
-      *NumericAttributePtr = 0 - col->bytes * _maps[i].octet_length;
-    } else {
-      *NumericAttributePtr = _maps[i].octet_length;
-    }
-    return SQL_SUCCESS;
-  }
-  stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
-      sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-      taos_data_type(col->type));
-  return SQL_ERROR;
-}
-
-static SQLRETURN _stmt_col_attr_DESC_PRECISION(
-    stmt_t               *stmt,
-    const TAOS_FIELD     *col,
-    SQLUSMALLINT          FieldIdentifier,
-    SQLLEN               *NumericAttributePtr)
-{
-  static struct {
-    int                 tsdb_type;
-    int                 precision;
-  } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              0},
-    {TSDB_DATA_TYPE_BOOL,                   1},
-    {TSDB_DATA_TYPE_TINYINT,                3},
-    {TSDB_DATA_TYPE_SMALLINT,               5},
-    {TSDB_DATA_TYPE_INT,                    10},
-    {TSDB_DATA_TYPE_BIGINT,                 19},
-    {TSDB_DATA_TYPE_FLOAT,                  24},
-    {TSDB_DATA_TYPE_DOUBLE,                 53},
-    {TSDB_DATA_TYPE_VARCHAR,                -1},
-    {TSDB_DATA_TYPE_NCHAR,                  -1},
-    {TSDB_DATA_TYPE_UTINYINT,               3},
-    {TSDB_DATA_TYPE_USMALLINT,              5},
-    {TSDB_DATA_TYPE_UINT,                   10},
-    {TSDB_DATA_TYPE_UBIGINT,                20},
-  };
-
-  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-    if (col->type != _maps[i].tsdb_type) continue;
-    if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
-      tsdb_res_t *res = &stmt->tsdb_stmt.res;
-      if (!stmt->conn->cfg.timestamp_as_is) {
-        *NumericAttributePtr = 20 + (res->time_precision + 1) * 3;
-      } else {
-        *NumericAttributePtr = (res->time_precision + 1) * 3;
-      }
-      return SQL_SUCCESS;
-    }
-    if (_maps[i].precision == -1) {
-      *NumericAttributePtr = col->bytes;
-    } else {
-      *NumericAttributePtr = _maps[i].precision;
-    }
-    return SQL_SUCCESS;
-  }
-  stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
-      sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-      taos_data_type(col->type));
-  return SQL_ERROR;
-}
-
-static SQLRETURN _stmt_col_attr_DESC_SCALE(
-    stmt_t               *stmt,
-    const TAOS_FIELD     *col,
-    SQLUSMALLINT          FieldIdentifier,
-    SQLLEN               *NumericAttributePtr)
-{
-  static struct {
-    int                 tsdb_type;
-    int                 scale;
-  } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              0},
-    {TSDB_DATA_TYPE_BOOL,                   0},
-    {TSDB_DATA_TYPE_TINYINT,                0},
-    {TSDB_DATA_TYPE_SMALLINT,               0},
-    {TSDB_DATA_TYPE_INT,                    0},
-    {TSDB_DATA_TYPE_BIGINT,                 0},
-    {TSDB_DATA_TYPE_FLOAT,                  0},
-    {TSDB_DATA_TYPE_DOUBLE,                 0},
-    {TSDB_DATA_TYPE_VARCHAR,                0},
-    {TSDB_DATA_TYPE_NCHAR,                  0},
-    {TSDB_DATA_TYPE_UTINYINT,               0},
-    {TSDB_DATA_TYPE_USMALLINT,              0},
-    {TSDB_DATA_TYPE_UINT,                   0},
-    {TSDB_DATA_TYPE_UBIGINT,                0},
-  };
-
-  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-    if (col->type != _maps[i].tsdb_type) continue;
-    if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
-      tsdb_res_t *res = &stmt->tsdb_stmt.res;
-      if (!stmt->conn->cfg.timestamp_as_is) {
-        *NumericAttributePtr = _maps[i].scale;
-      } else {
-        *NumericAttributePtr = (res->time_precision + 1) * 3;
-      }
-      return SQL_SUCCESS;
-    }
-    *NumericAttributePtr = _maps[i].scale;
-    return SQL_SUCCESS;
-  }
-  stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
-      sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-      taos_data_type(col->type));
-  return SQL_ERROR;
-}
-
-static SQLRETURN _stmt_col_attr_DESC_DISPLAY_SIZE(
-    stmt_t               *stmt,
-    const TAOS_FIELD     *col,
-    SQLUSMALLINT          FieldIdentifier,
-    SQLLEN               *NumericAttributePtr)
-{
-  static struct {
-    int                 tsdb_type;
-    int                 display_size;
-  } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              8},
-    {TSDB_DATA_TYPE_BOOL,                   1},
-    {TSDB_DATA_TYPE_TINYINT,                4},
-    {TSDB_DATA_TYPE_SMALLINT,               6},
-    {TSDB_DATA_TYPE_INT,                   11},
-    {TSDB_DATA_TYPE_BIGINT,                20},
-    {TSDB_DATA_TYPE_FLOAT,                 14},
-    {TSDB_DATA_TYPE_DOUBLE,                24},
-    {TSDB_DATA_TYPE_VARCHAR,                -1},
-    {TSDB_DATA_TYPE_NCHAR,                  -2},
-    {TSDB_DATA_TYPE_UTINYINT,               3},
-    {TSDB_DATA_TYPE_USMALLINT,              5},
-    {TSDB_DATA_TYPE_UINT,                  10},
-    {TSDB_DATA_TYPE_UBIGINT,               20},
-  };
-
-  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-    if (col->type != _maps[i].tsdb_type) continue;
-    if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
-      if (!stmt->conn->cfg.timestamp_as_is) {
-        tsdb_res_t *res = &stmt->tsdb_stmt.res;
-        *NumericAttributePtr = 20 + (res->time_precision + 1) * 3;
-        return SQL_SUCCESS;
-      }
-    }
-    if (_maps[i].display_size < 0) {
-      *NumericAttributePtr = -col->bytes;
-    } else {
-      *NumericAttributePtr = _maps[i].display_size;
-    }
-    return SQL_SUCCESS;
-  }
-  stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
-      sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-      taos_data_type(col->type));
-  return SQL_ERROR;
-}
-
-static SQLRETURN _stmt_col_attr_DESC_SEARCHABLE(
-    stmt_t               *stmt,
-    const TAOS_FIELD     *col,
-    SQLUSMALLINT          FieldIdentifier,
-    SQLLEN               *NumericAttributePtr)
-{
-  static struct {
-    int                 tsdb_type;
-    int                 display_size;
-  } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              SQL_SEARCHABLE},
-    {TSDB_DATA_TYPE_BOOL,                   SQL_PRED_BASIC},
-    {TSDB_DATA_TYPE_TINYINT,                SQL_PRED_BASIC},
-    {TSDB_DATA_TYPE_SMALLINT,               SQL_PRED_BASIC},
-    {TSDB_DATA_TYPE_INT,                    SQL_PRED_BASIC},
-    {TSDB_DATA_TYPE_BIGINT,                 SQL_PRED_BASIC},
-    {TSDB_DATA_TYPE_FLOAT,                  SQL_PRED_BASIC},
-    {TSDB_DATA_TYPE_DOUBLE,                 SQL_PRED_BASIC},
-    {TSDB_DATA_TYPE_VARCHAR,                SQL_SEARCHABLE},
-    {TSDB_DATA_TYPE_NCHAR,                  SQL_SEARCHABLE},
-    {TSDB_DATA_TYPE_UTINYINT,               SQL_PRED_BASIC},
-    {TSDB_DATA_TYPE_USMALLINT,              SQL_PRED_BASIC},
-    {TSDB_DATA_TYPE_UINT,                   SQL_PRED_BASIC},
-    {TSDB_DATA_TYPE_UBIGINT,                SQL_PRED_BASIC},
-  };
-
-  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-    if (col->type != _maps[i].tsdb_type) continue;
-    if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
-      if (!stmt->conn->cfg.timestamp_as_is) {
-        tsdb_res_t *res = &stmt->tsdb_stmt.res;
-        *NumericAttributePtr = 20 + (res->time_precision + 1) * 3;
-        return SQL_SUCCESS;
-      }
-    }
-    if (_maps[i].display_size < 0) {
-      *NumericAttributePtr = -col->bytes;
-    } else {
-      *NumericAttributePtr = _maps[i].display_size;
-    }
-    return SQL_SUCCESS;
-  }
-  stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
-      sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-      taos_data_type(col->type));
-  return SQL_ERROR;
-}
-
-static SQLRETURN _stmt_col_attr_DESC_NAME(
-    stmt_t               *stmt,
-    const TAOS_FIELD     *col,
-    SQLUSMALLINT          FieldIdentifier,
-    SQLPOINTER            CharacterAttributePtr,
-    SQLSMALLINT           BufferLength,
-    SQLSMALLINT          *StringLengthPtr)
-{
-  (void)FieldIdentifier;
-  int n;
-  n = snprintf(CharacterAttributePtr, BufferLength, "%.*s", (int)sizeof(col->name), col->name);
-  if (n < 0) {
-    int e = errno;
-    stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
-    return SQL_ERROR;
-  }
-  if (StringLengthPtr) *StringLengthPtr = n;
-  return SQL_SUCCESS;
-}
-
-static SQLRETURN _stmt_col_attr_DESC_TYPE_NAME(
-    stmt_t               *stmt,
-    const TAOS_FIELD     *col,
-    SQLUSMALLINT          FieldIdentifier,
-    SQLPOINTER            CharacterAttributePtr,
-    SQLSMALLINT           BufferLength,
-    SQLSMALLINT          *StringLengthPtr)
-{
-  static struct {
-    int                 tsdb_type;
-    const char         *name;
-  } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              "TIMESTAMP"},
-    {TSDB_DATA_TYPE_BOOL,                   "BOOL"},
-    {TSDB_DATA_TYPE_TINYINT,                "TINYINT"},
-    {TSDB_DATA_TYPE_SMALLINT,               "SMALLINT"},
-    {TSDB_DATA_TYPE_INT,                    "INT"},
-    {TSDB_DATA_TYPE_BIGINT,                 "BIGINT"},
-    {TSDB_DATA_TYPE_FLOAT,                  "FLOAT"},
-    {TSDB_DATA_TYPE_DOUBLE,                 "DOUBLE"},
-    {TSDB_DATA_TYPE_VARCHAR,                "VARCHAR"},
-    {TSDB_DATA_TYPE_NCHAR,                  "NCHAR"},
-    {TSDB_DATA_TYPE_UTINYINT,               "TINYINT UNSIGNED"},
-    {TSDB_DATA_TYPE_USMALLINT,              "SMALLINT UNSIGNED"},
-    {TSDB_DATA_TYPE_UINT,                   "INT UNSIGNED"},
-    {TSDB_DATA_TYPE_UBIGINT,                "BIGINT UNSIGNED"},
-  };
-
-  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-    if (col->type != _maps[i].tsdb_type) continue;
-    const char *name = _maps[i].name;
-    if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
-      if (!stmt->conn->cfg.timestamp_as_is) {
-        name = "NCHAR";
-      }
-    }
-    int n = snprintf(CharacterAttributePtr, BufferLength, "%s", name);
-    if (n < 0) {
-      int e = errno;
-      stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
-      return SQL_ERROR;
-    }
-    if (StringLengthPtr) *StringLengthPtr = n;
-    return SQL_SUCCESS;
-  }
-  stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
-      sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-      taos_data_type(col->type));
-  return SQL_ERROR;
-}
-
-static SQLRETURN _stmt_col_attr_DESC_LENGTH(
-    stmt_t               *stmt,
-    const TAOS_FIELD     *col,
-    SQLUSMALLINT          FieldIdentifier,
-    SQLLEN               *NumericAttributePtr)
-{
-  static struct {
-    int                 tsdb_type;
-    int                 length;
-  } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              0},
-    {TSDB_DATA_TYPE_BOOL,                   1},
-    {TSDB_DATA_TYPE_TINYINT,                3},
-    {TSDB_DATA_TYPE_SMALLINT,               5},
-    {TSDB_DATA_TYPE_INT,                    10},
-    {TSDB_DATA_TYPE_BIGINT,                 19},
-    {TSDB_DATA_TYPE_FLOAT,                  7},    // FIXME: not 24 as precision
-    {TSDB_DATA_TYPE_DOUBLE,                 15},   // FIXME: not 53 as precision
-    {TSDB_DATA_TYPE_VARCHAR,                -1},
-    {TSDB_DATA_TYPE_NCHAR,                  -1},
-    {TSDB_DATA_TYPE_UTINYINT,               3},
-    {TSDB_DATA_TYPE_USMALLINT,              5},
-    {TSDB_DATA_TYPE_UINT,                   10},
-    {TSDB_DATA_TYPE_UBIGINT,                20},
-  };
-
-  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-    if (col->type != _maps[i].tsdb_type) continue;
-    if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
-      tsdb_res_t *res = &stmt->tsdb_stmt.res;
-      *NumericAttributePtr = 20 + (res->time_precision + 1) * 3;
-      return SQL_SUCCESS;
-    }
-    if (_maps[i].length == -1) {
-      *NumericAttributePtr = col->bytes;
-    } else {
-      *NumericAttributePtr = _maps[i].length;
-    }
-    return SQL_SUCCESS;
-  }
-  stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
-      sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-      taos_data_type(col->type));
-  return SQL_ERROR;
-}
-
-static SQLRETURN _stmt_col_attr_DESC_NUM_PREC_RADIX(
-    stmt_t               *stmt,
-    const TAOS_FIELD     *col,
-    SQLUSMALLINT          FieldIdentifier,
-    SQLLEN               *NumericAttributePtr)
-{
-  static struct {
-    int                 tsdb_type;
-    int                 radix;
-  } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              10},
-    {TSDB_DATA_TYPE_BOOL,                   10},
-    {TSDB_DATA_TYPE_TINYINT,                10},
-    {TSDB_DATA_TYPE_SMALLINT,               10},
-    {TSDB_DATA_TYPE_INT,                    10},
-    {TSDB_DATA_TYPE_BIGINT,                 10},
-    {TSDB_DATA_TYPE_FLOAT,                  2},
-    {TSDB_DATA_TYPE_DOUBLE,                 2},
-    {TSDB_DATA_TYPE_VARCHAR,                10},
-    {TSDB_DATA_TYPE_NCHAR,                  10},
-    {TSDB_DATA_TYPE_UTINYINT,               10},
-    {TSDB_DATA_TYPE_USMALLINT,              10},
-    {TSDB_DATA_TYPE_UINT,                   10},
-    {TSDB_DATA_TYPE_UBIGINT,                10},
-  };
-
-  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-    if (col->type != _maps[i].tsdb_type) continue;
-    *NumericAttributePtr = _maps[i].radix;
-    return SQL_SUCCESS;
-  }
-  stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
-      sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-      taos_data_type(col->type));
-  return SQL_ERROR;
-}
-
-static SQLRETURN _stmt_col_attr_DESC_UNSIGNED(
-    stmt_t               *stmt,
-    const TAOS_FIELD     *col,
-    SQLUSMALLINT          FieldIdentifier,
-    SQLLEN               *NumericAttributePtr)
-{
-  (void)FieldIdentifier;
-  static struct {
-    int                 tsdb_type;
-    int                 unsigned_;
-  } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              SQL_TRUE},
-    {TSDB_DATA_TYPE_BOOL,                   SQL_TRUE},
-    {TSDB_DATA_TYPE_TINYINT,                SQL_FALSE},
-    {TSDB_DATA_TYPE_SMALLINT,               SQL_FALSE},
-    {TSDB_DATA_TYPE_INT,                    SQL_FALSE},
-    {TSDB_DATA_TYPE_BIGINT,                 SQL_FALSE},
-    {TSDB_DATA_TYPE_FLOAT,                  SQL_FALSE},
-    {TSDB_DATA_TYPE_DOUBLE,                 SQL_FALSE},
-    {TSDB_DATA_TYPE_VARCHAR,                SQL_TRUE},
-    {TSDB_DATA_TYPE_NCHAR,                  SQL_TRUE},
-    {TSDB_DATA_TYPE_UTINYINT,               SQL_TRUE},
-    {TSDB_DATA_TYPE_USMALLINT,              SQL_TRUE},
-    {TSDB_DATA_TYPE_UINT,                   SQL_TRUE},
-    {TSDB_DATA_TYPE_UBIGINT,                SQL_TRUE},
-  };
-
-  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-    if (col->type != _maps[i].tsdb_type) continue;
-    *NumericAttributePtr = _maps[i].unsigned_;
-    return SQL_SUCCESS;
-  }
-  stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` has no SIGNESS", taos_data_type(col->type), col->type, col->type);
-  return SQL_ERROR;
-}
-
-static SQLRETURN _stmt_col_attr_set_empty_string(
-    stmt_t               *stmt,
-    const TAOS_FIELD     *col,
-    SQLUSMALLINT          FieldIdentifier,
-    SQLPOINTER            CharacterAttributePtr,
-    SQLSMALLINT           BufferLength,
-    SQLSMALLINT          *StringLengthPtr)
-{
-  (void)col;
-  (void)FieldIdentifier;
-  int n;
-  n = snprintf(CharacterAttributePtr, BufferLength, "%s", "");
-  if (n < 0) {
-    int e = errno;
-    stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
-    return SQL_ERROR;
-  }
-  if (StringLengthPtr) *StringLengthPtr = n;
-  return SQL_SUCCESS;
-}
-
-static SQLRETURN _stmt_col_attr_DESC_LITERAL_SUFFIX(
-    stmt_t               *stmt,
-    const TAOS_FIELD     *col,
-    SQLUSMALLINT          FieldIdentifier,
-    SQLPOINTER            CharacterAttributePtr,
-    SQLSMALLINT           BufferLength,
-    SQLSMALLINT          *StringLengthPtr)
-{
-  static struct {
-    int                 tsdb_type;
-    const char         *suffix;
-  } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              "'"},
-    {TSDB_DATA_TYPE_BOOL,                   ""},
-    {TSDB_DATA_TYPE_TINYINT,                ""},
-    {TSDB_DATA_TYPE_SMALLINT,               ""},
-    {TSDB_DATA_TYPE_INT,                    ""},
-    {TSDB_DATA_TYPE_BIGINT,                 ""},
-    {TSDB_DATA_TYPE_FLOAT,                  ""},
-    {TSDB_DATA_TYPE_DOUBLE,                 ""},
-    {TSDB_DATA_TYPE_VARCHAR,                "'"},
-    {TSDB_DATA_TYPE_NCHAR,                  "'"},
-    {TSDB_DATA_TYPE_UTINYINT,               ""},
-    {TSDB_DATA_TYPE_USMALLINT,              ""},
-    {TSDB_DATA_TYPE_UINT,                   ""},
-    {TSDB_DATA_TYPE_UBIGINT,                ""},
-  };
-
-  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-    if (col->type != _maps[i].tsdb_type) continue;
-    const char *suffix = _maps[i].suffix;
-    int n = snprintf(CharacterAttributePtr, BufferLength, "%s", suffix);
-    if (n < 0) {
-      int e = errno;
-      stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
-      return SQL_ERROR;
-    }
-    if (StringLengthPtr) *StringLengthPtr = n;
-    return SQL_SUCCESS;
-  }
-  stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
-      sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
-      taos_data_type(col->type));
-  return SQL_ERROR;
-}
-
 SQLRETURN stmt_describe_col(stmt_t *stmt,
     SQLUSMALLINT   ColumnNumber,
     SQLCHAR       *ColumnName,
@@ -1465,37 +1542,37 @@ SQLRETURN stmt_describe_col(stmt_t *stmt,
 
   SQLRETURN sr = SQL_SUCCESS;
 
-  TAOS_FIELD *fields;
-  size_t nr;
   SQLLEN NumericAttribute;
 
-  sr = stmt->base->get_fields(stmt->base, &fields, &nr);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  descriptor_t *IRD = stmt_IRD(stmt);
+  desc_record_t *IRD_record = IRD->records + ColumnNumber - 1;
 
-  const TAOS_FIELD *col = fields + ColumnNumber - 1;
-
-  sr = _stmt_col_attr_DESC_NAME(stmt, col, SQL_DESC_NAME, ColumnName, BufferLength, NameLengthPtr);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  sr = _stmt_col_copy_string(stmt, IRD_record->DESC_NAME, sizeof(IRD_record->DESC_NAME), ColumnName, BufferLength, NameLengthPtr);
+  if (sr != SQL_SUCCESS) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:`SQL_DESC_NAME` for `%s` not supported yet",
+        taos_data_type(IRD_record->tsdb_type));
+    return SQL_ERROR;
+  }
 
   if (DataTypePtr) {
-    sr = _stmt_col_attr_DESC_CONCISE_TYPE(stmt, col, SQL_DESC_CONCISE_TYPE, &NumericAttribute);
-    if (sr != SQL_SUCCESS) return SQL_ERROR;
+    NumericAttribute = IRD_record->DESC_CONCISE_TYPE;
     *DataTypePtr = (SQLSMALLINT)NumericAttribute;
   }
 
   if (ColumnSizePtr) {
-    sr = _stmt_col_attr_DESC_LENGTH(stmt, col, SQL_DESC_LENGTH, &NumericAttribute);
-    if (sr != SQL_SUCCESS) return SQL_ERROR;
+    NumericAttribute = IRD_record->DESC_LENGTH;
     *ColumnSizePtr = (SQLULEN)NumericAttribute;
   }
 
   if (DecimalDigitsPtr) {
-    sr = _stmt_col_attr_DESC_SCALE(stmt, col, SQL_DESC_SCALE, &NumericAttribute);
-    if (sr != SQL_SUCCESS) return SQL_ERROR;
+    NumericAttribute = IRD_record->DESC_SCALE;
     *DecimalDigitsPtr = (SQLSMALLINT)NumericAttribute;
   }
 
-  if (NullablePtr) *NullablePtr = SQL_NULLABLE_UNKNOWN;
+  if (NullablePtr) {
+    NumericAttribute = IRD_record->DESC_NULLABLE;
+    *NullablePtr = (SQLSMALLINT)NumericAttribute;
+  }
 
   return SQL_SUCCESS;
 }
@@ -2490,7 +2567,7 @@ static SQLRETURN _stmt_fill_col(stmt_t *stmt, size_t i_row, size_t i_col)
   SQLLEN *StrLenPtr = _stmt_get_address(stmt, ARD_record->DESC_OCTET_LENGTH_PTR, sizeof(SQLLEN), i_row, ARD_header);
   SQLLEN *IndPtr = _stmt_get_address(stmt, ARD_record->DESC_INDICATOR_PTR, sizeof(SQLLEN), i_row, ARD_header);
 
-  SQLSMALLINT    TargetType       = ARD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT    TargetType       = (SQLSMALLINT)ARD_record->DESC_CONCISE_TYPE;
   SQLPOINTER     TargetValuePtr   = dest;
   SQLLEN         BufferLength     = ARD_record->DESC_OCTET_LENGTH;
 
@@ -3071,7 +3148,7 @@ static SQLRETURN _stmt_guess_tsdb_params_by_sql_varchar(stmt_t *stmt, param_stat
   desc_record_t        *IPD_record        = param_state->IPD_record;
   TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
 
-  SQLSMALLINT ValueType = APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ValueType = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
 
   charset_conv_t *cnv = NULL;
   sr = conn_get_cnv_sql_c_char_to_tsdb_varchar(stmt->conn, &cnv);
@@ -3121,7 +3198,7 @@ static SQLRETURN _stmt_guess_tsdb_params_by_sql_integer(stmt_t *stmt, param_stat
   desc_record_t        *APD_record        = param_state->APD_record;
   TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
 
-  SQLSMALLINT ValueType = APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ValueType = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
 
   tsdb_field->name[0] = '?';
   tsdb_field->name[1] = '\0';
@@ -3149,7 +3226,7 @@ static SQLRETURN _stmt_guess_tsdb_params_by_sql_bigint(stmt_t *stmt, param_state
   desc_record_t        *APD_record        = param_state->APD_record;
   TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
 
-  SQLSMALLINT ValueType = APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ValueType = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
 
   tsdb_field->name[0] = '?';
   tsdb_field->name[1] = '\0';
@@ -3176,7 +3253,7 @@ static SQLRETURN _stmt_guess_tsdb_params(stmt_t *stmt, param_state_t *param_stat
   int i_param                      = param_state->i_param;
   desc_record_t *IPD_record        = param_state->IPD_record;
 
-  SQLSMALLINT ParameterType = IPD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
 
   switch (ParameterType) {
     case SQL_VARCHAR:
@@ -3199,7 +3276,7 @@ static SQLRETURN _stmt_check_tsdb_params_by_sql_timestamp(stmt_t *stmt, param_st
   desc_record_t *IPD_record        = param_state->IPD_record;
   TAOS_FIELD_E  *tsdb_field        = param_state->tsdb_field;
 
-  SQLSMALLINT ParameterType = IPD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
 
   switch (tsdb_field->type) {
     case TSDB_DATA_TYPE_TIMESTAMP:
@@ -3218,7 +3295,7 @@ static SQLRETURN _stmt_check_tsdb_params_by_sql_bigint(stmt_t *stmt, param_state
   desc_record_t *IPD_record        = param_state->IPD_record;
   TAOS_FIELD_E  *tsdb_field        = param_state->tsdb_field;
 
-  SQLSMALLINT ParameterType = IPD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
 
   switch (tsdb_field->type) {
     case TSDB_DATA_TYPE_BIGINT:
@@ -3237,7 +3314,7 @@ static SQLRETURN _stmt_check_tsdb_params_by_sql_int(stmt_t *stmt, param_state_t 
   desc_record_t *IPD_record        = param_state->IPD_record;
   TAOS_FIELD_E  *tsdb_field        = param_state->tsdb_field;
 
-  SQLSMALLINT ParameterType = IPD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
 
   switch (tsdb_field->type) {
     case TSDB_DATA_TYPE_INT:
@@ -3256,7 +3333,7 @@ static SQLRETURN _stmt_check_tsdb_params_by_sql_smallint(stmt_t *stmt, param_sta
   desc_record_t *IPD_record        = param_state->IPD_record;
   TAOS_FIELD_E  *tsdb_field        = param_state->tsdb_field;
 
-  SQLSMALLINT ParameterType = IPD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
 
   switch (tsdb_field->type) {
     case TSDB_DATA_TYPE_SMALLINT:
@@ -3275,7 +3352,7 @@ static SQLRETURN _stmt_check_tsdb_params_by_sql_tinyint(stmt_t *stmt, param_stat
   desc_record_t *IPD_record        = param_state->IPD_record;
   TAOS_FIELD_E  *tsdb_field        = param_state->tsdb_field;
 
-  SQLSMALLINT ParameterType = IPD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
 
   switch (tsdb_field->type) {
     case TSDB_DATA_TYPE_TINYINT:
@@ -3296,7 +3373,7 @@ static SQLRETURN _stmt_check_tsdb_params_by_sql_real(stmt_t *stmt, param_state_t
   desc_record_t *IPD_record        = param_state->IPD_record;
   TAOS_FIELD_E  *tsdb_field        = param_state->tsdb_field;
 
-  SQLSMALLINT ParameterType = IPD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
 
   switch (tsdb_field->type) {
     case TSDB_DATA_TYPE_FLOAT:
@@ -3315,7 +3392,7 @@ static SQLRETURN _stmt_check_tsdb_params_by_sql_double(stmt_t *stmt, param_state
   desc_record_t *IPD_record        = param_state->IPD_record;
   TAOS_FIELD_E  *tsdb_field        = param_state->tsdb_field;
 
-  SQLSMALLINT ParameterType = IPD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
 
   switch (tsdb_field->type) {
     case TSDB_DATA_TYPE_DOUBLE:
@@ -3345,7 +3422,7 @@ static SQLRETURN _stmt_check_tsdb_params_by_sql_varchar(stmt_t *stmt, param_stat
   desc_record_t *IPD_record        = param_state->IPD_record;
   TAOS_FIELD_E  *tsdb_field        = param_state->tsdb_field;
 
-  SQLSMALLINT ParameterType = IPD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
 
   switch (tsdb_field->type) {
     case TSDB_DATA_TYPE_VARCHAR:
@@ -3372,7 +3449,7 @@ static SQLRETURN _stmt_check_tsdb_params_by_sql_wvarchar(stmt_t *stmt, param_sta
   desc_record_t *IPD_record        = param_state->IPD_record;
   TAOS_FIELD_E  *tsdb_field        = param_state->tsdb_field;
 
-  SQLSMALLINT ParameterType = IPD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
 
   switch (tsdb_field->type) {
     case TSDB_DATA_TYPE_NCHAR:
@@ -3390,7 +3467,7 @@ static SQLRETURN _stmt_check_tsdb_params(stmt_t *stmt, param_state_t *param_stat
   int i_param                      = param_state->i_param;
   desc_record_t *IPD_record        = param_state->IPD_record;
 
-  SQLSMALLINT ParameterType = IPD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
 
   switch (ParameterType) {
     case SQL_TYPE_TIMESTAMP:
@@ -3459,7 +3536,7 @@ static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_varchar(stmt_t *stmt, pa
   int                   i_param           = param_state->i_param;
   desc_record_t        *APD_record        = param_state->APD_record;
 
-  SQLSMALLINT ValueType = APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ValueType = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
   switch (ValueType) {
     case SQL_C_CHAR:
       return _stmt_prepare_param_data_array_from_sql_c_char_to_tsdb_varchar(stmt, param_state);
@@ -3517,7 +3594,7 @@ static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_nchar(stmt_t *stmt, para
   int i_param                             = param_state->i_param;
   desc_record_t        *APD_record        = param_state->APD_record;
 
-  SQLSMALLINT ValueType = APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ValueType = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
   switch (ValueType) {
     case SQL_C_CHAR:
       return _stmt_prepare_param_data_array_from_sql_c_char_to_tsdb_nchar(stmt, param_state);
@@ -3538,7 +3615,7 @@ static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_timestamp(stmt_t *stmt, 
   TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
 
-  SQLSMALLINT ValueType = APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ValueType = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
   switch (ValueType) {
     case SQL_C_SBIGINT:
     case SQL_C_DOUBLE:
@@ -3570,7 +3647,7 @@ static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_bigint(stmt_t *stmt, par
   TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
 
-  SQLSMALLINT ValueType = APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ValueType = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
   switch (ValueType) {
     case SQL_C_SBIGINT:
     // case SQL_C_DOUBLE:
@@ -3596,7 +3673,7 @@ static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_double(stmt_t *stmt, par
   TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
 
-  SQLSMALLINT ValueType = APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ValueType = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
   switch (ValueType) {
     case SQL_C_DOUBLE:
       tsdb_bind->buffer_type = tsdb_field->type;
@@ -3731,7 +3808,7 @@ static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_int(stmt_t *stmt, param_
   TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
 
-  SQLSMALLINT ValueType = APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ValueType = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
   switch (ValueType) {
     case SQL_C_SLONG:
       tsdb_bind->buffer_type = tsdb_field->type;
@@ -3756,7 +3833,7 @@ static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_smallint(stmt_t *stmt, p
   int                   i_param           = param_state->i_param;
   desc_record_t        *APD_record        = param_state->APD_record;
 
-  SQLSMALLINT ValueType = APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ValueType = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
   switch (ValueType) {
     case SQL_C_SBIGINT:
       return _stmt_prepare_param_data_array_from_sql_c_sbigint_to_tsdb_smallint(stmt, param_state);
@@ -3775,7 +3852,7 @@ static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_tinyint(stmt_t *stmt, pa
   int                   i_param           = param_state->i_param;
   desc_record_t        *APD_record        = param_state->APD_record;
 
-  SQLSMALLINT ValueType = APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ValueType = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
   switch (ValueType) {
     case SQL_C_SBIGINT:
       return _stmt_prepare_param_data_array_from_sql_c_sbigint_to_tsdb_tinyint(stmt, param_state);
@@ -3794,7 +3871,7 @@ static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_bool(stmt_t *stmt, param
   int                   i_param           = param_state->i_param;
   desc_record_t        *APD_record        = param_state->APD_record;
 
-  SQLSMALLINT ValueType = APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ValueType = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
   switch (ValueType) {
     case SQL_C_SBIGINT:
       return _stmt_prepare_param_data_array_from_sql_c_sbigint_to_tsdb_bool(stmt, param_state);
@@ -3813,7 +3890,7 @@ static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_float(stmt_t *stmt, para
   int                   i_param           = param_state->i_param;
   desc_record_t        *APD_record        = param_state->APD_record;
 
-  SQLSMALLINT ValueType = APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ValueType = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
   switch (ValueType) {
     case SQL_C_DOUBLE:
       return _stmt_prepare_param_data_array_from_sql_c_double_to_tsdb_float(stmt, param_state);
@@ -4215,7 +4292,7 @@ static SQLRETURN _stmt_conv_param_data(stmt_t *stmt, param_state_t *param_state)
     if (tsdb_bind->is_null) tsdb_bind->is_null[i_row] = 0;
   }
 
-  SQLSMALLINT ValueType = APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ValueType = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
   switch (ValueType) {
     case SQL_C_SBIGINT: {
       int64_t i64 = *(int64_t*)sql_c_base;
@@ -4675,7 +4752,8 @@ SQLRETURN _stmt_exec_direct_with_simple_sql(stmt_t *stmt, const char *sql, size_
     if (sr != SQL_SUCCESS) return SQL_ERROR;
 
     stmt->base = &stmt->topic.base;
-    return SQL_SUCCESS;
+
+    return _stmt_fill_IRD(stmt);
   }
 
   if (stmt->base == &stmt->columns.base) {
@@ -4923,7 +5001,7 @@ SQLRETURN stmt_tables(stmt_t *stmt,
 
   stmt->base = &stmt->tables.base;
 
-  return SQL_SUCCESS;
+  return _stmt_fill_IRD(stmt);
 }
 
 static SQLRETURN _stmt_get_diag_field_row_number(
@@ -4986,87 +5064,98 @@ SQLRETURN stmt_col_attribute(
     return SQL_ERROR;
   }
 
-  SQLRETURN sr = SQL_SUCCESS;
-  SQLSMALLINT i16 = 0;
-
-  TAOS_FIELD *fields;
-  size_t nr;
-
-  sr = stmt->base->get_fields(stmt->base, &fields, &nr);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
-
-  const TAOS_FIELD *col = fields + ColumnNumber - 1;
+  descriptor_t *IRD = stmt_IRD(stmt);
+  desc_record_t *IRD_record = IRD->records + ColumnNumber - 1;
 
   // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
   switch(FieldIdentifier) {
     case SQL_DESC_TYPE:
-      return _stmt_col_attr_DESC_TYPE(stmt, col, FieldIdentifier, NumericAttributePtr);
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_TYPE;
+      return SQL_SUCCESS;
     case SQL_DESC_CONCISE_TYPE:
-      return _stmt_col_attr_DESC_CONCISE_TYPE(stmt, col, FieldIdentifier, NumericAttributePtr);
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_CONCISE_TYPE;
+      return SQL_SUCCESS;
     case SQL_DESC_OCTET_LENGTH:
-      return _stmt_col_attr_DESC_OCTET_LENGTH(stmt, col, FieldIdentifier, NumericAttributePtr);
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_OCTET_LENGTH;
+      return SQL_SUCCESS;
     // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
     case SQL_DESC_LENGTH:
-      return _stmt_col_attr_DESC_LENGTH(stmt, col, FieldIdentifier, NumericAttributePtr);
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_LENGTH;
+      return SQL_SUCCESS;
     case SQL_DESC_PRECISION:
     case SQL_COLUMN_PRECISION:
-      return _stmt_col_attr_DESC_PRECISION(stmt, col, FieldIdentifier, NumericAttributePtr);
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_PRECISION;
+      return SQL_SUCCESS;
     // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
     case SQL_DESC_SCALE:
     case SQL_COLUMN_SCALE:
-      return _stmt_col_attr_DESC_SCALE(stmt, col, FieldIdentifier, NumericAttributePtr);
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_SCALE;
+      return SQL_SUCCESS;
     case SQL_DESC_AUTO_UNIQUE_VALUE:
-      *NumericAttributePtr = SQL_FALSE;
-      break;
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_AUTO_UNIQUE_VALUE;
+      return SQL_SUCCESS;
     case SQL_DESC_UPDATABLE:
-      *NumericAttributePtr = SQL_ATTR_READONLY;
-      break;
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_UPDATABLE;
+      return SQL_SUCCESS;
     case SQL_DESC_NULLABLE:
-      *NumericAttributePtr = SQL_NULLABLE_UNKNOWN;
-      break;
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_NULLABLE;
+      return SQL_SUCCESS;
     case SQL_DESC_CASE_SENSITIVE:
-      *NumericAttributePtr = SQL_FALSE;
-      break;
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_CASE_SENSITIVE;
+      return SQL_SUCCESS;
     case SQL_DESC_FIXED_PREC_SCALE:
-      *NumericAttributePtr = 0;
-      break;
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_FIXED_PREC_SCALE;
+      return SQL_SUCCESS;
     case SQL_DESC_COUNT:
-      sr = stmt->base->get_num_cols(stmt->base, &i16);
-      if (sr != SQL_SUCCESS) return SQL_ERROR;
-      *NumericAttributePtr = i16;
-      break;
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_COUNT;
+      return SQL_SUCCESS;
     case SQL_DESC_UNNAMED:
-      *NumericAttributePtr = SQL_UNNAMED;
-      break;
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_UNNAMED;
+      return SQL_SUCCESS;
     case SQL_DESC_DISPLAY_SIZE:
-      return _stmt_col_attr_DESC_DISPLAY_SIZE(stmt, col, FieldIdentifier, NumericAttributePtr);
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_DISPLAY_SIZE;
+      return SQL_SUCCESS;
     case SQL_DESC_SEARCHABLE:
-      return _stmt_col_attr_DESC_SEARCHABLE(stmt, col, FieldIdentifier, NumericAttributePtr);
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_SEARCHABLE;
+      return SQL_SUCCESS;
     case SQL_DESC_NAME:
+      return _stmt_col_copy_string(stmt, IRD_record->DESC_NAME, sizeof(IRD_record->DESC_NAME), CharacterAttributePtr, BufferLength, StringLengthPtr);
     case SQL_DESC_LABEL: // FIXME: share the same result?
-      return _stmt_col_attr_DESC_NAME(stmt, col, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr);
+      return _stmt_col_copy_string(stmt, IRD_record->DESC_LABEL, sizeof(IRD_record->DESC_LABEL), CharacterAttributePtr, BufferLength, StringLengthPtr);
+      return SQL_SUCCESS;
     case SQL_DESC_TYPE_NAME:
+      return _stmt_col_copy_string(stmt, IRD_record->DESC_TYPE_NAME, sizeof(IRD_record->DESC_TYPE_NAME), CharacterAttributePtr, BufferLength, StringLengthPtr);
     case SQL_DESC_LOCAL_TYPE_NAME: // FIXME: share the same result?
-      return _stmt_col_attr_DESC_TYPE_NAME(stmt, col, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr);
+      return _stmt_col_copy_string(stmt, IRD_record->DESC_LOCAL_TYPE_NAME, sizeof(IRD_record->DESC_LOCAL_TYPE_NAME), CharacterAttributePtr, BufferLength, StringLengthPtr);
     case SQL_DESC_NUM_PREC_RADIX:
-      return _stmt_col_attr_DESC_NUM_PREC_RADIX(stmt, col, FieldIdentifier, NumericAttributePtr);
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_NUM_PREC_RADIX;
+      return SQL_SUCCESS;
     case SQL_DESC_UNSIGNED:
-      return _stmt_col_attr_DESC_UNSIGNED(stmt, col, FieldIdentifier, NumericAttributePtr);
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_UNSIGNED;
+      return SQL_SUCCESS;
     case SQL_DESC_CATALOG_NAME:
+      return _stmt_col_copy_string(stmt, IRD_record->DESC_CATALOG_NAME, sizeof(IRD_record->DESC_CATALOG_NAME), CharacterAttributePtr, BufferLength, StringLengthPtr);
     case SQL_DESC_SCHEMA_NAME:
+      return _stmt_col_copy_string(stmt, IRD_record->DESC_SCHEMA_NAME, sizeof(IRD_record->DESC_SCHEMA_NAME), CharacterAttributePtr, BufferLength, StringLengthPtr);
     case SQL_DESC_TABLE_NAME:
+      return _stmt_col_copy_string(stmt, IRD_record->DESC_TABLE_NAME, sizeof(IRD_record->DESC_TABLE_NAME), CharacterAttributePtr, BufferLength, StringLengthPtr);
     case SQL_DESC_BASE_COLUMN_NAME:
     case SQL_DESC_BASE_TABLE_NAME:
-      return _stmt_col_attr_set_empty_string(stmt, col, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr);
+      if (_stmt_col_set_empty_string(stmt, CharacterAttributePtr, BufferLength, StringLengthPtr) != SQL_SUCCESS) break;
+      return SQL_SUCCESS;
     case SQL_DESC_LITERAL_PREFIX:
+      return _stmt_col_copy_string(stmt, IRD_record->DESC_LITERAL_PREFIX, sizeof(IRD_record->DESC_LITERAL_PREFIX), CharacterAttributePtr, BufferLength, StringLengthPtr);
     case SQL_DESC_LITERAL_SUFFIX:
-      return _stmt_col_attr_DESC_LITERAL_SUFFIX(stmt, col, FieldIdentifier, CharacterAttributePtr, BufferLength, StringLengthPtr);
+      return _stmt_col_copy_string(stmt, IRD_record->DESC_LITERAL_SUFFIX, sizeof(IRD_record->DESC_LITERAL_SUFFIX), CharacterAttributePtr, BufferLength, StringLengthPtr);
     default:
       stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` not supported yet", sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier);
       return SQL_ERROR;
   }
 
-  return SQL_SUCCESS;
+  stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` for `%s` not supported yet",
+      sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier,
+      taos_data_type(IRD_record->tsdb_type));
+  return SQL_ERROR;
 }
 
 SQLRETURN stmt_more_results(
@@ -5118,7 +5207,7 @@ SQLRETURN stmt_columns(
 
   stmt->base = &stmt->columns.base;
 
-  return SQL_SUCCESS;
+  return _stmt_fill_IRD(stmt);
 }
 
 #if (ODBCVER >= 0x0300)       /* { */
@@ -5244,7 +5333,7 @@ SQLRETURN stmt_get_type_info(
 
   stmt->base = &stmt->typesinfo.base;
 
-  return SQL_SUCCESS;
+  return _stmt_fill_IRD(stmt);
 }
 
 SQLRETURN stmt_param_data(
@@ -5284,7 +5373,7 @@ SQLRETURN stmt_primary_keys(
 
   stmt->base = &stmt->primarykeys.base;
 
-  return SQL_SUCCESS;
+  return _stmt_fill_IRD(stmt);
 }
 
 SQLRETURN stmt_procedure_columns(

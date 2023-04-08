@@ -38,6 +38,7 @@ typedef struct conn_s                    conn_t;
 
 typedef struct descriptor_s              descriptor_t;
 typedef struct desc_s                    desc_t;
+typedef struct desc_header_s             desc_header_t;
 typedef struct desc_record_s             desc_record_t;
 
 typedef struct env_s                     env_t;
@@ -45,6 +46,8 @@ typedef struct env_s                     env_t;
 typedef struct errs_s                    errs_t;
 
 typedef struct ext_parser_param_s        ext_parser_param_t;
+
+typedef struct get_data_ctx_s            get_data_ctx_t;
 
 typedef struct parser_ctx_s              parser_ctx_t;
 typedef struct parser_nterm_s            parser_nterm_t;

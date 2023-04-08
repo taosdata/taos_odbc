@@ -824,10 +824,10 @@ static SQLRETURN _tsdb_stmt_guess_parameter_for_non_insert(tsdb_stmt_t *stmt, si
   desc_record_t *IPD_records = IPD->records;
   desc_record_t *IPD_record = IPD_records + param - 1;
 
-  SQLSMALLINT ParameterType = IPD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
   SQLULEN     ColumnSize    = IPD_record->DESC_LENGTH;
-  SQLSMALLINT DecimalDigits = IPD_record->DESC_PRECISION;
-  SQLSMALLINT Type          = IPD_record->DESC_TYPE;
+  SQLSMALLINT DecimalDigits = (SQLSMALLINT)IPD_record->DESC_PRECISION;
+  SQLSMALLINT Type          = (SQLSMALLINT)IPD_record->DESC_TYPE;
 
   TAOS_FIELD_E *tsdb_field = tsdb_stmt_get_tsdb_field_by_tsdb_params(stmt, (int)param-1);
 
@@ -858,7 +858,7 @@ static SQLRETURN _tsdb_stmt_check_parameter(tsdb_stmt_t *stmt, size_t param)
   desc_record_t *IPD_records = IPD->records;
   desc_record_t *IPD_record = IPD_records + param - 1;
 
-  SQLSMALLINT ParameterType = IPD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
 
   TAOS_FIELD_E *tsdb_field = tsdb_stmt_get_tsdb_field_by_tsdb_params(stmt, (int)param-1);
 

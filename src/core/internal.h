@@ -178,7 +178,8 @@ struct env_s {
   unsigned int        debug_bison:1;
 };
 
-typedef struct desc_header_s                  desc_header_t;
+// https://github.com/MicrosoftDocs/sql-docs/blob/live/docs/odbc/reference/develop-app/descriptor-field-conformance.md
+
 struct desc_header_s {
   // header fields settable by SQLSetStmtAttr
   SQLULEN             DESC_ARRAY_SIZE;
@@ -189,9 +190,9 @@ struct desc_header_s {
 
   // header fields else
   SQLUSMALLINT        DESC_COUNT;
+  // SQL_DESC_ALLOC_TYPE
 };
 
-typedef struct get_data_ctx_s            get_data_ctx_t;
 struct get_data_ctx_s {
   SQLUSMALLINT   Col_or_Param_Num;
   SQLSMALLINT    TargetType;
@@ -230,21 +231,48 @@ struct tsdb_binds_s {
 };
 
 struct desc_record_s {
-  SQLSMALLINT                   DESC_TYPE;
-  SQLSMALLINT                   DESC_CONCISE_TYPE;
-  SQLULEN                       DESC_LENGTH;
-  SQLSMALLINT                   DESC_PRECISION;
-  SQLSMALLINT                   DESC_SCALE;
-  SQLLEN                        DESC_OCTET_LENGTH;
-  SQLPOINTER                    DESC_DATA_PTR;
   SQLLEN                       *DESC_INDICATOR_PTR;
   SQLLEN                       *DESC_OCTET_LENGTH_PTR;
-  SQLSMALLINT                   DESC_PARAMETER_TYPE;
+  SQLLEN                        DESC_PARAMETER_TYPE;
 
-  SQLSMALLINT                   DESC_AUTO_UNIQUE_VALUE;
-  SQLSMALLINT                   DESC_UPDATABLE;
-  SQLSMALLINT                   DESC_NULLABLE;
-  SQLSMALLINT                   DESC_UNNAMED;
+  SQLLEN                        DESC_AUTO_UNIQUE_VALUE;
+  SQLCHAR                       DESC_BASE_COLUMN_NAME[192+1];
+  SQLCHAR                       DESC_BASE_TABLE_NAME[192+1];
+  SQLLEN                        DESC_CASE_SENSITIVE;
+  SQLCHAR                       DESC_CATALOG_NAME[192+1];
+  SQLLEN                        DESC_CONCISE_TYPE;
+  SQLPOINTER                    DESC_DATA_PTR;
+  SQLLEN                        DESC_COUNT;
+  SQLLEN                        DESC_DISPLAY_SIZE;
+  SQLLEN                        DESC_FIXED_PREC_SCALE;
+  SQLCHAR                       DESC_LABEL[192+1];
+  SQLLEN                        DESC_LENGTH;
+  SQLCHAR                       DESC_LITERAL_PREFIX[128+1];
+  SQLCHAR                       DESC_LITERAL_SUFFIX[128+1];
+  SQLCHAR                       DESC_LOCAL_TYPE_NAME[128+1];
+  SQLCHAR                       DESC_NAME[192+1];
+  SQLLEN                        DESC_NULLABLE;
+  SQLLEN                        DESC_NUM_PREC_RADIX;
+  SQLLEN                        DESC_OCTET_LENGTH;
+  SQLLEN                        DESC_PRECISION;
+  SQLLEN                        DESC_SCALE;
+  SQLCHAR                       DESC_SCHEMA_NAME[192+1];
+  SQLLEN                        DESC_SEARCHABLE;
+  SQLCHAR                       DESC_TABLE_NAME[192+1];
+  SQLLEN                        DESC_TYPE;
+  SQLCHAR                       DESC_TYPE_NAME[64+1];
+  SQLLEN                        DESC_UNNAMED;
+  SQLLEN                        DESC_UNSIGNED;
+  SQLLEN                        DESC_UPDATABLE;
+
+
+  // SQL_DESC_DATETIME_INTERVAL_CODE
+  // SQL_DESC_DATETIME_INTERVAL_PRECISION
+
+
+  int                           tsdb_type;
+
+
 
   unsigned int                  bound:1;
 };

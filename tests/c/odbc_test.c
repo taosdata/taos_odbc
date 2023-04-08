@@ -895,7 +895,7 @@ static int _run_execute_params_rs(executes_ctx_t *ctx, cJSON *params, cJSON *rs)
       if (r) return -1;
       if (vt != ValueType) {
         char *t1 = cJSON_PrintUnformatted(v);
-        E("[%s] item expected, but got ==%s==", sql_c_data_type(ValueType), t1);
+        E("[%s] item expected, but got ==%s==", sqlc_data_type(ValueType), t1);
         free(t1);
         return -1;
       }
@@ -915,7 +915,7 @@ static int _run_execute_params_rs(executes_ctx_t *ctx, cJSON *params, cJSON *rs)
         r = _prepare_col_array_append(ctx, rows, buffer_length);
         break;
       default:
-        E("[%s] not implemented yet", sql_c_data_type(ValueType));
+        E("[%s] not implemented yet", sqlc_data_type(ValueType));
         return -1;
     }
 
@@ -940,7 +940,7 @@ static int _run_execute_params_rs(executes_ctx_t *ctx, cJSON *params, cJSON *rs)
         if (FAILED(sr)) return -1;
         break;
       default:
-        E("[%s] not implemented yet", sql_c_data_type(ValueType));
+        E("[%s] not implemented yet", sqlc_data_type(ValueType));
         return -1;
     }
   }

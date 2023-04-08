@@ -47,7 +47,7 @@ typedef struct logger_s            logger_t;
 #define ABORT_OR_THROW abort()
 #endif                     /* } */
 
-#define LOG_USE_COLOR           0
+#define LOG_USE_COLOR           1
 static inline const char* color_red(void)
 {
   if (!LOG_USE_COLOR) return "";

@@ -261,7 +261,7 @@ SQLRETURN descriptor_bind_col(descriptor_t *ARD,
     default:
       stmt_append_err_format(owner, "HY000", 0,
           "General error:#%d Column converstion to `%s[0x%x/%d]` not implemented yet",
-          ColumnNumber, sql_c_data_type(TargetType), TargetType, TargetType);
+          ColumnNumber, sqlc_data_type(TargetType), TargetType, TargetType);
       return SQL_ERROR;
       break;
   }

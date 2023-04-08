@@ -100,6 +100,7 @@ struct arg_s {
   const char      *uid;
   const char      *pwd;
   const char      *connstr;
+  int              main;
   int              threads;
   int              executes;
   int              progress;
@@ -225,6 +226,8 @@ static int test_with_env(const arg_t *arg, SQLHANDLE henv, sql_t *sqls, size_t n
 
 static int _run_with_arg_in_thread(const arg_t *arg, sql_t *sqls, size_t nr)
 {
+  if (arg->main == 0) return 0;
+
   int r = 0;
   SQLRETURN sr = SQL_SUCCESS;
 
@@ -287,7 +290,6 @@ static int _run_with_arg_CreateThread(const arg_t *arg)
   DWORD exitCodes[16]   = {0};
 
   int r = 0;
-  size_t i = 0;
   size_t nr = 0;
 
   r = 0;
@@ -295,7 +297,7 @@ static int _run_with_arg_CreateThread(const arg_t *arg)
   nr = 0;
 
   size_t count = arg->threads;
-  for (i=0; i<count && i < sizeof(threads)/sizeof(threads[0]); ++i) {
+  for (size_t i=0; i<count && i < sizeof(threads)/sizeof(threads[0]); ++i) {
     threads[i] = CreateThread(NULL, 0, _routine_CreateThread, (LPVOID)arg, CREATE_SUSPENDED, dwThreadIds + i);
     W("%d:%x:thread:create", GetProcessId(GetCurrentProcess()), GetThreadId(threads[i]));
     if (!threads[i]) {
@@ -339,7 +341,8 @@ static int _run_with_arg__beginthreadex(const arg_t *arg)
   r = 0;
   nr = 0;
 
-  for (size_t i=0; i<16; ++i) {
+  size_t count = arg->threads;
+  for (size_t i=0; i<count && i < sizeof(threads)/sizeof(threads[0]); ++i) {
     threads[i] = (HANDLE)_beginthreadex(NULL, 0, _routine__beginthreadex, (void*)arg, CREATE_SUSPENDED, threadIds + i);
     W("%d:%x:thread:create", GetProcessId(GetCurrentProcess()), GetThreadId(threads[i]));
     if (!threads[i]) {
@@ -376,14 +379,13 @@ static int _run_with_arg_pthread_create(const arg_t *arg)
   pthread_t threads[16]     = {0};
 
   int r = 0;
-  size_t i = 0;
   size_t nr = 0;
 
   r = 0;
-  i = 0;
   nr = 0;
 
-  for (i=0; i<16; ++i) {
+  size_t count = arg->threads;
+  for (size_t i=0; i<count && i < sizeof(threads)/sizeof(threads[0]); ++i) {
     r = pthread_create(threads + i, NULL, _routine_pthread_create, (void*)arg);
     if (r) {
       E("pthread_create failed");
@@ -405,6 +407,8 @@ static int _run_with_arg_pthread_create(const arg_t *arg)
 
 static int _run_with_arg_once(const arg_t *arg)
 {
+  if (arg->threads == 0) return 0;
+
 #ifdef _WIN32                /* { */
   switch (arg->thread_create) {
     case USE_CreateThread:
@@ -469,6 +473,7 @@ static void usage(const char *arg0)
   DUMP("  --uid <UID>                 UID");
   DUMP("  --pwd <PWD>                 PWD");
   DUMP("  --connstr <connstr>         Connection string");
+  DUMP("  --no-main                   not running in main thread");
   DUMP("  --threads <num>             # of threads running concurrently");
   DUMP("  --executes <num>            # of executes for each test");
   DUMP("  --progress                  show progress");
@@ -490,6 +495,7 @@ static int _run(int argc, char *argv[])
   int r = 0;
   arg_t arg = {0};
   arg.dsn = "TAOS_ODBC_DSN";
+  arg.main = 1;
   arg.threads = 8;
   arg.executes = 2;
   arg.progress = 0;
@@ -538,6 +544,10 @@ static int _run(int argc, char *argv[])
       ++i;
       if (i>=argc) break;
       arg.connstr = argv[i];
+      continue;
+    }
+    if (strcmp(argv[i], "--no-main") == 0) {
+      arg.main = 0;
       continue;
     }
     if (strcmp(argv[i], "--threads") == 0) {

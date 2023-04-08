@@ -26,7 +26,7 @@
 
 #define CASE(_x) case _x: return #_x
 
-const char *sql_c_data_type(SQLSMALLINT v)
+const char *sqlc_data_type(SQLLEN v)
 {
   switch (v) {
     CASE(SQL_C_CHAR);
@@ -72,7 +72,7 @@ const char *sql_c_data_type(SQLSMALLINT v)
   }
 }
 
-const char *sql_data_type(SQLSMALLINT v)
+const char *sql_data_type(SQLLEN v)
 {
   switch (v) {
     CASE(SQL_CHAR);
@@ -120,7 +120,7 @@ const char *sql_data_type(SQLSMALLINT v)
   }
 }
 
-const char *sql_handle_type(SQLSMALLINT v)
+const char *sql_handle_type(SQLLEN v)
 {
   switch (v) {
     CASE(SQL_HANDLE_ENV);
@@ -131,7 +131,7 @@ const char *sql_handle_type(SQLSMALLINT v)
   }
 }
 
-const char *sql_driver_completion(SQLUSMALLINT v)
+const char *sql_driver_completion(SQLULEN v)
 {
   switch (v) {
     CASE(SQL_DRIVER_NOPROMPT);
@@ -143,7 +143,7 @@ const char *sql_driver_completion(SQLUSMALLINT v)
   }
 }
 
-const char *sql_odbc_version(SQLINTEGER v)
+const char *sql_odbc_version(SQLLEN v)
 {
   switch (v) {
     CASE(SQL_OV_ODBC3);
@@ -156,7 +156,7 @@ const char *sql_odbc_version(SQLINTEGER v)
   }
 }
 
-const char *sql_info_type(SQLUSMALLINT v)
+const char *sql_info_type(SQLULEN v)
 {
   // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetinfo-function?view=sql-server-ver16
   switch (v) {
@@ -349,7 +349,7 @@ const char *sql_info_type(SQLUSMALLINT v)
   }
 }
 
-const char *sql_completion_type(SQLSMALLINT v)
+const char *sql_completion_type(SQLLEN v)
 {
   switch (v) {
     CASE(SQL_COMMIT);
@@ -359,7 +359,7 @@ const char *sql_completion_type(SQLSMALLINT v)
   }
 }
 
-const char *sql_conn_attr(SQLINTEGER v)
+const char *sql_conn_attr(SQLLEN v)
 {
   switch (v) {
     CASE(SQL_ATTR_CONNECTION_TIMEOUT);
@@ -382,7 +382,7 @@ const char *sql_cursor_type(SQLULEN v)
   }
 }
 
-const char *sql_free_statement_option(SQLUSMALLINT v)
+const char *sql_free_statement_option(SQLULEN v)
 {
   switch (v) {
     CASE(SQL_CLOSE);
@@ -412,7 +412,7 @@ const char *sql_return_type(SQLRETURN v)
   }
 }
 
-const char *sql_env_attr(SQLINTEGER v)
+const char *sql_env_attr(SQLLEN v)
 {
   switch (v) {
     CASE(SQL_ATTR_CONNECTION_POOLING);
@@ -424,7 +424,7 @@ const char *sql_env_attr(SQLINTEGER v)
   }
 }
 
-const char *sql_input_output_type(SQLSMALLINT v)
+const char *sql_input_output_type(SQLLEN v)
 {
   switch (v) {
     CASE(SQL_PARAM_INPUT);
@@ -439,7 +439,7 @@ const char *sql_input_output_type(SQLSMALLINT v)
   }
 }
 
-const char *sql_stmt_attr(SQLINTEGER v)
+const char *sql_stmt_attr(SQLLEN v)
 {
   switch (v) {
     CASE(SQL_ATTR_APP_PARAM_DESC);
@@ -485,7 +485,7 @@ const char *sql_stmt_attr(SQLINTEGER v)
   }
 }
 
-const char *sql_nullable(SQLSMALLINT v)
+const char *sql_nullable(SQLLEN v)
 {
   switch (v) {
     CASE(SQL_NO_NULLS);
@@ -496,7 +496,7 @@ const char *sql_nullable(SQLSMALLINT v)
   }
 }
 
-const char *sql_fetch_orientation(SQLSMALLINT v)
+const char *sql_fetch_orientation(SQLLEN v)
 {
   switch (v) {
     CASE(SQL_FETCH_NEXT);
@@ -511,7 +511,7 @@ const char *sql_fetch_orientation(SQLSMALLINT v)
   }
 }
 
-const char *sql_diag_identifier(SQLSMALLINT v)
+const char *sql_diag_identifier(SQLLEN v)
 {
   switch (v) {
     CASE(SQL_DIAG_CURSOR_ROW_COUNT);
@@ -564,7 +564,7 @@ const char *sql_diag_identifier(SQLSMALLINT v)
   }
 }
 
-const char *sql_bulk_operation(SQLSMALLINT v)
+const char *sql_bulk_operation(SQLLEN v)
 {
   switch (v) {
     CASE(SQL_ADD);
@@ -576,7 +576,7 @@ const char *sql_bulk_operation(SQLSMALLINT v)
   }
 }
 
-const char *sql_col_attribute(SQLUSMALLINT v)
+const char *sql_col_attribute(SQLULEN v)
 {
   switch (v) {
     CASE(SQL_COLUMN_COUNT);
@@ -631,7 +631,7 @@ const char *sql_col_attribute(SQLUSMALLINT v)
   }
 }
 
-const char *sql_pos_operation(SQLUSMALLINT v)
+const char *sql_pos_operation(SQLULEN v)
 {
   switch (v) {
     CASE(SQL_POSITION);
@@ -643,7 +643,7 @@ const char *sql_pos_operation(SQLUSMALLINT v)
   }
 }
 
-const char *sql_pos_locktype(SQLUSMALLINT v)
+const char *sql_pos_locktype(SQLULEN v)
 {
   switch (v) {
     CASE(SQL_LOCK_NO_CHANGE);
@@ -654,7 +654,7 @@ const char *sql_pos_locktype(SQLUSMALLINT v)
   }
 }
 
-const char *sql_special_columns_identifier(SQLUSMALLINT v)
+const char *sql_special_columns_identifier(SQLULEN v)
 {
   switch (v) {
     CASE(SQL_BEST_ROWID);
@@ -664,7 +664,7 @@ const char *sql_special_columns_identifier(SQLUSMALLINT v)
   }
 }
 
-const char *sql_scope(SQLUSMALLINT v)
+const char *sql_scope(SQLULEN v)
 {
   switch (v) {
     CASE(SQL_SCOPE_CURROW);
@@ -675,7 +675,7 @@ const char *sql_scope(SQLUSMALLINT v)
   }
 }
 
-const char *sql_index(SQLUSMALLINT v)
+const char *sql_index(SQLULEN v)
 {
   switch (v) {
     CASE(SQL_INDEX_UNIQUE);
@@ -685,7 +685,7 @@ const char *sql_index(SQLUSMALLINT v)
   }
 }
 
-const char *sql_statistics_reserved(SQLUSMALLINT v)
+const char *sql_statistics_reserved(SQLULEN v)
 {
   switch (v) {
     CASE(SQL_ENSURE);
@@ -706,7 +706,7 @@ const char *sql_updatable(SQLLEN v)
   }
 }
 
-const char *sql_searchable(SQLSMALLINT v)
+const char *sql_searchable(SQLLEN v)
 {
   switch (v) {
     CASE(SQL_PRED_NONE);

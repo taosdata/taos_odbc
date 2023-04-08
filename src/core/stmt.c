@@ -111,14 +111,14 @@ static void _stmt_init(stmt_t *stmt, conn_t *conn)
   stmt->refc = 1;
 }
 
-static void _sql_c_data_reset(sql_c_data_t *sqlc)
+static void _sqlc_data_reset(sqlc_data_t *sqlc)
 {
   if (!sqlc) return;
   mem_reset(&sqlc->mem);
   sqlc->is_null = 0;
 }
 
-static void _sql_c_data_release(sql_c_data_t *sqlc)
+static void _sqlc_data_release(sqlc_data_t *sqlc)
 {
   if (!sqlc) return;
   mem_release(&sqlc->mem);
@@ -127,7 +127,7 @@ static void _sql_c_data_release(sql_c_data_t *sqlc)
 static void _get_data_ctx_reset(get_data_ctx_t *ctx)
 {
   if (!ctx) return;
-  _sql_c_data_reset(&ctx->sqlc);
+  _sqlc_data_reset(&ctx->sqlc);
 
   ctx->buf[0] = '\0';
   mem_reset(&ctx->mem);
@@ -142,7 +142,7 @@ static void _get_data_ctx_release(get_data_ctx_t *ctx)
 {
   if (!ctx) return;
   _get_data_ctx_reset(ctx);
-  _sql_c_data_release(&ctx->sqlc);
+  _sqlc_data_release(&ctx->sqlc);
 }
 
 descriptor_t* stmt_APD(stmt_t *stmt)
@@ -1680,7 +1680,7 @@ static SQLRETURN _stmt_get_data_copy_buf_to_char(stmt_t *stmt, stmt_get_data_arg
         " "
         "currently at least 4 bytes in which case a complete unicode character could be converted and stored",
         args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-        sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+        sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
     return SQL_ERROR;
   }
 
@@ -1740,7 +1740,7 @@ static SQLRETURN _stmt_get_data_copy_buf_to_wchar(stmt_t *stmt, stmt_get_data_ar
         " "
         "currently at least 4 bytes in which case a complete unicode character could be converted and stored",
         args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-        sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+        sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
     return SQL_ERROR;
   }
 
@@ -1795,7 +1795,7 @@ static SQLRETURN _stmt_get_data_copy_buf_to_binary(stmt_t *stmt, stmt_get_data_a
     stmt_append_err_format(stmt, "HY000", 0,
         "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:buffer too small",
         args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-        sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+        sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
     return SQL_ERROR;
   }
 
@@ -1849,14 +1849,14 @@ static SQLRETURN _stmt_varchar_to_int64(stmt_t *stmt, const char *s, size_t nr, 
     stmt_append_err_format(stmt, "HY000", 0,
         "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:invalid character[0x%02x]",
         args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-        sql_c_data_type(args->TargetType), args->TargetType, args->TargetType, *end);
+        sqlc_data_type(args->TargetType), args->TargetType, args->TargetType, *end);
     return SQL_ERROR;
   }
   if (e == ERANGE) {
     stmt_append_err_format(stmt, "HY000", 0,
         "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:overflow or underflow occurs",
         args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-        sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+        sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
     return SQL_ERROR;
   }
 
@@ -1879,7 +1879,7 @@ static SQLRETURN _stmt_varchar_to_uint64(stmt_t *stmt, const char *s, size_t nr,
     stmt_append_err_format(stmt, "HY000", 0,
         "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:signedness conflict",
         args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-        sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+        sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
     return SQL_ERROR;
   }
 
@@ -1914,7 +1914,7 @@ static SQLRETURN _stmt_varchar_to_float(stmt_t *stmt, const char *s, size_t nr, 
     stmt_append_err_format(stmt, "HY000", 0,
         "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:invalid character[0x%02x]",
         args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-        sql_c_data_type(args->TargetType), args->TargetType, args->TargetType, *end);
+        sqlc_data_type(args->TargetType), args->TargetType, args->TargetType, *end);
     return SQL_ERROR;
   }
   if (fabsf(flt) == HUGE_VALF) {
@@ -1922,7 +1922,7 @@ static SQLRETURN _stmt_varchar_to_float(stmt_t *stmt, const char *s, size_t nr, 
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:overflow or underflow occurs",
           args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-          sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+          sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
       return SQL_ERROR;
     }
   }
@@ -1932,7 +1932,7 @@ static SQLRETURN _stmt_varchar_to_float(stmt_t *stmt, const char *s, size_t nr, 
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:overflow or underflow occurs",
           args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-          sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+          sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
       return SQL_ERROR;
     }
   }
@@ -1967,7 +1967,7 @@ static SQLRETURN _stmt_varchar_to_double(stmt_t *stmt, const char *s, size_t nr,
     stmt_append_err_format(stmt, "HY000", 0,
         "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:invalid character[0x%02x]",
         args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-        sql_c_data_type(args->TargetType), args->TargetType, args->TargetType, *end);
+        sqlc_data_type(args->TargetType), args->TargetType, args->TargetType, *end);
     return SQL_ERROR;
   }
   if (fabs(dbl) == HUGE_VAL) {
@@ -1975,7 +1975,7 @@ static SQLRETURN _stmt_varchar_to_double(stmt_t *stmt, const char *s, size_t nr,
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:overflow or underflow occurs",
           args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-          sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+          sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
       return SQL_ERROR;
     }
   }
@@ -1985,7 +1985,7 @@ static SQLRETURN _stmt_varchar_to_double(stmt_t *stmt, const char *s, size_t nr,
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:overflow or underflow occurs",
           args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-          sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+          sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
       return SQL_ERROR;
     }
   }
@@ -2014,7 +2014,7 @@ static SQLRETURN _stmt_get_data_copy_varchar(stmt_t *stmt, const char *s, size_t
         stmt_append_err_format(stmt, "HY000", 0,
             "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:overflow or underflow occurs",
             args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-            sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+            sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
         return SQL_ERROR;
       }
       *(int8_t*)args->TargetValuePtr = !!i64;
@@ -2026,7 +2026,7 @@ static SQLRETURN _stmt_get_data_copy_varchar(stmt_t *stmt, const char *s, size_t
         stmt_append_err_format(stmt, "HY000", 0,
             "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:overflow or underflow occurs",
             args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-            sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+            sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
         return SQL_ERROR;
       }
       *(int8_t*)args->TargetValuePtr = (int8_t)i64;
@@ -2038,7 +2038,7 @@ static SQLRETURN _stmt_get_data_copy_varchar(stmt_t *stmt, const char *s, size_t
         stmt_append_err_format(stmt, "HY000", 0,
             "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:overflow or underflow occurs",
             args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-            sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+            sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
         return SQL_ERROR;
       }
       *(uint8_t*)args->TargetValuePtr = (uint8_t)u64;
@@ -2050,7 +2050,7 @@ static SQLRETURN _stmt_get_data_copy_varchar(stmt_t *stmt, const char *s, size_t
         stmt_append_err_format(stmt, "HY000", 0,
             "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:overflow or underflow occurs",
             args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-            sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+            sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
         return SQL_ERROR;
       }
       *(int16_t*)args->TargetValuePtr = (int16_t)i64;
@@ -2062,7 +2062,7 @@ static SQLRETURN _stmt_get_data_copy_varchar(stmt_t *stmt, const char *s, size_t
         stmt_append_err_format(stmt, "HY000", 0,
             "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:overflow or underflow occurs",
             args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-            sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+            sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
         return SQL_ERROR;
       }
       *(uint16_t*)args->TargetValuePtr = (uint16_t)u64;
@@ -2074,7 +2074,7 @@ static SQLRETURN _stmt_get_data_copy_varchar(stmt_t *stmt, const char *s, size_t
         stmt_append_err_format(stmt, "HY000", 0,
             "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:overflow or underflow occurs",
             args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-            sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+            sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
         return SQL_ERROR;
       }
       *(int32_t*)args->TargetValuePtr = (int32_t)i64;
@@ -2086,7 +2086,7 @@ static SQLRETURN _stmt_get_data_copy_varchar(stmt_t *stmt, const char *s, size_t
         stmt_append_err_format(stmt, "HY000", 0,
             "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:overflow or underflow occurs",
             args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-            sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+            sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
         return SQL_ERROR;
       }
       *(uint32_t*)args->TargetValuePtr = (uint32_t)u64;
@@ -2121,7 +2121,7 @@ static SQLRETURN _stmt_get_data_copy_varchar(stmt_t *stmt, const char *s, size_t
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]`not implemented yet",
           args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-          sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+          sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
       return SQL_ERROR;
   }
 
@@ -2180,7 +2180,7 @@ static SQLRETURN _stmt_get_data_copy_timestamp(stmt_t *stmt, int64_t v, int prec
         stmt_append_err_format(stmt, "HY000", 0,
             "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed",
             args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-            sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+            sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
         return SQL_ERROR;
       }
       return SQL_SUCCESS;
@@ -2188,7 +2188,7 @@ static SQLRETURN _stmt_get_data_copy_timestamp(stmt_t *stmt, int64_t v, int prec
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]`not implemented yet",
           args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-          sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+          sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
       return SQL_ERROR;
   }
 
@@ -2242,7 +2242,7 @@ static SQLRETURN _stmt_get_data_copy_int64(stmt_t *stmt, int64_t v, stmt_get_dat
         stmt_append_err_format(stmt, "HY000", 0,
             "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed",
             args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-            sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+            sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
         return SQL_ERROR;
       }
       return SQL_SUCCESS;
@@ -2250,7 +2250,7 @@ static SQLRETURN _stmt_get_data_copy_int64(stmt_t *stmt, int64_t v, stmt_get_dat
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]`not implemented yet",
           args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-          sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+          sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
       return SQL_ERROR;
   }
 
@@ -2301,7 +2301,7 @@ static SQLRETURN _stmt_get_data_copy_uint64(stmt_t *stmt, uint64_t v, stmt_get_d
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]`not implemented yet",
           args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-          sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+          sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
       return SQL_ERROR;
   }
 
@@ -2357,7 +2357,7 @@ static SQLRETURN _stmt_get_data_copy_double(stmt_t *stmt, double v, stmt_get_dat
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]`not implemented yet",
           args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-          sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+          sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
       return SQL_ERROR;
   }
 
@@ -2411,7 +2411,7 @@ static SQLRETURN _stmt_get_data_copy(stmt_t *stmt, stmt_get_data_args_t *args)
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]`not implemented yet",
           args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-          sql_c_data_type(args->TargetType), args->TargetType, args->TargetType);
+          sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
       return SQL_ERROR;
   }
 }
@@ -2940,7 +2940,7 @@ SQLRETURN _stmt_bind_param(
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:#%d Parameter converstion from `%s[0x%x/%d]` not implemented yet",
-          ParameterNumber, sql_c_data_type(ValueType), ValueType, ValueType);
+          ParameterNumber, sqlc_data_type(ValueType), ValueType, ValueType);
       return SQL_ERROR;
   }
 
@@ -3108,7 +3108,7 @@ static SQLRETURN _stmt_guess_tsdb_params_by_sql_varchar(stmt_t *stmt, param_stat
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Parameter#%d[%s] not implemented yet",
-          i_param + 1, sql_c_data_type(ValueType));
+          i_param + 1, sqlc_data_type(ValueType));
       return SQL_ERROR;
   }
 
@@ -3136,7 +3136,7 @@ static SQLRETURN _stmt_guess_tsdb_params_by_sql_integer(stmt_t *stmt, param_stat
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Parameter#%d[%s] not implemented yet",
-          i_param + 1, sql_c_data_type(ValueType));
+          i_param + 1, sqlc_data_type(ValueType));
       return SQL_ERROR;
   }
 
@@ -3164,7 +3164,7 @@ static SQLRETURN _stmt_guess_tsdb_params_by_sql_bigint(stmt_t *stmt, param_state
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Parameter#%d[%s] not implemented yet",
-          i_param + 1, sql_c_data_type(ValueType));
+          i_param + 1, sqlc_data_type(ValueType));
       return SQL_ERROR;
   }
 
@@ -3466,7 +3466,7 @@ static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_varchar(stmt_t *stmt, pa
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Parameter#%d[%s] not implemented yet",
-          i_param + 1, sql_c_data_type(ValueType));
+          i_param + 1, sqlc_data_type(ValueType));
       return SQL_ERROR;
   }
 
@@ -3524,7 +3524,7 @@ static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_nchar(stmt_t *stmt, para
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Parameter#%d[%s] not implemented yet",
-          i_param + 1, sql_c_data_type(ValueType));
+          i_param + 1, sqlc_data_type(ValueType));
       return SQL_ERROR;
   }
 
@@ -3556,7 +3556,7 @@ static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_timestamp(stmt_t *stmt, 
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Parameter#%d[%s] not implemented yet",
-          i_param + 1, sql_c_data_type(ValueType));
+          i_param + 1, sqlc_data_type(ValueType));
       return SQL_ERROR;
   }
 
@@ -3582,7 +3582,7 @@ static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_bigint(stmt_t *stmt, par
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Parameter#%d[%s] not implemented yet",
-          i_param + 1, sql_c_data_type(ValueType));
+          i_param + 1, sqlc_data_type(ValueType));
       return SQL_ERROR;
   }
 
@@ -3607,7 +3607,7 @@ static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_double(stmt_t *stmt, par
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Parameter#%d[%s] not implemented yet",
-          i_param + 1, sql_c_data_type(ValueType));
+          i_param + 1, sqlc_data_type(ValueType));
       return SQL_ERROR;
   }
 
@@ -3744,7 +3744,7 @@ static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_int(stmt_t *stmt, param_
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Parameter#%d[%s] not implemented yet",
-          i_param + 1, sql_c_data_type(ValueType));
+          i_param + 1, sqlc_data_type(ValueType));
       return SQL_ERROR;
   }
 
@@ -3763,7 +3763,7 @@ static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_smallint(stmt_t *stmt, p
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Parameter#%d[%s] not implemented yet",
-          i_param + 1, sql_c_data_type(ValueType));
+          i_param + 1, sqlc_data_type(ValueType));
       return SQL_ERROR;
   }
 
@@ -3782,7 +3782,7 @@ static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_tinyint(stmt_t *stmt, pa
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Parameter#%d[%s] not implemented yet",
-          i_param + 1, sql_c_data_type(ValueType));
+          i_param + 1, sqlc_data_type(ValueType));
       return SQL_ERROR;
   }
 
@@ -3801,7 +3801,7 @@ static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_bool(stmt_t *stmt, param
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Parameter#%d[%s] not implemented yet",
-          i_param + 1, sql_c_data_type(ValueType));
+          i_param + 1, sqlc_data_type(ValueType));
       return SQL_ERROR;
   }
 
@@ -3820,7 +3820,7 @@ static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_float(stmt_t *stmt, para
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Parameter#%d[%s] not implemented yet",
-          i_param + 1, sql_c_data_type(ValueType));
+          i_param + 1, sqlc_data_type(ValueType));
       return SQL_ERROR;
   }
 
@@ -3989,7 +3989,7 @@ static SQLRETURN _stmt_conv_param_data_from_sql_c_sbigint(stmt_t *stmt, param_st
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:conversion from parameter(#%d,#%d)[%s] to [%s] not implemented yet",
-          i_row + 1, i_param + 1, sql_c_data_type(APD_record->DESC_CONCISE_TYPE), taos_data_type(tsdb_field->type));
+          i_row + 1, i_param + 1, sqlc_data_type(APD_record->DESC_CONCISE_TYPE), taos_data_type(tsdb_field->type));
       return SQL_ERROR;
   }
 }
@@ -4062,7 +4062,7 @@ static SQLRETURN _stmt_conv_param_data_from_sql_c_double(stmt_t *stmt, param_sta
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:conversion from parameter(#%d,#%d)[%s] to [%s] not implemented yet",
-          i_row + 1, i_param + 1, sql_c_data_type(APD_record->DESC_CONCISE_TYPE), taos_data_type(tsdb_field->type));
+          i_row + 1, i_param + 1, sqlc_data_type(APD_record->DESC_CONCISE_TYPE), taos_data_type(tsdb_field->type));
       return SQL_ERROR;
   }
 }
@@ -4080,7 +4080,7 @@ static SQLRETURN _stmt_conv_param_data_from_sql_c_slong(stmt_t *stmt, param_stat
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:conversion from parameter(#%d,#%d)[%s] to [%s] not implemented yet",
-          i_row + 1, i_param + 1, sql_c_data_type(APD_record->DESC_CONCISE_TYPE), taos_data_type(tsdb_field->type));
+          i_row + 1, i_param + 1, sqlc_data_type(APD_record->DESC_CONCISE_TYPE), taos_data_type(tsdb_field->type));
       return SQL_ERROR;
   }
 }
@@ -4185,7 +4185,7 @@ static SQLRETURN _stmt_conv_param_data_from_sql_c_char(stmt_t *stmt, param_state
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:conversion from parameter(#%d,#%d)[%s] to [%s] not implemented yet",
-          i_row + 1, i_param + 1, sql_c_data_type(APD_record->DESC_CONCISE_TYPE), taos_data_type(tsdb_field->type));
+          i_row + 1, i_param + 1, sqlc_data_type(APD_record->DESC_CONCISE_TYPE), taos_data_type(tsdb_field->type));
       return SQL_ERROR;
   }
 }
@@ -4206,7 +4206,7 @@ static SQLRETURN _stmt_conv_param_data(stmt_t *stmt, param_state_t *param_state)
     if (!tsdb_bind->is_null) {
       stmt_append_err_format(stmt, "22002", 0,
           "Indicator variable required but not supplied:Parameter(#%d,#%d)[%s] is null",
-          i_row + 1, i_param + 1, sql_c_data_type(APD_record->DESC_CONCISE_TYPE));
+          i_row + 1, i_param + 1, sqlc_data_type(APD_record->DESC_CONCISE_TYPE));
       return SQL_ERROR;
     }
     tsdb_bind->is_null[i_row] = 1;
@@ -4237,7 +4237,7 @@ static SQLRETURN _stmt_conv_param_data(stmt_t *stmt, param_state_t *param_state)
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Parameter(#%d,#%d)[%s] not implemented yet",
-          i_row + 1, i_param + 1, sql_c_data_type(APD_record->DESC_CONCISE_TYPE));
+          i_row + 1, i_param + 1, sqlc_data_type(APD_record->DESC_CONCISE_TYPE));
       return SQL_ERROR;
   }
 

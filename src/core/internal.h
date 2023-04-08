@@ -119,8 +119,8 @@ static inline int sql_succeeded(SQLRETURN sr)
   return sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO;
 }
 
-typedef struct sql_c_data_s             sql_c_data_t;
-struct sql_c_data_s {
+typedef struct sqlc_data_s             sqlc_data_t;
+struct sqlc_data_s {
   // https://learn.microsoft.com/en-us/sql/odbc/reference/appendixes/c-data-types?view=sql-server-ver16
   SQLSMALLINT           type;
   union {
@@ -197,7 +197,7 @@ struct get_data_ctx_s {
   SQLSMALLINT    TargetType;
 
   tsdb_data_t    tsdb;
-  sql_c_data_t   sqlc;
+  sqlc_data_t    sqlc;
 
   //
   char           buf[64];
@@ -281,12 +281,6 @@ struct charset_conv_s {
 
 struct charset_conv_mgr_s {
   struct tod_list_head        convs; // charset_conv_t*
-};
-
-struct str_s {
-  const char             *charset;   // NOTE: no ownership
-  const char             *str;       // NOTE: no ownership
-  size_t                  len;
 };
 
 struct conn_cfg_s {

@@ -246,7 +246,7 @@ static inline SQLRETURN call_SQLGetData(const char *file, int line, const char *
 {
   LOGD_ODBC(file, line, func, "SQLGetData(StatementHandle:%p,Col_or_Param_Num:%d,"
       "TargetType:%s,TargetValuePtr:%p,BufferLength:%zd,StrLen_or_IndPtr:%p) ...",
-      StatementHandle, Col_or_Param_Num, sql_c_data_type(TargetType), TargetValuePtr, BufferLength, StrLen_or_IndPtr);
+      StatementHandle, Col_or_Param_Num, sqlc_data_type(TargetType), TargetValuePtr, BufferLength, StrLen_or_IndPtr);
   SQLRETURN sr = SQLGetData(StatementHandle, Col_or_Param_Num, TargetType, TargetValuePtr, (size_t)BufferLength, StrLen_or_IndPtr);
   diag(sr, SQL_HANDLE_STMT, StatementHandle);
   char buf[1024]; buf[0] = '\0';
@@ -266,7 +266,7 @@ static inline SQLRETURN call_SQLGetData(const char *file, int line, const char *
   }
   LOGD_ODBC(file, line, func, "SQLGetData(StatementHandle:%p,Col_or_Param_Num:%d,"
       "TargetType:%s,TargetValuePtr:%p,BufferLength:%zd,StrLen_or_IndPtr:%p(%s)) => %s",
-      StatementHandle, Col_or_Param_Num, sql_c_data_type(TargetType), TargetValuePtr, (size_t)BufferLength, StrLen_or_IndPtr, s, sql_return_type(sr));
+      StatementHandle, Col_or_Param_Num, sqlc_data_type(TargetType), TargetValuePtr, (size_t)BufferLength, StrLen_or_IndPtr, s, sql_return_type(sr));
   return sr;
 }
 
@@ -319,14 +319,14 @@ static inline SQLRETURN call_SQLBindParameter(const char *file, int line, const 
 {
   LOGD_ODBC(file, line, func, "SQLBindParameter(StatementHandle:%p,ParameterNumber:%d,InputOutputType:%s,ValueType:%s,"
       "ParameterType:%s,ColumnSize:%zd,DecimalDigits:%d,ParameterValuePtr:%p,BufferLength:%zd,StrLen_or_IndPtr:%p) ...",
-      StatementHandle, ParameterNumber, sql_input_output_type(InputOutputType), sql_c_data_type(ValueType),
+      StatementHandle, ParameterNumber, sql_input_output_type(InputOutputType), sqlc_data_type(ValueType),
       sql_data_type(ParameterType), (size_t)ColumnSize, DecimalDigits, ParameterValuePtr, (size_t)BufferLength, StrLen_or_IndPtr);
   SQLRETURN sr = SQLBindParameter(StatementHandle, ParameterNumber, InputOutputType, ValueType,
       ParameterType, ColumnSize, DecimalDigits, ParameterValuePtr, BufferLength, StrLen_or_IndPtr);
   diag(sr, SQL_HANDLE_STMT, StatementHandle);
   LOGD_ODBC(file, line, func, "SQLBindParameter(StatementHandle:%p,ParameterNumber:%d,InputOutputType:%s,ValueType:%s,"
       "ParameterType:%s,ColumnSize:%zd,DecimalDigits:%d,ParameterValuePtr:%p,BufferLength:%zd,StrLen_or_IndPtr:%p) => %s",
-      StatementHandle, ParameterNumber, sql_input_output_type(InputOutputType), sql_c_data_type(ValueType),
+      StatementHandle, ParameterNumber, sql_input_output_type(InputOutputType), sqlc_data_type(ValueType),
       sql_data_type(ParameterType), (size_t)ColumnSize, DecimalDigits, ParameterValuePtr, (size_t)BufferLength, StrLen_or_IndPtr,
       sql_return_type(sr));
   return sr;
@@ -409,14 +409,14 @@ static inline SQLRETURN call_SQLBindCol(const char *file, int line, const char *
 {
   LOGD_ODBC(file, line, func, "SQLBindCol(StatementHandle:%p,ColumnNumber:%d,TargetType:%s,"
       "TargetValuePtr:%p,BufferLength:%zd,StrLen_or_IndPtr:%p) ...",
-      StatementHandle, ColumnNumber, sql_c_data_type(TargetType),
+      StatementHandle, ColumnNumber, sqlc_data_type(TargetType),
       TargetValuePtr, (size_t)BufferLength, StrLen_or_IndPtr);
   SQLRETURN sr = SQLBindCol(StatementHandle, ColumnNumber, TargetType,
       TargetValuePtr, BufferLength, StrLen_or_IndPtr);
   diag(sr, SQL_HANDLE_STMT, StatementHandle);
   LOGD_ODBC(file, line, func, "SQLBindCol(StatementHandle:%p,ColumnNumber:%d,TargetType:%s,"
       "TargetValuePtr:%p,BufferLength:%zd,StrLen_or_IndPtr:%p) => %s",
-      StatementHandle, ColumnNumber, sql_c_data_type(TargetType),
+      StatementHandle, ColumnNumber, sqlc_data_type(TargetType),
       TargetValuePtr, (size_t)BufferLength, StrLen_or_IndPtr,
       sql_return_type(sr));
   return sr;

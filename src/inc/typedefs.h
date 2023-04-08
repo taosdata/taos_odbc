@@ -61,8 +61,6 @@ typedef struct stmt_base_s               stmt_base_t;
 typedef struct sqls_s                    sqls_t;
 typedef struct sqls_parser_param_s       sqls_parser_param_t;
 
-typedef struct str_s                     str_t;
-
 typedef struct tables_args_s             tables_args_t;
 typedef struct tables_s                  tables_t;
 

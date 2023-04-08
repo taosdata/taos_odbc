@@ -49,7 +49,13 @@
   }                               \
 } while (0)
 
-#define TRACE_LEAK(fmt, ...) if (1) { OE("%zx:%zx:%d[%s]:" fmt, tod_get_current_process_id(), tod_get_current_thread_id(), tls_idx_state, tls_idx_state_str(tls_idx_state), ##__VA_ARGS__); }
+#define TRACE_LEAK(fmt, ...) do {                                            \
+  if (DEBUG_OOW) {                                                           \
+    OE("%zx:%zx:%d[%s]:" fmt,                                                \
+        tod_get_current_process_id(), tod_get_current_thread_id(),           \
+        tls_idx_state, tls_idx_state_str(tls_idx_state), ##__VA_ARGS__);     \
+  }                                                                          \
+} while (0)
 
 static int check_env_bool(const char *name)
 {

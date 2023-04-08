@@ -226,8 +226,6 @@ static int test_with_env(const arg_t *arg, SQLHANDLE henv, sql_t *sqls, size_t n
 
 static int _run_with_arg_in_thread(const arg_t *arg, sql_t *sqls, size_t nr)
 {
-  if (arg->main == 0) return 0;
-
   int r = 0;
   SQLRETURN sr = SQL_SUCCESS;
 
@@ -293,7 +291,6 @@ static int _run_with_arg_CreateThread(const arg_t *arg)
   size_t nr = 0;
 
   r = 0;
-  i = 0;
   nr = 0;
 
   size_t count = arg->threads;
@@ -433,7 +430,7 @@ static int _run_with_arg_once(const arg_t *arg)
 static int _run_with_arg(const arg_t *arg, sql_t *sqls, size_t nr)
 {
   int r = 0;
-  r = _run_with_arg_in_thread(arg, sqls, nr);
+  if (arg->main) r = _run_with_arg_in_thread(arg, sqls, nr);
   if (r) return -1;
 
   int tick = 0;

@@ -201,7 +201,6 @@ AA            "`"
 {AA}                  { R(); C(); POP(); return *yytext; }
 [^`]+                 { R(); C(); return MKT(STR); }
 [`][`]                { R(); C(); return MKT(STR); }
-.                     { R(); C(); return *yytext; } /* let bison to handle */
 }
 
 %%

@@ -33,7 +33,7 @@
 EXTERN_C_BEGIN
 
 void errs_init(errs_t *errs) FA_HIDDEN;
-void errs_append_x(errs_t *errs, const char *file, int line, const char *func, const char *data_source, const char *sql_state, int e, const char *estr) FA_HIDDEN;
+void errs_append_x(errs_t *errs, const char *file, int line, const char *func, const char *sql_state, int e, const char *estr) FA_HIDDEN;
 void errs_clr_x(errs_t *errs) FA_HIDDEN;
 void errs_release_x(errs_t *errs) FA_HIDDEN;
 SQLRETURN errs_get_diag_rec_x(
@@ -69,18 +69,17 @@ SQLRETURN errs_get_diag_field_subclass_origin_x(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr) FA_HIDDEN;
 
-#define errs_append(_errs, _data_source, _sql_state, _e, _estr)                              \
-    errs_append_x(_errs, __FILE__, __LINE__, __func__, _data_source, _sql_state, _e, _estr); \
+#define errs_append(_errs, _sql_state, _e, _estr) errs_append_x(_errs, __FILE__, __LINE__, __func__, _sql_state, _e, _estr)
 
-#define errs_append_format(_errs, _data_source, _sql_state, _e, _fmt, ...)    \
+#define errs_append_format(_errs, _sql_state, _e, _fmt, ...)                  \
   do {                                                                        \
-    char _buf[1024];                                                          \
+    char _buf[4096];                                                          \
     snprintf(_buf, sizeof(_buf), "" _fmt "", ##__VA_ARGS__);                  \
-    errs_append(_errs, _data_source, _sql_state, _e, _buf);                   \
+    errs_append(_errs, _sql_state, _e, _buf);                                 \
   } while(0)
 
-#define errs_oom(_errs, _data_source) errs_append(_errs, _data_source, "HY001", 0, "Memory allocation error")
-#define errs_niy(_errs, _data_source) errs_append(_errs, _data_source, "HY000", 0, "General error:Not implemented yet")
+#define errs_oom(_errs) errs_append(_errs, "HY001", 0, "Memory allocation error")
+#define errs_niy(_errs) errs_append(_errs, "HY000", 0, "General error:Not implemented yet")
 
 #define errs_clr(_errs) errs_clr_x(_errs)
 

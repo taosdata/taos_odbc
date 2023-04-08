@@ -71,112 +71,47 @@ struct err_s {
 struct errs_s {
   struct tod_list_head        errs;
   struct tod_list_head        frees;
+
+  conn_t                     *connected_conn; // NOTE: no ownership
 };
 
 #define conn_data_source(_conn) _conn->cfg.dsn ? _conn->cfg.dsn : (_conn->cfg.driver ? _conn->cfg.driver : "")
 
-#define env_append_err(_env, _sql_state, _e, _estr) errs_append(&_env->errs, "", _sql_state, _e, _estr)
+#define env_append_err(_env, _sql_state, _e, _estr) errs_append(&_env->errs, _sql_state, _e, _estr)
 
-#define env_append_err_format(_env, _sql_state, _e, _fmt, ...) errs_append_format(&_env->errs, "", _sql_state, _e, _fmt, ##__VA_ARGS__)
+#define env_append_err_format(_env, _sql_state, _e, _fmt, ...) errs_append_format(&_env->errs, _sql_state, _e, _fmt, ##__VA_ARGS__)
 
-#define env_oom(_env)                                 \
-  do {                                                \
-    env_t *__env = _env;                              \
-    errs_oom(&__env->errs, "");                       \
-  } while(0)
+#define env_oom(_env) errs_oom(&_env->errs)
 
-#define conn_append_err(_conn, _sql_state, _e, _estr)                                \
-  do {                                                                               \
-    conn_t *__conn = _conn;                                                          \
-    errs_append(&__conn->errs, conn_data_source(__conn), _sql_state, _e, _estr);     \
-  } while(0)
+#define conn_append_err(_conn, _sql_state, _e, _estr) errs_append(&_conn->errs, _sql_state, _e, _estr)
 
-#define conn_append_err_format(_conn, _sql_state, _e, _fmt, ...)                                      \
-  do {                                                                                                \
-    conn_t *__conn = _conn;                                                                           \
-    errs_append_format(&__conn->errs, conn_data_source(__conn), _sql_state, _e, _fmt, ##__VA_ARGS__); \
-  } while (0)
+#define conn_append_err_format(_conn, _sql_state, _e, _fmt, ...) errs_append_format(&_conn->errs, _sql_state, _e, _fmt, ##__VA_ARGS__)
 
-#define conn_oom(_conn)                                  \
-  do {                                                   \
-    conn_t *__conn = _conn;                              \
-    errs_oom(&__conn->errs, conn_data_source(__conn));   \
-  } while (0)
+#define conn_oom(_conn) errs_oom(&_conn->errs)
 
-#define conn_niy(_conn)                                        \
-  do {                                                         \
-    conn_t *__conn = _conn;                                    \
-    errs_niy(&__conn->errs, conn_data_source(__conn));         \
-  } while (0)
+#define conn_niy(_conn) errs_niy(&_conn->errs)
 
-#define conn_nsy(_conn)                                        \
-  do {                                                         \
-    conn_t *__conn = _conn;                                    \
-    errs_nsy(&__conn->errs, conn_data_source(__conn));         \
-  } while (0)
+#define conn_nsy(_conn) errs_nsy(&_conn->errs)
 
-#define stmt_append_err(_stmt, _sql_state, _e, _estr)                                \
-  do {                                                                               \
-    stmt_t *__stmt = _stmt;                                                          \
-    conn_t *__conn = __stmt->conn;                                                   \
-    errs_append(&__stmt->errs, conn_data_source(__conn), _sql_state, _e, _estr);     \
-  } while (0)
+#define stmt_append_err(_stmt, _sql_state, _e, _estr) errs_append(&_stmt->errs, _sql_state, _e, _estr)
 
-#define stmt_append_err_format(_stmt, _sql_state, _e, _fmt, ...)                                      \
-  do {                                                                                                \
-    stmt_t *__stmt = _stmt;                                                                           \
-    conn_t *__conn = __stmt->conn;                                                                    \
-    errs_append_format(&__stmt->errs, conn_data_source(__conn), _sql_state, _e, _fmt, ##__VA_ARGS__); \
-  } while (0)
+#define stmt_append_err_format(_stmt, _sql_state, _e, _fmt, ...) errs_append_format(&_stmt->errs, _sql_state, _e, _fmt, ##__VA_ARGS__)
 
-#define stmt_oom(_stmt)                                        \
-  do {                                                         \
-    stmt_t *__stmt = _stmt;                                    \
-    errs_oom(&__stmt->errs, conn_data_source(__stmt->conn));   \
-  } while (0)
+#define stmt_oom(_stmt) errs_oom(&_stmt->errs)
 
-#define stmt_niy(_stmt)                                        \
-  do {                                                         \
-    stmt_t *__stmt = _stmt;                                    \
-    errs_niy(&__stmt->errs, conn_data_source(__stmt->conn));   \
-  } while (0)
+#define stmt_niy(_stmt) errs_niy(&_stmt->errs)
 
-#define stmt_nsy(_stmt)                                        \
-  do {                                                         \
-    stmt_t *__stmt = _stmt;                                    \
-    errs_nsy(&__stmt->errs, conn_data_source(__stmt->conn));   \
-  } while (0)
+#define stmt_nsy(_stmt) errs_nsy(&_stmt->errs)
 
-#define desc_append_err(_desc, _sql_state, _e, _estr)                                      \
-  do {                                                                                     \
-    desc_t *__desc = _desc;                                                                \
-    errs_append(&__desc->errs, conn_data_source(__desc->conn), _sql_state, _e, _estr);     \
-  } while(0)
+#define desc_append_err(_desc, _sql_state, _e, _estr) errs_append(&_desc->errs, _sql_state, _e, _estr)
 
-#define desc_append_err_format(_desc, _sql_state, _e, _fmt, ...)                                            \
-  do {                                                                                                      \
-    desc_t *__desc = _desc;                                                                                 \
-    errs_append_format(&__desc->errs, conn_data_source(__desc->conn), _sql_state, _e, _fmt, ##__VA_ARGS__); \
-  } while (0)
+#define desc_append_err_format(_desc, _sql_state, _e, _fmt, ...) errs_append_format(&_desc->errs, _sql_state, _e, _fmt, ##__VA_ARGS__)
 
-#define desc_oom(_desc)                                        \
-  do {                                                         \
-    desc_t *__desc = _desc;                                    \
-    errs_oom(&__desc->errs, conn_data_source(__desc->conn));   \
-  } while (0)
+#define desc_oom(_desc) errs_oom(&_desc->errs)
 
-#define desc_niy(_desc)                                        \
-  do {                                                         \
-    desc_t *__desc = _desc;                                    \
-    errs_niy(&__desc->errs, conn_data_source(__desc->conn));   \
-  } while (0)
+#define desc_niy(_desc) errs_niy(&_desc->errs)
 
-#define desc_nsy(_desc)                                        \
-  do {                                                         \
-    desc_t *__desc = _desc;                                    \
-    errs_nsy(&__desc->errs, conn_data_source(__desc->conn));   \
-  } while (0)
-
+#define desc_nsy(_desc) errs_nsy(&_desc->errs)
 
 
 static inline int sql_succeeded(SQLRETURN sr)
@@ -346,6 +281,12 @@ struct charset_conv_s {
 
 struct charset_conv_mgr_s {
   struct tod_list_head        convs; // charset_conv_t*
+};
+
+struct str_s {
+  const char             *charset;   // NOTE: no ownership
+  const char             *str;       // NOTE: no ownership
+  size_t                  len;
 };
 
 struct conn_cfg_s {

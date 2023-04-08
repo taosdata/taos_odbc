@@ -779,97 +779,6 @@ int buffer_concat_replacement_n(buffer_t *str, const char *s, size_t len)
   return -1;
 }
 
-void str_reset(str_t *str, const char *charset)
-{
-  if (!str) return;
-
-  str->nr = 0;
-  TOD_SAFE_FREE(str->charset);
-
-  if (charset && *charset) {
-    str->charset = strdup(charset);
-  }
-}
-
-void str_release(str_t *str)
-{
-  if (!str) return;
-  str_reset(str, NULL);
-  TOD_SAFE_FREE(str->charset);
-  TOD_SAFE_FREE(str->base);
-  str->cap = 0;
-  str->nr = 0;
-}
-
-static int _str_keep(str_t *str, size_t cap)
-{
-  if (cap <= str->cap) return 0;
-  cap = (cap + 15) / 16 * 16;
-  char *base = realloc(str->base, cap + TERMINATOR_MAX);
-  if (!base) return -1;
-  str->base = base;
-  str->cap  = cap;
-  return 0;
-}
-
-static int _str_expand(str_t *str, size_t delta)
-{
-  return _str_keep(str, str->nr + delta);
-}
-
-static int _str_append(str_t *str, const char *src, size_t len)
-{
-  int r = _str_expand(str, len);
-  if (r) return -1;
-  memcpy(str->base + str->nr, src, len);
-  str->nr += len;
-  return 0;
-}
-
-int str_keep(str_t *str, size_t cap)
-{
-  if (!str) return -1;
-  return _str_keep(str, cap);
-}
-
-int str_expand(str_t *str, size_t delta)
-{
-  if (!str) return -1;
-
-  return _str_expand(str, delta);
-}
-
-static mem_t *_str_acquire_mem(void)
-{
-  return tls_get_mem_intermediate();
-}
-
-static void _str_revoke_mem(mem_t *mem)
-{
-  (void)mem;
-}
-
-int str_concat(str_t *str, const char *charset, const char *src, size_t len)
-{
-  int r = 0;
-
-  if (!str || !str->charset || !*str->charset || !charset || !src) return -1;
-
-  mem_t *cache = _str_acquire_mem();
-  do {
-    if (!cache) return -1;
-    mem_reset(cache);
-
-    r = mem_conv_ex(cache, charset, src, len, str->charset);
-    if (r) break;
-
-    r = _str_append(str, (const char*)cache->base, cache->nr);
-  } while (0);
-  _str_revoke_mem(cache);
-
-  return r;
-}
-
 static void _trim_left(const char *src, size_t nr, const char **first)
 {
   *first = src + nr;
@@ -1075,5 +984,4 @@ void locate_str(const char *src, int row0, int col0, int row1, int col1, const c
   }
   *end = s + col1 - 1;
 }
-
 

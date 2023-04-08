@@ -49,8 +49,11 @@ static void err_set_x(err_t *err, const char *file, int line, const char *func, 
   strncpy((char*)err->sql_state, sql_state, sizeof(err->sql_state));
 }
 
-void errs_append_x(errs_t *errs, const char *file, int line, const char *func, const char *data_source, const char *sql_state, int e, const char *estr)
+void errs_append_x(errs_t *errs, const char *file, int line, const char *func, const char *sql_state, int e, const char *estr)
 {
+  conn_t *conn = errs->connected_conn;
+  const char *data_source = conn ? conn_data_source(conn) : "";
+
   if (tod_list_empty(&errs->frees)) {
     err_t *err = (err_t*)calloc(1, sizeof(*err));
     if (!err) {
@@ -96,6 +99,8 @@ void errs_release_x(errs_t *errs)
     tod_list_del(&p->node);
     free(p);
   }
+
+  errs->connected_conn = NULL;
 }
 
 SQLRETURN errs_get_diag_rec_x(

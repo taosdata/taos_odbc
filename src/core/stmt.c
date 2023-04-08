@@ -95,6 +95,8 @@ static void _stmt_init(stmt_t *stmt, conn_t *conn)
   stmt->strict = 1;
 
   errs_init(&stmt->errs);
+  stmt->errs.connected_conn = conn;
+
   _stmt_init_descriptors(stmt);
 
   tsdb_stmt_init(&stmt->tsdb_stmt, stmt);

@@ -515,15 +515,40 @@ static SQLRETURN _do_conn_connect(conn_t *conn)
         break;
       }
     }
-    if (0) {
-      const char *from = "UTF-8";
-      const char *to   = "GB18030";
-      charset_conv_t *cnv = tls_get_charset_conv(from, to);
-      if (!cnv) {
-        env_oom(conn->env);
-        break;
+    if (1) {
+      struct {
+        const char *from;
+        const char *to;
+      } convs[] = {
+        {"UTF-8",          "GB18030"},
+        {"UTF-8",          "GB18030"},
+        {"UTF-8",          "GB18030"},
+        {"GB18030",        "UTF-8"},
+        {"GB18030",        "UTF-8"},
+        {"GB18030",        "UTF-8"},
+        {"GB18030",        "UTF-8"},
+        {"UTF-8",          "UCS-2LE"},
+        {"UTF-8",          "UCS-2LE"},
+        {"UTF-8",          "UCS-2LE"},
+        {"UTF-8",          "UCS-2LE"},
+        {"UTF-8",          "UCS-2LE"},
+      };
+      int failed = 0;
+      for (size_t i=0; i<sizeof(convs)/sizeof(convs[0]); ++i) {
+        const char *from = convs[i].from;
+        const char *to   = convs[i].to;
+        charset_conv_t *cnv = tls_get_charset_conv(from, to);
+        if (!cnv) {
+          env_oom(conn->env);
+          failed = 1;
+          break;
+        }
       }
+      if (failed) break;
     }
+
+    conn->errs.connected_conn = conn;
+
     return SQL_SUCCESS;
   } while (0);
   conn_disconnect(conn);

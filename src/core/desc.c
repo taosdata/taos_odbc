@@ -40,6 +40,9 @@ static void _desc_init(desc_t *desc, conn_t *conn)
   INIT_TOD_LIST_HEAD(&desc->associated_stmts_as_ARD);
   INIT_TOD_LIST_HEAD(&desc->associated_stmts_as_APD);
 
+  errs_init(&desc->errs);
+  desc->errs.connected_conn = conn;
+
   desc->refc = 1;
 }
 

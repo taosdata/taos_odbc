@@ -168,20 +168,6 @@ static inline int buffer_copy(buffer_t *str, const char *s)
 }
 
 
-typedef struct str_s               str_t;
-struct str_s {
-  char                    *charset;
-  char                    *base;
-  size_t                   cap;
-  size_t                   nr;
-};
-
-void str_reset(str_t *str, const char *charset) FA_HIDDEN;
-void str_release(str_t *str) FA_HIDDEN;
-int str_keep(str_t *str, size_t cap) FA_HIDDEN;
-int str_expand(str_t *str, size_t delta) FA_HIDDEN;
-int str_concat(str_t *str, const char *charset, const char *src, size_t len) FA_HIDDEN;
-
 void trim_left(const char *src, size_t nr, const char **first) FA_HIDDEN;
 void trim_right(const char *src, size_t nr, const char **last) FA_HIDDEN;
 void trim_string(const char *src, size_t nr, const char **start, const char **end) FA_HIDDEN;

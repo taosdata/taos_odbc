@@ -69,6 +69,7 @@ void tables_reset(tables_t *tables)
   if (!tables) return;
 
   tsdb_stmt_reset(&tables->stmt);
+  mem_reset(&tables->tsdb_stmt);
   table_types_reset(tables);
   mem_reset(&tables->catalog_cache);
   mem_reset(&tables->schema_cache);
@@ -90,6 +91,9 @@ void tables_release(tables_t *tables)
 
   table_types_release(tables);
 
+  tsdb_stmt_release(&tables->stmt);
+  mem_release(&tables->tsdb_stmt);
+
   mem_release(&tables->catalog_cache);
   mem_release(&tables->schema_cache);
   mem_release(&tables->table_cache);
@@ -100,9 +104,9 @@ void tables_release(tables_t *tables)
   tables->owner = NULL;
 }
 
-static SQLRETURN _query(stmt_base_t *base, const char *sql)
+static SQLRETURN _query(stmt_base_t *base, const sqlc_tsdb_t *sqlc_tsdb)
 {
-  (void)sql;
+  (void)sqlc_tsdb;
 
   tables_t *tables = (tables_t*)base;
   (void)tables;
@@ -118,11 +122,11 @@ static SQLRETURN _execute(stmt_base_t *base)
   return SQL_ERROR;
 }
 
-static SQLRETURN _get_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
+static SQLRETURN _get_col_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
 {
   tables_t *tables = (tables_t*)base;
   (void)tables;
-  return tables->stmt.base.get_fields(&tables->stmt.base, fields, nr);
+  return tables->stmt.base.get_col_fields(&tables->stmt.base, fields, nr);
 }
 
 static void _match(tables_t *tables, tsdb_data_t *tsdb, int *matched)
@@ -306,7 +310,7 @@ void tables_init(tables_t *tables, stmt_t *stmt)
   tsdb_stmt_init(&tables->stmt, stmt);
   tables->base.query                        = _query;
   tables->base.execute                      = _execute;
-  tables->base.get_fields                   = _get_fields;
+  tables->base.get_col_fields               = _get_col_fields;
   tables->base.fetch_row                    = _fetch_row;
   tables->base.more_results                 = _more_results;
   tables->base.describe_param               = _describe_param;
@@ -321,11 +325,33 @@ void tables_init(tables_t *tables, stmt_t *stmt)
 static SQLRETURN _tables_open_catalogs(tables_t *tables)
 {
   SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
 
   const char *sql =
     "select name `TABLE_CAT`, null `TABLE_SCHEM`, null `TABLE_NAME`, null `TABLE_TYPE`, null `REMARKS` from information_schema.ins_databases order by `TABLE_CAT`";
 
-  sr = tsdb_stmt_query(&tables->stmt, sql);
+  sqlc_tsdb_t sqlc_tsdb = {
+    .sqlc           = sql,
+    .sqlc_bytes     = strlen(sql),
+  };
+
+  stmt_t *stmt = tables->owner;
+
+  charset_conv_t *cnv = NULL;
+  sr = conn_get_cnv_sql_c_char_to_tsdb_varchar(stmt->conn, &cnv);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  mem_reset(&tables->tsdb_stmt);
+  r = mem_conv(&tables->tsdb_stmt, cnv->cnv, sqlc_tsdb.sqlc, sqlc_tsdb.sqlc_bytes);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+
+  sqlc_tsdb.tsdb       = (const char*)tables->tsdb_stmt.base;
+  sqlc_tsdb.tsdb_bytes = tables->tsdb_stmt.nr;
+
+  sr = tsdb_stmt_query(&tables->stmt, &sqlc_tsdb);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   tables->tables_type = TABLES_FOR_CATALOGS;
@@ -336,11 +362,33 @@ static SQLRETURN _tables_open_catalogs(tables_t *tables)
 static SQLRETURN _tables_open_schemas(tables_t *tables)
 {
   SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
 
   const char *sql =
     "select null `TABLE_CAT`, null `TABLE_SCHEM`, null `TABLE_NAME`, null `TABLE_TYPE`, null `REMARKS` where 1=2";
 
-  sr = tsdb_stmt_query(&tables->stmt, sql);
+  sqlc_tsdb_t sqlc_tsdb = {
+    .sqlc           = sql,
+    .sqlc_bytes     = strlen(sql),
+  };
+
+  stmt_t *stmt = tables->owner;
+
+  charset_conv_t *cnv = NULL;
+  sr = conn_get_cnv_sql_c_char_to_tsdb_varchar(stmt->conn, &cnv);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  mem_reset(&tables->tsdb_stmt);
+  r = mem_conv(&tables->tsdb_stmt, cnv->cnv, sqlc_tsdb.sqlc, sqlc_tsdb.sqlc_bytes);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+
+  sqlc_tsdb.tsdb       = (const char*)tables->tsdb_stmt.base;
+  sqlc_tsdb.tsdb_bytes = tables->tsdb_stmt.nr;
+
+  sr = tsdb_stmt_query(&tables->stmt, &sqlc_tsdb);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   tables->tables_type = TABLES_FOR_SCHEMAS;
@@ -378,7 +426,29 @@ static SQLRETURN _tables_open_tabletypes_with_buffer(tables_t *tables, buffer_t 
   }
 
   const char *sql = buf->base;
-  sr = tsdb_stmt_query(&tables->stmt, sql);
+
+  sqlc_tsdb_t sqlc_tsdb = {
+    .sqlc           = sql,
+    .sqlc_bytes     = strlen(sql),
+  };
+
+  stmt_t *stmt = tables->owner;
+
+  charset_conv_t *cnv = NULL;
+  sr = conn_get_cnv_sql_c_char_to_tsdb_varchar(stmt->conn, &cnv);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  mem_reset(&tables->tsdb_stmt);
+  r = mem_conv(&tables->tsdb_stmt, cnv->cnv, sqlc_tsdb.sqlc, sqlc_tsdb.sqlc_bytes);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+
+  sqlc_tsdb.tsdb       = (const char*)tables->tsdb_stmt.base;
+  sqlc_tsdb.tsdb_bytes = tables->tsdb_stmt.nr;
+
+  sr = tsdb_stmt_query(&tables->stmt, &sqlc_tsdb);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   tables->tables_type = TABLES_FOR_TABLETYPES;
@@ -485,6 +555,7 @@ SQLRETURN tables_open(
     SQLSMALLINT    NameLength4)
 {
   SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
 
   tables_reset(tables);
 
@@ -580,7 +651,28 @@ SQLRETURN tables_open(
     " "
     "order by `TABLE_TYPE`, `TABLE_CAT`, `TABLE_SCHEM`, `TABLE_NAME`";
 
-  sr = tsdb_stmt_query(&tables->stmt, sql);
+  sqlc_tsdb_t sqlc_tsdb = {
+    .sqlc           = sql,
+    .sqlc_bytes     = strlen(sql),
+  };
+
+  stmt_t *stmt = tables->owner;
+
+  cnv = NULL;
+  sr = conn_get_cnv_sql_c_char_to_tsdb_varchar(stmt->conn, &cnv);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  mem_reset(&tables->tsdb_stmt);
+  r = mem_conv(&tables->tsdb_stmt, cnv->cnv, sqlc_tsdb.sqlc, sqlc_tsdb.sqlc_bytes);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+
+  sqlc_tsdb.tsdb       = (const char*)tables->tsdb_stmt.base;
+  sqlc_tsdb.tsdb_bytes = tables->tsdb_stmt.nr;
+
+  sr = tsdb_stmt_query(&tables->stmt, &sqlc_tsdb);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   tables->tables_type = TABLES_FOR_GENERIC;

@@ -25,61 +25,68 @@
 #ifndef _typedefs_h_
 #define _typedefs_h_
 
-typedef struct charset_conv_s            charset_conv_t;
-typedef struct charset_conv_mgr_s        charset_conv_mgr_t;
+typedef struct charset_conv_s           charset_conv_t;
+typedef struct charset_conv_mgr_s       charset_conv_mgr_t;
 
-typedef struct columns_args_s            columns_args_t;
-typedef struct columns_s                 columns_t;
+typedef struct columns_args_s           columns_args_t;
+typedef struct columns_s                columns_t;
 
-typedef struct conn_cfg_s                conn_cfg_t;
+typedef struct conn_cfg_s               conn_cfg_t;
 
-typedef struct conn_parser_param_s       conn_parser_param_t;
-typedef struct conn_s                    conn_t;
+typedef struct conn_parser_param_s      conn_parser_param_t;
+typedef struct conn_s                   conn_t;
 
-typedef struct descriptor_s              descriptor_t;
-typedef struct desc_s                    desc_t;
-typedef struct desc_header_s             desc_header_t;
-typedef struct desc_record_s             desc_record_t;
+typedef struct descriptor_s             descriptor_t;
+typedef struct desc_s                   desc_t;
+typedef struct desc_header_s            desc_header_t;
+typedef struct desc_record_s            desc_record_t;
 
-typedef struct env_s                     env_t;
+typedef struct env_s                    env_t;
 
-typedef struct errs_s                    errs_t;
+typedef struct err_s                    err_t;
+typedef struct errs_s                   errs_t;
 
-typedef struct ext_parser_param_s        ext_parser_param_t;
+typedef struct ext_parser_param_s       ext_parser_param_t;
 
-typedef struct get_data_ctx_s            get_data_ctx_t;
+typedef struct get_data_ctx_s           get_data_ctx_t;
 
-typedef struct parser_ctx_s              parser_ctx_t;
-typedef struct parser_nterm_s            parser_nterm_t;
-typedef struct parser_token_s            parser_token_t;
+typedef struct parser_ctx_s             parser_ctx_t;
+typedef struct parser_nterm_s           parser_nterm_t;
+typedef struct parser_token_s           parser_token_t;
 
-typedef struct primarykeys_args_s        primarykeys_args_t;
-typedef struct primarykeys_s             primarykeys_t;
+typedef struct primarykeys_args_s       primarykeys_args_t;
+typedef struct primarykeys_s            primarykeys_t;
 
-typedef struct stmt_s                    stmt_t;
-typedef struct stmt_get_data_args_s      stmt_get_data_args_t;
+typedef struct stmt_s                   stmt_t;
+typedef struct stmt_get_data_args_s     stmt_get_data_args_t;
 
-typedef struct stmt_base_s               stmt_base_t;
+typedef struct stmt_base_s              stmt_base_t;
 
-typedef struct sqls_s                    sqls_t;
-typedef struct sqls_parser_param_s       sqls_parser_param_t;
+typedef struct sqlc_tsdb_s              sqlc_tsdb_t;
+typedef struct sqlc_data_s              sqlc_data_t;
+typedef struct sqls_s                   sqls_t;
+typedef struct sqls_parser_param_s      sqls_parser_param_t;
 
-typedef struct tables_args_s             tables_args_t;
-typedef struct tables_s                  tables_t;
+typedef struct str_s                    str_t;
 
-typedef struct tls_s                     tls_t;
+typedef struct tables_args_s            tables_args_t;
+typedef struct tables_s                 tables_t;
 
-typedef struct topic_s                   topic_t;
-typedef struct topic_cfg_s               topic_cfg_t;
+typedef struct tls_s                    tls_t;
 
-typedef struct tsdb_stmt_s               tsdb_stmt_t;
-typedef struct tsdb_params_s             tsdb_params_t;
-typedef struct tsdb_binds_s              tsdb_binds_t;
-typedef struct tsdb_res_s                tsdb_res_t;
-typedef struct tsdb_fields_s             tsdb_fields_t;
-typedef struct tsdb_rows_block_s         tsdb_rows_block_t;
+typedef enum tables_type_e              tables_type_t;
 
-typedef struct typesinfo_s               typesinfo_t;
+typedef struct topic_s                  topic_t;
+typedef struct topic_cfg_s              topic_cfg_t;
+
+typedef struct tsdb_stmt_s              tsdb_stmt_t;
+typedef struct tsdb_params_s            tsdb_params_t;
+typedef struct tsdb_binds_s             tsdb_binds_t;
+typedef struct tsdb_res_s               tsdb_res_t;
+typedef struct tsdb_fields_s            tsdb_fields_t;
+typedef struct tsdb_rows_block_s        tsdb_rows_block_t;
+
+typedef struct typesinfo_s              typesinfo_t;
 
 #endif // _typedefs_h_
 

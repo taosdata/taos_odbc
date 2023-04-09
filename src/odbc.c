@@ -74,7 +74,7 @@ struct global_s {
   unsigned int  taos_odbc_debug_bison;
 
   char          locale_or_ACP[64];
-  char          sql_c_charset[64];
+  char          sqlc_charset[64];
 };
 
 static global_t _global;
@@ -86,10 +86,10 @@ static void _init_charsets(void)
   snprintf(_global.locale_or_ACP, sizeof(_global.locale_or_ACP), "%d", acp);
   switch (acp) {
     case 936:
-      snprintf(_global.sql_c_charset, sizeof(_global.sql_c_charset), "GB18030");
+      snprintf(_global.sqlc_charset, sizeof(_global.sqlc_charset), "GB18030");
       break;
     case 65001:
-      snprintf(_global.sql_c_charset, sizeof(_global.sql_c_charset), "UTF-8");
+      snprintf(_global.sqlc_charset, sizeof(_global.sqlc_charset), "UTF-8");
       break;
     default:
       break;
@@ -101,7 +101,7 @@ static void _init_charsets(void)
 
   const char *p = strchr(locale, '.');
   p = p ? p + 1 : locale;
-  snprintf(_global.sql_c_charset, sizeof(_global.sql_c_charset), "%s", p);
+  snprintf(_global.sqlc_charset, sizeof(_global.sqlc_charset), "%s", p);
 #endif
 }
 
@@ -122,10 +122,10 @@ int tod_get_debug_bison(void)
   return !!_global.taos_odbc_debug_bison;
 }
 
-const char* tod_get_sql_c_charset(void)
+const char* tod_get_sqlc_charset(void)
 {
-  if (!_global.sql_c_charset[0]) return NULL;
-  return _global.sql_c_charset;
+  if (!_global.sqlc_charset[0]) return NULL;
+  return _global.sqlc_charset;
 }
 
 const char* tod_get_locale_or_ACP(void)

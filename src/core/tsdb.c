@@ -282,13 +282,13 @@ static SQLRETURN _stmt_post_query(tsdb_stmt_t *stmt)
   return SQL_SUCCESS;
 }
 
-static SQLRETURN _query(stmt_base_t *base, const char *sql)
+static SQLRETURN _query(stmt_base_t *base, const sqlc_tsdb_t *sqlc_tsdb)
 {
   tsdb_stmt_t *stmt = (tsdb_stmt_t*)base;
 
   tsdb_res_t          *res         = &stmt->res;
   tsdb_res_reset(res);
-  res->res = CALL_taos_query(stmt->owner->conn->taos, sql);
+  res->res = CALL_taos_query(stmt->owner->conn->taos, sqlc_tsdb->tsdb);
   res->res_is_from_taos_query = res->res ? 1 : 0;
 
   return _stmt_post_query(stmt);
@@ -315,7 +315,7 @@ static SQLRETURN _execute(stmt_base_t *base)
   return _stmt_post_query(stmt);
 }
 
-static SQLRETURN _get_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
+static SQLRETURN _get_col_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
 {
   tsdb_stmt_t *stmt = (tsdb_stmt_t*)base;
   tsdb_res_t           *res          = &stmt->res;
@@ -438,7 +438,7 @@ void tsdb_stmt_init(tsdb_stmt_t *stmt, stmt_t *owner)
 {
   stmt->base.query                   = _query;
   stmt->base.execute                 = _execute;
-  stmt->base.get_fields              = _get_fields;
+  stmt->base.get_col_fields          = _get_col_fields;
   stmt->base.fetch_row               = _fetch_row;
   stmt->base.more_results            = _more_results;
   stmt->base.describe_param          = _describe_param;
@@ -464,9 +464,9 @@ void tsdb_stmt_close_result(tsdb_stmt_t *stmt)
   tsdb_res_reset(&stmt->res);
 }
 
-SQLRETURN tsdb_stmt_query(tsdb_stmt_t *stmt, const char *sql)
+SQLRETURN tsdb_stmt_query(tsdb_stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb)
 {
-  return stmt->base.query(&stmt->base, sql);
+  return stmt->base.query(&stmt->base, sqlc_tsdb);
 }
 
 static SQLRETURN _tsdb_stmt_describe_tags(tsdb_stmt_t *stmt)
@@ -768,7 +768,7 @@ TAOS_FIELD_E* tsdb_stmt_get_tsdb_field_by_tsdb_params(tsdb_stmt_t *stmt, int i_p
   return params->col_fields + i_param;
 }
 
-SQLRETURN tsdb_stmt_prepare(tsdb_stmt_t *stmt, const char *sql)
+SQLRETURN tsdb_stmt_prepare(tsdb_stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb)
 {
   int r = 0;
   SQLRETURN sr = SQL_SUCCESS;
@@ -781,7 +781,7 @@ SQLRETURN tsdb_stmt_prepare(tsdb_stmt_t *stmt, const char *sql)
     return SQL_ERROR;
   }
 
-  r = CALL_taos_stmt_prepare(stmt->stmt, sql, (unsigned long)strlen(sql));
+  r = CALL_taos_stmt_prepare(stmt->stmt, sqlc_tsdb->tsdb, (unsigned long)sqlc_tsdb->tsdb_bytes);
   if (r) {
     stmt_append_err_format(stmt->owner, "HY000", r, "General error:[taosc]%s", CALL_taos_errstr(NULL));
     return SQL_ERROR;

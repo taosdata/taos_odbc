@@ -56,8 +56,6 @@ EXTERN_C_BEGIN
 #define MAX_TABLE_NAME_LEN         192
 #define MAX_COLUMN_NAME_LEN         64
 
-typedef struct err_s             err_t;
-
 struct err_s {
   int                         err;
   const char                 *estr;
@@ -119,7 +117,19 @@ static inline int sql_succeeded(SQLRETURN sr)
   return sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO;
 }
 
-typedef struct sqlc_data_s             sqlc_data_t;
+struct str_s {
+  const char           *charset; // NOTE: no ownership
+  const char           *str;     // NOTE: no ownership
+  size_t                bytes;
+};
+
+struct sqlc_tsdb_s {
+  const char           *sqlc;              // NOTE: no ownership
+  size_t                sqlc_bytes;
+  const char           *tsdb;
+  size_t                tsdb_bytes;        // NOTE: no ownership
+};
+
 struct sqlc_data_s {
   // https://learn.microsoft.com/en-us/sql/odbc/reference/appendixes/c-data-types?view=sql-server-ver16
   SQLSMALLINT           type;
@@ -148,22 +158,6 @@ struct sqlc_data_s {
 
   uint8_t               is_null:1;
 };
-
-typedef enum {
-  DATA_TYPE_UNKNOWM,
-  DATA_TYPE_INT8,
-  DATA_TYPE_UINT8,
-  DATA_TYPE_INT16,
-  DATA_TYPE_UINT16,
-  DATA_TYPE_INT32,
-  DATA_TYPE_UINT32,
-  DATA_TYPE_INT64,
-  DATA_TYPE_UINT64,
-  DATA_TYPE_FLOAT,
-  DATA_TYPE_DOUBLE,
-  DATA_TYPE_STR,
-  DATA_TYPE_MAX,
-} data_type;
 
 struct env_s {
   atomic_int          refc;
@@ -421,8 +415,9 @@ struct conn_s {
   char               *s_locale;
   char               *s_charset;
 
-  char               *sql_c_char_charset;
-  char               *tsdb_varchar_charset;
+  // NOTE: big enough?
+  char                sqlc_charset[64];
+  char                tsdb_charset[64];
 
   charset_conv_t      _cnv_tsdb_varchar_to_sql_c_char;
   charset_conv_t      _cnv_tsdb_varchar_to_sql_c_wchar;
@@ -447,9 +442,9 @@ struct stmt_get_data_args_s {
 };
 
 struct stmt_base_s {
-  SQLRETURN (*query)(stmt_base_t *base, const char *sql);
+  SQLRETURN (*query)(stmt_base_t *base, const sqlc_tsdb_t *sqlc_tsdb);
   SQLRETURN (*execute)(stmt_base_t *base);
-  SQLRETURN (*get_fields)(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr);
+  SQLRETURN (*get_col_fields)(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr);
   SQLRETURN (*fetch_row)(stmt_base_t *base);
   SQLRETURN (*more_results)(stmt_base_t *base);
   SQLRETURN (*describe_param)(stmt_base_t *base,
@@ -551,8 +546,6 @@ struct tables_args_s {
   wildex_t        *type_pattern;
 };
 
-typedef enum tables_type_e     tables_type_t;
-
 enum tables_type_e {
   TABLES_FOR_GENERIC,
   TABLES_FOR_CATALOGS,
@@ -566,6 +559,7 @@ struct tables_s {
 
   tables_args_t              tables_args;
 
+  mem_t                      tsdb_stmt;
   tsdb_stmt_t                stmt;
 
   const unsigned char       *catalog;
@@ -608,8 +602,10 @@ struct columns_s {
   tsdb_data_t                current_col_length;
   tsdb_data_t                current_col_note;
 
+  mem_t                      tsdb_desc;
   tsdb_stmt_t                desc;      // desc <catalog>.<table_name>
 
+  mem_t                      tsdb_query;
   tsdb_stmt_t                query;     // select * from <catalog>.<table_name>
 
   int                        ordinal_order;
@@ -641,6 +637,7 @@ struct primarykeys_s {
   tsdb_data_t                current_col_length;
   tsdb_data_t                current_col_note;
 
+  mem_t                      tsdb_desc;
   tsdb_stmt_t                desc;
 
   int                        ordinal_order;
@@ -679,7 +676,7 @@ struct stmt_s {
   mem_t                      raw;
   sqls_t                     sqls;
 
-  mem_t                      sql;
+  mem_t                      tsdb_sql;
 
   tsdb_paramset_t            paramset;
 

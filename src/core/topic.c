@@ -136,9 +136,9 @@ void topic_release(topic_t *topic)
   _topic_release_tripple(topic);
 }
 
-static SQLRETURN _query(stmt_base_t *base, const char *sql)
+static SQLRETURN _query(stmt_base_t *base, const sqlc_tsdb_t *sqlc_tsdb)
 {
-  (void)sql;
+  (void)sqlc_tsdb;
 
   topic_t *topic = (topic_t*)base;
   (void)topic;
@@ -154,7 +154,7 @@ static SQLRETURN _execute(stmt_base_t *base)
   return SQL_ERROR;
 }
 
-static SQLRETURN _get_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
+static SQLRETURN _get_col_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
 {
   (void)fields;
   (void)nr;
@@ -489,7 +489,7 @@ void topic_init(topic_t *topic, stmt_t *stmt)
   topic->owner = stmt;
   topic->base.query                        = _query;
   topic->base.execute                      = _execute;
-  topic->base.get_fields                   = _get_fields;
+  topic->base.get_col_fields               = _get_col_fields;
   topic->base.fetch_row                    = _fetch_row;
   topic->base.more_results                 = _more_results;
   topic->base.describe_param               = _describe_param;
@@ -595,9 +595,11 @@ static SQLRETURN _topic_open(
 }
 
 SQLRETURN topic_open(
-    topic_t       *topic,
-    topic_cfg_t   *cfg)
+    topic_t             *topic,
+    const sqlc_tsdb_t   *sql,
+    topic_cfg_t         *cfg)
 {
+  (void)sql;
   OA_ILE(topic->tmq == NULL);
   SQLRETURN sr = SQL_SUCCESS;
 

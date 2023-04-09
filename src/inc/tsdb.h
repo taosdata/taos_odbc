@@ -66,8 +66,8 @@ SQLRETURN tsdb_stmt_describe_param(
     SQLSMALLINT    *NullablePtr) FA_HIDDEN;
 TAOS_FIELD_E* tsdb_stmt_get_tsdb_field_by_tsdb_params(tsdb_stmt_t *stmt, int i_param) FA_HIDDEN;
 
-SQLRETURN tsdb_stmt_query(tsdb_stmt_t *stmt, const char *sql) FA_HIDDEN;
-SQLRETURN tsdb_stmt_prepare(tsdb_stmt_t *stmt, const char *sql) FA_HIDDEN;
+SQLRETURN tsdb_stmt_query(tsdb_stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb) FA_HIDDEN;
+SQLRETURN tsdb_stmt_prepare(tsdb_stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb) FA_HIDDEN;
 SQLRETURN tsdb_stmt_check_parameters(tsdb_stmt_t *stmt) FA_HIDDEN;
 SQLRETURN tsdb_stmt_fetch_rows_block(tsdb_stmt_t *stmt) FA_HIDDEN;
 

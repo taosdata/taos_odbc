@@ -414,7 +414,7 @@ static void _stmt_release(stmt_t *stmt)
   _stmt_release_descriptors(stmt);
 
   mem_release(&stmt->raw);
-  mem_release(&stmt->sql);
+  mem_release(&stmt->tsdb_sql);
 
   errs_release(&stmt->errs);
   mem_release(&stmt->mem);
@@ -1060,7 +1060,7 @@ static SQLRETURN _stmt_fill_IRD(stmt_t *stmt)
 
   TAOS_FIELD *fields;
   size_t nr;
-  sr = stmt->base->get_fields(stmt->base, &fields, &nr);
+  sr = stmt->base->get_col_fields(stmt->base, &fields, &nr);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   descriptor_t *IRD = stmt_IRD(stmt);
@@ -2723,9 +2723,9 @@ SQLRETURN stmt_fetch(stmt_t *stmt)
   return stmt_fetch_scroll(stmt, SQL_FETCH_NEXT, 0);
 }
 
-static SQLRETURN _stmt_prepare(stmt_t *stmt, const char *sql)
+static SQLRETURN _stmt_prepare(stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb)
 {
-  return tsdb_stmt_prepare(&stmt->tsdb_stmt, sql);
+  return tsdb_stmt_prepare(&stmt->tsdb_stmt, sqlc_tsdb);
 }
 
 static SQLRETURN _stmt_get_num_params(
@@ -2914,11 +2914,19 @@ SQLRETURN stmt_prepare(stmt_t *stmt,
   sr = conn_get_cnv_sql_c_char_to_tsdb_varchar(stmt->conn, &cnv);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-  r = mem_conv(&stmt->sql, cnv->cnv, sql, len);
+  mem_reset(&stmt->tsdb_sql);
+  r = mem_conv(&stmt->tsdb_sql, cnv->cnv, sql, len);
   if (r) {
     stmt_oom(stmt);
     return SQL_ERROR;
   }
+
+  sqlc_tsdb_t sqlc_tsdb = {
+    .sqlc          = sql,
+    .sqlc_bytes    = len,
+    .tsdb          = (const char*)stmt->tsdb_sql.base,
+    .tsdb_bytes    = stmt->tsdb_sql.nr,
+  };
 
   if (stmt->base == &stmt->columns.base) {
     stmt_append_err(stmt, "HY000", 0, "General error:not implemented yet");
@@ -2930,7 +2938,7 @@ SQLRETURN stmt_prepare(stmt_t *stmt,
     return SQL_ERROR;
   }
 
-  sr = _stmt_prepare(stmt, (const char*)stmt->sql.base);
+  sr = _stmt_prepare(stmt, &sqlc_tsdb);
 
   return sr;
 }
@@ -4585,18 +4593,17 @@ static SQLRETURN _stmt_execute(stmt_t *stmt)
   return stmt->base->execute(stmt->base);
 }
 
-static SQLRETURN _stmt_query(stmt_t *stmt, const char *sql)
+static SQLRETURN _stmt_query(stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb)
 {
-  return stmt->base->query(stmt->base, sql);
+  return stmt->base->query(stmt->base, sqlc_tsdb);
 }
 
-static SQLRETURN _stmt_exec_direct(stmt_t *stmt, const char *sql)
+static SQLRETURN _stmt_exec_direct(stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb)
 {
   SQLRETURN sr = SQL_SUCCESS;
 
   OA_ILE(stmt->conn);
   OA_ILE(stmt->conn->taos);
-  OA_ILE(sql);
 
   descriptor_t *APD = stmt_APD(stmt);
   desc_header_t *APD_header = &APD->header;
@@ -4610,10 +4617,10 @@ static SQLRETURN _stmt_exec_direct(stmt_t *stmt, const char *sql)
   }
 
   if (APD_header->DESC_COUNT == 0) {
-    sr = _stmt_query(stmt, sql);
+    sr = _stmt_query(stmt, sqlc_tsdb);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
   } else {
-    SQLRETURN sr = _stmt_prepare(stmt, sql);
+    SQLRETURN sr = _stmt_prepare(stmt, sqlc_tsdb);
     if (sr == SQL_ERROR) return SQL_ERROR;
 
     sr = _stmt_execute(stmt);
@@ -4623,7 +4630,7 @@ static SQLRETURN _stmt_exec_direct(stmt_t *stmt, const char *sql)
   return _stmt_fill_IRD(stmt);
 }
 
-SQLRETURN _stmt_exec_direct_sql(stmt_t *stmt, const char *sql)
+SQLRETURN _stmt_exec_direct_sql(stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb)
 {
   SQLRETURN sr = SQL_SUCCESS;
 
@@ -4632,7 +4639,7 @@ SQLRETURN _stmt_exec_direct_sql(stmt_t *stmt, const char *sql)
   int prev = atomic_fetch_add(&stmt->conn->outstandings, 1);
   OA_ILE(prev >= 0);
 
-  sr = _stmt_exec_direct(stmt, sql);
+  sr = _stmt_exec_direct(stmt, sqlc_tsdb);
 
   prev = atomic_fetch_sub(&stmt->conn->outstandings, 1);
   OA_ILE(prev >= 0);
@@ -4699,39 +4706,44 @@ SQLRETURN _stmt_cache_and_parse(stmt_t *stmt, sqls_parser_param_t *param, const 
   return SQL_SUCCESS;
 }
 
-SQLRETURN _stmt_get_next_sql(stmt_t *stmt, const char **sql, size_t *len)
-{
-  sqls_t *sqls = &stmt->sqls;
-  if (sqls->pos + 1 > sqls->nr) return SQL_NO_DATA;
-
-  ++sqls->pos;
-
-  parser_nterm_t *nterms = stmt->sqls.sqls + stmt->sqls.pos - 1;
-  *sql = (const char*)stmt->raw.base + nterms->start;
-  *len = nterms->end - nterms->start;
-
-  return SQL_SUCCESS;
-}
-
-SQLRETURN _stmt_exec_direct_with_simple_sql(stmt_t *stmt, const char *sql, size_t len)
+SQLRETURN _stmt_get_next_sql(stmt_t *stmt, sqlc_tsdb_t *sqlc_tsdb)
 {
   SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
 
-  mem_reset(&stmt->sql);
+  sqls_t *sqls = &stmt->sqls;
+  if (sqls->pos + 1 > sqls->nr) return SQL_NO_DATA;
 
   charset_conv_t *cnv = NULL;
   sr = conn_get_cnv_sql_c_char_to_tsdb_varchar(stmt->conn, &cnv);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-  r = mem_conv(&stmt->sql, cnv->cnv, sql, len);
+  parser_nterm_t *nterms = stmt->sqls.sqls + stmt->sqls.pos;
+  sqlc_tsdb->sqlc        = (const char*)stmt->raw.base + nterms->start;
+  sqlc_tsdb->sqlc_bytes  = nterms->end - nterms->start;
+
+  mem_reset(&stmt->tsdb_sql);
+  r = mem_conv(&stmt->tsdb_sql, cnv->cnv, sqlc_tsdb->sqlc, sqlc_tsdb->sqlc_bytes);
   if (r) {
     stmt_oom(stmt);
     return SQL_ERROR;
   }
 
+  sqlc_tsdb->tsdb        = (const char*)stmt->tsdb_sql.base;
+  sqlc_tsdb->tsdb_bytes  = stmt->tsdb_sql.nr;
+
+  ++sqls->pos;
+
+  return SQL_SUCCESS;
+}
+
+SQLRETURN _stmt_exec_direct_with_simple_sql(stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
+
   const char *start, *end;
-  trim_string((const char*)stmt->sql.base, stmt->sql.nr, &start, &end);
+  trim_string(sqlc_tsdb->sqlc, sqlc_tsdb->sqlc_bytes, &start, &end);
   if (end > start && start[0] == '!') {
     ext_parser_param_t param = {0};
     // param.ctx.debug_flex = 1;
@@ -4747,7 +4759,7 @@ SQLRETURN _stmt_exec_direct_with_simple_sql(stmt_t *stmt, const char *sql, size_
       return SQL_ERROR;
     }
 
-    sr = topic_open(&stmt->topic, &param.topic_cfg);
+    sr = topic_open(&stmt->topic, sqlc_tsdb, &param.topic_cfg);
     ext_parser_param_release(&param);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
 
@@ -4766,7 +4778,7 @@ SQLRETURN _stmt_exec_direct_with_simple_sql(stmt_t *stmt, const char *sql, size_
     return SQL_ERROR;
   }
 
-  return _stmt_exec_direct_sql(stmt, (const char*)stmt->sql.base);
+  return _stmt_exec_direct_sql(stmt, sqlc_tsdb);
 }
 
 SQLRETURN stmt_exec_direct(stmt_t *stmt, SQLCHAR *StatementText, SQLINTEGER TextLength)
@@ -4792,13 +4804,14 @@ SQLRETURN stmt_exec_direct(stmt_t *stmt, SQLCHAR *StatementText, SQLINTEGER Text
   sqls_parser_param_release(&param);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-  sr = _stmt_get_next_sql(stmt, &sql, &len);
+  sqlc_tsdb_t sqlc_tsdb;
+  sr = _stmt_get_next_sql(stmt, &sqlc_tsdb);
   if (sr == SQL_NO_DATA) {
     stmt_append_err_format(stmt, "HY000", 0, "General error:empty sql statement");
     return SQL_ERROR;
   }
 
-  return _stmt_exec_direct_with_simple_sql(stmt, sql, len);
+  return _stmt_exec_direct_with_simple_sql(stmt, &sqlc_tsdb);
 }
 
 static SQLRETURN _stmt_set_row_array_size(stmt_t *stmt, SQLULEN row_array_size)
@@ -4991,7 +5004,7 @@ SQLRETURN stmt_tables(stmt_t *stmt,
   _stmt_close_result(stmt);
   _stmt_reset_params(stmt);
   mem_reset(&stmt->raw);
-  mem_reset(&stmt->sql);
+  mem_reset(&stmt->tsdb_sql);
 
   sr = tables_open(&stmt->tables, CatalogName, NameLength1, SchemaName, NameLength2, TableName, NameLength3, TableType, NameLength4);
   if (sr != SQL_SUCCESS) {
@@ -5168,13 +5181,11 @@ SQLRETURN stmt_more_results(
   }
 
   if (stmt->base == &stmt->tsdb_stmt.base) {
-    const char *sql = NULL;
-    size_t len = 0;
-
-    sr = _stmt_get_next_sql(stmt, &sql, &len);
+    sqlc_tsdb_t sqlc_tsdb;
+    sr = _stmt_get_next_sql(stmt, &sqlc_tsdb);
     if (sr == SQL_NO_DATA) return SQL_NO_DATA;
 
-    return _stmt_exec_direct_with_simple_sql(stmt, sql, len);
+    return _stmt_exec_direct_with_simple_sql(stmt, &sqlc_tsdb);
   }
 
   return SQL_NO_DATA;
@@ -5192,7 +5203,7 @@ SQLRETURN stmt_columns(
   _stmt_close_result(stmt);
   _stmt_reset_params(stmt);
   mem_reset(&stmt->raw);
-  mem_reset(&stmt->sql);
+  mem_reset(&stmt->tsdb_sql);
 
   if (CatalogName && NameLength1 == SQL_NTS) NameLength1 = (SQLSMALLINT)strlen((const char*)CatalogName);
   if (SchemaName && NameLength2 == SQL_NTS) NameLength2 = (SQLSMALLINT)strlen((const char*)SchemaName);
@@ -5359,7 +5370,7 @@ SQLRETURN stmt_primary_keys(
   _stmt_close_result(stmt);
   _stmt_reset_params(stmt);
   mem_reset(&stmt->raw);
-  mem_reset(&stmt->sql);
+  mem_reset(&stmt->tsdb_sql);
 
   if (CatalogName && NameLength1 == SQL_NTS) NameLength1 = (SQLSMALLINT)strlen((const char*)CatalogName);
   if (SchemaName && NameLength2 == SQL_NTS) NameLength2 = (SQLSMALLINT)strlen((const char*)SchemaName);

@@ -22,7 +22,7 @@
 # SOFTWARE.
 ###############################################################################
 
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.0...3.21)
 project(taos_odbc)
 
 set(TODBC_VERSION 0.1)

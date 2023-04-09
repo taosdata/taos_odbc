@@ -234,9 +234,9 @@ void typesinfo_release(typesinfo_t *typesinfo)
   typesinfo->owner = NULL;
 }
 
-static SQLRETURN _query(stmt_base_t *base, const char *sql)
+static SQLRETURN _query(stmt_base_t *base, const sqlc_tsdb_t *sqlc_tsdb)
 {
-  (void)sql;
+  (void)sqlc_tsdb;
 
   typesinfo_t *typesinfo = (typesinfo_t*)base;
   (void)typesinfo;
@@ -252,7 +252,7 @@ static SQLRETURN _execute(stmt_base_t *base)
   return SQL_ERROR;
 }
 
-static SQLRETURN _get_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
+static SQLRETURN _get_col_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
 {
   (void)fields;
   (void)nr;
@@ -504,7 +504,7 @@ void typesinfo_init(typesinfo_t *typesinfo, stmt_t *stmt)
   typesinfo->owner = stmt;
   typesinfo->base.query                        = _query;
   typesinfo->base.execute                      = _execute;
-  typesinfo->base.get_fields                   = _get_fields;
+  typesinfo->base.get_col_fields               = _get_col_fields;
   typesinfo->base.fetch_row                    = _fetch_row;
   typesinfo->base.more_results                 = _more_results;
   typesinfo->base.describe_param               = _describe_param;

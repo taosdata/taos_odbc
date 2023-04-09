@@ -150,7 +150,9 @@ void columns_reset(columns_t *columns)
   if (!columns) return;
 
   tsdb_stmt_reset(&columns->desc);
+  mem_reset(&columns->tsdb_desc);
   tsdb_stmt_reset(&columns->query);
+  mem_reset(&columns->tsdb_query);
   tables_reset(&columns->tables);
 
   mem_reset(&columns->column_cache);
@@ -166,7 +168,9 @@ void columns_release(columns_t *columns)
   columns_reset(columns);
 
   tsdb_stmt_release(&columns->desc);
+  mem_release(&columns->tsdb_desc);
   tsdb_stmt_release(&columns->query);
+  mem_release(&columns->tsdb_query);
   tables_release(&columns->tables);
 
   mem_release(&columns->column_cache);
@@ -176,9 +180,9 @@ void columns_release(columns_t *columns)
   columns->owner = NULL;
 }
 
-static SQLRETURN _query(stmt_base_t *base, const char *sql)
+static SQLRETURN _query(stmt_base_t *base, const sqlc_tsdb_t *sqlc_tsdb)
 {
-  (void)sql;
+  (void)sqlc_tsdb;
 
   columns_t *columns = (columns_t*)base;
   (void)columns;
@@ -194,7 +198,7 @@ static SQLRETURN _execute(stmt_base_t *base)
   return SQL_ERROR;
 }
 
-static SQLRETURN _get_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
+static SQLRETURN _get_col_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
 {
   (void)fields;
   (void)nr;
@@ -208,6 +212,7 @@ static SQLRETURN _get_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
 static SQLRETURN _fetch_and_desc_next_table(columns_t *columns)
 {
   SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
 
   sr = columns->tables.base.fetch_row(&columns->tables.base);
   if (sr == SQL_NO_DATA) return SQL_NO_DATA;
@@ -240,7 +245,28 @@ static SQLRETURN _fetch_and_desc_next_table(columns_t *columns)
   tsdb_stmt_reset(&columns->query);
   tsdb_stmt_init(&columns->query, columns->owner);
 
-  sr = tsdb_stmt_query(&columns->desc, sql);
+  sqlc_tsdb_t sqlc_tsdb = {
+    .sqlc          = sql,
+    .sqlc_bytes    = n,
+  };
+
+  stmt_t *stmt = columns->owner;
+
+  charset_conv_t *cnv = NULL;
+  sr = conn_get_cnv_sql_c_char_to_tsdb_varchar(stmt->conn, &cnv);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  mem_reset(&columns->tsdb_desc);
+  r = mem_conv(&columns->tsdb_desc, cnv->cnv, sqlc_tsdb.sqlc, sqlc_tsdb.sqlc_bytes);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+
+  sqlc_tsdb.tsdb        = (const char*)columns->tsdb_desc.base;
+  sqlc_tsdb.tsdb_bytes  = columns->tsdb_desc.nr;
+
+  sr = tsdb_stmt_query(&columns->desc, &sqlc_tsdb);
   if (sr != SQL_SUCCESS) {
     stmt_append_err(columns->owner, "HY000", 0, "General error:internal logic error or buffer too small");
     return SQL_ERROR;
@@ -254,7 +280,22 @@ static SQLRETURN _fetch_and_desc_next_table(columns_t *columns)
     return SQL_ERROR;
   }
 
-  sr = tsdb_stmt_query(&columns->query, sql);
+  sqlc_tsdb.sqlc        = sql;
+  sqlc_tsdb.sqlc_bytes  = n;
+  sqlc_tsdb.tsdb        = NULL;
+  sqlc_tsdb.tsdb_bytes  = 0;
+
+  mem_reset(&columns->tsdb_query);
+  r = mem_conv(&columns->tsdb_query, cnv->cnv, sqlc_tsdb.sqlc, sqlc_tsdb.sqlc_bytes);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+
+  sqlc_tsdb.tsdb        = (const char*)columns->tsdb_query.base;
+  sqlc_tsdb.tsdb_bytes  = columns->tsdb_query.nr;
+
+  sr = tsdb_stmt_query(&columns->query, &sqlc_tsdb);
   if (sr != SQL_SUCCESS) {
     stmt_append_err(columns->owner, "HY000", 0, "General error:internal logic error or buffer too small");
     return SQL_ERROR;
@@ -710,7 +751,7 @@ void columns_init(columns_t *columns, stmt_t *stmt)
   tsdb_stmt_init(&columns->desc, stmt);
   columns->base.query                        = _query;
   columns->base.execute                      = _execute;
-  columns->base.get_fields                   = _get_fields;
+  columns->base.get_col_fields               = _get_col_fields;
   columns->base.fetch_row                    = _fetch_row;
   columns->base.more_results                 = _more_results;
   columns->base.describe_param               = _describe_param;

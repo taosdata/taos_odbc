@@ -27,6 +27,7 @@
 #include "primarykeys.h"
 #include "tables.h"
 
+#include "conn.h"
 #include "errs.h"
 #include "log.h"
 #include "taos_helpers.h"
@@ -88,6 +89,7 @@ void primarykeys_reset(primarykeys_t *primarykeys)
   if (!primarykeys) return;
 
   tsdb_stmt_reset(&primarykeys->desc);
+  mem_reset(&primarykeys->tsdb_desc);
   tables_reset(&primarykeys->tables);
 
   primarykeys_args_reset(&primarykeys->primarykeys_args);
@@ -101,6 +103,7 @@ void primarykeys_release(primarykeys_t *primarykeys)
   primarykeys_reset(primarykeys);
 
   tsdb_stmt_release(&primarykeys->desc);
+  mem_release(&primarykeys->tsdb_desc);
   tables_release(&primarykeys->tables);
 
   primarykeys_args_release(&primarykeys->primarykeys_args);
@@ -108,9 +111,9 @@ void primarykeys_release(primarykeys_t *primarykeys)
   primarykeys->owner = NULL;
 }
 
-static SQLRETURN _query(stmt_base_t *base, const char *sql)
+static SQLRETURN _query(stmt_base_t *base, const sqlc_tsdb_t *sqlc_tsdb)
 {
-  (void)sql;
+  (void)sqlc_tsdb;
 
   primarykeys_t *primarykeys = (primarykeys_t*)base;
   (void)primarykeys;
@@ -126,7 +129,7 @@ static SQLRETURN _execute(stmt_base_t *base)
   return SQL_ERROR;
 }
 
-static SQLRETURN _get_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
+static SQLRETURN _get_col_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
 {
   (void)fields;
   (void)nr;
@@ -140,6 +143,7 @@ static SQLRETURN _get_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
 static SQLRETURN _fetch_and_desc_next_table(primarykeys_t *primarykeys)
 {
   SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
 
   sr = primarykeys->tables.base.fetch_row(&primarykeys->tables.base);
   if (sr == SQL_NO_DATA) return SQL_NO_DATA;
@@ -163,10 +167,31 @@ static SQLRETURN _fetch_and_desc_next_table(primarykeys_t *primarykeys)
     return SQL_ERROR;
   }
 
+  sqlc_tsdb_t sqlc_tsdb = {
+    .sqlc          = sql,
+    .sqlc_bytes    = n,
+  };
+
+  stmt_t *stmt = primarykeys->owner;
+
+  charset_conv_t *cnv = NULL;
+  sr = conn_get_cnv_sql_c_char_to_tsdb_varchar(stmt->conn, &cnv);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  mem_reset(&primarykeys->tsdb_desc);
+  r = mem_conv(&primarykeys->tsdb_desc, cnv->cnv, sqlc_tsdb.sqlc, sqlc_tsdb.sqlc_bytes);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+
   tsdb_stmt_reset(&primarykeys->desc);
   tsdb_stmt_init(&primarykeys->desc, primarykeys->owner);
 
-  sr = tsdb_stmt_query(&primarykeys->desc, sql);
+  sqlc_tsdb.tsdb          = (const char*)primarykeys->tsdb_desc.base;
+  sqlc_tsdb.tsdb_bytes    = primarykeys->tsdb_desc.nr;
+
+  sr = tsdb_stmt_query(&primarykeys->desc, &sqlc_tsdb);
   if (sr != SQL_SUCCESS) {
     stmt_append_err(primarykeys->owner, "HY000", 0, "General error:internal logic error or buffer too small");
     return SQL_ERROR;
@@ -422,7 +447,7 @@ void primarykeys_init(primarykeys_t *primarykeys, stmt_t *stmt)
   tsdb_stmt_init(&primarykeys->desc, stmt);
   primarykeys->base.query                        = _query;
   primarykeys->base.execute                      = _execute;
-  primarykeys->base.get_fields                   = _get_fields;
+  primarykeys->base.get_col_fields               = _get_col_fields;
   primarykeys->base.fetch_row                    = _fetch_row;
   primarykeys->base.more_results                 = _more_results;
   primarykeys->base.describe_param               = _describe_param;

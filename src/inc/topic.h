@@ -43,8 +43,9 @@ void topic_release(topic_t *topic) FA_HIDDEN;
 void topic_init(topic_t *topic, stmt_t *stmt) FA_HIDDEN;
 
 SQLRETURN topic_open(
-    topic_t       *topic,
-    topic_cfg_t   *cfg) FA_HIDDEN;
+    topic_t             *topic,
+    const sqlc_tsdb_t   *sql,
+    topic_cfg_t         *cfg) FA_HIDDEN;
 
 EXTERN_C_END
 

@@ -78,8 +78,8 @@ static void _conn_release_information_schema_ins_configs(conn_t *conn)
   TOD_SAFE_FREE(conn->s_timezone);
   TOD_SAFE_FREE(conn->s_locale);
   TOD_SAFE_FREE(conn->s_charset);
-  TOD_SAFE_FREE(conn->sql_c_char_charset);
-  TOD_SAFE_FREE(conn->tsdb_varchar_charset);
+  conn->sqlc_charset[0] = '\0';
+  conn->tsdb_charset[0] = '\0';
 }
 
 static void _conn_release_iconvs(conn_t *conn)
@@ -300,40 +300,36 @@ static int _conn_setup_iconvs(conn_t *conn)
   _conn_release_iconvs(conn);
   // FIXME: we know conn->s_charset is actually server-side config rather than client-side
   const char *tsdb_charset = conn->s_charset;
-  const char *sql_c_charset = tod_get_sql_c_charset();
-  if (!sql_c_charset) {
+  const char *sqlc_charset = tod_get_sqlc_charset();
+  if (!sqlc_charset) {
     conn_append_err_format(conn, "HY000", 0, "General error:current locale_or_ACP [%s]:not implemented yet", tod_get_locale_or_ACP());
     return -1;
   }
 
 #ifdef FAKE_TAOS            /* { */
-  sql_c_charset = "GB18030";
+  sqlc_charset = "GB18030";
   tsdb_charset = "UTF-8";
 #endif                      /* } */
-  conn->sql_c_char_charset = strdup(sql_c_charset);
-  conn->tsdb_varchar_charset = strdup(tsdb_charset);
-  if (!conn->sql_c_char_charset || !conn->tsdb_varchar_charset) {
-    conn_oom(conn);
-    return -1;
-  }
+  snprintf(conn->sqlc_charset, sizeof(conn->sqlc_charset), "%s", sqlc_charset);
+  snprintf(conn->tsdb_charset, sizeof(conn->tsdb_charset), "%s", tsdb_charset);
 
-  sql_c_charset = conn->sql_c_char_charset;
-  tsdb_charset = conn->tsdb_varchar_charset;
+  sqlc_charset = conn->sqlc_charset;
+  tsdb_charset = conn->tsdb_charset;
 
   const char *from, *to;
   charset_conv_t *cnv;
   do {
     do {
       cnv = &conn->_cnv_sql_c_char_to_tsdb_varchar;
-      from = sql_c_charset; to = tsdb_charset;
+      from = sqlc_charset; to = tsdb_charset;
       if (charset_conv_reset(cnv, from, to)) break;
 
       cnv = &conn->_cnv_sql_c_char_to_sql_c_wchar;
-      from = sql_c_charset; to = "UCS-2LE";
+      from = sqlc_charset; to = "UCS-2LE";
       if (charset_conv_reset(cnv, from, to)) break;
 
       cnv = &conn->_cnv_tsdb_varchar_to_sql_c_char;
-      from = tsdb_charset; to = sql_c_charset;
+      from = tsdb_charset; to = sqlc_charset;
       if (charset_conv_reset(cnv, from, to)) break;
 
       cnv = &conn->_cnv_tsdb_varchar_to_sql_c_wchar;
@@ -346,7 +342,7 @@ static int _conn_setup_iconvs(conn_t *conn)
     _conn_release_iconvs(conn);
     conn_append_err_format(conn, "HY000", 0,
         "General error:conversion between current locale_or_ACP [%s], charset %s <=> charset [%s] not supported yet",
-        tod_get_locale_or_ACP(), sql_c_charset, tsdb_charset);
+        tod_get_locale_or_ACP(), sqlc_charset, tsdb_charset);
     return -1;
   } while (0);
 
@@ -1245,4 +1241,14 @@ SQLRETURN conn_get_cnv_sql_c_char_to_sql_c_wchar(conn_t *conn, charset_conv_t **
 {
   *cnv = &conn->_cnv_sql_c_char_to_sql_c_wchar;
   return SQL_SUCCESS;
+}
+
+const char* conn_get_sqlc_charset(conn_t *conn)
+{
+  return conn->sqlc_charset;
+}
+
+const char* conn_get_tsdb_charset(conn_t *conn)
+{
+  return conn->tsdb_charset;
 }

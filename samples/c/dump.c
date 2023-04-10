@@ -56,6 +56,13 @@ static int execute_sqls(SQLHANDLE hstmt, const _sql_t *sqls, size_t nr)
   return 0;
 }
 
+static int _dummy(SQLSMALLINT HandleType, SQLHANDLE Handle)
+{
+  (void)HandleType;
+  (void)Handle;
+  return SQL_SUCCESS;
+}
+
 static int _dump_col_info(SQLHANDLE hstmt, SQLUSMALLINT ColumnNumber)
 {
   SQLRETURN sr = SQL_SUCCESS;
@@ -593,6 +600,7 @@ static struct {
   dump_f                func;
   const char           *name;
 } _dumps[] = {
+  RECORD(_dummy),
   RECORD(_dump_stmt_col_info),
   RECORD(_dump_stmt_tables),
   RECORD(_dump_stmt_describe_col),
@@ -626,12 +634,16 @@ static int _driver_connect(SQLHANDLE hconn, const char *connstr)
 {
   SQLRETURN sr = SQL_SUCCESS;
 
-  sr = CALL_SQLDriverConnect(hconn, NULL, (SQLCHAR*)connstr, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT);
+  char buf[1024];
+  buf[0] = '\0';
+  SQLSMALLINT StringLength = 0;
+  sr = CALL_SQLDriverConnect(hconn, NULL, (SQLCHAR*)connstr, SQL_NTS, (SQLCHAR*)buf, sizeof(buf), &StringLength, SQL_DRIVER_NOPROMPT);
   if (FAILED(sr)) {
     E("driver_connect [connstr:%s] failed", connstr);
     return -1;
   }
 
+  DUMP("connection str:%s", buf);
   return 0;
 }
 

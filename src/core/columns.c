@@ -31,6 +31,7 @@
 #include "log.h"
 #include "tables.h"
 #include "taos_helpers.h"
+#include "tls.h"
 #include "tsdb.h"
 
 #include <errno.h>
@@ -252,9 +253,13 @@ static SQLRETURN _fetch_and_desc_next_table(columns_t *columns)
 
   stmt_t *stmt = columns->owner;
 
-  charset_conv_t *cnv = NULL;
-  sr = conn_get_cnv_sql_c_char_to_tsdb_varchar(stmt->conn, &cnv);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  const char *fromcode = conn_get_sqlc_charset(stmt->conn);
+  const char *tocode   = conn_get_tsdb_charset(stmt->conn);
+  charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
+  if (!cnv) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
+    return SQL_ERROR;
+  }
 
   mem_reset(&columns->tsdb_desc);
   r = mem_conv(&columns->tsdb_desc, cnv->cnv, sqlc_tsdb.sqlc, sqlc_tsdb.sqlc_bytes);
@@ -310,10 +315,9 @@ static SQLRETURN _fetch_row_with_tsdb(stmt_base_t *base, tsdb_data_t *tsdb)
   int r = 0;
 
   columns_t *columns = (columns_t*)base;
+  stmt_t *stmt = columns->owner;
 
-  charset_conv_t *cnv = NULL;
-  sr = conn_get_cnv_tsdb_varchar_to_sql_c_wchar(columns->owner->conn, &cnv);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  const char *fromcode = conn_get_tsdb_charset(stmt->conn);
 
 again:
 
@@ -330,12 +334,18 @@ again:
     sr = columns->desc.base.get_data(&columns->desc.base, 1, tsdb);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-    r = wildexec_n_ex(columns->columns_args.column_pattern, cnv->from, tsdb->str.str, tsdb->str.len);
-
+    str_t str = {
+      .charset              = fromcode,
+      .str                  = tsdb->str.str,
+      .bytes                = tsdb->str.len,
+    };
+    int matched = 0;
+    r = wildexec(columns->columns_args.column_pattern, &str, &matched);
     if (r) {
-      // FIXME: out of memory
-      goto again;
+      stmt_append_err(columns->owner, "HY000", 0, "General error:wild matching failed");
+      return SQL_ERROR;
     }
+    if (!matched) goto again;
   }
 
   return SQL_SUCCESS;
@@ -764,7 +774,7 @@ void columns_init(columns_t *columns, stmt_t *stmt)
 }
 
 SQLRETURN columns_open(
-    columns_t      *columns,
+    columns_t     *columns,
     SQLCHAR       *CatalogName,
     SQLSMALLINT    NameLength1,
     SQLCHAR       *SchemaName,
@@ -783,16 +793,27 @@ SQLRETURN columns_open(
   if (TableName && NameLength3 == SQL_NTS)   NameLength3 = (SQLSMALLINT)strlen((const char*)TableName);
   if (ColumnName && NameLength4 == SQL_NTS)  NameLength4 = (SQLSMALLINT)strlen((const char*)ColumnName);
 
-  charset_conv_t *cnv = NULL;
-  sr = conn_get_cnv_sql_c_char_to_sql_c_wchar(columns->owner->conn, &cnv);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  stmt_t *stmt = columns->owner;
+
+  const char *fromcode = conn_get_sqlc_charset(stmt->conn);
+  const char *tocode   = "UCS-2LE";
+  charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
+  if (!cnv) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
+    return SQL_ERROR;
+  }
 
   if (ColumnName) {
     if (mem_conv(&columns->column_cache, cnv->cnv, (const char*)ColumnName, NameLength4)) {
       stmt_oom(columns->owner);
       return SQL_ERROR;
     }
-    if (wildcomp_n_ex(&columns->columns_args.column_pattern, cnv->from, (const char*)ColumnName, NameLength4)) {
+    str_t str = {
+      .charset              = cnv->from,
+      .str                  = (const char*)ColumnName,
+      .bytes                = NameLength4,
+    };
+    if (wildcomp(&columns->columns_args.column_pattern, &str)) {
       stmt_append_err_format(columns->owner, "HY000", 0,
           "General error:wild compile failed for ColumnName[%.*s]", (int)NameLength4, (const char*)ColumnName);
       return SQL_ERROR;

@@ -37,6 +37,13 @@ EXTERN_C_BEGIN
 
 #define TOD_SAFE_FREE(_p) if (_p) { free(_p); _p = NULL; }
 
+typedef struct str_s                    str_t;
+struct str_s {
+  const char           *charset; // NOTE: no ownership
+  const char           *str;     // NOTE: no ownership
+  size_t                bytes;
+};
+
 typedef struct fixed_buf_s           fixed_buf_t;
 struct fixed_buf_s {
   char              *buf;
@@ -85,7 +92,7 @@ void mem_reset(mem_t *mem) FA_HIDDEN;
 int mem_expand(mem_t *mem, size_t delta) FA_HIDDEN;
 int mem_keep(mem_t *mem, size_t cap) FA_HIDDEN;
 int mem_conv(mem_t *mem, iconv_t cnv, const char *src, size_t len) FA_HIDDEN;
-int mem_conv_ex(mem_t *mem, const char *src_charset, const char *src, size_t len, const char *dst_charset) FA_HIDDEN;
+int mem_conv_ex(mem_t *mem, const str_t *src, const char *dst_charset) FA_HIDDEN;
 int mem_copy(mem_t *mem, const char *src) FA_HIDDEN;
 
 typedef struct buf_s               buf_t;
@@ -107,23 +114,11 @@ void buffers_release(buffers_t *buffers) FA_HIDDEN;
 void* buffers_realloc(buffers_t *buffers, size_t idx, size_t sz) FA_HIDDEN;
 
 typedef struct wildex_s           wildex_t;
-int wildcomp_n_ex(wildex_t **pwild, const char *charset, const char *wildex, size_t len) FA_HIDDEN;
-static inline int wildcomp_ex(wildex_t **pwild, const char *charset, const char *wildex)
-{
-  return wildcomp_n_ex(pwild, charset, wildex, wildex ? strlen(wildex) : 0);
-}
-int wildexec_n_ex(wildex_t *wild, const char *charset, const char *str, size_t len) FA_HIDDEN;
-static inline int wildexec_ex(wildex_t *wild, const char *charset, const char *str)
-{
-  return wildexec_n_ex(wild, charset, str, strlen(str));
-}
+int wildcomp(wildex_t **pwild, const str_t *wildex) FA_HIDDEN;
+int wildexec(wildex_t *wild, const str_t *str, int *matched) FA_HIDDEN;
 
 void wildfree(wildex_t *wild) FA_HIDDEN;
 
-#define wildcomp_n(pwild, wildex, len)       wildcomp_n_ex(pwild, NULL, wildex, len)
-#define wildcomp(pwild, wildex)              wildcomp_ex(pwild, NULL, wildex)
-#define wildexec_n(pwild, str, len)          wildexec_n_ex(pwild, NULL, str, len)
-#define wildexec(wild, str)                  wildexec_ex(wild, NULL, str)
 #define WILD_SAFE_FREE(wild)                 if (wild) { wildfree(wild); wild = NULL; }
 
 int table_type_parse(const char *table_type, int *table, int *stable) FA_HIDDEN;
@@ -196,6 +191,12 @@ int kvs_append(kvs_t *kvs, const char *k, size_t kn, const char *v, size_t vn) F
 
 // 1-based row/col
 void locate_str(const char *s, int row0, int col0, int row1, int col1, const char **start, const char **end) FA_HIDDEN;
+
+typedef struct hash_table_s             hash_table_t;
+hash_table_t* hash_table_new(void (*release_cb)(hash_table_t *hash_table, void *val, void *arg), void *arg) FA_HIDDEN;
+void hash_table_release(hash_table_t *hash_table) FA_HIDDEN;
+int hash_table_set(hash_table_t *hash_table, const char *key, void *val) FA_HIDDEN;
+void hash_table_get(hash_table_t *hash_table, const char *key, void **val) FA_HIDDEN;
 
 EXTERN_C_END
 

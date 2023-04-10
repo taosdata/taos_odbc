@@ -31,6 +31,7 @@
 #include "errs.h"
 #include "log.h"
 #include "taos_helpers.h"
+#include "tls.h"
 #include "tsdb.h"
 
 #include <errno.h>
@@ -174,9 +175,13 @@ static SQLRETURN _fetch_and_desc_next_table(primarykeys_t *primarykeys)
 
   stmt_t *stmt = primarykeys->owner;
 
-  charset_conv_t *cnv = NULL;
-  sr = conn_get_cnv_sql_c_char_to_tsdb_varchar(stmt->conn, &cnv);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  const char *fromcode = conn_get_sqlc_charset(stmt->conn);
+  const char *tocode   = conn_get_tsdb_charset(stmt->conn);
+  charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
+  if (!cnv) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
+    return SQL_ERROR;
+  }
 
   mem_reset(&primarykeys->tsdb_desc);
   r = mem_conv(&primarykeys->tsdb_desc, cnv->cnv, sqlc_tsdb.sqlc, sqlc_tsdb.sqlc_bytes);

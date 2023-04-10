@@ -132,11 +132,6 @@ SQLRETURN conn_complete_async(
     conn_t      *conn,
     RETCODE     *AsyncRetCodePtr) FA_HIDDEN;
 
-SQLRETURN conn_get_cnv_tsdb_varchar_to_sql_c_wchar(conn_t *conn, charset_conv_t **cnv) FA_HIDDEN;
-SQLRETURN conn_get_cnv_tsdb_varchar_to_sql_c_char(conn_t *conn, charset_conv_t **cnv) FA_HIDDEN;
-SQLRETURN conn_get_cnv_sql_c_char_to_tsdb_varchar(conn_t *conn, charset_conv_t **cnv) FA_HIDDEN;
-SQLRETURN conn_get_cnv_sql_c_char_to_sql_c_wchar(conn_t *conn, charset_conv_t **cnv) FA_HIDDEN;
-
 const char* conn_get_sqlc_charset(conn_t *conn) FA_HIDDEN;
 const char* conn_get_tsdb_charset(conn_t *conn) FA_HIDDEN;
 

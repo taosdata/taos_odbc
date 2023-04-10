@@ -73,8 +73,8 @@ struct global_s {
   unsigned int  taos_odbc_debug_flex;
   unsigned int  taos_odbc_debug_bison;
 
-  char          locale_or_ACP[64];
-  char          sqlc_charset[64];
+  char              locale_or_ACP[64];
+  charset_name_t    sqlc_charset;
 };
 
 static global_t _global;

@@ -25,6 +25,7 @@
 #ifndef _typedefs_h_
 #define _typedefs_h_
 
+typedef char charset_name_t[64];
 typedef struct charset_conv_s           charset_conv_t;
 typedef struct charset_conv_mgr_s       charset_conv_mgr_t;
 
@@ -66,8 +67,6 @@ typedef struct sqlc_tsdb_s              sqlc_tsdb_t;
 typedef struct sqlc_data_s              sqlc_data_t;
 typedef struct sqls_s                   sqls_t;
 typedef struct sqls_parser_param_s      sqls_parser_param_t;
-
-typedef struct str_s                    str_t;
 
 typedef struct tables_args_s            tables_args_t;
 typedef struct tables_s                 tables_t;

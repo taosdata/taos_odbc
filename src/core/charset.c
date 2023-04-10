@@ -79,56 +79,48 @@ void charset_conv_release(charset_conv_t *cnv)
 
 int charset_conv_reset(charset_conv_t *cnv, const char *from, const char *to)
 {
-  charset_conv_release(cnv);
-
-  do {
-    if (1 || tod_strcasecmp(from, to)) {
-      cnv->cnv = iconv_open(to, from);
-      if (cnv->cnv == (iconv_t)-1) return -1;
-      if (cnv->cnv == NULL) return -1;
-    }
-    snprintf(cnv->from, sizeof(cnv->from), "%s", from);
-    snprintf(cnv->to, sizeof(cnv->to), "%s", to);
+  if ((cnv->from == from || tod_strcasecmp(cnv->from, from) == 0) &&
+      (cnv->to == to || tod_strcasecmp(cnv->to, to) == 0))
+  {
     return 0;
-  } while (0);
+  }
 
   charset_conv_release(cnv);
-  return -1;
+
+  cnv->cnv = iconv_open(to, from);
+  if (cnv->cnv == (iconv_t)-1) return -1;
+  if (cnv->cnv == NULL) return -1;
+
+  snprintf(cnv->from, sizeof(cnv->from), "%s", from);
+  snprintf(cnv->to, sizeof(cnv->to), "%s", to);
+  return 0;
 }
 
 void charset_conv_mgr_release(charset_conv_mgr_t *mgr)
 {
-  charset_conv_t *p, *n;
-  tod_list_for_each_entry_safe(p, n, &mgr->convs, charset_conv_t, node) {
-    tod_list_del(&p->node);
-    charset_conv_release(p);
-    free(p);
+  if (mgr->convs) {
+    hash_table_release(mgr->convs);
+    free(mgr->convs);
+    mgr->convs = NULL;
   }
 }
 
 charset_conv_t* charset_conv_mgr_get_charset_conv(charset_conv_mgr_t *mgr, const char *fromcode, const char *tocode)
 {
-  charset_conv_t *p;
-  tod_list_for_each_entry(p, &mgr->convs, charset_conv_t, node) {
-    if (tod_strcasecmp(p->from, fromcode)) continue;
-    if (tod_strcasecmp(p->to, tocode)) continue;
-    return p;
+  char key[256]; // NOTE: big enough?
+  snprintf(key, sizeof(key), "%s,%s", fromcode, tocode);
+  void *val = NULL;
+  hash_table_get(mgr->convs, key, &val);
+  if (val) return (charset_conv_t*)val;
+  charset_conv_t *conv = (charset_conv_t*)calloc(1, sizeof(*conv));
+  if (!conv) return NULL;
+  int r = charset_conv_reset(conv, fromcode, tocode);
+  if (r == 0) {
+    r = hash_table_set(mgr->convs, key, conv);
+    if (r == 0) return conv;
   }
-
-  charset_conv_t *cnv = (charset_conv_t*)calloc(1, sizeof(*cnv));
-  if (!cnv) return NULL;
-  cnv->cnv = (iconv_t)-1;
-  do {
-    int r = charset_conv_reset(cnv, fromcode, tocode);
-    if (r) break;
-
-    tod_list_add_tail(&cnv->node, &mgr->convs);
-
-    return cnv;
-  } while (0);
-
-  charset_conv_release(cnv);
-  free(cnv);
+  charset_conv_release(conv);
+  free(conv);
   return NULL;
 }
 

@@ -26,6 +26,7 @@
 #include "utils.h"
 
 #include "charset.h"
+#include "list.h"
 #include "tls.h"
 
 #include <ctype.h>
@@ -177,34 +178,13 @@ again:
   return 0;
 }
 
-static iconv_t _mem_acquire_conv(const char *fromcode, const char *tocode)
+int mem_conv_ex(mem_t *mem, const str_t *src, const char *dst_charset)
 {
-  charset_conv_t *cnv = tls_get_charset_conv(fromcode, tocode);
-  if (!cnv) return (iconv_t)0;
-  return charset_conv_get(cnv);
-}
+  charset_conv_t *cnv = tls_get_charset_conv(src->charset, dst_charset);
+  if (!cnv) return -1;
 
-static void _mem_revoke_conv(iconv_t cnv)
-{
-  (void)cnv;
-}
-
-int mem_conv_ex(mem_t *mem, const char *src_charset, const char *src, size_t len, const char *dst_charset)
-{
-  int r = 0;
-
-  iconv_t cnv = _mem_acquire_conv(src_charset, dst_charset);
-  do {
-    if (cnv == (iconv_t)0) return -1;
-
-    mem_reset(mem);
-    r = mem_conv(mem, cnv, src, len);
-    // reset initial state of `iconv_t`
-    iconv(cnv, NULL, NULL, NULL, NULL);
-  } while (0);
-  _mem_revoke_conv(cnv);
-
-  return r;
+  mem_reset(mem);
+  return mem_conv(mem, charset_conv_get(cnv), src->str, src->bytes);
 }
 
 int mem_copy(mem_t *mem, const char *src)
@@ -277,7 +257,7 @@ void* buffers_realloc(buffers_t *buffers, size_t idx, size_t sz)
   return p;
 }
 
-typedef int (*wild_match_f)(wildex_t *wild, const int32_t *s, size_t nr, size_t inode);
+typedef void (*wild_match_f)(wildex_t *wild, const int32_t *s, size_t nr, size_t inode, int *matched);
 
 typedef struct wildex_node_s             wildex_node_t;
 struct wildex_node_s {
@@ -301,40 +281,42 @@ struct wildex_s {
   size_t                 nr;
 };
 
-static int _wild_exec(wildex_t *wild, const int32_t *s, size_t nr, size_t inode);
-static int _wild_match_all(wildex_t *wild, const int32_t *s, size_t nr, size_t inode);
-static int _wild_match_one(wildex_t *wild, const int32_t *s, size_t nr, size_t inode);
-static int _wild_match_specific(wildex_t *wild, const int32_t *s, size_t nr, size_t inode);
+static void _wild_exec(wildex_t *wild, const int32_t *s, size_t nr, size_t inode, int *matched);
+static void _wild_match_all(wildex_t *wild, const int32_t *s, size_t nr, size_t inode, int *matched);
+static void _wild_match_one(wildex_t *wild, const int32_t *s, size_t nr, size_t inode, int *matched);
+static void _wild_match_specific(wildex_t *wild, const int32_t *s, size_t nr, size_t inode, int *matched);
 
-static int _wild_match_all(wildex_t *wild, const int32_t *s, size_t nr, size_t inode)
+static void _wild_match_all(wildex_t *wild, const int32_t *s, size_t nr, size_t inode, int *matched)
 {
-  int r = 0;
   if (inode + 1 == wild->nr) DW("nr:%zd;inode:%zd: matched", nr, inode);
-  if (inode + 1 == wild->nr) return 0;
+  if (inode + 1 == wild->nr) {
+    *matched = 1;
+    return;
+  }
   const int32_t *p = s;
   const int32_t *end = s + nr;
   while (p<end && *p) {
-    r = _wild_exec(wild, p, end-p, inode + 1);
-    if (r == 0) DW("nr:%zd;inode:%zd: matched", nr, inode);
-    if (r == 0) return 0;
+    _wild_exec(wild, p, end-p, inode + 1, matched);
+    if (*matched) DW("nr:%zd;inode:%zd: matched", nr, inode);
+    if (*matched) return;
     ++p;
   }
   DW("nr:%zd;inode:%zd: unmatched", nr, inode);
-  return -1;
 }
 
-static int _wild_match_one(wildex_t *wild, const int32_t *s, size_t nr, size_t inode)
+static void _wild_match_one(wildex_t *wild, const int32_t *s, size_t nr, size_t inode, int *matched)
 {
   if (!*s) DW("nr:%zd;inode:%zd: unmatched", nr, inode);
-  if (!*s) return -1;
+  if (!*s) return;
+
   wildex_node_t *node = wild->nodes + inode;
   const int32_t *p = s;
   const int32_t *end = s + nr;
   for (size_t i=0; i<node->nr; ++i) {
     if (p == end) DW("nr:%zd;inode:%zd: unmatched", nr, inode);
-    if (p == end) return -1;
+    if (p == end) return;
     if (!*p) DW("nr:%zd;inode:%zd: unmatched", nr, inode);
-    if (!*p) return -1;
+    if (!*p) return;
     ++p;
   }
 
@@ -344,26 +326,30 @@ static int _wild_match_one(wildex_t *wild, const int32_t *s, size_t nr, size_t i
     } else {
       DW("nr:%zd;inode:%zd: matched", nr, inode); 
     }
-    return (p<end) ? -1 : 0;
+    if (p<end) return;
+    *matched = 1;
+    return;
   }
-  return _wild_exec(wild, p, end-p, inode + 1);
+  _wild_exec(wild, p, end-p, inode + 1, matched);
 }
 
-static int _wild_match_specific(wildex_t *wild, const int32_t *s, size_t nr, size_t inode)
+static void _wild_match_specific(wildex_t *wild, const int32_t *s, size_t nr, size_t inode, int *matched)
 {
-  int r = 0;
   wildex_node_t *node = wild->nodes + inode;
   if (nr < node->nr) DW("nr:%zd;inode:%zd;node->nr:%zd: unmatched", nr, inode, node->nr); 
-  if (nr < node->nr) return -1; // FIXME:
-  r = memcmp(s, node->base, node->nr * sizeof(*node->base));
+  if (nr < node->nr) return;
+  int r = memcmp(s, node->base, node->nr * sizeof(*node->base));
   if (r) DW("nr:%zd;inode:%zd;node->nr:%zd: unmatched", nr, inode, node->nr); 
-  if (r) return -1;
+  if (r) return;
 
-  if (inode + 1 == wild->nr) return 0;
+  if (inode + 1 == wild->nr) {
+    *matched = 1;
+    return;
+  }
 
   const int32_t *end = s + nr;
   const int32_t *p = s + node->nr;
-  return _wild_exec(wild, p, end-p, inode + 1);
+  _wild_exec(wild, p, end-p, inode + 1, matched);
 }
 
 static void _wild_release(wildex_t *wild)
@@ -485,28 +471,26 @@ static int _wild_comp(wildex_t *wild)
   return 0;
 }
 
-int wildcomp_n_ex(wildex_t **pwild, const char *charset, const char *wildex, size_t len)
+int wildcomp(wildex_t **pwild, const str_t *wildex)
 {
   int r = 0;
-
-  if (!charset) charset = "UTF-8";
 
   wildex_t *wild = (wildex_t*)calloc(1, sizeof(*wild));
   if (!wild) return -1;
 
   do {
-    wild->ex = strndup(wildex, len);
+    wild->ex = strndup(wildex->str, wildex->bytes);
     if (!wild->ex) break;
 
-    iconv_t ucs4 = iconv_open("UCS-4LE", charset);
+    iconv_t ucs4 = iconv_open("UCS-4LE", wildex->charset);
     if (ucs4 == (iconv_t)-1) break;
-    r = mem_conv(&wild->ex_ucs4, ucs4, wild->ex, len);
+    r = mem_conv(&wild->ex_ucs4, ucs4, wild->ex, strlen(wild->ex));
     iconv_close(ucs4);
     if (r) break;
 
     r = _wild_comp(wild);
     if (r == 0) {
-      DW("%.*s => %zd", (int)len, wildex, wild->nr);
+      DW("%.*s => %zd", (int)wildex->bytes, wildex->str, wild->nr);
       *pwild = wild;
       return 0;
     }
@@ -518,39 +502,41 @@ int wildcomp_n_ex(wildex_t **pwild, const char *charset, const char *wildex, siz
   return -1;
 }
 
-static int _wild_exec(wildex_t *wild, const int32_t *s, size_t nr, size_t inode)
+static void _wild_exec(wildex_t *wild, const int32_t *s, size_t nr, size_t inode, int *matched)
 {
+  *matched = 0;
   if (inode == wild->nr) {
     if (s && nr == 0) DW("nr:%zd;inode:%zd: matched", nr, inode);
-    if (s && nr == 0) return 0;
+    if (s && nr == 0) {
+      *matched = 1;
+      return;
+    }
     DW("nr:%zd;inode:%zd: unmatched", nr, inode);
-    return -1;
+    return;
   }
 
   wildex_node_t *node = wild->nodes + inode;
   wild_match_f match = node->match;
-  return match(wild, s, nr, inode);
+  match(wild, s, nr, inode, matched);
 }
 
-int wildexec_n_ex(wildex_t *wild, const char *charset, const char *str, size_t len)
+int wildexec(wildex_t *wild, const str_t *str, int *matched)
 {
   int r = 0;
 
-  if (!str) return -1;
-
-  if (!charset) charset = "UTF-8";
+  *matched = 0;
 
   mem_t mem = {0};
 
   do {
-    iconv_t ucs4 = iconv_open("UCS-4LE", charset);
+    iconv_t ucs4 = iconv_open("UCS-4LE", str->charset);
     if (ucs4 == (iconv_t)-1) break;
-    r = mem_conv(&mem, ucs4, str, len);
+    r = mem_conv(&mem, ucs4, str->str, str->bytes);
     iconv_close(ucs4);
     if (r) break;
 
     const int32_t *base = (const int32_t*)mem.base;
-    r = _wild_exec(wild, base, mem.nr/sizeof(*base), 0);
+    _wild_exec(wild, base, mem.nr/sizeof(*base), 0, matched);
   } while (0);
 
   mem_release(&mem);
@@ -985,3 +971,151 @@ void locate_str(const char *src, int row0, int col0, int row1, int col1, const c
   *end = s + col1 - 1;
 }
 
+static uint32_t BKDRHash(const char* str, size_t length)
+{
+	uint32_t seed = 131;
+	uint32_t hash = 0;
+
+	for (size_t i = 0; i < length; i++) {
+		hash = (hash * seed) + (*str++);
+	}
+
+	return hash;
+}
+
+typedef struct hash_table_node_s             hash_table_node_t;
+
+struct hash_table_node_s {
+  char                      *key;
+  void                      *val;
+
+  struct tod_list_head       node;
+};
+
+typedef struct hash_table_slot_s             hash_table_slot_t;
+struct hash_table_slot_s {
+  struct tod_list_head       nodes;
+};
+
+struct hash_table_s {
+  void (*release_cb)(hash_table_t *hash_table, void *val, void *arg);
+  void  *arg;
+
+  hash_table_slot_t          slots[17];
+};
+
+
+static int _hash_table_init(hash_table_t *hash_table, void (*release_cb)(hash_table_t *hash_table, void *val, void *arg), void *arg)
+{
+  hash_table->release_cb = release_cb;
+  hash_table->arg        = arg;
+
+  for (size_t i=0; i<sizeof(hash_table->slots)/sizeof(hash_table->slots[0]); ++i) {
+    hash_table_slot_t *slot = hash_table->slots + i;
+    INIT_TOD_LIST_HEAD(&slot->nodes);
+  }
+
+  return 0;
+}
+
+hash_table_t* hash_table_new(void (*release_cb)(hash_table_t *hash_table, void *val, void *arg), void *arg)
+{
+  hash_table_t *hash_table = (hash_table_t*)calloc(1, sizeof(*hash_table));
+  if (!hash_table) return NULL;
+
+  int r = _hash_table_init(hash_table, release_cb, arg);
+  if (r) {
+    hash_table_release(hash_table);
+    free(hash_table);
+    return NULL;
+  }
+
+  return hash_table;
+}
+
+static void _hash_table_release_node(hash_table_t *hash_table, hash_table_node_t *node)
+{
+  if (hash_table->release_cb) {
+    hash_table->release_cb(hash_table, node->val, hash_table->arg);
+    free(node->key);
+  }
+  node->key = NULL;
+  node->val = NULL;
+}
+
+static int _hash_table_change_node(hash_table_t *hash_table, hash_table_node_t *node, const char *key, void *val)
+{
+  char *p = strdup(key);
+  if (!p) return -1;
+  free(node->key);
+  node->key = p;
+  if (hash_table->release_cb) {
+    hash_table->release_cb(hash_table, node->val, hash_table->arg);
+  }
+  node->val = val;
+  return 0;
+}
+
+void hash_table_release(hash_table_t *hash_table)
+{
+  if (!hash_table) return;
+  for (size_t i=0; i<sizeof(hash_table->slots)/sizeof(hash_table->slots[0]); ++i) {
+    hash_table_slot_t *slot = hash_table->slots + i;
+    hash_table_node_t *p, *n;
+    tod_list_for_each_entry_safe(p, n, &slot->nodes, hash_table_node_t, node) {
+      tod_list_del(&p->node);
+      _hash_table_release_node(hash_table, p);
+      free(p);
+    }
+  }
+}
+
+static void _hash_table_get(hash_table_t *hash_table, const char *key, hash_table_slot_t **slot, hash_table_node_t **node)
+{
+  uint32_t key_hash = BKDRHash(key, strlen(key));
+  uint32_t idx = key_hash % (sizeof(hash_table->slots)/sizeof(hash_table->slots[0]));
+  *slot = hash_table->slots + idx;
+
+  hash_table_node_t *p;
+  tod_list_for_each_entry(p, &(*slot)->nodes, hash_table_node_t, node) {
+    if (strcmp(p->key, key)) continue;
+    *node = p;
+    return;
+  }
+}
+
+int hash_table_set(hash_table_t *hash_table, const char *key, void *val)
+{
+  hash_table_slot_t *slot = NULL;
+  hash_table_node_t *node = NULL;
+
+  _hash_table_get(hash_table, key, &slot, &node);
+  if (node) {
+    if (node->val == val) return 0;
+    int r = _hash_table_change_node(hash_table, node, key, val);
+    return r ? -1 : 0;
+  }
+
+  node = (hash_table_node_t*)calloc(1, sizeof(*node));
+  if (!node) return -1;
+  node->key = strdup(key);
+  if (!node->key) {
+    free(node);
+    return -1;
+  }
+  node->val = val;
+
+  tod_list_add_tail(&node->node, &slot->nodes);
+
+  return 0;
+}
+
+void hash_table_get(hash_table_t *hash_table, const char *key, void **val)
+{
+  hash_table_slot_t *slot = NULL;
+  hash_table_node_t *node = NULL;
+
+  _hash_table_get(hash_table, key, &slot, &node);
+
+  *val = node ? node->val : NULL;
+}

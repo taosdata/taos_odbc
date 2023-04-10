@@ -82,15 +82,6 @@ static void _conn_release_information_schema_ins_configs(conn_t *conn)
   conn->tsdb_charset[0] = '\0';
 }
 
-static void _conn_release_iconvs(conn_t *conn)
-{
-  charset_conv_release(&conn->_cnv_tsdb_varchar_to_sql_c_char);
-  charset_conv_release(&conn->_cnv_tsdb_varchar_to_sql_c_wchar);
-
-  charset_conv_release(&conn->_cnv_sql_c_char_to_tsdb_varchar);
-  charset_conv_release(&conn->_cnv_sql_c_char_to_sql_c_wchar);
-}
-
 static void _conn_release(conn_t *conn)
 {
   OA_ILE(conn->taos == NULL);
@@ -104,7 +95,6 @@ static void _conn_release(conn_t *conn)
 
   conn_cfg_release(&conn->cfg);
   _conn_release_information_schema_ins_configs(conn);
-  _conn_release_iconvs(conn);
 
   errs_release(&conn->errs);
 
@@ -297,7 +287,6 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs(conn_t *c
 
 static int _conn_setup_iconvs(conn_t *conn)
 {
-  _conn_release_iconvs(conn);
   // FIXME: we know conn->s_charset is actually server-side config rather than client-side
   const char *tsdb_charset = conn->s_charset;
   const char *sqlc_charset = tod_get_sqlc_charset();
@@ -313,44 +302,7 @@ static int _conn_setup_iconvs(conn_t *conn)
   snprintf(conn->sqlc_charset, sizeof(conn->sqlc_charset), "%s", sqlc_charset);
   snprintf(conn->tsdb_charset, sizeof(conn->tsdb_charset), "%s", tsdb_charset);
 
-  sqlc_charset = conn->sqlc_charset;
-  tsdb_charset = conn->tsdb_charset;
-
-  const char *from, *to;
-  charset_conv_t *cnv;
-  do {
-    do {
-      cnv = &conn->_cnv_sql_c_char_to_tsdb_varchar;
-      from = sqlc_charset; to = tsdb_charset;
-      if (charset_conv_reset(cnv, from, to)) break;
-
-      cnv = &conn->_cnv_sql_c_char_to_sql_c_wchar;
-      from = sqlc_charset; to = "UCS-2LE";
-      if (charset_conv_reset(cnv, from, to)) break;
-
-      cnv = &conn->_cnv_tsdb_varchar_to_sql_c_char;
-      from = tsdb_charset; to = sqlc_charset;
-      if (charset_conv_reset(cnv, from, to)) break;
-
-      cnv = &conn->_cnv_tsdb_varchar_to_sql_c_wchar;
-      from = tsdb_charset; to = "UCS-2LE";
-      if (charset_conv_reset(cnv, from, to)) break;
-
-      return 0;
-    } while (0);
-
-    _conn_release_iconvs(conn);
-    conn_append_err_format(conn, "HY000", 0,
-        "General error:conversion between current locale_or_ACP [%s], charset %s <=> charset [%s] not supported yet",
-        tod_get_locale_or_ACP(), sqlc_charset, tsdb_charset);
-    return -1;
-  } while (0);
-
-  _conn_release_iconvs(conn);
-  conn_append_err_format(conn, "HY000", 0,
-      "General error:conversion between charsets [%s] <=> [%s] not supported yet",
-      from, to);
-  return -1;
+  return 0;
 }
 
 static int _conn_get_timezone_from_res(conn_t *conn, const char *sql, TAOS_RES *res)
@@ -511,7 +463,7 @@ static SQLRETURN _do_conn_connect(conn_t *conn)
         break;
       }
     }
-    if (1) {
+    if (0) {
       struct {
         const char *from;
         const char *to;
@@ -1217,30 +1169,6 @@ SQLRETURN conn_complete_async(
   (void)AsyncRetCodePtr;
   conn_append_err(conn, "HY000", 0, "General error:not supported yet");
   return SQL_ERROR;
-}
-
-SQLRETURN conn_get_cnv_tsdb_varchar_to_sql_c_wchar(conn_t *conn, charset_conv_t **cnv)
-{
-  *cnv = &conn->_cnv_tsdb_varchar_to_sql_c_wchar;
-  return SQL_SUCCESS;
-}
-
-SQLRETURN conn_get_cnv_tsdb_varchar_to_sql_c_char(conn_t *conn, charset_conv_t **cnv)
-{
-  *cnv = &conn->_cnv_tsdb_varchar_to_sql_c_char;
-  return SQL_SUCCESS;
-}
-
-SQLRETURN conn_get_cnv_sql_c_char_to_tsdb_varchar(conn_t *conn, charset_conv_t **cnv)
-{
-  *cnv = &conn->_cnv_sql_c_char_to_tsdb_varchar;
-  return SQL_SUCCESS;
-}
-
-SQLRETURN conn_get_cnv_sql_c_char_to_sql_c_wchar(conn_t *conn, charset_conv_t **cnv)
-{
-  *cnv = &conn->_cnv_sql_c_char_to_sql_c_wchar;
-  return SQL_SUCCESS;
 }
 
 const char* conn_get_sqlc_charset(conn_t *conn)

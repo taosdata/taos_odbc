@@ -413,21 +413,26 @@ static int test_sqls_parser(void)
   return 0;
 }
 
-static int _wildcard_match(const char *charset, const char *ex, const char *str, const int match)
+static int _wildcard_match(const str_t *ex, const str_t *str, const int match)
 {
   int r;
   wildex_t *wild = NULL;
 
-  r = wildcomp_ex(&wild, charset, ex);
+  r = wildcomp(&wild, ex);
   if (r) {
-    E("failed to compile wildcard `%s`", ex);
+    E("failed to compile wildcard `%.*s`", (int)ex->bytes, ex->str);
     return -1;
   }
 
-  r = wildexec_ex(wild, charset, str);
-  if ((!!r) != (!match)) {
-    if (r) E("`%s` does not match by `%s`", str, ex);
-    else   E("`%s` unexpectedly match by `%s`", str, ex);
+  int matched = 0;
+  r = wildexec(wild, str, &matched);
+  if (r) {
+    E("wildcard match failed");
+    return -1;
+  }
+  if ((!matched) != (!match)) {
+    if (!matched) E("`%.*s` does not match by `%.*s`", (int)str->bytes, str->str, (int)ex->bytes, ex->str);
+    else          E("`%.*s` unexpectedly match by `%.*s`", (int)str->bytes, str->str, (int)ex->bytes, ex->str);
     r = -1;
   } else {
     r = 0;
@@ -479,7 +484,17 @@ static int test_wildmatch(void)
   };
 
   for (size_t i=0; i<sizeof(cases)/sizeof(cases[0]); ++i) {
-    r = _wildcard_match(charset, cases[i].pattern, cases[i].content, cases[i].match);
+    str_t pattern = {
+      .charset              = charset,
+      .str                  = cases[i].pattern,
+      .bytes                = strlen(cases[i].pattern),
+    };
+    str_t content = {
+      .charset              = charset,
+      .str                  = cases[i].content,
+      .bytes                = strlen(cases[i].content),
+    };
+    r = _wildcard_match(&pattern, &content, cases[i].match);
     if (r) return -1;
   }
 

@@ -37,6 +37,7 @@
 #include "stmt.h"
 #include "tables.h"
 #include "taos_helpers.h"
+#include "tls.h"
 #include "topic.h"
 #include "tsdb.h"
 #include "typesinfo.h"
@@ -1745,8 +1746,6 @@ static SQLRETURN _stmt_get_data_prepare_ctx(stmt_t *stmt, stmt_get_data_args_t *
 
 static SQLRETURN _stmt_get_data_copy_buf_to_char(stmt_t *stmt, stmt_get_data_args_t *args)
 {
-  SQLRETURN sr = SQL_SUCCESS;
-
   get_data_ctx_t *ctx = &stmt->get_data_ctx;
   tsdb_data_t *tsdb = &ctx->tsdb;
   if (ctx->pos == (const char*)-1) return SQL_NO_DATA;
@@ -1761,9 +1760,13 @@ static SQLRETURN _stmt_get_data_copy_buf_to_char(stmt_t *stmt, stmt_get_data_arg
     return SQL_ERROR;
   }
 
-  charset_conv_t *cnv = NULL;
-  sr = conn_get_cnv_tsdb_varchar_to_sql_c_char(stmt->conn, &cnv);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  const char *fromcode = conn_get_tsdb_charset(stmt->conn);
+  const char *tocode   = conn_get_sqlc_charset(stmt->conn);
+  charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
+  if (!cnv) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
+    return SQL_ERROR;
+  }
 
   const size_t     inbytes             = ctx->nr;
   const size_t     outbytes            = args->BufferLength - 1;
@@ -1805,8 +1808,6 @@ static SQLRETURN _stmt_get_data_copy_buf_to_char(stmt_t *stmt, stmt_get_data_arg
 
 static SQLRETURN _stmt_get_data_copy_buf_to_wchar(stmt_t *stmt, stmt_get_data_args_t *args)
 {
-  SQLRETURN sr = SQL_SUCCESS;
-
   get_data_ctx_t *ctx = &stmt->get_data_ctx;
   tsdb_data_t *tsdb = &ctx->tsdb;
   if (ctx->pos == (const char*)-1) return SQL_NO_DATA;
@@ -1821,9 +1822,13 @@ static SQLRETURN _stmt_get_data_copy_buf_to_wchar(stmt_t *stmt, stmt_get_data_ar
     return SQL_ERROR;
   }
 
-  charset_conv_t *cnv = NULL;
-  sr = conn_get_cnv_tsdb_varchar_to_sql_c_wchar(stmt->conn, &cnv);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  const char *fromcode = conn_get_tsdb_charset(stmt->conn);
+  const char *tocode   = "UCS-2LE";
+  charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
+  if (!cnv) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
+    return SQL_ERROR;
+  }
 
   const size_t     inbytes             = ctx->nr;
   const size_t     outbytes            = args->BufferLength - 2;
@@ -2910,9 +2915,13 @@ SQLRETURN stmt_prepare(stmt_t *stmt,
   if (TextLength == SQL_NTS) len = strlen(sql);
   else                       len = strnlen(sql, TextLength);
 
-  charset_conv_t *cnv = NULL;
-  sr = conn_get_cnv_sql_c_char_to_tsdb_varchar(stmt->conn, &cnv);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  const char *fromcode = conn_get_sqlc_charset(stmt->conn);
+  const char *tocode   = conn_get_tsdb_charset(stmt->conn);
+  charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
+  if (!cnv) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
+    return SQL_ERROR;
+  }
 
   mem_reset(&stmt->tsdb_sql);
   r = mem_conv(&stmt->tsdb_sql, cnv->cnv, sql, len);
@@ -3149,8 +3158,6 @@ struct param_state_s {
 
 static SQLRETURN _stmt_guess_tsdb_params_by_sql_varchar(stmt_t *stmt, param_state_t *param_state)
 {
-  SQLRETURN sr = SQL_SUCCESS;
-
   int i_param                             = param_state->i_param;
   desc_record_t        *APD_record        = param_state->APD_record;
   desc_record_t        *IPD_record        = param_state->IPD_record;
@@ -3158,9 +3165,13 @@ static SQLRETURN _stmt_guess_tsdb_params_by_sql_varchar(stmt_t *stmt, param_stat
 
   SQLSMALLINT ValueType = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
 
-  charset_conv_t *cnv = NULL;
-  sr = conn_get_cnv_sql_c_char_to_tsdb_varchar(stmt->conn, &cnv);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  const char *fromcode = conn_get_sqlc_charset(stmt->conn);
+  const char *tocode   = conn_get_tsdb_charset(stmt->conn);
+  charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
+  if (!cnv) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
+    return SQL_ERROR;
+  }
 
   tsdb_field->name[0] = '?';
   tsdb_field->name[1] = '\0';
@@ -3506,8 +3517,6 @@ static SQLRETURN _stmt_check_tsdb_params(stmt_t *stmt, param_state_t *param_stat
 
 static SQLRETURN _stmt_prepare_param_data_array_from_sql_c_char_to_tsdb_varchar(stmt_t *stmt, param_state_t *param_state)
 {
-  SQLRETURN sr = SQL_SUCCESS;
-
   int nr_paramset_size                    = param_state->nr_paramset_size;
   TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
   tsdb_param_column_t  *param_column      = param_state->param_column;
@@ -3522,10 +3531,6 @@ static SQLRETURN _stmt_prepare_param_data_array_from_sql_c_char_to_tsdb_varchar(
   }
   tsdb_bind->buffer_type = tsdb_field->type;
   tsdb_bind->length = (int32_t*)param_column->mem_length.base;
-
-  charset_conv_t *cnv = NULL;
-  sr = conn_get_cnv_sql_c_char_to_tsdb_varchar(stmt->conn, &cnv);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   tsdb_bind->buffer_length = tsdb_field->bytes - 2;
 
@@ -3560,8 +3565,6 @@ static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_varchar(stmt_t *stmt, pa
 
 static SQLRETURN _stmt_prepare_param_data_array_from_sql_c_char_to_tsdb_nchar(stmt_t *stmt, param_state_t *param_state)
 {
-  SQLRETURN sr = SQL_SUCCESS;
-
   int nr_paramset_size                    = param_state->nr_paramset_size;
   TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
   tsdb_param_column_t  *param_column      = param_state->param_column;
@@ -3577,9 +3580,13 @@ static SQLRETURN _stmt_prepare_param_data_array_from_sql_c_char_to_tsdb_nchar(st
   tsdb_bind->buffer_type = tsdb_field->type;
   tsdb_bind->length = (int32_t*)param_column->mem_length.base;
 
-  charset_conv_t *cnv = NULL;
-  sr = conn_get_cnv_sql_c_char_to_tsdb_varchar(stmt->conn, &cnv);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  const char *fromcode = conn_get_sqlc_charset(stmt->conn);
+  const char *tocode   = conn_get_tsdb_charset(stmt->conn);
+  charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
+  if (!cnv) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
+    return SQL_ERROR;
+  }
 
   if (stmt->tsdb_stmt.params.is_insert_stmt) {
     tsdb_bind->buffer_length = tsdb_field->bytes - 2 /*+ cnv->nr_to_terminator*/;
@@ -4210,9 +4217,14 @@ static SQLRETURN _stmt_conv_param_data_from_sql_c_char_to_tsdb_varchar(stmt_t *s
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
 
   _dump_TAOS_FIELD_E(tsdb_field);
-  charset_conv_t *cnv = NULL;
-  sr = conn_get_cnv_sql_c_char_to_tsdb_varchar(stmt->conn, &cnv);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  const char *fromcode = conn_get_sqlc_charset(stmt->conn);
+  const char *tocode   = conn_get_tsdb_charset(stmt->conn);
+  charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
+  if (!cnv) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
+    return SQL_ERROR;
+  }
 
   char *tsdb_varchar = tsdb_bind->buffer;
   tsdb_varchar += i_row * tsdb_bind->buffer_length;
@@ -4708,24 +4720,26 @@ SQLRETURN _stmt_cache_and_parse(stmt_t *stmt, sqls_parser_param_t *param, const 
 
 SQLRETURN _stmt_get_next_sql(stmt_t *stmt, sqlc_tsdb_t *sqlc_tsdb)
 {
-  SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
 
   sqls_t *sqls = &stmt->sqls;
   if (sqls->pos + 1 > sqls->nr) return SQL_NO_DATA;
 
-  charset_conv_t *cnv = NULL;
-  sr = conn_get_cnv_sql_c_char_to_tsdb_varchar(stmt->conn, &cnv);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
-
   parser_nterm_t *nterms = stmt->sqls.sqls + stmt->sqls.pos;
   sqlc_tsdb->sqlc        = (const char*)stmt->raw.base + nterms->start;
   sqlc_tsdb->sqlc_bytes  = nterms->end - nterms->start;
 
+  const char *fromcode = conn_get_sqlc_charset(stmt->conn);
+  const char *tocode   = conn_get_tsdb_charset(stmt->conn);
+  str_t src = {
+    .charset             = fromcode,
+    .str                 = sqlc_tsdb->sqlc,
+    .bytes               = sqlc_tsdb->sqlc_bytes,
+  };
   mem_reset(&stmt->tsdb_sql);
-  r = mem_conv(&stmt->tsdb_sql, cnv->cnv, sqlc_tsdb->sqlc, sqlc_tsdb->sqlc_bytes);
+  r = mem_conv_ex(&stmt->tsdb_sql, &src, tocode);
   if (r) {
-    stmt_oom(stmt);
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory or conversion failed", fromcode, tocode);
     return SQL_ERROR;
   }
 

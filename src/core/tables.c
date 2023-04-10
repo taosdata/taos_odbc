@@ -31,6 +31,7 @@
 #include "errs.h"
 #include "log.h"
 #include "taos_helpers.h"
+#include "tls.h"
 #include "tsdb.h"
 
 #include <ctype.h>
@@ -157,10 +158,9 @@ static SQLRETURN _fetch_row_with_tsdb(stmt_base_t *base, tsdb_data_t *tsdb)
   int r = 0;
 
   tables_t *tables = (tables_t*)base;
+  stmt_t *stmt = tables->owner;
 
-  charset_conv_t *cnv = NULL;
-  sr = conn_get_cnv_tsdb_varchar_to_sql_c_wchar(tables->owner->conn, &cnv);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  const char *fromcode = conn_get_tsdb_charset(stmt->conn);
 
 again:
 
@@ -174,36 +174,54 @@ again:
     sr = tables->stmt.base.get_data(&tables->stmt.base, 1, tsdb);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-    r = wildexec_n_ex(tables->tables_args.catalog_pattern, cnv->from, tsdb->str.str, tsdb->str.len);
-
+    str_t str = {
+      .charset              = fromcode,
+      .str                  = tsdb->str.str,
+      .bytes                = tsdb->str.len,
+    };
+    int matched = 0;
+    r = wildexec(tables->tables_args.catalog_pattern, &str, &matched);
     if (r) {
-      // FIXME: out of memory
-      goto again;
+      stmt_append_err(tables->owner, "HY000", 0, "General error:wild matching failed");
+      return SQL_ERROR;
     }
+    if (!matched) goto again;
   }
 
   if (tables->tables_args.schema_pattern) {
     sr = tables->stmt.base.get_data(&tables->stmt.base, 2, tsdb);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-    r = wildexec_n_ex(tables->tables_args.schema_pattern, cnv->from, tsdb->str.str, tsdb->str.len);
-
+    str_t str = {
+      .charset              = fromcode,
+      .str                  = tsdb->str.str,
+      .bytes                = tsdb->str.len,
+    };
+    int matched = 0;
+    r = wildexec(tables->tables_args.schema_pattern, &str, &matched);
     if (r) {
-      // FIXME: out of memory
-      goto again;
+      stmt_append_err(tables->owner, "HY000", 0, "General error:wild matching failed");
+      return SQL_ERROR;
     }
+    if (!matched) goto again;
   }
 
   if (tables->tables_args.table_pattern) {
     sr = tables->stmt.base.get_data(&tables->stmt.base, 3, tsdb);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-    r = wildexec_n_ex(tables->tables_args.table_pattern, cnv->from, tsdb->str.str, tsdb->str.len);
-
+    str_t str = {
+      .charset              = fromcode,
+      .str                  = tsdb->str.str,
+      .bytes                = tsdb->str.len,
+    };
+    int matched = 0;
+    r = wildexec(tables->tables_args.table_pattern, &str, &matched);
     if (r) {
-      // FIXME: out of memory
-      goto again;
+      stmt_append_err(tables->owner, "HY000", 0, "General error:wild matching failed");
+      return SQL_ERROR;
     }
+    if (!matched) goto again;
   }
 
   if (tables->table_types.nr > 0) {
@@ -337,9 +355,13 @@ static SQLRETURN _tables_open_catalogs(tables_t *tables)
 
   stmt_t *stmt = tables->owner;
 
-  charset_conv_t *cnv = NULL;
-  sr = conn_get_cnv_sql_c_char_to_tsdb_varchar(stmt->conn, &cnv);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  const char *fromcode = conn_get_sqlc_charset(stmt->conn);
+  const char *tocode   = conn_get_tsdb_charset(stmt->conn);
+  charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
+  if (!cnv) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
+    return SQL_ERROR;
+  }
 
   mem_reset(&tables->tsdb_stmt);
   r = mem_conv(&tables->tsdb_stmt, cnv->cnv, sqlc_tsdb.sqlc, sqlc_tsdb.sqlc_bytes);
@@ -374,9 +396,13 @@ static SQLRETURN _tables_open_schemas(tables_t *tables)
 
   stmt_t *stmt = tables->owner;
 
-  charset_conv_t *cnv = NULL;
-  sr = conn_get_cnv_sql_c_char_to_tsdb_varchar(stmt->conn, &cnv);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  const char *fromcode = conn_get_sqlc_charset(stmt->conn);
+  const char *tocode   = conn_get_tsdb_charset(stmt->conn);
+  charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
+  if (!cnv) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
+    return SQL_ERROR;
+  }
 
   mem_reset(&tables->tsdb_stmt);
   r = mem_conv(&tables->tsdb_stmt, cnv->cnv, sqlc_tsdb.sqlc, sqlc_tsdb.sqlc_bytes);
@@ -434,9 +460,13 @@ static SQLRETURN _tables_open_tabletypes_with_buffer(tables_t *tables, buffer_t 
 
   stmt_t *stmt = tables->owner;
 
-  charset_conv_t *cnv = NULL;
-  sr = conn_get_cnv_sql_c_char_to_tsdb_varchar(stmt->conn, &cnv);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  const char *fromcode = conn_get_sqlc_charset(stmt->conn);
+  const char *tocode   = conn_get_tsdb_charset(stmt->conn);
+  charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
+  if (!cnv) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
+    return SQL_ERROR;
+  }
 
   mem_reset(&tables->tsdb_stmt);
   r = mem_conv(&tables->tsdb_stmt, cnv->cnv, sqlc_tsdb.sqlc, sqlc_tsdb.sqlc_bytes);
@@ -471,11 +501,15 @@ static SQLRETURN _tables_open_tabletypes(tables_t *tables)
 
 static SQLRETURN _tables_add_table_type(tables_t *tables, SQLCHAR *TableType, SQLSMALLINT NameLength4, const char *begin, const char *p)
 {
-  SQLRETURN sr = SQL_SUCCESS;
+  stmt_t *stmt = tables->owner;
 
-  charset_conv_t *cnv = NULL;
-  sr = conn_get_cnv_sql_c_char_to_tsdb_varchar(tables->owner->conn, &cnv);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  const char *fromcode = conn_get_sqlc_charset(stmt->conn);
+  const char *tocode   = conn_get_tsdb_charset(stmt->conn);
+  charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
+  if (!cnv) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
+    return SQL_ERROR;
+  }
 
   char *t = (char*)tables->table_types.base + tables->table_types.nr;
   char       *inbuf                 = (char*)begin;
@@ -580,9 +614,16 @@ SQLRETURN tables_open(
     }
   }
 
-  charset_conv_t *cnv = NULL;
-  sr = conn_get_cnv_sql_c_char_to_sql_c_wchar(tables->owner->conn, &cnv);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  stmt_t *stmt = tables->owner;
+
+  const char *fromcode = conn_get_sqlc_charset(stmt->conn);
+  const char *tocode   = "UCS-2LE";
+  charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
+  if (!cnv) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
+    return SQL_ERROR;
+  }
 
   if (CatalogName) {
     if (mem_conv(&tables->catalog_cache, cnv->cnv, (const char*)CatalogName, NameLength1)) {
@@ -590,7 +631,12 @@ SQLRETURN tables_open(
       return SQL_ERROR;
     }
     tables->catalog = tables->catalog_cache.base;
-    if (wildcomp_n_ex(&tables->tables_args.catalog_pattern, cnv->from, (const char*)CatalogName, NameLength1)) {
+    str_t str = {
+      .charset              = cnv->from,
+      .str                  = (const char*)CatalogName,
+      .bytes                = NameLength1,
+    };
+    if (wildcomp(&tables->tables_args.catalog_pattern, &str)) {
       stmt_append_err_format(tables->owner, "HY000", 0,
           "General error:wild compile failed for CatalogName[%.*s]", (int)NameLength1, (const char*)CatalogName);
       return SQL_ERROR;
@@ -602,7 +648,12 @@ SQLRETURN tables_open(
       return SQL_ERROR;
     }
     tables->schema = tables->schema_cache.base;
-    if (wildcomp_n_ex(&tables->tables_args.schema_pattern, cnv->from, (const char*)SchemaName, NameLength2)) {
+    str_t str = {
+      .charset              = cnv->from,
+      .str                  = (const char*)SchemaName,
+      .bytes                = NameLength2,
+    };
+    if (wildcomp(&tables->tables_args.schema_pattern, &str)) {
       stmt_append_err_format(tables->owner, "HY000", 0,
           "General error:wild compile failed for SchemaName[%.*s]", (int)NameLength2, (const char*)SchemaName);
       return SQL_ERROR;
@@ -614,7 +665,12 @@ SQLRETURN tables_open(
       return SQL_ERROR;
     }
     tables->table = tables->table_cache.base;
-    if (wildcomp_n_ex(&tables->tables_args.table_pattern, cnv->from, (const char*)TableName, NameLength3)) {
+    str_t str = {
+      .charset              = cnv->from,
+      .str                  = (const char*)TableName,
+      .bytes                = NameLength3,
+    };
+    if (wildcomp(&tables->tables_args.table_pattern, &str)) {
       stmt_append_err_format(tables->owner, "HY000", 0,
           "General error:wild compile failed for TableName[%.*s]", (int)NameLength3, (const char*)TableName);
       return SQL_ERROR;
@@ -626,7 +682,12 @@ SQLRETURN tables_open(
       return SQL_ERROR;
     }
     tables->type = tables->type_cache.base;
-    if (wildcomp_n_ex(&tables->tables_args.type_pattern, cnv->from, (const char*)TableType, NameLength4)) {
+    str_t str = {
+      .charset              = cnv->from,
+      .str                  = (const char*)TableType,
+      .bytes                = NameLength4,
+    };
+    if (wildcomp(&tables->tables_args.type_pattern, &str)) {
       stmt_append_err_format(tables->owner, "HY000", 0,
           "General error:wild compile failed for TypeName[%.*s]", (int)NameLength4, (const char*)TableType);
       return SQL_ERROR;
@@ -656,11 +717,13 @@ SQLRETURN tables_open(
     .sqlc_bytes     = strlen(sql),
   };
 
-  stmt_t *stmt = tables->owner;
-
-  cnv = NULL;
-  sr = conn_get_cnv_sql_c_char_to_tsdb_varchar(stmt->conn, &cnv);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  fromcode = conn_get_sqlc_charset(stmt->conn);
+  tocode   = conn_get_tsdb_charset(stmt->conn);
+  cnv  = tls_get_charset_conv(fromcode, tocode);
+  if (!cnv) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
+    return SQL_ERROR;
+  }
 
   mem_reset(&tables->tsdb_stmt);
   r = mem_conv(&tables->tsdb_stmt, cnv->cnv, sqlc_tsdb.sqlc, sqlc_tsdb.sqlc_bytes);

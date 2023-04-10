@@ -52,9 +52,21 @@ mem_t* tls_get_mem_intermediate(void)
   return &tls->intermediate;
 }
 
+static void _release_hash_table_node(hash_table_t *hash_table, void *val, void *arg)
+{
+  (void)hash_table;
+  (void)arg;
+  if (!val) return;
+
+  charset_conv_t *conv = (charset_conv_t*)val;
+  charset_conv_release(conv);
+  free(conv);
+}
+
 static int _charset_conv_mgr_init(charset_conv_mgr_t *mgr)
 {
-  INIT_TOD_LIST_HEAD(&mgr->convs);
+  mgr->convs = hash_table_new(_release_hash_table_node, NULL);
+  if (!mgr->convs) return -1;
   return 0;
 }
 

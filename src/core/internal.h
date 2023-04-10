@@ -117,12 +117,6 @@ static inline int sql_succeeded(SQLRETURN sr)
   return sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO;
 }
 
-struct str_s {
-  const char           *charset; // NOTE: no ownership
-  const char           *str;     // NOTE: no ownership
-  size_t                bytes;
-};
-
 struct sqlc_tsdb_s {
   const char           *sqlc;              // NOTE: no ownership
   size_t                sqlc_bytes;
@@ -294,15 +288,13 @@ struct desc_s {
 };
 
 struct charset_conv_s {
-  char         from[64];
-  char         to[64];
-  iconv_t      cnv;
-
-  struct tod_list_head        node;
+  charset_name_t      from;
+  charset_name_t      to;
+  iconv_t             cnv;
 };
 
 struct charset_conv_mgr_s {
-  struct tod_list_head        convs; // charset_conv_t*
+  hash_table_t               *convs;
 };
 
 struct conn_cfg_s {
@@ -416,14 +408,8 @@ struct conn_s {
   char               *s_charset;
 
   // NOTE: big enough?
-  char                sqlc_charset[64];
-  char                tsdb_charset[64];
-
-  charset_conv_t      _cnv_tsdb_varchar_to_sql_c_char;
-  charset_conv_t      _cnv_tsdb_varchar_to_sql_c_wchar;
-
-  charset_conv_t      _cnv_sql_c_char_to_tsdb_varchar;
-  charset_conv_t      _cnv_sql_c_char_to_sql_c_wchar;
+  charset_name_t      sqlc_charset;
+  charset_name_t      tsdb_charset;
 
   errs_t              errs;
 

@@ -532,12 +532,12 @@ static void _conn_fill_out_connection_str(
   }
   if (n>0) count += n;
 
-  // if (conn->cfg.pwd) {
-  //   fixed_buf_sprintf(n, &buffer, "PWD=*;");
-  // } else {
-  //   fixed_buf_sprintf(n, &buffer, "PWD=;");
-  // }
-  // if (n>0) count += n;
+  if (conn->cfg.pwd) {
+    fixed_buf_sprintf(n, &buffer, "PWD=%s;", conn->cfg.pwd);
+  } else {
+    fixed_buf_sprintf(n, &buffer, "PWD=;");
+  }
+  if (n>0) count += n;
 
   if (conn->cfg.ip) {
     if (conn->cfg.port) {
@@ -685,7 +685,8 @@ SQLRETURN conn_driver_connect(
     sr = _do_conn_connect(conn);
     if (!sql_succeeded(sr)) break;
 
-    _conn_fill_out_connection_str(conn, OutConnectionString, BufferLength, StringLength2Ptr);
+    if (DriverCompletion == SQL_DRIVER_COMPLETE)
+      _conn_fill_out_connection_str(conn, OutConnectionString, BufferLength, StringLength2Ptr);
 
     conn_parser_param_release(&param);
     return SQL_SUCCESS;

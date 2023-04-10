@@ -637,7 +637,7 @@ static int _driver_connect(SQLHANDLE hconn, const char *connstr)
   char buf[1024];
   buf[0] = '\0';
   SQLSMALLINT StringLength = 0;
-  sr = CALL_SQLDriverConnect(hconn, NULL, (SQLCHAR*)connstr, SQL_NTS, (SQLCHAR*)buf, sizeof(buf), &StringLength, SQL_DRIVER_NOPROMPT);
+  sr = CALL_SQLDriverConnect(hconn, NULL, (SQLCHAR*)connstr, SQL_NTS, (SQLCHAR*)buf, sizeof(buf), &StringLength, SQL_DRIVER_COMPLETE);
   if (FAILED(sr)) {
     E("driver_connect [connstr:%s] failed", connstr);
     return -1;

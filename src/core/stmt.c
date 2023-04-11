@@ -744,7 +744,7 @@ static SQLRETURN _stmt_col_DESC_DISPLAY_SIZE(
       }
     }
     if (_maps[i].display_size < 0) {
-      *NumericAttributePtr = -col->bytes;
+      *NumericAttributePtr = 0 - col->bytes * _maps[i].display_size;
     } else {
       *NumericAttributePtr = _maps[i].display_size;
     }
@@ -1578,7 +1578,7 @@ SQLRETURN stmt_describe_col(stmt_t *stmt,
   return SQL_SUCCESS;
 }
 
-SQLRETURN _stmt_bind_col(stmt_t *stmt,
+static SQLRETURN _stmt_bind_col(stmt_t *stmt,
     SQLUSMALLINT   ColumnNumber,
     SQLSMALLINT    TargetType,
     SQLPOINTER     TargetValuePtr,
@@ -2747,7 +2747,7 @@ SQLRETURN stmt_get_num_params(
   return _stmt_get_num_params(stmt, ParameterCountPtr);
 }
 
-SQLRETURN _stmt_describe_param(
+static SQLRETURN _stmt_describe_param(
     stmt_t         *stmt,
     SQLUSMALLINT    ParameterNumber,
     SQLSMALLINT    *DataTypePtr,
@@ -2900,12 +2900,103 @@ static SQLRETURN _stmt_conv_sql_c_char_to_tsdb_timestamp_x(stmt_t *stmt, const c
   return SQL_SUCCESS;
 }
 
+static int _stmt_sql_found(sqls_parser_param_t *param, size_t start, size_t end, void *arg)
+{
+  (void)param;
+
+  stmt_t *stmt = (stmt_t*)arg;
+  sqls_t *sqls = &stmt->sqls;
+  --end;
+
+  if (sqls->nr >= sqls->cap) {
+    size_t cap = sqls->cap + 16;
+    parser_nterm_t *nterms = (parser_nterm_t*)realloc(sqls->sqls, sizeof(*nterms) * cap);
+    if (!nterms) {
+      stmt_oom(stmt);
+      return -1;
+    }
+    sqls->sqls = nterms;
+    sqls->cap  = cap;
+  }
+
+  sqls->sqls[sqls->nr].start = start;
+  sqls->sqls[sqls->nr].end   = end;
+  sqls->nr += 1;
+
+  return 0;
+}
+
+static SQLRETURN _stmt_cache_and_parse(stmt_t *stmt, sqls_parser_param_t *param, const char *sql, size_t len)
+{
+  int r = 0;
+
+  mem_reset(&stmt->raw);
+  sqls_reset(&stmt->sqls);
+
+  r = mem_keep(&stmt->raw, len + 1);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+
+  memcpy(stmt->raw.base, sql, len);
+  stmt->raw.nr = len;
+  stmt->raw.base[len] = '\0';
+
+  r = sqls_parser_parse(sql, len, param);
+  if (r) {
+    E("location:(%d,%d)->(%d,%d)", param->ctx.row0, param->ctx.col0, param->ctx.row1, param->ctx.col1);
+    E("failed:%s", param->ctx.err_msg);
+    stmt_append_err_format(stmt, "HY000", 0, "General error:parsing:%.*s", (int)len, sql);
+    stmt_append_err_format(stmt, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)", param->ctx.row0, param->ctx.col0, param->ctx.row1, param->ctx.col1);
+    stmt_append_err_format(stmt, "HY000", 0, "General error:failed:%.*s", (int)strlen(param->ctx.err_msg), param->ctx.err_msg);
+
+    return SQL_ERROR;
+  } else if (stmt->sqls.failed) {
+    return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_get_next_sql(stmt_t *stmt, sqlc_tsdb_t *sqlc_tsdb)
+{
+  int r = 0;
+
+  sqls_t *sqls = &stmt->sqls;
+  if (sqls->pos + 1 > sqls->nr) return SQL_NO_DATA;
+
+  parser_nterm_t *nterms = stmt->sqls.sqls + stmt->sqls.pos;
+  sqlc_tsdb->sqlc        = (const char*)stmt->raw.base + nterms->start;
+  sqlc_tsdb->sqlc_bytes  = nterms->end - nterms->start;
+
+  const char *fromcode = conn_get_sqlc_charset(stmt->conn);
+  const char *tocode   = conn_get_tsdb_charset(stmt->conn);
+  str_t src = {
+    .charset             = fromcode,
+    .str                 = sqlc_tsdb->sqlc,
+    .bytes               = sqlc_tsdb->sqlc_bytes,
+  };
+  mem_reset(&stmt->tsdb_sql);
+  r = mem_conv_ex(&stmt->tsdb_sql, &src, tocode);
+  if (r) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory or conversion failed", fromcode, tocode);
+    return SQL_ERROR;
+  }
+
+  sqlc_tsdb->tsdb        = (const char*)stmt->tsdb_sql.base;
+  sqlc_tsdb->tsdb_bytes  = stmt->tsdb_sql.nr;
+
+  ++sqls->pos;
+
+  return SQL_SUCCESS;
+}
+
 SQLRETURN stmt_prepare(stmt_t *stmt,
     SQLCHAR      *StatementText,
     SQLINTEGER    TextLength)
 {
   SQLRETURN sr = SQL_SUCCESS;
-  int r = 0;
 
   _stmt_unprepare(stmt);
 
@@ -2915,35 +3006,26 @@ SQLRETURN stmt_prepare(stmt_t *stmt,
   if (TextLength == SQL_NTS) len = strlen(sql);
   else                       len = strnlen(sql, TextLength);
 
-  const char *fromcode = conn_get_sqlc_charset(stmt->conn);
-  const char *tocode   = conn_get_tsdb_charset(stmt->conn);
-  charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
-  if (!cnv) {
-    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
+  sqls_parser_param_t param = {0};
+  // param.ctx.debug_flex = 1;
+  // param.ctx.debug_bison = 1;
+  param.sql_found = _stmt_sql_found;
+  param.arg       = stmt;
+
+  sr = _stmt_cache_and_parse(stmt, &param, sql, len);
+  sqls_parser_param_release(&param);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  sqls_t *sqls = &stmt->sqls;
+  if (sqls->nr > 1) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:multiple statements in a single SQLPrepare not supported yet");
     return SQL_ERROR;
   }
 
-  mem_reset(&stmt->tsdb_sql);
-  r = mem_conv(&stmt->tsdb_sql, cnv->cnv, sql, len);
-  if (r) {
-    stmt_oom(stmt);
-    return SQL_ERROR;
-  }
-
-  sqlc_tsdb_t sqlc_tsdb = {
-    .sqlc          = sql,
-    .sqlc_bytes    = len,
-    .tsdb          = (const char*)stmt->tsdb_sql.base,
-    .tsdb_bytes    = stmt->tsdb_sql.nr,
-  };
-
-  if (stmt->base == &stmt->columns.base) {
-    stmt_append_err(stmt, "HY000", 0, "General error:not implemented yet");
-    return SQL_ERROR;
-  }
-
-  if (stmt->base == &stmt->tables.base) {
-    stmt_append_err(stmt, "HY000", 0, "General error:not implemented yet");
+  sqlc_tsdb_t sqlc_tsdb;
+  sr = _stmt_get_next_sql(stmt, &sqlc_tsdb);
+  if (sr == SQL_NO_DATA) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:empty sql statement");
     return SQL_ERROR;
   }
 
@@ -2952,7 +3034,7 @@ SQLRETURN stmt_prepare(stmt_t *stmt,
   return sr;
 }
 
-SQLRETURN _stmt_bind_param(
+static SQLRETURN _stmt_bind_param(
     stmt_t         *stmt,
     SQLUSMALLINT    ParameterNumber,
     SQLSMALLINT     InputOutputType,
@@ -4576,18 +4658,6 @@ static SQLRETURN _stmt_execute(stmt_t *stmt)
 {
   SQLRETURN sr = SQL_SUCCESS;
 
-  if (stmt->base == &stmt->columns.base) {
-    stmt_append_err(stmt, "HY000", 0, "General error:not implemented yet");
-    return SQL_ERROR;
-  }
-
-  if (stmt->base == &stmt->tables.base) {
-    stmt_append_err(stmt, "HY000", 0, "General error:not implemented yet");
-    return SQL_ERROR;
-  }
-
-  _stmt_close_result(stmt);
-
   descriptor_t *APD = stmt_APD(stmt);
   desc_header_t *APD_header = &APD->header;
 
@@ -4599,8 +4669,10 @@ static SQLRETURN _stmt_execute(stmt_t *stmt)
     return SQL_ERROR;
   }
 
-  sr = _stmt_prepare_params(stmt);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  if (APD_header->DESC_COUNT > 0) {
+    sr = _stmt_prepare_params(stmt);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+  }
 
   return stmt->base->execute(stmt->base);
 }
@@ -4642,7 +4714,7 @@ static SQLRETURN _stmt_exec_direct(stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb)
   return _stmt_fill_IRD(stmt);
 }
 
-SQLRETURN _stmt_exec_direct_sql(stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb)
+static SQLRETURN _stmt_exec_direct_sql(stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb)
 {
   SQLRETURN sr = SQL_SUCCESS;
 
@@ -4659,99 +4731,7 @@ SQLRETURN _stmt_exec_direct_sql(stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb)
   return sr;
 }
 
-static int _stmt_sql_found(sqls_parser_param_t *param, size_t start, size_t end, void *arg)
-{
-  (void)param;
-
-  stmt_t *stmt = (stmt_t*)arg;
-  sqls_t *sqls = &stmt->sqls;
-  --end;
-
-  if (sqls->nr >= sqls->cap) {
-    size_t cap = sqls->cap + 16;
-    parser_nterm_t *nterms = (parser_nterm_t*)realloc(sqls->sqls, sizeof(*nterms) * cap);
-    if (!nterms) {
-      stmt_oom(stmt);
-      return -1;
-    }
-    sqls->sqls = nterms;
-    sqls->cap  = cap;
-  }
-
-  sqls->sqls[sqls->nr].start = start;
-  sqls->sqls[sqls->nr].end   = end;
-  sqls->nr += 1;
-
-  return 0;
-}
-
-SQLRETURN _stmt_cache_and_parse(stmt_t *stmt, sqls_parser_param_t *param, const char *sql, size_t len)
-{
-  int r = 0;
-
-  mem_reset(&stmt->raw);
-  sqls_reset(&stmt->sqls);
-
-  r = mem_keep(&stmt->raw, len + 1);
-  if (r) {
-    stmt_oom(stmt);
-    return SQL_ERROR;
-  }
-
-  memcpy(stmt->raw.base, sql, len);
-  stmt->raw.nr = len;
-  stmt->raw.base[len] = '\0';
-
-  r = sqls_parser_parse(sql, len, param);
-  if (r) {
-    E("location:(%d,%d)->(%d,%d)", param->ctx.row0, param->ctx.col0, param->ctx.row1, param->ctx.col1);
-    E("failed:%s", param->ctx.err_msg);
-    stmt_append_err_format(stmt, "HY000", 0, "General error:parsing:%.*s", (int)len, sql);
-    stmt_append_err_format(stmt, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)", param->ctx.row0, param->ctx.col0, param->ctx.row1, param->ctx.col1);
-    stmt_append_err_format(stmt, "HY000", 0, "General error:failed:%.*s", (int)strlen(param->ctx.err_msg), param->ctx.err_msg);
-
-    return SQL_ERROR;
-  } else if (stmt->sqls.failed) {
-    return SQL_ERROR;
-  }
-
-  return SQL_SUCCESS;
-}
-
-SQLRETURN _stmt_get_next_sql(stmt_t *stmt, sqlc_tsdb_t *sqlc_tsdb)
-{
-  int r = 0;
-
-  sqls_t *sqls = &stmt->sqls;
-  if (sqls->pos + 1 > sqls->nr) return SQL_NO_DATA;
-
-  parser_nterm_t *nterms = stmt->sqls.sqls + stmt->sqls.pos;
-  sqlc_tsdb->sqlc        = (const char*)stmt->raw.base + nterms->start;
-  sqlc_tsdb->sqlc_bytes  = nterms->end - nterms->start;
-
-  const char *fromcode = conn_get_sqlc_charset(stmt->conn);
-  const char *tocode   = conn_get_tsdb_charset(stmt->conn);
-  str_t src = {
-    .charset             = fromcode,
-    .str                 = sqlc_tsdb->sqlc,
-    .bytes               = sqlc_tsdb->sqlc_bytes,
-  };
-  mem_reset(&stmt->tsdb_sql);
-  r = mem_conv_ex(&stmt->tsdb_sql, &src, tocode);
-  if (r) {
-    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory or conversion failed", fromcode, tocode);
-    return SQL_ERROR;
-  }
-
-  sqlc_tsdb->tsdb        = (const char*)stmt->tsdb_sql.base;
-  sqlc_tsdb->tsdb_bytes  = stmt->tsdb_sql.nr;
-
-  ++sqls->pos;
-
-  return SQL_SUCCESS;
-}
-
-SQLRETURN _stmt_exec_direct_with_simple_sql(stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb)
+static SQLRETURN _stmt_exec_direct_with_simple_sql(stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb)
 {
   SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
@@ -4780,16 +4760,6 @@ SQLRETURN _stmt_exec_direct_with_simple_sql(stmt_t *stmt, const sqlc_tsdb_t *sql
     stmt->base = &stmt->topic.base;
 
     return _stmt_fill_IRD(stmt);
-  }
-
-  if (stmt->base == &stmt->columns.base) {
-    stmt_append_err(stmt, "HY000", 0, "General error:not implemented yet");
-    return SQL_ERROR;
-  }
-
-  if (stmt->base == &stmt->tables.base) {
-    stmt_append_err(stmt, "HY000", 0, "General error:not implemented yet");
-    return SQL_ERROR;
   }
 
   return _stmt_exec_direct_sql(stmt, sqlc_tsdb);
@@ -4848,19 +4818,6 @@ SQLRETURN stmt_execute(stmt_t *stmt)
 
   OA_ILE(stmt->conn);
   OA_ILE(stmt->conn->taos);
-
-  // column-binds remain valid among executes
-  _stmt_close_result(stmt);
-
-  if (stmt->base == &stmt->columns.base) {
-    stmt_append_err(stmt, "HY000", 0, "General error:not implemented yet");
-    return SQL_ERROR;
-  }
-
-  if (stmt->base == &stmt->tables.base) {
-    stmt_append_err(stmt, "HY000", 0, "General error:not implemented yet");
-    return SQL_ERROR;
-  }
 
   // NOTE: no need to check whether it's prepared or not, DM would have already checked
 
@@ -4934,16 +4891,6 @@ SQLRETURN stmt_get_attr(stmt_t *stmt,
 {
   (void)BufferLength;
   (void)StringLength;
-
-  if (stmt->base == &stmt->columns.base) {
-    stmt_append_err(stmt, "HY000", 0, "General error:not implemented yet");
-    return SQL_ERROR;
-  }
-
-  if (stmt->base == &stmt->tables.base) {
-    stmt_append_err(stmt, "HY000", 0, "General error:not implemented yet");
-    return SQL_ERROR;
-  }
 
   switch (Attribute) {
     case SQL_ATTR_APP_ROW_DESC:

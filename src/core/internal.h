@@ -498,6 +498,7 @@ struct tsdb_stmt_s {
   tsdb_res_t                 res;
 
   unsigned int               prepared:1;
+  unsigned int               fall_back_to_query:1;
 };
 
 struct topic_s {

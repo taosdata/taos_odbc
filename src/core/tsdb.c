@@ -117,6 +117,7 @@ void tsdb_stmt_reset(tsdb_stmt_t *stmt)
     OA_NIY(r == 0);
     stmt->stmt = NULL;
   }
+  stmt->fall_back_to_query = 0;
 }
 
 void tsdb_stmt_release(tsdb_stmt_t *stmt)
@@ -299,6 +300,7 @@ static SQLRETURN _execute(stmt_base_t *base)
   int r = 0;
 
   tsdb_stmt_t *stmt = (tsdb_stmt_t*)base;
+  if (stmt->fall_back_to_query) return SQL_SUCCESS;
 
   tsdb_res_t          *res         = &stmt->res;
   tsdb_res_reset(res);
@@ -469,8 +471,10 @@ SQLRETURN tsdb_stmt_query(tsdb_stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb)
   return stmt->base.query(&stmt->base, sqlc_tsdb);
 }
 
-static SQLRETURN _tsdb_stmt_describe_tags(tsdb_stmt_t *stmt)
+static SQLRETURN _tsdb_stmt_describe_tags(tsdb_stmt_t *stmt, int *taos_api_fail)
 {
+  *taos_api_fail = 0;
+
   int r = 0;
 
   int tagNum = 0;
@@ -478,6 +482,9 @@ static SQLRETURN _tsdb_stmt_describe_tags(tsdb_stmt_t *stmt)
   r = CALL_taos_stmt_get_tag_fields(stmt->stmt, &tagNum, &tags);
   if (r) {
     stmt_append_err_format(stmt->owner, "HY000", r, "General error:[taosc]%s", CALL_taos_errstr(NULL));
+    if (r != TSDB_CODE_APP_ERROR) return SQL_ERROR;
+
+    *taos_api_fail = 1;
     return SQL_ERROR;
   }
   stmt->params.nr_tag_fields = tagNum;
@@ -486,8 +493,10 @@ static SQLRETURN _tsdb_stmt_describe_tags(tsdb_stmt_t *stmt)
   return SQL_SUCCESS;
 }
 
-static SQLRETURN _tsdb_stmt_describe_cols(tsdb_stmt_t *stmt)
+static SQLRETURN _tsdb_stmt_describe_cols(tsdb_stmt_t *stmt, int *taos_api_fail)
 {
+  *taos_api_fail = 0;
+
   int r = 0;
 
   int colNum = 0;
@@ -495,6 +504,8 @@ static SQLRETURN _tsdb_stmt_describe_cols(tsdb_stmt_t *stmt)
   r = CALL_taos_stmt_get_col_fields(stmt->stmt, &colNum, &cols);
   if (r) {
     stmt_append_err_format(stmt->owner, "HY000", r, "General error:[taosc]%s", CALL_taos_errstr(NULL));
+    if (r != TSDB_CODE_APP_ERROR) return SQL_ERROR;
+    *taos_api_fail = 1;
     return SQL_ERROR;
   }
   stmt->params.nr_col_fields = colNum;
@@ -503,22 +514,26 @@ static SQLRETURN _tsdb_stmt_describe_cols(tsdb_stmt_t *stmt)
   return SQL_SUCCESS;
 }
 
-static SQLRETURN _tsdb_stmt_get_taos_tags_cols_for_subtbled_insert(tsdb_stmt_t *stmt, int e)
+static SQLRETURN _tsdb_stmt_get_taos_tags_cols_for_subtbled_insert(tsdb_stmt_t *stmt, int e, int *taos_api_fail)
 {
   // fake subtbl name to get tags/cols params-info
   int r = 0;
   SQLRETURN sr = SQL_SUCCESS;
 
+  *taos_api_fail = 0;
+
   r = CALL_taos_stmt_set_tbname(stmt->stmt, "__hard_coded_fake_name__");
   if (r) {
     stmt_append_err_format(stmt->owner, "HY000", e, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->stmt));
+    if (r != TSDB_CODE_APP_ERROR) return SQL_ERROR;
+    *taos_api_fail = 1;
     return SQL_ERROR;
   }
 
-  sr = _tsdb_stmt_describe_tags(stmt);
+  sr = _tsdb_stmt_describe_tags(stmt, taos_api_fail);
   if (sr == SQL_ERROR) return SQL_ERROR;
 
-  sr = _tsdb_stmt_describe_cols(stmt);
+  sr = _tsdb_stmt_describe_cols(stmt, taos_api_fail);
   if (sr == SQL_ERROR) return SQL_ERROR;
 
   // insert into ? ... will result in TSDB_CODE_TSC_STMT_TBNAME_ERROR
@@ -526,21 +541,25 @@ static SQLRETURN _tsdb_stmt_get_taos_tags_cols_for_subtbled_insert(tsdb_stmt_t *
   return SQL_SUCCESS;
 }
 
-static SQLRETURN _tsdb_stmt_get_taos_tags_cols_for_normal_insert(tsdb_stmt_t *stmt, int e)
+static SQLRETURN _tsdb_stmt_get_taos_tags_cols_for_normal_insert(tsdb_stmt_t *stmt, int e, int *taos_api_fail)
 {
+  *taos_api_fail = 0;
+
   // insert into t ... and t is normal tablename, will result in TSDB_CODE_TSC_STMT_API_ERROR
   SQLRETURN sr = SQL_SUCCESS;
 
   stmt->params.subtbl_required = 0;
   stmt_append_err(stmt->owner, "HY000", e, "General error:this is believed an non-subtbl insert statement");
-  sr = _tsdb_stmt_describe_cols(stmt);
+  sr = _tsdb_stmt_describe_cols(stmt, taos_api_fail);
 
   return sr;
 }
 
-static SQLRETURN _tsdb_stmt_get_taos_tags_cols_for_insert(tsdb_stmt_t *stmt)
+static SQLRETURN _tsdb_stmt_get_taos_tags_cols_for_insert(tsdb_stmt_t *stmt, int *taos_api_fail)
 {
   int r = 0;
+  *taos_api_fail = 0;
+
   SQLRETURN sr = SQL_SUCCESS;
   int tagNum = 0;
   TAOS_FIELD_E *tag_fields = NULL;
@@ -548,9 +567,9 @@ static SQLRETURN _tsdb_stmt_get_taos_tags_cols_for_insert(tsdb_stmt_t *stmt)
   if (r) {
     int e = CALL_taos_errno(NULL);
     if (e == TSDB_CODE_TSC_STMT_TBNAME_ERROR) {
-      sr = _tsdb_stmt_get_taos_tags_cols_for_subtbled_insert(stmt, r);
+      sr = _tsdb_stmt_get_taos_tags_cols_for_subtbled_insert(stmt, r, taos_api_fail);
     } else if (e == TSDB_CODE_TSC_STMT_API_ERROR) {
-      sr = _tsdb_stmt_get_taos_tags_cols_for_normal_insert(stmt, r);
+      sr = _tsdb_stmt_get_taos_tags_cols_for_normal_insert(stmt, r, taos_api_fail);
     }
     if (tag_fields) {
       CALL_taos_stmt_reclaim_fields(stmt->stmt, tag_fields);
@@ -563,20 +582,24 @@ static SQLRETURN _tsdb_stmt_get_taos_tags_cols_for_insert(tsdb_stmt_t *stmt)
     OA_NIY(stmt->params.nr_tag_fields == 0);
     stmt->params.tag_fields = tag_fields;
     stmt->params.nr_tag_fields = tagNum;
-    sr = _tsdb_stmt_describe_cols(stmt);
+    sr = _tsdb_stmt_describe_cols(stmt, taos_api_fail);
   }
   return sr;
 }
 
-static SQLRETURN _tsdb_stmt_get_taos_params_for_non_insert(tsdb_stmt_t *stmt)
+static SQLRETURN _tsdb_stmt_get_taos_params_for_non_insert(tsdb_stmt_t *stmt, int *taos_api_fail)
 {
   int r = 0;
+
+  *taos_api_fail = 1;
 
   int nr_params = 0;
   r = CALL_taos_stmt_num_params(stmt->stmt, &nr_params);
   if (r) {
     stmt_append_err_format(stmt->owner, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->stmt));
-    tsdb_stmt_release(stmt);
+    tsdb_stmt_reset(stmt);
+    if (r != TSDB_CODE_APP_ERROR) return SQL_ERROR;
+    *taos_api_fail = 1;
 
     return SQL_ERROR;
   }
@@ -790,17 +813,31 @@ SQLRETURN tsdb_stmt_prepare(tsdb_stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb)
 
   stmt->params.is_insert_stmt = isInsert;
 
+  int taos_api_fail = 0;
   if (stmt->params.is_insert_stmt) {
-    sr = _tsdb_stmt_get_taos_tags_cols_for_insert(stmt);
+    sr = _tsdb_stmt_get_taos_tags_cols_for_insert(stmt, &taos_api_fail);
   } else {
-    sr = _tsdb_stmt_get_taos_params_for_non_insert(stmt);
+    sr = _tsdb_stmt_get_taos_params_for_non_insert(stmt, &taos_api_fail);
   }
-  if (sr == SQL_ERROR) return SQL_ERROR;
+  if (sr == SQL_ERROR) {
+    if (taos_api_fail == 0) return SQL_ERROR;
+    // NOTE: this might be a non-parameterized-statement
+    //       since `taosc` does not support scenario for prepare-execution of such statement
+    //       we have to fall-back to execute such statement with `taos_query` instead, at SQLPrepare stage, for the sake of following SQLDescribeXXX calls
+    //       this whatsoever breaks ODBC's convention: statement could be prepared while not executed at server side
+    //       using `taos_query`, once such statement is SQLPrepare'd, it's actually SQLExecute'd
+    tsdb_stmt_reset(stmt);
+    sr = tsdb_stmt_query(stmt, sqlc_tsdb);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+    stmt->fall_back_to_query = 1;
+  }
 
-  SQLSMALLINT n = tsdb_stmt_get_count_of_tsdb_params(stmt);
-  if (n <= 0) {
-    stmt_append_err(stmt->owner, "HY000", 0, "General error:statement-without-parameter-placemarker not allowed to be prepared");
-    return SQL_ERROR;
+  if (!stmt->fall_back_to_query) {
+    SQLSMALLINT n = tsdb_stmt_get_count_of_tsdb_params(stmt);
+    if (n <= 0) {
+      stmt_append_err(stmt->owner, "HY000", 0, "General error:statement-without-parameter-placemarker not allowed to be prepared");
+      return SQL_ERROR;
+    }
   }
 
   stmt->prepared = 1;

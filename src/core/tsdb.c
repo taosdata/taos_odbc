@@ -709,10 +709,6 @@ SQLRETURN tsdb_stmt_describe_param(
     SQLSMALLINT    *DecimalDigitsPtr,
     SQLSMALLINT    *NullablePtr)
 {
-  int r = 0;
-  int idx = ParameterNumber - 1;
-  int type = 0;
-  int bytes = 0;
   OA_ILE(stmt->prepared);
 
   if (stmt->params.is_insert_stmt) {
@@ -736,20 +732,14 @@ SQLRETURN tsdb_stmt_describe_param(
     return _tsdb_stmt_describe_param_by_field(stmt, ParameterNumber, DataTypePtr, ParameterSizePtr, DecimalDigitsPtr, NullablePtr, field);
   }
 
-  r = CALL_taos_stmt_get_param(stmt->stmt, idx, &type, &bytes);
-  if (r) {
-    // FIXME: return SQL_VARCHAR and hard-coded parameters for the moment
-    if (DataTypePtr)       *DataTypePtr       = SQL_VARCHAR;
-    if (ParameterSizePtr)  *ParameterSizePtr  = 1024;
-    if (DecimalDigitsPtr)  *DecimalDigitsPtr  = 0;
-    if (NullablePtr)       *NullablePtr       = SQL_NULLABLE_UNKNOWN;
-    stmt_append_err(stmt->owner, "01000", 0,
-        "General warning:Arbitrary `SQL_VARCHAR(1024)` is chosen to return because of taos lacking parm-desc for non-insert-statement");
-    return SQL_SUCCESS_WITH_INFO;
-  }
-
-  stmt_append_err(stmt->owner, "HY000", 0, "General error:not implemented yet");
-  return SQL_ERROR;
+  // FIXME: return SQL_VARCHAR and hard-coded parameters for the moment
+  if (DataTypePtr)       *DataTypePtr       = SQL_VARCHAR;
+  if (ParameterSizePtr)  *ParameterSizePtr  = 1024;
+  if (DecimalDigitsPtr)  *DecimalDigitsPtr  = 0;
+  if (NullablePtr)       *NullablePtr       = SQL_NULLABLE_UNKNOWN;
+  stmt_append_err(stmt->owner, "01000", 0,
+      "General warning:Arbitrary `SQL_VARCHAR(1024)` is chosen to return because of taos lacking parm-desc for non-insert-statement");
+  return SQL_SUCCESS_WITH_INFO;
 }
 
 TAOS_FIELD_E* tsdb_stmt_get_tsdb_field_by_tsdb_params(tsdb_stmt_t *stmt, int i_param)

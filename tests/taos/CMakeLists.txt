@@ -49,3 +49,30 @@ if(HAVE_VALGRIND)
       COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/taos_test)
 endif()
 
+add_executable(taos_regression
+    taos_regression.c
+    $<TARGET_OBJECTS:common_obj>
+    $<TARGET_OBJECTS:os_port_obj>
+    $<TARGET_OBJECTS:taos_helpers_obj>)
+add_dependencies(taos_regression ex_cjson)
+
+target_include_directories(taos_regression PRIVATE ${CJSON_INSTALL_PATH}/include)
+target_link_directories(taos_regression PRIVATE ${CJSON_INSTALL_PATH}/lib)
+# NOTE: cJSON_xxx exported in `libtaos.so`
+if(TODBC_WINDOWS)
+  target_link_libraries(taos_regression cjson)
+else()
+  target_link_libraries(taos_regression cjson dl pthread)
+endif()
+if(NOT FAKE_TAOS)
+  target_link_libraries(taos_regression taos)
+endif()
+
+add_test(NAME taos_regression
+    COMMAND taos_regression)
+
+if(HAVE_VALGRIND)
+  add_test(NAME Vtaos_regression
+      COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/taos_regression)
+endif()
+

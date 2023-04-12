@@ -177,6 +177,8 @@ static void _stmt_reset_result(stmt_t *stmt)
 {
   _get_data_ctx_reset(&stmt->get_data_ctx);
 
+  // stmt->fall_back_to_query = 0;
+
   tsdb_res_reset(&stmt->tsdb_stmt.res);
   tables_reset(&stmt->tables);
   columns_reset(&stmt->columns);
@@ -2900,7 +2902,7 @@ static SQLRETURN _stmt_conv_sql_c_char_to_tsdb_timestamp_x(stmt_t *stmt, const c
   return SQL_SUCCESS;
 }
 
-static int _stmt_sql_found(sqls_parser_param_t *param, size_t start, size_t end, void *arg)
+static int _stmt_sql_found(sqls_parser_param_t *param, size_t start, size_t end, uint8_t has_qm, void *arg)
 {
   (void)param;
 
@@ -2919,8 +2921,9 @@ static int _stmt_sql_found(sqls_parser_param_t *param, size_t start, size_t end,
     sqls->cap  = cap;
   }
 
-  sqls->sqls[sqls->nr].start = start;
-  sqls->sqls[sqls->nr].end   = end;
+  sqls->sqls[sqls->nr].start  = start;
+  sqls->sqls[sqls->nr].end    = end;
+  sqls->sqls[sqls->nr].has_qm = has_qm;
   sqls->nr += 1;
 
   return 0;
@@ -2969,6 +2972,7 @@ static SQLRETURN _stmt_get_next_sql(stmt_t *stmt, sqlc_tsdb_t *sqlc_tsdb)
   parser_nterm_t *nterms = stmt->sqls.sqls + stmt->sqls.pos;
   sqlc_tsdb->sqlc        = (const char*)stmt->raw.base + nterms->start;
   sqlc_tsdb->sqlc_bytes  = nterms->end - nterms->start;
+  sqlc_tsdb->has_qm      = nterms->has_qm;
 
   const char *fromcode = conn_get_sqlc_charset(stmt->conn);
   const char *tocode   = conn_get_tsdb_charset(stmt->conn);
@@ -2990,48 +2994,6 @@ static SQLRETURN _stmt_get_next_sql(stmt_t *stmt, sqlc_tsdb_t *sqlc_tsdb)
   ++sqls->pos;
 
   return SQL_SUCCESS;
-}
-
-SQLRETURN stmt_prepare(stmt_t *stmt,
-    SQLCHAR      *StatementText,
-    SQLINTEGER    TextLength)
-{
-  SQLRETURN sr = SQL_SUCCESS;
-
-  _stmt_unprepare(stmt);
-
-  const char *sql = (const char*)StatementText;
-
-  size_t len = TextLength;
-  if (TextLength == SQL_NTS) len = strlen(sql);
-  else                       len = strnlen(sql, TextLength);
-
-  sqls_parser_param_t param = {0};
-  // param.ctx.debug_flex = 1;
-  // param.ctx.debug_bison = 1;
-  param.sql_found = _stmt_sql_found;
-  param.arg       = stmt;
-
-  sr = _stmt_cache_and_parse(stmt, &param, sql, len);
-  sqls_parser_param_release(&param);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
-
-  sqls_t *sqls = &stmt->sqls;
-  if (sqls->nr > 1) {
-    stmt_append_err_format(stmt, "HY000", 0, "General error:multiple statements in a single SQLPrepare not supported yet");
-    return SQL_ERROR;
-  }
-
-  sqlc_tsdb_t sqlc_tsdb;
-  sr = _stmt_get_next_sql(stmt, &sqlc_tsdb);
-  if (sr == SQL_NO_DATA) {
-    stmt_append_err_format(stmt, "HY000", 0, "General error:empty sql statement");
-    return SQL_ERROR;
-  }
-
-  sr = _stmt_prepare(stmt, &sqlc_tsdb);
-
-  return sr;
 }
 
 static SQLRETURN _stmt_bind_param(
@@ -4736,9 +4698,13 @@ static SQLRETURN _stmt_exec_direct_with_simple_sql(stmt_t *stmt, const sqlc_tsdb
   SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
 
-  const char *start, *end;
-  trim_string(sqlc_tsdb->sqlc, sqlc_tsdb->sqlc_bytes, &start, &end);
+  const char *start = sqlc_tsdb->tsdb;
+  const char *end   = sqlc_tsdb->tsdb + sqlc_tsdb->tsdb_bytes;
   if (end > start && start[0] == '!') {
+    if (sqlc_tsdb->has_qm) {
+      stmt_append_err(stmt, "HY000", 0, "General error:parameterized-topic-consumer-statement not supported yet");
+      return SQL_ERROR;
+    }
     ext_parser_param_t param = {0};
     // param.ctx.debug_flex = 1;
     // param.ctx.debug_bison = 1;
@@ -4747,7 +4713,7 @@ static SQLRETURN _stmt_exec_direct_with_simple_sql(stmt_t *stmt, const sqlc_tsdb
       stmt_append_err_format(stmt, "HY000", 0, "General error:parsing:%.*s", (int)(end-start), start);
       stmt_append_err_format(stmt, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
       stmt_append_err_format(stmt, "HY000", 0, "General error:failed:%.*s", (int)strlen(param.ctx.err_msg), param.ctx.err_msg);
-      stmt_append_err(stmt, "HY000", 0, "General error:taos_odbc_extended syntax for `topic`:!topic [<name>]+ [{[<key[=<val>]>]*}]?");
+      stmt_append_err(stmt, "HY000", 0, "General error:taos_odbc_extended syntax for `topic`:!topic [<name>]+ [{[<key[=<val>]>;]*}]?");
 
       ext_parser_param_release(&param);
       return SQL_ERROR;
@@ -4763,6 +4729,59 @@ static SQLRETURN _stmt_exec_direct_with_simple_sql(stmt_t *stmt, const sqlc_tsdb
   }
 
   return _stmt_exec_direct_sql(stmt, sqlc_tsdb);
+}
+
+SQLRETURN stmt_prepare(stmt_t *stmt,
+    SQLCHAR      *StatementText,
+    SQLINTEGER    TextLength)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  _stmt_unprepare(stmt);
+
+  const char *sql = (const char*)StatementText;
+
+  size_t len = TextLength;
+  if (TextLength == SQL_NTS) len = strlen(sql);
+  else                       len = strnlen(sql, TextLength);
+
+  sqls_parser_param_t param = {0};
+  // param.ctx.debug_flex = 1;
+  // param.ctx.debug_bison = 1;
+  param.sql_found = _stmt_sql_found;
+  param.arg       = stmt;
+
+  sr = _stmt_cache_and_parse(stmt, &param, sql, len);
+  sqls_parser_param_release(&param);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  sqls_t *sqls = &stmt->sqls;
+  if (sqls->nr > 1) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:multiple statements in a single SQLPrepare not supported yet");
+    return SQL_ERROR;
+  }
+
+  sqlc_tsdb_t sqlc_tsdb;
+  sr = _stmt_get_next_sql(stmt, &sqlc_tsdb);
+  if (sr == SQL_NO_DATA) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:empty sql statement");
+    return SQL_ERROR;
+  }
+
+  const char *start = sqlc_tsdb.tsdb;
+  const char *end   = sqlc_tsdb.tsdb + sqlc_tsdb.tsdb_bytes;
+  if (end > start && start[0] == '!') {
+    stmt->fall_back_to_query = 1;
+    return _stmt_exec_direct_with_simple_sql(stmt, &sqlc_tsdb);
+  }
+
+  if (sqlc_tsdb.has_qm) {
+    stmt->fall_back_to_query = 0;
+    return _stmt_prepare(stmt, &sqlc_tsdb);
+  }
+
+  stmt->fall_back_to_query = 1;
+  return _stmt_exec_direct_with_simple_sql(stmt, &sqlc_tsdb);
 }
 
 SQLRETURN stmt_exec_direct(stmt_t *stmt, SQLCHAR *StatementText, SQLINTEGER TextLength)
@@ -4820,6 +4839,7 @@ SQLRETURN stmt_execute(stmt_t *stmt)
   OA_ILE(stmt->conn->taos);
 
   // NOTE: no need to check whether it's prepared or not, DM would have already checked
+  if (stmt->fall_back_to_query) return SQL_SUCCESS;
 
   sr = _stmt_execute(stmt);
   if (sr == SQL_ERROR) return SQL_ERROR;
@@ -5138,7 +5158,10 @@ SQLRETURN stmt_more_results(
   SQLRETURN sr = SQL_SUCCESS;
 
   if (stmt->base == &stmt->topic.base) {
-    return stmt->base->more_results(stmt->base);
+    sr = stmt->base->more_results(stmt->base);
+    if (sr == SQL_NO_DATA) return SQL_NO_DATA;
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+    return _stmt_fill_IRD(stmt);
   }
 
   if (stmt->base == &stmt->tsdb_stmt.base) {

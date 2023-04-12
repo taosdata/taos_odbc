@@ -57,14 +57,15 @@
         const char *errsg
     );
 
-    #define SET_TOKEN_BOUND(_rr, _start, _end) do {    \
-      _rr.start = _start;                              \
-      _rr.end   = _end;                                \
+    #define SET_TOKEN_BOUND(_rr, _start, _end, _has_qm) do {     \
+      _rr.start  = _start;                                       \
+      _rr.end    = _end;                                         \
+      _rr.has_qm = _has_qm;                                      \
     } while (0)
 
-    #define FOUND(_start, _end) do {                                            \
+    #define FOUND(_start, _end, _has_qm) do {                                   \
       if (param->sql_found) {                                                   \
-        int r = param->sql_found(param, _start, _end, param->arg);              \
+        int r = param->sql_found(param, _start, _end, _has_qm, param->arg);     \
         if (r) return 0;                                                        \
       }                                                                         \
     } while (0)
@@ -105,10 +106,10 @@
 
 %token TOKEN ERROR STR
 %token LP RP LC RC LB RB
-%token QM SQ AA
+%token DQ SQ AA
 
 %nterm <nterm> lc rc lp rp lb rb
-%nterm <nterm> qm sq aa sc
+%nterm <nterm> dq sq aa qm sc
 %nterm <nterm> token str any_token sql quoted strs delimit sqls
 
  /* %nterm <str>   args */ // non-terminal `input` use `str` to store
@@ -123,92 +124,97 @@ input:
 ;
 
 sqls:
-  %empty                    { SET_TOKEN_BOUND($$, 0, 0); }
-| sql                       { SET_TOKEN_BOUND($$, $1.start, $1.end); FOUND($1.start, $1.end+1); }
-| sqls delimit sql          { SET_TOKEN_BOUND($$, $1.start, $3.end); FOUND($3.start, $3.end+1); }
+  %empty                    { SET_TOKEN_BOUND($$, 0, 0, 0); }
+| sql                       { SET_TOKEN_BOUND($$, $1.start, $1.end, $1.has_qm); FOUND($1.start, $1.end+1, $$.has_qm); }
+| sqls delimit sql          { SET_TOKEN_BOUND($$, $1.start, $3.end, $3.has_qm); FOUND($3.start, $3.end+1, $$.has_qm); }
 ;
 
 sql:
-  any_token            { SET_TOKEN_BOUND($$, $1.start, $1.end); }
-| sql any_token        { SET_TOKEN_BOUND($$, $1.start, $2.end); }
+  any_token            { SET_TOKEN_BOUND($$, $1.start, $1.end, $1.has_qm); }
+| sql any_token        { SET_TOKEN_BOUND($$, $1.start, $2.end, ($1.has_qm || $2.has_qm)); }
 ;
 
 any_token:
-  token                { SET_TOKEN_BOUND($$, $1.start, $1.end); }
-| quoted               { SET_TOKEN_BOUND($$, $1.start, $1.end); }
-| lc rc                { SET_TOKEN_BOUND($$, $1.start, $2.end); }
-| lp rp                { SET_TOKEN_BOUND($$, $1.start, $2.end); }
-| lb rb                { SET_TOKEN_BOUND($$, $1.start, $2.end); }
-| lc sql rc            { SET_TOKEN_BOUND($$, $1.start, $3.end); }
-| lp sql rp            { SET_TOKEN_BOUND($$, $1.start, $3.end); }
-| lb sql rb            { SET_TOKEN_BOUND($$, $1.start, $3.end); }
+  token                { SET_TOKEN_BOUND($$, $1.start, $1.end, 0); }
+| quoted               { SET_TOKEN_BOUND($$, $1.start, $1.end, 0); }
+| lc rc                { SET_TOKEN_BOUND($$, $1.start, $2.end, 0); }
+| lp rp                { SET_TOKEN_BOUND($$, $1.start, $2.end, 0); }
+| lb rb                { SET_TOKEN_BOUND($$, $1.start, $2.end, 0); }
+| lc sql rc            { SET_TOKEN_BOUND($$, $1.start, $3.end, $2.has_qm); }
+| lp sql rp            { SET_TOKEN_BOUND($$, $1.start, $3.end, $2.has_qm); }
+| lb sql rb            { SET_TOKEN_BOUND($$, $1.start, $3.end, $2.has_qm); }
+| qm                   { SET_TOKEN_BOUND($$, $1.start, $1.end, $1.has_qm); }
 ;
 
 token:
-  TOKEN        { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end); }
+  TOKEN        { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end, 0); }
 ;
 
 lc:
-  '('          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end); }
+  '('          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end, 0); }
 ;
 
 rc:
-  ')'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end); }
+  ')'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end, 0); }
 ;
 
 lp:
-  '{'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end); }
+  '{'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end, 0); }
 ;
 
 rp:
-  '}'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end); }
+  '}'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end, 0); }
 ;
 
 lb:
-  '['          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end); }
+  '['          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end, 0); }
 ;
 
 rb:
-  ']'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end); }
+  ']'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end, 0); }
 ;
 
 quoted:
-  qm qm        { SET_TOKEN_BOUND($$, $1.start, $2.end); }
-| qm strs qm   { SET_TOKEN_BOUND($$, $1.start, $3.end); }
-| sq sq        { SET_TOKEN_BOUND($$, $1.start, $2.end); }
-| sq strs sq   { SET_TOKEN_BOUND($$, $1.start, $3.end); }
-| aa aa        { SET_TOKEN_BOUND($$, $1.start, $2.end); }
-| aa strs aa   { SET_TOKEN_BOUND($$, $1.start, $3.end); }
+  dq dq        { SET_TOKEN_BOUND($$, $1.start, $2.end, 0); }
+| dq strs dq   { SET_TOKEN_BOUND($$, $1.start, $3.end, 0); }
+| sq sq        { SET_TOKEN_BOUND($$, $1.start, $2.end, 0); }
+| sq strs sq   { SET_TOKEN_BOUND($$, $1.start, $3.end, 0); }
+| aa aa        { SET_TOKEN_BOUND($$, $1.start, $2.end, 0); }
+| aa strs aa   { SET_TOKEN_BOUND($$, $1.start, $3.end, 0); }
 ;
 
-qm:
-  '"'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end); }
+dq:
+  '"'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end, 0); }
 ;
 
 sq:
-  '\''         { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end); }
+  '\''         { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end, 0); }
 ;
 
 aa:
-  '`'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end); }
+  '`'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end, 0); }
+;
+
+qm:
+  '?'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end, 1); }
 ;
 
 strs:
-  str          { SET_TOKEN_BOUND($$, $1.start, $1.end); }
-| strs str     { SET_TOKEN_BOUND($$, $1.start, $2.end); }
+  str          { SET_TOKEN_BOUND($$, $1.start, $1.end, 0); }
+| strs str     { SET_TOKEN_BOUND($$, $1.start, $2.end, 0); }
 ;
 
 str:
-  STR          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end); }
+  STR          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end, 0); }
 ;
 
 delimit:
-  sc           { SET_TOKEN_BOUND($$, $1.start, $1.end); }
-| delimit sc   { SET_TOKEN_BOUND($$, $1.start, $2.end); }
+  sc           { SET_TOKEN_BOUND($$, $1.start, $1.end, 0); }
+| delimit sc   { SET_TOKEN_BOUND($$, $1.start, $2.end, 0); }
 ;
 
 sc:
-  ';'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end); }
+  ';'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end, 0); }
 ;
 
 %%

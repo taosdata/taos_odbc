@@ -150,8 +150,7 @@ static SQLRETURN _execute(stmt_base_t *base)
 {
   topic_t *topic = (topic_t*)base;
   (void)topic;
-  stmt_append_err(topic->owner, "HY000", 0, "General error:not implemented yet");
-  return SQL_ERROR;
+  return SQL_SUCCESS;
 }
 
 static SQLRETURN _get_col_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
@@ -257,6 +256,37 @@ static SQLRETURN _topic_desc_tripple(topic_t *topic)
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _poll(topic_t *topic)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  while (topic->res == NULL) {
+    if (topic->records_max >= 0 && topic->records_count >= topic->records_max) {
+      stmt_append_err_format(topic->owner, "HY000", 0, "General error:taos_odbc.limit.records[%zd] has been reached", topic->records_max);
+      return SQL_NO_DATA;
+    }
+    time_t t1 = time(NULL);
+    if (topic->seconds_max >= 0 && difftime(t1, topic->t0) > topic->seconds_max) {
+      stmt_append_err_format(topic->owner, "HY000", 0, "General error:taos_odbc.limit.seconds[%zd] has been reached", topic->seconds_max);
+      return SQL_NO_DATA;
+    }
+
+    int32_t timeout = 100;
+    topic->res = CALL_tmq_consumer_poll(topic->tmq, timeout);
+    if (topic->res) {
+      sr = _topic_desc_tripple(topic);
+      if (sr == SQL_NO_DATA) return SQL_NO_DATA;
+      if (sr != SQL_SUCCESS) {
+        topic->do_not_commit = 1;
+        return SQL_ERROR;
+      }
+      ++topic->records_count;
+    }
+  }
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _fetch_row(stmt_base_t *base)
 {
   SQLRETURN sr = SQL_SUCCESS;
@@ -268,18 +298,9 @@ static SQLRETURN _fetch_row(stmt_base_t *base)
 
 again:
 
-  while (topic->res == NULL) {
-    int32_t timeout = 100;
-    topic->res = CALL_tmq_consumer_poll(topic->tmq, timeout);
-    if (topic->res) {
-      sr = _topic_desc_tripple(topic);
-      if (sr == SQL_NO_DATA) return SQL_NO_DATA;
-      if (sr != SQL_SUCCESS) {
-        topic->do_not_commit = 1;
-        return SQL_ERROR;
-      }
-    }
-  }
+  sr = _poll(topic);
+  if (sr == SQL_NO_DATA) return SQL_NO_DATA;
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   row = CALL_taos_fetch_row(topic->res);
   if (row == NULL) {
@@ -520,6 +541,8 @@ static SQLRETURN _build_consumer(topic_t *topic)
   // auto.commit.interval.ms
   // experimental.snapshot.enable
   // msg.with.table.name
+  // taos_odbc.limit.records        /* return SQL_NO_DATA once # of records has been reached */
+  // taos_odbc.limit.seconds        /* return SQL_NO_DATA once # of seconds has passed */
 
   _topic_release_conf(topic);
 
@@ -530,12 +553,24 @@ static SQLRETURN _build_consumer(topic_t *topic)
     stmt_oom(topic->owner);
     return SQL_ERROR;
   }
+
+  topic->records_max = -1;
+  topic->seconds_max = -1;
+
   tmq_conf_t *conf = topic->conf;
 
   kvs_t *kvs = &topic->cfg.kvs;
   for (size_t i=0; i<kvs->nr; ++i) {
     kv_t *kv = kvs->kvs + i;
     if (!kv->val) continue;
+    if (tod_strcasecmp(kv->key, "taos_odbc.limit.records") == 0) {
+      topic->records_max = atoi(kv->val);
+      continue;
+    }
+    if (tod_strcasecmp(kv->key, "taos_odbc.limit.seconds") == 0) {
+      topic->seconds_max = atoi(kv->val);
+      continue;
+    }
     code = CALL_tmq_conf_set(conf, kv->key, kv->val);
     if (code != TMQ_CONF_OK) {
       stmt_append_err_format(topic->owner, "HY000", 0,
@@ -581,15 +616,12 @@ static SQLRETURN _topic_open(
     return SQL_ERROR;
   }
 
-  while (topic->res == NULL) {
-    int32_t timeout = 100;
-    topic->res = CALL_tmq_consumer_poll(topic->tmq, timeout);
-    if (topic->res) {
-      sr = _topic_desc_tripple(topic);
-      if (sr == SQL_NO_DATA) return SQL_NO_DATA;
-      if (sr != SQL_SUCCESS) return SQL_ERROR;
-    }
-  }
+  topic->records_count = 0;
+  topic->t0 = time(NULL);
+
+  sr = _poll(topic);
+  if (sr == SQL_NO_DATA) return SQL_NO_DATA;
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   return SQL_SUCCESS;
 }
@@ -620,6 +652,7 @@ SQLRETURN topic_open(
   }
   sr = _topic_open(topic, topicList);
   CALL_tmq_list_destroy(topicList);
+  if (sr == SQL_NO_DATA) return SQL_NO_DATA;
   if (sr != SQL_SUCCESS) {
     topic_reset(topic);
     return SQL_ERROR;

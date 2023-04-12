@@ -128,7 +128,6 @@ input:
 
 topic:
   '!' TOPIC names
-| '!' TOPIC names '{' '}'
 | '!' TOPIC names '{' tconfs '}'
 ;
 
@@ -138,13 +137,19 @@ names:
 ;
 
 tconfs:
-  tconf
-| tconfs tconf
+  %empty
+| tconf
+| tconfs delimits tconf
 ;
 
 tconf:
   TKEY                           { SET_TOPIC_KEY($1, @$); }
 | TKEY '=' TVAL                  { SET_TOPIC_KEY_VAL($1, $3, @$); }
+;
+
+delimits:
+  ';'
+| delimits ';'
 ;
 
 %%

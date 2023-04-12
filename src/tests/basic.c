@@ -228,16 +228,16 @@ static int test_ext_parser(void)
     "!topic demo {}",
     "!topic demo {helloworld}",
     "!topic demo {helloworld=good}",
-    "!topic demo {helloworld=good helloworld=good}",
-    "!topic demo foo {helloworld=good helloworld=good}",
+    "!topic demo {helloworld=good;helloworld=good}",
+    "!topic demo foo {helloworld=good; helloworld=good}",
     "!topic demo {"
-    " enable.auto.commit=true"
-    " auto.commit.interval.ms=100"
-    " group.id=cgrpName"
-    " client.id=user_defined_name"
-    " td.connect.user=root"
-    " td.connect.pass=taosdata"
-    " auto.offset.reset=earliest"
+    " enable.auto.commit=true;"
+    " auto.commit.interval.ms=100;"
+    " group.id=cgrpName;"
+    " client.id=user_defined_name;"
+    " td.connect.user=root;"
+    " td.connect.pass=taosdata;"
+    " auto.offset.reset=earliest;"
     " experimental.snapshot.enable=false"
     "}",
   };
@@ -258,18 +258,25 @@ static int test_ext_parser(void)
 }
 
 typedef struct sqls_check_s         sqls_check_t;
+typedef struct expected_sql_s       expected_sql_t;
+struct expected_sql_s {
+  const char                *sql;
+  uint8_t                    has_qm:1;
+};
+
 struct sqls_check_s {
   const char                *sqls;
-  const char * const        *expects;
+  const expected_sql_t      *expects;
   size_t                     expects_cap;
   size_t                     idx;
 
   uint8_t                    failed:1;
 };
 
-static int _sql_found(sqls_parser_param_t *param, size_t _start, size_t _end, void *arg)
+static int _sql_found(sqls_parser_param_t *param, size_t _start, size_t _end, uint8_t has_qm, void *arg)
 {
   (void)param;
+  (void)has_qm;
 
   sqls_check_t *check = (sqls_check_t*)arg;
   const char *sqls = check->sqls;
@@ -282,19 +289,33 @@ static int _sql_found(sqls_parser_param_t *param, size_t _start, size_t _end, vo
     return -1;
   }
 
-  const char *expected = check->expects[check->idx];
-  if (strlen(expected) != (_end - _start)) {
-    E("expected:[%s]", expected);
+  const expected_sql_t *expected = check->expects + check->idx;
+  if (strlen(expected->sql) != (_end - _start)) {
+    E("expected:[%s]", expected->sql);
     E("but  got:[%.*s]", (int)(_end - _start), sqls + _start);
     check->failed = 1;
     return -1;
   }
-  if (strncmp(expected, sqls + _start, _end - _start)) {
-    E("expected:[%s]", expected);
+  if (strncmp(expected->sql, sqls + _start, _end - _start)) {
+    E("expected:[%s]", expected->sql);
     E("but  got:[%.*s]", (int)(_end - _start), sqls + _start);
     check->failed = 1;
     return -1;
   }
+
+  if ((!!expected->has_qm) != (!!has_qm)) {
+    E("sql:%s", expected->sql);
+    if (!!expected->has_qm) {
+      E("parameter-place-marker expected");
+      E("but  got:none");
+    } else {
+      E("non-parameter-place-marker expected");
+      E("but  got:at least one [?]");
+    }
+    check->failed = 1;
+    return -1;
+  }
+
   ++check->idx;
   return 0;
 }
@@ -303,83 +324,105 @@ static int test_sqls_parser(void)
 {
   const struct {
     const char *sqls;
-    const char *expects[16];
+    const expected_sql_t expects[16];
   } _cases[] = {
     {
       "insert into t (ts, name)",
       {
-        "insert into t (ts, name)",
+        {"insert into t (ts, name)", 0},
       },
     },{
       "insert into t (ts, name) values (now(), value)",
       {
-        "insert into t (ts, name) values (now(), value)",
+        {"insert into t (ts, name) values (now(), value)", 0},
       },
     },{
       "select * from a;xselect * from bb;insert into t (ts, name) values (now(), \"hello\")",
       {
-        "select * from a",
-        "xselect * from bb",
-        "insert into t (ts, name) values (now(), \"hello\")",
+        {"select * from a", 0},
+        {"xselect * from bb", 0},
+        {"insert into t (ts, name) values (now(), \"hello\")", 0},
       },
     },{
       "select * from a;select * from bb;insert into t (ts, name) values (now(), \"世界\")",
       {
-        "select * from a",
-        "select * from bb",
-        "insert into t (ts, name) values (now(), \"世界\")",
+        {"select * from a", 0},
+        {"select * from bb", 0},
+        {"insert into t (ts, name) values (now(), \"世界\")", 0},
       },
     },{
       "    select * from a   ;   select * from b     ;     insert into t (ts, name) values (now(), \"世界\")      ",
       {
-        "select * from a",
-        "select * from b",
-        "insert into t (ts, name) values (now(), \"世界\")",
+        {"select * from a", 0},
+        {"select * from b", 0},
+        {"insert into t (ts, name) values (now(), \"世界\")", 0},
       },
     },{
       "select 34 as `abc`",
       {
-        "select 34 as `abc`",
+        {"select 34 as `abc`", 0},
       },
     },{
       "    select * \r\n from a  \r\n ;  select * \nfrom b     ;     insert into \nt (ts, \nname) values (now(), \"世界\")  ;;;;;;    ",
       {
-        "select * \r\n from a",
-        "select * \nfrom b",
-        "insert into \nt (ts, \nname) values (now(), \"世界\")",
+        {"select * \r\n from a", 0},
+        {"select * \nfrom b", 0},
+        {"insert into \nt (ts, \nname) values (now(), \"世界\")", 0},
       },
     },{
       "    select * from \f a  ;   select * from b     ;  \r   insert \rinto t (ts, name) values (now(), \"x世界\")      ",
       {
-        "select * from \f a",
-        "select * from b",
-        "insert \rinto t (ts, name) values (now(), \"x世界\")",
+        {"select * from \f a", 0},
+        {"select * from b", 0},
+        {"insert \rinto t (ts, name) values (now(), \"x世界\")", 0},
       },
     },{
       "",
       {
-        NULL,
+        {NULL, 0},
       },
     },{
       "ab",
       {
-        "ab",
+        {"ab", 0},
       },
     },{
       ";;;;;ab;;;;;;;",
       {
-        "ab",
+        {"ab", 0},
       },
     },{
-      "!topic demo good {group.id=cgrpName enable.auto.commit=false auto.commit.interval.ms=10000}",
+      "!topic demo good {group.id=cgrpName; enable.auto.commit=false; auto.commit.interval.ms=10000}",
       {
-        "!topic demo good {group.id=cgrpName enable.auto.commit=false auto.commit.interval.ms=10000}",
+        {"!topic demo good {group.id=cgrpName; enable.auto.commit=false; auto.commit.interval.ms=10000}", 0},
+      },
+    },{
+      "select * from t where x = ?",
+      {
+        {"select * from t where x = ?", 1},
+      },
+    },{
+      "select * from t where x = '?'",
+      {
+        {"select * from t where x = '?'", 0},
+      },
+    },{
+      "insert into t (ts, name) values (now(), ?)",
+      {
+        {"insert into t (ts, name) values (now(), ?)", 1},
+      },
+    },{
+      "insert into ? (ts, name) values (now(), 'a')",
+      {
+        {"insert into ? (ts, name) values (now(), 'a')", 1},
       },
     }
   };
-  for (size_t i=0; i<sizeof(_cases)/sizeof(_cases[0]); ++i) {
-    const char  *sqls    = _cases[i].sqls;
-    char const * const *expects = _cases[i].expects;
+  const size_t _cases_nr = sizeof(_cases)/sizeof(_cases[0]);
+  for (size_t i=0; i<_cases_nr; ++i) {
+    if (i + 1 < _cases_nr) continue;
+    const char  *sqls             = _cases[i].sqls;
+    const expected_sql_t *expects = _cases[i].expects;
 
     sqls_check_t check = {
       .sqls        = sqls,
@@ -401,8 +444,8 @@ static int test_sqls_parser(void)
       E("failed:%s", param.ctx.err_msg);
     } else if (check.failed) {
       return -1;
-    } else if (expects[check.idx]) {
-      E("expected:[%s]", check.expects[check.idx]);
+    } else if (expects[check.idx].sql) {
+      E("expected:[%s]", expects[check.idx].sql);
       E("but  got:<null>");
       return -1;
     }

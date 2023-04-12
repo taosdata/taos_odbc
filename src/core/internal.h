@@ -122,6 +122,8 @@ struct sqlc_tsdb_s {
   size_t                sqlc_bytes;
   const char           *tsdb;
   size_t                tsdb_bytes;        // NOTE: no ownership
+
+  uint8_t               has_qm:1;
 };
 
 struct sqlc_data_s {
@@ -321,6 +323,8 @@ struct conn_cfg_s {
 struct parser_nterm_s {
   size_t           start;
   size_t           end;
+
+  uint8_t          has_qm:1;
 };
 
 struct sqls_s {
@@ -373,7 +377,7 @@ struct ext_parser_param_s {
 };
 
 struct sqls_parser_param_s {
-  int (*sql_found)(sqls_parser_param_t *param, size_t start, size_t end, void *arg);
+  int (*sql_found)(sqls_parser_param_t *param, size_t start, size_t end, uint8_t has_qm, void *arg);
   void                  *arg;
 
   parser_ctx_t           ctx;
@@ -507,6 +511,12 @@ struct topic_s {
 
   char                       name[193];
   topic_cfg_t                cfg;
+
+  int64_t                    records_max;
+  int64_t                    seconds_max;
+
+  int64_t                    records_count;
+  time_t                     t0;
 
   tmq_conf_t                *conf;
   tmq_t                     *tmq;
@@ -681,6 +691,7 @@ struct stmt_s {
   stmt_base_t               *base;
 
   unsigned int               strict:1; // 1: param-truncation as failure
+  uint8_t                    fall_back_to_query:1;
 };
 
 struct tls_s {

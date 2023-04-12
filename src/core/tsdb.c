@@ -826,6 +826,11 @@ SQLRETURN tsdb_stmt_prepare(tsdb_stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb)
     //       we have to fall-back to execute such statement with `taos_query` instead, at SQLPrepare stage, for the sake of following SQLDescribeXXX calls
     //       this whatsoever breaks ODBC's convention: statement could be prepared while not executed at server side
     //       using `taos_query`, once such statement is SQLPrepare'd, it's actually SQLExecute'd
+    if (1) {
+      // NOTE: shall be filtered in early stage of SQLPrepare/SQLExecDirect
+      stmt_append_err(stmt->owner, "HY000", 0, "General error:statement-without-parameter-placemarker not allowed to be prepared");
+      return SQL_ERROR;
+    }
     tsdb_stmt_reset(stmt);
     sr = tsdb_stmt_query(stmt, sqlc_tsdb);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
@@ -835,8 +840,20 @@ SQLRETURN tsdb_stmt_prepare(tsdb_stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb)
   if (!stmt->fall_back_to_query) {
     SQLSMALLINT n = tsdb_stmt_get_count_of_tsdb_params(stmt);
     if (n <= 0) {
-      stmt_append_err(stmt->owner, "HY000", 0, "General error:statement-without-parameter-placemarker not allowed to be prepared");
-      return SQL_ERROR;
+      if (0) {
+        // NOTE: this might be a non-parameterized-statement
+        //       since `taosc` does not support scenario for prepare-execution of such statement
+        //       we have to fall-back to execute such statement with `taos_query` instead, at SQLPrepare stage, for the sake of following SQLDescribeXXX calls
+        //       this whatsoever breaks ODBC's convention: statement could be prepared while not executed at server side
+        //       using `taos_query`, once such statement is SQLPrepare'd, it's actually SQLExecute'd
+        tsdb_stmt_reset(stmt);
+        sr = tsdb_stmt_query(stmt, sqlc_tsdb);
+        if (sr != SQL_SUCCESS) return SQL_ERROR;
+        stmt->fall_back_to_query = 1;
+      } else {
+        stmt_append_err(stmt->owner, "HY000", 0, "General error:statement-without-parameter-placemarker not allowed to be prepared");
+        return SQL_ERROR;
+      }
     }
   }
 

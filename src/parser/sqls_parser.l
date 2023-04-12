@@ -86,7 +86,7 @@ do {                                              \
 %option nounistd
 
 %x LP LC LB
-%x QM SQ AA
+%x DQ SQ AA QM
 
 SP            [ \t]
 LN            "\r\n"|"\n\r"|[\f\r\n]
@@ -98,9 +98,10 @@ LC            "{"
 RC            "}"
 LB            "["
 RB            "]"
-QM            "\""
+DQ            "\""
 SQ            "'"
 AA            "`"
+QM            "?"
 
 %%
 
@@ -109,13 +110,14 @@ AA            "`"
 {SP}                  { R(); C(); } /* eat */
 {LN}                  { R(); L(); } /* eat */
 [[:alnum:]]+          { R(); C(); return MKT(TOKEN); }
+{QM}                  { R(); C(); return *yytext; }
 {PUNC}                { R(); C(); return MKT(TOKEN); }
 
 {LP}                  { R(); C(); PUSH(LP); return *yytext; }
 {LC}                  { R(); C(); PUSH(LC); return *yytext; }
 {LB}                  { R(); C(); PUSH(LB); return *yytext; }
 
-{QM}                  { R(); C(); PUSH(QM); return *yytext; }
+{DQ}                  { R(); C(); PUSH(DQ); return *yytext; }
 {SQ}                  { R(); C(); PUSH(SQ); return *yytext; }
 {AA}                  { R(); C(); PUSH(AA); return *yytext; }
 .                     { R(); C(); return *yytext; } /* let bison to handle */
@@ -126,6 +128,7 @@ AA            "`"
 {SP}                  { R(); C(); } /* eat */
 {LN}                  { R(); L(); } /* eat */
 [[:alnum:]]+          { R(); C(); return MKT(TOKEN); }
+{QM}                  { R(); C(); return *yytext; }
 {PUNC}                { R(); C(); return MKT(TOKEN); }
 [;]                   { R(); C(); return MKT(TOKEN); }
 
@@ -133,7 +136,7 @@ AA            "`"
 {LC}                  { R(); C(); PUSH(LC); return *yytext; }
 {LB}                  { R(); C(); PUSH(LB); return *yytext; }
 
-{QM}                  { R(); C(); PUSH(QM); return *yytext; }
+{DQ}                  { R(); C(); PUSH(DQ); return *yytext; }
 {SQ}                  { R(); C(); PUSH(SQ); return *yytext; }
 {AA}                  { R(); C(); PUSH(AA); return *yytext; }
 .                     { R(); C(); return *yytext; } /* let bison to handle */
@@ -145,6 +148,7 @@ AA            "`"
 {SP}                  { R(); C(); } /* eat */
 {LN}                  { R(); L(); } /* eat */
 [[:alnum:]]+          { R(); C(); return MKT(TOKEN); }
+{QM}                  { R(); C(); return *yytext; }
 {PUNC}                { R(); C(); return MKT(TOKEN); }
 [;]                   { R(); C(); return MKT(TOKEN); }
 
@@ -152,7 +156,7 @@ AA            "`"
 {LC}                  { R(); C(); PUSH(LC); return *yytext; }
 {LB}                  { R(); C(); PUSH(LB); return *yytext; }
 
-{QM}                  { R(); C(); PUSH(QM); return *yytext; }
+{DQ}                  { R(); C(); PUSH(DQ); return *yytext; }
 {SQ}                  { R(); C(); PUSH(SQ); return *yytext; }
 {AA}                  { R(); C(); PUSH(AA); return *yytext; }
 .                     { R(); C(); return *yytext; } /* let bison to handle */
@@ -164,6 +168,7 @@ AA            "`"
 {SP}                  { R(); C(); } /* eat */
 {LN}                  { R(); L(); } /* eat */
 [[:alnum:]]+          { R(); C(); return MKT(TOKEN); }
+{QM}                  { R(); C(); return *yytext; }
 {PUNC}                { R(); C(); return MKT(TOKEN); }
 [;]                   { R(); C(); return MKT(TOKEN); }
 
@@ -171,14 +176,14 @@ AA            "`"
 {LC}                  { R(); C(); PUSH(LC); return *yytext; }
 {LB}                  { R(); C(); PUSH(LB); return *yytext; }
 
-{QM}                  { R(); C(); PUSH(QM); return *yytext; }
+{DQ}                  { R(); C(); PUSH(DQ); return *yytext; }
 {SQ}                  { R(); C(); PUSH(SQ); return *yytext; }
 {AA}                  { R(); C(); PUSH(AA); return *yytext; }
 .                     { R(); C(); return *yytext; } /* let bison to handle */
 }
 
-<QM>{
-{QM}                  { R(); C(); POP(); return *yytext; }
+<DQ>{
+{DQ}                  { R(); C(); POP(); return *yytext; }
 [^"\\]+               { R(); C(); return MKT(STR); }
 ["]["]                { R(); C(); return MKT(STR); }
 {ESCAPE}              { R(); C(); return MKT(STR); }

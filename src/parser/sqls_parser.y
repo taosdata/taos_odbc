@@ -57,17 +57,17 @@
         const char *errsg
     );
 
-    #define SET_TOKEN_BOUND(_rr, _start, _end, _has_qm) do {     \
-      _rr.start  = _start;                                       \
-      _rr.end    = _end;                                         \
-      _rr.has_qm = _has_qm;                                      \
+    #define SET_TOKEN_BOUND(_rr, _start, _end, _qms) do {    \
+      _rr.start  = _start;                                   \
+      _rr.end    = _end;                                     \
+      _rr.qms  = _qms;                                       \
     } while (0)
 
-    #define FOUND(_start, _end, _has_qm) do {                                   \
-      if (param->sql_found) {                                                   \
-        int r = param->sql_found(param, _start, _end, _has_qm, param->arg);     \
-        if (r) return 0;                                                        \
-      }                                                                         \
+    #define FOUND(_start, _end, _qms) do {                                    \
+      if (param->sql_found) {                                                 \
+        int r = param->sql_found(param, _start, _end, _qms, param->arg);      \
+        if (r) return 0;                                                      \
+      }                                                                       \
     } while (0)
 
     void sqls_parser_param_reset(sqls_parser_param_t *param)
@@ -125,25 +125,25 @@ input:
 
 sqls:
   %empty                    { SET_TOKEN_BOUND($$, 0, 0, 0); }
-| sql                       { SET_TOKEN_BOUND($$, $1.start, $1.end, $1.has_qm); FOUND($1.start, $1.end+1, $$.has_qm); }
-| sqls delimit sql          { SET_TOKEN_BOUND($$, $1.start, $3.end, $3.has_qm); FOUND($3.start, $3.end+1, $$.has_qm); }
+| sql                       { SET_TOKEN_BOUND($$, $1.start, $1.end, $1.qms); FOUND($1.start, $1.end+1, $$.qms); }
+| sqls delimit sql          { SET_TOKEN_BOUND($$, $1.start, $3.end, $3.qms); FOUND($3.start, $3.end+1, $$.qms); }
 ;
 
 sql:
-  any_token            { SET_TOKEN_BOUND($$, $1.start, $1.end, $1.has_qm); }
-| sql any_token        { SET_TOKEN_BOUND($$, $1.start, $2.end, ($1.has_qm || $2.has_qm)); }
+  any_token            { SET_TOKEN_BOUND($$, $1.start, $1.end, $1.qms); }
+| sql any_token        { SET_TOKEN_BOUND($$, $1.start, $2.end, ($1.qms + $2.qms)); }
 ;
 
 any_token:
-  token                { SET_TOKEN_BOUND($$, $1.start, $1.end, 0); }
-| quoted               { SET_TOKEN_BOUND($$, $1.start, $1.end, 0); }
+  token                { SET_TOKEN_BOUND($$, $1.start, $1.end, $1.qms); }
+| quoted               { SET_TOKEN_BOUND($$, $1.start, $1.end, $1.qms); }
 | lc rc                { SET_TOKEN_BOUND($$, $1.start, $2.end, 0); }
 | lp rp                { SET_TOKEN_BOUND($$, $1.start, $2.end, 0); }
 | lb rb                { SET_TOKEN_BOUND($$, $1.start, $2.end, 0); }
-| lc sql rc            { SET_TOKEN_BOUND($$, $1.start, $3.end, $2.has_qm); }
-| lp sql rp            { SET_TOKEN_BOUND($$, $1.start, $3.end, $2.has_qm); }
-| lb sql rb            { SET_TOKEN_BOUND($$, $1.start, $3.end, $2.has_qm); }
-| qm                   { SET_TOKEN_BOUND($$, $1.start, $1.end, $1.has_qm); }
+| lc sql rc            { SET_TOKEN_BOUND($$, $1.start, $3.end, $2.qms); }
+| lp sql rp            { SET_TOKEN_BOUND($$, $1.start, $3.end, $2.qms); }
+| lb sql rb            { SET_TOKEN_BOUND($$, $1.start, $3.end, $2.qms); }
+| qm                   { SET_TOKEN_BOUND($$, $1.start, $1.end, $1.qms); }
 ;
 
 token:

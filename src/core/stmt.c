@@ -2902,7 +2902,7 @@ static SQLRETURN _stmt_conv_sql_c_char_to_tsdb_timestamp_x(stmt_t *stmt, const c
   return SQL_SUCCESS;
 }
 
-static int _stmt_sql_found(sqls_parser_param_t *param, size_t start, size_t end, uint8_t has_qm, void *arg)
+static int _stmt_sql_found(sqls_parser_param_t *param, size_t start, size_t end, int32_t qms, void *arg)
 {
   (void)param;
 
@@ -2923,7 +2923,7 @@ static int _stmt_sql_found(sqls_parser_param_t *param, size_t start, size_t end,
 
   sqls->sqls[sqls->nr].start  = start;
   sqls->sqls[sqls->nr].end    = end;
-  sqls->sqls[sqls->nr].has_qm = has_qm;
+  sqls->sqls[sqls->nr].qms    = qms;
   sqls->nr += 1;
 
   return 0;
@@ -2972,7 +2972,7 @@ static SQLRETURN _stmt_get_next_sql(stmt_t *stmt, sqlc_tsdb_t *sqlc_tsdb)
   parser_nterm_t *nterms = stmt->sqls.sqls + stmt->sqls.pos;
   sqlc_tsdb->sqlc        = (const char*)stmt->raw.base + nterms->start;
   sqlc_tsdb->sqlc_bytes  = nterms->end - nterms->start;
-  sqlc_tsdb->has_qm      = nterms->has_qm;
+  sqlc_tsdb->qms         = nterms->qms;
 
   const char *fromcode = conn_get_sqlc_charset(stmt->conn);
   const char *tocode   = conn_get_tsdb_charset(stmt->conn);
@@ -4701,7 +4701,7 @@ static SQLRETURN _stmt_exec_direct_with_simple_sql(stmt_t *stmt, const sqlc_tsdb
   const char *start = sqlc_tsdb->tsdb;
   const char *end   = sqlc_tsdb->tsdb + sqlc_tsdb->tsdb_bytes;
   if (end > start && start[0] == '!') {
-    if (sqlc_tsdb->has_qm) {
+    if (sqlc_tsdb->qms) {
       stmt_append_err(stmt, "HY000", 0, "General error:parameterized-topic-consumer-statement not supported yet");
       return SQL_ERROR;
     }
@@ -4775,7 +4775,7 @@ SQLRETURN stmt_prepare(stmt_t *stmt,
     return _stmt_exec_direct_with_simple_sql(stmt, &sqlc_tsdb);
   }
 
-  if (sqlc_tsdb.has_qm) {
+  if (sqlc_tsdb.qms) {
     stmt->fall_back_to_query = 0;
     return _stmt_prepare(stmt, &sqlc_tsdb);
   }

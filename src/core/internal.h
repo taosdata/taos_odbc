@@ -123,7 +123,7 @@ struct sqlc_tsdb_s {
   const char           *tsdb;
   size_t                tsdb_bytes;        // NOTE: no ownership
 
-  uint8_t               has_qm:1;
+  int32_t               qms;
 };
 
 struct sqlc_data_s {
@@ -324,7 +324,7 @@ struct parser_nterm_s {
   size_t           start;
   size_t           end;
 
-  uint8_t          has_qm:1;
+  int32_t          qms;
 };
 
 struct sqls_s {
@@ -377,7 +377,7 @@ struct ext_parser_param_s {
 };
 
 struct sqls_parser_param_s {
-  int (*sql_found)(sqls_parser_param_t *param, size_t start, size_t end, uint8_t has_qm, void *arg);
+  int (*sql_found)(sqls_parser_param_t *param, size_t start, size_t end, int32_t qms, void *arg);
   void                  *arg;
 
   parser_ctx_t           ctx;

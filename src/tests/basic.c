@@ -261,7 +261,7 @@ typedef struct sqls_check_s         sqls_check_t;
 typedef struct expected_sql_s       expected_sql_t;
 struct expected_sql_s {
   const char                *sql;
-  uint8_t                    has_qm:1;
+  int32_t                    qms;
 };
 
 struct sqls_check_s {
@@ -273,10 +273,9 @@ struct sqls_check_s {
   uint8_t                    failed:1;
 };
 
-static int _sql_found(sqls_parser_param_t *param, size_t _start, size_t _end, uint8_t has_qm, void *arg)
+static int _sql_found(sqls_parser_param_t *param, size_t _start, size_t _end, int32_t qms, void *arg)
 {
   (void)param;
-  (void)has_qm;
 
   sqls_check_t *check = (sqls_check_t*)arg;
   const char *sqls = check->sqls;
@@ -303,15 +302,10 @@ static int _sql_found(sqls_parser_param_t *param, size_t _start, size_t _end, ui
     return -1;
   }
 
-  if ((!!expected->has_qm) != (!!has_qm)) {
+  if (expected->qms != qms) {
     E("sql:%s", expected->sql);
-    if (!!expected->has_qm) {
-      E("parameter-place-marker expected");
-      E("but  got:none");
-    } else {
-      E("non-parameter-place-marker expected");
-      E("but  got:at least one [?]");
-    }
+    E("parameter-place-marker expected:[%d]", expected->qms);
+    E("but  got:[%d]", qms);
     check->failed = 1;
     return -1;
   }
@@ -415,6 +409,11 @@ static int test_sqls_parser(void)
       "insert into ? (ts, name) values (now(), 'a')",
       {
         {"insert into ? (ts, name) values (now(), 'a')", 1},
+      },
+    },{
+      "insert into ? using tags (?, ?) values (?, ?)",
+      {
+        {"insert into ? using tags (?, ?) values (?, ?)", 5},
       },
     }
   };

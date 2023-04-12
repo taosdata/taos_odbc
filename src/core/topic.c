@@ -262,12 +262,12 @@ static SQLRETURN _poll(topic_t *topic)
 
   while (topic->res == NULL) {
     if (topic->records_max >= 0 && topic->records_count >= topic->records_max) {
-      stmt_append_err_format(topic->owner, "HY000", 0, "General error:taos_odbc.limit.records[%zd] has been reached", topic->records_max);
+      stmt_append_err_format(topic->owner, "HY000", 0, "General error:taos_odbc.limit.records[%" PRId64 "] has been reached", topic->records_max);
       return SQL_NO_DATA;
     }
     time_t t1 = time(NULL);
     if (topic->seconds_max >= 0 && difftime(t1, topic->t0) > topic->seconds_max) {
-      stmt_append_err_format(topic->owner, "HY000", 0, "General error:taos_odbc.limit.seconds[%zd] has been reached", topic->seconds_max);
+      stmt_append_err_format(topic->owner, "HY000", 0, "General error:taos_odbc.limit.seconds[%" PRId64 "] has been reached", topic->seconds_max);
       return SQL_NO_DATA;
     }
 
@@ -280,7 +280,6 @@ static SQLRETURN _poll(topic_t *topic)
         topic->do_not_commit = 1;
         return SQL_ERROR;
       }
-      ++topic->records_count;
     }
   }
 
@@ -312,6 +311,7 @@ again:
   }
 
   topic->row = row;
+  ++topic->records_count;
   return SQL_SUCCESS;
 }
 

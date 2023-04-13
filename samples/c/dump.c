@@ -546,6 +546,34 @@ static int _dump_stmt_describe_param(const arg_t *arg, stage_t stage, SQLHANDLE 
         i+1, sql_data_type(DataType), (uint64_t)ParameterSize, DecimalDigits, sql_nullable(Nullable));
   }
 
+  char buf[64][4096+1];
+
+  for (SQLSMALLINT i = 0; i<ParameterCount; ++i) {
+    SQLSMALLINT     InputOutputType               = SQL_PARAM_INPUT;
+    SQLSMALLINT     ValueType                     = SQL_C_CHAR;
+    SQLSMALLINT     ParameterType                 = SQL_VARCHAR;
+    SQLULEN         ColumnSize                    = 8;
+    SQLSMALLINT     DecimalDigits                 = 0;
+    SQLPOINTER      ParameterValuePtr             = buf[i];
+    SQLLEN          BufferLength                  = sizeof(buf[i]);
+    SQLLEN          StrLen_or_Ind                 = SQL_NTS;
+
+    sr = CALL_SQLBindParameter(hstmt, i+1, InputOutputType, ValueType, ParameterType, ColumnSize, DecimalDigits, ParameterValuePtr, BufferLength, &StrLen_or_Ind);
+    if (sr != SQL_SUCCESS) return -1;
+  }
+
+  for (SQLSMALLINT i = 0; i<ParameterCount; ++i) {
+    SQLSMALLINT     DataType        = 0;
+    SQLULEN         ParameterSize   = 0;
+    SQLSMALLINT     DecimalDigits   = 0;
+    SQLSMALLINT     Nullable        = 0;
+
+    sr = CALL_SQLDescribeParam(hstmt, i+1, &DataType, &ParameterSize, &DecimalDigits, &Nullable);
+    if (sr != SQL_SUCCESS) return -1;
+    DUMP("Parameter%d, DataType:%s, ParameterSize:%" PRIu64 ", DecimalDigits:%d, Nullable:%s",
+        i+1, sql_data_type(DataType), (uint64_t)ParameterSize, DecimalDigits, sql_nullable(Nullable));
+  }
+
   return 0;
 }
 

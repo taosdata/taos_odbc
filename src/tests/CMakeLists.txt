@@ -22,7 +22,10 @@
 # SOFTWARE.
 ###############################################################################
 
-add_executable(basic basic.c)
+add_executable(basic
+  basic.c
+  $<TARGET_OBJECTS:common_obj>
+  $<TARGET_OBJECTS:ejson_parser_obj>)
 
 if(TODBC_WINDOWS)
   set_source_files_properties(basic.c PROPERTIES COMPILE_OPTIONS "/source-charset:utf-8")

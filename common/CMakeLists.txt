@@ -46,3 +46,15 @@ endif()
 set_property(TARGET taos_helpers_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
 target_include_directories(taos_helpers_obj PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}/..)
+
+parser_gen(ejson_parser)
+
+set(ejson_parser_SOURCES
+    ejson_parser_tab.c)
+
+add_library(ejson_parser_obj OBJECT ${ejson_parser_SOURCES})
+if(TODBC_WINDOWS)
+    add_dependencies(ejson_parser_obj ex_iconv)
+endif()
+set_property(TARGET ejson_parser_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
+

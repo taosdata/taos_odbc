@@ -32,6 +32,7 @@
 #include "conn_parser.h"
 #include "ext_parser.h"
 #include "sqls_parser.h"
+#include "ejson_parser.h"
 #include "tls.h"
 #include "utils.h"
 
@@ -251,6 +252,84 @@ static int test_ext_parser(void)
     }
 
     ext_parser_param_release(&param);
+    if (r) return -1;
+  }
+
+  return 0;
+}
+
+static int test_ejson_parser(void)
+{
+#define RECORD(x, y) {x, y, __LINE__}
+  const struct {
+    uint8_t                __error__:1;
+    const char            *text;
+    int                    __line__;
+  } _cases[] = {
+    RECORD(0, "'\\\\'"),
+    RECORD(0, "'\\b'"),
+    RECORD(0, "'\\f'"),
+    RECORD(0, "'\\n'"),
+    RECORD(0, "'\\r'"),
+    RECORD(0, "'\\t'"),
+    RECORD(0, "'\\u12af'"),
+    RECORD(0, "'\\u12BC'"),
+    RECORD(1, "'\\ua'"),
+    RECORD(1, "\""),
+    RECORD(1, "'"),
+    RECORD(1, "`"),
+    RECORD(0, "345"),
+    RECORD(0, "-345.456e+123"),
+    RECORD(0, "+345.456E-123"),
+    RECORD(0, "hello"),
+    RECORD(0, "'hello'"),
+    RECORD(0, "\"hello\""),
+    RECORD(0, "`hello`"),
+    RECORD(0, "'345'"),
+    RECORD(0, "{}"),
+    RECORD(0, "[]"),
+    RECORD(0, "a"),
+    RECORD(0, "人"),
+    RECORD(0, "_人"),
+    RECORD(1, "-人"),
+    RECORD(1, "a-人"),
+    RECORD(0, "[a]"),
+    RECORD(0, "[人]"),
+    RECORD(0, "[a,人]"),
+    RECORD(0, "{a:b}"),
+    RECORD(0, "{a:b,测:试}"),
+    RECORD(0, "{'a':'b','测':'试'}"),
+    RECORD(0, "{'a':'b','测':'试','我们':[]}"),
+    RECORD(0, "{'a':'b','测':'试','我们':{}}"),
+    RECORD(0, "[a,人,[]]"),
+    RECORD(0, "[a,人,{}]"),
+  };
+  const size_t nr = sizeof(_cases)/sizeof(_cases[0]);
+#undef RECORD
+
+  ejson_parser_param_t param = {0};
+  param.ctx.debug_flex = 1;
+  // param.ctx.debug_bison = 1;
+
+  for (size_t i=0; i<nr; ++i) {
+    const char *s         = _cases[i].text;
+    int         __line__  = _cases[i].__line__;
+    int         __error__ = _cases[i].__error__;
+    int r = ejson_parser_parse(s, strlen(s), &param);
+    if ((!!r) ^ __error__) {
+      E("parsing @[%dL]:%s", __line__, s);
+      if (r) {
+        E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+        E("failed:%s", param.ctx.err_msg);
+      } else {
+        E("expected to fail, but succeed");
+      }
+      r = -1;
+    } else {
+      r = 0;
+    }
+
+    ejson_parser_param_release(&param);
     if (r) return -1;
   }
 
@@ -824,6 +903,7 @@ static struct {
   RECORD(test_conn_parser),
   RECORD(test_ext_parser),
   RECORD(test_sqls_parser),
+  RECORD(test_ejson_parser),
   RECORD(test_wildmatch),
   RECORD(test_basename_dirname),
   RECORD(test_pthread_once),

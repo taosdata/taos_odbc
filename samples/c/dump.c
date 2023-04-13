@@ -58,7 +58,7 @@ static int execute_sqls(SQLHANDLE hstmt, const _sql_t *sqls, size_t nr)
     sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql->sql, SQL_NTS);
     if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
       if (!sql->ignore_failure) {
-        E("executing sql:%s", sql->sql);
+        E("executing sql @[%dL]:%s", sql->__line__, sql->sql);
         E("failed");
         return -1;
       }
@@ -516,7 +516,7 @@ static int _dump_stmt_describe_param(const arg_t *arg, stage_t stage, SQLHANDLE 
   const _sql_t dataset[] = {
     {"create database bar", __LINE__, 1},
     {"create database if not exists bar", __LINE__, 1},
-    {"use bar", __LINE__, 0},
+    {"use bar", __LINE__, 1},
     {"drop table x", __LINE__, 1},
     {"drop table if exists x", __LINE__, 1},
     {"create table x (ts timestamp, b bit, i8 tinyint, i16 smallint, i32 int, i64 bigint, f real, d float, name varchar(20), mark nchar(2), dt datetime, dt2 datetime2(3))", __LINE__, 1},

@@ -119,7 +119,7 @@
 %% /* The grammar follows. */
 
 input:
-  sqls
+  sqls                      { (void)yynerrs; }
 | sqls delimit
 ;
 

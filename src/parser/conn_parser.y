@@ -186,7 +186,7 @@
 
 input:
   %empty
-| connect_str
+| connect_str                     { (void)yynerrs; }
 ;
 
 connect_str:

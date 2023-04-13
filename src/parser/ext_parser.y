@@ -123,7 +123,7 @@
 
 input:
   %empty
-| topic
+| topic                     { (void)yynerrs; }
 ;
 
 topic:

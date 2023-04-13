@@ -96,12 +96,18 @@ SQ            "'"
 AA            [`]
 ID            ([^[:space:][:digit:][:punct:]]|[_])([_]|[^[:space:][:punct:]])*
 NUMBER        [-+]?([0]|[[:digit:]]+)([.][[:digit:]]*)?([eE][-+][[:digit:]]+)?
+V_TRUE        (?i:true)
+V_FALSE       (?i:false)
+V_NULL        (?i:null)
 
 %%
 
 <<EOF>> { if (0) { int state; TOP_STATE(state); if (state != INITIAL) return -1; }
           yyterminate(); }
 {NUMBER}      { R(); SET_STR(); C(); return MKT(NUMBER); }
+{V_TRUE}      { R(); SET_STR(); C(); return MKT(V_TRUE); }
+{V_FALSE}     { R(); SET_STR(); C(); return MKT(V_FALSE); }
+{V_NULL}      { R(); SET_STR(); C(); return MKT(V_NULL); }
 {ID}          { R(); SET_STR(); C(); return MKT(ID); }
 {LP}          { R(); C(); return *yytext; }
 {RP}          { R(); C(); return *yytext; }

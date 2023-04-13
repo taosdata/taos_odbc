@@ -275,6 +275,9 @@ static int test_ejson_parser(void)
     RECORD(0, "'\\u12af'"),
     RECORD(0, "'\\u12BC'"),
     RECORD(1, "'\\ua'"),
+    RECORD(0, "true"),
+    RECORD(0, "false"),
+    RECORD(0, "null"),
     RECORD(1, "\""),
     RECORD(1, "'"),
     RECORD(1, "`"),
@@ -296,6 +299,7 @@ static int test_ejson_parser(void)
     RECORD(0, "[a]"),
     RECORD(0, "[人]"),
     RECORD(0, "[a,人]"),
+    RECORD(0, "[a,人,true,false,null]"),
     RECORD(0, "{a:b}"),
     RECORD(0, "{a:b,测:试}"),
     RECORD(0, "{'a':'b','测':'试'}"),
@@ -303,6 +307,8 @@ static int test_ejson_parser(void)
     RECORD(0, "{'a':'b','测':'试','我们':{}}"),
     RECORD(0, "[a,人,[]]"),
     RECORD(0, "[a,人,{}]"),
+    RECORD(0, "[true,false,null]"),
+    RECORD(0, "{a:true,b:false,c:null}"),
   };
   const size_t nr = sizeof(_cases)/sizeof(_cases[0]);
 #undef RECORD

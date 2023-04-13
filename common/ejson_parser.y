@@ -95,7 +95,7 @@
 %union { ejson_parser_token_t token; }
 %union { char c; }
 
-%token ESC
+%token V_TRUE V_FALSE V_NULL ESC
 %token <token> ID NUMBER STR ECHR EUNI
 
  /* %nterm <str>   args */ // non-terminal `input` use `str` to store
@@ -112,6 +112,9 @@ input:
 json:
   ID
 | NUMBER
+| V_TRUE
+| V_FALSE
+| V_NULL
 | string
 | obj
 | arr

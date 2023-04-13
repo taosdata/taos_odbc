@@ -31,11 +31,21 @@
 
 #define DUMP(fmt, ...)          printf(fmt "\n", ##__VA_ARGS__)
 
-typedef int (*dump_f)(SQLSMALLINT HandleType, SQLHANDLE Handle);
+typedef enum stage_s          stage_t;
+enum stage_s {
+  STAGE_INITED,
+  STAGE_CONNECTED,
+  STAGE_STATEMENT,
+};
+
+typedef struct arg_s             arg_t;
+
+typedef int (*dump_f)(const arg_t *arg, stage_t stage, SQLHANDLE henv, SQLHANDLE hconn, SQLHANDLE hstmt);
 
 typedef struct _sql_s              _sql_t;
 struct _sql_s {
   const char          *sql;
+  int                  __line__;
   uint8_t              ignore_failure;
 };
 
@@ -47,7 +57,11 @@ static int execute_sqls(SQLHANDLE hstmt, const _sql_t *sqls, size_t nr)
     const _sql_t *sql = sqls + i;
     sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql->sql, SQL_NTS);
     if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
-      if (!sql->ignore_failure) return -1;
+      if (!sql->ignore_failure) {
+        E("executing sql:%s", sql->sql);
+        E("failed");
+        return -1;
+      }
       W("failure ignored as expected");
     }
     CALL_SQLCloseCursor(hstmt);
@@ -56,10 +70,13 @@ static int execute_sqls(SQLHANDLE hstmt, const _sql_t *sqls, size_t nr)
   return 0;
 }
 
-static int _dummy(SQLSMALLINT HandleType, SQLHANDLE Handle)
+static int _dummy(const arg_t *arg, stage_t stage, SQLHANDLE henv, SQLHANDLE hconn, SQLHANDLE hstmt)
 {
-  (void)HandleType;
-  (void)Handle;
+  (void)arg;
+  (void)stage;
+  (void)henv;
+  (void)hconn;
+  (void)hstmt;
   return SQL_SUCCESS;
 }
 
@@ -279,33 +296,35 @@ static int _dump_col_info(SQLHANDLE hstmt, SQLUSMALLINT ColumnNumber)
 static int _prepare_data_set(SQLHANDLE hstmt)
 {
   const _sql_t sqls[] = {
-    {"create database bar", 1},
-    {"create database if not exists bar", 1},
-    {"use bar", 0},
+    {"create database bar", __LINE__, 1},
+    {"create database if not exists bar", __LINE__, 1},
+    {"use bar", __LINE__, 0},
   };
 
   return execute_sqls(hstmt, sqls, sizeof(sqls)/sizeof(sqls[0]));
 }
 
-static int _dump_stmt_col_info(SQLSMALLINT HandleType, SQLHANDLE Handle)
+static int _dump_stmt_col_info(const arg_t *arg, stage_t stage, SQLHANDLE henv, SQLHANDLE hconn, SQLHANDLE hstmt)
 {
+  (void)arg;
+  (void)henv;
+  (void)hconn;
+
   SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
 
-  if (HandleType != SQL_HANDLE_STMT) return 0;
+  if (stage != STAGE_STATEMENT) return 0;
 
-  if (_prepare_data_set(Handle)) return -1;
+  if (_prepare_data_set(hstmt)) return -1;
 
   DUMP("");
   DUMP("%s:", __func__);
 
-  SQLHANDLE hstmt = Handle;
-
   const _sql_t sqls[] = {
-    {"drop table x", 1},
-    {"drop table if exists x", 1},
-    {"create table x (ts timestamp, b bit, i8 tinyint, i16 smallint, i32 int, i64 bigint, f real, d float, name varchar(20), mark nchar(2), dt datetime, dt2 datetime2(3))",1},
-    {"create table x (ts timestamp, b bool, i8 tinyint, i16 smallint, i32 int, i64 bigint, f float, name varchar(20), mark nchar(2))",1},
+    {"drop table x", __LINE__, 1},
+    {"drop table if exists x", __LINE__, 1},
+    {"create table x (ts timestamp, b bit, i8 tinyint, i16 smallint, i32 int, i64 bigint, f real, d float, name varchar(20), mark nchar(2), dt datetime, dt2 datetime2(3))", __LINE__, 1},
+    {"create table x (ts timestamp, b bool, i8 tinyint, i16 smallint, i32 int, i64 bigint, f float, name varchar(20), mark nchar(2))", __LINE__, 1},
   };
 
   r = execute_sqls(hstmt, sqls, sizeof(sqls)/sizeof(sqls[0]));
@@ -350,21 +369,24 @@ static int _dump_col(SQLHANDLE hstmt, SQLUSMALLINT ColumnNumber)
   return 0;
 }
 
-static int _dump_stmt_tables(SQLSMALLINT HandleType, SQLHANDLE Handle)
+static int _dump_stmt_tables(const arg_t *arg, stage_t stage, SQLHANDLE henv, SQLHANDLE hconn, SQLHANDLE hstmt)
 {
+  (void)arg;
+  (void)henv;
+  (void)hconn;
+
   SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
 
-  if (HandleType != SQL_HANDLE_STMT) return 0;
+  if (stage != STAGE_STATEMENT) return 0;
 
-  if (_prepare_data_set(Handle)) return -1;
+  if (_prepare_data_set(hstmt)) return -1;
 
   int row = 0;
 
   DUMP("");
   DUMP("%s:", __func__);
 
-  SQLHANDLE hstmt = Handle;
   const char *CatalogName;
   const char *SchemaName;
   const char *TableName;
@@ -404,25 +426,27 @@ again:
   return 0;
 }
 
-static int _dump_stmt_describe_col(SQLSMALLINT HandleType, SQLHANDLE Handle)
+static int _dump_stmt_describe_col(const arg_t *arg, stage_t stage, SQLHANDLE henv, SQLHANDLE hconn, SQLHANDLE hstmt)
 {
+  (void)arg;
+  (void)henv;
+  (void)hconn;
+
   SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
 
-  if (HandleType != SQL_HANDLE_STMT) return 0;
+  if (stage != STAGE_STATEMENT) return 0;
 
-  if (_prepare_data_set(Handle)) return -1;
+  if (_prepare_data_set(hstmt)) return -1;
 
   DUMP("");
   DUMP("%s:", __func__);
 
-  SQLHANDLE hstmt = Handle;
-
   const _sql_t sqls[] = {
-    {"drop table x", 1},
-    {"drop table if exists x", 1},
-    {"create table x (ts timestamp, b bit, i8 tinyint, i16 smallint, i32 int, i64 bigint, f real, d float, name varchar(20), mark nchar(2), dt datetime, dt2 datetime2(3))", 1},
-    {"create table x (ts timestamp, b bool, i8 tinyint, i16 smallint, i32 int, i64 bigint, f float, d double, name varchar(20), mark nchar(2))", 1},
+    {"drop table x", __LINE__, 1},
+    {"drop table if exists x", __LINE__, 1},
+    {"create table x (ts timestamp, b bit, i8 tinyint, i16 smallint, i32 int, i64 bigint, f real, d float, name varchar(20), mark nchar(2), dt datetime, dt2 datetime2(3))", __LINE__, 1},
+    {"create table x (ts timestamp, b bool, i8 tinyint, i16 smallint, i32 int, i64 bigint, f float, d double, name varchar(20), mark nchar(2))", __LINE__, 1},
   };
 
   r = execute_sqls(hstmt, sqls, sizeof(sqls)/sizeof(sqls[0]));
@@ -471,6 +495,55 @@ static int _dump_stmt_describe_col(SQLSMALLINT HandleType, SQLHANDLE Handle)
 
     DUMP("Column%d Name:%s, DESC_LENGTH:%" PRId64 ", DESC_PRECISION:%" PRId64 ", DESC_SCALE:%" PRId64 ", DESC_OCTET_LENGTH:%" PRId64 "",
       i+1, buf, (int64_t)DESC_LENGTH, (int64_t)DESC_PRECISION, (int64_t)DESC_SCALE, (int64_t)DESC_OCTET_LENGTH);
+  }
+
+  return 0;
+}
+
+static int _dump_stmt_describe_param(const arg_t *arg, stage_t stage, SQLHANDLE henv, SQLHANDLE hconn, SQLHANDLE hstmt)
+{
+  (void)arg;
+  (void)henv;
+  (void)hconn;
+
+  SQLRETURN sr = SQL_SUCCESS;
+
+  if (stage != STAGE_STATEMENT) return 0;
+
+  DUMP("");
+  DUMP("%s:", __func__);
+
+  const _sql_t dataset[] = {
+    {"create database bar", __LINE__, 1},
+    {"create database if not exists bar", __LINE__, 1},
+    {"use bar", __LINE__, 0},
+    {"drop table x", __LINE__, 1},
+    {"drop table if exists x", __LINE__, 1},
+    {"create table x (ts timestamp, b bit, i8 tinyint, i16 smallint, i32 int, i64 bigint, f real, d float, name varchar(20), mark nchar(2), dt datetime, dt2 datetime2(3))", __LINE__, 1},
+    {"create table x (ts timestamp, b bool, i8 tinyint, i16 smallint, i32 int, i64 bigint, f float, d double, name varchar(20), mark nchar(2))", __LINE__, 1},
+  };
+
+  sr = execute_sqls(hstmt, dataset, sizeof(dataset)/sizeof(dataset[0]));
+  if (sr != SQL_SUCCESS) return -1;
+
+  const char *sql = "select * from x where i32 <> ? and name = ?";
+  sr = CALL_SQLPrepare(hstmt, (SQLCHAR*)sql, SQL_NTS);
+  if (sr != SQL_SUCCESS) return -1;
+
+  SQLSMALLINT ParameterCount;
+  sr = CALL_SQLNumParams(hstmt, &ParameterCount);
+  if (sr != SQL_SUCCESS) return -1;
+
+  for (SQLSMALLINT i = 0; i<ParameterCount; ++i) {
+    SQLSMALLINT     DataType        = 0;
+    SQLULEN         ParameterSize   = 0;
+    SQLSMALLINT     DecimalDigits   = 0;
+    SQLSMALLINT     Nullable        = 0;
+
+    sr = CALL_SQLDescribeParam(hstmt, i+1, &DataType, &ParameterSize, &DecimalDigits, &Nullable);
+    if (sr != SQL_SUCCESS) return -1;
+    DUMP("Parameter%d, DataType:%s, ParameterSize:%" PRIu64 ", DecimalDigits:%d, Nullable:%s",
+        i+1, sql_data_type(DataType), (uint64_t)ParameterSize, DecimalDigits, sql_nullable(Nullable));
   }
 
   return 0;
@@ -564,11 +637,15 @@ fetch:
   goto fetch;
 }
 
-static int _execute_file(SQLSMALLINT HandleType, SQLHANDLE Handle)
+static int _execute_file(const arg_t *arg, stage_t stage, SQLHANDLE henv, SQLHANDLE hconn, SQLHANDLE hstmt)
 {
+  (void)arg;
+  (void)henv;
+  (void)hconn;
+
   int r = 0;
 
-  if (HandleType != SQL_HANDLE_STMT) return 0;
+  if (stage != STAGE_STATEMENT) return 0;
 
   DUMP("");
   DUMP("%s:", __func__);
@@ -588,7 +665,7 @@ static int _execute_file(SQLSMALLINT HandleType, SQLHANDLE Handle)
     return -1;
   }
 
-  r = _execute_file_impl(Handle, env, fn, f);
+  r = _execute_file_impl(hstmt, env, fn, f);
   fclose(f);
 
   return r ? -1 : 0;
@@ -604,10 +681,10 @@ static struct {
   RECORD(_dump_stmt_col_info),
   RECORD(_dump_stmt_tables),
   RECORD(_dump_stmt_describe_col),
+  RECORD(_dump_stmt_describe_param),
   RECORD(_execute_file),
 };
 
-typedef struct arg_s             arg_t;
 struct arg_s {
   const char      *dsn;
   const char      *uid;
@@ -615,6 +692,9 @@ struct arg_s {
   const char      *connstr;
 
   const char      *name;
+
+  const char      *dumpname;
+  dump_f           dump;
 };
 
 static int _connect(SQLHANDLE hconn, const char *dsn, const char *uid, const char *pwd)
@@ -647,43 +727,37 @@ static int _driver_connect(SQLHANDLE hconn, const char *connstr)
   return 0;
 }
 
-static int dump_with_stmt(const arg_t *arg, SQLHANDLE hstmt)
+static int dump_with_stmt(const arg_t *arg, SQLHANDLE henv, SQLHANDLE hconn, SQLHANDLE hstmt)
 {
-  for (size_t i=0; i<sizeof(_dumps)/sizeof(_dumps[0]); ++i) {
-    if (arg->name == NULL || strcmp(arg->name, _dumps[i].name)==0) {
-      int r = _dumps[i].func(SQL_HANDLE_STMT, hstmt);
-      if (r) return -1;
-    }
-  }
+  int r = 0;
+
+  r = arg->dump(arg, STAGE_STATEMENT, henv, hconn, hstmt);
+  if (r) return -1;
 
   return 0;
 }
 
-static int dump_with_connected_conn(const arg_t *arg, SQLHANDLE hconn)
+static int dump_with_connected_conn(const arg_t *arg, SQLHANDLE henv, SQLHANDLE hconn)
 {
   SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
 
-  for (size_t i=0; i<sizeof(_dumps)/sizeof(_dumps[0]); ++i) {
-    if (arg->name == NULL || strcmp(arg->name, _dumps[i].name)==0) {
-      r = _dumps[i].func(SQL_HANDLE_DBC, hconn);
-      if (r) return -1;
-    }
-  }
+  r = arg->dump(arg, STAGE_CONNECTED, henv, hconn, NULL);
+  if (r) return -1;
 
   SQLHANDLE hstmt;
 
   sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-  r = dump_with_stmt(arg, hstmt);
+  r = dump_with_stmt(arg, henv, hconn, hstmt);
 
   CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
 
   return r ? -1 : 0;
 }
 
-static int dump_with_conn(const arg_t *arg, SQLHANDLE hconn)
+static int dump_with_conn(const arg_t *arg, SQLHANDLE henv, SQLHANDLE hconn)
 {
   int r = 0;
 
@@ -695,7 +769,7 @@ static int dump_with_conn(const arg_t *arg, SQLHANDLE hconn)
     if (r) return -1;
   }
 
-  r = dump_with_connected_conn(arg, hconn);
+  r = dump_with_connected_conn(arg, henv, hconn);
 
   CALL_SQLDisconnect(hconn);
 
@@ -711,14 +785,14 @@ static int dump_with_env(const arg_t *arg, SQLHANDLE henv)
   sr = CALL_SQLAllocHandle(SQL_HANDLE_DBC, henv, &hconn);
   if (FAILED(sr)) return -1;
 
-  r = dump_with_conn(arg, hconn);
+  r = dump_with_conn(arg, henv, hconn);
 
   CALL_SQLFreeHandle(SQL_HANDLE_DBC, hconn);
 
   return r;
 }
 
-static int _dumping(const arg_t *arg)
+static int run_dump(const arg_t *arg)
 {
   int r = 0;
   SQLRETURN sr = SQL_SUCCESS;
@@ -739,6 +813,23 @@ static int _dumping(const arg_t *arg)
   CALL_SQLFreeHandle(SQL_HANDLE_ENV, henv);
 
   return r;
+}
+
+static int _dumping(arg_t *arg)
+{
+  int r = 0;
+
+  const size_t nr = sizeof(_dumps)/sizeof(_dumps[0]);
+  for (size_t i=0; i<nr; ++i) {
+    arg->dumpname = _dumps[i].name;
+    arg->dump     = _dumps[i].func;
+    if ((!arg->name) || tod_strcasecmp(arg->name, arg->dumpname) == 0) {
+      r = run_dump(arg);
+      if (r) return -1;
+    }
+  }
+
+  return 0;
 }
 
 static void usage(const char *arg0)

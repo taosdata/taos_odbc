@@ -314,7 +314,7 @@ static int test_ejson_parser(void)
 #undef RECORD
 
   ejson_parser_param_t param = {0};
-  // param.ctx.debug_flex = 1;
+  param.ctx.debug_flex = 1;
   // param.ctx.debug_bison = 1;
 
   for (size_t i=0; i<nr; ++i) {

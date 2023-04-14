@@ -121,21 +121,24 @@ V_NULL        (?i:null)
 .             { R(); C(); return *yytext; } /* let bison to handle */
 
 <DQ>{
-{DQ}          { R(); POP(); C(); return *yytext; }
-[^"\\]+       { R(); SET_STR(); C(); return MKT(STR); }
-[\\]          { R(); PUSH(ESC); C(); return MKT(ESC); }
+{DQ}                   { R(); POP(); C(); return *yytext; }
+[^"\\[:cntrl:]]+       { R(); SET_STR(); C(); return MKT(STR); }
+[\\]                   { R(); PUSH(ESC); C(); return MKT(ESC); }
+["[:cntrl:]]           { R(); C(); return *yytext; } /* let bison to handle */
 }
 
 <SQ>{
-{SQ}          { R(); POP(); C(); return *yytext; }
-[^'\\]+       { R(); SET_STR(); C(); return MKT(STR); }
-[\\]          { R(); PUSH(ESC); C(); return MKT(ESC); }
+{SQ}                   { R(); POP(); C(); return *yytext; }
+[^'\\[:cntrl:]]+       { R(); SET_STR(); C(); return MKT(STR); }
+[\\]                   { R(); PUSH(ESC); C(); return MKT(ESC); }
+['[:cntrl:]]           { R(); C(); return *yytext; } /* let bison to handle */
 }
 
 <AA>{
-{AA}          { R(); POP(); C(); return *yytext; }
-[^`\\]+       { R(); SET_STR(); C(); return MKT(STR); }
-[\\]          { R(); PUSH(ESC); C(); return MKT(ESC); }
+{AA}                   { R(); POP(); C(); return *yytext; }
+[^`\\[:cntrl:]]+       { R(); SET_STR(); C(); return MKT(STR); }
+[\\]                   { R(); PUSH(ESC); C(); return MKT(ESC); }
+[`[:cntrl:]]           { R(); C(); return *yytext; } /* let bison to handle */
 }
 
 <ESC>{

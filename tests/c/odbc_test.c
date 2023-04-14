@@ -24,10 +24,12 @@
 
 #include "test_config.h"
 #include "odbc_helpers.h"
+#include "ejson_parser.h"
 
 #include "../test_helper.h"
 
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 #define TAOS_ODBC              0x01

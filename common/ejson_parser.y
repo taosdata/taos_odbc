@@ -57,16 +57,123 @@
         const char *errsg
     );
 
-    #define SET_TOPIC(_v, _loc) do {                                                            \
-      if (!param) break;                                                                        \
+    #define OOM(_loc) do {                                           \
+        _yyerror_impl(_loc, arg, param, "out of memory");            \
+        return -1;                                                   \
     } while (0)
 
-    #define SET_TOPIC_KEY(_k, _loc) do {                                                        \
-      if (!param) break;                                                                        \
+    #define EJSON_NEW_WITH_ID(_ejson, _token, _loc) do {             \
+      const char *s = (_token)->text;                                \
+      size_t n = (_token)->leng;                                     \
+      *_ejson = ejson_new_str(s, n);                                 \
+      if (!*_ejson) OOM(_loc);                                       \
     } while (0)
 
-    #define SET_TOPIC_KEY_VAL(_k, _v, _loc) do {                                                \
-      if (!param) break;                                                                        \
+    #define EJSON_NEW_WITH_NUM(_ejson, _token, _loc) do {            \
+      const char *s = (_token)->text;                                \
+      size_t n = (_token)->leng;                                     \
+      char buf[128];                                                 \
+      snprintf(buf, sizeof(buf), "%.*s", (int)n, s);                 \
+      double dbl = 0;                                                \
+      sscanf(buf, "%lg", &dbl);                                      \
+      *_ejson = ejson_new_num(dbl);                                  \
+      if (!*_ejson) OOM(_loc);                                       \
+    } while (0)
+
+    #define EJSON_NEW_WITH_STR(_ejson, _str, _loc) do {              \
+      *_ejson = _ejson_new_str(_str);                                \
+      if (!*_ejson) OOM(_loc);                                       \
+    } while (0)
+
+    #define EJSON_NEW_ARR(_ejson, _loc) do {                         \
+      *_ejson = ejson_new_arr();                                     \
+      if (!*_ejson) OOM(_loc);                                       \
+    } while (0)
+
+    #define EJSON_DEC_REF(_v) do {                                   \
+      if (_v) { ejson_dec_ref(_v); _v = NULL; }                      \
+    } while (0)
+
+    #define EJSON_NEW_ARR_WITH_VAL(_ejson, _val, _loc) do {          \
+      *_ejson = ejson_new_arr();                                     \
+      if (*_ejson) {                                                 \
+        int r = ejson_arr_append(*_ejson, _val);                     \
+        EJSON_DEC_REF(_val);                                         \
+        if (r == 0) break;                                           \
+      }                                                              \
+      EJSON_DEC_REF(_val);                                           \
+      EJSON_DEC_REF(*_ejson);                                        \
+      OOM(_loc);                                                     \
+    } while (0)
+
+    #define EJSON_ARR_APPEND(_ejson, _val, _loc) do {                \
+      int r = ejson_arr_append(_ejson, _val);                        \
+      EJSON_DEC_REF(_val);                                           \
+      if (r == 0) break;                                             \
+      EJSON_DEC_REF(_ejson);                                         \
+      OOM(_loc);                                                     \
+    } while (0)
+
+    #define EJSON_NEW_OBJ(_ejson, _loc) do {                         \
+      *_ejson = ejson_new_obj();                                     \
+      if (*_ejson) break;                                            \
+      OOM(_loc);                                                     \
+    } while (0)
+
+    #define EJSON_NEW_OBJ_WITH_KV(_ejson, _kv, _loc) do {            \
+      *_ejson = _ejson_new_obj(_kv);                                 \
+      if (*_ejson) break;                                            \
+      _ejson_kv_release(_kv);                                        \
+      OOM(_loc);                                                     \
+    } while (0)
+
+    #define EJSON_OBJ_SET_KV(_ejson, _kv, _loc) do {                 \
+      int r = _ejson_obj_set(_ejson, _kv);                           \
+      _ejson_kv_release(_kv);                                        \
+      if (r == 0) break;                                             \
+      OOM(_loc);                                                     \
+    } while (0)
+
+    #define STR_INIT_EMPTY(_str, _loc) do {                          \
+      if (_ejson_str_init(_str, "", 0)) OOM(_loc);                   \
+    } while (0)
+
+    #define STR_INIT(_str, _token, _loc) do {                        \
+      const char *s = (_token)->text;                                \
+      size_t n = (_token)->leng;                                     \
+      if (_ejson_str_init(_str, s, n)) OOM(_loc);                    \
+    } while (0)
+
+    #define STR_INIT_CHR(_str, _c, _loc) do {                        \
+      if (_ejson_str_init(_str, &_c, 1)) OOM(_loc);                  \
+    } while (0)
+
+    #define STR_APPEND(_str, _token, _loc) do {                      \
+      const char *s = (_token)->text;                                \
+      size_t n = (_token)->leng;                                     \
+      if (_ejson_str_append(_str, s, n)) OOM(_loc);                  \
+    } while (0)
+
+    #define STR_APPEND_CHR(_str, _c, _loc) do {                       \
+      if (_ejson_str_append(_str, &_c, 1)) OOM(_loc);                 \
+    } while (0)
+
+    #define KV_INIT_WITH_ID(_kv, _token, _loc) do {                  \
+      const char *s = (_token)->text;                                \
+      size_t n = (_token)->leng;                                     \
+      if (_ejson_str_init(&((_kv)->key), s, n) == 0) break;          \
+      OOM(_loc);                                                     \
+    } while (0)
+
+    #define KV_INIT(_kv, _token, _val, _loc) do {                    \
+      const char *s = (_token)->text;                                \
+      size_t n = (_token)->leng;                                     \
+      if (_ejson_str_init(&((_kv)->key), s, n) == 0) {               \
+        (_kv)->val = _val;                                           \
+        break;                                                       \
+      }                                                              \
+      EJSON_DEC_REF(_val);                                           \
+      OOM(_loc);                                                     \
     } while (0)
 
     void ejson_parser_param_release(ejson_parser_param_t *param)
@@ -74,6 +181,10 @@
       if (!param) return;
       param->ctx.err_msg[0] = '\0';
       param->ctx.row0 = 0;
+      if (param->ejson) {
+        ejson_dec_ref(param->ejson);
+        param->ejson = NULL;
+      }
     }
 }
 
@@ -92,11 +203,22 @@
 %parse-param { ejson_parser_param_t *param }
 
 // union members
-%union { ejson_parser_token_t token; }
-%union { char c; }
+%union { ejson_parser_token_t  token; }
+%union { ejson_t              *ejson; }
+%union { _ejson_str_t          str; }
+%union { _ejson_kv_t           kv; }
+%union { char                  c; }
 
 %token V_TRUE V_FALSE V_NULL ESC
-%token <token> ID NUMBER STR ECHR EUNI
+%token <token> ID NUMBER STR EUNI
+%token <c> ECHR
+%nterm <ejson> json obj arr kvs jsons
+%nterm <str> str strings
+%nterm <kv> kv
+
+%destructor { ejson_dec_ref($$); $$ = NULL; }           <ejson>
+%destructor { _ejson_str_release(&$$); }     <str>
+%destructor { _ejson_kv_release(&$$);  }     <kv>
 
  /* %nterm <str>   args */ // non-terminal `input` use `str` to store
                            // token value as well
@@ -106,65 +228,61 @@
 
 input:
   %empty
-| json
+| json              { param->ejson = $1; }
 ;
 
 json:
-  ID
-| NUMBER
-| V_TRUE
-| V_FALSE
-| V_NULL
-| string
+  ID                { EJSON_NEW_WITH_ID(&$$, &$1, &@1); }
+| NUMBER            { EJSON_NEW_WITH_NUM(&$$, &$1, &@1); }
+| V_TRUE            { $$ = ejson_new_true(); }
+| V_FALSE           { $$ = ejson_new_false(); }
+| V_NULL            { $$ = ejson_new_null(); }
+| str               { EJSON_NEW_WITH_STR(&$$, &$1, &@1); }
 | obj
 | arr
 ;
 
-string:
-  '"' strs '"'
-| '\'' strs '\''
-| '`' strs '`'
-| '"' '"'
-| '\'' '\''
-| '`' '`'
-;
-
-strs:
-  str
-| strs str
-;
-
 str:
-  STR
-| ESC ECHR
-| ESC EUNI
+  '"' strings '"'      { $$ = $2; }
+| '\'' strings '\''    { $$ = $2; }
+| '`' strings '`'      { $$ = $2; }
+| '"' '"'              { STR_INIT_EMPTY(&$$, &@1); }
+| '\'' '\''            { STR_INIT_EMPTY(&$$, &@1); }
+| '`' '`'              { STR_INIT_EMPTY(&$$, &@1); }
+;
+
+strings:
+  STR                  { STR_INIT(&$$, &$1, &@1); }
+| ESC ECHR             { STR_INIT_CHR(&$$, $2, &@2); }
+| strings STR          { STR_APPEND(&$1, &$2, &@2); $$ = $1; }
+| strings ESC ECHR     { STR_APPEND_CHR(&$1, $3, &@3); $$ = $1; }
 ;
 
 arr:
-  '[' ']'
-| '[' jsons ']'
+  '[' ']'              { EJSON_NEW_ARR(&$$, &@1); }
+| '[' jsons ']'        { $$ = $2; }
 ;
 
 jsons:
-  json
-| jsons ',' json
+  json                 { EJSON_NEW_ARR_WITH_VAL(&$$, $1, &@1); }
+| jsons ',' json       { EJSON_ARR_APPEND($1, $3, &@1); $$ = $1; }
 ;
 
 obj:
-  '{' '}'
-| '{' kvs '}'
+  '{' '}'              { EJSON_NEW_OBJ(&$$, &@1); }
+| '{' kvs '}'          { $$ = $2; }
 ;
 
 kvs:
-  kv
-| kvs ',' kv
+  kv                   { EJSON_NEW_OBJ_WITH_KV(&$$, &$1, &@1); }
+| kvs ',' kv           { EJSON_OBJ_SET_KV($1, &$3, &@3); $$ = $1; }
 ;
 
 kv:
-  string
-| string ':' json
-| ID
-| ID ':' json
+  str                  { $$.key = $1; $$.val = NULL; }
+| str ':' json         { $$.key = $1; $$.val = $3; }
+| ID                   { KV_INIT_WITH_ID(&$$, &$1, &@1); }
+| ID ':' json          { KV_INIT(&$$, &$1, $3, &@3); }
 ;
 
 

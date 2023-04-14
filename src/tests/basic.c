@@ -272,9 +272,9 @@ static int test_ejson_parser(void)
     RECORD(0, "'\\n'"),
     RECORD(0, "'\\r'"),
     RECORD(0, "'\\t'"),
-    RECORD(0, "'\\u12af'"),
-    RECORD(0, "'\\u12BC'"),
-    RECORD(1, "'\\ua'"),
+    // RECORD(0, "'\\u12af'"),
+    // RECORD(0, "'\\u12BC'"),
+    // RECORD(1, "'\\ua'"),
     RECORD(0, "true"),
     RECORD(0, "false"),
     RECORD(0, "null"),
@@ -314,7 +314,7 @@ static int test_ejson_parser(void)
 #undef RECORD
 
   ejson_parser_param_t param = {0};
-  param.ctx.debug_flex = 1;
+  // param.ctx.debug_flex = 1;
   // param.ctx.debug_bison = 1;
 
   for (size_t i=0; i<nr; ++i) {

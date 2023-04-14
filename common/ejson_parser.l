@@ -139,12 +139,12 @@ V_NULL        (?i:null)
 }
 
 <ESC>{
-[b]                  { R(); SET_STR(); POP(); C(); return MKT(ECHR); }
-[f]                  { R(); SET_STR(); POP(); C(); return MKT(ECHR); }
-[n]                  { R(); SET_STR(); POP(); C(); return MKT(ECHR); }
-[r]                  { R(); SET_STR(); POP(); C(); return MKT(ECHR); }
-[t]                  { R(); SET_STR(); POP(); C(); return MKT(ECHR); }
-[\\]                 { R(); SET_STR(); POP(); C(); return MKT(ECHR); }
+[b]                  { R(); SET_CHR('\b'); POP(); C(); return MKT(ECHR); }
+[f]                  { R(); SET_CHR('\f'); POP(); C(); return MKT(ECHR); }
+[n]                  { R(); SET_CHR('\n'); POP(); C(); return MKT(ECHR); }
+[r]                  { R(); SET_CHR('\r'); POP(); C(); return MKT(ECHR); }
+[t]                  { R(); SET_CHR('\t'); POP(); C(); return MKT(ECHR); }
+[\\]                 { R(); SET_CHR('\\'); POP(); C(); return MKT(ECHR); }
 [u][[:xdigit:]]{4}   { R(); SET_STR(); POP(); C(); return MKT(EUNI); }
 {LN}                 { R(); L(); return *yytext; } /* let bison to handle */
 .                    { R(); C(); return *yytext; } /* let bison to handle */

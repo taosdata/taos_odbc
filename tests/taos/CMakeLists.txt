@@ -25,6 +25,8 @@
 add_executable(taos_test
     taos_test.c
     $<TARGET_OBJECTS:common_obj>
+    $<TARGET_OBJECTS:test_helper_obj>
+    $<TARGET_OBJECTS:ejson_parser_obj>
     $<TARGET_OBJECTS:os_port_obj>
     $<TARGET_OBJECTS:taos_helpers_obj>)
 add_dependencies(taos_test ex_cjson)
@@ -52,6 +54,8 @@ endif()
 add_executable(taos_regression
     taos_regression.c
     $<TARGET_OBJECTS:common_obj>
+    $<TARGET_OBJECTS:test_helper_obj>
+    $<TARGET_OBJECTS:ejson_parser_obj>
     $<TARGET_OBJECTS:os_port_obj>
     $<TARGET_OBJECTS:taos_helpers_obj>)
 add_dependencies(taos_regression ex_cjson)

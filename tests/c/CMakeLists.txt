@@ -112,6 +112,8 @@ endif()
 
 add_executable(odbc_test
     $<TARGET_OBJECTS:common_obj>
+    $<TARGET_OBJECTS:test_helper_obj>
+    $<TARGET_OBJECTS:ejson_parser_obj>
     $<TARGET_OBJECTS:os_port_obj>
     odbc_test.c)
 add_dependencies(odbc_test ex_cjson)

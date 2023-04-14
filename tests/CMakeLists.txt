@@ -24,6 +24,17 @@
 
 configure_file(test_config.h.in ${CMAKE_CURRENT_BINARY_DIR}/test_config.h)
 
+list(APPEND test_helper_SOURCES
+    test_helper.c)
+
+add_library(test_helper_obj OBJECT ${test_helper_SOURCES})
+if(TODBC_WINDOWS)
+    add_dependencies(test_helper_obj ex_iconv ex_cjson)
+endif()
+set_property(TARGET test_helper_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
+target_include_directories(test_helper_obj PRIVATE
+    ${CMAKE_CURRENT_BINARY_DIR} ${CJSON_INSTALL_PATH}/include)
+
 add_subdirectory(c)
 add_subdirectory(cpp)
 if(NOT USE_SAN)

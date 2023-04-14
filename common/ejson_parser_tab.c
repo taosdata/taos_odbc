@@ -28,6 +28,10 @@ static ejson_t* _ejson_new_str(_ejson_str_t *str);
 static ejson_t* _ejson_new_obj(_ejson_kv_t *kv);
 static int _ejson_obj_set(ejson_t *ejson, _ejson_kv_t *kv);
 
+static ejson_t* ejson_new_str(const char *v, size_t n);
+// static int ejson_str_append(ejson_t *ejson, const char *v, size_t n);
+// static int ejson_obj_set(ejson_t *ejson, const char *k, size_t n, ejson_t *v);
+
 #include "ejson_parser.tab.h"
 #include "ejson_parser.lex.c"
 
@@ -208,32 +212,32 @@ static int _ejson_obj_keep(ejson_obj_t *obj, size_t cap)
   return 0;
 }
 
-static int _ejson_kv_set(_ejson_kv_t *kv, const char *k, size_t n, ejson_t *v)
-{
-  size_t len = strnlen(k, n);
-  int r = _ejson_str_init(&kv->key, k, len);
-  if (r) return -1;
+// static int _ejson_kv_set(_ejson_kv_t *kv, const char *k, size_t n, ejson_t *v)
+// {
+//   size_t len = strnlen(k, n);
+//   int r = _ejson_str_init(&kv->key, k, len);
+//   if (r) return -1;
+// 
+//   kv->val = v;
+//   _ejson_inc_ref(v);
+// 
+//   return 0;
+// }
 
-  kv->val = v;
-  _ejson_inc_ref(v);
-
-  return 0;
-}
-
-static int _ejson_obj_append(ejson_obj_t *obj, const char *k, size_t n, ejson_t *v)
-{
-  int r = _ejson_obj_keep(obj, obj->nr + 1);
-  if (r) return -1;
-
-  _ejson_kv_t *kv = obj->kvs + obj->nr;
-  memset(kv, 0, sizeof(*kv));
-  r = _ejson_kv_set(kv, k, n, v);
-  if (r) return -1;
-
-  ++obj->nr;
-
-  return 0;
-}
+// static int _ejson_obj_append(ejson_obj_t *obj, const char *k, size_t n, ejson_t *v)
+// {
+//   int r = _ejson_obj_keep(obj, obj->nr + 1);
+//   if (r) return -1;
+// 
+//   _ejson_kv_t *kv = obj->kvs + obj->nr;
+//   memset(kv, 0, sizeof(*kv));
+//   r = _ejson_kv_set(kv, k, n, v);
+//   if (r) return -1;
+// 
+//   ++obj->nr;
+// 
+//   return 0;
+// }
 
 static void _ejson_arr_reset(ejson_arr_t *arr)
 {
@@ -284,7 +288,7 @@ ejson_t* ejson_new_num(double v)
   return ejson;
 }
 
-ejson_t* ejson_new_str(const char *v, size_t n)
+static ejson_t* ejson_new_str(const char *v, size_t n)
 {
   ejson_t *ejson = (ejson_t*)calloc(1, sizeof(*ejson));
   if (!ejson) return NULL;
@@ -365,17 +369,17 @@ void ejson_dec_ref(ejson_t *ejson)
   free(ejson);
 }
 
-int ejson_str_append(ejson_t *ejson, const char *v, size_t n)
-{
-  if (ejson->type != EJSON_STR) return -1;
-  return _ejson_str_append(&ejson->_str, v, n);
-}
+// static int ejson_str_append(ejson_t *ejson, const char *v, size_t n)
+// {
+//   if (ejson->type != EJSON_STR) return -1;
+//   return _ejson_str_append(&ejson->_str, v, n);
+// }
 
-int ejson_obj_set(ejson_t *ejson, const char *k, size_t n, ejson_t *v)
-{
-  if (ejson->type != EJSON_OBJ) return -1;
-  return _ejson_obj_append(&ejson->_obj, k, n, v);
-}
+// static int ejson_obj_set(ejson_t *ejson, const char *k, size_t n, ejson_t *v)
+// {
+//   if (ejson->type != EJSON_OBJ) return -1;
+//   return _ejson_obj_append(&ejson->_obj, k, n, v);
+// }
 
 int ejson_arr_append(ejson_t *ejson, ejson_t *v)
 {
@@ -429,114 +433,90 @@ static ejson_t* _ejson_new_obj(_ejson_kv_t *kv)
 }
 
 
-int ejson_is_null(ejson_t *ejson, int *is)
+int ejson_is_null(ejson_t *ejson)
 {
-  if (!ejson) return -1;
-  *is = (ejson->type == EJSON_NULL) ? 1 : 0;
-  return 0;
+  return (ejson && ejson->type == EJSON_NULL) ? 1 : 0;
 }
 
-int ejson_is_true(ejson_t *ejson, int *is)
+int ejson_is_true(ejson_t *ejson)
 {
-  if (!ejson) return -1;
-  *is = (ejson->type == EJSON_TRUE) ? 1 : 0;
-  return 0;
+  return (ejson && ejson->type == EJSON_TRUE) ? 1 : 0;
 }
 
-int ejson_is_false(ejson_t *ejson, int *is)
+int ejson_is_false(ejson_t *ejson)
 {
-  if (!ejson) return -1;
-  *is = (ejson->type == EJSON_FALSE) ? 1 : 0;
-  return 0;
+  return (ejson && ejson->type == EJSON_FALSE) ? 1 : 0;
 }
 
-int ejson_is_str(ejson_t *ejson, int *is)
+int ejson_is_str(ejson_t *ejson)
 {
-  if (!ejson) return -1;
-  *is = (ejson->type == EJSON_STR) ? 1 : 0;
-  return 0;
+  return (ejson && ejson->type == EJSON_STR) ? 1 : 0;
 }
 
-int ejson_is_num(ejson_t *ejson, int *is)
+int ejson_is_num(ejson_t *ejson)
 {
-  if (!ejson) return -1;
-  *is = (ejson->type == EJSON_NUM) ? 1 : 0;
-  return 0;
+  return (ejson && ejson->type == EJSON_NUM) ? 1 : 0;
 }
 
-int ejson_is_obj(ejson_t *ejson, int *is)
+int ejson_is_obj(ejson_t *ejson)
 {
-  if (!ejson) return -1;
-  *is = (ejson->type == EJSON_OBJ) ? 1 : 0;
-  return 0;
+  return (ejson && ejson->type == EJSON_OBJ) ? 1 : 0;
 }
 
-int ejson_is_arr(ejson_t *ejson, int *is)
+int ejson_is_arr(ejson_t *ejson)
 {
-  if (!ejson) return -1;
-  *is = (ejson->type == EJSON_ARR) ? 1 : 0;
-  return 0;
+  return (ejson && ejson->type == EJSON_ARR) ? 1 : 0;
 }
 
-int ejson_str_get(ejson_t *ejson, const char **v, size_t *n)
+const char* ejson_str_get(ejson_t *ejson)
 {
-  int is = 0;
-  int r = ejson_is_str(ejson, &is);
-  if (r || !is) return -1;
-  *v = ejson->_str.str;
-  *n = ejson->_str.nr;
-  return 0;
+  if (!ejson_is_str(ejson)) return NULL;
+  return ejson->_str.str;
 }
 
 int ejson_num_get(ejson_t *ejson, double *v)
 {
-  int is = 0;
-  int r = ejson_is_num(ejson, &is);
-  if (r || !is) return -1;
+  if (!ejson_is_num(ejson)) return -1;
   *v = ejson->_num.dbl;
   return 0;
 }
 
-int ejson_obj_get(ejson_t *ejson, const char *k, ejson_t **v)
+ejson_t* ejson_obj_get(ejson_t *ejson, const char *k)
 {
-  int is = 0;
-  int r = ejson_is_obj(ejson, &is);
-  if (r || !is) return -1;
+  if (!ejson_is_obj(ejson)) return NULL;
   for (size_t i=0; i<ejson->_obj.nr; ++i) {
     _ejson_kv_t *kv = ejson->_obj.kvs + i;
     if (strcmp(k, kv->key.str)) continue;
-    if (kv->val) {
-      *v = kv->val;
-      ejson_inc_ref(*v);
-    } else {
-      *v = ejson_new_null();
-    }
-    return 0;
+    return kv->val;
   }
-  *v = NULL;
-  return 0;
+  return NULL;
 }
 
-int ejson_arr_get_count(ejson_t *ejson, size_t *count)
+size_t ejson_obj_count(ejson_t *ejson)
 {
-  int is = 0;
-  int r = ejson_is_arr(ejson, &is);
-  if (r || !is) return -1;
-  *count = ejson->_arr.nr;
-  return 0;
+  if (!ejson_is_obj(ejson)) return 0;
+  return ejson->_obj.nr;
 }
 
-int ejson_arr_get(ejson_t *ejson, size_t idx, ejson_t **v)
+ejson_t* ejson_obj_idx(ejson_t *ejson, size_t idx, const char **k)
 {
-  int is = 0;
-  int r = ejson_is_arr(ejson, &is);
-  if (r || !is) return -1;
-  if (idx >= ejson->_arr.nr) {
-    *v = NULL;
-    return 0;
-  }
-  *v = ejson->_arr.vals[idx];
-  ejson_inc_ref(*v);
-  return 0;
+  if (!ejson_is_obj(ejson)) return NULL;
+  if (idx >= ejson->_obj.nr) return NULL;
+  _ejson_kv_t *kv = ejson->_obj.kvs + idx;
+  *k = kv->key.str;
+  return kv->val;
+}
+
+size_t ejson_arr_count(ejson_t *ejson)
+{
+  if (!ejson_is_arr(ejson)) return 0;
+  return ejson->_arr.nr;
+}
+
+ejson_t* ejson_arr_get(ejson_t *ejson, size_t idx)
+{
+  if (!ejson_is_arr(ejson)) return NULL;
+  if (idx >= ejson->_arr.nr) return NULL;
+  return ejson->_arr.vals[idx];
 }
 

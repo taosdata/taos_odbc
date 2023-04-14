@@ -338,43 +338,6 @@ cJSON* load_json_file(const char *json_file, char *buf, size_t bytes, const char
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-static int _ejson_is_arr(ejson_t *ejson)
-{
-  int is = 0;
-  ejson_is_arr(ejson, &is);
-  return is;
-}
-
-static int _ejson_is_obj(ejson_t *ejson)
-{
-  int is = 0;
-  ejson_is_obj(ejson, &is);
-  return is;
-}
-
-static ejson_t* _ejson_obj_get(ejson_t *ejson, const char *k)
-{
-  ejson_t *v = NULL;
-  ejson_obj_get(ejson, k, &v);
-  if (v) ejson_dec_ref(v);
-  return v;
-}
-
-static size_t _ejson_arr_get_count(ejson_t *ejson)
-{
-  size_t count = 0;
-  ejson_arr_get_count(ejson, &count);
-  return count;
-}
-
-static ejson_t* _ejson_arr_get(ejson_t *ejson, size_t idx)
-{
-  ejson_t *v = NULL;
-  ejson_arr_get(ejson, idx, &v);
-  if (v) ejson_dec_ref(v);
-  return v;
-}
-
 int ejson_get_by_path(ejson_t *ejson, const char *path, ejson_t **v)
 {
   const char *t = path;
@@ -398,7 +361,7 @@ int ejson_get_by_path(ejson_t *ejson, const char *path, ejson_t **v)
     }
     s = t;
 
-    if (!_ejson_is_arr(j) && !_ejson_is_obj(j)) {
+    if (!ejson_is_arr(j) && !ejson_is_obj(j)) {
       j = NULL;
       break;
     }
@@ -406,17 +369,17 @@ int ejson_get_by_path(ejson_t *ejson, const char *path, ejson_t **v)
     char *end = NULL;
     long int i = strtol(buf, &end, 0);
     if (end && *end) {
-      if (!_ejson_is_obj(j)) {
+      if (!ejson_is_obj(j)) {
         j = NULL;
       } else {
-        j = _ejson_obj_get(j, buf);
+        j = ejson_obj_get(j, buf);
       }
-    } else if (!_ejson_is_arr(j)) {
+    } else if (!ejson_is_arr(j)) {
       j = NULL;
-    } else if (i<0 || (size_t)i>=_ejson_arr_get_count(j)) {
+    } else if (i<0 || (size_t)i>=ejson_arr_count(j)) {
       j = NULL;
     } else {
-      j = _ejson_arr_get(j, (size_t)i);
+      j = ejson_arr_get(j, (size_t)i);
     }
   }
 
@@ -426,9 +389,9 @@ int ejson_get_by_path(ejson_t *ejson, const char *path, ejson_t **v)
 
 int ejson_get_by_item(ejson_t *ejson, int item, ejson_t **v)
 {
-  if (!_ejson_is_arr(ejson)) return -1;
-  if (item >= 0 && (size_t)item < _ejson_arr_get_count(ejson)) {
-    *v = _ejson_arr_get(ejson, (size_t)item);
+  if (!ejson_is_arr(ejson)) return -1;
+  if (item >= 0 && (size_t)item < ejson_arr_count(ejson)) {
+    *v = ejson_arr_get(ejson, (size_t)item);
     return 0;
   }
   *v = NULL;
@@ -437,10 +400,7 @@ int ejson_get_by_item(ejson_t *ejson, int item, ejson_t **v)
 
 const char* ejson_to_string(ejson_t *ejson)
 {
-  const char *str = NULL;
-  size_t n = 0;
-  ejson_str_get(ejson, &str, &n);
-  return str;
+  return ejson_str_get(ejson);
 }
 
 const char* ejson_object_get_string(ejson_t *ejson, const char *key)
@@ -471,7 +431,7 @@ ejson_t* ejson_object_get_array(ejson_t *ejson, const char *key)
   ejson_t *val = NULL;
   int r = ejson_get_by_path(ejson, key, &val);
   if (r || !val) return NULL;
-  if (!_ejson_is_arr(val)) return NULL;
+  if (!ejson_is_arr(val)) return NULL;
 
   return val;
 }

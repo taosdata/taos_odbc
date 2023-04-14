@@ -67,27 +67,26 @@ ejson_t* ejson_new_null(void) FA_HIDDEN;
 ejson_t* ejson_new_true(void) FA_HIDDEN;
 ejson_t* ejson_new_false(void) FA_HIDDEN;
 ejson_t* ejson_new_num(double v) FA_HIDDEN;
-ejson_t* ejson_new_str(const char *v, size_t n) FA_HIDDEN;
 ejson_t* ejson_new_obj(void) FA_HIDDEN;
 ejson_t* ejson_new_arr(void) FA_HIDDEN;
-int ejson_str_append(ejson_t *ejson, const char *v, size_t n) FA_HIDDEN;
-int ejson_obj_set(ejson_t *ejson, const char *k, size_t n, ejson_t *v) FA_HIDDEN;
 int ejson_arr_append(ejson_t *ejson, ejson_t *v) FA_HIDDEN;
 
 
-int ejson_is_null(ejson_t *ejson, int *is) FA_HIDDEN;
-int ejson_is_true(ejson_t *ejson, int *is) FA_HIDDEN;
-int ejson_is_false(ejson_t *ejson, int *is) FA_HIDDEN;
-int ejson_is_str(ejson_t *ejson, int *is) FA_HIDDEN;
-int ejson_is_num(ejson_t *ejson, int *is) FA_HIDDEN;
-int ejson_is_obj(ejson_t *ejson, int *is) FA_HIDDEN;
-int ejson_is_arr(ejson_t *ejson, int *is) FA_HIDDEN;
+int ejson_is_null(ejson_t *ejson) FA_HIDDEN;
+int ejson_is_true(ejson_t *ejson) FA_HIDDEN;
+int ejson_is_false(ejson_t *ejson) FA_HIDDEN;
+int ejson_is_str(ejson_t *ejson) FA_HIDDEN;
+int ejson_is_num(ejson_t *ejson) FA_HIDDEN;
+int ejson_is_obj(ejson_t *ejson) FA_HIDDEN;
+int ejson_is_arr(ejson_t *ejson) FA_HIDDEN;
 
-int ejson_str_get(ejson_t *ejson, const char **v, size_t *n) FA_HIDDEN;
+const char* ejson_str_get(ejson_t *ejson) FA_HIDDEN;
 int ejson_num_get(ejson_t *ejson, double *v) FA_HIDDEN;
-int ejson_obj_get(ejson_t *ejson, const char *k, ejson_t **v) FA_HIDDEN;
-int ejson_arr_get_count(ejson_t *ejson, size_t *count) FA_HIDDEN;
-int ejson_arr_get(ejson_t *ejson, size_t idx, ejson_t **v) FA_HIDDEN;
+size_t ejson_obj_count(ejson_t *ejson) FA_HIDDEN;
+ejson_t* ejson_obj_idx(ejson_t *ejson, size_t idx, const char **k) FA_HIDDEN;
+ejson_t* ejson_obj_get(ejson_t *ejson, const char *k) FA_HIDDEN;
+size_t ejson_arr_count(ejson_t *ejson) FA_HIDDEN;
+ejson_t* ejson_arr_get(ejson_t *ejson, size_t idx) FA_HIDDEN;
 
 
 void _ejson_str_reset(_ejson_str_t *str) FA_HIDDEN;

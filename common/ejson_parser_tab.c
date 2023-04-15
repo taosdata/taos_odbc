@@ -26,6 +26,9 @@
 
 #include "logger.h"
 
+#include <math.h>
+
+static ejson_t* _ejson_new_num(const char *s, size_t n);
 static ejson_t* _ejson_new_str(_ejson_str_t *str);
 static ejson_t* _ejson_new_obj(_ejson_kv_t *kv);
 static int _ejson_obj_set(ejson_t *ejson, _ejson_kv_t *kv);
@@ -34,19 +37,9 @@ static ejson_t* ejson_new_str(const char *v, size_t n);
 // static int ejson_str_append(ejson_t *ejson, const char *v, size_t n);
 // static int ejson_obj_set(ejson_t *ejson, const char *k, size_t n, ejson_t *v);
 
-#include "ejson_parser.tab.h"
-#include "ejson_parser.lex.c"
-
-#include "ejson_parser.lex.h"
-#undef yylloc
-#undef yylval
-#include "ejson_parser.tab.c"
-
-
 typedef struct ejson_num_s              ejson_num_t;
 typedef struct ejson_obj_s              ejson_obj_t;
 typedef struct ejson_arr_s              ejson_arr_t;
-
 
 
 struct ejson_num_s {
@@ -73,37 +66,45 @@ struct ejson_s {
     ejson_obj_t              _obj;
     ejson_arr_t              _arr;
   };
+
+  ejson_loc_t                loc;
   int                        refc;
 };
 
-static const ejson_t        _ejson_null = {
-  .type           = EJSON_NULL,
-  .refc           = 1,
-};
+#include "ejson_parser.tab.h"
+#include "ejson_parser.lex.c"
 
-static const ejson_t        _ejson_true = {
-  .type           = EJSON_TRUE,
-  .refc           = 1,
-};
+#include "ejson_parser.lex.h"
+#undef yylloc
+#undef yylval
+#include "ejson_parser.tab.c"
 
-static const ejson_t        _ejson_false = {
-  .type           = EJSON_FALSE,
-  .refc           = 1,
-};
 
 ejson_t* ejson_new_null(void)
 {
-  return (ejson_t*)&_ejson_null;
+  ejson_t *ejson = (ejson_t*)calloc(1, sizeof(*ejson));
+  if (!ejson) return NULL;
+  ejson->type = EJSON_NULL;
+  ejson->refc = 1;
+  return ejson;
 }
 
 ejson_t* ejson_new_true(void)
 {
-  return (ejson_t*)&_ejson_true;
+  ejson_t *ejson = (ejson_t*)calloc(1, sizeof(*ejson));
+  if (!ejson) return NULL;
+  ejson->type = EJSON_TRUE;
+  ejson->refc = 1;
+  return ejson;
 }
 
 ejson_t* ejson_new_false(void)
 {
-  return (ejson_t*)&_ejson_false;
+  ejson_t *ejson = (ejson_t*)calloc(1, sizeof(*ejson));
+  if (!ejson) return NULL;
+  ejson->type = EJSON_FALSE;
+  ejson->refc = 1;
+  return ejson;
 }
 
 static void _ejson_num_release(ejson_num_t *num)
@@ -192,12 +193,6 @@ static void _ejson_obj_release(ejson_obj_t *obj)
 static void _ejson_inc_ref(ejson_t *ejson)
 {
   if (!ejson) return;
-  if (ejson == (ejson_t*)&_ejson_null ||
-      ejson == (ejson_t*)&_ejson_true ||
-      ejson == (ejson_t*)&_ejson_false)
-  {
-    return;
-  }
 
   ejson->refc += 1;
 }
@@ -325,18 +320,16 @@ ejson_t* ejson_new_arr(void)
 void ejson_inc_ref(ejson_t *ejson)
 {
   if (!ejson) return;
-  if (ejson == (ejson_t*)&_ejson_null ||
-      ejson == (ejson_t*)&_ejson_true ||
-      ejson == (ejson_t*)&_ejson_false)
-  {
-    return;
-  }
   ++ejson->refc;
 }
 
 static void _ejson_release(ejson_t *ejson)
 {
   switch (ejson->type) {
+    case EJSON_NULL:
+    case EJSON_TRUE:
+    case EJSON_FALSE:
+      break;
     case EJSON_NUM:
       _ejson_num_release(&ejson->_num);
       break;
@@ -356,12 +349,6 @@ static void _ejson_release(ejson_t *ejson)
 void ejson_dec_ref(ejson_t *ejson)
 {
   if (!ejson) return;
-  if (ejson == (ejson_t*)&_ejson_null ||
-      ejson == (ejson_t*)&_ejson_true ||
-      ejson == (ejson_t*)&_ejson_false)
-  {
-    return;
-  }
   if (ejson->refc > 1) {
     --ejson->refc;
     return;
@@ -387,6 +374,15 @@ int ejson_arr_append(ejson_t *ejson, ejson_t *v)
 {
   if (ejson->type != EJSON_ARR) return -1;
   return _ejson_arr_append(&ejson->_arr, v);
+}
+
+static ejson_t* _ejson_new_num(const char *s, size_t n)
+{
+  char buf[128];
+  snprintf(buf, sizeof(buf), "%.*s", (int)n, s);
+  double dbl = 0;
+  sscanf(buf, "%lg", &dbl);
+  return ejson_new_num(dbl);
 }
 
 static ejson_t* _ejson_new_str(_ejson_str_t *str)
@@ -550,6 +546,13 @@ static int _ejson_arr_cmp(ejson_arr_t *l, ejson_arr_t *r)
   return 1;
 }
 
+static int _dbl_cmp(double l, double r)
+{
+  double epsilon = 1e-6;
+  if(fabs(l-r) < epsilon) return 0;
+  return (l<r) ? -1 : 1;
+}
+
 int ejson_cmp(ejson_t *l, ejson_t *r)
 {
   if (l->type < r->type) return -1;
@@ -560,9 +563,7 @@ int ejson_cmp(ejson_t *l, ejson_t *r)
     case EJSON_TRUE:
       return 0;
     case EJSON_NUM:
-      if (l->_num.dbl < r->_num.dbl) return -1;
-      if (l->_num.dbl > r->_num.dbl) return 1;
-      return 0;
+      return _dbl_cmp(l->_num.dbl, r->_num.dbl);
     case EJSON_STR:
       return strcmp(l->_str.str, r->_str.str);
     case EJSON_OBJ:
@@ -624,6 +625,9 @@ static int _str_serialize(const char *str, size_t nr, char *buf, size_t len)
     }
     const char *pp = strchr(escape2, c);
     if (pp) {
+      if (curr > prev) {
+        _SNPRINTF("%.*s", (int)(curr - prev), prev);
+      }
       _SNPRINTF("\\%c", escape2_replace[pp-escape2]);
       prev = ++curr;
       continue;
@@ -720,5 +724,11 @@ int ejson_serialize(ejson_t *ejson, char *buf, size_t len)
       return _ejson_arr_serialize(&ejson->_arr, buf, len);
     default: return -1;
   }
+}
+
+const ejson_loc_t* ejson_get_loc(ejson_t *ejson)
+{
+  if (!ejson) return NULL;
+  return &ejson->loc;
 }
 

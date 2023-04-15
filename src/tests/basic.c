@@ -266,6 +266,7 @@ static int test_ejson_parser(void)
     const char            *match;
     int                    __line__;
   } _cases[] = {
+    RECORD("\"abc\\tdef\"", "\"abc\\tdef\""),
     RECORD("{d}]", NULL),
     RECORD("'\\\\'", "\"\\\\\""),
     RECORD("'\\b'", "\"\\b\""),
@@ -385,7 +386,7 @@ static int test_ejson_parser(void)
       if ((!!r) ^ (!match)) {
         E("parsing @[%dL]:%s", __line__, s);
         if (r) {
-          E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+          E("location:(%d,%d)->(%d,%d)", param.ctx.loc.first_line, param.ctx.loc.first_column, param.ctx.loc.last_line, param.ctx.loc.last_column);
           E("failed:%s", param.ctx.err_msg);
           E("expecting:%s", match);
           E("but got:%s", buf);
@@ -398,8 +399,8 @@ static int test_ejson_parser(void)
       if (r == 0) {
         if (strcmp(buf, match)) {
           E("parsing @[%dL]:%s", __line__, s);
-          E("expecting:%s", match);
-          E("but got:%s", buf);
+          E("expecting:[%zd]%s", strlen(match), match);
+          E("but got:[%zd]%s", strlen(buf), buf);
           r = -1;
           break;
         }

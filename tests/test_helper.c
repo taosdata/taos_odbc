@@ -284,7 +284,7 @@ static inline cJSON* load_json_from_file(const char *json_file, FILE *fn, const 
     r = ejson_parser_parse(p, strlen(p), &param);
     if (r) {
       E("parsing @[%s]:%s", json_file, p);
-      E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+      E("location:(%d,%d)->(%d,%d)", param.ctx.loc.first_line, param.ctx.loc.first_column, param.ctx.loc.last_line, param.ctx.loc.last_column);
       E("failed:%s", param.ctx.err_msg);
       free(gb);
       free(buf);
@@ -520,7 +520,7 @@ static ejson_t* load_ejson_from_file(const char *json_file, FILE *fn, const char
   r = ejson_parser_parse(p, strlen(p), &param);
   if (r) {
     E("parsing @[%s]:%s", json_file, p);
-    E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+    E("location:(%d,%d)->(%d,%d)", param.ctx.loc.first_line, param.ctx.loc.first_column, param.ctx.loc.last_line, param.ctx.loc.last_column);
     E("failed:%s", param.ctx.err_msg);
     free(gb);
     free(buf);

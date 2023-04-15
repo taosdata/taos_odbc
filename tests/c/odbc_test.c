@@ -90,9 +90,9 @@ static int cmp_real_against_val(SQLHANDLE hstmt, SQLSMALLINT iColumn, ejson_t *v
   }
 
   ejson_t *j = ejson_new_num(v);
-  bool eq = ejson_cmp(j, val);
+  int r = ejson_cmp(j, val);
   ejson_dec_ref(j);
-  if (eq) return 0;
+  if (r == 0) return 0;
 
   if (ejson_is_num(val)) {
     double dl = v;
@@ -101,11 +101,11 @@ static int cmp_real_against_val(SQLHANDLE hstmt, SQLSMALLINT iColumn, ejson_t *v
     char lbuf[64]; snprintf(lbuf, sizeof(lbuf), "%lg", dl);
     char rbuf[64]; snprintf(rbuf, sizeof(rbuf), "%lg", dr);
     if (strcmp(lbuf, rbuf) == 0) return 0;
-    else D("%s <> %s", lbuf, rbuf);
+    else E("@[%dL]:%s <> %s", ejson_get_loc(val)->first_line, lbuf, rbuf);
   } else {
     char lbuf[64]; ejson_serialize(j, lbuf, sizeof(lbuf));
     char rbuf[64]; ejson_serialize(val, rbuf, sizeof(rbuf));
-    E("==%s== <> ==%s==", lbuf, rbuf);
+    E("@[%dL]:==%s== <> ==%s==", ejson_get_loc(val)->first_line, lbuf, rbuf);
   }
 
   return -1;
@@ -132,9 +132,9 @@ static int cmp_double_against_val(SQLHANDLE hstmt, SQLSMALLINT iColumn, ejson_t 
   }
 
   ejson_t *j = ejson_new_num(v);
-  bool eq = ejson_cmp(j, val);
+  int r = ejson_cmp(j, val);
   ejson_dec_ref(j);
-  if (eq) return 0;
+  if (r == 0) return 0;
 
   if (ejson_is_num(val)) {
     double dl = v;
@@ -172,9 +172,9 @@ static int cmp_i64_against_val(SQLHANDLE hstmt, SQLSMALLINT iColumn, ejson_t *va
   }
 
   ejson_t *j = ejson_new_num(v);
-  bool eq = ejson_cmp(j, val);
+  int r = ejson_cmp(j, val);
   ejson_dec_ref(j);
-  if (eq) return 0;
+  if (r == 0) return 0;
 
   if (ejson_is_num(val)) {
     double dl = v;
@@ -212,9 +212,9 @@ static int cmp_i32_against_val(SQLHANDLE hstmt, SQLSMALLINT iColumn, ejson_t *va
   }
 
   ejson_t *j = ejson_new_num(v);
-  bool eq = ejson_cmp(j, val);
+  int r = ejson_cmp(j, val);
   ejson_dec_ref(j);
-  if (eq) return 0;
+  if (r == 0) return 0;
 
   if (ejson_is_num(val)) {
     double dl = v;
@@ -252,9 +252,9 @@ static int cmp_timestamp_against_val(SQLHANDLE hstmt, SQLSMALLINT iColumn, ejson
   }
 
   ejson_t *j = ejson_new_num(v);
-  bool eq = ejson_cmp(j, val);
+  int r = ejson_cmp(j, val);
   ejson_dec_ref(j);
-  if (eq) return 0;
+  if (r == 0) return 0;
 
   if (ejson_is_num(val)) {
     double dl = v;

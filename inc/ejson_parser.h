@@ -40,15 +40,26 @@ typedef struct ejson_s                  ejson_t;
 typedef struct _ejson_str_s             _ejson_str_t;
 typedef struct _ejson_kv_s              _ejson_kv_t;
 
+typedef struct ejson_loc_s              ejson_loc_t;
+
+struct ejson_loc_s {
+  int first_line, first_column;
+  int last_line,  last_column;
+};
+
 struct _ejson_str_s {
   char                      *str;
   size_t                     cap;
   size_t                     nr;
+
+  ejson_loc_t                loc;
 };
 
 struct _ejson_kv_s {
   _ejson_str_t               key;
   ejson_t                   *val;
+
+  ejson_loc_t                loc;
 };
 
 enum ejson_type_e {
@@ -83,6 +94,8 @@ int ejson_is_arr(ejson_t *ejson) FA_HIDDEN;
 int ejson_cmp(ejson_t *l, ejson_t *r) FA_HIDDEN;
 int ejson_serialize(ejson_t *ejson, char *buf, size_t len) FA_HIDDEN;
 
+const ejson_loc_t* ejson_get_loc(ejson_t *ejson) FA_HIDDEN;
+
 const char* ejson_str_get(ejson_t *ejson) FA_HIDDEN;
 int ejson_num_get(ejson_t *ejson, double *v) FA_HIDDEN;
 size_t ejson_obj_count(ejson_t *ejson) FA_HIDDEN;
@@ -113,8 +126,7 @@ struct ejson_parser_token_s {
 };
 
 struct ejson_parser_ctx_s {
-  int                    row0, col0;
-  int                    row1, col1;
+  ejson_loc_t            loc;
   char                   err_msg[1024];
 
   unsigned int           debug_flex:1;

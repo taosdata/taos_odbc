@@ -262,104 +262,104 @@ static int test_ejson_parser(void)
 {
 #define RECORD(x, y) {x, y, __LINE__}
   const struct {
-    uint8_t                __error__:1;
     const char            *text;
+    const char            *match;
     int                    __line__;
   } _cases[] = {
-    RECORD(1, "{d}]"),
-    RECORD(0, "'\\\\'"),
-    RECORD(0, "'\\b'"),
-    RECORD(0, "'\\f'"),
-    RECORD(0, "'\\n'"),
-    RECORD(0, "'\\r'"),
-    RECORD(0, "'\\t'"),
-    // RECORD(0, "'\\u12af'"),
-    // RECORD(0, "'\\u12BC'"),
-    // RECORD(1, "'\\ua'"),
-    RECORD(0, "true"),
-    RECORD(0, "false"),
-    RECORD(0, "null"),
-    RECORD(1, "\""),
-    RECORD(1, "'"),
-    RECORD(1, "`"),
-    RECORD(0, "345"),
-    RECORD(0, "-345.456e+123"),
-    RECORD(0, "+345.456E-123"),
-    RECORD(0, "hello"),
-    RECORD(0, "'hello'"),
-    RECORD(0, "\"hello\""),
-    RECORD(0, "`hello`"),
-    RECORD(0, "'345'"),
-    RECORD(0, "{}"),
-    RECORD(0, "[]"),
-    RECORD(0, "a"),
-    RECORD(0, "人"),
-    RECORD(0, "_人"),
-    RECORD(1, "-人"),
-    RECORD(1, "a-人"),
-    RECORD(0, "[a]"),
-    RECORD(0, "[人]"),
-    RECORD(0, "[a,人]"),
-    RECORD(0, "[a,人,true,false,null]"),
-    RECORD(0, "{a:b}"),
-    RECORD(0, "{a:b,测:试}"),
-    RECORD(0, "{'a':'b','测':'试'}"),
-    RECORD(0, "{'a':'b','测':'试','我们':[]}"),
-    RECORD(0, "{'a':'b','测':'试','我们':{}}"),
-    RECORD(0, "[a,人,[]]"),
-    RECORD(0, "[a,人,{}]"),
-    RECORD(0, "[true,false,null]"),
-    RECORD(0, "{a:true,b:false,c:null}"),
-    RECORD(0, "{a:true,b:false,x,c:null}"),
-    RECORD(1, "{a:true,b:false,x,c:null}]"),
-    RECORD(0, "{a:true,b:false,x,c:}"),
-    RECORD(0, "{,,a:true,,b:false,x,,}"),
-    RECORD(0, "[{a:true,b:false,x,c:null,d:{m,n},e:[]},[x,y,z]]"),
-    RECORD(1, "[{a:true,b:false,x,c:null,d:{m,n},e:[]},[x,y,z]"),
-    RECORD(1, "[{a:true,b:false,x,c:null,d:{m,n},e:[]},[x,y,z"),
-    RECORD(1, "[{a:true,b:false,x,c:null,d:{m,n},e:[]},[x,y,"),
-    RECORD(1, "[{a:true,b:false,x,c:null,d:{m,n},e:[]},[x,y"),
-    RECORD(1, "[{a:true,b:false,x,c:null,d:{m,n},e:[]},[x,"),
-    RECORD(1, "[{a:true,b:false,x,c:null,d:{m,n},e:[]},[x"),
-    RECORD(1, "[{a:true,b:false,x,c:null,d:{m,n},e:[]},["),
-    RECORD(1, "[{a:true,b:false,x,c:null,d:{m,n},e:[]},"),
-    RECORD(1, "[{a:true,b:false,x,c:null,d:{m,n},e:[]}"),
-    RECORD(1, "[{a:true,b:false,x,c:null,d:{m,n},e:[]"),
-    RECORD(1, "[{a:true,b:false,x,c:null,d:{m,n},e:["),
-    RECORD(1, "[{a:true,b:false,x,c:null,d:{m,n},e:"),
-    RECORD(1, "[{a:true,b:false,x,c:null,d:{m,n},e"),
-    RECORD(1, "[{a:true,b:false,x,c:null,d:{m,n},"),
-    RECORD(1, "[{a:true,b:false,x,c:null,d:{m,n}"),
-    RECORD(1, "[{a:true,b:false,x,c:null,d:{m,n"),
-    RECORD(1, "[{a:true,b:false,x,c:null,d:{m,"),
-    RECORD(1, "[{a:true,b:false,x,c:null,d:{m"),
-    RECORD(1, "[{a:true,b:false,x,c:null,d:{"),
-    RECORD(1, "[{a:true,b:false,x,c:null,d:"),
-    RECORD(1, "[{a:true,b:false,x,c:null,d"),
-    RECORD(1, "[{a:true,b:false,x,c:null,"),
-    RECORD(1, "[{a:true,b:false,x,c:null"),
-    RECORD(1, "[{a:true,b:false,x,c:nul"),
-    RECORD(1, "[{a:true,b:false,x,c:"),
-    RECORD(1, "[{a:true,b:false,x,c"),
-    RECORD(1, "[{a:true,b:false,x,"),
-    RECORD(1, "[{a:true,b:false,x"),
-    RECORD(1, "[{a:true,b:false,"),
-    RECORD(1, "[{a:true,b:false"),
-    RECORD(1, "[{a:true,b:fals"),
-    RECORD(1, "[{a:true,b:"),
-    RECORD(1, "[{a:true,b"),
-    RECORD(1, "[{a:true,"),
-    RECORD(1, "[{a:true"),
-    RECORD(1, "[{a:tru"),
-    RECORD(1, "[{a:"),
-    RECORD(1, "[{a"),
-    RECORD(1, "[{"),
-    RECORD(1, "["),
-    RECORD(0, "[,,,,a,,,b,,,,,,]"),
-    RECORD(0, "[,,,,,,,,,,,,,]"),
-    RECORD(0, "{,,,,,,,,,,,,,}"),
-    RECORD(0, "{,,,,x,,,y,,,,,,}"),
-    RECORD(0, "{,,,,x,,,,,,,,,,}"),
+    RECORD("{d}]", NULL),
+    RECORD("'\\\\'", "\"\\\\\""),
+    RECORD("'\\b'", "\"\\b\""),
+    RECORD("'\\f'", "\"\\f\""),
+    RECORD("'\\n'", "\"\\n\""),
+    RECORD("'\\r'", "\"\\r\""),
+    RECORD("'\\t'", "\"\\t\""),
+    // // RECORD("'\\u12af'"),
+    // // RECORD("'\\u12BC'"),
+    // // RECORD("'\\ua'"),
+    RECORD("true", "true"),
+    RECORD("false", "false"),
+    RECORD("null", "null"),
+    RECORD("\"", NULL),
+    RECORD("'", NULL),
+    RECORD("`", NULL),
+    RECORD("345", "345"),
+    RECORD("-345.456e+123", "-3.45456e+125"),
+    RECORD("+345.456E-123", "3.45456e-121"),
+    RECORD("hello", "\"hello\""),
+    RECORD("'hello'", "\"hello\""),
+    RECORD("\"hello\"", "\"hello\""),
+    RECORD("`hello`", "\"hello\""),
+    RECORD("'345'", "\"345\""),
+    RECORD("{}", "{}"),
+    RECORD("[]", "[]"),
+    RECORD("a", "\"a\""),
+    RECORD("人", "\"人\""),
+    RECORD("_人", "\"_人\""),
+    RECORD("-人", NULL),
+    RECORD("a-人", NULL),
+    RECORD("[a]", "[\"a\"]"),
+    RECORD("[人]", "[\"人\"]"),
+    RECORD("[a,人]", "[\"a\",\"人\"]"),
+    RECORD("[a,人,true,false,null]", "[\"a\",\"人\",true,false,null]"),
+    RECORD("{a:b}", "{\"a\":\"b\"}"),
+    RECORD("{a:b,测:试}", "{\"a\":\"b\",\"测\":\"试\"}"),
+    RECORD("{'a':'b','测':'试'}", "{\"a\":\"b\",\"测\":\"试\"}"),
+    RECORD("{'a':'b','测':'试','我们':[]}", "{\"a\":\"b\",\"测\":\"试\",\"我们\":[]}"),
+    RECORD("{'a':'b','测':'试','我们':{}}", "{\"a\":\"b\",\"测\":\"试\",\"我们\":{}}"),
+    RECORD("[a,人,[]]", "[\"a\",\"人\",[]]"),
+    RECORD("[a,人,{}]", "[\"a\",\"人\",{}]"),
+    RECORD("[true,false,null]", "[true,false,null]"),
+    RECORD("{a:true,b:false,c:null}", "{\"a\":true,\"b\":false,\"c\":null}"),
+    RECORD("{a:true,b:false,x,c:null}", "{\"a\":true,\"b\":false,\"x\":null,\"c\":null}"),
+    RECORD("{a:true,b:false,x,c:null}]", NULL),
+    RECORD("{a:true,b:false,x,c:}", "{\"a\":true,\"b\":false,\"x\":null,\"c\":null}"),
+    RECORD("{,,a:true,,b:false,x,,}", "{\"a\":true,\"b\":false,\"x\":null}"),
+    RECORD("[{a:true,b:false,x,c:null,d:{m,n},e:[]},[x,y,z]]", "[{\"a\":true,\"b\":false,\"x\":null,\"c\":null,\"d\":{\"m\":null,\"n\":null},\"e\":[]},[\"x\",\"y\",\"z\"]]"),
+    RECORD("[{a:true,b:false,x,c:null,d:{m,n},e:[]},[x,y,z]", NULL),
+    RECORD("[{a:true,b:false,x,c:null,d:{m,n},e:[]},[x,y,z", NULL),
+    RECORD("[{a:true,b:false,x,c:null,d:{m,n},e:[]},[x,y,", NULL),
+    RECORD("[{a:true,b:false,x,c:null,d:{m,n},e:[]},[x,y", NULL),
+    RECORD("[{a:true,b:false,x,c:null,d:{m,n},e:[]},[x,", NULL),
+    RECORD("[{a:true,b:false,x,c:null,d:{m,n},e:[]},[x", NULL),
+    RECORD("[{a:true,b:false,x,c:null,d:{m,n},e:[]},[", NULL),
+    RECORD("[{a:true,b:false,x,c:null,d:{m,n},e:[]},", NULL),
+    RECORD("[{a:true,b:false,x,c:null,d:{m,n},e:[]}", NULL),
+    RECORD("[{a:true,b:false,x,c:null,d:{m,n},e:[]", NULL),
+    RECORD("[{a:true,b:false,x,c:null,d:{m,n},e:[", NULL),
+    RECORD("[{a:true,b:false,x,c:null,d:{m,n},e:", NULL),
+    RECORD("[{a:true,b:false,x,c:null,d:{m,n},e", NULL),
+    RECORD("[{a:true,b:false,x,c:null,d:{m,n},", NULL),
+    RECORD("[{a:true,b:false,x,c:null,d:{m,n}", NULL),
+    RECORD("[{a:true,b:false,x,c:null,d:{m,n", NULL),
+    RECORD("[{a:true,b:false,x,c:null,d:{m,", NULL),
+    RECORD("[{a:true,b:false,x,c:null,d:{m", NULL),
+    RECORD("[{a:true,b:false,x,c:null,d:{", NULL),
+    RECORD("[{a:true,b:false,x,c:null,d:", NULL),
+    RECORD("[{a:true,b:false,x,c:null,d", NULL),
+    RECORD("[{a:true,b:false,x,c:null,", NULL),
+    RECORD("[{a:true,b:false,x,c:null", NULL),
+    RECORD("[{a:true,b:false,x,c:nul", NULL),
+    RECORD("[{a:true,b:false,x,c:", NULL),
+    RECORD("[{a:true,b:false,x,c", NULL),
+    RECORD("[{a:true,b:false,x,", NULL),
+    RECORD("[{a:true,b:false,x", NULL),
+    RECORD("[{a:true,b:false,", NULL),
+    RECORD("[{a:true,b:false", NULL),
+    RECORD("[{a:true,b:fals", NULL),
+    RECORD("[{a:true,b:", NULL),
+    RECORD("[{a:true,b", NULL),
+    RECORD("[{a:true,", NULL),
+    RECORD("[{a:true", NULL),
+    RECORD("[{a:tru", NULL),
+    RECORD("[{a:", NULL),
+    RECORD("[{a", NULL),
+    RECORD("[{", NULL),
+    RECORD("[", NULL),
+    RECORD("[,,,,a,,,b,,,,,,]", "[\"a\",\"b\"]"),
+    RECORD("[,,,,,,,,,,,,,]", "[]"),
+    RECORD("{,,,,,,,,,,,,,}", "{}"),
+    RECORD("{,,,,x,,,y,,,,,,}", "{\"x\":null,\"y\":null}"),
+    RECORD("{,,,,x,,,,,,,,,,}", "{\"x\":null}"),
   };
   const size_t nr = sizeof(_cases)/sizeof(_cases[0]);
 #undef RECORD
@@ -371,28 +371,41 @@ static int test_ejson_parser(void)
   char buf[4096]; buf[0] = '\0';
   for (size_t i=0; i<nr; ++i) {
     const char *s         = _cases[i].text;
+    const char *match     = _cases[i].match;
     int         __line__  = _cases[i].__line__;
-    int         __error__ = _cases[i].__error__;
     int r = ejson_parser_parse(s, strlen(s), &param);
-    if (r == 0) {
-      buf[0] = '\0';
-      int n = ejson_serialize(param.ejson, buf, sizeof(buf));
-      E("parsing @[%dL]:%s", __line__, s);
-      E("dumping [n:%d]", n);
-      E("%s", buf);
-    }
-    if ((!!r) ^ __error__) {
-      E("parsing @[%dL]:%s", __line__, s);
-      if (r) {
-        E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
-        E("failed:%s", param.ctx.err_msg);
-      } else {
-        E("expected to fail, but succeed");
+    buf[0] = '\0';
+    do {
+      if (r == 0) {
+        int n = ejson_serialize(param.ejson, buf, sizeof(buf));
+        E("parsing @[%dL]:%s", __line__, s);
+        E("dumping [n:%d]", n);
+        E("%s", buf);
       }
-      r = -1;
-    } else {
+      if ((!!r) ^ (!match)) {
+        E("parsing @[%dL]:%s", __line__, s);
+        if (r) {
+          E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+          E("failed:%s", param.ctx.err_msg);
+          E("expecting:%s", match);
+          E("but got:%s", buf);
+        } else {
+          E("expected to fail, but succeed");
+        }
+        r = -1;
+        break;
+      }
+      if (r == 0) {
+        if (strcmp(buf, match)) {
+          E("parsing @[%dL]:%s", __line__, s);
+          E("expecting:%s", match);
+          E("but got:%s", buf);
+          r = -1;
+          break;
+        }
+      }
       r = 0;
-    }
+    } while (0);
 
     ejson_parser_param_release(&param);
     if (r) return -1;

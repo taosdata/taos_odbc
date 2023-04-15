@@ -243,7 +243,7 @@
 %% /* The grammar follows. */
 
 input:
-  %empty
+  %empty            { (void)yynerrs; }
 | json              { param->ejson = $1; }
 ;
 

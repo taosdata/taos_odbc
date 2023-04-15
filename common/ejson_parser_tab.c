@@ -520,3 +520,202 @@ ejson_t* ejson_arr_get(ejson_t *ejson, size_t idx)
   return ejson->_arr.vals[idx];
 }
 
+static int _ejson_kv_cmp(_ejson_kv_t *l, _ejson_kv_t *r)
+{
+  int rr = strcmp(l->key.str, r->key.str);
+  if (rr) return rr;
+  return ejson_cmp(l->val, r->val);
+}
+
+static int _ejson_obj_cmp(ejson_obj_t *l, ejson_obj_t *r)
+{
+  for (size_t i=0; i<l->nr && i<r->nr; ++i) {
+    int rr = _ejson_kv_cmp(l->kvs + i, r->kvs + i);
+    if (rr) return rr;
+  }
+  if (l->nr < r->nr) return -1;
+  return 1;
+}
+
+static int _ejson_arr_cmp(ejson_arr_t *l, ejson_arr_t *r)
+{
+  for (size_t i=0; i<l->nr && i<r->nr; ++i) {
+    int rr = ejson_cmp(l->vals[i], r->vals[i]);
+    if (rr) return rr;
+  }
+  if (l->nr < r->nr) return -1;
+  return 1;
+}
+
+int ejson_cmp(ejson_t *l, ejson_t *r)
+{
+  if (l->type < r->type) return -1;
+  if (l->type > r->type) return 1;
+  switch (l->type) {
+    case EJSON_NULL:
+    case EJSON_FALSE:
+    case EJSON_TRUE:
+      return 0;
+    case EJSON_NUM:
+      if (l->_num.dbl < r->_num.dbl) return -1;
+      if (l->_num.dbl > r->_num.dbl) return 1;
+      return 0;
+    case EJSON_STR:
+      return strcmp(l->_str.str, r->_str.str);
+    case EJSON_OBJ:
+      return _ejson_obj_cmp(&l->_obj, &r->_obj);
+    case EJSON_ARR:
+      return _ejson_arr_cmp(&l->_arr, &r->_arr);
+    default: return -1;
+  }
+}
+
+#if 1        /* { */
+#define _ADJUST() do {                               \
+  if (n < 0) return -1;                              \
+  count += n;                                        \
+  p += n;                                            \
+  len -= n;                                          \
+  if ((size_t)n >= len) {                            \
+    p = NULL;                                        \
+    len = 0;                                         \
+  }                                                  \
+} while (0)
+
+#define _SNPRINTF(fmt, ...) do {                     \
+  n = snprintf(p, len, fmt, ##__VA_ARGS__);          \
+  _ADJUST();                                         \
+} while (0)
+
+static int _str_serialize(const char *str, size_t nr, char *buf, size_t len)
+{
+  int count = 0;
+  char *p = buf;
+  int n = 0;
+
+  // if (!strchr(str, '"')) {
+  //   return snprintf(buf, len, "\"%s\"", str);
+  // }
+  // if (!strchr(str, '\'')) {
+  //   return snprintf(buf, len, "'%s'", str);
+  // }
+  // if (!strchr(str, '`')) {
+  //   return snprintf(buf, len, "`%s`", str);
+  // }
+  _SNPRINTF("%c", '"');
+
+  const char *escape1 = "\\\"'`";
+  const char *escape2         = "\b\f\r\n\t";
+  const char *escape2_replace = "bfrnt";
+  const char *prev = str;
+  for (size_t i=0; i<nr; ++i) {
+    const char *curr = str + i;
+    const char c = *curr;
+    if (strchr(escape1, c)) {
+      if (curr > prev) {
+        _SNPRINTF("%.*s", (int)(curr - prev), prev);
+      }
+      _SNPRINTF("\\%c", c);
+      prev = ++curr;
+      continue;
+    }
+    const char *pp = strchr(escape2, c);
+    if (pp) {
+      _SNPRINTF("\\%c", escape2_replace[pp-escape2]);
+      prev = ++curr;
+      continue;
+    }
+  }
+  if (*prev) {
+    _SNPRINTF("%s", prev);
+  }
+  _SNPRINTF("%c", '"');
+
+  return count;
+}
+
+static int _ejson_str_serialize(_ejson_str_t *str, char *buf, size_t len)
+{
+  return _str_serialize(str->str, str->nr, buf, len);
+}
+
+static int _ejson_kv_serialize(_ejson_kv_t *kv, char *buf, size_t len)
+{
+  int count = 0;
+  char *p = buf;
+  int n = 0;
+
+  n = _str_serialize(kv->key.str, kv->key.nr, buf, len);
+  _ADJUST();
+  _SNPRINTF(":");
+
+  n = ejson_serialize(kv->val, p, len);
+  _ADJUST();
+
+  return count;
+}
+
+static int _ejson_obj_serialize(ejson_obj_t *obj, char *buf, size_t len)
+{
+  int count = 0;
+  char *p = buf;
+  int n = 0;
+
+  _SNPRINTF("{");
+  for (size_t i=0; i<obj->nr; ++i) {
+    _ejson_kv_t *kv = obj->kvs + i;
+    if (i) _SNPRINTF(",");
+    n = _ejson_kv_serialize(kv, p, len);
+    _ADJUST();
+  }
+  _SNPRINTF("}");
+
+  return count;
+}
+
+static int _ejson_arr_serialize(ejson_arr_t *arr, char *buf, size_t len)
+{
+  int count = 0;
+  char *p = buf;
+  int n = 0;
+
+  _SNPRINTF("[");
+  for (size_t i=0; i<arr->nr; ++i) {
+    ejson_t *val = arr->vals[i];
+    if (i) _SNPRINTF(",");
+    n = ejson_serialize(val, p, len);
+    _ADJUST();
+  }
+  _SNPRINTF("]");
+
+  return count;
+}
+
+#undef _ADJUST
+#undef _SNPRINTF
+#endif       /* } */
+
+int ejson_serialize(ejson_t *ejson, char *buf, size_t len)
+{
+  if (buf && len) *buf = '\0';
+  if (!ejson) return 1;
+
+  switch (ejson->type) {
+    case EJSON_NULL:
+      return snprintf(buf, len, "null");
+    case EJSON_FALSE:
+      return snprintf(buf, len, "false");
+    case EJSON_TRUE:
+      return snprintf(buf, len, "true");
+    case EJSON_NUM:
+      return snprintf(buf, len, "%lg", ejson->_num.dbl);
+    case EJSON_STR:
+      return _ejson_str_serialize(&ejson->_str, buf, len);
+    case EJSON_OBJ:
+      return _ejson_obj_serialize(&ejson->_obj, buf, len);
+    case EJSON_ARR:
+      return _ejson_arr_serialize(&ejson->_arr, buf, len);
+    default: return -1;
+  }
+}
+

@@ -90,6 +90,15 @@
       if (!_ejson) OOM(_loc);                                        \
     } while (0)
 
+    #define EJSON_ARR_MOVE(_ejson, _arr, _loc) do {                  \
+      if (_arr) {                                                    \
+        _ejson = _arr;                                               \
+        break;                                                       \
+      }                                                              \
+      _ejson = ejson_new_arr();                                      \
+      if (!_ejson) OOM(_loc);                                        \
+    } while (0)
+
     #define EJSON_DEC_REF(_v) do {                                   \
       if (_v) { ejson_dec_ref(_v); _v = NULL; }                      \
     } while (0)
@@ -119,6 +128,16 @@
     } while (0)
 
     #define EJSON_NEW_OBJ(_ejson, _loc) do {                         \
+      _ejson = ejson_new_obj();                                      \
+      if (_ejson) break;                                             \
+      OOM(_loc);                                                     \
+    } while (0)
+
+    #define EJSON_OBJ_MOVE(_ejson, _obj, _loc) do {                  \
+      if (_obj) {                                                    \
+        _ejson = _obj;                                               \
+        break;                                                       \
+      }                                                              \
       _ejson = ejson_new_obj();                                      \
       if (_ejson) break;                                             \
       OOM(_loc);                                                     \
@@ -276,7 +295,7 @@ strings:
 
 arr:
   '[' ']'              { EJSON_NEW_ARR($$, @$); }
-| '[' jsons ']'        { $$ = $2; }
+| '[' jsons ']'        { EJSON_ARR_MOVE($$, $2, @$); }
 ;
 
 jsons:
@@ -288,7 +307,7 @@ jsons:
 
 obj:
   '{' '}'              { EJSON_NEW_OBJ($$, @$); }
-| '{' kvs '}'          { $$ = $2; }
+| '{' kvs '}'          { EJSON_OBJ_MOVE($$, $2, @$); }
 ;
 
 kvs:

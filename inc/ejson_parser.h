@@ -53,8 +53,8 @@ struct _ejson_kv_s {
 
 enum ejson_type_e {
   EJSON_NULL,
-  EJSON_TRUE,
   EJSON_FALSE,
+  EJSON_TRUE,
   EJSON_NUM,
   EJSON_STR,
   EJSON_OBJ,
@@ -79,6 +79,9 @@ int ejson_is_str(ejson_t *ejson) FA_HIDDEN;
 int ejson_is_num(ejson_t *ejson) FA_HIDDEN;
 int ejson_is_obj(ejson_t *ejson) FA_HIDDEN;
 int ejson_is_arr(ejson_t *ejson) FA_HIDDEN;
+
+int ejson_cmp(ejson_t *l, ejson_t *r) FA_HIDDEN;
+int ejson_serialize(ejson_t *ejson, char *buf, size_t len) FA_HIDDEN;
 
 const char* ejson_str_get(ejson_t *ejson) FA_HIDDEN;
 int ejson_num_get(ejson_t *ejson, double *v) FA_HIDDEN;

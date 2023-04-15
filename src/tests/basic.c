@@ -359,6 +359,7 @@ static int test_ejson_parser(void)
     RECORD(0, "[,,,,,,,,,,,,,]"),
     RECORD(0, "{,,,,,,,,,,,,,}"),
     RECORD(0, "{,,,,x,,,y,,,,,,}"),
+    RECORD(0, "{,,,,x,,,,,,,,,,}"),
   };
   const size_t nr = sizeof(_cases)/sizeof(_cases[0]);
 #undef RECORD
@@ -367,11 +368,19 @@ static int test_ejson_parser(void)
   param.ctx.debug_flex = 1;
   // param.ctx.debug_bison = 1;
 
+  char buf[4096]; buf[0] = '\0';
   for (size_t i=0; i<nr; ++i) {
     const char *s         = _cases[i].text;
     int         __line__  = _cases[i].__line__;
     int         __error__ = _cases[i].__error__;
     int r = ejson_parser_parse(s, strlen(s), &param);
+    if (r == 0) {
+      buf[0] = '\0';
+      int n = ejson_serialize(param.ejson, buf, sizeof(buf));
+      E("parsing @[%dL]:%s", __line__, s);
+      E("dumping [n:%d]", n);
+      E("%s", buf);
+    }
     if ((!!r) ^ __error__) {
       E("parsing @[%dL]:%s", __line__, s);
       if (r) {

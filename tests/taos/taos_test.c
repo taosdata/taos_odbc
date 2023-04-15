@@ -70,50 +70,52 @@ static int buffers_append(buffers_t *buffers, char *buf)
   return 0;
 }
 
-static int cjson_cmp_cjson(int i_col, const cJSON *lv, const cJSON *rv)
+// static int cjson_cmp_cjson(int i_col, ejson_t *lv, ejson_t *rv)
+// {
+//   int r = 0;
+//
+//   char lbuf[1024]; lbuf[0] = '\0';
+//   char rbuf[1024]; rbuf[0] = '\0';
+//
+//   ejson_serialize(lv, lbuf, sizeof(lbuf));
+//   ejson_serialize(rv, rbuf, sizeof(rbuf));
+//
+//   do {
+//     if (strcmp(lbuf, rbuf)) break;
+//     E("col #%d differs: [%s] <> [%s]", i_col+1, lbuf, rbuf);
+//     r = -1;
+//   } while (0);
+//
+//   return r;
+// }
+
+static int cjson_cmp_tsdb_null(int i_col, ejson_t *val)
 {
-  int r = 0;
+  char buf_serialize[4096];
 
-  char *s1 = cJSON_PrintUnformatted(lv);
-  char *s2 = cJSON_PrintUnformatted(rv);
-
-  do {
-    if (cJSON_Compare(lv, rv, true)) break;
-    E("col #%d differs: [%s] <> [%s]", i_col+1, s1, s2);
-    r = -1;
-  } while (0);
-  if (s1) free(s1);
-  if (s2) free(s2);
-
-  return r;
-}
-
-static int cjson_cmp_tsdb_null(int i_col, const cJSON *val)
-{
-  if (!cJSON_IsNull(val)) {
-    char *t1 = cJSON_PrintUnformatted(val);
-    E("col #%d expected null but got ==%s==", i_col, t1);
-    free(t1);
+  if (!ejson_is_null(val)) {
+    buf_serialize[0] = '\0';
+    ejson_serialize(val, buf_serialize, sizeof(buf_serialize));
+    E("col #%d expected null but got ==%s==", i_col, buf_serialize);
     return -1;
   }
   return 0;
 }
 
-static int cjson_cmp_str(int i_col, const cJSON *val, const char *s)
+static int cjson_cmp_str(int i_col, ejson_t *val, const char *s)
 {
-  cJSON *cjson = cJSON_CreateString(s);
-  if (!cjson) {
-    E("out of memory");
-    return -1;
-  }
+  (void)i_col;
 
-  int r = cjson_cmp_cjson(i_col, val, cjson);
-  cJSON_Delete(cjson);
+  const char *x = ejson_str_get(val);
+  if (x) return strcmp(x, s);
+  char buf[4096];
+  buf[0] = '\0';
+  ejson_serialize(val, buf, sizeof(buf));
 
-  return r;
+  return strcmp(buf, s);
 }
 
-static int cjson_cmp_tsdb_str_len(int i_col, const cJSON *val, const char *base, size_t len)
+static int cjson_cmp_tsdb_str_len(int i_col, ejson_t *val, const char *base, size_t len)
 {
   char *p = strndup(base, len);
   if (!p) {
@@ -122,26 +124,23 @@ static int cjson_cmp_tsdb_str_len(int i_col, const cJSON *val, const char *base,
   }
 
   int r = cjson_cmp_str(i_col, val, p);
+
   free(p);
 
   return r;
 }
 
-static int cjson_cmp_i64(int i_col, const cJSON *val, int64_t v)
+static int cjson_cmp_i64(int i_col, ejson_t *val, int64_t v)
 {
-  cJSON *cjson = cJSON_CreateNumber((double)v);
-  if (!cjson) {
-    E("out of memory");
-    return -1;
-  }
+  (void)i_col;
 
-  int r = cjson_cmp_cjson(i_col, val, cjson);
-  cJSON_Delete(cjson);
+  double dbl = 0;
+  ejson_num_get(val, &dbl);
 
-  return r;
+  return ((int64_t)dbl == v) ? 0 : -1;
 }
 
-static int cjson_cmp_tsdb_timestamp(int i_col, const cJSON *val, const char *base)
+static int cjson_cmp_tsdb_timestamp(int i_col, ejson_t *val, const char *base)
 {
   int64_t v = *(int64_t*)base;
 
@@ -150,21 +149,17 @@ static int cjson_cmp_tsdb_timestamp(int i_col, const cJSON *val, const char *bas
   return r;
 }
 
-static int cjson_cmp_i32(int i_col, const cJSON *val, int32_t v)
+static int cjson_cmp_i32(int i_col, ejson_t *val, int32_t v)
 {
-  cJSON *cjson = cJSON_CreateNumber((double)v);
-  if (!cjson) {
-    E("out of memory");
-    return -1;
-  }
+  (void)i_col;
 
-  int r = cjson_cmp_cjson(i_col, val, cjson);
-  cJSON_Delete(cjson);
+  double dbl = 0;
+  ejson_num_get(val, &dbl);
 
-  return r;
+  return ((int64_t)dbl == (int64_t)v) ? 0 : -1;
 }
 
-static int cjson_cmp_tsdb_int(int i_col, const cJSON *val, const char *base)
+static int cjson_cmp_tsdb_int(int i_col, ejson_t *val, const char *base)
 {
   int32_t v = *(int32_t*)base;
 
@@ -173,7 +168,7 @@ static int cjson_cmp_tsdb_int(int i_col, const cJSON *val, const char *base)
   return r;
 }
 
-static int cjson_cmp_tsdb_bigint(int i_col, const cJSON *val, const char *base)
+static int cjson_cmp_tsdb_bigint(int i_col, ejson_t *val, const char *base)
 {
   int64_t v = *(int64_t*)base;
 
@@ -182,32 +177,17 @@ static int cjson_cmp_tsdb_bigint(int i_col, const cJSON *val, const char *base)
   return r;
 }
 
-static int cjson_cmp_float(int i_col, const cJSON *val, float v)
+static int cjson_cmp_float(int i_col, ejson_t *val, float v)
 {
-  cJSON *cjson = cJSON_CreateNumber(v);
-  if (!cjson) {
-    E("out of memory");
-    return -1;
-  }
+  (void)i_col;
 
-  int r = cjson_cmp_cjson(i_col, val, cjson);
-  cJSON_Delete(cjson);
+  double dbl = 0;
+  ejson_num_get(val, &dbl);
 
-  if (r) {
-    if (cJSON_IsNumber(val)) {
-      double dl = v;
-      double dr = val->valuedouble;
-      char lbuf[64]; snprintf(lbuf, sizeof(lbuf), "%lg", dl);
-      char rbuf[64]; snprintf(rbuf, sizeof(rbuf), "%lg", dr);
-      if (strcmp(lbuf, rbuf) == 0) r = 0;
-      else D("%s =?= %s", lbuf, rbuf);
-    }
-  }
-
-  return r;
+  return (dbl == (double)v) ? 1 : 0;
 }
 
-static int cjson_cmp_tsdb_float(int i_col, const cJSON *val, const char *base)
+static int cjson_cmp_tsdb_float(int i_col, ejson_t *val, const char *base)
 {
   float v = *(float*)base;
 
@@ -216,21 +196,17 @@ static int cjson_cmp_tsdb_float(int i_col, const cJSON *val, const char *base)
   return r;
 }
 
-static int cjson_cmp_double(int i_col, const cJSON *val, double v)
+static int cjson_cmp_double(int i_col, ejson_t *val, double v)
 {
-  cJSON *cjson = cJSON_CreateNumber(v);
-  if (!cjson) {
-    E("out of memory");
-    return -1;
-  }
+  (void)i_col;
 
-  int r = cjson_cmp_cjson(i_col, val, cjson);
-  cJSON_Delete(cjson);
+  double dbl = 0;
+  ejson_num_get(val, &dbl);
 
-  return r;
+  return (dbl == v) ? 0 : -1;
 }
 
-static int cjson_cmp_tsdb_double(int i_col, const cJSON *val, const char *base)
+static int cjson_cmp_tsdb_double(int i_col, ejson_t *val, const char *base)
 {
   double v = *(double*)base;
 
@@ -239,7 +215,7 @@ static int cjson_cmp_tsdb_double(int i_col, const cJSON *val, const char *base)
   return r;
 }
 
-static int field_cmp_val(int i_field, TAOS_FIELD *field, char *col, const cJSON *val)
+static int field_cmp_val(int i_field, TAOS_FIELD *field, char *col, ejson_t *val)
 {
   if (!col) {
     return cjson_cmp_tsdb_null(i_field, val);
@@ -273,17 +249,19 @@ static int field_cmp_val(int i_field, TAOS_FIELD *field, char *col, const cJSON 
   return 0;
 }
 
-static int record_cmp_row(int nr_fields, TAOS_FIELD *fields, TAOS_ROW record, const cJSON *row, TAOS_RES *res)
+static int record_cmp_row(int nr_fields, TAOS_FIELD *fields, TAOS_ROW record, ejson_t *row, TAOS_RES *res)
 {
-  if (!cJSON_IsArray(row)) {
-    char *t1 = cJSON_PrintUnformatted(row);
-    E("json array is required but got ==%s==", t1);
-    free(t1);
+  char buf_serialize[4096];
+
+  if (!ejson_is_arr(row)) {
+    buf_serialize[0] = '\0';
+    ejson_serialize(row, buf_serialize, sizeof(buf_serialize));
+    E("json array is required but got ==%s==", buf_serialize);
     return -1;
   }
 
   for (int i=0; i<nr_fields; ++i) {
-    const cJSON *val = cJSON_GetArrayItem(row, i);
+    ejson_t *val = ejson_arr_get(row, i);
     if (!val) {
       E("col #%d: lack of corresponding data", i+1);
       return -1;
@@ -302,8 +280,10 @@ static int record_cmp_row(int nr_fields, TAOS_FIELD *fields, TAOS_ROW record, co
   return 0;
 }
 
-static int res_cmp_rows(int nr_fields, TAOS_RES *res, const cJSON *rows)
+static int res_cmp_rows(int nr_fields, TAOS_RES *res, ejson_t *rows)
 {
+  char buf_serialize[4096];
+
   if (!res) return -1;
   if (CALL_taos_errno(res)) return -1;
 
@@ -314,10 +294,10 @@ static int res_cmp_rows(int nr_fields, TAOS_RES *res, const cJSON *rows)
     return -1;
   }
 
-  if (!cJSON_IsArray(rows)) {
-    char *t1 = cJSON_PrintUnformatted(rows);
-    E("json array is required but got ==%s==", t1);
-    free(t1);
+  if (!ejson_is_arr(rows)) {
+    buf_serialize[0] = '\0';
+    ejson_serialize(rows, buf_serialize, sizeof(buf_serialize));
+    E("json array is required but got ==%s==", buf_serialize);
     return -1;
   }
 
@@ -327,7 +307,7 @@ static int res_cmp_rows(int nr_fields, TAOS_RES *res, const cJSON *rows)
     return -1;
   }
 
-  int nr_rows = cJSON_GetArraySize(rows);
+  size_t nr_rows = ejson_arr_count(rows);
   TAOS_ROW record = CALL_taos_fetch_row(res);
   if (!record) {
     if (nr_rows) {
@@ -336,12 +316,12 @@ static int res_cmp_rows(int nr_fields, TAOS_RES *res, const cJSON *rows)
     }
     return 0;
   }
-  for (int i=0; i<nr_rows; ++i) {
+  for (size_t i=0; i<nr_rows; ++i) {
     if (!record) {
       E("end of record but rows still available");
       return -1;
     }
-    const cJSON *row = cJSON_GetArrayItem(rows, i);
+    ejson_t *row = ejson_arr_get(rows, i);
     int r = record_cmp_row(nr_fields, fields, record, row, res);
     if (r) return -1;
     record = CALL_taos_fetch_row(res);
@@ -355,7 +335,7 @@ static int res_cmp_rows(int nr_fields, TAOS_RES *res, const cJSON *rows)
   return 0;
 }
 
-static int test_query_cjson(TAOS *taos, const char *sql, const cJSON *rows)
+static int test_query_cjson(TAOS *taos, const char *sql, ejson_t *rows)
 {
   int r = 0;
 
@@ -388,7 +368,7 @@ static int test_query_cjson(TAOS *taos, const char *sql, const cJSON *rows)
   return r;
 }
 
-static int run_sql_rs(TAOS *taos, const char *sql, cJSON *rs, int icase, int positive)
+static int run_sql_rs(TAOS *taos, const char *sql, ejson_t *rs, int icase, int positive)
 {
   int r = 0;
 
@@ -624,24 +604,39 @@ static int _prepare_mb(executes_ctx_t *ctx, int iparam, TAOS_FIELD_E *col, TAOS_
   }
 }
 
-static int _store_param_val_by_mb_as_tsdb_timestamp(executes_ctx_t *ctx, cJSON *param, int iparam, TAOS_MULTI_BIND *mb, int irow)
+static int _store_param_val_by_mb_as_tsdb_timestamp(executes_ctx_t *ctx, ejson_t  *param, int iparam, TAOS_MULTI_BIND *mb, int irow)
 {
+  char buf_serialize[4096];
+
   (void)ctx;
-  double d;
-  int r = json_object_get_number(param, "timestamp", &d);
-  if (r) r = json_object_get_number(param, "bigint", &d);
-  if (r) r = json_get_number(param, &d);
-  if (r) {
-    char *t1 = cJSON_PrintUnformatted(param);
-    E("#(%d,%d) parameter marker of [%d]%s, but got ==%s==", irow+1, iparam+1, mb->buffer_type, CALL_taos_data_type(mb->buffer_type), t1);
-    free(t1);
+  double d = 0;
+  do {
+    if (ejson_is_num(param)) {
+      ejson_num_get(param, &d);
+      break;
+    }
+    if (ejson_is_obj(param)) {
+      ejson_t *x = ejson_obj_get(param, "timestamp");
+      if (x) {
+        ejson_num_get(x, &d);
+        break;
+      }
+      x = ejson_obj_get(param, "bigint");
+      if (x) {
+        ejson_num_get(x, &d);
+        break;
+      }
+    }
+    buf_serialize[0] = '\0';
+    ejson_serialize(param, buf_serialize, sizeof(buf_serialize));
+    E("unknown param:%s", buf_serialize);
     return -1;
-  }
+  } while (0);
 
   if (d < INT64_MIN || d > INT64_MAX) {
-    char *t1 = cJSON_PrintUnformatted(param);
-    E("#(%d,%d) parameter marker of [%d]%s, but over/underflow, ==%s==", irow+1, iparam+1, mb->buffer_type, CALL_taos_data_type(mb->buffer_type), t1);
-    free(t1);
+    buf_serialize[0] = '\0';
+    ejson_serialize(param, buf_serialize, sizeof(buf_serialize));
+    E("#(%d,%d) parameter marker of [%d]%s, but over/underflow, ==%s==", irow+1, iparam+1, mb->buffer_type, CALL_taos_data_type(mb->buffer_type), buf_serialize);
     return -1;
   }
 
@@ -659,34 +654,28 @@ static int _store_param_val_by_mb_as_tsdb_timestamp(executes_ctx_t *ctx, cJSON *
   return 0;
 }
 
-static int _store_param_val_by_mb_as_tsdb_int(executes_ctx_t *ctx, cJSON *param, int iparam, TAOS_MULTI_BIND *mb, int irow)
+static int _store_param_val_by_mb_as_tsdb_int(executes_ctx_t *ctx, ejson_t *param, int iparam, TAOS_MULTI_BIND *mb, int irow)
 {
+  char buf_serialize[4096];
+
   (void)ctx;
 
-  int r = 0;
-
   double d;
-  if (cJSON_IsObject(param)) {
-    r = json_object_get_number(param, "int", &d);
-    if (r) {
-      char *t1 = cJSON_PrintUnformatted(param);
-      E("#(%d,%d) parameter marker of [%d]%s, but got ==%s==", irow+1, iparam+1, mb->buffer_type, CALL_taos_data_type(mb->buffer_type), t1);
-      free(t1);
-      return -1;
-    }
-  } else if (cJSON_IsNumber(param)) {
-    d = cJSON_GetNumberValue(param);
+  if (ejson_is_obj(param)) {
+    ejson_num_get(ejson_obj_get(param, "int"), &d);
+  } else if (ejson_is_num(param)) {
+    ejson_num_get(param, &d);
   } else {
-    char *t1 = cJSON_PrintUnformatted(param);
-    E("#(%d,%d) parameter marker of [%d]%s, but got ==%s==", irow+1, iparam+1, mb->buffer_type, CALL_taos_data_type(mb->buffer_type), t1);
-    free(t1);
+    buf_serialize[0] = '\0';
+    ejson_serialize(param, buf_serialize, sizeof(buf_serialize));
+    E("#(%d,%d) parameter marker of [%d]%s, but got ==%s==", irow+1, iparam+1, mb->buffer_type, CALL_taos_data_type(mb->buffer_type), buf_serialize);
     return -1;
   }
 
   if (d < INT32_MIN || d > INT32_MAX) {
-    char *t1 = cJSON_PrintUnformatted(param);
-    E("#(%d,%d) parameter marker of [%d]%s, but over/underflow, ==%s==", irow+1, iparam+1, mb->buffer_type, CALL_taos_data_type(mb->buffer_type), t1);
-    free(t1);
+    buf_serialize[0] = '\0';
+    ejson_serialize(param, buf_serialize, sizeof(buf_serialize));
+    E("#(%d,%d) parameter marker of [%d]%s, but over/underflow, ==%s==", irow+1, iparam+1, mb->buffer_type, CALL_taos_data_type(mb->buffer_type), buf_serialize);
     return -1;
   }
 
@@ -704,23 +693,25 @@ static int _store_param_val_by_mb_as_tsdb_int(executes_ctx_t *ctx, cJSON *param,
   return 0;
 }
 
-static int _store_param_val_by_mb_as_tsdb_varchar(executes_ctx_t *ctx, cJSON *param, int iparam, TAOS_MULTI_BIND *mb, int irow)
+static int _store_param_val_by_mb_as_tsdb_varchar(executes_ctx_t *ctx, ejson_t *param, int iparam, TAOS_MULTI_BIND *mb, int irow)
 {
+  char buf_serialize[4096];
+
   (void)ctx;
 
-  if (!cJSON_IsString(param)) {
-    char *t1 = cJSON_PrintUnformatted(param);
-    E("#(%d,%d) parameter marker of [%d]%s, but got ==%s==", irow+1, iparam+1, mb->buffer_type, CALL_taos_data_type(mb->buffer_type), t1);
-    free(t1);
+  if (!ejson_is_str(param)) {
+    buf_serialize[0] = '\0';
+    ejson_serialize(param, buf_serialize, sizeof(buf_serialize));
+    E("#(%d,%d) parameter marker of [%d]%s, but got ==%s==", irow+1, iparam+1, mb->buffer_type, CALL_taos_data_type(mb->buffer_type), buf_serialize);
     return -1;
   }
 
-  const char *s = cJSON_GetStringValue(param);
+  const char *s = ejson_str_get(param);
   size_t n = strlen(s);
   if (n > mb->buffer_length - 2) { // hard-coded
-    char *t1 = cJSON_PrintUnformatted(param);
-    E("#(%d,%d) parameter marker of [%d]%s, would be truncated, ==%s==", irow+1, iparam+1, mb->buffer_type, CALL_taos_data_type(mb->buffer_type), t1);
-    free(t1);
+    buf_serialize[0] = '\0';
+    ejson_serialize(param, buf_serialize, sizeof(buf_serialize));
+    E("#(%d,%d) parameter marker of [%d]%s, would be truncated, ==%s==", irow+1, iparam+1, mb->buffer_type, CALL_taos_data_type(mb->buffer_type), buf_serialize);
     return -1;
   }
 
@@ -740,27 +731,21 @@ static int _store_param_val_by_mb_as_tsdb_varchar(executes_ctx_t *ctx, cJSON *pa
   return 0;
 }
 
-static int _store_param_val_by_mb_as_tsdb_double(executes_ctx_t *ctx, cJSON *param, int iparam, TAOS_MULTI_BIND *mb, int irow)
+static int _store_param_val_by_mb_as_tsdb_double(executes_ctx_t *ctx, ejson_t *param, int iparam, TAOS_MULTI_BIND *mb, int irow)
 {
+  char buf_serialize[4096];
+
   (void)ctx;
 
-  int r = 0;
-
   double d;
-  if (cJSON_IsObject(param)) {
-    r = json_object_get_number(param, "double", &d);
-    if (r) {
-      char *t1 = cJSON_PrintUnformatted(param);
-      E("#(%d,%d) parameter marker of [%d]%s, but got ==%s==", irow+1, iparam+1, mb->buffer_type, CALL_taos_data_type(mb->buffer_type), t1);
-      free(t1);
-      return -1;
-    }
-  } else if (cJSON_IsNumber(param)) {
-    d = cJSON_GetNumberValue(param);
+  if (ejson_is_obj(param)) {
+    ejson_num_get(ejson_obj_get(param, "double"), &d);
+  } else if (ejson_is_num(param)) {
+    ejson_num_get(param, &d);
   } else {
-    char *t1 = cJSON_PrintUnformatted(param);
-    E("#(%d,%d) parameter marker of [%d]%s, but got ==%s==", irow+1, iparam+1, mb->buffer_type, CALL_taos_data_type(mb->buffer_type), t1);
-    free(t1);
+    buf_serialize[0] = '\0';
+    ejson_serialize(param, buf_serialize, sizeof(buf_serialize));
+    E("#(%d,%d) parameter marker of [%d]%s, but got ==%s==", irow+1, iparam+1, mb->buffer_type, CALL_taos_data_type(mb->buffer_type), buf_serialize);
     return -1;
   }
 
@@ -778,9 +763,9 @@ static int _store_param_val_by_mb_as_tsdb_double(executes_ctx_t *ctx, cJSON *par
   return 0;
 }
 
-static int _store_param_val_by_mb(executes_ctx_t *ctx, cJSON *param, int irow, int iparam, TAOS_MULTI_BIND *mb)
+static int _store_param_val_by_mb(executes_ctx_t *ctx, ejson_t *param, int irow, int iparam, TAOS_MULTI_BIND *mb)
 {
-  if (cJSON_IsNull(param)) {
+  if (ejson_is_null(param)) {
     char    *is_null  = (char*)mb->is_null;
     is_null    += irow;
 
@@ -803,7 +788,7 @@ static int _store_param_val_by_mb(executes_ctx_t *ctx, cJSON *param, int irow, i
   }
 }
 
-static int _bind_tags(executes_ctx_t *ctx, cJSON *start, int istart, int iend, cJSON *params)
+static int _bind_tags(executes_ctx_t *ctx, ejson_t *start, int istart, int iend, ejson_t *params)
 {
   int r = 0;
 
@@ -820,18 +805,18 @@ static int _bind_tags(executes_ctx_t *ctx, cJSON *start, int istart, int iend, c
     TAOS_MULTI_BIND *tag_mb = tag_mbs + i;
 
     int iparam = !!ctx->subtbl + i;
-    cJSON *param = cJSON_GetArrayItem(start, iparam);
+    ejson_t *param = ejson_arr_get(start, iparam);
 
     // all tag values in the same column shall be identical
     for (int i=istart+1; i<iend; ++i) {
-      cJSON *row = cJSON_GetArrayItem(params, i);
-      cJSON *col = cJSON_GetArrayItem(row, iparam);
-      if (!cJSON_Compare(col, param, true)) {
-        char *t1 = cJSON_PrintUnformatted(param);
-        char *t2 = cJSON_PrintUnformatted(col);
-        E("tag values differs, ==%s== <> ==%s==", t1, t2);
-        free(t1);
-        free(t2);
+      ejson_t *row = ejson_arr_get(params, i);
+      ejson_t *col = ejson_arr_get(row, iparam);
+      if (ejson_cmp(col, param)) {
+        char lbuf[1024]; lbuf[0] = '\0';
+        ejson_serialize(param, lbuf, sizeof(lbuf));
+        char rbuf[1024]; rbuf[0] = '\0';
+        ejson_serialize(col, rbuf, sizeof(rbuf));
+        E("tag values differs, ==%s== <> ==%s==", lbuf, rbuf);
         r = -1;
         break;
       }
@@ -854,7 +839,7 @@ static int _bind_tags(executes_ctx_t *ctx, cJSON *start, int istart, int iend, c
   return r;
 }
 
-static int _bind_cols(executes_ctx_t *ctx, cJSON *start, int istart, int iend, cJSON *params)
+static int _bind_cols(executes_ctx_t *ctx, ejson_t *start, int istart, int iend, ejson_t *params)
 {
   int r = 0;
 
@@ -871,7 +856,7 @@ static int _bind_cols(executes_ctx_t *ctx, cJSON *start, int istart, int iend, c
     TAOS_MULTI_BIND *mb = col_mbs + i;
 
     int iparam = !!ctx->subtbl + ctx->nr_tags + i;
-    cJSON *param = cJSON_GetArrayItem(start, iparam);
+    ejson_t *param = ejson_arr_get(start, iparam);
 
     r = _prepare_mb(ctx, iparam, col, mb, iend - istart);
     if (r) break;
@@ -880,8 +865,8 @@ static int _bind_cols(executes_ctx_t *ctx, cJSON *start, int istart, int iend, c
     if (r) break;
 
     for (int i=istart+1; i<iend; ++i) {
-      cJSON *row = cJSON_GetArrayItem(params, i);
-      cJSON *col = cJSON_GetArrayItem(row, iparam);
+      ejson_t *row = ejson_arr_get(params, i);
+      ejson_t *col = ejson_arr_get(row, iparam);
       r = _store_param_val_by_mb(ctx, col, i-istart, iparam, mb);
       if (r) break;
     }
@@ -949,30 +934,36 @@ static int _bind_mb_by_param_str(executes_ctx_t *ctx, const char *param, int ist
   return 0;
 }
 
-static int _bind_mb_by_param(executes_ctx_t *ctx, cJSON *param, int istart, int iparam, TAOS_MULTI_BIND *mb)
+static int _bind_mb_by_param(executes_ctx_t *ctx, ejson_t *param, int istart, int iparam, TAOS_MULTI_BIND *mb)
 {
+  char buf_serialize[4096];
+
   (void)ctx;
   (void)mb;
-  if (cJSON_IsNumber(param)) {
-    return _bind_mb_by_param_double(ctx, cJSON_GetNumberValue(param), istart, iparam, mb);
+  if (ejson_is_num(param)) {
+    double dbl = 0;
+    ejson_num_get(param, &dbl);
+    return _bind_mb_by_param_double(ctx, dbl, istart, iparam, mb);
   }
-  if (cJSON_IsString(param)) {
-    return _bind_mb_by_param_str(ctx, cJSON_GetStringValue(param), istart, iparam, mb);
+  if (ejson_is_str(param)) {
+    return _bind_mb_by_param_str(ctx, ejson_str_get(param), istart, iparam, mb);
   }
-  char *t1 = cJSON_PrintUnformatted(param);
-  E("#(%d,%d) parameter not implemented yet, ==%s==", istart+1, iparam+1, t1);
-  free(t1);
+  buf_serialize[0] = '\0';
+  ejson_serialize(param, buf_serialize, sizeof(buf_serialize));
+  E("#(%d,%d) parameter not implemented yet, ==%s==", istart+1, iparam+1, buf_serialize);
   return -1;
 }
 
-static int _run_execute_row_rs_mbs(executes_ctx_t *ctx, cJSON *start, int istart, cJSON *rs, TAOS_MULTI_BIND *mbs)
+static int _run_execute_row_rs_mbs(executes_ctx_t *ctx, ejson_t *start, int istart, ejson_t *rs, TAOS_MULTI_BIND *mbs)
 {
+  char buf_serialize[4096];
+
   (void)rs;
 
   int r = 0;
   for (int i=0; i<ctx->nums; ++i) {
     TAOS_MULTI_BIND *mb = mbs + i;
-    cJSON *param = cJSON_GetArrayItem(start, i);
+    ejson_t *param = ejson_arr_get(start, i);
     r = _bind_mb_by_param(ctx, param, istart, i, mb);
     if (r) break;
   }
@@ -988,14 +979,14 @@ static int _run_execute_row_rs_mbs(executes_ctx_t *ctx, cJSON *start, int istart
 
   if (rs == NULL) return 0;
 
-  if (!cJSON_IsArray(rs)) {
-    char *t1 = cJSON_PrintUnformatted(rs);
-    E("json array is expected, but got, ==%s==", t1);
-    free(t1);
+  if (!ejson_is_arr(rs)) {
+    buf_serialize[0] = '\0';
+    ejson_serialize(rs, buf_serialize, sizeof(buf_serialize));
+    E("json array is expected, but got, ==%s==", buf_serialize);
     return -1;
   }
 
-  cJSON *curr_rs = cJSON_GetArrayItem(rs, 0);
+  ejson_t *curr_rs = ejson_arr_get(rs, 0);
 
   if (!curr_rs) return 0;
 
@@ -1011,14 +1002,16 @@ static int _run_execute_row_rs_mbs(executes_ctx_t *ctx, cJSON *start, int istart
   return r;
 }
 
-static int _run_execute_row_rs(executes_ctx_t *ctx, cJSON *start, int istart, cJSON *rs)
+static int _run_execute_row_rs(executes_ctx_t *ctx, ejson_t *start, int istart, ejson_t *rs)
 {
+  char buf_serialize[4096];
+
   int r = 0;
 
-  if (!cJSON_IsArray(start)) {
-    char *t1 = cJSON_PrintUnformatted(start);
-    E("#%d parameters is not json array, but got ==%s==", istart, t1);
-    free(t1);
+  if (!ejson_is_arr(start)) {
+    buf_serialize[0] = '\0';
+    ejson_serialize(start, buf_serialize, sizeof(buf_serialize));
+    E("#%d parameters is not json array, but got ==%s==", istart, buf_serialize);
     return -1;
   }
 
@@ -1041,7 +1034,7 @@ static int _run_execute_row_rs(executes_ctx_t *ctx, cJSON *start, int istart, cJ
   return r;
 }
 
-static int _run_execute_block_params_rs(executes_ctx_t *ctx, cJSON *start, int istart, int iend, cJSON *params, cJSON *rs)
+static int _run_execute_block_params_rs(executes_ctx_t *ctx, ejson_t *start, int istart, int iend, ejson_t *params, ejson_t *rs)
 {
   int r = 0;
 
@@ -1110,7 +1103,7 @@ static int _run_execute_block_params_rs(executes_ctx_t *ctx, cJSON *start, int i
 
   // finish the remaining rows of parameters
   for (int i=istart+1; i<iend; ++i) {
-    cJSON *row = cJSON_GetArrayItem(params, i);
+    ejson_t *row = ejson_arr_get(params, i);
     r = _run_execute_row_rs(ctx, row, i, rs);
     if (r) break;
   }
@@ -1118,35 +1111,37 @@ static int _run_execute_block_params_rs(executes_ctx_t *ctx, cJSON *start, int i
   return r;
 }
 
-static int _run_execute_params_rs(executes_ctx_t *ctx, cJSON *params, cJSON *rs)
+static int _run_execute_params_rs(executes_ctx_t *ctx, ejson_t *params, ejson_t *rs)
 {
+  char buf_serialize[4096];
+
   int r = 0;
 
-  cJSON *r0 = cJSON_GetArrayItem(params, 0);
-  if (!r0 || !cJSON_IsArray(r0)) {
+  ejson_t *r0 = ejson_arr_get(params, 0);
+  if (!r0 || !ejson_is_arr(r0)) {
     r0 = params;
   }
 
-  int rows = 1;
-  if (r0 != params) rows = cJSON_GetArraySize(params);
+  size_t rows = 1;
+  if (r0 != params) rows = ejson_arr_count(params);
 
   int irow0 = 0;
-  cJSON *row0 = r0;
-  cJSON *row = r0;
+  ejson_t *row0 = r0;
+  ejson_t *row = r0;
   if (ctx->insert && ctx->subtbl_required) {
     // it's an subtbl insert statement
     // we have to split the rows of parameters according to subtbl name
-    for (int i=0; i<rows; ++i) {
-      if (i) row = cJSON_GetArrayItem(params, i);
-      cJSON *x = cJSON_GetArrayItem(row, 0);
-      if (!x || !cJSON_IsString(x)) {
-        char *t1 = cJSON_PrintUnformatted(row);
-        E("lack of `subtbl` parameter, ==%s==", t1);
-        free(t1);
+    for (size_t i=0; i<rows; ++i) {
+      if (i) row = ejson_arr_get(params, i);
+      ejson_t *x = ejson_arr_get(row, 0);
+      if (!x || !ejson_is_str(x)) {
+        buf_serialize[0] = '\0';
+        ejson_serialize(row, buf_serialize, sizeof(buf_serialize));
+        E("lack of `subtbl` parameter, ==%s==", buf_serialize);
         return -1;
       }
 
-      const char *s = cJSON_GetStringValue(x);
+      const char *s = ejson_str_get(x);
       if (!ctx->subtbl) {
         ctx->subtbl = s;
         continue;
@@ -1154,9 +1149,9 @@ static int _run_execute_params_rs(executes_ctx_t *ctx, cJSON *params, cJSON *rs)
       if (strcmp(ctx->subtbl, s)==0) continue;
 
       // execute with previous block of parameters
-      LOG_CALL("block insert [%d -> %d]", irow0, i);
+      LOG_CALL("block insert [%d -> %zd]", irow0, i);
       r = _run_execute_block_params_rs(ctx, row0, irow0, i, params, rs);
-      LOG_FINI(r, "block insert [%d -> %d]", irow0, i);
+      LOG_FINI(r, "block insert [%d -> %zd]", irow0, i);
       if (r) return -1;
 
       executes_ctx_release_tags(ctx);
@@ -1170,9 +1165,9 @@ static int _run_execute_params_rs(executes_ctx_t *ctx, cJSON *params, cJSON *rs)
   if (r) return -1;
 
   // finish the last block of parameters
-  LOG_CALL("block insert [%d -> %d]", irow0, rows);
+  LOG_CALL("block insert [%d -> %zd]", irow0, rows);
   r = _run_execute_block_params_rs(ctx, row0, irow0, rows, params, rs);
-  LOG_FINI(r, "block insert [%d -> %d]", irow0, rows);
+  LOG_FINI(r, "block insert [%d -> %zd]", irow0, rows);
 
   return r;
 }
@@ -1227,53 +1222,52 @@ static int executes_ctx_prepare_stmt(executes_ctx_t *ctx)
   return 0;
 }
 
-static int run_execute_params_rs(executes_ctx_t *ctx, cJSON *params, cJSON *rs)
+static int run_execute_params_rs(executes_ctx_t *ctx, ejson_t *params, ejson_t *rs)
 {
+  char buf_serialize[4096];
+
   int r = 0;
 
   r = executes_ctx_prepare_stmt(ctx);
   if (r) return -1;
 
-  if (!cJSON_IsArray(params)) {
-    char *t1 = cJSON_PrintUnformatted(params);
-    W("expect `params` to be json array but got ==%s==", t1);
-    free(t1);
+  if (!ejson_is_arr(params)) {
+    buf_serialize[0] = '\0';
+    ejson_serialize(params, buf_serialize, sizeof(buf_serialize));
+    W("expect `params` to be json array but got ==%s==", buf_serialize);
     return -1;
   }
 
   return _run_execute_params_rs(ctx, params, rs);
 }
 
-static int _run_executes_by_ctx(executes_ctx_t *ctx, cJSON *executes)
+static int _run_executes_by_ctx(executes_ctx_t *ctx, ejson_t *executes)
 {
   int r = 0;
 
   do {
-    int nr = cJSON_GetArraySize(executes);
-    for (int i=0; i<nr; ++i) {
-      cJSON *execute = cJSON_GetArrayItem(executes, i);
+    size_t nr = ejson_arr_count(executes);
+    for (size_t i=0; i<nr; ++i) {
+      ejson_t *execute = ejson_arr_get(executes, i);
 
       int positive = 1; {
-        cJSON *pj = NULL;
-        json_get_by_path(execute, "positive", &pj);
-        if (pj && !cJSON_IsTrue(pj)) positive = 0;
+        ejson_t *pj = ejson_obj_get(execute, "positive");
+        if (pj && !ejson_is_true(pj)) positive = 0;
       }
 
-      cJSON *params = NULL;
-      cJSON *rs = NULL;
-      json_get_by_path(execute, "params", &params);
-      json_get_by_path(execute, "rs", &rs);
+      ejson_t *params = ejson_obj_get(execute, "params");
+      ejson_t *rs = ejson_obj_get(execute, "rs");
 
-      LOG_CALL("%s case[#%d] [%s]", positive ? "positive" : "negative", i+1, ctx->sql);
+      LOG_CALL("%s case[#%zd] [%s]", positive ? "positive" : "negative", i+1, ctx->sql);
 
       if (!params) {
-        LOG_CALL("%s case[#%d] [%s]", positive ? "positive" : "negative", i+1, ctx->sql);
+        LOG_CALL("%s case[#%zd] [%s]", positive ? "positive" : "negative", i+1, ctx->sql);
         r = test_query_cjson(ctx->taos, ctx->sql, rs);
-        LOG_FINI(r, "%s case[#%d] [%s]", positive ? "positive" : "negative", i+1, ctx->sql);
+        LOG_FINI(r, "%s case[#%zd] [%s]", positive ? "positive" : "negative", i+1, ctx->sql);
       } else {
-        LOG_CALL("%s case[#%d]", positive ? "positive" : "negative", i+1);
+        LOG_CALL("%s case[#%zd]", positive ? "positive" : "negative", i+1);
         r = run_execute_params_rs(ctx, params, rs);
-        LOG_FINI(r, "%s case[#%d]", positive ? "positive" : "negative", i+1);
+        LOG_FINI(r, "%s case[#%zd]", positive ? "positive" : "negative", i+1);
         executes_ctx_release_tags(ctx);
         executes_ctx_release_cols(ctx);
         ctx->subtbl = NULL;
@@ -1288,14 +1282,15 @@ static int _run_executes_by_ctx(executes_ctx_t *ctx, cJSON *executes)
   return r;
 }
 
-static int _run_executes(TAOS *taos, const char *sql, cJSON *executes)
+static int _run_executes(TAOS *taos, const char *sql, ejson_t *executes)
 {
+  char buf_serialize[4096];
   int r = 0;
 
-  if (!cJSON_IsArray(executes)) {
-    char *t1 = cJSON_PrintUnformatted(executes);
-    W("expect `executes` to be json array but got ==%s==", t1);
-    free(t1);
+  if (!ejson_is_arr(executes)) {
+    buf_serialize[0] = '\0';
+    ejson_serialize(executes, buf_serialize, sizeof(buf_serialize));
+    W("expect `executes` to be json array but got ==%s==", buf_serialize);
     return -1;
   }
 
@@ -1310,7 +1305,7 @@ static int _run_executes(TAOS *taos, const char *sql, cJSON *executes)
   return r;
 }
 
-static int run_executes(TAOS *taos, const char *sql, cJSON *executes, int icase, int positive)
+static int run_executes(TAOS *taos, const char *sql, ejson_t *executes, int icase, int positive)
 {
   int r = 0;
 
@@ -1323,51 +1318,50 @@ static int run_executes(TAOS *taos, const char *sql, cJSON *executes, int icase,
   return r;
 }
 
-static int run_sql(TAOS *taos, cJSON *jsql, int icase)
+static int run_sql(TAOS *taos, ejson_t *jsql, int icase)
 {
   int r = 0;
 
-  if (cJSON_IsString(jsql)) {
-    const char *sql = cJSON_GetStringValue(jsql);
+  char buf_serialize[4096];
+
+  if (ejson_is_str(jsql)) {
+    const char *sql = ejson_str_get(jsql);
     LOG_CALL("run_sql_rs(taos:%p, sql:%s, rs:%p, icase:%d, positive:%d", taos, sql, NULL, icase, 1);
     r = run_sql_rs(taos, sql, NULL, icase, 1);
     LOG_FINI(r, "run_sql_rs(taos:%p, sql:%s, rs:%p, icase:%d, positive:%d", taos, sql, NULL, icase, 1);
-  } else if (cJSON_IsObject(jsql)) {
-    const char *sql = json_object_get_string(jsql, "sql");
+  } else if (ejson_is_obj(jsql)) {
+    const char *sql = ejson_str_get(ejson_obj_get(jsql, "sql"));
     if (!sql) return 0;
 
     int positive = 1; {
-      cJSON *pj = NULL;
-      json_get_by_path(jsql, "positive", &pj);
-      if (pj && !cJSON_IsTrue(pj)) positive = 0;
+      ejson_t *pj = ejson_obj_get(jsql, "positive");
+      if (pj && !ejson_is_true(pj)) positive = 0;
     }
 
-    cJSON *executes = NULL;
-    json_get_by_path(jsql, "executes", &executes);
+    ejson_t *executes = ejson_obj_get(jsql, "executes");
     if (executes) {
       r = run_executes(taos, sql, executes, icase, positive);
     } else {
-      cJSON *rs = NULL;
-      json_get_by_path(jsql, "rs", &rs);
+      ejson_t *rs = ejson_obj_get(jsql, "rs");
 
       r = run_sql_rs(taos, sql, rs, icase, positive);
     }
   } else {
-    char *t1 = cJSON_PrintUnformatted(jsql);
-    W("non-string-non-object, just ignore. ==%s==", t1);
-    free(t1);
+    buf_serialize[0] = '\0';
+    ejson_serialize(jsql, buf_serialize, sizeof(buf_serialize));
+    W("non-string-non-object, just ignore. ==%s==", buf_serialize);
   }
 
   return r;
 }
 
-static int run_case_under_taos(TAOS *taos, cJSON *json)
+static int run_case_under_taos(TAOS *taos, ejson_t *json)
 {
   int r = 0;
-  cJSON *sqls = json_object_get_array(json, "sqls");
+  ejson_t  *sqls = ejson_obj_get(json, "sqls");
   if (!sqls) return 0;
   for (int i=0; i>=0; ++i) {
-    cJSON *sql = cJSON_GetArrayItem(sqls, i);
+    ejson_t *sql = ejson_arr_get(sqls, i);
     if (!sql) break;
     r = run_sql(taos, sql, i);
     if (r) break;
@@ -1375,17 +1369,16 @@ static int run_case_under_taos(TAOS *taos, cJSON *json)
   return r;
 }
 
-static int run_case(cJSON *json)
+static int run_case(ejson_t *json)
 {
-  const char *ip    = json_object_get_string(json, "conn/ip");
-  const char *uid   = json_object_get_string(json, "conn/uid");
-  const char *pwd   = json_object_get_string(json, "conn/pwd");
-  const char *db    = json_object_get_string(json, "conn/db");
+  const char *ip    = ejson_str_get(ejson_obj_get(ejson_obj_get(json, "conn"), "ip"));
+  const char *uid   = ejson_str_get(ejson_obj_get(ejson_obj_get(json, "conn"), "uid"));
+  const char *pwd   = ejson_str_get(ejson_obj_get(ejson_obj_get(json, "conn"), "pwd"));
+  const char *db    = ejson_str_get(ejson_obj_get(ejson_obj_get(json, "conn"), "db"));
   uint16_t    port  = 0; {
-    double d;
-    if (!json_object_get_number(json, "conn/port", &d)) {
-      if (d > 0) port = (uint16_t)d;
-    }
+    double d = 0;
+    ejson_num_get(ejson_obj_get(ejson_obj_get(json, "conn"), "port"), &d);
+    if (d > 0) port = (uint16_t)d;
   }
 
   TAOS *taos = CALL_taos_connect(ip, uid, pwd, db, port);
@@ -1399,25 +1392,25 @@ static int run_case(cJSON *json)
   return r;
 }
 
-static int run_json_file(cJSON *json)
+static int run_json_file(ejson_t *json)
 {
   int r = 0;
 
-  if (!cJSON_IsArray(json)) {
-    char *t1 = cJSON_PrintUnformatted(json);
-    W("json array is required but got ==%s==", t1);
-    free(t1);
+  char buf_serialize[4096];
+
+  if (!ejson_is_arr(json)) {
+    buf_serialize[0] = '\0';
+    ejson_serialize(json, buf_serialize, sizeof(buf_serialize));
+    W("json array is required but got ==%s==", buf_serialize);
     return -1;
   }
 
   for (int i=0; i>=0; ++i) {
-    cJSON *json_case = NULL;
-    if (json_get_by_item(json, i, &json_case)) break;
+    ejson_t *json_case = ejson_arr_get(json, i);
     if (!json_case) break;
     int positive = 1; {
-      cJSON *pj = NULL;
-      json_get_by_path(json_case, "positive", &pj);
-      if (pj && !cJSON_IsTrue(pj)) positive = 0;
+      ejson_t *pj = ejson_obj_get(json_case, "positive");
+      if (pj && !ejson_is_true(pj)) positive = 0;
     }
 
     LOG_CALL("%s case[#%d]", positive ? "positive" : "negative", i+1);
@@ -1440,7 +1433,7 @@ static int try_and_run_file(const char *file)
   char *p = tod_basename(file, buf, sizeof(buf));
   if (!p) return -1;
 
-  cJSON *json = load_json_file(file, NULL, 0, "UTF-8", "UTF-8");
+  ejson_t *json = load_ejson_file(file, NULL, 0, "UTF-8", "UTF-8");
   if (!json) return -1;
 
   const char *base = p;
@@ -1449,17 +1442,19 @@ static int try_and_run_file(const char *file)
   r = run_json_file(json);
   LOG_FINI(r, "case %s", base);
 
-  cJSON_Delete(json);
+  ejson_dec_ref(json);
   return r;
 }
 
-static int try_and_run(cJSON *json_test_case, const char *path)
+static int try_and_run(ejson_t *json_test_case, const char *path)
 {
-  const char *s = json_to_string(json_test_case);
+  char buf_serialize[4096];
+
+  const char *s = ejson_str_get(json_test_case);
   if (!s) {
-    char *t1 = cJSON_PrintUnformatted(json_test_case);
-    W("json_test_case string expected but got ==%s==", t1);
-    free(t1);
+    buf_serialize[0] = '\0';
+    ejson_serialize(json_test_case, buf_serialize, sizeof(buf_serialize));
+    W("json_test_case string expected but got ==%s==", buf_serialize);
     return -1;
   }
 
@@ -1477,33 +1472,34 @@ static int load_and_run(const char *json_test_cases_file)
 {
   int r = 0;
 
+  char buf_serialize[4096];
+
   char path[PATH_MAX+1];
-  cJSON *json_test_cases = load_json_file(json_test_cases_file, path, sizeof(path), "UTF-8", "UTF-8");
+  ejson_t *json_test_cases = load_ejson_file(json_test_cases_file, path, sizeof(path), "UTF-8", "UTF-8");
   if (!json_test_cases) return -1;
 
   do {
-    if (!cJSON_IsArray(json_test_cases)) {
-      char *t1 = cJSON_PrintUnformatted(json_test_cases);
-      W("json_test_cases array expected but got ==%s==", t1);
-      free(t1);
+    if (!ejson_is_arr(json_test_cases)) {
+      buf_serialize[0] = '\0';
+      ejson_serialize(json_test_cases, buf_serialize, sizeof(buf_serialize));
+      W("json_test_cases array expected but got ==%s==", buf_serialize);
       r = -1;
       break;
     }
-    cJSON *guess = cJSON_GetArrayItem(json_test_cases, 0);
-    if (!cJSON_IsString(guess)) {
+    ejson_t *guess = ejson_arr_get(json_test_cases, 0);
+    if (!ejson_is_str(guess)) {
       r = try_and_run_file(json_test_cases_file);
       break;
     }
     for (int i=0; i>=0; ++i) {
-      cJSON *json_test_case = NULL;
-      if (json_get_by_item(json_test_cases, i, &json_test_case)) break;
+      ejson_t *json_test_case = ejson_arr_get(json_test_cases, i);
       if (!json_test_case) break;
       r = try_and_run(json_test_case, path);
       if (r) break;
     }
   } while (0);
 
-  cJSON_Delete(json_test_cases);
+  ejson_dec_ref(json_test_cases);
 
   return r;
 }

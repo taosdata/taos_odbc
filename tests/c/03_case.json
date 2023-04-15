@@ -1,7 +1,7 @@
 [
   {
-    "conn": {"dsn": "TAOS_ODBC_DSN"},
-    "sqls": [
+    conn: {dsn: "TAOS_ODBC_DSN"},
+    sqls: [
       "show databases",
       "drop database if exists foo",
       "create database foo",
@@ -11,102 +11,102 @@
       "insert into t(ts,name,age,sex,birth,text,f,d) values (now+1s,'name2',20,'female',1655125866843,'苏州人',3.45,4.56)",
       "select * from t",
       {
-        "sql":"select name from t where name=?",
-        "executes": [
+        sql:"select name from t where name=?",
+        executes: [
           {
-            "params": ["name1"],
-            "rs":[["name1"]]
+            params: ["name1"],
+            rs:[["name1"]]
           }
         ]
       },{
-        "sql":"select name from t where name<>?",
-        "executes": [
+        sql:"select name from t where name<>?",
+        executes: [
           {
-            "params": ["name2"],
-            "rs":[["name1"]]
+            params: ["name2"],
+            rs:[["name1"]]
           }
         ]
       },{
-        "sql":"select name from t where name=?",
-        "executes": [
+        sql:"select name from t where name=?",
+        executes: [
           {
-            "params": ["name2"],
-            "rs":[["name2"]]
+            params: ["name2"],
+            rs:[["name2"]]
           }
         ]
       },{
-        "sql":"select name from t where name='name2'",
-        "executes": [
+        sql:"select name from t where name='name2'",
+        executes: [
           {
-            "rs":[["name2"]]
+            rs:[["name2"]]
           }
         ]
       },{
-        "sql":"select name from t where name='name2'",
-        "executes": [
+        sql:"select name from t where name='name2'",
+        executes: [
           {
-            "rs":[["name"]],
-            "positive": false
+            rs:[["name"]],
+            positive: false
           }
         ]
       },{
-        "sql":"select name from t where name='name2'",
-        "executes": [
+        sql:"select name from t where name='name2'",
+        executes: [
           {
           }
         ]
       },{
-        "sql":"select name from t where name=?",
-        "executes": [
+        sql:"select name from t where name=?",
+        executes: [
           {
-            "positive": false
+            positive: false
           },{
-            "params": ["name1"],
-            "rs":[["name1"]]
+            params: ["name1"],
+            rs:[["name1"]]
           }
         ]
       },{
-        "sql":"select name from t where name='name2'",
-        "executes": [
+        sql:"select name from t where name='name2'",
+        executes: [
           {
-            "params": ["name2"],
-            "rs":[["name2"]],
-            "positive": false
+            params: ["name2"],
+            rs:[["name2"]],
+            positive: false
           },{
           },{
-            "rs":[["name2"]]
+            rs:[["name2"]]
           }
         ]
       },{
-        "sql":"insert into t (ts, name) values (1662861448751, 'foo')"
+        sql:"insert into t (ts, name) values (1662861448751, 'foo')"
       },{
-        "sql":"insert into t (ts, name) values (?, ?)",
-        "executes": [
+        sql:"insert into t (ts, name) values (?, ?)",
+        executes: [
           {
-            "params": [{"timestamp":1662961548651},"great"]
+            params: [{timestamp:1662961548651},"great"]
           },{
-            "params": [{"timestamp":1662961468652},"wall"]
+            params: [{timestamp:1662961468652},"wall"]
           },{
-            "params": [{"timestamp":1665185796610},"6610"]
+            params: [{timestamp:1665185796610},"6610"]
           },{
-            "params": [{"timestamp":1665185796611},{"str":null}]
+            params: [{timestamp:1665185796611},{str:null}]
           },{
-            "params": [1662961478754,"bigint"]
+            params: [1662961478754,"bigint"]
           },{
-            "params": [             1662961478755,"wrong"]
+            params: [             1662961478755,"wrong"]
           }
         ]
       },{
-        "sql":"select name from t where name is not null",
-        "rs": [["foo"],["wall"],["bigint"],["wrong"],["great"],["6610"],["name1"],["name2"]]
+        sql:"select name from t where name is not null",
+        rs: [["foo"],["wall"],["bigint"],["wrong"],["great"],["6610"],["name1"],["name2"]]
       },{
-        "sql":"select name from t",
-        "rs": [["foo"],["wall"],["bigint"],["wrong"],["great"],["6610"],[null],["name1"],["name2"]]
+        sql:"select name from t",
+        rs: [["foo"],["wall"],["bigint"],["wrong"],["great"],["6610"],[null],["name1"],["name2"]]
       }
     ]
   },{
-    "conn": {"dsn": "TAOS_ODBC_DSN"},
-    "sqls": [
+    conn: {dsn: "TAOS_ODBC_DSN"},
+    sqls: [
       "show databases",
       "drop database if exists foo",
       "create database foo",
@@ -116,29 +116,29 @@
       "insert into t(ts,name,age,sex,birth,text,f,d) values (now+1s,'name2',20,'female',1655125866843,'苏州人',3.45,4.56)",
       "select * from t",
       {
-        "sql":"insert into t (ts, name) values (1662861448751, 'foo')"
+        sql:"insert into t (ts, name) values (1662861448751, 'foo')"
       },{
-        "sql":"insert into t (ts, name) values (?, ?)",
-        "executes": [
+        sql:"insert into t (ts, name) values (?, ?)",
+        executes: [
           {
-            "params": [
-              [{"timestamp":1662961548650},"great"],
-              [{"timestamp":1662961468651},{"str":null}],
-              [{"timestamp":1662961468652},"wall"]
+            params: [
+              [{timestamp:1662961548650},"great"],
+              [{timestamp:1662961468651},{str:null}],
+              [{timestamp:1662961468652},"wall"]
             ]
           }
         ]
       },{
-        "sql":"select name from t where name is not null",
-        "rs": [["foo"],["wall"],["great"],["name1"],["name2"]]
+        sql:"select name from t where name is not null",
+        rs: [["foo"],["wall"],["great"],["name1"],["name2"]]
       },{
-        "sql":"select name from t",
-        "rs": [["foo"],[null],["wall"],["great"],["name1"],["name2"]]
+        sql:"select name from t",
+        rs: [["foo"],[null],["wall"],["great"],["name1"],["name2"]]
       }
     ]
   },{
-    "conn": {"dsn": "TAOS_ODBC_DSN"},
-    "sqls": [
+    conn: {dsn: "TAOS_ODBC_DSN"},
+    sqls: [
       "show databases",
       "drop database if exists foo",
       "create database foo",
@@ -146,27 +146,27 @@
       "create table t(ts timestamp,name varchar(5))",
       "select * from t",
       {
-        "sql":"insert into t (ts, name) values (?, ?)",
-        "executes": [
+        sql:"insert into t (ts, name) values (?, ?)",
+        executes: [
           {
-            "params": [
-              [{"timestamp":1662961548650},"great"],
-              [{"timestamp":1662961468651},{"str":null}],
-              [{"timestamp":1662961468652},"wall"]
+            params: [
+              [{timestamp:1662961548650},"great"],
+              [{timestamp:1662961468651},{str:null}],
+              [{timestamp:1662961468652},"wall"]
             ]
           }
         ]
       },{
-        "sql":"select name from t where name is not null",
-        "rs": [["wall"],["great"]]
+        sql:"select name from t where name is not null",
+        rs: [["wall"],["great"]]
       },{
-        "sql":"select name from t",
-        "rs": [[null],["wall"],["great"]]
+        sql:"select name from t",
+        rs: [[null],["wall"],["great"]]
       }
     ]
   },{
-    "conn": {"dsn": "TAOS_ODBC_DSN"},
-    "sqls": [
+    conn: {dsn: "TAOS_ODBC_DSN"},
+    sqls: [
       "show databases",
       "drop database if exists foo",
       "create database foo",
@@ -174,23 +174,23 @@
       "create table t(ts timestamp,name varchar(4))",
       "select * from t",
       {
-        "comments": "test varchar truncation-check",
-        "sql":"insert into t (ts, name) values (?, ?)",
-        "executes": [
+        comments: "test varchar truncation-check",
+        sql:"insert into t (ts, name) values (?, ?)",
+        executes: [
           {
-            "params": [
-              [{"timestamp":1662961548650},"great"],
-              [{"timestamp":1662961468651},{"str":null}],
-              [{"timestamp":1662961468652},"wall"]
+            params: [
+              [{timestamp:1662961548650},"great"],
+              [{timestamp:1662961468651},{str:null}],
+              [{timestamp:1662961468652},"wall"]
             ],
-            "positive":false
+            positive:false
           }
         ]
       }
     ]
   },{
-    "conn": {"dsn": "TAOS_ODBC_DSN"},
-    "sqls": [
+    conn: {dsn: "TAOS_ODBC_DSN"},
+    sqls: [
       "show databases",
       "drop database if exists foo",
       "create database foo",
@@ -198,27 +198,27 @@
       "create table t(ts timestamp,name nchar(5))",
       "select * from t",
       {
-        "sql":"insert into t (ts, name) values (?, ?)",
-        "executes": [
+        sql:"insert into t (ts, name) values (?, ?)",
+        executes: [
           {
-            "params": [
-              [{"timestamp":1662961548650},"江苏苏州"],
-              [{"timestamp":1662961468651},{"str":null}],
-              [{"timestamp":1662961468652},"江苏连云港"]
+            params: [
+              [{timestamp:1662961548650},"江苏苏州"],
+              [{timestamp:1662961468651},{str:null}],
+              [{timestamp:1662961468652},"江苏连云港"]
             ]
           }
         ]
       },{
-        "sql":"select name from t where name is not null",
-        "rs": [["江苏连云港"],["江苏苏州"]]
+        sql:"select name from t where name is not null",
+        rs: [["江苏连云港"],["江苏苏州"]]
       },{
-        "sql":"select name from t",
-        "rs": [[null],["江苏连云港"],["江苏苏州"]]
+        sql:"select name from t",
+        rs: [[null],["江苏连云港"],["江苏苏州"]]
       }
     ]
   },{
-    "conn": {"dsn": "TAOS_ODBC_DSN"},
-    "sqls": [
+    conn: {dsn: "TAOS_ODBC_DSN"},
+    sqls: [
       "show databases",
       "drop database if exists foo",
       "create database foo",
@@ -226,22 +226,22 @@
       "create table t(ts timestamp,name nchar(4))",
       "select * from t",
       {
-        "sql":"insert into t (ts, name) values (?, ?)",
-        "executes": [
+        sql:"insert into t (ts, name) values (?, ?)",
+        executes: [
           {
-            "params": [
-              [{"timestamp":1662961548650},"江苏苏州"],
-              [{"timestamp":1662961468651},{"str":null}],
-              [{"timestamp":1662961468652},"abcde"]
+            params: [
+              [{timestamp:1662961548650},"江苏苏州"],
+              [{timestamp:1662961468651},{str:null}],
+              [{timestamp:1662961468652},"abcde"]
             ],
-            "positive":false
+            positive:false
           }
         ]
       }
     ]
   },{
-    "conn": {"dsn": "TAOS_ODBC_DSN"},
-    "sqls": [
+    conn: {dsn: "TAOS_ODBC_DSN"},
+    sqls: [
       "show databases",
       "drop database if exists foo",
       "create database foo",
@@ -249,13 +249,13 @@
       "create table t(ts timestamp,age int)",
       "select * from t",
       {
-        "sql":"insert into t (ts, age) values (?, (3+?))",
-        "executes": [
+        sql:"insert into t (ts, age) values (?, (3+?))",
+        executes: [
           {
-            "params": [
-              [{"timestamp":1662961548650},4]
+            params: [
+              [{timestamp:1662961548650},4]
             ],
-            "positive":false
+            positive:false
           }
         ]
       }

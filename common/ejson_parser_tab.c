@@ -24,6 +24,8 @@
 
 #include "ejson_parser.h"
 
+#include "logger.h"
+
 static ejson_t* _ejson_new_str(_ejson_str_t *str);
 static ejson_t* _ejson_new_obj(_ejson_kv_t *kv);
 static int _ejson_obj_set(ejson_t *ejson, _ejson_kv_t *kv);
@@ -534,7 +536,8 @@ static int _ejson_obj_cmp(ejson_obj_t *l, ejson_obj_t *r)
     if (rr) return rr;
   }
   if (l->nr < r->nr) return -1;
-  return 1;
+  if (l->nr > r->nr) return 1;
+  return 0;
 }
 
 static int _ejson_arr_cmp(ejson_arr_t *l, ejson_arr_t *r)

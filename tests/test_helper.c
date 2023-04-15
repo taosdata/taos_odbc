@@ -533,6 +533,9 @@ static ejson_t* load_ejson_from_file(const char *json_file, FILE *fn, const char
 
   ejson_parser_param_release(&param);
 
+  free(gb);
+  free(buf);
+
   return v;
 }
 

@@ -23,8 +23,6 @@
  */
 
 #ifdef _WIN32                   /* { */
-#elif defined (__APPLE__)       /* }{ */
-#include <dlfcn.h>
 #else                           /* }{ */
 #define _GNU_SOURCE
 #include <dlfcn.h>

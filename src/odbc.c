@@ -93,6 +93,9 @@ struct global_s {
 
 static global_t _global;
 
+#ifdef _WIN32                   /* { */
+#elif defined (__APPLE__)       /* }{ */
+#else                           /* }{ */
 static int callback(struct dl_phdr_info *info, size_t size, void *data)
 {
   (void)size;
@@ -151,6 +154,7 @@ static int callback(struct dl_phdr_info *info, size_t size, void *data)
 
   return 0;
 }
+#endif                          /* } */
 
 const char* tod_get_image_name(void)
 {

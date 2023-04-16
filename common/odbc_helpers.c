@@ -67,6 +67,11 @@ static int run_with_connected_conn(odbc_case_t *odbc_case, odbc_handles_t *handl
     DUMP("DBMS_VER:%s", buf);
   }
 
+  sr = CALL_SQLGetInfo(handles->hconn, SQL_SERVER_NAME, buf, sizeof(buf), NULL);
+  if (SUCCEEDED(sr)) {
+    DUMP("SERVER_NAME:%s", buf);
+  }
+
   r = odbc_case->run(odbc_case, ODBC_CONNECTED, handles);
   if (r) return -1;
 

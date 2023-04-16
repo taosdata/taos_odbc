@@ -844,7 +844,21 @@ static SQLRETURN _conn_get_info_dbms_ver(
     return SQL_ERROR;
   }
 
-  return _conn_set_string(conn, server, InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+  const char *client = CALL_taos_get_client_info();
+  if (!client) {
+    conn_append_err_format(conn, "HY000", 0, "General error:`%s[%d/0x%x]` internal logic error", sql_info_type(InfoType), InfoType, InfoType);
+    return SQL_ERROR;
+  }
+
+  int n = snprintf((char*)InfoValuePtr, BufferLength, "taos_odbc-0.1@taosc:%s@taos:%s", client, server);
+  if (StringLengthPtr) *StringLengthPtr = n;
+
+  if (n >= BufferLength) {
+    conn_append_err_format(conn, "01004", 0, "String data, right truncated:`%s[%d/0x%x]`", sql_info_type(InfoType), InfoType, InfoType);
+    return SQL_SUCCESS_WITH_INFO;
+  }
+
+  return SQL_SUCCESS;
 }
 
 static SQLRETURN _conn_get_info_driver_name(
@@ -854,22 +868,25 @@ static SQLRETURN _conn_get_info_driver_name(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr)
 {
-  (void)conn;
+#ifdef _WIN32                     /* { */
+  const char *driver_name = "taos_odbc.dll";
+#elif defined(__APPLE__)          /* }{ */
+  const char *driver_name = "libtaos_odbc.dylib";
+#else                             /* }{ */
+  const char *driver_name = "libtaos_odbc.so";
+#endif
 
-  const char *client = CALL_taos_get_client_info();
-  if (!client) {
-    conn_append_err_format(conn, "HY000", 0, "General error:`%s[%d/0x%x]` internal logic error", sql_info_type(InfoType), InfoType, InfoType);
-    return SQL_ERROR;
+  if (1) {
+    int n = snprintf((char*)InfoValuePtr, BufferLength, "%s", driver_name);
+    if (StringLengthPtr) *StringLengthPtr = n;
+
+    if (n >= BufferLength) {
+      conn_append_err_format(conn, "01004", 0, "String data, right truncated:`%s[%d/0x%x]`", sql_info_type(InfoType), InfoType, InfoType);
+      return SQL_SUCCESS_WITH_INFO;
+    }
+
+    return SQL_SUCCESS;
   }
-  int n = snprintf((char*)InfoValuePtr, BufferLength, "taos_odbc-0.1@taosc:%s", client);
-  if (StringLengthPtr) *StringLengthPtr = n;
-
-  if (n >= BufferLength) {
-    conn_append_err_format(conn, "01004", 0, "String data, right truncated:`%s[%d/0x%x]`", sql_info_type(InfoType), InfoType, InfoType);
-    return SQL_SUCCESS_WITH_INFO;
-  }
-
-  return SQL_SUCCESS;
 }
 
 static SQLRETURN _conn_get_catalog_name_separator(

@@ -519,6 +519,77 @@ static int _dump_stmt_describe_param(odbc_case_t *odbc_case, odbc_stage_t stage,
   return 0;
 }
 
+static int _dump_stmt_desc_bind_desc_param(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles_t *handles)
+{
+  (void)odbc_case;
+
+  SQLHANDLE hstmt = handles->hstmt;
+
+  SQLRETURN sr = SQL_SUCCESS;
+
+  if (stage != ODBC_STMT) return 0;
+
+  DUMP("%s:", __func__);
+
+  const char *env = "SAMPLE_DUMP_PARAM_SQL";
+  const char *sql = getenv(env);
+  if (!sql) {
+    DUMP("env `%s` not set yet", env);
+    return 0;
+  }
+
+  sr = CALL_SQLPrepare(hstmt, (SQLCHAR*)sql, SQL_NTS);
+  if (sr != SQL_SUCCESS) return -1;
+
+  SQLSMALLINT ParameterCount;
+  sr = CALL_SQLNumParams(hstmt, &ParameterCount);
+  if (sr != SQL_SUCCESS) return -1;
+
+  for (SQLSMALLINT i = 0; i<ParameterCount; ++i) {
+    SQLSMALLINT     DataType        = 0;
+    SQLULEN         ParameterSize   = 0;
+    SQLSMALLINT     DecimalDigits   = 0;
+    SQLSMALLINT     Nullable        = 0;
+
+    sr = CALL_SQLDescribeParam(hstmt, i+1, &DataType, &ParameterSize, &DecimalDigits, &Nullable);
+    if (FAILED(sr)) return -1;
+    DUMP("Parameter%d, DataType:%s, ParameterSize:%" PRIu64 ", DecimalDigits:%d, Nullable:%s",
+        i+1, sql_data_type(DataType), (uint64_t)ParameterSize, DecimalDigits, sql_nullable(Nullable));
+  }
+
+  char buf[64][10+1];
+
+  for (SQLSMALLINT i = 0; i<ParameterCount; ++i) {
+    SQLSMALLINT     InputOutputType               = SQL_PARAM_INPUT;
+    SQLSMALLINT     ValueType                     = SQL_C_CHAR;
+    SQLSMALLINT     ParameterType                 = SQL_VARCHAR;
+    SQLULEN         ColumnSize                    = sizeof(buf[i]);
+    SQLSMALLINT     DecimalDigits                 = 0;
+    SQLPOINTER      ParameterValuePtr             = buf[i];
+    SQLLEN          BufferLength                  = sizeof(buf[i]);
+    SQLLEN          StrLen_or_Ind                 = SQL_NTS;
+
+    sr = CALL_SQLBindParameter(hstmt, i+1, InputOutputType, ValueType, ParameterType, ColumnSize, DecimalDigits, ParameterValuePtr, BufferLength, &StrLen_or_Ind);
+    if (sr != SQL_SUCCESS) return -1;
+  }
+
+  DUMP("after binding...");
+
+  for (SQLSMALLINT i = 0; i<ParameterCount; ++i) {
+    SQLSMALLINT     DataType        = 0;
+    SQLULEN         ParameterSize   = 0;
+    SQLSMALLINT     DecimalDigits   = 0;
+    SQLSMALLINT     Nullable        = 0;
+
+    sr = CALL_SQLDescribeParam(hstmt, i+1, &DataType, &ParameterSize, &DecimalDigits, &Nullable);
+    if (FAILED(sr)) return -1;
+    DUMP("Parameter%d, DataType:%s, ParameterSize:%" PRIu64 ", DecimalDigits:%d, Nullable:%s",
+        i+1, sql_data_type(DataType), (uint64_t)ParameterSize, DecimalDigits, sql_nullable(Nullable));
+  }
+
+  return 0;
+}
+
 static int _execute_file_impl(SQLHANDLE hstmt, const char *env, const char *fn, FILE *f)
 {
   SQLRETURN sr = SQL_SUCCESS;
@@ -638,22 +709,13 @@ static int _execute_file(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handle
   return r ? -1 : 0;
 }
 
-static int odbc_case_dummy(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles_t *handles)
-{
-  (void)odbc_case;
-  (void)stage;
-  (void)handles;
-
-  return 0;
-}
-
 static odbc_case_t odbc_cases[] = {
-  ODBC_CASE(odbc_case_dummy),
   ODBC_CASE(_dummy),
   ODBC_CASE(_dump_stmt_col_info),
   ODBC_CASE(_dump_stmt_tables),
   ODBC_CASE(_dump_stmt_describe_col),
   ODBC_CASE(_dump_stmt_describe_param),
+  ODBC_CASE(_dump_stmt_desc_bind_desc_param),
   ODBC_CASE(_execute_file),
 };
 

@@ -22,6 +22,13 @@
  * SOFTWARE.
  */
 
+#ifdef _WIN32                   /* { */
+#elif defined (__APPLE__)       /* }{ */
+#else                           /* }{ */
+#define _GNU_SOURCE
+#include <link.h>
+#endif                          /* } */
+
 #include "os_port.h"
 #include "conn.h"
 #include "desc.h"
@@ -75,9 +82,103 @@ struct global_s {
 
   char              locale_or_ACP[64];
   charset_name_t    sqlc_charset;
+
+  char              image_path[PATH_MAX + 1];
+  char              image_name[PATH_MAX + 1];
+#ifdef _WIN32                   /* { */
+#elif defined(__APPLE__)        /* }{ */
+#else                           /* }{ */
+#endif                          /* } */
 };
 
 static global_t _global;
+
+static int callback(struct dl_phdr_info *info, size_t size, void *data)
+{
+  (void)size;
+  (void)data;
+
+  if (_global.image_name[0]) return 0;
+
+  const char *path = info->dlpi_name;
+
+  for (int j = 0; j < info->dlpi_phnum; j++) {
+    char *base = (char*)(info->dlpi_addr + info->dlpi_phdr[j].p_vaddr);
+    char *end  = base + info->dlpi_phdr[j].p_memsz;
+    if ((char*)callback >= base && (char*)callback < end) {
+      snprintf(_global.image_path, sizeof(_global.image_path), "%s", path);
+      tod_basename(path, _global.image_name, sizeof(_global.image_name));
+      return 0;
+    }
+  }
+
+  return 0;
+
+  // char *type;
+  // int p_type;
+
+  // printf("Name: \"%s\" (%d segments) %s():%p\n", info->dlpi_name,
+  //     info->dlpi_phnum, __func__, callback);
+
+  // for (int j = 0; j < info->dlpi_phnum; j++) {
+  //   p_type = info->dlpi_phdr[j].p_type;
+  //   type =  (p_type == PT_LOAD) ? "PT_LOAD" :
+  //     (p_type == PT_DYNAMIC) ? "PT_DYNAMIC" :
+  //     (p_type == PT_INTERP) ? "PT_INTERP" :
+  //     (p_type == PT_NOTE) ? "PT_NOTE" :
+  //     (p_type == PT_INTERP) ? "PT_INTERP" :
+  //     (p_type == PT_PHDR) ? "PT_PHDR" :
+  //     (p_type == PT_TLS) ? "PT_TLS" :
+  //     (p_type == PT_GNU_EH_FRAME) ? "PT_GNU_EH_FRAME" :
+  //     (p_type == PT_GNU_STACK) ? "PT_GNU_STACK" :
+  //     (p_type == PT_GNU_RELRO) ? "PT_GNU_RELRO" : NULL;
+
+  //   printf("    %2d: [%14p; memsz:%7jx] flags: %#jx; ", j,
+  //       (void *) (info->dlpi_addr + info->dlpi_phdr[j].p_vaddr),
+  //       (uintmax_t) info->dlpi_phdr[j].p_memsz,
+  //       (uintmax_t) info->dlpi_phdr[j].p_flags);
+  //   char *base = (char*)(info->dlpi_addr + info->dlpi_phdr[j].p_vaddr);
+  //   char *end  = base + info->dlpi_phdr[j].p_memsz;
+  //   const char *found = "-";
+  //   if ((char*)callback >= base && (char*)callback < end) {
+  //     found = "=============================found";
+  //   }
+  //   if (type != NULL)
+  //     printf("%s{%s}\n", type, found);
+  //   else
+  //     printf("[other (%#x)]{%s}\n", p_type, found);
+  // }
+
+  return 0;
+}
+
+const char* tod_get_image_name(void)
+{
+  return _global.image_name;
+}
+
+static void _init_image_path_once(void)
+{
+#ifdef _WIN32                   /* { */
+  snprintf(_global.image_name, sizeof(_global.image_name), "%s", "taos_odbc.dll");
+  snprintf(_global.image_path, sizeof(_global.image_path), "%s", "taos_odbc.dll");
+#elif defined(__APPLE__)        /* }{ */
+  snprintf(_global.image_name, sizeof(_global.image_name), "%s", "libtaos_odbc.dylib");
+  snprintf(_global.image_path, sizeof(_global.image_path), "%s", "libtaos_odbc.dylib");
+#else                           /* }{ */
+  dl_iterate_phdr(callback, NULL);
+#endif                          /* } */
+}
+
+static void _init_image_path(void)
+{
+  static int                     inited = 0;
+  if (!inited) {
+    static pthread_once_t        once;
+    pthread_once(&once, _init_image_path_once);
+    inited = 1;
+  }
+}
 
 static void _init_charsets(void)
 {
@@ -371,6 +472,8 @@ SQLRETURN SQL_API SQLAllocHandle(
   OOW("===");
   env_t  *env;
   conn_t *conn;
+
+  _init_image_path();
 
   switch (HandleType) {
     case SQL_HANDLE_ENV:

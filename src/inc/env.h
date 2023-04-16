@@ -90,6 +90,8 @@ int tod_get_debug_bison(void) FA_HIDDEN;
 const char* tod_get_sqlc_charset(void) FA_HIDDEN;
 const char* tod_get_locale_or_ACP(void) FA_HIDDEN;
 
+const char* tod_get_image_name(void) FA_HIDDEN;
+
 EXTERN_C_END
 
 #endif // _env_h_

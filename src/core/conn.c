@@ -875,13 +875,7 @@ static SQLRETURN _conn_get_info_driver_name(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr)
 {
-#ifdef _WIN32                     /* { */
-  const char *driver_name = "taos_odbc.dll";
-#elif defined(__APPLE__)          /* }{ */
-  const char *driver_name = "libtaos_odbc.dylib";
-#else                             /* }{ */
-  const char *driver_name = "libtaos_odbc.so";
-#endif
+  const char *driver_name = tod_get_image_name();
 
   if (1) {
     int n = snprintf((char*)InfoValuePtr, BufferLength, "%s", driver_name);

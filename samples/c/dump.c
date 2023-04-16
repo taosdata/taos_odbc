@@ -843,9 +843,38 @@ static int run_dump(const arg_t *arg)
   return r;
 }
 
+static arg_t *arg_for_odbc_case = NULL;
+
+static int odbc_case_dummy(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles_t *handles)
+{
+  (void)odbc_case;
+  arg_t *arg = arg_for_odbc_case;
+
+  if (stage == ODBC_DBC) {
+    int r = 0;
+    if (arg->connstr) {
+      r = _driver_connect(handles->hconn, arg->connstr);
+      if (r) return -1;
+    } else {
+      r = _connect(handles->hconn, arg->dsn, arg->uid, arg->pwd);
+      if (r) return -1;
+    }
+  }
+  return 0;
+}
+
+static odbc_case_t odbc_cases[] = {
+  ODBC_CASE(odbc_case_dummy),
+};
+
 static int _dumping(arg_t *arg)
 {
   int r = 0;
+
+  if (1) {
+    arg_for_odbc_case = arg;
+    return run_odbc_cases(odbc_cases, sizeof(odbc_cases)/sizeof(odbc_cases[0]));
+  }
 
   const size_t nr = sizeof(_dumps)/sizeof(_dumps[0]);
   for (size_t i=0; i<nr; ++i) {
@@ -868,6 +897,12 @@ static void usage(const char *arg0)
   DUMP("  %s --connstr <connstr> [name]", arg0);
   DUMP("");
   DUMP("supported dump names:");
+  if (1) {
+    for (size_t i=0; i<sizeof(odbc_cases)/sizeof(odbc_cases[0]); ++i) {
+      DUMP("  %s", odbc_cases[i].name);
+    }
+    return;
+  }
   for (size_t i=0; i<sizeof(_dumps)/sizeof(_dumps[0]); ++i) {
     DUMP("  %s", _dumps[i].name);
   }

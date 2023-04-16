@@ -831,7 +831,7 @@ static SQLRETURN _conn_set_string(
   return SQL_SUCCESS;
 }
 
-static SQLRETURN _conn_get_info_dbms_name(
+static SQLRETURN _conn_get_info_dbms_ver(
     conn_t         *conn,
     SQLUSMALLINT    InfoType,
     SQLPOINTER      InfoValuePtr,
@@ -905,14 +905,14 @@ SQLRETURN conn_get_info(
 #error `ODBCVER` must be equal to 0x0351
 #endif                               /* } */
     } break;
-    case SQL_DRIVER_VER:
-      return _conn_set_string(conn, "01.00.0000", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_DRIVER_NAME:
       return _conn_get_info_driver_name(conn, InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
-    case SQL_DBMS_VER:
+    case SQL_DRIVER_VER:
       return _conn_set_string(conn, "01.00.0000", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_DBMS_NAME:
-      return _conn_get_info_dbms_name(conn, InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+      return _conn_set_string(conn, "tdengine", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+    case SQL_DBMS_VER:
+      return _conn_get_info_dbms_ver(conn, InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_SERVER_NAME:
       return _conn_set_string(conn, "", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_CURSOR_COMMIT_BEHAVIOR:

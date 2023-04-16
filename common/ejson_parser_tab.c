@@ -597,14 +597,16 @@ static int _str_serialize(const char *str, size_t nr, char *buf, size_t len)
   char *p = buf;
   int n = 0;
 
-  // if (!strchr(str, '"')) {
-  //   return snprintf(buf, len, "\"%s\"", str);
-  // }
-  // if (!strchr(str, '\'')) {
-  //   return snprintf(buf, len, "'%s'", str);
-  // }
-  // if (!strchr(str, '`')) {
-  //   return snprintf(buf, len, "`%s`", str);
+  // if (!strchr(str, '\\')) {
+  //   if (!strchr(str, '"')) {
+  //     return snprintf(buf, len, "\"%s\"", str);
+  //   }
+  //   if (!strchr(str, '\'')) {
+  //     return snprintf(buf, len, "'%s'", str);
+  //   }
+  //   if (!strchr(str, '`')) {
+  //     return snprintf(buf, len, "`%s`", str);
+  //   }
   // }
   _SNPRINTF("%c", '"');
 

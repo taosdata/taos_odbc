@@ -25,6 +25,7 @@
 add_executable(dump
     $<TARGET_OBJECTS:common_obj>
     $<TARGET_OBJECTS:os_port_obj>
+    $<TARGET_OBJECTS:odbc_helpers_obj>
     dump.c)
 add_dependencies(dump ex_cjson)
 

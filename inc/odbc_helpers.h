@@ -31,12 +31,16 @@
 #include <sqlext.h>
 #include <string.h>
 
+
+EXTERN_C_BEGIN
+
+
 #ifndef SUCCEEDED
   // #define SUCCEEDED(_sr) ({ SQLRETURN __sr = _sr; (__sr == SQL_SUCCESS) || (__sr == SQL_SUCCESS_WITH_INFO); })
   #define SUCCEEDED(_sr) ((_sr == SQL_SUCCESS) || (_sr == SQL_SUCCESS_WITH_INFO))
 #endif
 #ifndef FAILED
-  #define FAILED(_sr) !SUCCEEDED(_sr)
+  #define FAILED(_sr) (!SUCCEEDED(_sr))
 #endif
 
 #define LOGD_ODBC(file, line, func, fmt, ...) do {                                                \
@@ -667,6 +671,46 @@ static inline SQLRETURN call_SQLRowCount(const char *file, int line, const char 
 #define CALL_SQLGetTypeInfo(...)                   call_SQLGetTypeInfo(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLMoreResults(...)                   call_SQLMoreResults(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_SQLRowCount(...)                      call_SQLRowCount(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
+
+
+
+typedef enum odbc_stage_e {
+  ODBC_INITED,
+  ODBC_ENV,
+  ODBC_DBC,
+  ODBC_CONNECTED,
+  ODBC_STMT,
+} odbc_stage_t;
+
+typedef struct odbc_handles_s       odbc_handles_t;
+struct odbc_handles_s {
+  SQLHANDLE                henv;
+  SQLHANDLE                hconn;
+  SQLHANDLE                hstmt;
+};
+
+typedef struct odbc_case_s          odbc_case_t;
+
+typedef int (*odbc_f)(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles_t *handles);
+
+struct odbc_case_s {
+  const char               *file;
+  int                       line;
+
+  const char               *name;
+  odbc_f                    run;
+};
+
+#define ODBC_CASE(x) {__FILE__, __LINE__, #x, x}
+
+
+int run_odbc_cases(odbc_case_t *cases, size_t cases_nr) FA_HIDDEN;
+
+
+
+
+EXTERN_C_END
+
 
 #endif // _odbc_helper_h_
 

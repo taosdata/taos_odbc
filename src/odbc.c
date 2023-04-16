@@ -24,6 +24,7 @@
 
 #ifdef _WIN32                   /* { */
 #elif defined (__APPLE__)       /* }{ */
+#include <dlfcn.h>
 #else                           /* }{ */
 #define _GNU_SOURCE
 #include <link.h>
@@ -170,8 +171,10 @@ static void _init_image_path_once(void)
   const char *p = tod_basename(buf, _global.image_path, sizeof(_global.image_path));
   snprintf(_global.image_name, sizeof(_global.image_name), "%s", p);
 #elif defined(__APPLE__)        /* }{ */
-  snprintf(_global.image_name, sizeof(_global.image_name), "%s", "libtaos_odbc.dylib");
-  snprintf(_global.image_path, sizeof(_global.image_path), "%s", "libtaos_odbc.dylib");
+  Dl_info info = {0};
+  dladdr(_init_image_path_once, &info);
+  snprintf(_global.image_path, sizeof(_global.image_path), "%s", info.dli_fname);
+  tod_basename(_global.image_path, _global.image_name, sizeof(_global.image_name));
 #else                           /* }{ */
   dl_iterate_phdr(callback, NULL);
 #endif                          /* } */

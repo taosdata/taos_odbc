@@ -27,7 +27,7 @@
 #include <dlfcn.h>
 #else                           /* }{ */
 #define _GNU_SOURCE
-#include <link.h>
+#include <dlfcn.h>
 #endif                          /* } */
 
 #include "os_port.h"
@@ -88,75 +88,10 @@ struct global_s {
   char              image_name[PATH_MAX + 1];
 #ifdef _WIN32                   /* { */
   HINSTANCE         thisDll;
-#elif defined(__APPLE__)        /* }{ */
-#else                           /* }{ */
 #endif                          /* } */
 };
 
 static global_t _global;
-
-#ifdef _WIN32                   /* { */
-#elif defined (__APPLE__)       /* }{ */
-#else                           /* }{ */
-static int callback(struct dl_phdr_info *info, size_t size, void *data)
-{
-  (void)size;
-  (void)data;
-
-  if (_global.image_name[0]) return 0;
-
-  const char *path = info->dlpi_name;
-
-  for (int j = 0; j < info->dlpi_phnum; j++) {
-    char *base = (char*)(info->dlpi_addr + info->dlpi_phdr[j].p_vaddr);
-    char *end  = base + info->dlpi_phdr[j].p_memsz;
-    if ((char*)callback >= base && (char*)callback < end) {
-      snprintf(_global.image_path, sizeof(_global.image_path), "%s", path);
-      tod_basename(path, _global.image_name, sizeof(_global.image_name));
-      return 0;
-    }
-  }
-
-  return 0;
-
-  // char *type;
-  // int p_type;
-
-  // printf("Name: \"%s\" (%d segments) %s():%p\n", info->dlpi_name,
-  //     info->dlpi_phnum, __func__, callback);
-
-  // for (int j = 0; j < info->dlpi_phnum; j++) {
-  //   p_type = info->dlpi_phdr[j].p_type;
-  //   type =  (p_type == PT_LOAD) ? "PT_LOAD" :
-  //     (p_type == PT_DYNAMIC) ? "PT_DYNAMIC" :
-  //     (p_type == PT_INTERP) ? "PT_INTERP" :
-  //     (p_type == PT_NOTE) ? "PT_NOTE" :
-  //     (p_type == PT_INTERP) ? "PT_INTERP" :
-  //     (p_type == PT_PHDR) ? "PT_PHDR" :
-  //     (p_type == PT_TLS) ? "PT_TLS" :
-  //     (p_type == PT_GNU_EH_FRAME) ? "PT_GNU_EH_FRAME" :
-  //     (p_type == PT_GNU_STACK) ? "PT_GNU_STACK" :
-  //     (p_type == PT_GNU_RELRO) ? "PT_GNU_RELRO" : NULL;
-
-  //   printf("    %2d: [%14p; memsz:%7jx] flags: %#jx; ", j,
-  //       (void *) (info->dlpi_addr + info->dlpi_phdr[j].p_vaddr),
-  //       (uintmax_t) info->dlpi_phdr[j].p_memsz,
-  //       (uintmax_t) info->dlpi_phdr[j].p_flags);
-  //   char *base = (char*)(info->dlpi_addr + info->dlpi_phdr[j].p_vaddr);
-  //   char *end  = base + info->dlpi_phdr[j].p_memsz;
-  //   const char *found = "-";
-  //   if ((char*)callback >= base && (char*)callback < end) {
-  //     found = "=============================found";
-  //   }
-  //   if (type != NULL)
-  //     printf("%s{%s}\n", type, found);
-  //   else
-  //     printf("[other (%#x)]{%s}\n", p_type, found);
-  // }
-
-  return 0;
-}
-#endif                          /* } */
 
 const char* tod_get_image_name(void)
 {
@@ -170,13 +105,11 @@ static void _init_image_path_once(void)
   GetModuleFileName(_global.thisDll, buf, sizeof(buf));
   const char *p = tod_basename(buf, _global.image_path, sizeof(_global.image_path));
   snprintf(_global.image_name, sizeof(_global.image_name), "%s", p);
-#elif defined(__APPLE__)        /* }{ */
+#else                           /* }{ */
   Dl_info info = {0};
   dladdr(_init_image_path_once, &info);
   snprintf(_global.image_path, sizeof(_global.image_path), "%s", info.dli_fname);
   tod_basename(_global.image_path, _global.image_name, sizeof(_global.image_name));
-#else                           /* }{ */
-  dl_iterate_phdr(callback, NULL);
 #endif                          /* } */
 }
 

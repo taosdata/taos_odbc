@@ -86,6 +86,7 @@ struct global_s {
   char              image_path[PATH_MAX + 1];
   char              image_name[PATH_MAX + 1];
 #ifdef _WIN32                   /* { */
+  HINSTANCE         thisDll;
 #elif defined(__APPLE__)        /* }{ */
 #else                           /* }{ */
 #endif                          /* } */
@@ -164,8 +165,10 @@ const char* tod_get_image_name(void)
 static void _init_image_path_once(void)
 {
 #ifdef _WIN32                   /* { */
-  snprintf(_global.image_name, sizeof(_global.image_name), "%s", "taos_odbc.dll");
-  snprintf(_global.image_path, sizeof(_global.image_path), "%s", "taos_odbc.dll");
+  char buf[sizeof(_global.image_path)];
+  GetModuleFileName(_global.thisDll, buf, sizeof(buf));
+  const char *p = tod_basename(buf, _global.image_path, sizeof(_global.image_path));
+  snprintf(_global.image_name, sizeof(_global.image_name), "%s", p);
 #elif defined(__APPLE__)        /* }{ */
   snprintf(_global.image_name, sizeof(_global.image_name), "%s", "libtaos_odbc.dylib");
   snprintf(_global.image_path, sizeof(_global.image_path), "%s", "libtaos_odbc.dylib");
@@ -308,6 +311,7 @@ BOOL WINAPI DllMain(
   case DLL_PROCESS_ATTACH:
     // Initialize once for each new process.
     // Return FALSE to fail DLL load.
+    _global.thisDll = hinstDLL;
 
     if (tls_idx_state != TLS_IDX_UNINITIALIZED) {
       TRACE_LEAK("process:attach:failed_check");

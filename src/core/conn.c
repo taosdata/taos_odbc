@@ -844,13 +844,20 @@ static SQLRETURN _conn_get_info_dbms_ver(
     return SQL_ERROR;
   }
 
+  int v1=0, v2=0, v3=0, v4=0;
+  sscanf(server, "ver:%d.%d.%d.%d", &v1, &v2, &v3, &v4);
+
   const char *client = CALL_taos_get_client_info();
   if (!client) {
     conn_append_err_format(conn, "HY000", 0, "General error:`%s[%d/0x%x]` internal logic error", sql_info_type(InfoType), InfoType, InfoType);
     return SQL_ERROR;
   }
 
-  int n = snprintf((char*)InfoValuePtr, BufferLength, "taos_odbc-0.1@taosc:%s@taos:%s", client, server);
+  int n = snprintf((char*)InfoValuePtr, BufferLength,
+    "%02d.%02d.%04d\n"
+    "taos_odbc-0.1@taosc:%s@taosd:%s",
+    v1 % 100, v2 %100, v3 % 100 * 100 + v4 % 100,
+    client, server);
   if (StringLengthPtr) *StringLengthPtr = n;
 
   if (n >= BufferLength) {

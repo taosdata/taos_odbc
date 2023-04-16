@@ -678,7 +678,6 @@ typedef enum odbc_stage_e {
   ODBC_INITED,
   ODBC_ENV,
   ODBC_DBC,
-  ODBC_CONNECTED,
   ODBC_STMT,
 } odbc_stage_t;
 
@@ -687,6 +686,9 @@ struct odbc_handles_s {
   SQLHANDLE                henv;
   SQLHANDLE                hconn;
   SQLHANDLE                hstmt;
+
+  uint8_t                  taos_backend:1;
+  uint8_t                  support_catalog:1;
 };
 
 typedef struct odbc_case_s          odbc_case_t;
@@ -703,8 +705,15 @@ struct odbc_case_s {
 
 #define ODBC_CASE(x) {__FILE__, __LINE__, #x, x}
 
+typedef struct odbc_conn_arg_s            odbc_conn_arg_t;
+struct odbc_conn_arg_s {
+  const char      *dsn;
+  const char      *uid;
+  const char      *pwd;
+  const char      *connstr;
+};
 
-int run_odbc_cases(odbc_case_t *cases, size_t cases_nr) FA_HIDDEN;
+int run_odbc_cases(const char *name, const odbc_conn_arg_t *conn_arg, odbc_case_t *cases, size_t cases_nr) FA_HIDDEN;
 
 
 

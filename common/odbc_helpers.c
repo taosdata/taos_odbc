@@ -31,6 +31,7 @@ static int run_with_stmt(odbc_case_t *odbc_case, odbc_handles_t *handles)
   int r = 0;
 
   r = odbc_case->run(odbc_case, ODBC_STMT, handles);
+  DUMP("");
 
   return r ? -1 : 0;
 }
@@ -60,6 +61,7 @@ static int run_with_connected_conn(odbc_case_t *odbc_case, odbc_handles_t *handl
   sr = CALL_SQLGetInfo(handles->hconn, SQL_DBMS_NAME, buf, sizeof(buf), NULL);
   if (SUCCEEDED(sr)) {
     DUMP("DBMS_NAME:%s", buf);
+    handles->taos_backend = (strcmp(buf, "tdengine") == 0) ? 1 : 0;
   }
 
   sr = CALL_SQLGetInfo(handles->hconn, SQL_DBMS_VER, buf, sizeof(buf), NULL);
@@ -72,13 +74,26 @@ static int run_with_connected_conn(odbc_case_t *odbc_case, odbc_handles_t *handl
     DUMP("SERVER_NAME:%s", buf);
   }
 
-  r = odbc_case->run(odbc_case, ODBC_CONNECTED, handles);
+  sr = CALL_SQLGetInfo(handles->hconn, SQL_DATA_SOURCE_NAME, buf, sizeof(buf), NULL);
+  if (SUCCEEDED(sr)) {
+    DUMP("DATA_SOURCE_NAME:%s", buf);
+  }
+
+  sr = CALL_SQLGetInfo(handles->hconn, SQL_CATALOG_NAME, buf, sizeof(buf), NULL);
+  if (SUCCEEDED(sr)) {
+    DUMP("CATALOG_NAME:%s", buf);
+    if (buf[0] == 'Y') handles->support_catalog = 1;
+  }
+
+  r = odbc_case->run(odbc_case, ODBC_DBC, handles);
+  DUMP("");
   if (r) return -1;
 
   sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, handles->hconn, &handles->hstmt);
   if (FAILED(sr)) return -1;
 
   r = run_with_stmt(odbc_case, handles);
+  DUMP("");
 
   CALL_SQLFreeHandle(SQL_HANDLE_STMT, handles->hstmt);
   handles->hstmt = SQL_NULL_HANDLE;
@@ -86,11 +101,50 @@ static int run_with_connected_conn(odbc_case_t *odbc_case, odbc_handles_t *handl
   return r ? -1 : 0;
 }
 
-static int run_with_conn(odbc_case_t *odbc_case, odbc_handles_t *handles)
+static int _connect(SQLHANDLE hconn, const char *dsn, const char *uid, const char *pwd)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  sr = CALL_SQLConnect(hconn, (SQLCHAR*)dsn, SQL_NTS, (SQLCHAR*)uid, SQL_NTS, (SQLCHAR*)pwd, SQL_NTS);
+  if (FAILED(sr)) {
+    E("connect [dsn:%s,uid:%s,pwd:%s] failed", dsn, uid, pwd);
+    return -1;
+  }
+
+  return 0;
+}
+
+static int _driver_connect(SQLHANDLE hconn, const char *connstr)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  char buf[1024];
+  buf[0] = '\0';
+  SQLSMALLINT StringLength = 0;
+  sr = CALL_SQLDriverConnect(hconn, NULL, (SQLCHAR*)connstr, SQL_NTS, (SQLCHAR*)buf, sizeof(buf), &StringLength, SQL_DRIVER_COMPLETE);
+  if (FAILED(sr)) {
+    E("driver_connect [%s] failed", connstr);
+    return -1;
+  }
+
+  DUMP("connection str:%s", buf);
+  return 0;
+}
+
+static int _connect_by_arg(const odbc_conn_arg_t *conn_arg, odbc_handles_t *handles)
+{
+  if (conn_arg->connstr) {
+    return _driver_connect(handles->hconn, conn_arg->connstr);
+  } else {
+    return _connect(handles->hconn, conn_arg->dsn, conn_arg->uid, conn_arg->pwd);
+  }
+}
+
+static int run_with_conn(odbc_case_t *odbc_case, const odbc_conn_arg_t *conn_arg, odbc_handles_t *handles)
 {
   int r = 0;
 
-  r = odbc_case->run(odbc_case, ODBC_DBC, handles);
+  r = _connect_by_arg(conn_arg, handles);
   if (r) return -1;
 
   r = run_with_connected_conn(odbc_case, handles);
@@ -100,7 +154,7 @@ static int run_with_conn(odbc_case_t *odbc_case, odbc_handles_t *handles)
   return r ? -1 : 0;
 }
 
-static int run_with_env(odbc_case_t *odbc_case, odbc_handles_t *handles)
+static int run_with_env(odbc_case_t *odbc_case, const odbc_conn_arg_t *conn_arg, odbc_handles_t *handles)
 {
   int r = 0;
   SQLRETURN sr = SQL_SUCCESS;
@@ -110,9 +164,10 @@ static int run_with_env(odbc_case_t *odbc_case, odbc_handles_t *handles)
 
   do {
     r = odbc_case->run(odbc_case, ODBC_ENV, handles);
+    DUMP("");
     if (r) break;
 
-    r = run_with_conn(odbc_case, handles);
+    r = run_with_conn(odbc_case, conn_arg, handles);
     if (r) break;
   } while (0);
 
@@ -122,12 +177,13 @@ static int run_with_env(odbc_case_t *odbc_case, odbc_handles_t *handles)
   return r ? -1 : 0;
 }
 
-static int run_odbc_case(odbc_case_t *odbc_case, odbc_handles_t *handles)
+static int run_odbc_case(odbc_case_t *odbc_case, const odbc_conn_arg_t *conn_arg, odbc_handles_t *handles)
 {
   int r = 0;
   SQLRETURN sr = SQL_SUCCESS;
 
   r = odbc_case->run(odbc_case, ODBC_INITED, handles);
+  DUMP("");
   if (r) return -1;
 
   sr = CALL_SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &handles->henv);
@@ -137,7 +193,7 @@ static int run_odbc_case(odbc_case_t *odbc_case, odbc_handles_t *handles)
     sr = CALL_SQLSetEnvAttr(handles->henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, 0);
     if (FAILED(sr)) { r = -1; break; }
 
-    r = run_with_env(odbc_case, handles);
+    r = run_with_env(odbc_case, conn_arg, handles);
     if (r) break;
   } while (0);
 
@@ -147,18 +203,19 @@ static int run_odbc_case(odbc_case_t *odbc_case, odbc_handles_t *handles)
   return r ? -1 : 0;
 }
 
-int run_odbc_cases(odbc_case_t *cases, size_t cases_nr)
+int run_odbc_cases(const char *name, const odbc_conn_arg_t *conn_arg, odbc_case_t *cases, size_t cases_nr)
 {
   int r = 0;
 
   for (size_t i=0; i<cases_nr; ++i) {
     odbc_case_t *odbc_case = cases + i;
+    if (name && strcmp(name, odbc_case->name)) continue;
     odbc_handles_t handles = {
       .henv          = SQL_NULL_HANDLE,
       .hconn         = SQL_NULL_HANDLE,
       .hstmt         = SQL_NULL_HANDLE,
     };
-    r = run_odbc_case(odbc_case, &handles);
+    r = run_odbc_case(odbc_case, conn_arg, &handles);
     if (r) return -1;
   }
 

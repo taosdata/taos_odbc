@@ -761,7 +761,7 @@ SQLRETURN tsdb_stmt_describe_param(
   if (DecimalDigitsPtr)  *DecimalDigitsPtr  = 0;
   if (NullablePtr)       *NullablePtr       = SQL_NULLABLE_UNKNOWN;
   stmt_append_err(stmt->owner, "01000", 0,
-      "General warning:Arbitrary `SQL_VARCHAR(1024)` is chosen to return because of taos lacking parm-desc for non-insert-statement");
+      "General warning:Arbitrary `SQL_VARCHAR(1024)` is chosen to return because of taos lacking param-desc for non-insert-statement");
   return SQL_SUCCESS_WITH_INFO;
 }
 

@@ -31,53 +31,20 @@
 
 #define DUMP(fmt, ...)          printf(fmt "\n", ##__VA_ARGS__)
 
-typedef enum stage_s          stage_t;
-enum stage_s {
-  STAGE_INITED,
-  STAGE_CONNECTED,
-  STAGE_STATEMENT,
-};
-
 typedef struct arg_s             arg_t;
 
-typedef int (*dump_f)(const arg_t *arg, stage_t stage, SQLHANDLE henv, SQLHANDLE hconn, SQLHANDLE hstmt);
+struct arg_s {
+  odbc_conn_arg_t  conn_arg;
 
-typedef struct _sql_s              _sql_t;
-struct _sql_s {
-  const char          *sql;
-  int                  __line__;
-  uint8_t              ignore_failure;
+  const char      *name;
 };
 
-static int execute_sqls(SQLHANDLE hstmt, const _sql_t *sqls, size_t nr)
+static int _dummy(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles_t *handles)
 {
-  SQLRETURN sr = SQL_SUCCESS;
-
-  for (size_t i=0; i<nr; ++i) {
-    const _sql_t *sql = sqls + i;
-    sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql->sql, SQL_NTS);
-    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
-      if (!sql->ignore_failure) {
-        E("executing sql @[%dL]:%s", sql->__line__, sql->sql);
-        E("failed");
-        return -1;
-      }
-      W("failure ignored as expected");
-    }
-    CALL_SQLCloseCursor(hstmt);
-  }
-
-  return 0;
-}
-
-static int _dummy(const arg_t *arg, stage_t stage, SQLHANDLE henv, SQLHANDLE hconn, SQLHANDLE hstmt)
-{
-  (void)arg;
+  (void)odbc_case;
   (void)stage;
-  (void)henv;
-  (void)hconn;
-  (void)hstmt;
-  return SQL_SUCCESS;
+  (void)handles;
+  return 0;
 }
 
 static int _dump_col_info(SQLHANDLE hstmt, SQLUSMALLINT ColumnNumber)
@@ -288,49 +255,29 @@ static int _dump_col_info(SQLHANDLE hstmt, SQLUSMALLINT ColumnNumber)
   if (sr != SQL_SUCCESS) return -1;
   DUMP("Column%d.%s=%s",ColumnNumber, sql_col_attribute(FieldIdentifier), sql_updatable((SQLSMALLINT)NumericAttribute));
 
-  DUMP("");
-
   return 0;
 }
 
-static int _prepare_data_set(SQLHANDLE hstmt)
+static int _dump_stmt_col_info(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles_t *handles)
 {
-  const _sql_t sqls[] = {
-    {"create database bar", __LINE__, 1},
-    {"create database if not exists bar", __LINE__, 1},
-    {"use bar", __LINE__, 0},
-  };
+  (void)odbc_case;
 
-  return execute_sqls(hstmt, sqls, sizeof(sqls)/sizeof(sqls[0]));
-}
-
-static int _dump_stmt_col_info(const arg_t *arg, stage_t stage, SQLHANDLE henv, SQLHANDLE hconn, SQLHANDLE hstmt)
-{
-  (void)arg;
-  (void)henv;
-  (void)hconn;
+  SQLHANDLE hstmt = handles->hstmt;
 
   SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
 
-  if (stage != STAGE_STATEMENT) return 0;
+  if (stage != ODBC_STMT) return 0;
 
-  if (_prepare_data_set(hstmt)) return -1;
-
-  DUMP("");
   DUMP("%s:", __func__);
 
-  const _sql_t sqls[] = {
-    {"drop table x", __LINE__, 1},
-    {"drop table if exists x", __LINE__, 1},
-    {"create table x (ts timestamp, b bit, i8 tinyint, i16 smallint, i32 int, i64 bigint, f real, d float, name varchar(20), mark nchar(2), dt datetime, dt2 datetime2(3))", __LINE__, 1},
-    {"create table x (ts timestamp, b bool, i8 tinyint, i16 smallint, i32 int, i64 bigint, f float, name varchar(20), mark nchar(2))", __LINE__, 1},
-  };
+  const char *env = "SAMPLE_DUMP_COL_SQL";
+  const char *sql = getenv(env);
+  if (!sql) {
+    DUMP("env `%s` not set yet", env);
+    return 0;
+  }
 
-  r = execute_sqls(hstmt, sqls, sizeof(sqls)/sizeof(sqls[0]));
-  if (r) return -1;
-
-  const char *sql = "select * from x";
   sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
   if (sr != SQL_SUCCESS) return -1;
 
@@ -369,38 +316,49 @@ static int _dump_col(SQLHANDLE hstmt, SQLUSMALLINT ColumnNumber)
   return 0;
 }
 
-static int _dump_stmt_tables(const arg_t *arg, stage_t stage, SQLHANDLE henv, SQLHANDLE hconn, SQLHANDLE hstmt)
+static int _dump_stmt_tables(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles_t *handles)
 {
-  (void)arg;
-  (void)henv;
-  (void)hconn;
+  (void)odbc_case;
+
+  SQLHANDLE hstmt = handles->hstmt;
 
   SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
 
-  if (stage != STAGE_STATEMENT) return 0;
-
-  if (_prepare_data_set(hstmt)) return -1;
+  if (stage != ODBC_STMT) return 0;
 
   int row = 0;
 
-  DUMP("");
   DUMP("%s:", __func__);
 
-  const char *CatalogName;
-  const char *SchemaName;
-  const char *TableName;
-  const char *TableType;
+  const char *CatalogName = NULL;
+  const char *SchemaName  = NULL;
+  const char *TableName   = NULL;
+  const char *TableType   = NULL;
 
-  CatalogName = "information_schema";
-  SchemaName = NULL;
-  TableName = "ins_columns";
-  TableType = "TABLE";
+  const char *env;
+
+  env = "CATALOG";
+  CatalogName = getenv(env);
+  DUMP("env `%s`:%s", env, CatalogName);
+
+  env = "SCHEMA";
+  SchemaName = getenv(env);
+  DUMP("env `%s`:%s", env, SchemaName);
+
+  env = "TABLE";
+  TableName = getenv(env);
+  DUMP("env `%s`:%s", env, TableName);
+
+  env = "TYPE";
+  TableType = getenv(env);
+  DUMP("env `%s`:%s", env, TableType);
+
   sr = CALL_SQLTables(hstmt,
-    (SQLCHAR*)CatalogName, (SQLSMALLINT)strlen(CatalogName),
+    (SQLCHAR*)CatalogName, CatalogName ? (SQLSMALLINT)strlen(CatalogName) : 0,
     (SQLCHAR*)SchemaName,  SchemaName ? (SQLSMALLINT)strlen(SchemaName) : 0,
-    (SQLCHAR*)TableName,   (SQLSMALLINT)strlen(TableName),
-    (SQLCHAR*)TableType,   (SQLSMALLINT)strlen(TableType));
+    (SQLCHAR*)TableName,   TableName ? (SQLSMALLINT)strlen(TableName) : 0,
+    (SQLCHAR*)TableType,   TableType ? (SQLSMALLINT)strlen(TableType) : 0);
   DUMP("sr: %s", sql_return_type(sr));
   if (FAILED(sr)) return -1;
 
@@ -426,33 +384,25 @@ again:
   return 0;
 }
 
-static int _dump_stmt_describe_col(const arg_t *arg, stage_t stage, SQLHANDLE henv, SQLHANDLE hconn, SQLHANDLE hstmt)
+static int _dump_stmt_describe_col(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles_t *handles)
 {
-  (void)arg;
-  (void)henv;
-  (void)hconn;
+  (void)odbc_case;
+
+  SQLHANDLE hstmt = handles->hstmt;
 
   SQLRETURN sr = SQL_SUCCESS;
-  int r = 0;
 
-  if (stage != STAGE_STATEMENT) return 0;
+  if (stage != ODBC_STMT) return 0;
 
-  if (_prepare_data_set(hstmt)) return -1;
-
-  DUMP("");
   DUMP("%s:", __func__);
 
-  const _sql_t sqls[] = {
-    {"drop table x", __LINE__, 1},
-    {"drop table if exists x", __LINE__, 1},
-    {"create table x (ts timestamp, b bit, i8 tinyint, i16 smallint, i32 int, i64 bigint, f real, d float, name varchar(20), mark nchar(2), dt datetime, dt2 datetime2(3))", __LINE__, 1},
-    {"create table x (ts timestamp, b bool, i8 tinyint, i16 smallint, i32 int, i64 bigint, f float, d double, name varchar(20), mark nchar(2))", __LINE__, 1},
-  };
+  const char *env = "SAMPLE_DUMP_COL_SQL";
+  const char *sql = getenv(env);
+  if (!sql) {
+    DUMP("env `%s` not set yet", env);
+    return 0;
+  }
 
-  r = execute_sqls(hstmt, sqls, sizeof(sqls)/sizeof(sqls[0]));
-  if (r) return -1;
-
-  const char *sql = "select * from x";
   sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
   if (sr != SQL_SUCCESS) return -1;
 
@@ -500,33 +450,25 @@ static int _dump_stmt_describe_col(const arg_t *arg, stage_t stage, SQLHANDLE he
   return 0;
 }
 
-static int _dump_stmt_describe_param(const arg_t *arg, stage_t stage, SQLHANDLE henv, SQLHANDLE hconn, SQLHANDLE hstmt)
+static int _dump_stmt_describe_param(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles_t *handles)
 {
-  (void)arg;
-  (void)henv;
-  (void)hconn;
+  (void)odbc_case;
+
+  SQLHANDLE hstmt = handles->hstmt;
 
   SQLRETURN sr = SQL_SUCCESS;
 
-  if (stage != STAGE_STATEMENT) return 0;
+  if (stage != ODBC_STMT) return 0;
 
-  DUMP("");
   DUMP("%s:", __func__);
 
-  const _sql_t dataset[] = {
-    {"create database bar", __LINE__, 1},
-    {"create database if not exists bar", __LINE__, 1},
-    {"use bar", __LINE__, 1},
-    {"drop table x", __LINE__, 1},
-    {"drop table if exists x", __LINE__, 1},
-    {"create table x (ts timestamp, b bit, i8 tinyint, i16 smallint, i32 int, i64 bigint, f real, d float, name varchar(20), mark nchar(2), dt datetime, dt2 datetime2(3))", __LINE__, 1},
-    {"create table x (ts timestamp, b bool, i8 tinyint, i16 smallint, i32 int, i64 bigint, f float, d double, name varchar(20), mark nchar(2))", __LINE__, 1},
-  };
+  const char *env = "SAMPLE_DUMP_PARAM_SQL";
+  const char *sql = getenv(env);
+  if (!sql) {
+    DUMP("env `%s` not set yet", env);
+    return 0;
+  }
 
-  sr = execute_sqls(hstmt, dataset, sizeof(dataset)/sizeof(dataset[0]));
-  if (sr != SQL_SUCCESS) return -1;
-
-  const char *sql = "select * from x where i32 <> ? and name = ?";
   sr = CALL_SQLPrepare(hstmt, (SQLCHAR*)sql, SQL_NTS);
   if (sr != SQL_SUCCESS) return -1;
 
@@ -541,7 +483,7 @@ static int _dump_stmt_describe_param(const arg_t *arg, stage_t stage, SQLHANDLE 
     SQLSMALLINT     Nullable        = 0;
 
     sr = CALL_SQLDescribeParam(hstmt, i+1, &DataType, &ParameterSize, &DecimalDigits, &Nullable);
-    if (sr != SQL_SUCCESS) return -1;
+    if (FAILED(sr)) return -1;
     DUMP("Parameter%d, DataType:%s, ParameterSize:%" PRIu64 ", DecimalDigits:%d, Nullable:%s",
         i+1, sql_data_type(DataType), (uint64_t)ParameterSize, DecimalDigits, sql_nullable(Nullable));
   }
@@ -569,7 +511,7 @@ static int _dump_stmt_describe_param(const arg_t *arg, stage_t stage, SQLHANDLE 
     SQLSMALLINT     Nullable        = 0;
 
     sr = CALL_SQLDescribeParam(hstmt, i+1, &DataType, &ParameterSize, &DecimalDigits, &Nullable);
-    if (sr != SQL_SUCCESS) return -1;
+    if (FAILED(sr)) return -1;
     DUMP("Parameter%d, DataType:%s, ParameterSize:%" PRIu64 ", DecimalDigits:%d, Nullable:%s",
         i+1, sql_data_type(DataType), (uint64_t)ParameterSize, DecimalDigits, sql_nullable(Nullable));
   }
@@ -621,13 +563,11 @@ describe:
 fetch:
 
   if (ColumnCount > 0) {
-    DUMP("");
     DUMP("dumping result set:");
     sr = CALL_SQLFetch(hstmt);
   } else {
     sr = CALL_SQLRowCount(hstmt, &RowCount);
     if (sr != SQL_SUCCESS) return -1;
-    DUMP("");
     DUMP("rows affected:%zd", (size_t)RowCount);
     sr = SQL_NO_DATA;
   }
@@ -665,20 +605,19 @@ fetch:
   goto fetch;
 }
 
-static int _execute_file(const arg_t *arg, stage_t stage, SQLHANDLE henv, SQLHANDLE hconn, SQLHANDLE hstmt)
+static int _execute_file(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles_t *handles)
 {
-  (void)arg;
-  (void)henv;
-  (void)hconn;
+  (void)odbc_case;
+
+  SQLHANDLE hstmt = handles->hstmt;
 
   int r = 0;
 
-  if (stage != STAGE_STATEMENT) return 0;
+  if (stage != ODBC_STMT) return 0;
 
-  DUMP("");
   DUMP("%s:", __func__);
 
-  const char *env = "TAOS_ODBC_SQL_FILE";
+  const char *env = "SAMPLE_DUMP_SQL_FILE";
   const char *fn = getenv(env);
   if (!fn) {
     DUMP("env `%s` not set yet", env);
@@ -699,194 +638,29 @@ static int _execute_file(const arg_t *arg, stage_t stage, SQLHANDLE henv, SQLHAN
   return r ? -1 : 0;
 }
 
-#define RECORD(x) {x, #x}
-
-static struct {
-  dump_f                func;
-  const char           *name;
-} _dumps[] = {
-  RECORD(_dummy),
-  RECORD(_dump_stmt_col_info),
-  RECORD(_dump_stmt_tables),
-  RECORD(_dump_stmt_describe_col),
-  RECORD(_dump_stmt_describe_param),
-  RECORD(_execute_file),
-};
-
-struct arg_s {
-  const char      *dsn;
-  const char      *uid;
-  const char      *pwd;
-  const char      *connstr;
-
-  const char      *name;
-
-  const char      *dumpname;
-  dump_f           dump;
-};
-
-static int _connect(SQLHANDLE hconn, const char *dsn, const char *uid, const char *pwd)
-{
-  SQLRETURN sr = SQL_SUCCESS;
-
-  sr = CALL_SQLConnect(hconn, (SQLCHAR*)dsn, SQL_NTS, (SQLCHAR*)uid, SQL_NTS, (SQLCHAR*)pwd, SQL_NTS);
-  if (FAILED(sr)) {
-    E("connect [dsn:%s,uid:%s,pwd:%s] failed", dsn, uid, pwd);
-    return -1;
-  }
-
-  return 0;
-}
-
-static int _driver_connect(SQLHANDLE hconn, const char *connstr)
-{
-  SQLRETURN sr = SQL_SUCCESS;
-
-  char buf[1024];
-  buf[0] = '\0';
-  SQLSMALLINT StringLength = 0;
-  sr = CALL_SQLDriverConnect(hconn, NULL, (SQLCHAR*)connstr, SQL_NTS, (SQLCHAR*)buf, sizeof(buf), &StringLength, SQL_DRIVER_COMPLETE);
-  if (FAILED(sr)) {
-    E("driver_connect [connstr:%s] failed", connstr);
-    return -1;
-  }
-
-  DUMP("connection str:%s", buf);
-  return 0;
-}
-
-static int dump_with_stmt(const arg_t *arg, SQLHANDLE henv, SQLHANDLE hconn, SQLHANDLE hstmt)
-{
-  int r = 0;
-
-  r = arg->dump(arg, STAGE_STATEMENT, henv, hconn, hstmt);
-  if (r) return -1;
-
-  return 0;
-}
-
-static int dump_with_connected_conn(const arg_t *arg, SQLHANDLE henv, SQLHANDLE hconn)
-{
-  SQLRETURN sr = SQL_SUCCESS;
-  int r = 0;
-
-  r = arg->dump(arg, STAGE_CONNECTED, henv, hconn, NULL);
-  if (r) return -1;
-
-  SQLHANDLE hstmt;
-
-  sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
-
-  r = dump_with_stmt(arg, henv, hconn, hstmt);
-
-  CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-
-  return r ? -1 : 0;
-}
-
-static int dump_with_conn(const arg_t *arg, SQLHANDLE henv, SQLHANDLE hconn)
-{
-  int r = 0;
-
-  if (arg->connstr) {
-    r = _driver_connect(hconn, arg->connstr);
-    if (r) return -1;
-  } else {
-    r = _connect(hconn, arg->dsn, arg->uid, arg->pwd);
-    if (r) return -1;
-  }
-
-  r = dump_with_connected_conn(arg, henv, hconn);
-
-  CALL_SQLDisconnect(hconn);
-
-  return r ? -1 : 0;
-}
-
-static int dump_with_env(const arg_t *arg, SQLHANDLE henv)
-{
-  int r = 0;
-  SQLRETURN sr = SQL_SUCCESS;
-
-  SQLHANDLE hconn = SQL_NULL_HANDLE;
-  sr = CALL_SQLAllocHandle(SQL_HANDLE_DBC, henv, &hconn);
-  if (FAILED(sr)) return -1;
-
-  r = dump_with_conn(arg, henv, hconn);
-
-  CALL_SQLFreeHandle(SQL_HANDLE_DBC, hconn);
-
-  return r;
-}
-
-static int run_dump(const arg_t *arg)
-{
-  int r = 0;
-  SQLRETURN sr = SQL_SUCCESS;
-
-  SQLHANDLE henv  = SQL_NULL_HANDLE;
-
-  sr = CALL_SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &henv);
-  if (FAILED(sr)) return 1;
-
-  do {
-    sr = CALL_SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, 0);
-    if (FAILED(sr)) { r = -1; break; }
-
-    r = dump_with_env(arg, henv);
-    if (r) break;
-  } while (0);
-
-  CALL_SQLFreeHandle(SQL_HANDLE_ENV, henv);
-
-  return r;
-}
-
-static arg_t *arg_for_odbc_case = NULL;
-
 static int odbc_case_dummy(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles_t *handles)
 {
   (void)odbc_case;
-  arg_t *arg = arg_for_odbc_case;
+  (void)stage;
+  (void)handles;
 
-  if (stage == ODBC_DBC) {
-    int r = 0;
-    if (arg->connstr) {
-      r = _driver_connect(handles->hconn, arg->connstr);
-      if (r) return -1;
-    } else {
-      r = _connect(handles->hconn, arg->dsn, arg->uid, arg->pwd);
-      if (r) return -1;
-    }
-  }
   return 0;
 }
 
 static odbc_case_t odbc_cases[] = {
   ODBC_CASE(odbc_case_dummy),
+  ODBC_CASE(_dummy),
+  ODBC_CASE(_dump_stmt_col_info),
+  ODBC_CASE(_dump_stmt_tables),
+  ODBC_CASE(_dump_stmt_describe_col),
+  ODBC_CASE(_dump_stmt_describe_param),
+  ODBC_CASE(_execute_file),
 };
 
 static int _dumping(arg_t *arg)
 {
-  int r = 0;
-
-  if (1) {
-    arg_for_odbc_case = arg;
-    return run_odbc_cases(odbc_cases, sizeof(odbc_cases)/sizeof(odbc_cases[0]));
-  }
-
-  const size_t nr = sizeof(_dumps)/sizeof(_dumps[0]);
-  for (size_t i=0; i<nr; ++i) {
-    arg->dumpname = _dumps[i].name;
-    arg->dump     = _dumps[i].func;
-    if ((!arg->name) || tod_strcasecmp(arg->name, arg->dumpname) == 0) {
-      r = run_dump(arg);
-      if (r) return -1;
-    }
-  }
-
-  return 0;
+  odbc_conn_arg_t conn_arg = arg->conn_arg;
+  return run_odbc_cases(arg->name, &conn_arg, odbc_cases, sizeof(odbc_cases)/sizeof(odbc_cases[0]));
 }
 
 static void usage(const char *arg0)
@@ -897,14 +671,8 @@ static void usage(const char *arg0)
   DUMP("  %s --connstr <connstr> [name]", arg0);
   DUMP("");
   DUMP("supported dump names:");
-  if (1) {
-    for (size_t i=0; i<sizeof(odbc_cases)/sizeof(odbc_cases[0]); ++i) {
-      DUMP("  %s", odbc_cases[i].name);
-    }
-    return;
-  }
-  for (size_t i=0; i<sizeof(_dumps)/sizeof(_dumps[0]); ++i) {
-    DUMP("  %s", _dumps[i].name);
+  for (size_t i=0; i<sizeof(odbc_cases)/sizeof(odbc_cases[0]); ++i) {
+    DUMP("  %s", odbc_cases[i].name);
   }
 }
 
@@ -922,25 +690,25 @@ static int dumping(int argc, char *argv[])
     if (strcmp(argv[i], "--dsn") == 0) {
       ++i;
       if (i>=argc) break;
-      arg.dsn = argv[i];
+      arg.conn_arg.dsn = argv[i];
       continue;
     }
     if (strcmp(argv[i], "--uid") == 0) {
       ++i;
       if (i>=argc) break;
-      arg.uid = argv[i];
+      arg.conn_arg.uid = argv[i];
       continue;
     }
     if (strcmp(argv[i], "--pwd") == 0) {
       ++i;
       if (i>=argc) break;
-      arg.pwd = argv[i];
+      arg.conn_arg.pwd = argv[i];
       continue;
     }
     if (strcmp(argv[i], "--connstr") == 0) {
       ++i;
       if (i>=argc) break;
-      arg.connstr = argv[i];
+      arg.conn_arg.connstr = argv[i];
       continue;
     }
 
@@ -961,3 +729,4 @@ int main(int argc, char *argv[])
   fprintf(stderr, "==%s==\n", r ? "failure" : "success");
   return !!r;
 }
+

@@ -483,6 +483,8 @@ struct tsdb_params_s {
 
   mem_t                               mem;
 
+  int32_t                             qms_from_sql_parsed_by_taos_odbc;
+
   unsigned int                        prepared:1;
   unsigned int                        is_insert_stmt:1;
   unsigned int                        subtbl_required:1;

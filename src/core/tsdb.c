@@ -570,6 +570,9 @@ static SQLRETURN _tsdb_stmt_get_taos_tags_cols_for_insert(tsdb_stmt_t *stmt, int
       sr = _tsdb_stmt_get_taos_tags_cols_for_subtbled_insert(stmt, r, taos_api_fail);
     } else if (e == TSDB_CODE_TSC_STMT_API_ERROR) {
       sr = _tsdb_stmt_get_taos_tags_cols_for_normal_insert(stmt, r, taos_api_fail);
+    } else {
+      stmt_append_err_format(stmt->owner, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->stmt));
+      sr = SQL_ERROR;
     }
     if (tag_fields) {
       CALL_taos_stmt_reclaim_fields(stmt->stmt, tag_fields);
@@ -800,6 +803,8 @@ SQLRETURN tsdb_stmt_prepare(tsdb_stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb)
     return SQL_ERROR;
   }
 
+  stmt->params.qms_from_sql_parsed_by_taos_odbc = sqlc_tsdb->qms;
+
   int32_t isInsert = 0;
   r = CALL_taos_stmt_is_insert(stmt->stmt, &isInsert);
   isInsert = !!isInsert;
@@ -851,6 +856,7 @@ SQLRETURN tsdb_stmt_prepare(tsdb_stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb)
         if (sr != SQL_SUCCESS) return SQL_ERROR;
         stmt->fall_back_to_query = 1;
       } else {
+        OA(0, "");
         stmt_append_err(stmt->owner, "HY000", 0, "General error:statement-without-parameter-placemarker not allowed to be prepared");
         return SQL_ERROR;
       }

@@ -450,6 +450,120 @@ static int _dump_stmt_describe_col(odbc_case_t *odbc_case, odbc_stage_t stage, o
   return 0;
 }
 
+static int _dump_stmt_desc_bind_desc_col(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles_t *handles)
+{
+  (void)odbc_case;
+
+  SQLHANDLE hstmt = handles->hstmt;
+
+  SQLRETURN sr = SQL_SUCCESS;
+
+  if (stage != ODBC_STMT) return 0;
+
+  DUMP("%s:", __func__);
+
+  const char *env = "SAMPLE_DUMP_COL_SQL";
+  const char *sql = getenv(env);
+  if (!sql) {
+    DUMP("env `%s` not set yet", env);
+    return 0;
+  }
+
+  sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
+  if (sr != SQL_SUCCESS) return -1;
+
+  SQLSMALLINT ColumnCount;
+  sr = CALL_SQLNumResultCols(hstmt, &ColumnCount);
+  if (sr != SQL_SUCCESS) return -1;
+
+  for (SQLSMALLINT i = 0; i<ColumnCount; ++i) {
+    char buf[4096];
+    SQLSMALLINT    NameLength;
+    SQLSMALLINT    DataType;
+    SQLULEN        ColumnSize;
+    SQLSMALLINT    DecimalDigits;
+    SQLSMALLINT    Nullable;
+    SQLLEN         NumericAttribute;
+
+    sr = CALL_SQLDescribeCol(hstmt, i+1, (SQLCHAR*)buf, sizeof(buf), &NameLength, &DataType, &ColumnSize, &DecimalDigits, &Nullable);
+    if (sr != SQL_SUCCESS) return -1;
+    DUMP("Column%d Name:%s, DataType:%s, ColumnSize:%" PRIu64 ", DecimalDigits:%d, Nullable:%s",
+      i+1, buf, sql_data_type(DataType), (uint64_t)ColumnSize, DecimalDigits, sql_nullable(Nullable));
+
+    sr = CALL_SQLColAttribute(hstmt, i+1, SQL_DESC_NAME, (SQLCHAR*)buf, sizeof(buf), &NameLength, &NumericAttribute);
+    if (sr != SQL_SUCCESS) return -1;
+
+    SQLLEN         DESC_LENGTH;
+    sr = CALL_SQLColAttribute(hstmt, i+1, SQL_DESC_LENGTH, NULL, 0, NULL, &DESC_LENGTH);
+    if (sr != SQL_SUCCESS) return -1;
+
+    SQLLEN         DESC_PRECISION;
+    sr = CALL_SQLColAttribute(hstmt, i+1, SQL_DESC_PRECISION, NULL, 0, NULL, &DESC_PRECISION);
+    if (sr != SQL_SUCCESS) return -1;
+
+    SQLLEN         DESC_SCALE;
+    sr = CALL_SQLColAttribute(hstmt, i+1, SQL_DESC_SCALE, NULL, 0, NULL, &DESC_SCALE);
+    if (sr != SQL_SUCCESS) return -1;
+
+    SQLLEN         DESC_OCTET_LENGTH;
+    sr = CALL_SQLColAttribute(hstmt, i+1, SQL_DESC_OCTET_LENGTH, NULL, 0, NULL, &DESC_OCTET_LENGTH);
+    if (sr != SQL_SUCCESS) return -1;
+
+    DUMP("Column%d Name:%s, DESC_LENGTH:%" PRId64 ", DESC_PRECISION:%" PRId64 ", DESC_SCALE:%" PRId64 ", DESC_OCTET_LENGTH:%" PRId64 "",
+      i+1, buf, (int64_t)DESC_LENGTH, (int64_t)DESC_PRECISION, (int64_t)DESC_SCALE, (int64_t)DESC_OCTET_LENGTH);
+  }
+
+  for (SQLSMALLINT i = 0; i<ColumnCount; ++i) {
+    char buf[4096];
+    SQLSMALLINT    TargetType       = SQL_C_CHAR;
+    SQLPOINTER     TargetValuePtr   = buf;
+    SQLLEN         BufferLength     = sizeof(buf);
+    SQLLEN         StrLen_or_Ind    = 0;
+    sr = CALL_SQLBindCol(hstmt, i+1, TargetType, TargetValuePtr, BufferLength, &StrLen_or_Ind);
+    if (sr != SQL_SUCCESS) return -1;
+  }
+
+  DUMP("after binding...");
+  for (SQLSMALLINT i = 0; i<ColumnCount; ++i) {
+    char buf[4096];
+    SQLSMALLINT    NameLength;
+    SQLSMALLINT    DataType;
+    SQLULEN        ColumnSize;
+    SQLSMALLINT    DecimalDigits;
+    SQLSMALLINT    Nullable;
+    SQLLEN         NumericAttribute;
+
+    sr = CALL_SQLDescribeCol(hstmt, i+1, (SQLCHAR*)buf, sizeof(buf), &NameLength, &DataType, &ColumnSize, &DecimalDigits, &Nullable);
+    if (sr != SQL_SUCCESS) return -1;
+    DUMP("Column%d Name:%s, DataType:%s, ColumnSize:%" PRIu64 ", DecimalDigits:%d, Nullable:%s",
+      i+1, buf, sql_data_type(DataType), (uint64_t)ColumnSize, DecimalDigits, sql_nullable(Nullable));
+
+    sr = CALL_SQLColAttribute(hstmt, i+1, SQL_DESC_NAME, (SQLCHAR*)buf, sizeof(buf), &NameLength, &NumericAttribute);
+    if (sr != SQL_SUCCESS) return -1;
+
+    SQLLEN         DESC_LENGTH;
+    sr = CALL_SQLColAttribute(hstmt, i+1, SQL_DESC_LENGTH, NULL, 0, NULL, &DESC_LENGTH);
+    if (sr != SQL_SUCCESS) return -1;
+
+    SQLLEN         DESC_PRECISION;
+    sr = CALL_SQLColAttribute(hstmt, i+1, SQL_DESC_PRECISION, NULL, 0, NULL, &DESC_PRECISION);
+    if (sr != SQL_SUCCESS) return -1;
+
+    SQLLEN         DESC_SCALE;
+    sr = CALL_SQLColAttribute(hstmt, i+1, SQL_DESC_SCALE, NULL, 0, NULL, &DESC_SCALE);
+    if (sr != SQL_SUCCESS) return -1;
+
+    SQLLEN         DESC_OCTET_LENGTH;
+    sr = CALL_SQLColAttribute(hstmt, i+1, SQL_DESC_OCTET_LENGTH, NULL, 0, NULL, &DESC_OCTET_LENGTH);
+    if (sr != SQL_SUCCESS) return -1;
+
+    DUMP("Column%d Name:%s, DESC_LENGTH:%" PRId64 ", DESC_PRECISION:%" PRId64 ", DESC_SCALE:%" PRId64 ", DESC_OCTET_LENGTH:%" PRId64 "",
+      i+1, buf, (int64_t)DESC_LENGTH, (int64_t)DESC_PRECISION, (int64_t)DESC_SCALE, (int64_t)DESC_OCTET_LENGTH);
+  }
+
+  return 0;
+}
+
 static int _dump_stmt_describe_param(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles_t *handles)
 {
   (void)odbc_case;
@@ -563,7 +677,7 @@ static int _dump_stmt_desc_bind_desc_param(odbc_case_t *odbc_case, odbc_stage_t 
     SQLSMALLINT     InputOutputType               = SQL_PARAM_INPUT;
     SQLSMALLINT     ValueType                     = SQL_C_CHAR;
     SQLSMALLINT     ParameterType                 = SQL_VARCHAR;
-    SQLULEN         ColumnSize                    = sizeof(buf[i]);
+    SQLULEN         ColumnSize                    = sizeof(buf[i]) - 1;
     SQLSMALLINT     DecimalDigits                 = 0;
     SQLPOINTER      ParameterValuePtr             = buf[i];
     SQLLEN          BufferLength                  = sizeof(buf[i]);
@@ -714,6 +828,7 @@ static odbc_case_t odbc_cases[] = {
   ODBC_CASE(_dump_stmt_col_info),
   ODBC_CASE(_dump_stmt_tables),
   ODBC_CASE(_dump_stmt_describe_col),
+  ODBC_CASE(_dump_stmt_desc_bind_desc_col),
   ODBC_CASE(_dump_stmt_describe_param),
   ODBC_CASE(_dump_stmt_desc_bind_desc_param),
   ODBC_CASE(_execute_file),

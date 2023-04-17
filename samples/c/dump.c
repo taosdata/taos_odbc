@@ -277,6 +277,7 @@ static int _dump_stmt_col_info(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_
     DUMP("env `%s` not set yet", env);
     return 0;
   }
+  DUMP("env`%s`:%s", env, sql);
 
   sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
   if (sr != SQL_SUCCESS) return -1;
@@ -402,6 +403,7 @@ static int _dump_stmt_describe_col(odbc_case_t *odbc_case, odbc_stage_t stage, o
     DUMP("env `%s` not set yet", env);
     return 0;
   }
+  DUMP("env`%s`:%s", env, sql);
 
   sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
   if (sr != SQL_SUCCESS) return -1;
@@ -468,6 +470,7 @@ static int _dump_stmt_desc_bind_desc_col(odbc_case_t *odbc_case, odbc_stage_t st
     DUMP("env `%s` not set yet", env);
     return 0;
   }
+  DUMP("env`%s`:%s", env, sql);
 
   sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
   if (sr != SQL_SUCCESS) return -1;
@@ -582,6 +585,7 @@ static int _dump_stmt_describe_param(odbc_case_t *odbc_case, odbc_stage_t stage,
     DUMP("env `%s` not set yet", env);
     return 0;
   }
+  DUMP("env`%s`:%s", env, sql);
 
   sr = CALL_SQLPrepare(hstmt, (SQLCHAR*)sql, SQL_NTS);
   if (sr != SQL_SUCCESS) return -1;
@@ -651,6 +655,7 @@ static int _dump_stmt_desc_bind_desc_param(odbc_case_t *odbc_case, odbc_stage_t 
     DUMP("env `%s` not set yet", env);
     return 0;
   }
+  DUMP("env`%s`:%s", env, sql);
 
   sr = CALL_SQLPrepare(hstmt, (SQLCHAR*)sql, SQL_NTS);
   if (sr != SQL_SUCCESS) return -1;
@@ -808,6 +813,7 @@ static int _execute_file(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handle
     DUMP("env `%s` not set yet", env);
     return -1;
   }
+  DUMP("env`%s`:%s", env, fn);
 
   FILE *f;
 

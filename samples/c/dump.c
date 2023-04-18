@@ -709,6 +709,97 @@ static int _dump_stmt_desc_bind_desc_param(odbc_case_t *odbc_case, odbc_stage_t 
   return 0;
 }
 
+static int _prepare_bind_param_execute(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles_t *handles)
+{
+  (void)odbc_case;
+
+  SQLHANDLE hstmt = handles->hstmt;
+
+  SQLRETURN sr = SQL_SUCCESS;
+
+  if (stage != ODBC_STMT) return 0;
+
+  DUMP("%s:", __func__);
+
+  const char *sql = "insert into x (i8) values (?)";
+  DUMP("sql:%s", sql);
+
+  sr = CALL_SQLPrepare(hstmt, (SQLCHAR*)sql, SQL_NTS);
+  if (sr != SQL_SUCCESS) return -1;
+
+  SQLSMALLINT ParameterCount;
+  sr = CALL_SQLNumParams(hstmt, &ParameterCount);
+  if (sr != SQL_SUCCESS) return -1;
+
+  for (SQLSMALLINT i = 0; i<ParameterCount; ++i) {
+    SQLSMALLINT     DataType        = 0;
+    SQLULEN         ParameterSize   = 0;
+    SQLSMALLINT     DecimalDigits   = 0;
+    SQLSMALLINT     Nullable        = 0;
+
+    sr = CALL_SQLDescribeParam(hstmt, i+1, &DataType, &ParameterSize, &DecimalDigits, &Nullable);
+    if (FAILED(sr)) return -1;
+    DUMP("Parameter%d, DataType:%s, ParameterSize:%" PRIu64 ", DecimalDigits:%d, Nullable:%s",
+        i+1, sql_data_type(DataType), (uint64_t)ParameterSize, DecimalDigits, sql_nullable(Nullable));
+  }
+
+  int8_t v[20];
+  SQLLEN v_ind[20];
+
+  memset(v, 0, sizeof(v));
+  memset(v_ind, 0, sizeof(v_ind));
+
+  SQLULEN ParamsProcessed = 0;
+  SQLUSMALLINT ParamStatusArray[sizeof(v)/sizeof(v[0])];
+  memset(ParamStatusArray, 0, sizeof(ParamStatusArray));
+  SQLULEN paramset_size = sizeof(v)/sizeof(v[0]);
+  paramset_size = 2;
+
+  CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAM_BIND_TYPE, SQL_PARAM_BIND_BY_COLUMN, 0);
+  CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAMSET_SIZE, (SQLPOINTER)paramset_size, 0);
+  CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAM_STATUS_PTR, ParamStatusArray, 0);
+  CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAMS_PROCESSED_PTR, &ParamsProcessed, 0);
+
+  {
+    SQLSMALLINT     InputOutputType               = SQL_PARAM_INPUT;
+    SQLSMALLINT     ValueType                     = SQL_C_TINYINT;
+    SQLSMALLINT     ParameterType                 = SQL_VARCHAR;
+    SQLULEN         ColumnSize                    = 2;
+    SQLSMALLINT     DecimalDigits                 = 0;
+    SQLPOINTER      ParameterValuePtr             = v;
+    SQLLEN          BufferLength                  = sizeof(v[0]);
+
+    sr = CALL_SQLBindParameter(hstmt, 1, InputOutputType, ValueType, ParameterType, ColumnSize, DecimalDigits, ParameterValuePtr, BufferLength, v_ind);
+    if (sr != SQL_SUCCESS) return -1;
+  }
+
+  DUMP("after binding...");
+
+  for (SQLSMALLINT i = 0; i<ParameterCount; ++i) {
+    SQLSMALLINT     DataType        = 0;
+    SQLULEN         ParameterSize   = 0;
+    SQLSMALLINT     DecimalDigits   = 0;
+    SQLSMALLINT     Nullable        = 0;
+
+    sr = CALL_SQLDescribeParam(hstmt, i+1, &DataType, &ParameterSize, &DecimalDigits, &Nullable);
+    if (FAILED(sr)) return -1;
+    DUMP("Parameter%d, DataType:%s, ParameterSize:%" PRIu64 ", DecimalDigits:%d, Nullable:%s",
+        i+1, sql_data_type(DataType), (uint64_t)ParameterSize, DecimalDigits, sql_nullable(Nullable));
+  }
+
+  v[0] = 1;
+  v[1] = 123;
+
+  sr = CALL_SQLExecute(hstmt);
+  if (sr != SQL_SUCCESS) return -1;
+
+  for (SQLULEN i = 0; i<ParamsProcessed; ++i) {
+    DUMP("%zd:%d", i+1, ParamStatusArray[i]);
+  }
+
+  return 0;
+}
+
 static int _execute_file_impl(SQLHANDLE hstmt, const char *env, const char *fn, FILE *f)
 {
   SQLRETURN sr = SQL_SUCCESS;
@@ -837,6 +928,7 @@ static odbc_case_t odbc_cases[] = {
   ODBC_CASE(_dump_stmt_desc_bind_desc_col),
   ODBC_CASE(_dump_stmt_describe_param),
   ODBC_CASE(_dump_stmt_desc_bind_desc_param),
+  ODBC_CASE(_prepare_bind_param_execute),
   ODBC_CASE(_execute_file),
 };
 

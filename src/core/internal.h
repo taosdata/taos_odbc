@@ -485,8 +485,6 @@ struct tsdb_params_s {
 
   int32_t                             qms_from_sql_parsed_by_taos_odbc;
 
-  unsigned int                        prepared:1;
-  unsigned int                        is_insert_stmt:1;
   unsigned int                        subtbl_required:1;
 };
 
@@ -504,7 +502,8 @@ struct tsdb_stmt_s {
   tsdb_res_t                 res;
 
   unsigned int               prepared:1;
-  unsigned int               fall_back_to_query:1;
+  unsigned int               is_topic:1;
+  unsigned int               is_insert_stmt:1;
 };
 
 struct topic_s {
@@ -676,6 +675,7 @@ struct stmt_s {
   sqls_t                     sqls;
 
   mem_t                      tsdb_sql;
+  sqlc_tsdb_t                current_sql;
 
   tsdb_paramset_t            paramset;
 
@@ -693,7 +693,6 @@ struct stmt_s {
   stmt_base_t               *base;
 
   unsigned int               strict:1; // 1: param-truncation as failure
-  uint8_t                    fall_back_to_query:1;
 };
 
 struct tls_s {

@@ -759,18 +759,21 @@ void columns_init(columns_t *columns, stmt_t *stmt)
   columns->owner = stmt;
   tables_init(&columns->tables, stmt);
   tsdb_stmt_init(&columns->desc, stmt);
-  columns->base.query                        = _query;
-  columns->base.execute                      = _execute;
-  columns->base.get_col_fields               = _get_col_fields;
-  columns->base.fetch_row                    = _fetch_row;
-  columns->base.more_results                 = _more_results;
-  columns->base.describe_param               = _describe_param;
-  columns->base.get_num_params               = _get_num_params;
-  columns->base.check_params                 = _check_params;
-  columns->base.tsdb_field_by_param          = _tsdb_field_by_param;
-  columns->base.row_count                    = _row_count;
-  columns->base.get_num_cols                 = _get_num_cols;
-  columns->base.get_data                     = _get_data;
+
+  stmt_base_t *base = &columns->base;
+
+  base->query                        = _query;
+  base->execute                      = _execute;
+  base->get_col_fields               = _get_col_fields;
+  base->fetch_row                    = _fetch_row;
+  base->more_results                 = _more_results;
+  base->describe_param               = _describe_param;
+  base->get_num_params               = _get_num_params;
+  base->check_params                 = _check_params;
+  base->tsdb_field_by_param          = _tsdb_field_by_param;
+  base->row_count                    = _row_count;
+  base->get_num_cols                 = _get_num_cols;
+  base->get_data                     = _get_data;
 }
 
 SQLRETURN columns_open(

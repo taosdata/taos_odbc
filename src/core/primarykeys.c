@@ -450,18 +450,21 @@ void primarykeys_init(primarykeys_t *primarykeys, stmt_t *stmt)
   primarykeys->owner = stmt;
   tables_init(&primarykeys->tables, stmt);
   tsdb_stmt_init(&primarykeys->desc, stmt);
-  primarykeys->base.query                        = _query;
-  primarykeys->base.execute                      = _execute;
-  primarykeys->base.get_col_fields               = _get_col_fields;
-  primarykeys->base.fetch_row                    = _fetch_row;
-  primarykeys->base.more_results                 = _more_results;
-  primarykeys->base.describe_param               = _describe_param;
-  primarykeys->base.get_num_params               = _get_num_params;
-  primarykeys->base.check_params                 = _check_params;
-  primarykeys->base.tsdb_field_by_param          = _tsdb_field_by_param;
-  primarykeys->base.row_count                    = _row_count;
-  primarykeys->base.get_num_cols                 = _get_num_cols;
-  primarykeys->base.get_data                     = _get_data;
+
+  stmt_base_t *base = &primarykeys->base;
+
+  base->query                        = _query;
+  base->execute                      = _execute;
+  base->get_col_fields               = _get_col_fields;
+  base->fetch_row                    = _fetch_row;
+  base->more_results                 = _more_results;
+  base->describe_param               = _describe_param;
+  base->get_num_params               = _get_num_params;
+  base->check_params                 = _check_params;
+  base->tsdb_field_by_param          = _tsdb_field_by_param;
+  base->row_count                    = _row_count;
+  base->get_num_cols                 = _get_num_cols;
+  base->get_data                     = _get_data;
 }
 
 SQLRETURN primarykeys_open(

@@ -326,18 +326,21 @@ void tables_init(tables_t *tables, stmt_t *stmt)
 {
   tables->owner = stmt;
   tsdb_stmt_init(&tables->stmt, stmt);
-  tables->base.query                        = _query;
-  tables->base.execute                      = _execute;
-  tables->base.get_col_fields               = _get_col_fields;
-  tables->base.fetch_row                    = _fetch_row;
-  tables->base.more_results                 = _more_results;
-  tables->base.describe_param               = _describe_param;
-  tables->base.get_num_params               = _get_num_params;
-  tables->base.check_params                 = _check_params;
-  tables->base.tsdb_field_by_param          = _tsdb_field_by_param;
-  tables->base.row_count                    = _row_count;
-  tables->base.get_num_cols                 = _get_num_cols;
-  tables->base.get_data                     = _get_data;
+
+  stmt_base_t *base = &tables->base;
+
+  base->query                        = _query;
+  base->execute                      = _execute;
+  base->get_col_fields               = _get_col_fields;
+  base->fetch_row                    = _fetch_row;
+  base->more_results                 = _more_results;
+  base->describe_param               = _describe_param;
+  base->get_num_params               = _get_num_params;
+  base->check_params                 = _check_params;
+  base->tsdb_field_by_param          = _tsdb_field_by_param;
+  base->row_count                    = _row_count;
+  base->get_num_cols                 = _get_num_cols;
+  base->get_data                     = _get_data;
 }
 
 static SQLRETURN _tables_open_catalogs(tables_t *tables)

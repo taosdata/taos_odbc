@@ -41,6 +41,8 @@ void tsdb_params_reset_tag_fields(tsdb_params_t *params) FA_HIDDEN;
 void tsdb_params_reset_col_fields(tsdb_params_t *params) FA_HIDDEN;
 void tsdb_params_reset(tsdb_params_t *params) FA_HIDDEN;
 void tsdb_params_release(tsdb_params_t *params) FA_HIDDEN;
+void tsdb_paramset_reset(tsdb_paramset_t *paramset) FA_HIDDEN;
+void tsdb_paramset_release(tsdb_paramset_t *paramset) FA_HIDDEN;
 void tsdb_binds_reset(tsdb_binds_t *tsdb_binds) FA_HIDDEN;
 void tsdb_binds_release(tsdb_binds_t *tsdb_binds) FA_HIDDEN;
 void tsdb_res_reset(tsdb_res_t *res) FA_HIDDEN;
@@ -49,8 +51,6 @@ void tsdb_fields_reset(tsdb_fields_t *fields) FA_HIDDEN;
 void tsdb_fields_release(tsdb_fields_t *fields) FA_HIDDEN;
 void tsdb_rows_block_reset(tsdb_rows_block_t *rows_block) FA_HIDDEN;
 void tsdb_rows_block_release(tsdb_rows_block_t *rows_block) FA_HIDDEN;
-
-int tsdb_binds_keep(tsdb_binds_t *tsdb_binds, int nr_params) FA_HIDDEN;
 
 void tsdb_stmt_init(tsdb_stmt_t *stmt, stmt_t *owner) FA_HIDDEN;
 void tsdb_stmt_unprepare(tsdb_stmt_t *stmt) FA_HIDDEN;
@@ -68,6 +68,7 @@ TAOS_FIELD_E* tsdb_stmt_get_tsdb_field_by_tsdb_params(tsdb_stmt_t *stmt, int i_p
 
 SQLRETURN tsdb_stmt_query(tsdb_stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb) FA_HIDDEN;
 SQLRETURN tsdb_stmt_prepare(tsdb_stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb) FA_HIDDEN;
+SQLRETURN tsdb_stmt_re_desc_fields(tsdb_stmt_t *stmt) FA_HIDDEN;
 SQLRETURN tsdb_stmt_check_parameters(tsdb_stmt_t *stmt) FA_HIDDEN;
 SQLRETURN tsdb_stmt_fetch_rows_block(tsdb_stmt_t *stmt) FA_HIDDEN;
 

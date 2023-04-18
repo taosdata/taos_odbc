@@ -146,13 +146,6 @@ static SQLRETURN _query(stmt_base_t *base, const sqlc_tsdb_t *sqlc_tsdb)
   return SQL_ERROR;
 }
 
-static SQLRETURN _execute(stmt_base_t *base)
-{
-  topic_t *topic = (topic_t*)base;
-  (void)topic;
-  return SQL_SUCCESS;
-}
-
 static SQLRETURN _get_col_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr)
 {
   (void)fields;
@@ -160,8 +153,9 @@ static SQLRETURN _get_col_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t 
   topic_t *topic = (topic_t*)base;
   (void)topic;
   if (!topic->res) {
-    stmt_append_err(topic->owner, "HY000", 0, "General error:not implemented yet");
-    return SQL_ERROR;
+    if (fields) *fields = NULL;
+    if (nr) *nr = 0;
+    return SQL_SUCCESS;
   }
 
   if (fields) *fields = topic->fields;
@@ -286,6 +280,20 @@ static SQLRETURN _poll(topic_t *topic)
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _execute(stmt_base_t *base)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  topic_t *topic = (topic_t*)base;
+  (void)topic;
+
+  sr = _poll(topic);
+  if (sr == SQL_NO_DATA) return SQL_NO_DATA;
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _fetch_row(stmt_base_t *base)
 {
   SQLRETURN sr = SQL_SUCCESS;
@@ -384,11 +392,9 @@ static SQLRETURN _get_num_cols(stmt_base_t *base, SQLSMALLINT *ColumnCountPtr)
 {
   (void)ColumnCountPtr;
   topic_t *topic = (topic_t*)base;
-  if (!topic->res) {
-    stmt_append_err(topic->owner, "HY000", 0, "General error:not implemented yet");
-    return SQL_ERROR;
-  }
-  if (ColumnCountPtr) *ColumnCountPtr = (SQLSMALLINT)topic->fields_nr;
+  SQLSMALLINT n =0;
+  if (topic->res) n = (SQLSMALLINT)topic->fields_nr;
+  if (ColumnCountPtr) *ColumnCountPtr = n;
   return SQL_SUCCESS;
 }
 
@@ -508,18 +514,21 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
 void topic_init(topic_t *topic, stmt_t *stmt)
 {
   topic->owner = stmt;
-  topic->base.query                        = _query;
-  topic->base.execute                      = _execute;
-  topic->base.get_col_fields               = _get_col_fields;
-  topic->base.fetch_row                    = _fetch_row;
-  topic->base.more_results                 = _more_results;
-  topic->base.describe_param               = _describe_param;
-  topic->base.get_num_params               = _get_num_params;
-  topic->base.check_params                 = _check_params;
-  topic->base.tsdb_field_by_param          = _tsdb_field_by_param;
-  topic->base.row_count                    = _row_count;
-  topic->base.get_num_cols                 = _get_num_cols;
-  topic->base.get_data                     = _get_data;
+
+  stmt_base_t *base = &topic->base;
+
+  base->query                        = _query;
+  base->execute                      = _execute;
+  base->get_col_fields               = _get_col_fields;
+  base->fetch_row                    = _fetch_row;
+  base->more_results                 = _more_results;
+  base->describe_param               = _describe_param;
+  base->get_num_params               = _get_num_params;
+  base->check_params                 = _check_params;
+  base->tsdb_field_by_param          = _tsdb_field_by_param;
+  base->row_count                    = _row_count;
+  base->get_num_cols                 = _get_num_cols;
+  base->get_data                     = _get_data;
 }
 
 static void _tmq_commit_cb_print(tmq_t* tmq, int32_t code, void* param)
@@ -595,7 +604,6 @@ static SQLRETURN _topic_open(
     topic_t       *topic,
     tmq_list_t    *topicList)
 {
-  SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
 
   for (size_t i=0; i<topic->cfg.names_nr; ++i) {
@@ -618,10 +626,6 @@ static SQLRETURN _topic_open(
 
   topic->records_count = 0;
   topic->t0 = time(NULL);
-
-  sr = _poll(topic);
-  if (sr == SQL_NO_DATA) return SQL_NO_DATA;
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   return SQL_SUCCESS;
 }

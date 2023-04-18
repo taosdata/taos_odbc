@@ -502,18 +502,21 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
 void typesinfo_init(typesinfo_t *typesinfo, stmt_t *stmt)
 {
   typesinfo->owner = stmt;
-  typesinfo->base.query                        = _query;
-  typesinfo->base.execute                      = _execute;
-  typesinfo->base.get_col_fields               = _get_col_fields;
-  typesinfo->base.fetch_row                    = _fetch_row;
-  typesinfo->base.more_results                 = _more_results;
-  typesinfo->base.describe_param               = _describe_param;
-  typesinfo->base.get_num_params               = _get_num_params;
-  typesinfo->base.check_params                 = _check_params;
-  typesinfo->base.tsdb_field_by_param          = _tsdb_field_by_param;
-  typesinfo->base.row_count                    = _row_count;
-  typesinfo->base.get_num_cols                 = _get_num_cols;
-  typesinfo->base.get_data                     = _get_data;
+
+  stmt_base_t *base = &typesinfo->base;
+
+  base->query                        = _query;
+  base->execute                      = _execute;
+  base->get_col_fields               = _get_col_fields;
+  base->fetch_row                    = _fetch_row;
+  base->more_results                 = _more_results;
+  base->describe_param               = _describe_param;
+  base->get_num_params               = _get_num_params;
+  base->check_params                 = _check_params;
+  base->tsdb_field_by_param          = _tsdb_field_by_param;
+  base->row_count                    = _row_count;
+  base->get_num_cols                 = _get_num_cols;
+  base->get_data                     = _get_data;
 }
 
 SQLRETURN typesinfo_open(

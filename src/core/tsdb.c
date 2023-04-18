@@ -184,7 +184,7 @@ static TAOS_FIELD_E        default_param_field = {
   .type        = TSDB_DATA_TYPE_VARCHAR,
   .precision   = 0,
   .scale       = 0,
-  .bytes       = 1024,
+  .bytes       = 16384,
 };
 
 void tsdb_params_reset_col_fields(tsdb_params_t *params)
@@ -806,7 +806,7 @@ SQLRETURN tsdb_stmt_describe_param(
     if (params->subtbl_required) {
       if (ParameterNumber == 1) {
         *DataTypePtr = SQL_VARCHAR;
-        *ParameterSizePtr = 1024; // TODO: check taos-doc for max length of subtable name
+        *ParameterSizePtr = 192; // TODO: check taos-doc for max length of subtable name
         *DecimalDigitsPtr = 0;
         *NullablePtr = SQL_NO_NULLS;
         return SQL_SUCCESS;
@@ -827,21 +827,15 @@ SQLRETURN tsdb_stmt_describe_param(
   }
 
   // FIXME: return SQL_VARCHAR and hard-coded parameters for the moment
-  if (1) {
-    sr = _tsdb_stmt_describe_param_by_field(stmt, ParameterNumber, DataTypePtr, ParameterSizePtr, DecimalDigitsPtr, NullablePtr, &default_param_field);
-    if (sr != SQL_SUCCESS) return SQL_ERROR;
-  } else {
-    if (DataTypePtr)       *DataTypePtr       = SQL_VARCHAR;
-    if (ParameterSizePtr)  *ParameterSizePtr  = 1024;
-    if (DecimalDigitsPtr)  *DecimalDigitsPtr  = 0;
-    if (NullablePtr)       *NullablePtr       = SQL_NULLABLE_UNKNOWN;
-  }
+  sr = _tsdb_stmt_describe_param_by_field(stmt, ParameterNumber, DataTypePtr, ParameterSizePtr, DecimalDigitsPtr, NullablePtr, &default_param_field);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
   if (!stmt->is_insert_stmt) {
     stmt_append_err(stmt->owner, "01000", 0,
-        "General warning:Arbitrary `SQL_VARCHAR(1024)` is chosen to return because of taos lacking param-desc for non-insert-statement");
+        "General warning:Arbitrary `SQL_VARCHAR(16384)` is chosen to return because of taos lacking param-desc for non-insert-statement");
   } else {
     stmt_append_err(stmt->owner, "01000", 0,
-        "General warning:Arbitrary `SQL_VARCHAR(1024)` is chosen to return because of taos extension of lazy-param-desc");
+        "General warning:Arbitrary `SQL_VARCHAR(16384)` is chosen to return because of taos extension of lazy-param-desc");
   }
   return SQL_SUCCESS_WITH_INFO;
 }

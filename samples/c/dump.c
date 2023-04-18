@@ -812,9 +812,13 @@ static int _prepare_exec_direct(odbc_case_t *odbc_case, odbc_stage_t stage, odbc
 
   DUMP("%s:", __func__);
 
-  const char *sql = "insert into bar.x (i8) values (?);select * from bar.x where i8 = ?";
-  sql = "insert into bar.x (i8) values (?)";
-  DUMP("sql:%s", sql);
+  const char *env = "SAMPLE_PREPARE_EXEC_DIRECT_SQL";
+  const char *sql = getenv(env);
+  if (!sql) {
+    DUMP("env `%s` not set yet", env);
+    return 0;
+  }
+  DUMP("env`%s`:%s", env, sql);
 
   int8_t v[20];
   SQLLEN v_ind[20];
@@ -843,6 +847,9 @@ static int _prepare_exec_direct(odbc_case_t *odbc_case, odbc_stage_t stage, odbc
     SQLLEN          BufferLength                  = sizeof(v[0]);
 
     sr = CALL_SQLBindParameter(hstmt, 1, InputOutputType, ValueType, ParameterType, ColumnSize, DecimalDigits, ParameterValuePtr, BufferLength, v_ind);
+    if (sr != SQL_SUCCESS) return -1;
+
+    sr = CALL_SQLBindParameter(hstmt, 2, InputOutputType, ValueType, ParameterType, ColumnSize, DecimalDigits, ParameterValuePtr, BufferLength, v_ind);
     if (sr != SQL_SUCCESS) return -1;
   }
 

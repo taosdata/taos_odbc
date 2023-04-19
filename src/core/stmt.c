@@ -2689,7 +2689,7 @@ SQLRETURN stmt_fetch(stmt_t *stmt)
 
 static SQLRETURN _stmt_prepare(stmt_t *stmt)
 {
-  return tsdb_stmt_prepare(&stmt->tsdb_stmt, &stmt->current_sql);
+  return stmt->base->prepare(stmt->base, &stmt->current_sql);
 }
 
 static SQLRETURN _stmt_get_num_params(

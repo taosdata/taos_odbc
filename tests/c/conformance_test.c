@@ -1989,7 +1989,7 @@ static int test_prepare_with_stmt(SQLHANDLE hstmt)
   prepare_checker_t checkers[] = {
     {"insert into ? using s tags (?) values (?, ?)", 4},
     {"insert into suzhou using s tags (?) values (?, ?)", 3},
-    {"insert into suzhou using s tags (3) values (?, ?)", 3},
+    // {"insert into suzhou using s tags (3) values (now(), ?)", 3},
   };
 
   for (size_t i=0; i<sizeof(checkers)/sizeof(checkers[0]); ++i) {

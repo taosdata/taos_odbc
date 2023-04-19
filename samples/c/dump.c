@@ -800,7 +800,7 @@ static int _prepare_bind_param_execute(odbc_case_t *odbc_case, odbc_stage_t stag
   return 0;
 }
 
-static int _prepare_exec_direct(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles_t *handles)
+static int _exec_direct(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles_t *handles)
 {
   (void)odbc_case;
 
@@ -812,7 +812,33 @@ static int _prepare_exec_direct(odbc_case_t *odbc_case, odbc_stage_t stage, odbc
 
   DUMP("%s:", __func__);
 
-  const char *env = "SAMPLE_PREPARE_EXEC_DIRECT_SQL";
+  const char *env = "SAMPLE_EXEC_DIRECT_SQL";
+  const char *sql = getenv(env);
+  if (!sql) {
+    DUMP("env `%s` not set yet", env);
+    return 0;
+  }
+  DUMP("env`%s`:%s", env, sql);
+
+  sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
+  if (sr != SQL_SUCCESS) return -1;
+
+  return 0;
+}
+
+static int _bind_exec_direct(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles_t *handles)
+{
+  (void)odbc_case;
+
+  SQLHANDLE hstmt = handles->hstmt;
+
+  SQLRETURN sr = SQL_SUCCESS;
+
+  if (stage != ODBC_STMT) return 0;
+
+  DUMP("%s:", __func__);
+
+  const char *env = "SAMPLE_BIND_EXEC_DIRECT_SQL";
   const char *sql = getenv(env);
   if (!sql) {
     DUMP("env `%s` not set yet", env);
@@ -994,7 +1020,8 @@ static odbc_case_t odbc_cases[] = {
   ODBC_CASE(_dump_stmt_describe_param),
   ODBC_CASE(_dump_stmt_desc_bind_desc_param),
   ODBC_CASE(_prepare_bind_param_execute),
-  ODBC_CASE(_prepare_exec_direct),
+  ODBC_CASE(_exec_direct),
+  ODBC_CASE(_bind_exec_direct),
   ODBC_CASE(_execute_file),
 };
 

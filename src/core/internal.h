@@ -433,6 +433,7 @@ struct stmt_get_data_args_s {
 
 struct stmt_base_s {
   SQLRETURN (*query)(stmt_base_t *base, const sqlc_tsdb_t *sqlc_tsdb);
+  SQLRETURN (*prepare)(stmt_base_t *base, const sqlc_tsdb_t *sqlc_tsdb);
   SQLRETURN (*execute)(stmt_base_t *base);
   SQLRETURN (*get_col_fields)(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr);
   SQLRETURN (*fetch_row)(stmt_base_t *base);
@@ -482,6 +483,7 @@ struct tsdb_params_s {
   int                                 nr_col_fields;
 
   mem_t                               mem;
+  mem_t                               mem_fields;
 
   int32_t                             qms_from_sql_parsed_by_taos_odbc;
 

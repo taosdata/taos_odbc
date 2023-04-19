@@ -122,6 +122,16 @@ static SQLRETURN _query(stmt_base_t *base, const sqlc_tsdb_t *sqlc_tsdb)
   return SQL_ERROR;
 }
 
+static SQLRETURN _prepare(stmt_base_t *base, const sqlc_tsdb_t *sqlc_tsdb)
+{
+  (void)sqlc_tsdb;
+
+  primarykeys_t *primarykeys = (primarykeys_t*)base;
+  (void)primarykeys;
+  stmt_append_err(primarykeys->owner, "HY000", 0, "General error:internal logic error");
+  return SQL_ERROR;
+}
+
 static SQLRETURN _execute(stmt_base_t *base)
 {
   primarykeys_t *primarykeys = (primarykeys_t*)base;
@@ -454,6 +464,7 @@ void primarykeys_init(primarykeys_t *primarykeys, stmt_t *stmt)
   stmt_base_t *base = &primarykeys->base;
 
   base->query                        = _query;
+  base->prepare                      = _prepare;
   base->execute                      = _execute;
   base->get_col_fields               = _get_col_fields;
   base->fetch_row                    = _fetch_row;

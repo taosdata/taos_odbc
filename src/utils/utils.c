@@ -109,6 +109,14 @@ void mem_reset(mem_t *mem)
   mem->nr = 0;
 }
 
+void mem_memset(mem_t *mem, int c)
+{
+  if (!mem) return;
+  if (!mem->base) return;
+  if (mem->cap == 0) return;
+  memset(mem->base, c, mem->cap);
+}
+
 int mem_expand(mem_t *mem, size_t delta)
 {
   size_t cap = mem->cap + delta;

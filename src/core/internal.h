@@ -482,7 +482,8 @@ struct tsdb_params_s {
   int                                 nr_col_fields;
 
   mem_t                               mem;
-  mem_t                               mem_fields;
+  mem_t                               mem_params;
+  int                                 nr_params;
 
   int32_t                             qms_from_sql_parsed_by_taos_odbc;
 

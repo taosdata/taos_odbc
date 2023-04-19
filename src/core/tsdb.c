@@ -201,9 +201,6 @@ void tsdb_params_reset_col_fields(tsdb_params_t *params)
   }
 
   params->nr_col_fields = 0;
-
-  mem_reset(&params->mem_fields);
-  mem_memset(&params->mem_fields, 0);
 }
 
 void tsdb_params_reset(tsdb_params_t *params)
@@ -214,7 +211,10 @@ void tsdb_params_reset(tsdb_params_t *params)
   TOD_SAFE_FREE(params->subtbl);
   params->subtbl_required = 0;
 
-  mem_reset(&params->mem_fields);
+  params->nr_params = 0;
+  mem_reset(&params->mem_params);
+  mem_memset(&params->mem_params, 0);
+
   params->qms_from_sql_parsed_by_taos_odbc = 0;
 }
 
@@ -223,7 +223,7 @@ void tsdb_params_release(tsdb_params_t *params)
   tsdb_params_reset(params);
 
   mem_release(&params->mem);
-  mem_release(&params->mem_fields);
+  mem_release(&params->mem_params);
   params->owner = NULL;
 }
 
@@ -231,7 +231,7 @@ static int _tsdb_params_keep(tsdb_params_t *params, size_t qms)
 {
   size_t cap = sizeof(TAOS_FIELD_E) * qms;
 
-  mem_t *mem = &params->mem_fields;
+  mem_t *mem = &params->mem_params;
 
   return mem_keep(mem, cap);
 }
@@ -384,9 +384,6 @@ static SQLRETURN _prepare(stmt_base_t *base, const sqlc_tsdb_t *sqlc_tsdb)
 
   tsdb_stmt_unprepare(stmt);
   tsdb_stmt_reset(stmt);
-
-  mem_reset(&stmt->params.mem_fields);
-  mem_memset(&stmt->params.mem_fields, 0);
 
   stmt->current_sql = sqlc_tsdb;
 

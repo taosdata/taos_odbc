@@ -87,6 +87,7 @@ do {                                              \
 
 %x LP LC LB
 %x DQ SQ AA QM
+%x COMMENT
 
 SP            [ \t]
 LN            "\r\n"|"\n\r"|[\f\r\n]
@@ -109,6 +110,7 @@ QM            "?"
           yyterminate(); }
 {SP}                  { R(); C(); } /* eat */
 {LN}                  { R(); L(); } /* eat */
+"/*"                  { R(); C(); PUSH(COMMENT); } /* eat */
 [[:alnum:]]+          { R(); C(); return MKT(TOKEN); }
 {QM}                  { R(); C(); return *yytext; }
 {PUNC}                { R(); C(); return MKT(TOKEN); }
@@ -121,6 +123,13 @@ QM            "?"
 {SQ}                  { R(); C(); PUSH(SQ); return *yytext; }
 {AA}                  { R(); C(); PUSH(AA); return *yytext; }
 .                     { R(); C(); return *yytext; } /* let bison to handle */
+
+<COMMENT>{
+"*/"                  { R(); C(); POP(); } /* eat */
+[^*\n]+               { R(); C(); } /* eat */
+"*"                   { R(); C(); } /* eat */
+"\n"                  { R(); L(); } /* eat */
+}
 
 <LP>{
 {RP}                  { R(); C(); POP(); return *yytext; }

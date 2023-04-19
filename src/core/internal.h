@@ -432,7 +432,6 @@ struct stmt_get_data_args_s {
 };
 
 struct stmt_base_s {
-  SQLRETURN (*query)(stmt_base_t *base, const sqlc_tsdb_t *sqlc_tsdb);
   SQLRETURN (*prepare)(stmt_base_t *base, const sqlc_tsdb_t *sqlc_tsdb);
   SQLRETURN (*execute)(stmt_base_t *base);
   SQLRETURN (*get_col_fields)(stmt_base_t *base, TAOS_FIELD **fields, size_t *nr);
@@ -494,6 +493,8 @@ struct tsdb_stmt_s {
   stmt_base_t                base;
 
   stmt_t                    *owner;
+
+  const sqlc_tsdb_t         *current_sql;
 
   TAOS_STMT                 *stmt;
   // for insert-parameterized-statement

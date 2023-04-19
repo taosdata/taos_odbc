@@ -136,16 +136,6 @@ void topic_release(topic_t *topic)
   _topic_release_tripple(topic);
 }
 
-static SQLRETURN _query(stmt_base_t *base, const sqlc_tsdb_t *sqlc_tsdb)
-{
-  (void)sqlc_tsdb;
-
-  topic_t *topic = (topic_t*)base;
-  (void)topic;
-  stmt_append_err(topic->owner, "HY000", 0, "General error:not implemented yet");
-  return SQL_ERROR;
-}
-
 static SQLRETURN _prepare(stmt_base_t *base, const sqlc_tsdb_t *sqlc_tsdb)
 {
   (void)sqlc_tsdb;
@@ -527,7 +517,6 @@ void topic_init(topic_t *topic, stmt_t *stmt)
 
   stmt_base_t *base = &topic->base;
 
-  base->query                        = _query;
   base->prepare                      = _prepare;
   base->execute                      = _execute;
   base->get_col_fields               = _get_col_fields;

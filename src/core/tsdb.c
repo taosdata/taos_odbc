@@ -351,7 +351,12 @@ static SQLRETURN _tsdb_stmt_prepare(tsdb_stmt_t *stmt, const sqlc_tsdb_t *sqlc_t
 {
   int r = 0;
 
+  tsdb_stmt_unprepare(stmt);
   tsdb_stmt_reset(stmt);
+
+  stmt->current_sql = sqlc_tsdb;
+
+  if (sqlc_tsdb->qms == 0) return SQL_SUCCESS;
 
   stmt->stmt = CALL_taos_stmt_init(stmt->owner->conn->taos);
   if (!stmt->stmt) {
@@ -409,8 +414,7 @@ static SQLRETURN _execute(stmt_base_t *base)
   }
 
   if (APD_header->DESC_COUNT == 0) {
-    stmt_niy(stmt->owner);
-    return SQL_ERROR;
+    return _query(base, stmt->current_sql);
   }
 
   r = CALL_taos_stmt_execute(stmt->stmt);
@@ -548,7 +552,6 @@ void tsdb_stmt_init(tsdb_stmt_t *stmt, stmt_t *owner)
 {
   stmt_base_t *base = &stmt->base;
 
-  base->query                   = _query;
   base->prepare                 = _prepare;
   base->execute                 = _execute;
   base->get_col_fields          = _get_col_fields;
@@ -568,6 +571,7 @@ void tsdb_stmt_init(tsdb_stmt_t *stmt, stmt_t *owner)
 
 void tsdb_stmt_unprepare(tsdb_stmt_t *stmt)
 {
+  stmt->current_sql = NULL;
   tsdb_params_reset(&stmt->params);
   stmt->prepared = 0;
   stmt->is_topic = 0;
@@ -581,7 +585,9 @@ void tsdb_stmt_close_result(tsdb_stmt_t *stmt)
 
 SQLRETURN tsdb_stmt_query(tsdb_stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb)
 {
-  return stmt->base.query(&stmt->base, sqlc_tsdb);
+  SQLRETURN sr = _prepare(&stmt->base, sqlc_tsdb);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  return _execute(&stmt->base);
 }
 
 static SQLRETURN _tsdb_stmt_describe_tags(tsdb_stmt_t *stmt)

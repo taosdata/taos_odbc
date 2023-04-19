@@ -234,16 +234,6 @@ void typesinfo_release(typesinfo_t *typesinfo)
   typesinfo->owner = NULL;
 }
 
-static SQLRETURN _query(stmt_base_t *base, const sqlc_tsdb_t *sqlc_tsdb)
-{
-  (void)sqlc_tsdb;
-
-  typesinfo_t *typesinfo = (typesinfo_t*)base;
-  (void)typesinfo;
-  stmt_append_err(typesinfo->owner, "HY000", 0, "General error:internal logic error");
-  return SQL_ERROR;
-}
-
 static SQLRETURN _prepare(stmt_base_t *base, const sqlc_tsdb_t *sqlc_tsdb)
 {
   (void)sqlc_tsdb;
@@ -515,7 +505,6 @@ void typesinfo_init(typesinfo_t *typesinfo, stmt_t *stmt)
 
   stmt_base_t *base = &typesinfo->base;
 
-  base->query                        = _query;
   base->prepare                      = _prepare;
   base->execute                      = _execute;
   base->get_col_fields               = _get_col_fields;

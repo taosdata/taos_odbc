@@ -4716,16 +4716,9 @@ static SQLRETURN _stmt_execute(stmt_t *stmt)
   return stmt->base->execute(stmt->base);
 }
 
-static SQLRETURN _stmt_query(stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb)
-{
-  return stmt->base->query(stmt->base, sqlc_tsdb);
-}
-
 static SQLRETURN _stmt_exec_direct(stmt_t *stmt)
 {
   SQLRETURN sr = SQL_SUCCESS;
-
-  const sqlc_tsdb_t *sqlc_tsdb = &stmt->current_sql;
 
   OA_ILE(stmt->conn);
   OA_ILE(stmt->conn->taos);
@@ -4741,16 +4734,11 @@ static SQLRETURN _stmt_exec_direct(stmt_t *stmt)
     return SQL_ERROR;
   }
 
-  if (APD_header->DESC_COUNT == 0) {
-    sr = _stmt_query(stmt, sqlc_tsdb);
-    if (sr != SQL_SUCCESS) return SQL_ERROR;
-  } else {
-    SQLRETURN sr = _stmt_prepare(stmt);
-    if (sr == SQL_ERROR) return SQL_ERROR;
+  sr = _stmt_prepare(stmt);
+  if (sr == SQL_ERROR) return SQL_ERROR;
 
-    sr = _stmt_execute(stmt);
-    if (sr == SQL_ERROR) return SQL_ERROR;
-  }
+  sr = _stmt_execute(stmt);
+  if (sr == SQL_ERROR) return SQL_ERROR;
 
   return _stmt_fill_IRD(stmt);
 }
@@ -4892,11 +4880,7 @@ SQLRETURN stmt_prepare(stmt_t *stmt,
     return _stmt_prepare_topic(stmt);
   }
 
-  if (stmt->current_sql.qms) {
-    return _stmt_prepare(stmt);
-  }
-
-  return SQL_SUCCESS;
+  return _stmt_prepare(stmt);
 }
 
 SQLRETURN stmt_exec_direct(stmt_t *stmt, SQLCHAR *StatementText, SQLINTEGER TextLength)

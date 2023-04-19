@@ -105,16 +105,6 @@ void tables_release(tables_t *tables)
   tables->owner = NULL;
 }
 
-static SQLRETURN _query(stmt_base_t *base, const sqlc_tsdb_t *sqlc_tsdb)
-{
-  (void)sqlc_tsdb;
-
-  tables_t *tables = (tables_t*)base;
-  (void)tables;
-  stmt_append_err(tables->owner, "HY000", 0, "General error:internal logic error");
-  return SQL_ERROR;
-}
-
 static SQLRETURN _prepare(stmt_base_t *base, const sqlc_tsdb_t *sqlc_tsdb)
 {
   (void)sqlc_tsdb;
@@ -339,7 +329,6 @@ void tables_init(tables_t *tables, stmt_t *stmt)
 
   stmt_base_t *base = &tables->base;
 
-  base->query                        = _query;
   base->prepare                      = _prepare;
   base->execute                      = _execute;
   base->get_col_fields               = _get_col_fields;

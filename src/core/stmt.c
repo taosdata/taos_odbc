@@ -1016,8 +1016,6 @@ static SQLRETURN _stmt_fill_IRD(stmt_t *stmt)
 {
   SQLRETURN sr = SQL_SUCCESS;
 
-  int time_precision = _stmt_time_precision(stmt);
-
   TAOS_FIELD *fields;
   size_t nr;
   sr = stmt->base->get_col_fields(stmt->base, &fields, &nr);
@@ -1117,194 +1115,6 @@ static SQLRETURN _stmt_fill_IRD(stmt_t *stmt)
     if (sr != SQL_SUCCESS) return SQL_ERROR;
 
     IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-
-    if (1) continue;
-
-    for (size_t i=0; i<IRD_header->DESC_COUNT; ++i) {
-      desc_record_t *IRD_record = IRD->records + i;
-      TAOS_FIELD *col = fields + i;
-      switch (col->type) {
-        case TSDB_DATA_TYPE_VARCHAR:
-          IRD_record->DESC_CONCISE_TYPE = SQL_VARCHAR;
-          IRD_record->DESC_TYPE = SQL_VARCHAR;
-          IRD_record->DESC_LENGTH = col->bytes;
-          IRD_record->DESC_OCTET_LENGTH = col->bytes;
-          IRD_record->DESC_PRECISION = 0;
-          IRD_record->DESC_SCALE = 0;
-          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-          break;
-        case TSDB_DATA_TYPE_NCHAR:
-          IRD_record->DESC_CONCISE_TYPE = SQL_WVARCHAR;
-          IRD_record->DESC_TYPE = SQL_WVARCHAR;
-          IRD_record->DESC_LENGTH = col->bytes;
-          IRD_record->DESC_OCTET_LENGTH = col->bytes;
-          IRD_record->DESC_PRECISION = 0;
-          IRD_record->DESC_SCALE = 0;
-          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-          break;
-        case TSDB_DATA_TYPE_BIGINT:
-          IRD_record->DESC_CONCISE_TYPE = SQL_BIGINT;
-          IRD_record->DESC_TYPE = SQL_BIGINT;
-          IRD_record->DESC_LENGTH = 19;
-          IRD_record->DESC_OCTET_LENGTH = 8;
-          IRD_record->DESC_PRECISION = 19;
-          IRD_record->DESC_SCALE = 0;
-          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-          break;
-        case TSDB_DATA_TYPE_UBIGINT:
-          IRD_record->DESC_CONCISE_TYPE = SQL_BIGINT;
-          IRD_record->DESC_TYPE = SQL_BIGINT;
-          IRD_record->DESC_LENGTH = 20;
-          IRD_record->DESC_OCTET_LENGTH = 8;
-          IRD_record->DESC_PRECISION = 20;
-          IRD_record->DESC_SCALE = 0;
-          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-          break;
-        case TSDB_DATA_TYPE_TIMESTAMP:
-          IRD_record->DESC_CONCISE_TYPE = SQL_TYPE_TIMESTAMP;
-          IRD_record->DESC_TYPE = SQL_DATETIME;
-          IRD_record->DESC_LENGTH = 20 + (time_precision + 1) * 3;
-          IRD_record->DESC_OCTET_LENGTH = 16;
-          IRD_record->DESC_PRECISION = 20 + (time_precision + 1) *3;
-          IRD_record->DESC_SCALE = (time_precision + 1) * 3;
-          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-          break;
-        case TSDB_DATA_TYPE_DOUBLE:
-          IRD_record->DESC_CONCISE_TYPE = SQL_DOUBLE;
-          IRD_record->DESC_TYPE = SQL_DOUBLE;
-          IRD_record->DESC_LENGTH = 15;
-          IRD_record->DESC_OCTET_LENGTH = 8;
-          IRD_record->DESC_PRECISION = 15;
-          IRD_record->DESC_SCALE = 0;
-          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-          break;
-        case TSDB_DATA_TYPE_INT:
-          // FIXME: promotion?
-          IRD_record->DESC_CONCISE_TYPE = SQL_INTEGER;
-          IRD_record->DESC_TYPE = SQL_INTEGER;
-          IRD_record->DESC_LENGTH = 10;
-          IRD_record->DESC_OCTET_LENGTH = 4;
-          IRD_record->DESC_PRECISION = 10;
-          IRD_record->DESC_SCALE = 0;
-          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-          break;
-        case TSDB_DATA_TYPE_FLOAT:
-          IRD_record->DESC_CONCISE_TYPE = SQL_REAL;
-          IRD_record->DESC_TYPE = SQL_REAL;
-          IRD_record->DESC_LENGTH = 7;
-          IRD_record->DESC_OCTET_LENGTH = 4;
-          IRD_record->DESC_PRECISION = 7;
-          IRD_record->DESC_SCALE = 0;
-          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-          break;
-        case TSDB_DATA_TYPE_SMALLINT:
-          // FIXME: promotion?
-          IRD_record->DESC_CONCISE_TYPE = SQL_SMALLINT;
-          IRD_record->DESC_TYPE = SQL_SMALLINT;
-          IRD_record->DESC_LENGTH = 5;
-          IRD_record->DESC_OCTET_LENGTH = 2;
-          IRD_record->DESC_PRECISION = 5;
-          IRD_record->DESC_SCALE = 0;
-          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-          break;
-        case TSDB_DATA_TYPE_TINYINT:
-          // FIXME: promotion?
-          IRD_record->DESC_CONCISE_TYPE = SQL_TINYINT;
-          IRD_record->DESC_TYPE = SQL_TINYINT;
-          IRD_record->DESC_LENGTH = 3;
-          IRD_record->DESC_OCTET_LENGTH = 1;
-          IRD_record->DESC_PRECISION = 3;
-          IRD_record->DESC_SCALE = 0;
-          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-          break;
-        case TSDB_DATA_TYPE_BOOL:
-          // FIXME: promotion?
-          IRD_record->DESC_CONCISE_TYPE = SQL_BIT;
-          IRD_record->DESC_TYPE = SQL_BIT;
-          IRD_record->DESC_LENGTH = 1;
-          IRD_record->DESC_OCTET_LENGTH = 1;
-          IRD_record->DESC_PRECISION = 1;
-          IRD_record->DESC_SCALE = 0;
-          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-          break;
-        case TSDB_DATA_TYPE_UTINYINT:
-          // FIXME: promotion?
-          IRD_record->DESC_CONCISE_TYPE = SQL_TINYINT;
-          IRD_record->DESC_TYPE = SQL_TINYINT;
-          IRD_record->DESC_LENGTH = 3;
-          IRD_record->DESC_OCTET_LENGTH = 1;
-          IRD_record->DESC_PRECISION = 3;
-          IRD_record->DESC_SCALE = 0;
-          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-          break;
-        case TSDB_DATA_TYPE_USMALLINT:
-          // FIXME: promotion?
-          IRD_record->DESC_CONCISE_TYPE = SQL_SMALLINT;
-          IRD_record->DESC_TYPE = SQL_SMALLINT;
-          IRD_record->DESC_LENGTH = 5;
-          IRD_record->DESC_OCTET_LENGTH = 2;
-          IRD_record->DESC_PRECISION = 5;
-          IRD_record->DESC_SCALE = 0;
-          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-          break;
-        case TSDB_DATA_TYPE_UINT:
-          // FIXME: promotion?
-          IRD_record->DESC_CONCISE_TYPE = SQL_INTEGER;
-          IRD_record->DESC_TYPE = SQL_INTEGER;
-          IRD_record->DESC_LENGTH = 10;
-          IRD_record->DESC_OCTET_LENGTH = 4;
-          IRD_record->DESC_PRECISION = 10;
-          IRD_record->DESC_SCALE = 0;
-          IRD_record->DESC_AUTO_UNIQUE_VALUE = SQL_FALSE;
-          IRD_record->DESC_UPDATABLE = SQL_ATTR_READONLY;
-          IRD_record->DESC_NULLABLE = SQL_NULLABLE_UNKNOWN;
-          IRD_record->DESC_UNNAMED = (col->name[0]) ? SQL_NAMED : SQL_UNNAMED;
-          break;
-        default:
-          stmt_append_err_format(stmt, "HY000", 0, "General error:Column[#%zd/%.*s] of `%s[%d/0x%x]` not supported yet",
-              i+1, (int)sizeof(col->name), col->name, taos_data_type(col->type), col->type, col->type);
-          return SQL_ERROR;
-      }
-    }
   }
 
   return SQL_SUCCESS;
@@ -4762,43 +4572,13 @@ static SQLRETURN _stmt_exec_direct_sql(stmt_t *stmt)
 
 static SQLRETURN _stmt_exec_direct_with_simple_sql(stmt_t *stmt)
 {
-  SQLRETURN sr = SQL_SUCCESS;
-  int r = 0;
-
   const sqlc_tsdb_t *sqlc_tsdb = &stmt->current_sql;
 
   const char *start = sqlc_tsdb->tsdb;
   const char *end   = sqlc_tsdb->tsdb + sqlc_tsdb->tsdb_bytes;
   if (end > start && start[0] == '!') {
-    if (1) {
-      stmt_niy(stmt);
-      return SQL_ERROR;
-    }
-    if (sqlc_tsdb->qms) {
-      stmt_append_err(stmt, "HY000", 0, "General error:parameterized-topic-consumer-statement not supported yet");
-      return SQL_ERROR;
-    }
-    ext_parser_param_t param = {0};
-    // param.ctx.debug_flex = 1;
-    // param.ctx.debug_bison = 1;
-    r = ext_parser_parse(start, end-start, &param);
-    if (r) {
-      stmt_append_err_format(stmt, "HY000", 0, "General error:parsing:%.*s", (int)(end-start), start);
-      stmt_append_err_format(stmt, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
-      stmt_append_err_format(stmt, "HY000", 0, "General error:failed:%.*s", (int)strlen(param.ctx.err_msg), param.ctx.err_msg);
-      stmt_append_err(stmt, "HY000", 0, "General error:taos_odbc_extended syntax for `topic`:!topic [<name>]+ [{[<key[=<val>]>;]*}]?");
-
-      ext_parser_param_release(&param);
-      return SQL_ERROR;
-    }
-
-    sr = topic_open(&stmt->topic, sqlc_tsdb, &param.topic_cfg);
-    ext_parser_param_release(&param);
-    if (sr != SQL_SUCCESS) return SQL_ERROR;
-
-    stmt->base = &stmt->topic.base;
-
-    return _stmt_fill_IRD(stmt);
+    stmt_niy(stmt);
+    return SQL_ERROR;
   }
 
   return _stmt_exec_direct_sql(stmt);
@@ -4937,9 +4717,6 @@ SQLRETURN stmt_execute(stmt_t *stmt)
   OA_ILE(stmt->conn->taos);
 
   // NOTE: no need to check whether it's prepared or not, DM would have already checked
-  if (stmt->current_sql.qms == 0 && stmt->base != &stmt->topic.base) {
-    return _stmt_exec_direct_with_simple_sql(stmt);
-  }
 
   sr = _stmt_execute(stmt);
   if (sr == SQL_ERROR) return SQL_ERROR;

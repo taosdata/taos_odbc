@@ -206,7 +206,7 @@ static int topic_demo_with_stmt(const arg_t *arg, SQLHANDLE hstmt)
     const char *sqls[] = {
       "drop topic if exists demo",
       "drop database if exists bar",
-      "create database bar",
+      "create database bar WAL_RETENTION_PERIOD 2592000",
       "use bar",
     };
 

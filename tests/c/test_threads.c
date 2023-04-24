@@ -506,7 +506,7 @@ static int _run(int argc, char *argv[])
     { "drop topic if exists demo", 0},
     { "drop topic if exists good", 0},
     { "drop database if exists foobar", 1},
-    { "create database if not exists foobar", 1},
+    { "create database if not exists foobar WAL_RETENTION_PERIOD 2592000", 1},
     { "create table foobar.demo (ts timestamp, name varchar(20))", 1},
     { "create topic demo as select * from foobar.demo", 1},
     { "create table foobar.good (ts timestamp, i32 int, name varchar(20))", 1},

@@ -2248,7 +2248,7 @@ static int conformance_mq(TAOS *taos)
   const char *sqls[] = {
     "drop topic if exists topicname",
     "drop database if exists tmqdb",
-    "create database tmqdb",
+    "create database tmqdb WAL_RETENTION_PERIOD 2592000",
     "create table tmqdb.stb (ts timestamp, c1 int, c2 float, c3 varchar(16)) tags(t1 int, t3 varchar(16))",
     "create table tmqdb.ctb0 using tmqdb.stb tags(0, 'subtable0')",
     "create table tmqdb.ctb1 using tmqdb.stb tags(1, 'subtable1')",

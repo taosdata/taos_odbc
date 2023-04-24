@@ -89,12 +89,16 @@ static int _topic_demo_topic(SQLSMALLINT HandleType, SQLHANDLE Handle)
   SQLSMALLINT    DecimalDigits;
   SQLSMALLINT    Nullable;
 
-  // syntax: !topic [<name>]+ [{[<key[=<val>]>;]*}]?");
+  // syntax: !topic [name]+ [{[key[=val];]*}]?");
   // ref: https://github.com/taosdata/TDengine/blob/main/docs/en/07-develop/07-tmq.mdx#create-a-consumer
   // NOTE: although both 'enable.auto.commit' and 'auto.commit.interval.ms' are still valid,
   //       taos_odbc chooses it's owner way to call `tmq_commit_sync` under the hood.
-  const char *sql = "!topic demo good {group.id=cgrpName; enable.auto.commit=false; auto.commit.interval.ms=10000}";
+  const char *sql = "!topic demo good {group.id=cgrpName; enable.auto.commit=false; auto.commit.interval.ms=10000; taos_odbc.limit.seconds=3}";
+  sql = "!topic demo good {group.id=cgrpName; taos_odbc.limit.seconds=30; taos_odbc.limit.records=6}";
 
+  DUMP("starting topic consumer ...");
+  DUMP("will stop either 30 seconds have passed or 6 records have been fetched");
+  DUMP("press Ctrl-C to abort");
   sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
   if (sr != SQL_SUCCESS) {
     DUMP("'%s' failed, you might create the specific topic and then rerun this demo\n"

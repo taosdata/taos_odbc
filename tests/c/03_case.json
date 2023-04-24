@@ -234,9 +234,13 @@
               [{timestamp:1662961468651},{str:null}],
               [{timestamp:1662961468652},"abcde"]
             ],
-            positive:false
+            positive:true
           }
         ]
+      },{
+        sql:"select count(*) from t",
+        rs:[[3]],
+        positive:false
       }
     ]
   },{

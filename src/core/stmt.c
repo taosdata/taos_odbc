@@ -65,6 +65,36 @@ void sqls_release(sqls_t *sqls)
   sqls->cap = 0;
 }
 
+static void _param_state_reset(param_state_t *param_state)
+{
+  if (!param_state) return;
+  mem_reset(&param_state->sqlc_to_sql);
+  mem_reset(&param_state->sql_to_tsdb);
+
+  param_state->nr_paramset_size = 0;
+  param_state->i_batch_offset   = 0;
+
+  param_state->nr_tsdb_fields   = 0;
+
+  param_state->i_row            = 0;
+  param_state->i_param          = 0;
+  param_state->APD_record       = NULL;
+  param_state->IPD_record       = NULL;
+
+  param_state->tsdb_field       = NULL;
+
+  param_state->param_column     = NULL;
+  param_state->tsdb_bind        = NULL;
+}
+
+static void _param_state_release(param_state_t *param_state)
+{
+  if (!param_state) return;
+  _param_state_reset(param_state);
+  mem_release(&param_state->sqlc_to_sql);
+  mem_release(&param_state->sql_to_tsdb);
+}
+
 static void _stmt_release_descriptors(stmt_t *stmt)
 {
   descriptor_release(&stmt->APD);
@@ -381,6 +411,7 @@ static void _stmt_release(stmt_t *stmt)
   tsdb_paramset_release(&stmt->paramset);
   tsdb_binds_release(&stmt->tsdb_binds);
   sqls_release(&stmt->sqls);
+  _param_state_release(&stmt->param_state);
 
   int prev = atomic_fetch_sub(&stmt->conn->stmts, 1);
   OA_ILE(prev >= 1);
@@ -1134,6 +1165,7 @@ static void _stmt_unprepare(stmt_t *stmt)
   _stmt_close_result(stmt);
   tsdb_stmt_unprepare(&stmt->tsdb_stmt);
   // _tsdb_binds_reset(&stmt->tsdb_binds);
+  _param_state_reset(&stmt->param_state);
 }
 
 static SQLULEN _stmt_get_row_array_size(stmt_t *stmt)
@@ -1674,6 +1706,28 @@ static SQLRETURN _stmt_get_data_copy_buf_to_binary(stmt_t *stmt, stmt_get_data_a
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_strtoll(stmt_t *stmt, const char *s, int64_t *v)
+{
+  char *end = NULL;
+  long long ll = strtoll(s, &end, 0);
+  int e = errno;
+  if (end && *end) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:conversion from `%s` to `int64_t` failed:invalid character[0x%02x]",
+        s, *end);
+    return SQL_ERROR;
+  }
+  if (e == ERANGE) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:conversion from `%s` to `int64_t` failed:overflow or underflow occurs",
+        s);
+    return SQL_ERROR;
+  }
+
+  *v = ll;
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_varchar_to_int64(stmt_t *stmt, const char *s, size_t nr, int64_t *v, stmt_get_data_args_t *args)
 {
   int r = 0;
@@ -1789,6 +1843,39 @@ static SQLRETURN _stmt_varchar_to_float(stmt_t *stmt, const char *s, size_t nr, 
   }
 
   *v = flt;
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_strtod(stmt_t *stmt, const char *s, double *v)
+{
+  char *end = NULL;
+  double dbl = strtod(s, &end);
+  int e = errno;
+  if (end && *end) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:conversion from `%s` to `double` failed:invalid character[0x%02x]",
+        s, *end);
+    return SQL_ERROR;
+  }
+  if (fabs(dbl) == HUGE_VAL) {
+    if (e == ERANGE) {
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:conversion from `%s` to `double` failed:overflow or underflow occurs",
+          s);
+      return SQL_ERROR;
+    }
+  }
+
+  if (fpclassify(dbl) == FP_ZERO) {
+    if (e == ERANGE) {
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:conversion from `%s` to `double` failed:overflow or underflow occurs",
+          s);
+      return SQL_ERROR;
+    }
+  }
+
+  *v = dbl;
   return SQL_SUCCESS;
 }
 
@@ -2765,7 +2852,7 @@ static SQLRETURN _stmt_get_next_sql(stmt_t *stmt)
 
   ++sqls->pos;
 
-  stmt->tsdb_stmt.params.qms_from_sql_parsed_by_taos_odbc = sqlc_tsdb->qms;
+  stmt->tsdb_stmt.params.qms = sqlc_tsdb->qms;
 
   const char *start = sqlc_tsdb->tsdb;
   const char *end   = sqlc_tsdb->tsdb + sqlc_tsdb->tsdb_bytes;
@@ -2965,24 +3052,6 @@ static void _stmt_param_get(stmt_t *stmt, int irow, int i_param, char **base, SQ
   *length  = len_arr ? len_arr[irow] : 0;
   *is_null = 0;
 }
-
-typedef struct param_state_s                param_state_t;
-struct param_state_s {
-  int                        nr_paramset_size;
-  size_t                     i_batch_offset;
-
-  SQLSMALLINT                nr_tsdb_fields;
-
-  int                        i_row;
-  int                        i_param;
-  desc_record_t             *APD_record;
-  desc_record_t             *IPD_record;
-
-  TAOS_FIELD_E              *tsdb_field;
-
-  tsdb_param_column_t       *param_column;
-  TAOS_MULTI_BIND           *tsdb_bind;
-};
 
 static SQLRETURN _stmt_guess_tsdb_params_for_sql_c_char(stmt_t *stmt, param_state_t *param_state)
 {
@@ -3327,14 +3396,6 @@ static SQLRETURN _stmt_check_tsdb_params_by_sql_varchar(stmt_t *stmt, param_stat
   switch (tsdb_field->type) {
     case TSDB_DATA_TYPE_VARCHAR:
       return SQL_SUCCESS;
-    case TSDB_DATA_TYPE_NULL:
-      if (!stmt->tsdb_stmt.is_insert_stmt || !stmt->tsdb_stmt.params.subtbl_required || param_state->i_param) {
-        stmt_append_err_format(stmt, "HY000", 0,
-          "General error:[taosc conformance]Parameter#%d[%s], but it's not the first parameter within a subtbled-insert statement",
-          i_param + 1, taos_data_type(tsdb_field->type));
-        return SQL_ERROR;
-      }
-      return SQL_SUCCESS;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
         "General error:Parameter#%d conversion from [%s] to [%s] not implemented yet",
@@ -3536,6 +3597,28 @@ static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_timestamp(stmt_t *stmt, 
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_prepare_param_data_array_from_sql_c_sbigint_to_tsdb_bigint(stmt_t *stmt, param_state_t *param_state)
+{
+  int nr_paramset_size                    = param_state->nr_paramset_size;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  tsdb_param_column_t  *param_column      = param_state->param_column;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  int r = 0;
+
+  tsdb_bind->buffer_type = tsdb_field->type;
+  tsdb_bind->length = NULL;
+  tsdb_bind->buffer_length = sizeof(int64_t);
+  r = mem_keep(&param_column->mem, sizeof(char) * tsdb_bind->buffer_length * nr_paramset_size);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+  tsdb_bind->buffer = param_column->mem.base;
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_bigint(stmt_t *stmt, param_state_t *param_state)
 {
   int                   i_param           = param_state->i_param;
@@ -3547,10 +3630,14 @@ static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_bigint(stmt_t *stmt, par
   switch (ValueType) {
     case SQL_C_SBIGINT:
     // case SQL_C_DOUBLE:
-      tsdb_bind->buffer_type = tsdb_field->type;
-      tsdb_bind->length = NULL;
-      tsdb_bind->buffer_length = APD_record->DESC_OCTET_LENGTH;
-      tsdb_bind->buffer = APD_record->DESC_DATA_PTR;
+      if (0) {
+        tsdb_bind->buffer_type = tsdb_field->type;
+        tsdb_bind->length = NULL;
+        tsdb_bind->buffer_length = APD_record->DESC_OCTET_LENGTH;
+        tsdb_bind->buffer = APD_record->DESC_DATA_PTR;
+      } else {
+        return _stmt_prepare_param_data_array_from_sql_c_sbigint_to_tsdb_bigint(stmt, param_state);
+      }
       break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
@@ -3697,6 +3784,28 @@ static SQLRETURN _stmt_prepare_param_data_array_from_sql_c_double_to_tsdb_float(
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_prepare_param_data_array_from_sql_c_slong_to_tsdb_int(stmt_t *stmt, param_state_t *param_state)
+{
+  int nr_paramset_size                    = param_state->nr_paramset_size;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  tsdb_param_column_t  *param_column      = param_state->param_column;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  int r = 0;
+
+  tsdb_bind->buffer_type = tsdb_field->type;
+  tsdb_bind->length = NULL;
+  tsdb_bind->buffer_length = sizeof(int32_t);
+  r = mem_keep(&param_column->mem, sizeof(char) * tsdb_bind->buffer_length * nr_paramset_size);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+  tsdb_bind->buffer = param_column->mem.base;
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_int(stmt_t *stmt, param_state_t *param_state)
 {
   int                   i_param           = param_state->i_param;
@@ -3707,10 +3816,14 @@ static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_int(stmt_t *stmt, param_
   SQLSMALLINT ValueType = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
   switch (ValueType) {
     case SQL_C_SLONG:
-      tsdb_bind->buffer_type = tsdb_field->type;
-      tsdb_bind->length = NULL;
-      tsdb_bind->buffer_length = APD_record->DESC_OCTET_LENGTH;
-      tsdb_bind->buffer = APD_record->DESC_DATA_PTR;
+      if (0) {
+        tsdb_bind->buffer_type = tsdb_field->type;
+        tsdb_bind->length = NULL;
+        tsdb_bind->buffer_length = APD_record->DESC_OCTET_LENGTH;
+        tsdb_bind->buffer = APD_record->DESC_DATA_PTR;
+      } else {
+        return _stmt_prepare_param_data_array_from_sql_c_slong_to_tsdb_int(stmt, param_state);
+      }
       break;
     case SQL_C_SBIGINT:
       return _stmt_prepare_param_data_array_from_sql_c_sbigint_to_tsdb_int(stmt, param_state);
@@ -3814,7 +3927,6 @@ static SQLRETURN _stmt_prepare_param_data_array(stmt_t *stmt, param_state_t *par
 
   int r = 0;
 
-  param_column->conv = NULL;
   r = mem_keep(&param_column->mem_is_null, sizeof(char)*nr_paramset_size);
   if (r) {
     stmt_oom(stmt);
@@ -3832,11 +3944,6 @@ static SQLRETURN _stmt_prepare_param_data_array(stmt_t *stmt, param_state_t *par
       return _stmt_prepare_param_data_array_by_tsdb_nchar(stmt, param_state);
     case TSDB_DATA_TYPE_BIGINT:
       return _stmt_prepare_param_data_array_by_tsdb_bigint(stmt, param_state);
-    case TSDB_DATA_TYPE_NULL:
-      OA_NIY(stmt->tsdb_stmt.is_insert_stmt);
-      OA_NIY(stmt->tsdb_stmt.params.subtbl_required);
-      OA_NIY(param_state->i_param == 0);
-      return _stmt_prepare_param_data_array_by_tsdb_varchar(stmt, param_state);
     case TSDB_DATA_TYPE_DOUBLE:
       return _stmt_prepare_param_data_array_by_tsdb_double(stmt, param_state);
     case TSDB_DATA_TYPE_INT:
@@ -3865,7 +3972,7 @@ static SQLRETURN _stmt_conv_param_data_from_sql_c_sbigint_to_tsdb_timestamp(stmt
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
   _dump_TAOS_FIELD_E(tsdb_field);
   int64_t *tsdb_timestamp = (int64_t*)tsdb_bind->buffer;
-  tsdb_timestamp[i_row] = i64;
+  tsdb_timestamp[i_row - param_state->i_batch_offset] = i64;
 
   return SQL_SUCCESS;
 }
@@ -3882,7 +3989,7 @@ static SQLRETURN _stmt_conv_param_data_from_sql_c_sbigint_to_tsdb_bigint(stmt_t 
   if (APD_record->DESC_DATA_PTR == tsdb_bind->buffer) return SQL_SUCCESS;
 
   int64_t *tsdb_bigint = (int64_t*)tsdb_bind->buffer;
-  tsdb_bigint[i_row] = i64;
+  tsdb_bigint[i_row - param_state->i_batch_offset] = i64;
 
   return SQL_SUCCESS;
 }
@@ -3895,7 +4002,7 @@ static SQLRETURN _stmt_conv_param_data_from_sql_c_sbigint_to_tsdb_int(stmt_t *st
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
   _dump_TAOS_FIELD_E(tsdb_field);
   int32_t *tsdb_bigint = (int32_t*)tsdb_bind->buffer;
-  tsdb_bigint[i_row] = (int32_t)i64;
+  tsdb_bigint[i_row - param_state->i_batch_offset] = (int32_t)i64;
 
   return SQL_SUCCESS;
 }
@@ -3908,7 +4015,7 @@ static SQLRETURN _stmt_conv_param_data_from_sql_c_sbigint_to_tsdb_smallint(stmt_
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
   _dump_TAOS_FIELD_E(tsdb_field);
   int16_t *tsdb_bigint = (int16_t*)tsdb_bind->buffer;
-  tsdb_bigint[i_row] = (int16_t)i64;
+  tsdb_bigint[i_row - param_state->i_batch_offset] = (int16_t)i64;
 
   return SQL_SUCCESS;
 }
@@ -3921,7 +4028,7 @@ static SQLRETURN _stmt_conv_param_data_from_sql_c_sbigint_to_tsdb_tinyint(stmt_t
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
   _dump_TAOS_FIELD_E(tsdb_field);
   int8_t *tsdb_bigint = (int8_t*)tsdb_bind->buffer;
-  tsdb_bigint[i_row] = (int8_t)i64;
+  tsdb_bigint[i_row - param_state->i_batch_offset] = (int8_t)i64;
 
   return SQL_SUCCESS;
 }
@@ -3934,7 +4041,7 @@ static SQLRETURN _stmt_conv_param_data_from_sql_c_sbigint_to_tsdb_bool(stmt_t *s
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
   _dump_TAOS_FIELD_E(tsdb_field);
   int8_t *tsdb_bigint = (int8_t*)tsdb_bind->buffer;
-  tsdb_bigint[i_row] = (int8_t)i64;
+  tsdb_bigint[i_row - param_state->i_batch_offset] = (int8_t)i64;
 
   return SQL_SUCCESS;
 }
@@ -3975,7 +4082,7 @@ static SQLRETURN _stmt_conv_param_data_from_sql_c_double_to_tsdb_timestamp(stmt_
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
 
   int64_t *tsdb_timestamp = (int64_t*)tsdb_bind->buffer;
-  tsdb_timestamp[i_row] = (int64_t)d;
+  tsdb_timestamp[i_row - param_state->i_batch_offset] = (int64_t)d;
   return SQL_SUCCESS;
 }
 
@@ -3987,7 +4094,7 @@ static SQLRETURN _stmt_conv_param_data_from_sql_c_double_to_tsdb_double(stmt_t *
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
 
   double *tsdb_double = (double*)tsdb_bind->buffer;
-  tsdb_double[i_row] = d;
+  tsdb_double[i_row - param_state->i_batch_offset] = d;
   return SQL_SUCCESS;
 }
 
@@ -3999,7 +4106,7 @@ static SQLRETURN _stmt_conv_param_data_from_sql_c_double_to_tsdb_float(stmt_t *s
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
 
   float *tsdb_float = (float*)tsdb_bind->buffer;
-  tsdb_float[i_row] = (float)d;
+  tsdb_float[i_row - param_state->i_batch_offset] = (float)d;
   return SQL_SUCCESS;
 }
 
@@ -4014,7 +4121,7 @@ static SQLRETURN _stmt_conv_param_data_from_sql_c_slong_to_tsdb_int(stmt_t *stmt
   if (APD_record->DESC_DATA_PTR == tsdb_bind->buffer) return SQL_SUCCESS;
 
   int32_t *tsdb_int32 = (int32_t*)tsdb_bind->buffer;
-  tsdb_int32[i_row] = i32;
+  tsdb_int32[i_row - param_state->i_batch_offset] = i32;
   return SQL_SUCCESS;
 }
 
@@ -4108,7 +4215,7 @@ static SQLRETURN _stmt_conv_param_data_from_sql_c_char_to_tsdb_varchar(stmt_t *s
   }
 
   char *tsdb_varchar = tsdb_bind->buffer;
-  tsdb_varchar += i_row * tsdb_bind->buffer_length;
+  tsdb_varchar += (i_row  - param_state->i_batch_offset) * tsdb_bind->buffer_length;
   size_t tsdb_varchar_len = tsdb_bind->buffer_length;
 
   size_t         srclen              = (len == SQL_NTS) ? strlen(s) : (size_t)len;
@@ -4118,7 +4225,7 @@ static SQLRETURN _stmt_conv_param_data_from_sql_c_char_to_tsdb_varchar(stmt_t *s
   sr = _stmt_conv_sql_c_char_to_tsdb_varchar(stmt, param_state, cnv, s, srclen, &dst, &dstlen);
   if (sr == SQL_ERROR) return SQL_ERROR;
   if (tsdb_bind->length) {
-    tsdb_bind->length[i_row] = (int32_t)(tsdb_varchar_len - dstlen);
+    tsdb_bind->length[i_row - param_state->i_batch_offset] = (int32_t)(tsdb_varchar_len - dstlen);
   }
   return sr;
 }
@@ -4137,7 +4244,7 @@ static SQLRETURN _stmt_conv_param_data_from_sql_c_char_to_tsdb_timestamp(stmt_t 
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
 
   char *tsdb_timestamp = tsdb_bind->buffer;
-  tsdb_timestamp += i_row * tsdb_bind->buffer_length;
+  tsdb_timestamp += (i_row  - param_state->i_batch_offset) * tsdb_bind->buffer_length;
 
   const char    *src                 = s;
   size_t         srclen              = (len == SQL_NTS) ? strlen(s) : (size_t)len;
@@ -4168,8 +4275,1010 @@ static SQLRETURN _stmt_conv_param_data_from_sql_c_char(stmt_t *stmt, param_state
   }
 }
 
+static SQLRETURN _stmt_conv_param_data_from_sqlc_sbigint_sql_timestamp_tsdb_timestamp(stmt_t *stmt, param_state_t *param_state, int64_t i64)
+{
+  (void)stmt;
+
+  int                   i_row             = param_state->i_row;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  int64_t *tsdb_timestamp = (int64_t*)tsdb_bind->buffer;
+  tsdb_timestamp[i_row - param_state->i_batch_offset] = i64;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_sbigint_sql_timestamp(stmt_t *stmt, param_state_t *param_state, int64_t i64)
+{
+  int                   i_row             = param_state->i_row;
+  int                   i_param           = param_state->i_param;
+  desc_record_t        *APD_record        = param_state->APD_record;
+  desc_record_t        *IPD_record        = param_state->IPD_record;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  // TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
+  int tsdb_type = tsdb_field->type;
+
+  switch (tsdb_type) {
+    case TSDB_DATA_TYPE_TIMESTAMP:
+      return _stmt_conv_param_data_from_sqlc_sbigint_sql_timestamp_tsdb_timestamp(stmt, param_state, i64);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:conversion from parameter(#%d,#%d)[%s] to [%s] to [%s] not implemented yet",
+          i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType), taos_data_type(tsdb_type));
+      return SQL_ERROR;
+  }
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_sbigint_tsdb_bigint(stmt_t *stmt, param_state_t *param_state, int64_t i64)
+{
+  (void)stmt;
+
+  int                   i_row             = param_state->i_row;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  int64_t *tsdb_bigint = (int64_t*)tsdb_bind->buffer;
+  tsdb_bigint[i_row - param_state->i_batch_offset] = i64;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_sbigint_sql_bigint(stmt_t *stmt, param_state_t *param_state, int64_t i64)
+{
+  int                   i_row             = param_state->i_row;
+  int                   i_param           = param_state->i_param;
+  desc_record_t        *APD_record        = param_state->APD_record;
+  desc_record_t        *IPD_record        = param_state->IPD_record;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  // TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
+  int tsdb_type = tsdb_field->type;
+
+  switch (tsdb_type) {
+    case TSDB_DATA_TYPE_BIGINT:
+       return _stmt_conv_param_data_from_sqlc_sbigint_tsdb_bigint(stmt, param_state, i64);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:conversion from parameter(#%d,#%d)[%s] to [%s] to [%s] not implemented yet",
+          i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType), taos_data_type(tsdb_type));
+      return SQL_ERROR;
+  }
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_sbigint_tsdb_int(stmt_t *stmt, param_state_t *param_state, int32_t i32)
+{
+  (void)stmt;
+
+  int                   i_row             = param_state->i_row;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  int32_t *v = (int32_t*)tsdb_bind->buffer;
+  v[i_row - param_state->i_batch_offset] = i32;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_sbigint_sql_int(stmt_t *stmt, param_state_t *param_state, int64_t i64)
+{
+  int                   i_row             = param_state->i_row;
+  int                   i_param           = param_state->i_param;
+  desc_record_t        *APD_record        = param_state->APD_record;
+  desc_record_t        *IPD_record        = param_state->IPD_record;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  // TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
+  int tsdb_type = tsdb_field->type;
+
+  if (i64 > INT_MAX || i64 < INT_MIN) {
+    stmt_append_err_format(stmt, "22003", 0,
+        "Numeric value out of range:parameter(#%d,#%d)[%s] to [%s] to [%s]",
+        i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType), taos_data_type(tsdb_type));
+    return SQL_ERROR;
+  }
+
+  int32_t i32 = (int32_t)i64;
+
+  switch (tsdb_type) {
+    case TSDB_DATA_TYPE_INT:
+       return _stmt_conv_param_data_from_sqlc_sbigint_tsdb_int(stmt, param_state, i32);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:conversion from parameter(#%d,#%d)[%s] to [%s] to [%s] not implemented yet",
+          i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType), taos_data_type(tsdb_type));
+      return SQL_ERROR;
+  }
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_sbigint_sql_varchar(stmt_t *stmt, param_state_t *param_state, int64_t i64)
+{
+  int                   i_row             = param_state->i_row;
+  int                   i_param           = param_state->i_param;
+  desc_record_t        *APD_record        = param_state->APD_record;
+  desc_record_t        *IPD_record        = param_state->IPD_record;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  // TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
+  int tsdb_type = tsdb_field->type;
+
+  SQLULEN ColumnSize = IPD_record->DESC_LENGTH;
+
+  char buf[128];
+  snprintf(buf, sizeof(buf), "%" PRId64 "", i64);
+  size_t len = strlen(buf);
+
+  if (len > ColumnSize) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:parameter(#%d,#%d) too long",
+        i_row + 1, i_param + 1);
+    return SQL_ERROR;
+  }
+
+  switch (tsdb_type) {
+    case TSDB_DATA_TYPE_BIGINT:
+       return _stmt_conv_param_data_from_sqlc_sbigint_tsdb_bigint(stmt, param_state, i64);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:conversion from parameter(#%d,#%d)[%s] to [%s] to [%s] not implemented yet",
+          i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType), taos_data_type(tsdb_type));
+      return SQL_ERROR;
+  }
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_sbigint_tsdb_smallint(stmt_t *stmt, param_state_t *param_state, int16_t i16)
+{
+  (void)stmt;
+
+  int                   i_row             = param_state->i_row;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  int16_t *v = (int16_t*)tsdb_bind->buffer;
+  v[i_row - param_state->i_batch_offset] = i16;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_sbigint_sql_smallint(stmt_t *stmt, param_state_t *param_state, int64_t i64)
+{
+  int                   i_row             = param_state->i_row;
+  int                   i_param           = param_state->i_param;
+  desc_record_t        *APD_record        = param_state->APD_record;
+  desc_record_t        *IPD_record        = param_state->IPD_record;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  // TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
+  int tsdb_type = tsdb_field->type;
+
+  if (i64 > INT16_MAX || i64 < INT16_MIN) {
+    stmt_append_err_format(stmt, "22003", 0,
+        "Numeric value out of range:parameter(#%d,#%d)[%s] to [%s] to [%s]",
+        i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType), taos_data_type(tsdb_type));
+    return SQL_ERROR;
+  }
+
+  int16_t i16 = (int16_t)i64;
+
+  (void)i16;
+
+  switch (tsdb_type) {
+    case TSDB_DATA_TYPE_SMALLINT:
+       return _stmt_conv_param_data_from_sqlc_sbigint_tsdb_smallint(stmt, param_state, i16);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:conversion from parameter(#%d,#%d)[%s] to [%s] to [%s] not implemented yet",
+          i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType), taos_data_type(tsdb_type));
+      return SQL_ERROR;
+  }
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_sbigint_tsdb_tinyint(stmt_t *stmt, param_state_t *param_state, int8_t i8)
+{
+  (void)stmt;
+
+  int                   i_row             = param_state->i_row;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  int8_t *v = (int8_t*)tsdb_bind->buffer;
+  v[i_row - param_state->i_batch_offset] = i8;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_sbigint_tsdb_double(stmt_t *stmt, param_state_t *param_state, double dbl)
+{
+  (void)stmt;
+
+  int                   i_row             = param_state->i_row;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  double *v = (double*)tsdb_bind->buffer;
+  v[i_row - param_state->i_batch_offset] = dbl;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_sbigint_tsdb_bool(stmt_t *stmt, param_state_t *param_state, int8_t b)
+{
+  (void)stmt;
+
+  int                   i_row             = param_state->i_row;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  int8_t *v = (int8_t*)tsdb_bind->buffer;
+  v[i_row - param_state->i_batch_offset] = !!b;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_sbigint_sql_tinyint(stmt_t *stmt, param_state_t *param_state, int64_t i64)
+{
+  int                   i_row             = param_state->i_row;
+  int                   i_param           = param_state->i_param;
+  desc_record_t        *APD_record        = param_state->APD_record;
+  desc_record_t        *IPD_record        = param_state->IPD_record;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  // TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
+  int tsdb_type = tsdb_field->type;
+
+  if (i64 > INT8_MAX || i64 < INT8_MIN) {
+    stmt_append_err_format(stmt, "22003", 0,
+        "Numeric value out of range:parameter(#%d,#%d)[%s] to [%s] to [%s]",
+        i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType), taos_data_type(tsdb_type));
+    return SQL_ERROR;
+  }
+
+  int8_t i8 = (int8_t)i64;
+
+  (void)i8;
+
+  switch (tsdb_type) {
+    case TSDB_DATA_TYPE_TINYINT:
+      return _stmt_conv_param_data_from_sqlc_sbigint_tsdb_tinyint(stmt, param_state, i8);
+    case TSDB_DATA_TYPE_DOUBLE:
+      return _stmt_conv_param_data_from_sqlc_sbigint_tsdb_double(stmt, param_state, (double)i8);
+    case TSDB_DATA_TYPE_BOOL:
+      return _stmt_conv_param_data_from_sqlc_sbigint_tsdb_bool(stmt, param_state, !!i8);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:conversion from parameter(#%d,#%d)[%s] to [%s] to [%s] not implemented yet",
+          i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType), taos_data_type(tsdb_type));
+      return SQL_ERROR;
+  }
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_sbigint(stmt_t *stmt, param_state_t *param_state)
+{
+  int                   i_row             = param_state->i_row;
+  int                   i_param           = param_state->i_param;
+  desc_record_t        *APD_record        = param_state->APD_record;
+  desc_record_t        *IPD_record        = param_state->IPD_record;
+
+  SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
+
+  int64_t i64 = *(int64_t*)param_state->sql_c_base;
+
+  switch (ParameterType) {
+    case SQL_TYPE_TIMESTAMP:
+      return _stmt_conv_param_data_from_sqlc_sbigint_sql_timestamp(stmt, param_state, i64);
+    case SQL_BIGINT:
+      return _stmt_conv_param_data_from_sqlc_sbigint_sql_bigint(stmt, param_state, i64);
+    case SQL_INTEGER:
+      return _stmt_conv_param_data_from_sqlc_sbigint_sql_int(stmt, param_state, i64);
+    case SQL_VARCHAR:
+      return _stmt_conv_param_data_from_sqlc_sbigint_sql_varchar(stmt, param_state, i64);
+    case SQL_SMALLINT:
+      return _stmt_conv_param_data_from_sqlc_sbigint_sql_smallint(stmt, param_state, i64);
+    case SQL_TINYINT:
+      return _stmt_conv_param_data_from_sqlc_sbigint_sql_tinyint(stmt, param_state, i64);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:conversion from parameter(#%d,#%d)[%s] to [%s] not implemented yet",
+          i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType));
+      return SQL_ERROR;
+  }
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sql_varchar_tsdb_varchar(stmt_t *stmt, param_state_t *param_state, const char *s, size_t len)
+{
+  (void)stmt;
+
+  int                   i_row             = param_state->i_row;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  const char *fromcode = conn_get_sqlc_charset(stmt->conn);
+  const char *tocode   = conn_get_tsdb_charset(stmt->conn);
+  charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
+  if (!cnv) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
+    return SQL_ERROR;
+  }
+
+  char *tsdb_varchar = tsdb_bind->buffer;
+  tsdb_varchar += (i_row - param_state->i_batch_offset) * tsdb_bind->buffer_length;
+  size_t tsdb_varchar_len = tsdb_bind->buffer_length;
+
+  size_t         inbytes             = len;
+  size_t         outbytes            = tsdb_varchar_len;
+
+  size_t         inbytesleft         = inbytes;
+  size_t         outbytesleft        = outbytes;
+
+  char          *inbuf               = (char*)s;
+  char          *outbuf              = (char*)tsdb_varchar;
+
+  size_t n = CALL_iconv(cnv->cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+  int e = errno;
+  iconv(cnv->cnv, NULL, NULL, NULL, NULL);
+  if (n == (size_t)-1) {
+    if (e != E2BIG) {
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:[iconv]Character set conversion for `%s` to `%s` failed:[%d]%s",
+          cnv->from, cnv->to, e, strerror(e));
+      return SQL_ERROR;
+    }
+  }
+  if (inbytesleft) {
+    stmt_append_err_format(stmt, "22001", 0,
+        "String data, right truncated:[iconv]Character set conversion for `%s` to `%s`, #%zd out of #%zd bytes consumed, #%zd out of #%zd bytes converted:[%d]%s",
+        cnv->from, cnv->to, inbytes - inbytesleft, inbytes, outbytes - outbytesleft, outbytes, e, strerror(e));
+    return SQL_SUCCESS_WITH_INFO;
+  }
+
+  if (tsdb_bind->length) {
+    tsdb_bind->length[i_row - param_state->i_batch_offset] = (int32_t)(outbytes - outbytesleft);
+  }
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_char_sql_varchar(stmt_t *stmt, param_state_t *param_state, const char *s, size_t len)
+{
+  int                   i_row             = param_state->i_row;
+  int                   i_param           = param_state->i_param;
+  desc_record_t        *APD_record        = param_state->APD_record;
+  desc_record_t        *IPD_record        = param_state->IPD_record;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  // TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
+  int tsdb_type = tsdb_field->type;
+
+  SQLULEN ColumnSize = IPD_record->DESC_LENGTH;
+  if (len > ColumnSize) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:parameter(#%d,#%d) too long",
+        i_row + 1, i_param + 1);
+    return SQL_ERROR;
+  }
+
+  switch (tsdb_type) {
+    case TSDB_DATA_TYPE_VARCHAR:
+      return _stmt_conv_param_data_from_sql_varchar_tsdb_varchar(stmt, param_state, s, len);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:conversion from parameter(#%d,#%d)[%s] to [%s] to [%s] not implemented yet",
+          i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType), taos_data_type(tsdb_type));
+      return SQL_ERROR;
+  }
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sql_wvarchar_tsdb_nchar(stmt_t *stmt, param_state_t *param_state, const unsigned char *ucs2le, size_t len)
+{
+  (void)stmt;
+
+  int                   i_row             = param_state->i_row;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  const char *fromcode = "UCS-2LE";
+  const char *tocode   = conn_get_tsdb_charset(stmt->conn);
+  charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
+  if (!cnv) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
+    return SQL_ERROR;
+  }
+
+  char *tsdb_varchar = tsdb_bind->buffer;
+  tsdb_varchar += (i_row - param_state->i_batch_offset) * tsdb_bind->buffer_length;
+  size_t tsdb_varchar_len = tsdb_bind->buffer_length;
+
+  size_t         inbytes             = len;
+  size_t         outbytes            = tsdb_varchar_len;
+
+  size_t         inbytesleft         = inbytes;
+  size_t         outbytesleft        = outbytes;
+
+  char          *inbuf               = (char*)ucs2le;
+  char          *outbuf              = (char*)tsdb_varchar;
+
+  size_t n = CALL_iconv(cnv->cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+  int e = errno;
+  iconv(cnv->cnv, NULL, NULL, NULL, NULL);
+  if (n == (size_t)-1) {
+    if (e != E2BIG) {
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:[iconv]Character set conversion for `%s` to `%s` failed:[%d]%s",
+          cnv->from, cnv->to, e, strerror(e));
+      return SQL_ERROR;
+    }
+  }
+  if (inbytesleft) {
+    stmt_append_err_format(stmt, "22001", 0,
+        "String data, right truncated:[iconv]Character set conversion for `%s` to `%s`, #%zd out of #%zd bytes consumed, #%zd out of #%zd bytes converted:[%d]%s",
+        cnv->from, cnv->to, inbytes - inbytesleft, inbytes, outbytes - outbytesleft, outbytes, e, strerror(e));
+    return SQL_SUCCESS_WITH_INFO;
+  }
+
+  if (tsdb_bind->length) {
+    tsdb_bind->length[i_row - param_state->i_batch_offset] = (int32_t)(outbytes - outbytesleft);
+  }
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_char_sql_wvarchar(stmt_t *stmt, param_state_t *param_state, const char *s, size_t len)
+{
+  int                   i_row             = param_state->i_row;
+  int                   i_param           = param_state->i_param;
+  desc_record_t        *APD_record        = param_state->APD_record;
+  desc_record_t        *IPD_record        = param_state->IPD_record;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  // TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
+  int tsdb_type = tsdb_field->type;
+
+  SQLULEN ColumnSize = IPD_record->DESC_LENGTH;
+  mem_t *sqlc_to_sql = &param_state->sqlc_to_sql;
+  mem_reset(sqlc_to_sql);
+
+  const char *fromcode = conn_get_sqlc_charset(stmt->conn);
+  const char *tocode   = "UCS-2LE";
+  charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
+  if (!cnv) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
+    return SQL_ERROR;
+  }
+
+  int r = mem_conv(sqlc_to_sql, cnv->cnv, s, len);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+  if (sqlc_to_sql->nr / 2 > ColumnSize) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:parameter(#%d,#%d) too long",
+        i_row + 1, i_param + 1);
+    return SQL_ERROR;
+  }
+
+  switch (tsdb_type) {
+    case TSDB_DATA_TYPE_NCHAR:
+      return _stmt_conv_param_data_from_sql_wvarchar_tsdb_nchar(stmt, param_state, sqlc_to_sql->base, sqlc_to_sql->nr);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:conversion from parameter(#%d,#%d)[%s] to [%s] to [%s] not implemented yet",
+          i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType), taos_data_type(tsdb_type));
+      return SQL_ERROR;
+  }
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_char_tsdb_timestamp(stmt_t *stmt, param_state_t *param_state, const char *s, size_t len)
+{
+  (void)stmt;
+
+  int                   i_row             = param_state->i_row;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+
+  SQLRETURN sr = SQL_SUCCESS;
+
+  char *tsdb_timestamp = tsdb_bind->buffer;
+  tsdb_timestamp += (i_row - param_state->i_batch_offset) * tsdb_bind->buffer_length;
+
+  sr = _stmt_conv_sql_c_char_to_tsdb_timestamp_x(stmt, s, len, tsdb_field->precision, (int64_t*)tsdb_timestamp);
+  return sr;
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_char_sql_timestamp(stmt_t *stmt, param_state_t *param_state, const char *s, size_t len)
+{
+  int                   i_row             = param_state->i_row;
+  int                   i_param           = param_state->i_param;
+  desc_record_t        *APD_record        = param_state->APD_record;
+  desc_record_t        *IPD_record        = param_state->IPD_record;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  // TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
+  int tsdb_type = tsdb_field->type;
+
+  (void)s; (void)len;
+
+  switch (tsdb_type) {
+    case TSDB_DATA_TYPE_TIMESTAMP:
+      return _stmt_conv_param_data_from_sqlc_char_tsdb_timestamp(stmt, param_state, s, len);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:conversion from parameter(#%d,#%d)[%s] to [%s] to [%s] not implemented yet",
+          i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType), taos_data_type(tsdb_type));
+      return SQL_ERROR;
+  }
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sql_bigint_tsdb_varchar(stmt_t *stmt, param_state_t *param_state, int64_t i64)
+{
+  (void)stmt;
+
+  char buf[128];
+  snprintf(buf, sizeof(buf), "%" PRId64 "", i64);
+  size_t len = strlen(buf);
+
+  return _stmt_conv_param_data_from_sql_varchar_tsdb_varchar(stmt, param_state, buf, len);
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_char_sql_bigint(stmt_t *stmt, param_state_t *param_state, const char *s, size_t len)
+{
+  int                   i_row             = param_state->i_row;
+  int                   i_param           = param_state->i_param;
+  desc_record_t        *APD_record        = param_state->APD_record;
+  desc_record_t        *IPD_record        = param_state->IPD_record;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  // TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
+  int tsdb_type = tsdb_field->type;
+
+  mem_t *sqlc_to_sql = &param_state->sqlc_to_sql;
+  mem_reset(sqlc_to_sql);
+  int r = mem_keep(sqlc_to_sql, len + 1);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+
+  r = mem_copy_str(sqlc_to_sql, s, len);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+
+  int64_t i64 = 0;
+
+  SQLRETURN sr = SQL_SUCCESS;
+
+  switch (tsdb_type) {
+    case TSDB_DATA_TYPE_VARCHAR:
+      if (stmt->tsdb_stmt.is_insert_stmt) {
+        sr = _stmt_strtoll(stmt, (const char*)sqlc_to_sql->base, &i64);
+        if (sr != SQL_SUCCESS) return SQL_ERROR;
+        return _stmt_conv_param_data_from_sql_bigint_tsdb_varchar(stmt, param_state, i64);
+      } else {
+        return _stmt_conv_param_data_from_sql_varchar_tsdb_varchar(stmt, param_state, s, len);
+      }
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:conversion from parameter(#%d,#%d)[%s] to [%s] to [%s] not implemented yet",
+          i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType), taos_data_type(tsdb_type));
+      return SQL_ERROR;
+  }
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sql_double_tsdb_varchar(stmt_t *stmt, param_state_t *param_state, double dbl)
+{
+  (void)stmt;
+
+  char buf[128];
+  snprintf(buf, sizeof(buf), "%lg", dbl);
+  size_t len = strlen(buf);
+
+  return _stmt_conv_param_data_from_sql_varchar_tsdb_varchar(stmt, param_state, buf, len);
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_char_sql_double(stmt_t *stmt, param_state_t *param_state, const char *s, size_t len)
+{
+  int                   i_row             = param_state->i_row;
+  int                   i_param           = param_state->i_param;
+  desc_record_t        *APD_record        = param_state->APD_record;
+  desc_record_t        *IPD_record        = param_state->IPD_record;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  // TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
+  int tsdb_type = tsdb_field->type;
+
+  mem_t *sqlc_to_sql = &param_state->sqlc_to_sql;
+  mem_reset(sqlc_to_sql);
+  int r = mem_keep(sqlc_to_sql, len + 1);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+
+  r = mem_copy_str(sqlc_to_sql, s, len);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+
+  double dbl = 0;
+
+  SQLRETURN sr = SQL_SUCCESS;
+
+  sr = _stmt_strtod(stmt, (const char*)sqlc_to_sql->base, &dbl);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  switch (tsdb_type) {
+    case TSDB_DATA_TYPE_VARCHAR:
+      return _stmt_conv_param_data_from_sql_double_tsdb_varchar(stmt, param_state, dbl);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:conversion from parameter(#%d,#%d)[%s] to [%s] to [%s] not implemented yet",
+          i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType), taos_data_type(tsdb_type));
+      return SQL_ERROR;
+  }
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_char(stmt_t *stmt, param_state_t *param_state)
+{
+  int                   i_row             = param_state->i_row;
+  int                   i_param           = param_state->i_param;
+  desc_record_t        *APD_record        = param_state->APD_record;
+  desc_record_t        *IPD_record        = param_state->IPD_record;
+
+  SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
+
+  const char *s = (const char*)param_state->sql_c_base;
+  size_t len = param_state->sql_c_length;
+  if (len == (size_t)SQL_NTS) len = strlen(s);
+
+  switch (ParameterType) {
+    case SQL_VARCHAR:
+      return _stmt_conv_param_data_from_sqlc_char_sql_varchar(stmt, param_state, s, len);
+    case SQL_WVARCHAR:
+      return _stmt_conv_param_data_from_sqlc_char_sql_wvarchar(stmt, param_state, s, len);
+    case SQL_TYPE_TIMESTAMP:
+      return _stmt_conv_param_data_from_sqlc_char_sql_timestamp(stmt, param_state, s, len);
+    case SQL_BIGINT:
+      return _stmt_conv_param_data_from_sqlc_char_sql_bigint(stmt, param_state, s, len);
+    case SQL_DOUBLE:
+      return _stmt_conv_param_data_from_sqlc_char_sql_double(stmt, param_state, s, len);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:conversion from parameter(#%d,#%d)[%s] to [%s] not implemented yet",
+          i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType));
+      return SQL_ERROR;
+  }
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_double_sql_timestamp_tsdb_timestamp(stmt_t *stmt, param_state_t *param_state, double dbl)
+{
+  (void)stmt;
+
+  int                   i_row             = param_state->i_row;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  int64_t *tsdb_timestamp = (int64_t*)tsdb_bind->buffer;
+  tsdb_timestamp[i_row - param_state->i_batch_offset] = dbl;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_double_sql_timestamp(stmt_t *stmt, param_state_t *param_state, double dbl)
+{
+  int                   i_row             = param_state->i_row;
+  int                   i_param           = param_state->i_param;
+  desc_record_t        *APD_record        = param_state->APD_record;
+  desc_record_t        *IPD_record        = param_state->IPD_record;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  // TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
+  int tsdb_type = tsdb_field->type;
+
+  switch (tsdb_type) {
+    case TSDB_DATA_TYPE_TIMESTAMP:
+      return _stmt_conv_param_data_from_sqlc_double_sql_timestamp_tsdb_timestamp(stmt, param_state, dbl);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:conversion from parameter(#%d,#%d)[%s] to [%s] to [%s] not implemented yet",
+          i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType), taos_data_type(tsdb_type));
+      return SQL_ERROR;
+  }
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_double_sql_double_tsdb_double(stmt_t *stmt, param_state_t *param_state, double dbl)
+{
+  (void)stmt;
+
+  int                   i_row             = param_state->i_row;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  double *v = (double*)tsdb_bind->buffer;
+  v[i_row - param_state->i_batch_offset] = dbl;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_double_sql_double(stmt_t *stmt, param_state_t *param_state, double dbl)
+{
+  int                   i_row             = param_state->i_row;
+  int                   i_param           = param_state->i_param;
+  desc_record_t        *APD_record        = param_state->APD_record;
+  desc_record_t        *IPD_record        = param_state->IPD_record;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  // TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
+  int tsdb_type = tsdb_field->type;
+
+  switch (tsdb_type) {
+    case TSDB_DATA_TYPE_DOUBLE:
+      return _stmt_conv_param_data_from_sqlc_double_sql_double_tsdb_double(stmt, param_state, dbl);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:conversion from parameter(#%d,#%d)[%s] to [%s] to [%s] not implemented yet",
+          i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType), taos_data_type(tsdb_type));
+      return SQL_ERROR;
+  }
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_double_sql_varchar(stmt_t *stmt, param_state_t *param_state, double dbl)
+{
+  int                   i_row             = param_state->i_row;
+  int                   i_param           = param_state->i_param;
+  desc_record_t        *APD_record        = param_state->APD_record;
+  desc_record_t        *IPD_record        = param_state->IPD_record;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  // TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
+  SQLULEN ColumnSize = IPD_record->DESC_LENGTH;
+  int tsdb_type = tsdb_field->type;
+
+  char buf[256];
+  snprintf(buf, sizeof(buf), "%lg", dbl);
+  size_t len = strlen(buf);
+  if (len > ColumnSize) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:parameter(#%d,#%d) too long",
+        i_row + 1, i_param + 1);
+    return SQL_ERROR;
+  }
+
+  switch (tsdb_type) {
+    case TSDB_DATA_TYPE_DOUBLE:
+      return _stmt_conv_param_data_from_sqlc_double_sql_double_tsdb_double(stmt, param_state, dbl);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:conversion from parameter(#%d,#%d)[%s] to [%s] to [%s] not implemented yet",
+          i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType), taos_data_type(tsdb_type));
+      return SQL_ERROR;
+  }
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_double_sql_double_tsdb_float(stmt_t *stmt, param_state_t *param_state, double dbl)
+{
+  (void)stmt;
+
+  int                   i_row             = param_state->i_row;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  float *v = (float*)tsdb_bind->buffer;
+  v[i_row - param_state->i_batch_offset] = (float)dbl;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_double_sql_real(stmt_t *stmt, param_state_t *param_state, double dbl)
+{
+  int                   i_row             = param_state->i_row;
+  int                   i_param           = param_state->i_param;
+  desc_record_t        *APD_record        = param_state->APD_record;
+  desc_record_t        *IPD_record        = param_state->IPD_record;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  // TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
+  int tsdb_type = tsdb_field->type;
+
+  (void)dbl;
+
+  switch (tsdb_type) {
+    case TSDB_DATA_TYPE_FLOAT:
+      return _stmt_conv_param_data_from_sqlc_double_sql_double_tsdb_float(stmt, param_state, dbl);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:conversion from parameter(#%d,#%d)[%s] to [%s] to [%s] not implemented yet",
+          i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType), taos_data_type(tsdb_type));
+      return SQL_ERROR;
+  }
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_double_sql_bigint(stmt_t *stmt, param_state_t *param_state, double dbl)
+{
+  int                   i_row             = param_state->i_row;
+  int                   i_param           = param_state->i_param;
+  desc_record_t        *APD_record        = param_state->APD_record;
+  desc_record_t        *IPD_record        = param_state->IPD_record;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  // TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
+  int tsdb_type = tsdb_field->type;
+
+  if (dbl > INT64_MAX || dbl < INT64_MIN) {
+    stmt_append_err_format(stmt, "22003", 0,
+        "Numeric value out of range:parameter(#%d,#%d)[%s] to [%s] to [%s]",
+        i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType), taos_data_type(tsdb_type));
+    return SQL_ERROR;
+  }
+
+  switch (tsdb_type) {
+    case TSDB_DATA_TYPE_DOUBLE:
+      return _stmt_conv_param_data_from_sqlc_double_sql_double_tsdb_double(stmt, param_state, dbl);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:conversion from parameter(#%d,#%d)[%s] to [%s] to [%s] not implemented yet",
+          i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType), taos_data_type(tsdb_type));
+      return SQL_ERROR;
+  }
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_double(stmt_t *stmt, param_state_t *param_state)
+{
+  int                   i_row             = param_state->i_row;
+  int                   i_param           = param_state->i_param;
+  desc_record_t        *APD_record        = param_state->APD_record;
+  desc_record_t        *IPD_record        = param_state->IPD_record;
+
+  SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
+
+  double dbl = *(double*)param_state->sql_c_base;
+
+  switch (ParameterType) {
+    case SQL_TYPE_TIMESTAMP:
+      return _stmt_conv_param_data_from_sqlc_double_sql_timestamp(stmt, param_state, dbl);
+    case SQL_DOUBLE:
+      return _stmt_conv_param_data_from_sqlc_double_sql_double(stmt, param_state, dbl);
+    case SQL_VARCHAR:
+      return _stmt_conv_param_data_from_sqlc_double_sql_varchar(stmt, param_state, dbl);
+    case SQL_REAL:
+      return _stmt_conv_param_data_from_sqlc_double_sql_real(stmt, param_state, dbl);
+    case SQL_BIGINT:
+      return _stmt_conv_param_data_from_sqlc_double_sql_bigint(stmt, param_state, dbl);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:conversion from parameter(#%d,#%d)[%s] to [%s] not implemented yet",
+          i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType));
+      return SQL_ERROR;
+  }
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_slong_tsdb_int(stmt_t *stmt, param_state_t *param_state, int32_t i32)
+{
+  (void)stmt;
+
+  int                   i_row             = param_state->i_row;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  int32_t *v = (int32_t*)tsdb_bind->buffer;
+  v[i_row - param_state->i_batch_offset] = i32;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_slong_sql_int(stmt_t *stmt, param_state_t *param_state, int32_t i32)
+{
+  int                   i_row             = param_state->i_row;
+  int                   i_param           = param_state->i_param;
+  desc_record_t        *APD_record        = param_state->APD_record;
+  desc_record_t        *IPD_record        = param_state->IPD_record;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  // TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
+  int tsdb_type = tsdb_field->type;
+
+  (void)i32;
+
+  switch (tsdb_type) {
+    case TSDB_DATA_TYPE_INT:
+      return _stmt_conv_param_data_from_sqlc_slong_tsdb_int(stmt, param_state, i32);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:conversion from parameter(#%d,#%d)[%s] to [%s] to [%s] not implemented yet",
+          i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType), taos_data_type(tsdb_type));
+      return SQL_ERROR;
+  }
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_slong(stmt_t *stmt, param_state_t *param_state)
+{
+  int                   i_row             = param_state->i_row;
+  int                   i_param           = param_state->i_param;
+  desc_record_t        *APD_record        = param_state->APD_record;
+  desc_record_t        *IPD_record        = param_state->IPD_record;
+
+  SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
+
+  int32_t i32 = *(int32_t*)param_state->sql_c_base;
+
+  switch (ParameterType) {
+    // case SQL_TYPE_TIMESTAMP:
+    //   return _stmt_conv_param_data_from_sqlc_sbigint_sql_timestamp(stmt, param_state, i64);
+    // case SQL_BIGINT:
+    //   return _stmt_conv_param_data_from_sqlc_sbigint_sql_bigint(stmt, param_state, i64);
+    case SQL_INTEGER:
+      return _stmt_conv_param_data_from_sqlc_slong_sql_int(stmt, param_state, i32);
+    // case SQL_VARCHAR:
+    //   return _stmt_conv_param_data_from_sqlc_sbigint_sql_varchar(stmt, param_state, i64);
+    // case SQL_SMALLINT:
+    //   return _stmt_conv_param_data_from_sqlc_sbigint_sql_smallint(stmt, param_state, i64);
+    // case SQL_TINYINT:
+    //   return _stmt_conv_param_data_from_sqlc_sbigint_sql_tinyint(stmt, param_state, i64);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:conversion from parameter(#%d,#%d)[%s] to [%s] not implemented yet",
+          i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType));
+      return SQL_ERROR;
+  }
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_to_sql_to_tsdb(stmt_t *stmt, param_state_t *param_state)
+{
+  int                        i_row             = param_state->i_row;
+  int                        i_param           = param_state->i_param;
+  desc_record_t             *APD_record        = param_state->APD_record;
+
+  SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
+  switch (ValueType) {
+    case SQL_C_SBIGINT:
+      return _stmt_conv_param_data_from_sqlc_sbigint(stmt, param_state);
+    case SQL_C_CHAR:
+      return _stmt_conv_param_data_from_sqlc_char(stmt, param_state);
+    case SQL_C_DOUBLE:
+      return _stmt_conv_param_data_from_sqlc_double(stmt, param_state);
+    case SQL_C_SLONG:
+      return _stmt_conv_param_data_from_sqlc_slong(stmt, param_state);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:Parameter(#%d,#%d)[%s] not implemented yet",
+          i_row + 1, i_param + 1, sqlc_data_type(ValueType));
+      return SQL_ERROR;
+  }
+}
+
 static SQLRETURN _stmt_conv_param_data(stmt_t *stmt, param_state_t *param_state)
 {
+  SQLRETURN sr = SQL_SUCCESS;
+
   int                        i_row                      = param_state->i_row;
   int                        i_param                    = param_state->i_param;
   desc_record_t             *APD_record                 = param_state->APD_record;
@@ -4187,10 +5296,22 @@ static SQLRETURN _stmt_conv_param_data(stmt_t *stmt, param_state_t *param_state)
           i_row + 1, i_param + 1, sqlc_data_type(APD_record->DESC_CONCISE_TYPE));
       return SQL_ERROR;
     }
-    tsdb_bind->is_null[i_row] = 1;
+    tsdb_bind->is_null[i_row - param_state->i_batch_offset] = 1;
     return SQL_SUCCESS;
   } else {
-    if (tsdb_bind->is_null) tsdb_bind->is_null[i_row] = 0;
+    if (tsdb_bind->is_null) {
+      tsdb_bind->is_null[i_row - param_state->i_batch_offset] = 0;
+    }
+  }
+
+  param_state->sql_c_base     = sql_c_base;
+  param_state->sql_c_length   = sql_c_length;
+  param_state->sql_c_is_null  = sql_c_is_null;
+
+  if (1) {
+    sr = _stmt_conv_param_data_from_sqlc_to_sql_to_tsdb(stmt, param_state);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+    return SQL_SUCCESS;
   }
 
   SQLSMALLINT ValueType = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
@@ -4219,16 +5340,7 @@ static SQLRETURN _stmt_conv_param_data(stmt_t *stmt, param_state_t *param_state)
       return SQL_ERROR;
   }
 
-  if (tsdb_bind->length && APD_record->DESC_OCTET_LENGTH_PTR) {
-    tsdb_bind->length[i_row] = (int32_t)*APD_record->DESC_OCTET_LENGTH_PTR;
-  }
-
   return SQL_SUCCESS;
-}
-
-static SQLRETURN _stmt_tsdb_field_by_param(stmt_t *stmt, int i_param, TAOS_FIELD_E **field)
-{
-  return stmt->base->tsdb_field_by_param(stmt->base, i_param, field);
 }
 
 static SQLRETURN _stmt_execute_prepare_caches(stmt_t *stmt, param_state_t *param_state)
@@ -4240,13 +5352,10 @@ static SQLRETURN _stmt_execute_prepare_caches(stmt_t *stmt, param_state_t *param
   descriptor_t *IPD = stmt_IPD(stmt);
 
   for (int j=0; j<param_state->nr_tsdb_fields; ++j) {
-    TAOS_FIELD_E *field;
-    sr = _stmt_tsdb_field_by_param(stmt, j, &field);
-    if (sr != SQL_SUCCESS) return SQL_ERROR;
     param_state->i_param                        = j;
     param_state->APD_record = APD->records + j;
     param_state->IPD_record = IPD->records + j;
-    param_state->tsdb_field = field;
+    param_state->tsdb_field = &stmt->paramset.params[j].tsdb_field;
     param_state->param_column = stmt->paramset.params + j;
     param_state->tsdb_bind = stmt->tsdb_binds.mbs + j;
     if (!stmt->tsdb_stmt.is_insert_stmt) {
@@ -4289,13 +5398,10 @@ static SQLRETURN _stmt_execute_prepare_params(stmt_t *stmt, param_state_t *param
     sr = SQL_SUCCESS;
     param_state->i_row = i + param_state->i_batch_offset;
     for (int j=0; j<param_state->nr_tsdb_fields; ++j) {
-      TAOS_FIELD_E *field;
-      sr = _stmt_tsdb_field_by_param(stmt, j, &field);
-      if (sr != SQL_SUCCESS) break;
       param_state->i_param                        = j;
       param_state->APD_record = APD->records + j;
       param_state->IPD_record = IPD->records + j;
-      param_state->tsdb_field = field;
+      param_state->tsdb_field = &stmt->paramset.params[j].tsdb_field;
       param_state->param_column = stmt->paramset.params + j;
       param_state->tsdb_bind = stmt->tsdb_binds.mbs + j;
       if (j == 0 && stmt->tsdb_stmt.is_insert_stmt && stmt->tsdb_stmt.params.subtbl_required) {
@@ -4360,10 +5466,6 @@ static SQLRETURN _stmt_prepare_params(stmt_t *stmt, param_state_t *param_state)
   sr = _stmt_get_num_params(stmt, &n);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-  if (n <= 0) return SQL_SUCCESS;
-
-  descriptor_t *APD = stmt_APD(stmt);
-
   descriptor_t *IPD = stmt_IPD(stmt);
   desc_header_t *IPD_header = &IPD->header;
 
@@ -4391,31 +5493,6 @@ static SQLRETURN _stmt_prepare_params(stmt_t *stmt, param_state_t *param_state)
 
   tsdb_params_t *tsdb_params = &stmt->tsdb_stmt.params;
   if (stmt->tsdb_stmt.is_insert_stmt) {
-    if (tsdb_params->subtbl_required) {
-      desc_record_t *APD_record = APD->records;
-      const char *base = APD_record->DESC_DATA_PTR;
-      size_t len = SQL_NTS;
-      if (APD_record->DESC_OCTET_LENGTH_PTR) len = *APD_record->DESC_OCTET_LENGTH_PTR;
-      if (len == (size_t)SQL_NTS) len = strlen(base);
-
-      TOD_SAFE_FREE(tsdb_params->subtbl);
-      tsdb_params->subtbl = strndup(base, len);
-      if (!tsdb_params->subtbl) {
-        stmt_oom(stmt);
-        return SQL_ERROR;
-      }
-
-      if (1) {
-        r = CALL_taos_stmt_set_tbname(stmt->tsdb_stmt.stmt, tsdb_params->subtbl);
-        if (r) {
-          stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->tsdb_stmt.stmt));
-          return SQL_ERROR;
-        }
-      } else {
-        sr = tsdb_stmt_re_desc_fields(&stmt->tsdb_stmt);
-        if (sr != SQL_SUCCESS) return SQL_ERROR;
-      }
-    }
     if (tsdb_params->nr_tag_fields) {
       TAOS_MULTI_BIND *mbs = stmt->tsdb_binds.mbs + (!!stmt->tsdb_stmt.params.subtbl_required);
       r = CALL_taos_stmt_set_tags(stmt->tsdb_stmt.stmt, mbs);
@@ -4441,6 +5518,20 @@ static SQLRETURN _stmt_prepare_params(stmt_t *stmt, param_state_t *param_state)
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_execute_re_bind_subtbl(stmt_t *stmt, const char *subtbl, size_t subtbl_len)
+{
+  tsdb_params_t *tsdb_params = &stmt->tsdb_stmt.params;
+
+  TOD_SAFE_FREE(tsdb_params->subtbl);
+  tsdb_params->subtbl = strndup(subtbl, subtbl_len);
+  if (!tsdb_params->subtbl) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+
+  return tsdb_stmt_re_bind_subtbl(&stmt->tsdb_stmt);
+}
+
 static SQLRETURN _stmt_execute_with_params(stmt_t *stmt)
 {
   SQLRETURN sr = SQL_SUCCESS;
@@ -4463,17 +5554,31 @@ static SQLRETURN _stmt_execute_with_params(stmt_t *stmt)
   size_t subtbl_len  = 0;
   size_t i_offset = 0;
 
-  param_state_t param_state = {0};
-  // param_state.nr_paramset_size          = (int)APD_header->DESC_ARRAY_SIZE;
-  param_state.nr_tsdb_fields            = n;
-  param_state.i_batch_offset            = 0;
+  param_state_t *param_state = &stmt->param_state;
+  _param_state_reset(param_state);
+  // param_state->nr_paramset_size          = (int)APD_header->DESC_ARRAY_SIZE;
+  param_state->nr_tsdb_fields            = n;
+  param_state->i_batch_offset            = 0;
 
   if (stmt->tsdb_stmt.is_insert_stmt && stmt->tsdb_stmt.params.subtbl_required) {
+    desc_record_t *APD_record = APD->records + 0;
+    SQLSMALLINT ValueType = APD_record->DESC_CONCISE_TYPE;
+    if (ValueType != SQL_C_CHAR) {
+      stmt_append_err_format(stmt, "HY000", 0, "General error:subtbl is required as `SQL_C_CHAR` type, but got ==[%s]==", sqlc_data_type(ValueType));
+      return SQL_ERROR;
+    }
     for (size_t i=0; i<nr_paramset_size; ++i) {
-      desc_record_t *APD_record = APD->records;
-      const char *base = APD_record->DESC_DATA_PTR;
-      size_t len = SQL_NTS;
-      if (APD_record->DESC_OCTET_LENGTH_PTR) len = *APD_record->DESC_OCTET_LENGTH_PTR;
+      char *sql_c_base;
+      SQLLEN sql_c_length;
+      int sql_c_is_null;
+      _stmt_param_get(stmt, i, 0, &sql_c_base, &sql_c_length, &sql_c_is_null);
+      if (sql_c_is_null) {
+        stmt_append_err(stmt, "HY000", 0, "General error:subtbl is required, but got ==null==");
+        return SQL_ERROR;
+      }
+
+      const char *base = sql_c_base;
+      size_t len = sql_c_length;
       if (len == (size_t)SQL_NTS) len = strlen(base);
 
       if (subtbl == NULL) {
@@ -4484,10 +5589,13 @@ static SQLRETURN _stmt_execute_with_params(stmt_t *stmt)
 
       if (subtbl_len == len && strncmp(subtbl, base, len) == 0) continue;
 
-      param_state.i_batch_offset   = i_offset;
-      param_state.nr_paramset_size = i - i_offset;
+      sr = _stmt_execute_re_bind_subtbl(stmt, subtbl, subtbl_len);
+      if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-      sr = _stmt_prepare_params(stmt, &param_state);
+      param_state->i_batch_offset   = i_offset;
+      param_state->nr_paramset_size = i - i_offset;
+
+      sr = _stmt_prepare_params(stmt, param_state);
       if (sr != SQL_SUCCESS) return SQL_ERROR;
       sr = stmt->base->execute(stmt->base);
       if (sr != SQL_SUCCESS) return SQL_ERROR;
@@ -4496,12 +5604,15 @@ static SQLRETURN _stmt_execute_with_params(stmt_t *stmt)
       subtbl_len = len;
       i_offset   = i;
     }
+
+    sr = _stmt_execute_re_bind_subtbl(stmt, subtbl, subtbl_len);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
   }
 
-  param_state.i_batch_offset = i_offset;
-  param_state.nr_paramset_size = nr_paramset_size - i_offset;
+  param_state->i_batch_offset = i_offset;
+  param_state->nr_paramset_size = nr_paramset_size - i_offset;
 
-  sr = _stmt_prepare_params(stmt, &param_state);
+  sr = _stmt_prepare_params(stmt, param_state);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
   return stmt->base->execute(stmt->base);
 }

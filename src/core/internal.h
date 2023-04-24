@@ -203,7 +203,8 @@ struct tsdb_param_column_s {
   mem_t           mem;
   mem_t           mem_length;
   mem_t           mem_is_null;
-  SQLRETURN (*conv)(stmt_t *stmt, int i_param);
+
+  TAOS_FIELD_E    tsdb_field;
 };
 
 typedef struct tsdb_paramset_s             tsdb_paramset_t;
@@ -475,17 +476,14 @@ struct tsdb_res_s {
 struct tsdb_params_s {
   tsdb_stmt_t                        *owner;
   char                               *subtbl;
-  TAOS_FIELD_E                        subtbl_field;
   TAOS_FIELD_E                       *tag_fields;
   int                                 nr_tag_fields;
   TAOS_FIELD_E                       *col_fields;
   int                                 nr_col_fields;
 
-  mem_t                               mem;
-  mem_t                               mem_params;
   int                                 nr_params;
 
-  int32_t                             qms_from_sql_parsed_by_taos_odbc;
+  int32_t                             qms; // NOTE: qms_from_sql_parsed_by_taos_odbc;
 
   unsigned int                        subtbl_required:1;
 };
@@ -654,6 +652,30 @@ struct typesinfo_s {
   size_t                     pos; // 1-based
 };
 
+struct param_state_s {
+  int                        nr_paramset_size;
+  size_t                     i_batch_offset;
+
+  SQLSMALLINT                nr_tsdb_fields;
+
+  int                        i_row;
+  int                        i_param;
+  desc_record_t             *APD_record;
+  desc_record_t             *IPD_record;
+
+  TAOS_FIELD_E              *tsdb_field;
+
+  tsdb_param_column_t       *param_column;
+  TAOS_MULTI_BIND           *tsdb_bind;
+
+  char                      *sql_c_base;
+  SQLLEN                     sql_c_length;
+  int                        sql_c_is_null;
+
+  mem_t                      sqlc_to_sql;
+  mem_t                      sql_to_tsdb;
+};
+
 struct stmt_s {
   atomic_int                 refc;
 
@@ -674,6 +696,7 @@ struct stmt_s {
   descriptor_t              *current_ARD;
 
   get_data_ctx_t             get_data_ctx;
+  param_state_t              param_state;
 
   mem_t                      raw;
   sqls_t                     sqls;

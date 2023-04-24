@@ -56,7 +56,6 @@ void tsdb_stmt_init(tsdb_stmt_t *stmt, stmt_t *owner) FA_HIDDEN;
 void tsdb_stmt_unprepare(tsdb_stmt_t *stmt) FA_HIDDEN;
 void tsdb_stmt_close_result(tsdb_stmt_t *stmt) FA_HIDDEN;
 
-SQLSMALLINT tsdb_stmt_get_count_of_tsdb_params(tsdb_stmt_t *stmt) FA_HIDDEN;
 SQLRETURN tsdb_stmt_describe_param(
     tsdb_stmt_t    *stmt,
     SQLUSMALLINT    ParameterNumber,
@@ -64,10 +63,9 @@ SQLRETURN tsdb_stmt_describe_param(
     SQLULEN        *ParameterSizePtr,
     SQLSMALLINT    *DecimalDigitsPtr,
     SQLSMALLINT    *NullablePtr) FA_HIDDEN;
-TAOS_FIELD_E* tsdb_stmt_get_tsdb_field_by_tsdb_params(tsdb_stmt_t *stmt, int i_param) FA_HIDDEN;
 
 SQLRETURN tsdb_stmt_query(tsdb_stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb) FA_HIDDEN;
-SQLRETURN tsdb_stmt_re_desc_fields(tsdb_stmt_t *stmt) FA_HIDDEN;
+SQLRETURN tsdb_stmt_re_bind_subtbl(tsdb_stmt_t *stmt) FA_HIDDEN;
 SQLRETURN tsdb_stmt_check_parameters(tsdb_stmt_t *stmt) FA_HIDDEN;
 SQLRETURN tsdb_stmt_fetch_rows_block(tsdb_stmt_t *stmt) FA_HIDDEN;
 

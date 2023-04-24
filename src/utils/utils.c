@@ -197,8 +197,13 @@ int mem_conv_ex(mem_t *mem, const str_t *src, const char *dst_charset)
 
 int mem_copy(mem_t *mem, const char *src)
 {
-  int r = 0;
   size_t len = strlen(src);
+  return mem_copy_str(mem, src, len);
+}
+
+int mem_copy_str(mem_t *mem, const char *src, size_t len)
+{
+  int r = 0;
   mem_reset(mem);
   r = mem_keep(mem, len + 1);
   if (r) return -1;

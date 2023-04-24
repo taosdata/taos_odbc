@@ -51,6 +51,8 @@ typedef struct ext_parser_param_s       ext_parser_param_t;
 
 typedef struct get_data_ctx_s           get_data_ctx_t;
 
+typedef struct param_state_s            param_state_t;
+
 typedef struct parser_ctx_s             parser_ctx_t;
 typedef struct parser_nterm_s           parser_nterm_t;
 typedef struct parser_token_s           parser_token_t;

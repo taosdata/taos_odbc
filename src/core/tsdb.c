@@ -734,12 +734,6 @@ static SQLRETURN _get_num_params(stmt_base_t *base, SQLSMALLINT *ParameterCountP
   return SQL_SUCCESS;
 }
 
-static SQLRETURN _check_params(stmt_base_t *base)
-{
-  tsdb_stmt_t *stmt = (tsdb_stmt_t*)base;
-  return tsdb_stmt_check_parameters(stmt);
-}
-
 static SQLRETURN _tsdb_field_by_param(stmt_base_t *base, int i_param, TAOS_FIELD_E **field)
 {
   tsdb_stmt_t *stmt = (tsdb_stmt_t*)base;
@@ -808,7 +802,6 @@ void tsdb_stmt_init(tsdb_stmt_t *stmt, stmt_t *owner)
   base->more_results            = _more_results;
   base->describe_param          = _describe_param;
   base->get_num_params          = _get_num_params;
-  base->check_params            = _check_params;
   base->tsdb_field_by_param     = _tsdb_field_by_param;
   base->row_count               = _row_count;
   base->get_num_cols            = _get_num_cols;
@@ -983,95 +976,6 @@ SQLRETURN tsdb_stmt_re_bind_subtbl(tsdb_stmt_t *stmt)
   stmt->params.subtbl_required = 1;
 
   return _tsdb_stmt_post_check(stmt);
-}
-
-static SQLRETURN _tsdb_stmt_check_parameter(tsdb_stmt_t *stmt, size_t param)
-{
-  descriptor_t *IPD = stmt_IPD(stmt->owner);
-  desc_record_t *IPD_records = IPD->records;
-  desc_record_t *IPD_record = IPD_records + param - 1;
-
-  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
-
-  TAOS_FIELD_E *tsdb_field = _tsdb_stmt_get_tsdb_field_by_tsdb_params(stmt, (int)param-1);
-
-  switch (tsdb_field->type) {
-    case TSDB_DATA_TYPE_TIMESTAMP:
-      if (ParameterType == SQL_TYPE_TIMESTAMP) return SQL_SUCCESS;
-      break;
-    case TSDB_DATA_TYPE_VARCHAR:
-      if (ParameterType == SQL_VARCHAR) return SQL_SUCCESS;
-      if (ParameterType == SQL_INTEGER) return SQL_SUCCESS;
-      if (ParameterType == SQL_BIGINT) return SQL_SUCCESS;
-      break;
-    case TSDB_DATA_TYPE_NCHAR:
-      if (ParameterType == SQL_WVARCHAR) return SQL_SUCCESS;
-      break;
-    case TSDB_DATA_TYPE_BIGINT:
-      if (ParameterType == SQL_BIGINT) return SQL_SUCCESS;
-      break;
-    case TSDB_DATA_TYPE_DOUBLE:
-      if (ParameterType == SQL_DOUBLE) return SQL_SUCCESS;
-      break;
-    case TSDB_DATA_TYPE_INT:
-      if (ParameterType == SQL_INTEGER) return SQL_SUCCESS;
-      if (ParameterType == SQL_BIGINT) return SQL_SUCCESS;
-      break;
-    case TSDB_DATA_TYPE_FLOAT:
-      if (ParameterType == SQL_REAL) return SQL_SUCCESS;
-      break;
-    case TSDB_DATA_TYPE_SMALLINT:
-      if (ParameterType == SQL_SMALLINT) return SQL_SUCCESS;
-      break;
-    case TSDB_DATA_TYPE_TINYINT:
-      if (ParameterType == SQL_TINYINT) return SQL_SUCCESS;
-      break;
-    case TSDB_DATA_TYPE_BOOL:
-      if (ParameterType == SQL_TINYINT) return SQL_SUCCESS;
-      break;
-    default:
-      break;
-  }
-
-  stmt_append_err_format(stmt->owner, "HY000", 0,
-      "General error:parameter marker #%zd of [0x%x/%d]%s is sepcified, but application parameter is of [0x%x/%d]%s",
-      param,
-      tsdb_field->type, tsdb_field->type, taos_data_type(tsdb_field->type),
-      ParameterType, ParameterType, sql_data_type(ParameterType));
-
-  return SQL_ERROR;
-}
-
-SQLRETURN tsdb_stmt_check_parameters(tsdb_stmt_t *stmt)
-{
-  SQLRETURN sr = SQL_SUCCESS;
-
-  descriptor_t *APD = stmt_APD(stmt->owner);
-  desc_header_t *APD_header = &APD->header;
-
-  descriptor_t *IPD = stmt_IPD(stmt->owner);
-  desc_header_t *IPD_header = &IPD->header;
-
-  OA_NIY(APD_header->DESC_COUNT == IPD_header->DESC_COUNT);
-
-  const SQLSMALLINT n = stmt->params.nr_params;
-  if (APD_header->DESC_COUNT < n) {
-    stmt_append_err_format(stmt->owner, "07002", 0,
-        "COUNT field incorrect:%d parameter markers required, but only %d parameters bound",
-        n, APD_header->DESC_COUNT);
-    return SQL_ERROR;
-  }
-
-  if (APD_header->DESC_COUNT > n) {
-    OW("bind more parameters (#%d) than required (#%d) by sql-statement", APD_header->DESC_COUNT, n);
-  }
-
-  for (size_t i=0; i<IPD_header->DESC_COUNT; ++i) {
-    sr = _tsdb_stmt_check_parameter(stmt, i+1);
-    if (sr != SQL_SUCCESS) return SQL_ERROR;
-  }
-
-  return SQL_SUCCESS;
 }
 
 SQLRETURN tsdb_stmt_fetch_rows_block(tsdb_stmt_t *stmt)

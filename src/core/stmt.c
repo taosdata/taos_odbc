@@ -5452,11 +5452,6 @@ static SQLRETURN _stmt_execute_prepare_params(stmt_t *stmt, param_state_t *param
   return SQL_SUCCESS;
 }
 
-static SQLRETURN _stmt_check_params(stmt_t *stmt)
-{
-  return stmt->base->check_params(stmt->base);
-}
-
 static SQLRETURN _stmt_prepare_params(stmt_t *stmt, param_state_t *param_state)
 {
   int r = 0;
@@ -5468,9 +5463,6 @@ static SQLRETURN _stmt_prepare_params(stmt_t *stmt, param_state_t *param_state)
 
   descriptor_t *IPD = stmt_IPD(stmt);
   desc_header_t *IPD_header = &IPD->header;
-
-  sr = _stmt_check_params(stmt);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   sr = _stmt_execute_prepare_caches(stmt, param_state);
   if (sr == SQL_ERROR) return SQL_ERROR;

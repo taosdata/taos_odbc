@@ -66,7 +66,6 @@ SQLRETURN tsdb_stmt_describe_param(
 
 SQLRETURN tsdb_stmt_query(tsdb_stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb) FA_HIDDEN;
 SQLRETURN tsdb_stmt_re_bind_subtbl(tsdb_stmt_t *stmt) FA_HIDDEN;
-SQLRETURN tsdb_stmt_check_parameters(tsdb_stmt_t *stmt) FA_HIDDEN;
 SQLRETURN tsdb_stmt_fetch_rows_block(tsdb_stmt_t *stmt) FA_HIDDEN;
 
 EXTERN_C_END

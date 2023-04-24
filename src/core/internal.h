@@ -445,7 +445,6 @@ struct stmt_base_s {
       SQLSMALLINT    *DecimalDigitsPtr,
       SQLSMALLINT    *NullablePtr);
   SQLRETURN (*get_num_params)(stmt_base_t *base, SQLSMALLINT *ParameterCountPtr);
-  SQLRETURN (*check_params)(stmt_base_t *base);
   SQLRETURN (*tsdb_field_by_param)(stmt_base_t *base, int i_param, TAOS_FIELD_E **field);
   SQLRETURN (*row_count)(stmt_base_t *base, SQLLEN *row_count_ptr);
   SQLRETURN (*get_num_cols)(stmt_base_t *base, SQLSMALLINT *ColumnCountPtr);

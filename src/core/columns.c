@@ -402,14 +402,6 @@ static SQLRETURN _get_num_params(stmt_base_t *base, SQLSMALLINT *ParameterCountP
   return SQL_ERROR;
 }
 
-static SQLRETURN _check_params(stmt_base_t *base)
-{
-  columns_t *columns = (columns_t*)base;
-  (void)columns;
-  stmt_append_err(columns->owner, "HY000", 0, "General error:not implemented yet");
-  return SQL_ERROR;
-}
-
 static SQLRETURN _tsdb_field_by_param(stmt_base_t *base, int i_param, TAOS_FIELD_E **field)
 {
   (void)i_param;
@@ -769,7 +761,6 @@ void columns_init(columns_t *columns, stmt_t *stmt)
   base->more_results                 = _more_results;
   base->describe_param               = _describe_param;
   base->get_num_params               = _get_num_params;
-  base->check_params                 = _check_params;
   base->tsdb_field_by_param          = _tsdb_field_by_param;
   base->row_count                    = _row_count;
   base->get_num_cols                 = _get_num_cols;

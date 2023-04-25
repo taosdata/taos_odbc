@@ -713,7 +713,7 @@ SQLRETURN conn_driver_connect(
       _conn_fill_out_connection_str(conn, OutConnectionString, BufferLength, StringLength2Ptr);
     }
     if (DriverCompletion == SQL_DRIVER_NOPROMPT) {
-      int n = snprintf(OutConnectionString, BufferLength, "%s", InConnectionString);
+      int n = snprintf((char*)OutConnectionString, BufferLength, "%s", InConnectionString);
       if (StringLength2Ptr) *StringLength2Ptr = n;
     }
 

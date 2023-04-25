@@ -420,8 +420,12 @@ static int _conn_get_timezone(conn_t *conn)
 static SQLRETURN _do_conn_connect(conn_t *conn)
 {
   const conn_cfg_t *cfg = &conn->cfg;
+  const char *db = cfg->db;
+  if (db && (tod_strcasecmp(db, "information_schema")==0 || tod_strcasecmp(db, "performance_schema")==0)) {
+    db = NULL;
+  }
 
-  conn->taos = CALL_taos_connect(cfg->ip, cfg->uid, cfg->pwd, cfg->db, cfg->port);
+  conn->taos = CALL_taos_connect(cfg->ip, cfg->uid, cfg->pwd, db, cfg->port);
   if (!conn->taos) {
     char buf[1024];
     fixed_buf_t buffer = {0};
@@ -496,6 +500,22 @@ static SQLRETURN _do_conn_connect(conn_t *conn)
     }
 
     conn->errs.connected_conn = conn;
+
+    if (cfg->db && db == NULL) {
+      // FIXME: vulnerability!!!
+      char buf[1024];
+      snprintf(buf, sizeof(buf), "use %s", cfg->db);
+      TAOS_RES *res = CALL_taos_query(conn->taos, buf);
+      int e = CALL_taos_errno(res);
+      if (e) {
+        const char *estr = CALL_taos_errstr(res);
+        conn_append_err_format(conn, "HY000", e, "General error:[taosc]%s", estr);
+        if (res) CALL_taos_free_result(res);
+        break;
+      }
+
+      if (res) CALL_taos_free_result(res);
+    }
 
     return SQL_SUCCESS;
   } while (0);
@@ -652,6 +672,10 @@ SQLRETURN conn_driver_connect(
       break;
     case SQL_DRIVER_COMPLETE:
       break;
+    case SQL_DRIVER_COMPLETE_REQUIRED:
+      break;
+    case SQL_DRIVER_PROMPT:
+      break;
     default:
       conn_append_err_format(conn, "HY000", 0,
           "General error:`%s[%d/0x%x]` not supported yet",
@@ -685,8 +709,13 @@ SQLRETURN conn_driver_connect(
     sr = _do_conn_connect(conn);
     if (!sql_succeeded(sr)) break;
 
-    if (DriverCompletion == SQL_DRIVER_COMPLETE)
+    if (DriverCompletion == SQL_DRIVER_COMPLETE || DriverCompletion == SQL_DRIVER_COMPLETE_REQUIRED) {
       _conn_fill_out_connection_str(conn, OutConnectionString, BufferLength, StringLength2Ptr);
+    }
+    if (DriverCompletion == SQL_DRIVER_NOPROMPT) {
+      int n = snprintf(OutConnectionString, BufferLength, "%s", InConnectionString);
+      if (StringLength2Ptr) *StringLength2Ptr = n;
+    }
 
     conn_parser_param_release(&param);
     return SQL_SUCCESS;

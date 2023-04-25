@@ -5326,6 +5326,12 @@ SQLRETURN stmt_get_attr(stmt_t *stmt,
     case SQL_ATTR_IMP_PARAM_DESC:
       *(SQLHANDLE*)Value = (SQLHANDLE)(&stmt->IPD);
       return SQL_SUCCESS;
+    case SQL_ATTR_ROW_ARRAY_SIZE:
+      *(SQLULEN*)Value = (SQLULEN)_stmt_get_row_array_size(stmt);
+      return SQL_SUCCESS;
+    case SQL_ATTR_CURSOR_TYPE:
+      *(SQLULEN*)Value = SQL_CURSOR_FORWARD_ONLY;
+      return SQL_SUCCESS;
     default:
       stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_stmt_attr(Attribute), Attribute, Attribute);
       return SQL_ERROR;

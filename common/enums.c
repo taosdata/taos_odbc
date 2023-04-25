@@ -365,6 +365,8 @@ const char *sql_conn_attr(SQLLEN v)
     CASE(SQL_ATTR_CONNECTION_TIMEOUT);
     CASE(SQL_ATTR_LOGIN_TIMEOUT);
     CASE(SQL_CURRENT_QUALIFIER);
+    CASE(SQL_ATTR_QUIET_MODE);
+    CASE(SQL_ATTR_TXN_ISOLATION);
     default:
     return "SQL_ATTR_unknown";
   }

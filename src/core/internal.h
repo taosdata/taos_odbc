@@ -420,6 +420,11 @@ struct conn_s {
 
   TAOS               *taos;
 
+#ifdef _WIN32           /* { */
+  HWND                win_handle;
+#endif                  /* } */
+  int32_t             txn_isolation;
+
   unsigned int        fmt_time:1;
 };
 

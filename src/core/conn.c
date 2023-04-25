@@ -1056,6 +1056,34 @@ SQLRETURN conn_get_info(
       return _conn_set_string(conn, "database", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_OWNER_TERM:
       return _conn_set_string(conn, "schema", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+    case SQL_TXN_CAPABLE:
+      // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetinfo-function?view=sql-server-ver16
+      *(SQLUSMALLINT*)InfoValuePtr = SQL_TC_NONE; // FIXME:
+      break;
+    case SQL_ODBC_INTERFACE_CONFORMANCE:
+      *(SQLUSMALLINT*)InfoValuePtr = 0; // FIXME:
+      break;
+    case SQL_SPECIAL_CHARACTERS:
+      // NOTE: check with [taosc]
+      return _conn_set_string(conn, "", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+    // NOTE: need to fine-tune [taosc]
+    case SQL_AGGREGATE_FUNCTIONS:
+    case SQL_NUMERIC_FUNCTIONS:
+    case SQL_STRING_FUNCTIONS:
+    case SQL_TIMEDATE_FUNCTIONS:
+    case SQL_TIMEDATE_ADD_INTERVALS:
+    case SQL_TIMEDATE_DIFF_INTERVALS:
+    case SQL_DATETIME_LITERALS:
+    case SQL_SYSTEM_FUNCTIONS:
+    case SQL_CONVERT_FUNCTIONS:
+    case SQL_SQL92_VALUE_EXPRESSIONS:
+    case SQL_SQL92_NUMERIC_VALUE_FUNCTIONS:
+    case SQL_SQL92_STRING_FUNCTIONS:
+    case SQL_SQL92_DATETIME_FUNCTIONS:
+    case SQL_SQL92_RELATIONAL_JOIN_OPERATORS:
+    case SQL_SQL92_PREDICATES:
+      *(SQLUINTEGER*)InfoValuePtr = 0;
+      break;
     default:
       conn_append_err_format(conn, "HY000", 0, "General error:`%s[%d/0x%x]` not implemented yet", sql_info_type(InfoType), InfoType, InfoType);
       return SQL_ERROR;
@@ -1099,6 +1127,14 @@ SQLRETURN conn_set_attr(
           "Option value changed:`%u` for `SQL_ATTR_LOGIN_TIMEOUT` is substituted by `0`",
           (SQLUINTEGER)(uintptr_t)ValuePtr);
       return SQL_SUCCESS_WITH_INFO;
+#ifdef _WIN32      /* { */
+    case SQL_ATTR_QUIET_MODE:
+      conn->win_handle = (HWND)ValuePtr;
+      return SQL_SUCCESS;
+#endif             /* } */
+    // case SQL_ATTR_TXN_ISOLATION:
+    //   conn->txn_isolation = *(int32_t*)ValuePtr;
+    //   return SQL_SUCCESS;
     default:
       conn_append_err_format(conn, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_conn_attr(Attribute), Attribute, Attribute);
       return SQL_ERROR;

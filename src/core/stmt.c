@@ -4923,7 +4923,7 @@ static SQLRETURN _stmt_prepare_params(stmt_t *stmt, param_state_t *param_state)
   return SQL_SUCCESS;
 }
 
-static SQLRETURN _stmt_execute_re_bind_subtbl(stmt_t *stmt, const char *subtbl, size_t subtbl_len)
+static SQLRETURN _stmt_execute_rebind_subtbl(stmt_t *stmt, const char *subtbl, size_t subtbl_len)
 {
   tsdb_params_t *tsdb_params = &stmt->tsdb_stmt.params;
 
@@ -4934,7 +4934,7 @@ static SQLRETURN _stmt_execute_re_bind_subtbl(stmt_t *stmt, const char *subtbl, 
     return SQL_ERROR;
   }
 
-  return tsdb_stmt_re_bind_subtbl(&stmt->tsdb_stmt);
+  return tsdb_stmt_rebind_subtbl(&stmt->tsdb_stmt);
 }
 
 static SQLRETURN _stmt_execute_with_params(stmt_t *stmt)
@@ -4994,7 +4994,7 @@ static SQLRETURN _stmt_execute_with_params(stmt_t *stmt)
 
       if (subtbl_len == len && strncmp(subtbl, base, len) == 0) continue;
 
-      sr = _stmt_execute_re_bind_subtbl(stmt, subtbl, subtbl_len);
+      sr = _stmt_execute_rebind_subtbl(stmt, subtbl, subtbl_len);
       if (sr != SQL_SUCCESS) return SQL_ERROR;
 
       param_state->i_batch_offset   = i_offset;
@@ -5010,7 +5010,7 @@ static SQLRETURN _stmt_execute_with_params(stmt_t *stmt)
       i_offset   = i;
     }
 
-    sr = _stmt_execute_re_bind_subtbl(stmt, subtbl, subtbl_len);
+    sr = _stmt_execute_rebind_subtbl(stmt, subtbl, subtbl_len);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
   }
 

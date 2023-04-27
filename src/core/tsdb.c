@@ -944,7 +944,7 @@ SQLRETURN tsdb_stmt_describe_param(
   return _tsdb_stmt_describe_param_by_field(stmt, ParameterNumber, DataTypePtr, ParameterSizePtr, DecimalDigitsPtr, NullablePtr, tsdb_field);
 }
 
-SQLRETURN tsdb_stmt_re_bind_subtbl(tsdb_stmt_t *stmt)
+SQLRETURN tsdb_stmt_rebind_subtbl(tsdb_stmt_t *stmt)
 {
   SQLRETURN sr = SQL_SUCCESS;
 

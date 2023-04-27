@@ -205,6 +205,17 @@ macro(check_requirements)
     message(STATUS "${Green}`node` found -- ${NODEJS_VERSION}, please be noted, nodejs v12 and above are expected compatible${ColorReset}")
   endif()
 
+  ## check `python3`
+  find_program(PYTHON3 NAMES python3)
+  if(NOT PYTHON3)
+    message(STATUS "${Yellow}`python3` not found, thus python3-related-test-cases would be eliminated, you may refer to https://www.python.org/${ColorReset}")
+  else()
+    set(HAVE_PYTHON3 ON)
+    execute_process(COMMAND python3 --version ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE PYTHON3_VERSION)
+    message(STATUS "${Green}`python3` found -- ${PYTHON3_VERSION}, please be noted, python3 v3.10 and above are expected compatible${ColorReset}")
+  endif()
+
+
   if(NOT TODBC_WINDOWS)
     ## NOTE: check http-proxy sort of issues
     ## check `rustc`

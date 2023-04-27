@@ -1135,6 +1135,12 @@ SQLRETURN conn_set_attr(
     // case SQL_ATTR_TXN_ISOLATION:
     //   conn->txn_isolation = *(int32_t*)ValuePtr;
     //   return SQL_SUCCESS;
+    case SQL_ATTR_AUTOCOMMIT:
+      if ((SQLUINTEGER)(uintptr_t)ValuePtr == SQL_AUTOCOMMIT_ON) return SQL_SUCCESS;
+      conn_append_err_format(conn, "01S02", 0,
+          "Option value changed:`%u` for `SQL_ATTR_AUTOCOMMIT` is substituted by `SQL_AUTOCOMMIT_ON`",
+          (SQLUINTEGER)(uintptr_t)ValuePtr);
+      return SQL_SUCCESS_WITH_INFO;
     default:
       conn_append_err_format(conn, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_conn_attr(Attribute), Attribute, Attribute);
       return SQL_ERROR;

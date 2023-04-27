@@ -367,6 +367,7 @@ const char *sql_conn_attr(SQLLEN v)
     CASE(SQL_CURRENT_QUALIFIER);
     CASE(SQL_ATTR_QUIET_MODE);
     CASE(SQL_ATTR_TXN_ISOLATION);
+    CASE(SQL_ATTR_AUTOCOMMIT);
     default:
     return "SQL_ATTR_unknown";
   }

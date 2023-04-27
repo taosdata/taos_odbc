@@ -22,24 +22,14 @@
 # SOFTWARE.
 ###############################################################################
 
-configure_file(test_config.h.in ${CMAKE_CURRENT_BINARY_DIR}/test_config.h)
+if(HAVE_PYTHON3)
+  configure_file(
+      "${CMAKE_CURRENT_SOURCE_DIR}/py3_test.py"
+      "${CMAKE_CURRENT_BINARY_DIR}/py3_test.py"
+      @ONLY)
 
-list(APPEND test_helper_SOURCES
-    test_helper.c)
-
-add_library(test_helper_obj OBJECT ${test_helper_SOURCES})
-if(TODBC_WINDOWS)
-    add_dependencies(test_helper_obj ex_iconv ex_cjson)
+  add_test(NAME py3_test
+      COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/py3_test.py)
 endif()
-set_property(TARGET test_helper_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
-target_include_directories(test_helper_obj PRIVATE
-    ${CMAKE_CURRENT_BINARY_DIR} ${CJSON_INSTALL_PATH}/include)
 
-add_subdirectory(c)
-add_subdirectory(cpp)
-if(NOT USE_SAN)
-  add_subdirectory(node)
-  add_subdirectory(rust)
-  add_subdirectory(python)
-endif()
-add_subdirectory(taos)
+

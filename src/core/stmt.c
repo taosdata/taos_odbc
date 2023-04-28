@@ -3060,7 +3060,7 @@ static SQLRETURN _stmt_param_get(stmt_t *stmt, int irow, int i_param, sqlc_data_
   switch (ValueType) {
     case SQL_C_SBIGINT:
       sqlc_data->i64 = *(int64_t*)base;
-      OE("sbigint:%zd", sqlc_data->i64);
+      OE("sbigint:%" PRId64 "", sqlc_data->i64);
       break;
     case SQL_C_CHAR:
       sqlc_data->str.str = (const char*)base;

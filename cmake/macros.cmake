@@ -215,6 +215,15 @@ macro(check_requirements)
     message(STATUS "${Green}`python3` found -- ${PYTHON3_VERSION}, please be noted, python3 v3.10 and above are expected compatible${ColorReset}")
   endif()
 
+  ## check `go`
+  find_program(GO NAMES go)
+  if(NOT GO)
+    message(STATUS "${Yellow}`go` not found, thus go-related-test-cases would be eliminated, you may refer to https://go.dev/${ColorReset}")
+  else()
+    set(HAVE_GO ON)
+    execute_process(COMMAND go version ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE GO_VERSION)
+    message(STATUS "${Green}`go` found -- ${GO_VERSION}, please be noted, go v1.20 and above are expected compatible${ColorReset}")
+  endif()
 
   if(NOT TODBC_WINDOWS)
     ## NOTE: check http-proxy sort of issues

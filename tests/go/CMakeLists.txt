@@ -22,26 +22,23 @@
 # SOFTWARE.
 ###############################################################################
 
-configure_file(test_config.h.in ${CMAKE_CURRENT_BINARY_DIR}/test_config.h)
+if(HAVE_GO)
+  configure_file(
+      "${CMAKE_CURRENT_SOURCE_DIR}/go_test_odbc.go"
+      "${CMAKE_CURRENT_BINARY_DIR}/go_test_odbc.go"
+      @ONLY)
+  configure_file(
+      "${CMAKE_CURRENT_SOURCE_DIR}/go.mod"
+      "${CMAKE_CURRENT_BINARY_DIR}/go.mod"
+      @ONLY)
+  configure_file(
+      "${CMAKE_CURRENT_SOURCE_DIR}/go.sum"
+      "${CMAKE_CURRENT_BINARY_DIR}/go.sum"
+      @ONLY)
 
-list(APPEND test_helper_SOURCES
-    test_helper.c)
-
-add_library(test_helper_obj OBJECT ${test_helper_SOURCES})
-if(TODBC_WINDOWS)
-    add_dependencies(test_helper_obj ex_iconv ex_cjson)
-endif()
-set_property(TARGET test_helper_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
-target_include_directories(test_helper_obj PRIVATE
-    ${CMAKE_CURRENT_BINARY_DIR} ${CJSON_INSTALL_PATH}/include)
-
-add_subdirectory(c)
-add_subdirectory(cpp)
-if(NOT USE_SAN)
-  add_subdirectory(node)
-  add_subdirectory(rust)
-  add_subdirectory(python)
-  add_subdirectory(go)
+  add_test(NAME go_test
+      COMMAND go run ${CMAKE_CURRENT_BINARY_DIR}/go_test_odbc.go)
 endif()
 
-add_subdirectory(taos)
+
+

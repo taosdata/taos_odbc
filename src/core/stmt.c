@@ -3143,6 +3143,8 @@ static SQLRETURN _stmt_guess_tsdb_params_by_sql_varchar(stmt_t *stmt, param_stat
   switch (ValueType) {
     case SQL_C_CHAR:
       return _stmt_guess_tsdb_params_for_sql_c_char(stmt, param_state);
+    case SQL_C_WCHAR:
+      return _stmt_guess_tsdb_params_for_sql_c_wchar(stmt, param_state);
     case SQL_C_SBIGINT:
       tsdb_field->type      = TSDB_DATA_TYPE_BIGINT;
       tsdb_field->bytes     = sizeof(int64_t);
@@ -4637,6 +4639,43 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_wchar_tsdb_varchar(stmt_t *stmt
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_conv_param_data_from_sqlc_wchar_sql_varchar(stmt_t *stmt, param_state_t *param_state, const char *s, size_t len)
+{
+  int                   i_row             = param_state->i_row;
+  int                   i_param           = param_state->i_param;
+  desc_record_t        *APD_record        = param_state->APD_record;
+  desc_record_t        *IPD_record        = param_state->IPD_record;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  // TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
+  SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
+  int tsdb_type = tsdb_field->type;
+
+  // SQLULEN ColumnSize = IPD_record->DESC_LENGTH;
+  // if (len > ColumnSize) {
+  //   stmt_append_err_format(stmt, "HY000", 0,
+  //       "General error:parameter(#%d,#%d) too long, %zd > %zd",
+  //       i_row + 1, i_param + 1, len, (size_t)ColumnSize);
+  //   return SQL_ERROR;
+  // }
+
+  (void)s;
+  (void)len;
+
+  switch (tsdb_type) {
+    case TSDB_DATA_TYPE_VARCHAR:
+      return _stmt_conv_param_data_from_sqlc_wchar_tsdb_varchar(stmt, param_state, s, len);
+    // case TSDB_DATA_TYPE_NCHAR:
+    //   return _stmt_conv_param_data_from_sqlc_wchar_tsdb_varchar(stmt, param_state, s, len);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:conversion from parameter(#%d,#%d)[%s] to [%s] to [%s] not implemented yet",
+          i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType), taos_data_type(tsdb_type));
+      return SQL_ERROR;
+  }
+}
+
 static SQLRETURN _stmt_conv_param_data_from_sqlc_wchar_sql_wvarchar(stmt_t *stmt, param_state_t *param_state, const char *s, size_t len)
 {
   int                   i_row             = param_state->i_row;
@@ -4686,8 +4725,8 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_wchar(stmt_t *stmt, param_state
   if (len == (size_t)SQL_NTS) len = strlen(s);
 
   switch (ParameterType) {
-    // case SQL_VARCHAR:
-    //   return _stmt_conv_param_data_from_sqlc_char_sql_varchar(stmt, param_state, s, len);
+    case SQL_VARCHAR:
+      return _stmt_conv_param_data_from_sqlc_wchar_sql_varchar(stmt, param_state, s, len);
     case SQL_WVARCHAR:
       return _stmt_conv_param_data_from_sqlc_wchar_sql_wvarchar(stmt, param_state, s, len);
     // case SQL_TYPE_TIMESTAMP:

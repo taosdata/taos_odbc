@@ -65,11 +65,25 @@ void sqls_release(sqls_t *sqls)
   sqls->cap = 0;
 }
 
+static void _sqlc_data_reset(sqlc_data_t *sqlc)
+{
+  if (!sqlc) return;
+  mem_reset(&sqlc->mem);
+  sqlc->is_null = 0;
+}
+
+static void _sqlc_data_release(sqlc_data_t *sqlc)
+{
+  if (!sqlc) return;
+  mem_release(&sqlc->mem);
+}
+
 static void _param_state_reset(param_state_t *param_state)
 {
   if (!param_state) return;
   mem_reset(&param_state->sqlc_to_sql);
   mem_reset(&param_state->sql_to_tsdb);
+  _sqlc_data_reset(&param_state->sqlc_data);
 
   param_state->nr_paramset_size = 0;
   param_state->i_batch_offset   = 0;
@@ -93,6 +107,7 @@ static void _param_state_release(param_state_t *param_state)
   _param_state_reset(param_state);
   mem_release(&param_state->sqlc_to_sql);
   mem_release(&param_state->sql_to_tsdb);
+  _sqlc_data_release(&param_state->sqlc_data);
 }
 
 static void _stmt_release_descriptors(stmt_t *stmt)
@@ -140,19 +155,6 @@ static void _stmt_init(stmt_t *stmt, conn_t *conn)
   stmt->base = &stmt->tsdb_stmt.base;
 
   stmt->refc = 1;
-}
-
-static void _sqlc_data_reset(sqlc_data_t *sqlc)
-{
-  if (!sqlc) return;
-  mem_reset(&sqlc->mem);
-  sqlc->is_null = 0;
-}
-
-static void _sqlc_data_release(sqlc_data_t *sqlc)
-{
-  if (!sqlc) return;
-  mem_release(&sqlc->mem);
 }
 
 static void _get_data_ctx_reset(get_data_ctx_t *ctx)
@@ -3034,25 +3036,62 @@ SQLRETURN stmt_bind_param(
   return _stmt_bind_param(stmt, ParameterNumber, InputOutputType, ValueType, ParameterType, ColumnSize, DecimalDigits, ParameterValuePtr, BufferLength, StrLen_or_IndPtr);
 }
 
-static void _stmt_param_get(stmt_t *stmt, int irow, int i_param, char **base, SQLLEN *length, int *is_null)
+static SQLRETURN _stmt_param_get(stmt_t *stmt, int irow, int i_param, sqlc_data_t *sqlc_data)
 {
   descriptor_t *APD = stmt_APD(stmt);
   desc_record_t *APD_record = APD->records + i_param;
+  SQLSMALLINT ValueType = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
+
+  sqlc_data->type = ValueType;
 
   char *buffer = (char*)APD_record->DESC_DATA_PTR;
   SQLLEN *len_arr = APD_record->DESC_OCTET_LENGTH_PTR;
   SQLLEN *ind_arr = APD_record->DESC_INDICATOR_PTR;
 
   if (ind_arr && ind_arr[irow] == SQL_NULL_DATA) {
-    *base    = NULL;
-    *length  = 0;
-    *is_null = 1;
-    return;
+    sqlc_data->is_null = 1;
+    return SQL_SUCCESS;
   }
 
-  *base    = buffer ? buffer + APD_record->DESC_OCTET_LENGTH * irow : NULL;
-  *length  = len_arr ? len_arr[irow] : 0;
-  *is_null = 0;
+  const char *base    = buffer ? buffer + APD_record->DESC_OCTET_LENGTH * irow : NULL;
+  size_t len = len_arr ? len_arr[irow] : 0;
+  sqlc_data->is_null = 0;
+
+  switch (ValueType) {
+    case SQL_C_SBIGINT:
+      sqlc_data->i64 = *(int64_t*)base;
+      OE("sbigint:%zd", sqlc_data->i64);
+      break;
+    case SQL_C_CHAR:
+      sqlc_data->str.str = (const char*)base;
+      sqlc_data->str.len = (size_t)len;
+      if (sqlc_data->str.len == (size_t)SQL_NTS) sqlc_data->str.len = strlen(sqlc_data->str.str);
+      OE("cchar:%.*s", (int)sqlc_data->str.len, sqlc_data->str.str);
+      break;
+    case SQL_C_DOUBLE:
+      sqlc_data->dbl = *(double*)base;
+      OE("sbigint:%lg", sqlc_data->dbl);
+      break;
+    case SQL_C_WCHAR:
+      sqlc_data->wstr.wstr = (const char*)base;
+      sqlc_data->wstr.wlen = (size_t)len;
+      if (sqlc_data->wstr.wlen == (size_t)SQL_NTS) {
+        stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error:SQL_C_WCHAR length [%zd] invalid", sqlc_data->wstr.wlen);
+        return SQL_ERROR;
+      }
+      break;
+    case SQL_C_LONG:
+    case SQL_C_SLONG:
+      sqlc_data->i32 = *(int32_t*)base;
+      OE("sbigint:%d", sqlc_data->i32);
+      break;
+    default:
+      stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` not supported yet",
+          sqlc_data_type(ValueType), ValueType, ValueType);
+      return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
 }
 
 static SQLRETURN _stmt_guess_tsdb_params_for_sql_c_char(stmt_t *stmt, param_state_t *param_state)
@@ -4185,7 +4224,7 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_sbigint(stmt_t *stmt, param_sta
   SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
   SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
 
-  int64_t i64 = *(int64_t*)param_state->sql_c_base;
+  int64_t i64 = param_state->sqlc_data.i64;
 
   switch (ParameterType) {
     case SQL_TYPE_TIMESTAMP:
@@ -4563,9 +4602,8 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_char(stmt_t *stmt, param_state_
   SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
   SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
 
-  const char *s = (const char*)param_state->sql_c_base;
-  size_t len = param_state->sql_c_length;
-  if (len == (size_t)SQL_NTS) len = strlen(s);
+  const char *s = param_state->sqlc_data.str.str;
+  size_t len = param_state->sqlc_data.str.len;
 
   switch (ParameterType) {
     case SQL_VARCHAR:
@@ -4720,9 +4758,8 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_wchar(stmt_t *stmt, param_state
   SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
   SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
 
-  const char *s = (const char*)param_state->sql_c_base;
-  size_t len = param_state->sql_c_length;
-  if (len == (size_t)SQL_NTS) len = strlen(s);
+  const char *s = param_state->sqlc_data.wstr.wstr;
+  size_t len = param_state->sqlc_data.wstr.wlen;
 
   switch (ParameterType) {
     case SQL_VARCHAR:
@@ -4932,7 +4969,7 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_double(stmt_t *stmt, param_stat
   SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
   SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
 
-  double dbl = *(double*)param_state->sql_c_base;
+  double dbl = param_state->sqlc_data.dbl;
 
   switch (ParameterType) {
     case SQL_TYPE_TIMESTAMP:
@@ -5002,7 +5039,7 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_slong(stmt_t *stmt, param_state
   SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
   SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
 
-  int32_t i32 = *(int32_t*)param_state->sql_c_base;
+  int32_t i32 = param_state->sqlc_data.i32;
 
   switch (ParameterType) {
     // case SQL_TYPE_TIMESTAMP:
@@ -5054,17 +5091,18 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_to_sql_to_tsdb(stmt_t *stmt, pa
 
 static SQLRETURN _stmt_conv_param_data(stmt_t *stmt, param_state_t *param_state)
 {
+  SQLRETURN sr = SQL_SUCCESS;
+
   int                        i_row                      = param_state->i_row;
   int                        i_param                    = param_state->i_param;
   desc_record_t             *APD_record                 = param_state->APD_record;
 
   TAOS_MULTI_BIND           *tsdb_bind                  = param_state->tsdb_bind;
 
-  char *sql_c_base;
-  SQLLEN sql_c_length;
-  int sql_c_is_null;
-  _stmt_param_get(stmt, i_row, i_param, &sql_c_base, &sql_c_length, &sql_c_is_null);
-  if (sql_c_is_null) {
+  sr = _stmt_param_get(stmt, i_row, i_param, &param_state->sqlc_data);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  if (param_state->sqlc_data.is_null) {
     if (!tsdb_bind->is_null) {
       stmt_append_err_format(stmt, "22002", 0,
           "Indicator variable required but not supplied:Parameter(#%d,#%d)[%s] is null",
@@ -5078,10 +5116,6 @@ static SQLRETURN _stmt_conv_param_data(stmt_t *stmt, param_state_t *param_state)
       tsdb_bind->is_null[i_row - param_state->i_batch_offset] = 0;
     }
   }
-
-  param_state->sql_c_base     = sql_c_base;
-  param_state->sql_c_length   = sql_c_length;
-  param_state->sql_c_is_null  = sql_c_is_null;
 
   return _stmt_conv_param_data_from_sqlc_to_sql_to_tsdb(stmt, param_state);
 }
@@ -5304,18 +5338,16 @@ static SQLRETURN _stmt_execute_with_params(stmt_t *stmt)
       return SQL_ERROR;
     }
     for (size_t i=0; i<nr_paramset_size; ++i) {
-      char *sql_c_base;
-      SQLLEN sql_c_length;
-      int sql_c_is_null;
-      _stmt_param_get(stmt, i, 0, &sql_c_base, &sql_c_length, &sql_c_is_null);
-      if (sql_c_is_null) {
+      sr = _stmt_param_get(stmt, i, 0, &param_state->sqlc_data);
+      if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+      if (param_state->sqlc_data.is_null) {
         stmt_append_err(stmt, "HY000", 0, "General error:subtbl is required, but got ==null==");
         return SQL_ERROR;
       }
 
-      const char *base = sql_c_base;
-      size_t len = sql_c_length;
-      if (len == (size_t)SQL_NTS) len = strlen(base);
+      const char *base = param_state->sqlc_data.wstr.wstr;
+      size_t len = param_state->sqlc_data.wstr.wlen;
 
       if (ValueType == SQL_C_WCHAR) {
         if (!cnv) {

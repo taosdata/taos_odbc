@@ -31,6 +31,7 @@ const char *sqlc_data_type(SQLLEN v)
   switch (v) {
     CASE(SQL_C_CHAR);
     CASE(SQL_C_TINYINT);
+    CASE(SQL_C_LONG);
     CASE(SQL_C_SLONG);
     CASE(SQL_C_SSHORT);
     CASE(SQL_C_SHORT);

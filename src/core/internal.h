@@ -145,6 +145,10 @@ struct sqlc_data_s {
       const char *str;
       size_t      len;
     }                   str;
+    struct {
+      const char *wstr;
+      size_t      wlen;
+    }                   wstr;
     int64_t             ts;
   };
 
@@ -672,9 +676,7 @@ struct param_state_s {
   tsdb_param_column_t       *param_column;
   TAOS_MULTI_BIND           *tsdb_bind;
 
-  char                      *sql_c_base;
-  SQLLEN                     sql_c_length;
-  int                        sql_c_is_null;
+  sqlc_data_t                sqlc_data;
 
   mem_t                      sqlc_to_sql;
   mem_t                      sql_to_tsdb;

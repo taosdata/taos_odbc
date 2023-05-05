@@ -311,7 +311,7 @@ static int _prepare_describe_sql(TAOS_STMT *stmt, const prepare_case_t *prepare_
   int                _errCode           = prepare_case->errCode;
   uint8_t            _is_insert         = prepare_case->is_insert;
 
-  r = CALL_taos_stmt_prepare(stmt, _sql, strlen(_sql));
+  r = CALL_taos_stmt_prepare(stmt, _sql, (unsigned long)strlen(_sql));
   if (r) {
     if (_errCode == taos_errno(NULL)) return 0;
     E("sql @[%dL]::%s", __line__, _sql);

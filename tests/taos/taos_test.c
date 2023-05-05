@@ -1150,7 +1150,7 @@ static int _run_execute_params_rs(executes_ctx_t *ctx, ejson_t *params, ejson_t 
 
       // execute with previous block of parameters
       LOG_CALL("block insert [%d -> %zd]", irow0, i);
-      r = _run_execute_block_params_rs(ctx, row0, irow0, i, params, rs);
+      r = _run_execute_block_params_rs(ctx, row0, irow0, (int)i, params, rs);
       LOG_FINI(r, "block insert [%d -> %zd]", irow0, i);
       if (r) return -1;
 
@@ -1158,7 +1158,7 @@ static int _run_execute_params_rs(executes_ctx_t *ctx, ejson_t *params, ejson_t 
       executes_ctx_release_cols(ctx);
 
       ctx->subtbl = s;
-      irow0 = i;
+      irow0 = (int)i;
       row0 = row;
     }
   }
@@ -1166,7 +1166,7 @@ static int _run_execute_params_rs(executes_ctx_t *ctx, ejson_t *params, ejson_t 
 
   // finish the last block of parameters
   LOG_CALL("block insert [%d -> %zd]", irow0, rows);
-  r = _run_execute_block_params_rs(ctx, row0, irow0, rows, params, rs);
+  r = _run_execute_block_params_rs(ctx, row0, irow0, (int)rows, params, rs);
   LOG_FINI(r, "block insert [%d -> %zd]", irow0, rows);
 
   return r;

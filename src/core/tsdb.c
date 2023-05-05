@@ -420,7 +420,7 @@ static SQLRETURN _tsdb_stmt_generate_default_param_fields(tsdb_stmt_t *stmt, siz
 {
   tsdb_params_t *params = &stmt->params;
 
-  params->nr_params = nr_params;
+  params->nr_params = (int)nr_params;
 
   return SQL_SUCCESS;
 }

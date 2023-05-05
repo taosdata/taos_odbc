@@ -251,13 +251,13 @@ static int cmp_timestamp_against_val(SQLHANDLE hstmt, SQLSMALLINT iColumn, ejson
     return -1;
   }
 
-  ejson_t *j = ejson_new_num(v);
+  ejson_t *j = ejson_new_num((double)v);
   int r = ejson_cmp(j, val);
   ejson_dec_ref(j);
   if (r == 0) return 0;
 
   if (ejson_is_num(val)) {
-    double dl = v;
+    double dl = (double)v;
     double dr = 0;
     ejson_num_get(val, &dr);
     char lbuf[64]; snprintf(lbuf, sizeof(lbuf), "%lg", dl);
@@ -867,7 +867,7 @@ static int _run_execute_params_rs(executes_ctx_t *ctx, ejson_t *params, ejson_t 
     SQLULEN     ParameterSize     = 0;
     SQLSMALLINT DecimalDigits     = 0;
     SQLSMALLINT Nullable          = 0;
-    sr = CALL_SQLDescribeParam(ctx->hstmt, i+1, &DataType, &ParameterSize, &DecimalDigits, &Nullable);
+    sr = CALL_SQLDescribeParam(ctx->hstmt, (SQLUSMALLINT)(i+1), &DataType, &ParameterSize, &DecimalDigits, &Nullable);
     if (FAILED(sr)) return -1;
 
     SQLSMALLINT ValueType = SQL_C_DEFAULT;
@@ -911,35 +911,35 @@ static int _run_execute_params_rs(executes_ctx_t *ctx, ejson_t *params, ejson_t 
     switch (ValueType) {
       case SQL_C_CHAR:
         buffer_length = bytes + 1;
-        r = _prepare_col_array_append(ctx, rows, buffer_length);
+        r = _prepare_col_array_append(ctx, (int)rows, buffer_length);
         if (r) return -1;
         break;
       case SQL_C_DOUBLE:
         buffer_length = sizeof(double);
-        r = _prepare_col_array_append(ctx, rows, buffer_length);
+        r = _prepare_col_array_append(ctx, (int)rows, buffer_length);
         break;
       default:
         E("[%s] not implemented yet", sqlc_data_type(ValueType));
         return -1;
     }
 
-    r = _store_row_col(ctx, 0, i, buffer_length, r0, conv);
+    r = _store_row_col(ctx, 0, (int)i, buffer_length, r0, conv);
     if (r) return -1;
 
     for (size_t j=1; j<rows; ++j) {
       ejson_t *row = ejson_arr_get(params, j);
-      r = _store_row_col(ctx, j, i, buffer_length, row, conv);
+      r = _store_row_col(ctx, (int)j, (int)i, buffer_length, row, conv);
       if (r) return -1;
     }
 
     switch (ValueType) {
       case SQL_C_CHAR:
-        sr = CALL_SQLBindParameter(ctx->hstmt, i+1, SQL_PARAM_INPUT, ValueType,
+        sr = CALL_SQLBindParameter(ctx->hstmt, (SQLUSMALLINT)i+1, SQL_PARAM_INPUT, ValueType,
             DataType, ParameterSize, DecimalDigits, ctx->params.arrays[i], buffer_length, ctx->params.strlen_or_inds[i]);
         if (FAILED(sr)) return -1;
         break;
       case SQL_C_DOUBLE:
-        sr = CALL_SQLBindParameter(ctx->hstmt, i+1, SQL_PARAM_INPUT, ValueType,
+        sr = CALL_SQLBindParameter(ctx->hstmt, (SQLUSMALLINT)i+1, SQL_PARAM_INPUT, ValueType,
             DataType, ParameterSize, DecimalDigits, ctx->params.arrays[i], buffer_length, ctx->params.strlen_or_inds[i]);
         if (FAILED(sr)) return -1;
         break;
@@ -1141,7 +1141,7 @@ static int run_case(SQLHANDLE hconn, ejson_t *json, conn_arg_t *conn_arg, int *b
     connstr   = ejson_str_get(ejson_obj_get(ejson_conn, "connstr"));
     double v = 0;
     ejson_num_get(ejson_obj_get(ejson_conn, "non_taos"), &v);
-    non_taos = v;
+    non_taos = (int)v;
   }
 
   if (!!conn_arg->non_taos != !!non_taos) {

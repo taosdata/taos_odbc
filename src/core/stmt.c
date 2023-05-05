@@ -3036,7 +3036,7 @@ SQLRETURN stmt_bind_param(
   return _stmt_bind_param(stmt, ParameterNumber, InputOutputType, ValueType, ParameterType, ColumnSize, DecimalDigits, ParameterValuePtr, BufferLength, StrLen_or_IndPtr);
 }
 
-static SQLRETURN _stmt_param_get(stmt_t *stmt, int irow, int i_param, sqlc_data_t *sqlc_data)
+static SQLRETURN _stmt_param_get(stmt_t *stmt, size_t irow, size_t i_param, sqlc_data_t *sqlc_data)
 {
   descriptor_t *APD = stmt_APD(stmt);
   desc_record_t *APD_record = APD->records + i_param;
@@ -4788,7 +4788,7 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_double_sql_timestamp_tsdb_times
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
 
   int64_t *tsdb_timestamp = (int64_t*)tsdb_bind->buffer;
-  tsdb_timestamp[i_row - param_state->i_batch_offset] = dbl;
+  tsdb_timestamp[i_row - param_state->i_batch_offset] = (int64_t)dbl;
 
   return SQL_SUCCESS;
 }
@@ -5170,9 +5170,9 @@ static SQLRETURN _stmt_execute_prepare_params(stmt_t *stmt, param_state_t *param
   for (int i=0; i<param_state->nr_paramset_size; ++i) {
     int row_with_info = 0;
     sr = SQL_SUCCESS;
-    param_state->i_row = i + param_state->i_batch_offset;
+    param_state->i_row = (int)(i + param_state->i_batch_offset);
     for (int j=0; j<param_state->nr_tsdb_fields; ++j) {
-      param_state->i_param                        = j;
+      param_state->i_param    = j;
       param_state->APD_record = APD->records + j;
       param_state->IPD_record = IPD->records + j;
       param_state->tsdb_field = &stmt->paramset.params[j].tsdb_field;
@@ -5332,7 +5332,7 @@ static SQLRETURN _stmt_execute_with_params(stmt_t *stmt)
 
   if (stmt->tsdb_stmt.is_insert_stmt && stmt->tsdb_stmt.params.subtbl_required) {
     desc_record_t *APD_record = APD->records + 0;
-    SQLSMALLINT ValueType = APD_record->DESC_CONCISE_TYPE;
+    SQLSMALLINT ValueType = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
     if (ValueType != SQL_C_CHAR && ValueType != SQL_C_WCHAR) {
       stmt_append_err_format(stmt, "HY000", 0, "General error:subtbl is required as `SQL_C_CHAR|SQL_C_WCHAR` type, but got ==[%s]==", sqlc_data_type(ValueType));
       return SQL_ERROR;
@@ -5405,7 +5405,7 @@ static SQLRETURN _stmt_execute_with_params(stmt_t *stmt)
       if (sr != SQL_SUCCESS) return SQL_ERROR;
 
       param_state->i_batch_offset   = i_offset;
-      param_state->nr_paramset_size = i - i_offset;
+      param_state->nr_paramset_size = (int)(i - i_offset);
 
       sr = _stmt_prepare_params(stmt, param_state);
       if (sr != SQL_SUCCESS) return SQL_ERROR;
@@ -5429,7 +5429,7 @@ static SQLRETURN _stmt_execute_with_params(stmt_t *stmt)
   }
 
   param_state->i_batch_offset = i_offset;
-  param_state->nr_paramset_size = nr_paramset_size - i_offset;
+  param_state->nr_paramset_size = (int)(nr_paramset_size - i_offset);
 
   sr = _stmt_prepare_params(stmt, param_state);
   if (sr != SQL_SUCCESS) return SQL_ERROR;

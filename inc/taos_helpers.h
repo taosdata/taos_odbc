@@ -62,8 +62,8 @@
       __stmt, _e, _e, color_red(), _s1, color_reset(), color_red(), _s2, color_reset());  \
 } while (0)
 
-#define diag_res(fmt, ...)          diag_res_impl(file, line, func, fmt, ##__VA_ARGS__)
-#define diag_stmt(fmt, ...)         diag_stmt_impl(file, line, func, fmt, ##__VA_ARGS__)
+#define diag_res(x_res)          diag_res_impl(file, line, func, x_res)
+#define diag_stmt(x_stmt)        diag_stmt_impl(file, line, func, x_stmt)
 
 static inline void call_taos_cleanup(const char *file, int line, const char *func)
 {

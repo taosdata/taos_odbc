@@ -49,6 +49,7 @@ void conn_cfg_release(conn_cfg_t *conn_cfg)
   TOD_SAFE_FREE(conn_cfg->pwd);
   TOD_SAFE_FREE(conn_cfg->ip);
   TOD_SAFE_FREE(conn_cfg->db);
+  TOD_SAFE_FREE(conn_cfg->charset);
 
   memset(conn_cfg, 0, sizeof(*conn_cfg));
 }
@@ -297,6 +298,7 @@ static int _conn_setup_iconvs(conn_t *conn)
     conn_append_err_format(conn, "HY000", 0, "General error:current locale_or_ACP [%s]:not implemented yet", tod_get_locale_or_ACP());
     return -1;
   }
+  if (conn->cfg.charset) sqlc_charset = conn->cfg.charset;
 
 #ifdef FAKE_TAOS            /* { */
   sqlc_charset = "GB18030";
@@ -580,6 +582,13 @@ static void _conn_fill_out_connection_str(
     fixed_buf_sprintf(n, &buffer, "DB=%s;", conn->cfg.db);
   } else {
     fixed_buf_sprintf(n, &buffer, "DB=;");
+  }
+  if (n>0) count += n;
+
+  if (conn->cfg.charset) {
+    fixed_buf_sprintf(n, &buffer, "CHARSET=%s;", conn->cfg.charset);
+  } else {
+    fixed_buf_sprintf(n, &buffer, "CHARSET=;");
   }
   if (n>0) count += n;
 

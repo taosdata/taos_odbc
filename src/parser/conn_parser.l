@@ -97,6 +97,7 @@ DB            (?i:db)
 DRIVER        (?i:driver)
 SERVER        (?i:server)
 DATABASE      (?i:database)
+CHARSET       (?i:charset)
 UNSIGNED_PROMOTION          (?i:unsigned_promotion)
 TIMESTAMP_AS_IS             (?i:timestamp_as_is)
 FQDN          [-[:alnum:]]+((\.[-[:alnum:]]+)+)*(\.)?
@@ -116,6 +117,7 @@ DIGITS        [[:digit:]]+
 {DRIVER}      { R(); C(); return MKT(DRIVER); }
 {SERVER}      { R(); PUSH(SERVER); C(); return MKT(SERVER); }
 {DATABASE}    { R(); C(); return MKT(DATABASE); }
+{CHARSET}     { R(); C(); return MKT(CHARSET); }
 {UNSIGNED_PROMOTION}        { R(); C(); return MKT(UNSIGNED_PROMOTION); }
 {TIMESTAMP_AS_IS}           { R(); C(); return MKT(TIMESTAMP_AS_IS); }
 {DIGITS}      { R(); SET_STR(); C(); return MKT(DIGITS); }

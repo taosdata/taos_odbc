@@ -133,6 +133,15 @@
         return -1;                                                                              \
       }                                                                                         \
     } while (0)
+    #define SET_CHARSET(_v, _loc) do {                                                          \
+      if (!param) break;                                                                        \
+      TOD_SAFE_FREE(param->conn_cfg.charset);                                                   \
+      param->conn_cfg.charset = strndup(_v.text, _v.leng);                                      \
+      if (!param->conn_cfg.charset) {                                                           \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
+        return -1;                                                                              \
+      }                                                                                         \
+    } while (0)
     #define SET_UNSIGNED_PROMOTION(_s, _n, _loc) do {                                           \
       if (!param) break;                                                                        \
       OA_NIY(_s[_n] == '\0');                                                                   \
@@ -173,7 +182,7 @@
 %union { parser_token_t token; }
 %union { char c; }
 
-%token DSN UID PWD DRIVER SERVER DATABASE UNSIGNED_PROMOTION TIMESTAMP_AS_IS DB
+%token DSN UID PWD DRIVER SERVER DATABASE UNSIGNED_PROMOTION TIMESTAMP_AS_IS DB CHARSET
 %token TOPIC
 %token <token> ID VALUE FQDN DIGITS
 %token <token> TNAME TKEY TVAL
@@ -225,6 +234,7 @@ attribute:
 | TIMESTAMP_AS_IS                 { SET_TIMESTAMP_AS_IS("1", 1, @$); }
 | TIMESTAMP_AS_IS '='             { SET_TIMESTAMP_AS_IS("0", 1, @$); }
 | TIMESTAMP_AS_IS '=' DIGITS      { SET_TIMESTAMP_AS_IS($3.text, $3.leng, @$); }
+| CHARSET '=' VALUE               { SET_CHARSET($3, @$); }
 ;
 
 %%

@@ -234,6 +234,8 @@ attribute:
 | TIMESTAMP_AS_IS                 { SET_TIMESTAMP_AS_IS("1", 1, @$); }
 | TIMESTAMP_AS_IS '='             { SET_TIMESTAMP_AS_IS("0", 1, @$); }
 | TIMESTAMP_AS_IS '=' DIGITS      { SET_TIMESTAMP_AS_IS($3.text, $3.leng, @$); }
+| CHARSET
+| CHARSET '='
 | CHARSET '=' VALUE               { SET_CHARSET($3, @$); }
 ;
 

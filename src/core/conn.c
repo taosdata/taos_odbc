@@ -273,13 +273,16 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs(conn_t *c
   OA_ILE(taos);
   const char *sql = "select * from information_schema.ins_configs";
   TAOS_RES *res = CALL_taos_query(taos, sql);
-  if (!res) {
-    int err = taos_errno(NULL);
-    const char *s = taos_errstr(NULL);
+  int e = CALL_taos_errno(res);
+  if (e) {
+    const char *estr = CALL_taos_errstr(res);
     conn_append_err_format(conn, "HY000", 0,
-        "General error:failed to query `information_schema.ins_configs`:[%d]%s", err, s);
+        "General error:failed to query `%s`:[%d]%s", sql, e, estr);
+    if (res) CALL_taos_free_result(res);
     return SQL_ERROR;
   }
+
+  OA_ILE(res);
   SQLRETURN sr = _conn_get_configs_from_information_schema_ins_configs_with_res(conn, res);
   CALL_taos_free_result(res);
   return sr;
@@ -405,13 +408,16 @@ static int _conn_get_timezone(conn_t *conn)
 {
   const char *sql = "select to_iso8601(0) as ts";
   TAOS_RES *res = CALL_taos_query(conn->taos, sql);
-  if (!res) {
-    int err = taos_errno(NULL);
-    const char *s = taos_errstr(NULL);
+  int e = CALL_taos_errno(res);
+  if (e) {
+    const char *estr = CALL_taos_errstr(res);
     conn_append_err_format(conn, "HY000", 0,
-        "General error:failed to query `%s`:[%d]%s", sql, err, s);
-    return -1;
+        "General error:failed to query `%s`:[%d]%s", sql, e, estr);
+    if (res) CALL_taos_free_result(res);
+    return SQL_ERROR;
   }
+
+  OA_ILE(res);
   int r = _conn_get_timezone_from_res(conn, sql, res);
   CALL_taos_free_result(res);
   return r;
@@ -509,7 +515,7 @@ static SQLRETURN _do_conn_connect(conn_t *conn)
       int e = CALL_taos_errno(res);
       if (e) {
         const char *estr = CALL_taos_errstr(res);
-        conn_append_err_format(conn, "HY000", e, "General error:[taosc]%s", estr);
+        conn_append_err_format(conn, "HY000", e, "General error:[taosc]%s, executing:%s", estr, buf);
         if (res) CALL_taos_free_result(res);
         break;
       }

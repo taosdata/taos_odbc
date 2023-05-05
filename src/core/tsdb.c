@@ -338,7 +338,7 @@ static SQLRETURN _query(stmt_base_t *base, const sqlc_tsdb_t *sqlc_tsdb)
   int e = CALL_taos_errno(res->res);
   if (e) {
     const char *estr = CALL_taos_errstr(res->res);
-    stmt_append_err_format(stmt->owner, "HY000", e, "General error:[taosc]%s", estr);
+    stmt_append_err_format(stmt->owner, "HY000", e, "General error:[taosc]%s, executing:%.*s", estr, (int)sqlc_tsdb->sqlc_bytes, sqlc_tsdb->sqlc);
     return SQL_ERROR;
   }
 

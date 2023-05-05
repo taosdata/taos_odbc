@@ -4314,10 +4314,11 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_char_sql_varchar(stmt_t *stmt, 
   int tsdb_type = tsdb_field->type;
 
   SQLULEN ColumnSize = IPD_record->DESC_LENGTH;
-  if (len > ColumnSize) {
+  if (0 && len > ColumnSize) {
+    // FIXME: flaw found by `go` on windows
     stmt_append_err_format(stmt, "HY000", 0,
-        "General error:parameter(#%d,#%d) too long",
-        i_row + 1, i_param + 1);
+        "General error:parameter(#%d,#%d) too long (%zd > %zd)",
+        i_row + 1, i_param + 1, len, (size_t)ColumnSize);
     return SQL_ERROR;
   }
 
@@ -4330,6 +4331,59 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_char_sql_varchar(stmt_t *stmt, 
           i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType), taos_data_type(tsdb_type));
       return SQL_ERROR;
   }
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sql_wvarchar_tsdb_varchar(stmt_t *stmt, param_state_t *param_state, const unsigned char *ucs2le, size_t len)
+{
+  (void)stmt;
+
+  int                   i_row             = param_state->i_row;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  const char *fromcode = "UCS-2LE";
+  const char *tocode   = conn_get_tsdb_charset(stmt->conn);
+  charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
+  if (!cnv) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
+    return SQL_ERROR;
+  }
+
+  char *tsdb_varchar = tsdb_bind->buffer;
+  tsdb_varchar += (i_row - param_state->i_batch_offset) * tsdb_bind->buffer_length;
+  size_t tsdb_varchar_len = tsdb_bind->buffer_length;
+
+  size_t         inbytes             = len;
+  size_t         outbytes            = tsdb_varchar_len;
+
+  size_t         inbytesleft         = inbytes;
+  size_t         outbytesleft        = outbytes;
+
+  char          *inbuf               = (char*)ucs2le;
+  char          *outbuf              = (char*)tsdb_varchar;
+
+  size_t n = CALL_iconv(cnv->cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+  int e = errno;
+  iconv(cnv->cnv, NULL, NULL, NULL, NULL);
+  if (n == (size_t)-1) {
+    if (e != E2BIG) {
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:[iconv]Character set conversion for `%s` to `%s` failed:[%d]%s",
+          cnv->from, cnv->to, e, strerror(e));
+      return SQL_ERROR;
+    }
+  }
+  if (inbytesleft) {
+    stmt_append_err_format(stmt, "22001", 0,
+        "String data, right truncated:[iconv]Character set conversion for `%s` to `%s`, #%zd out of #%zd bytes consumed, #%zd out of #%zd bytes converted:[%d]%s",
+        cnv->from, cnv->to, inbytes - inbytesleft, inbytes, outbytes - outbytesleft, outbytes, e, strerror(e));
+    return SQL_SUCCESS_WITH_INFO;
+  }
+
+  if (tsdb_bind->length) {
+    tsdb_bind->length[i_row - param_state->i_batch_offset] = (int32_t)(outbytes - outbytesleft);
+  }
+
+  return SQL_SUCCESS;
 }
 
 static SQLRETURN _stmt_conv_param_data_from_sql_wvarchar_tsdb_nchar(stmt_t *stmt, param_state_t *param_state, const unsigned char *ucs2le, size_t len)
@@ -4423,6 +4477,8 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_char_sql_wvarchar(stmt_t *stmt,
   }
 
   switch (tsdb_type) {
+    case TSDB_DATA_TYPE_VARCHAR:
+      return _stmt_conv_param_data_from_sql_wvarchar_tsdb_varchar(stmt, param_state, sqlc_to_sql->base, sqlc_to_sql->nr);
     case TSDB_DATA_TYPE_NCHAR:
       return _stmt_conv_param_data_from_sql_wvarchar_tsdb_nchar(stmt, param_state, sqlc_to_sql->base, sqlc_to_sql->nr);
     default:

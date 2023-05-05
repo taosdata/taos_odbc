@@ -28,8 +28,13 @@ if(HAVE_PYTHON3)
       "${CMAKE_CURRENT_BINARY_DIR}/py3_test.py"
       @ONLY)
 
-  add_test(NAME py3_test
-      COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/py3_test.py)
+  if(NOT TODBC_WINDOWS)
+    add_test(NAME py3_test
+        COMMAND python3 ${CMAKE_CURRENT_BINARY_DIR}/py3_test.py)
+  else()
+    add_test(NAME py3_test
+        COMMAND python ${CMAKE_CURRENT_BINARY_DIR}/py3_test.py)
+  endif()
 endif()
 
 

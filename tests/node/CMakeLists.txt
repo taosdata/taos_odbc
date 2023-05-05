@@ -29,7 +29,7 @@ if(HAVE_NODEJS)
       @ONLY)
 
   add_test(NAME node_test
-      COMMAND ${CMAKE_CURRENT_BINARY_DIR}/node_test.js)
+      COMMAND node ${CMAKE_CURRENT_BINARY_DIR}/node_test.js)
 
   if(HAVE_VALGRIND)
     add_test(NAME Vnode_test

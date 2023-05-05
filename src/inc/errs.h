@@ -36,6 +36,7 @@ void errs_init(errs_t *errs) FA_HIDDEN;
 void errs_append_x(errs_t *errs, const char *file, int line, const char *func, const char *sql_state, int e, const char *estr) FA_HIDDEN;
 void errs_clr_x(errs_t *errs) FA_HIDDEN;
 void errs_release_x(errs_t *errs) FA_HIDDEN;
+
 SQLRETURN errs_get_diag_rec_x(
     errs_t         *errs,
     SQLSMALLINT     RecNumber,

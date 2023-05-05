@@ -70,6 +70,7 @@ struct errs_s {
   struct tod_list_head        errs;
   struct tod_list_head        frees;
 
+  size_t                      count;
   conn_t                     *connected_conn; // NOTE: no ownership
 };
 

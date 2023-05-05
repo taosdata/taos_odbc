@@ -5846,6 +5846,31 @@ static SQLRETURN _stmt_get_diag_field_row_number(
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_get_diag_number(
+    stmt_t         *stmt,
+    SQLSMALLINT     DiagIdentifier,
+    SQLPOINTER      DiagInfoPtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr)
+{
+  (void)DiagIdentifier;
+  (void)BufferLength;
+  (void)StringLengthPtr;
+
+  if (1) {
+    *(SQLINTEGER*)DiagInfoPtr = (SQLINTEGER)stmt->errs.count;
+    return SQL_SUCCESS;
+  }
+
+  // FIXME: get or put?
+  tsdb_res_t           *res          = &stmt->tsdb_stmt.res;
+  tsdb_rows_block_t    *rows_block   = &res->rows_block;
+
+  *(SQLLEN*)DiagInfoPtr = (SQLLEN)rows_block->pos;
+
+  return SQL_SUCCESS;
+}
+
 SQLRETURN stmt_get_diag_field(
     stmt_t         *stmt,
     SQLSMALLINT     RecNumber,
@@ -5859,6 +5884,8 @@ SQLRETURN stmt_get_diag_field(
       return errs_get_diag_field_sqlstate(&stmt->errs, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
     case SQL_DIAG_ROW_NUMBER:
       return _stmt_get_diag_field_row_number(stmt, RecNumber, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
+    case SQL_DIAG_NUMBER:
+      return _stmt_get_diag_number(stmt, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
     default:
       OA(0, "RecNumber:[%d]; DiagIdentifier:[%d]%s", RecNumber, DiagIdentifier, sql_diag_identifier(DiagIdentifier));
       return SQL_ERROR;

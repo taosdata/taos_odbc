@@ -31,6 +31,7 @@ void errs_init(errs_t *errs)
 {
   INIT_TOD_LIST_HEAD(&errs->errs);
   INIT_TOD_LIST_HEAD(&errs->frees);
+  errs->count = 0;
 }
 
 static void err_set_x(err_t *err, const char *file, int line, const char *func, const char *data_source, const char *sql_state, int e, const char *estr)
@@ -74,6 +75,7 @@ void errs_append_x(errs_t *errs, const char *file, int line, const char *func, c
   tod_list_del(&err->node);
   err_set_x(err, file, line, func, data_source, sql_state, e, estr);
   tod_list_add_tail(&err->node, &errs->errs);
+  errs->count += 1;
 }
 
 void errs_clr_x(errs_t *errs)
@@ -85,6 +87,8 @@ void errs_clr_x(errs_t *errs)
     tod_list_del(&p->node);
     tod_list_add_tail(&p->node, &errs->frees);
   }
+
+  errs->count = 0;
 }
 
 void errs_release_x(errs_t *errs)
@@ -100,6 +104,7 @@ void errs_release_x(errs_t *errs)
     free(p);
   }
 
+  errs->count = 0;
   errs->connected_conn = NULL;
 }
 

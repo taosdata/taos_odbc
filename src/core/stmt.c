@@ -4247,7 +4247,7 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_sbigint(stmt_t *stmt, param_sta
   }
 }
 
-static SQLRETURN _stmt_conv_param_data_from_sql_varchar_tsdb_varchar(stmt_t *stmt, param_state_t *param_state, const char *s, size_t len)
+static SQLRETURN _stmt_conv_param_data_from_sqlc_char_tsdb_varchar(stmt_t *stmt, param_state_t *param_state, const char *s, size_t len)
 {
   (void)stmt;
 
@@ -4343,7 +4343,7 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_char_sql_varchar(stmt_t *stmt, 
   switch (tsdb_type) {
     case TSDB_DATA_TYPE_VARCHAR:
     case TSDB_DATA_TYPE_NCHAR:
-      return _stmt_conv_param_data_from_sql_varchar_tsdb_varchar(stmt, param_state, s, len);
+      return _stmt_conv_param_data_from_sqlc_char_tsdb_varchar(stmt, param_state, s, len);
     case TSDB_DATA_TYPE_TIMESTAMP:
       return _stmt_conv_param_data_from_sqlc_char_tsdb_timestamp(stmt, param_state, s, len);
     default:
@@ -4544,7 +4544,7 @@ static SQLRETURN _stmt_conv_param_data_from_sql_bigint_tsdb_varchar(stmt_t *stmt
   snprintf(buf, sizeof(buf), "%" PRId64 "", i64);
   size_t len = strlen(buf);
 
-  return _stmt_conv_param_data_from_sql_varchar_tsdb_varchar(stmt, param_state, buf, len);
+  return _stmt_conv_param_data_from_sqlc_char_tsdb_varchar(stmt, param_state, buf, len);
 }
 
 static SQLRETURN _stmt_conv_param_data_from_sqlc_char_sql_bigint(stmt_t *stmt, param_state_t *param_state, const char *s, size_t len)
@@ -4585,7 +4585,7 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_char_sql_bigint(stmt_t *stmt, p
         if (sr != SQL_SUCCESS) return SQL_ERROR;
         return _stmt_conv_param_data_from_sql_bigint_tsdb_varchar(stmt, param_state, i64);
       } else {
-        return _stmt_conv_param_data_from_sql_varchar_tsdb_varchar(stmt, param_state, s, len);
+        return _stmt_conv_param_data_from_sqlc_char_tsdb_varchar(stmt, param_state, s, len);
       }
     default:
       stmt_append_err_format(stmt, "HY000", 0,
@@ -4603,7 +4603,7 @@ static SQLRETURN _stmt_conv_param_data_from_sql_double_tsdb_varchar(stmt_t *stmt
   snprintf(buf, sizeof(buf), "%lg", dbl);
   size_t len = strlen(buf);
 
-  return _stmt_conv_param_data_from_sql_varchar_tsdb_varchar(stmt, param_state, buf, len);
+  return _stmt_conv_param_data_from_sqlc_char_tsdb_varchar(stmt, param_state, buf, len);
 }
 
 static SQLRETURN _stmt_conv_param_data_from_sqlc_char_sql_double(stmt_t *stmt, param_state_t *param_state, const char *s, size_t len)
@@ -4757,14 +4757,9 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_wchar_sql_varchar(stmt_t *stmt,
   //   return SQL_ERROR;
   // }
 
-  (void)s;
-  (void)len;
-
   switch (tsdb_type) {
     case TSDB_DATA_TYPE_VARCHAR:
       return _stmt_conv_param_data_from_sqlc_wchar_tsdb_varchar(stmt, param_state, s, len);
-    // case TSDB_DATA_TYPE_NCHAR:
-    //   return _stmt_conv_param_data_from_sqlc_wchar_tsdb_varchar(stmt, param_state, s, len);
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:conversion from parameter(#%d,#%d)[%s] to [%s] to [%s] not implemented yet",
@@ -4825,12 +4820,6 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_wchar(stmt_t *stmt, param_state
       return _stmt_conv_param_data_from_sqlc_wchar_sql_varchar(stmt, param_state, s, len);
     case SQL_WVARCHAR:
       return _stmt_conv_param_data_from_sqlc_wchar_sql_wvarchar(stmt, param_state, s, len);
-    // case SQL_TYPE_TIMESTAMP:
-    //   return _stmt_conv_param_data_from_sqlc_char_sql_timestamp(stmt, param_state, s, len);
-    // case SQL_BIGINT:
-    //   return _stmt_conv_param_data_from_sqlc_char_sql_bigint(stmt, param_state, s, len);
-    // case SQL_DOUBLE:
-    //   return _stmt_conv_param_data_from_sqlc_char_sql_double(stmt, param_state, s, len);
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:conversion from parameter(#%d,#%d)[%s] to [%s] not implemented yet",

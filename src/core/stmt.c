@@ -4300,6 +4300,24 @@ static SQLRETURN _stmt_conv_param_data_from_sql_varchar_tsdb_varchar(stmt_t *stm
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_conv_param_data_from_sqlc_char_tsdb_timestamp(stmt_t *stmt, param_state_t *param_state, const char *s, size_t len)
+{
+  (void)stmt;
+
+  int                   i_row             = param_state->i_row;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+
+  SQLRETURN sr = SQL_SUCCESS;
+
+  char *tsdb_timestamp = tsdb_bind->buffer;
+  tsdb_timestamp += (i_row - param_state->i_batch_offset) * tsdb_bind->buffer_length;
+
+  sr = _stmt_conv_sql_c_char_to_tsdb_timestamp_x(stmt, s, len, tsdb_field->precision, (int64_t*)tsdb_timestamp);
+  return sr;
+}
+
 static SQLRETURN _stmt_conv_param_data_from_sqlc_char_sql_varchar(stmt_t *stmt, param_state_t *param_state, const char *s, size_t len)
 {
   int                   i_row             = param_state->i_row;
@@ -4324,7 +4342,10 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_char_sql_varchar(stmt_t *stmt, 
 
   switch (tsdb_type) {
     case TSDB_DATA_TYPE_VARCHAR:
+    case TSDB_DATA_TYPE_NCHAR:
       return _stmt_conv_param_data_from_sql_varchar_tsdb_varchar(stmt, param_state, s, len);
+    case TSDB_DATA_TYPE_TIMESTAMP:
+      return _stmt_conv_param_data_from_sqlc_char_tsdb_timestamp(stmt, param_state, s, len);
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:conversion from parameter(#%d,#%d)[%s] to [%s] to [%s] not implemented yet",
@@ -4487,24 +4508,6 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_char_sql_wvarchar(stmt_t *stmt,
           i_row + 1, i_param + 1, sqlc_data_type(ValueType), sql_data_type(ParameterType), taos_data_type(tsdb_type));
       return SQL_ERROR;
   }
-}
-
-static SQLRETURN _stmt_conv_param_data_from_sqlc_char_tsdb_timestamp(stmt_t *stmt, param_state_t *param_state, const char *s, size_t len)
-{
-  (void)stmt;
-
-  int                   i_row             = param_state->i_row;
-  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
-  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
-
-
-  SQLRETURN sr = SQL_SUCCESS;
-
-  char *tsdb_timestamp = tsdb_bind->buffer;
-  tsdb_timestamp += (i_row - param_state->i_batch_offset) * tsdb_bind->buffer_length;
-
-  sr = _stmt_conv_sql_c_char_to_tsdb_timestamp_x(stmt, s, len, tsdb_field->precision, (int64_t*)tsdb_timestamp);
-  return sr;
 }
 
 static SQLRETURN _stmt_conv_param_data_from_sqlc_char_sql_timestamp(stmt_t *stmt, param_state_t *param_state, const char *s, size_t len)

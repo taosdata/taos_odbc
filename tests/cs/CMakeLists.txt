@@ -22,30 +22,19 @@
 # SOFTWARE.
 ###############################################################################
 
-configure_file(test_config.h.in ${CMAKE_CURRENT_BINARY_DIR}/test_config.h)
+project(cs_test LANGUAGES CSharp)
 
-list(APPEND test_helper_SOURCES
-    test_helper.c)
+include(CSharpUtilities)
 
-add_library(test_helper_obj OBJECT ${test_helper_SOURCES})
-if(TODBC_WINDOWS)
-    add_dependencies(test_helper_obj ex_iconv ex_cjson)
-endif()
-set_property(TARGET test_helper_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
-target_include_directories(test_helper_obj PRIVATE
-    ${CMAKE_CURRENT_BINARY_DIR} ${CJSON_INSTALL_PATH}/include)
+add_executable(cs_test
+    cs_test.cs)
 
-if (TODBC_WINDOWS)
-    add_subdirectory(cs)
-endif ()
+LIST(APPEND VS_DOTNET_REFERENCES "System")
+LIST(APPEND VS_DOTNET_REFERENCES "System.Data")
+LIST(APPEND VS_DOTNET_REFERENCES "System.Data.Odbc")
+set_target_properties(cs_test PROPERTIES
+    VS_DOTNET_REFERENCES "${VS_DOTNET_REFERENCES}")
 
-add_subdirectory(c)
-add_subdirectory(cpp)
-if(NOT USE_SAN)
-  add_subdirectory(node)
-  add_subdirectory(rust)
-  add_subdirectory(python)
-  add_subdirectory(go)
-endif()
 
-add_subdirectory(taos)
+add_test(NAME cs_test
+    COMMAND cs_test)

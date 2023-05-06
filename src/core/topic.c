@@ -93,8 +93,10 @@ static void _topic_reset_res(topic_t *topic, SQLRETURN *psr)
       sr = SQL_ERROR;
     }
   }
-  CALL_taos_free_result(topic->res);
-  topic->res = NULL;
+  if (topic->res) {
+    CALL_taos_free_result(topic->res);
+    topic->res = NULL;
+  }
   if (psr) *psr = sr;
 }
 

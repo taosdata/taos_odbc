@@ -3537,27 +3537,43 @@ static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_nchar(stmt_t *stmt, para
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_prepare_param_data_array_for_tsdb_timestamp(stmt_t *stmt, param_state_t *param_state)
+{
+  int nr_paramset_size                    = param_state->nr_paramset_size;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  tsdb_param_column_t  *param_column      = param_state->param_column;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  int r = 0;
+
+  mem_reset(&param_column->mem_length);
+  tsdb_bind->buffer_type = tsdb_field->type;
+  tsdb_bind->length = NULL;
+  tsdb_bind->buffer_length = sizeof(int64_t);
+
+  r = mem_keep(&param_column->mem, sizeof(char) * tsdb_bind->buffer_length * nr_paramset_size);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+  tsdb_bind->buffer = param_column->mem.base;
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_prepare_param_data_array_by_tsdb_timestamp(stmt_t *stmt, param_state_t *param_state)
 {
   int                   i_param           = param_state->i_param;
   desc_record_t        *APD_record        = param_state->APD_record;
-  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
-  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
 
   SQLSMALLINT ValueType = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
   switch (ValueType) {
     case SQL_C_SBIGINT:
     case SQL_C_DOUBLE:
-      tsdb_bind->buffer_type = tsdb_field->type;
-      tsdb_bind->length = NULL;
-      tsdb_bind->buffer_length = APD_record->DESC_OCTET_LENGTH;
-      tsdb_bind->buffer = APD_record->DESC_DATA_PTR;
+      return _stmt_prepare_param_data_array_for_tsdb_timestamp(stmt, param_state);
       break;
     case SQL_C_CHAR:
-      tsdb_bind->buffer_type = tsdb_field->type;
-      tsdb_bind->length = NULL;
-      tsdb_bind->buffer_length = APD_record->DESC_OCTET_LENGTH;
-      tsdb_bind->buffer = APD_record->DESC_DATA_PTR;
+      return _stmt_prepare_param_data_array_for_tsdb_timestamp(stmt, param_state);
       break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,

@@ -266,10 +266,8 @@ static int execute_with_int(const char *connstr, const char *sql, int v, size_t 
   return r ? -1 : 0;
 }
 
-static int running(int argc, char *argv[])
+static int test_case0(void)
 {
-  (void)argc;
-  (void)argv;
   int r = 0;
   const char *connstr = NULL;
   const char *sqls = NULL;
@@ -325,6 +323,29 @@ static int running(int argc, char *argv[])
   if (r) return -1;
   sql = "insert into t (i16) values (?)";
   if (0) r = execute_with_int(connstr, sql, 32767, 5);
+  if (r) return -1;
+
+  return 0;
+}
+
+static int running_with_handles(handles_t *handles)
+{
+  (void)handles;
+  int r = 0;
+  r = test_case0();
+  if (r) return -1;
+
+  return 0;
+}
+
+static int running(int argc, char *argv[])
+{
+  (void)argc;
+  (void)argv;
+  handles_t handles = {0};
+  int r = 0;
+  r = running_with_handles(&handles);
+  handles_release(&handles);
   if (r) return -1;
 
   return 0;

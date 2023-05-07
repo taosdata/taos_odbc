@@ -44,6 +44,8 @@ EXTERN_C_BEGIN
 const char *tod_strptime(const char *s, const char *format, struct tm *tm) FA_HIDDEN;
 uintptr_t tod_get_current_thread_id(void) FA_HIDDEN;
 uintptr_t tod_get_current_process_id(void) FA_HIDDEN;
+const char* tod_get_format_current_local_timestamp_ms(char *s, size_t n) FA_HIDDEN;
+const char* tod_get_format_current_local_timestamp_us(char *s, size_t n) FA_HIDDEN;
 
 #ifdef _WIN32
 #define tod_strcasecmp      _stricmp

@@ -41,6 +41,41 @@ const char* tod_strptime(const char *s, const char *format, struct tm *tm)
 }
 #endif
 
+static void _get_local_time(struct timeval *tv0, struct tm *tm0)
+{
+  gettimeofday(tv0, NULL);
+  time_t t0 = (time_t)tv0->tv_sec;
+  localtime_r(&t0, tm0);
+}
+
+const char* tod_get_format_current_local_timestamp_ms(char *s, size_t n)
+{
+  struct timeval tv0;
+  struct tm tm0;
+  _get_local_time(&tv0, &tm0);
+
+  snprintf(s, n, "%04d-%02d-%02d %02d:%02d:%02d.%03zd",
+    tm0.tm_year + 1900, tm0.tm_mon + 1, tm0.tm_mday,
+    tm0.tm_hour, tm0.tm_min, tm0.tm_sec,
+    (size_t)(tv0.tv_usec/1000));
+
+  return s;
+}
+
+const char* tod_get_format_current_local_timestamp_us(char *s, size_t n)
+{
+  struct timeval tv0;
+  struct tm tm0;
+  _get_local_time(&tv0, &tm0);
+
+  snprintf(s, n, "%04d-%02d-%02d %02d:%02d:%02d.%06zd",
+    tm0.tm_year + 1900, tm0.tm_mon + 1, tm0.tm_mday,
+    tm0.tm_hour, tm0.tm_min, tm0.tm_sec,
+    (size_t)tv0.tv_usec);
+
+  return s;
+}
+
 #ifdef _WIN32
 char* tod_basename(const char *path, char *buf, size_t sz)
 {

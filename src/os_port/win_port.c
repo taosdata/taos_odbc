@@ -28,11 +28,8 @@
 #include <stdio.h>
 #ifdef _WIN32
 #include <psapi.h>
-#include <sysinfoapi.h>
 #pragma comment(lib, "psapi.lib")
 #endif
-
-#include <sysinfoapi.h>
 
 struct tm* localtime_r(const time_t *clock, struct tm *result)
 {

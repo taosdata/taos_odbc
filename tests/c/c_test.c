@@ -246,12 +246,13 @@ static int running(int argc, char *argv[])
   const char *sql = NULL;
   time_t t0 = 0;
   struct tm tm0 = {0};
-  // char tmbuf[128]; tmbuf[0] = '\0';
+  struct timeval tv0 = {0};
+  char tmbuf[128]; tmbuf[0] = '\0';
 
 #ifdef _WIN32              /* { */
   connstr = "DSN=SQLSERVER_ODBC_DSN";
   sqls = "drop table if exists t;"
-         "create table t(name varchar(20), mark nchar(20));"
+         "create table t(name varchar(20), mark nchar(20), i8 tinyint);"
          "insert into t (name, mark) values ('测试', '人物');"
          "insert into t (name, mark) values ('测试', '人物a');"
          "insert into t (name, mark) values ('测试', '人物x');"
@@ -259,10 +260,13 @@ static int running(int argc, char *argv[])
   r = execute_batches_of_statements(connstr, sqls);
   if (r) return -1;
   sql = "insert into t (name, mark) values (?, ?)";
-  r = execute_with_params(connstr, sql, 2, "测试", "人物y");
+  r = execute_with_params(connstr, sql, 2, "测试x", "人物y");
   if (r) return -1;
   sqls = "select * from t;";
   r = execute_batches_of_statements(connstr, sqls);
+  if (r) return -1;
+  sql = "select * from t where name like ?";
+  r = execute_with_params(connstr, sql, 1, "测试");
   if (r) return -1;
 #endif                     /* } */
   connstr = "DSN=TAOS_ODBC_DSN";
@@ -277,13 +281,18 @@ static int running(int argc, char *argv[])
          "select * from t;";
   r = execute_batches_of_statements(connstr, sqls);
   if (r) return -1;
-  time(&t0);
-  localtime_r(&t0, &tm0);
   sql = "insert into bar.t (ts, name, mark) values (?, ?, ?)";
   r = execute_with_params(connstr, sql, 3, "2023-05-07 10:11:44.215", "测试", "人物y");
   if (r) return -1;
+  tod_get_format_current_local_timestamp_ms(tmbuf, sizeof(tmbuf));
+  DUMP("current:%s", tmbuf);
+  r = execute_with_params(connstr, sql, 3, tmbuf, "测试", "人物z");
+  if (r) return -1;
   sqls = "select * from bar.t;";
   r = execute_batches_of_statements(connstr, sqls);
+  if (r) return -1;
+  sql = "select * from bar.t where name like ?";
+  r = execute_with_params(connstr, sql, 1, "测试");
   if (r) return -1;
 
   return 0;

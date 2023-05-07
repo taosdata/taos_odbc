@@ -324,6 +324,9 @@ static int running(int argc, char *argv[])
   sql = "select * from bar.t where name like ?";
   r = execute_with_params(connstr, sql, 1, "测试");
   if (r) return -1;
+  sql = "insert into t (i16) values (?)";
+  if (0) r = execute_with_int(connstr, sql, 32767, 5);
+  if (r) return -1;
 
   return 0;
 }

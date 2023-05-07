@@ -236,6 +236,36 @@ static int execute_with_params(const char *connstr, const char *sql, size_t nr_p
   return r ? -1 : 0;
 }
 
+static int _execute_with_int(handles_t *handles, const char *sql, int v, size_t len)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  sr = CALL_SQLBindParameter(handles->hstmt, (SQLUSMALLINT)1, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_VARCHAR, len, 0, (SQLPOINTER)&v, (SQLLEN)sizeof(v), NULL);
+  if (FAILED(sr)) return -1;
+
+  sr = CALL_SQLPrepare(handles->hstmt, (SQLCHAR*)sql, SQL_NTS);
+  if (FAILED(sr)) return -1;
+
+  sr = CALL_SQLExecute(handles->hstmt);
+  if (FAILED(sr)) return -1;
+
+  return _dump_result_sets(handles);
+}
+
+static int execute_with_int(const char *connstr, const char *sql, int v, size_t len)
+{
+  int r = 0;
+  handles_t handles = {0};
+  r = handles_init(&handles, connstr);
+  if (r) return -1;
+
+  r = _execute_with_int(&handles, sql, v, len);
+
+  handles_release(&handles);
+
+  return r ? -1 : 0;
+}
+
 static int running(int argc, char *argv[])
 {
   (void)argc;
@@ -249,7 +279,7 @@ static int running(int argc, char *argv[])
 #ifdef _WIN32              /* { */
   connstr = "DSN=SQLSERVER_ODBC_DSN";
   sqls = "drop table if exists t;"
-         "create table t(name varchar(20), mark nchar(20), i8 tinyint);"
+         "create table t(name varchar(7), mark nchar(20), i16 smallint);"
          "insert into t (name, mark) values ('测试', '人物');"
          "insert into t (name, mark) values ('测试', '人物a');"
          "insert into t (name, mark) values ('测试', '人物x');"
@@ -264,6 +294,9 @@ static int running(int argc, char *argv[])
   if (r) return -1;
   sql = "select * from t where name like ?";
   r = execute_with_params(connstr, sql, 1, "测试");
+  if (r) return -1;
+  sql = "insert into t (i16) values (?)";
+  r = execute_with_int(connstr, sql, 32767, 5);
   if (r) return -1;
 #endif                     /* } */
   connstr = "DSN=TAOS_ODBC_DSN";

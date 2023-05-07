@@ -63,21 +63,6 @@ static void handles_release(handles_t *handles)
   }
 }
 
-static int handles_init_env(handles_t *handles)
-{
-  SQLRETURN sr = SQL_SUCCESS;
-
-  if (handles->henv != SQL_NULL_HANDLE) return 0;
-
-  sr = CALL_SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &handles->henv);
-  if (FAILED(sr)) return -1;
-
-  sr = CALL_SQLSetEnvAttr(handles->henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, 0);
-  if (FAILED(sr)) return -1;
-
-  return 0;
-}
-
 static int _driver_connect(SQLHANDLE hdbc, const char *connstr)
 {
   SQLRETURN sr = SQL_SUCCESS;

@@ -244,9 +244,6 @@ static int running(int argc, char *argv[])
   const char *connstr = NULL;
   const char *sqls = NULL;
   const char *sql = NULL;
-  time_t t0 = 0;
-  struct tm tm0 = {0};
-  struct timeval tv0 = {0};
   char tmbuf[128]; tmbuf[0] = '\0';
 
 #ifdef _WIN32              /* { */

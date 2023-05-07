@@ -246,7 +246,7 @@ static int running(int argc, char *argv[])
   const char *sql = NULL;
   time_t t0 = 0;
   struct tm tm0 = {0};
-  char tmbuf[128]; tmbuf[0] = '\0';
+  // char tmbuf[128]; tmbuf[0] = '\0';
 
 #ifdef _WIN32              /* { */
   connstr = "DSN=SQLSERVER_ODBC_DSN";

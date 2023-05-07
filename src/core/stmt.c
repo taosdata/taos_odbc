@@ -3054,7 +3054,7 @@ static SQLRETURN _stmt_param_get(stmt_t *stmt, size_t irow, size_t i_param, sqlc
   }
 
   const char *base    = buffer ? buffer + APD_record->DESC_OCTET_LENGTH * irow : NULL;
-  size_t len = len_arr ? len_arr[irow] : (base ? strlen(base) : 0);
+  size_t len = len_arr ? (size_t)(len_arr[irow]) : (base ? strlen(base) : 0);
   sqlc_data->is_null = 0;
 
   switch (ValueType) {

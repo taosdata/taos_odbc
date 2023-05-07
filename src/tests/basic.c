@@ -987,10 +987,10 @@ static int test_gettimeofday(void)
   struct tm tm0 = {0};
   t0 = (time_t)tv0.tv_sec;
   localtime_r(&t0, &tm0);
-  DUMP("local:%04d-%02d-%02d %02d:%02d:%02d.%06d",
+  DUMP("local:%04d-%02d-%02d %02d:%02d:%02d.%06zd",
     tm0.tm_year + 1900, tm0.tm_mon + 1, tm0.tm_mday,
     tm0.tm_hour, tm0.tm_min, tm0.tm_sec,
-    tv0.tv_usec);
+    (size_t)tv0.tv_usec);
   return 0;
 }
 

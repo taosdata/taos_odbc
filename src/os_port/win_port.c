@@ -41,6 +41,36 @@ struct tm* localtime_r(const time_t *clock, struct tm *result)
   return result;
 }
 
+struct tm* gmtime_r(const time_t *clock, struct tm *result)
+{
+  errno_t err = gmtime_s(result, clock);
+  if (err) {
+    errno = err;
+    return NULL;
+  }
+
+  return result;
+}
+
+int gettimeofday(struct timeval *tp, void *tzp)
+{
+  time_t clock;
+  struct tm tm;
+  SYSTEMTIME wtm;
+  GetSystemTime(&wtm);
+  tm.tm_year   = wtm.wYear - 1900;
+  tm.tm_mon    = wtm.wMonth - 1;
+  tm.tm_mday   = wtm.wDay;
+  tm.tm_hour   = wtm.wHour;
+  tm.tm_min    = wtm.wMinute;
+  tm.tm_sec    = wtm.wSecond;
+  tm.tm_isdst  = -1;
+  clock = mktime(&tm);
+  tp->tv_sec = (long)clock;
+  tp->tv_usec = wtm.wMilliseconds * 1000;
+  return (0);
+}
+
 char* strndup(const char *s, size_t n)
 {
   size_t len = strlen(s);

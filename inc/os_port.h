@@ -32,6 +32,8 @@ EXTERN_C_BEGIN
 #include <time.h>
 #ifdef _WIN32            /* { */
 struct tm* localtime_r(const time_t *clock, struct tm *result);
+struct tm* gmtime_r(const time_t *clock, struct tm *result);
+int gettimeofday(struct timeval *tp, void *tzp);
 #endif                   /* } */
 
 #ifdef _WIN32            /* { */

@@ -130,20 +130,9 @@ static int handles_init(handles_t *handles, const char *connstr)
   return -1;
 }
 
-static int _execute_batches_of_statements(handles_t *handles, const char *sqls)
+static int _dump_result_sets(handles_t *handles)
 {
   SQLRETURN sr = SQL_SUCCESS;
-
-  SQLUINTEGER bs_support = 0;
-
-  sr = CALL_SQLGetInfo(handles->hdbc, SQL_BATCH_SUPPORT, &bs_support, sizeof(bs_support), NULL);
-  if (FAILED(sr)) return -1;
-  if (sr != SQL_SUCCESS) return -1;
-  DUMP("bs_support:0x%x", bs_support);
-
-  sr = CALL_SQLExecDirect(handles->hstmt, (SQLCHAR*)sqls, SQL_NTS);
-  if (FAILED(sr)) return -1;
-
   int i = 0;
   do {
     DUMP("MoreResults[%d] ...", ++i);
@@ -194,6 +183,23 @@ static int _execute_batches_of_statements(handles_t *handles, const char *sqls)
   return 0;
 }
 
+static int _execute_batches_of_statements(handles_t *handles, const char *sqls)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  SQLUINTEGER bs_support = 0;
+
+  sr = CALL_SQLGetInfo(handles->hdbc, SQL_BATCH_SUPPORT, &bs_support, sizeof(bs_support), NULL);
+  if (FAILED(sr)) return -1;
+  if (sr != SQL_SUCCESS) return -1;
+  DUMP("bs_support:0x%x", bs_support);
+
+  sr = CALL_SQLExecDirect(handles->hstmt, (SQLCHAR*)sqls, SQL_NTS);
+  if (FAILED(sr)) return -1;
+
+  return _dump_result_sets(handles);
+}
+
 static int execute_batches_of_statements(const char *connstr, const char *sqls)
 {
   int r = 0;
@@ -208,6 +214,43 @@ static int execute_batches_of_statements(const char *connstr, const char *sqls)
   return r ? -1 : 0;
 }
 
+static int _execute_with_params(handles_t *handles, const char *sql, size_t nr_params, va_list ap)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  for (size_t i=0; i<nr_params; ++i) {
+    const char *val = va_arg(ap, const char*);
+    size_t len = strlen(val);
+    sr = CALL_SQLBindParameter(handles->hstmt, (SQLUSMALLINT)i+1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, len, 0, (SQLPOINTER)val, (SQLLEN)len, NULL);
+    if (FAILED(sr)) return -1;
+  }
+
+  sr = CALL_SQLPrepare(handles->hstmt, (SQLCHAR*)sql, SQL_NTS);
+  if (FAILED(sr)) return -1;
+
+  sr = CALL_SQLExecute(handles->hstmt);
+  if (FAILED(sr)) return -1;
+
+  return _dump_result_sets(handles);
+}
+
+static int execute_with_params(const char *connstr, const char *sql, size_t nr_params, ...)
+{
+  int r = 0;
+  handles_t handles = {0};
+  r = handles_init(&handles, connstr);
+  if (r) return -1;
+
+  va_list ap;
+  va_start(ap, nr_params);
+  r = _execute_with_params(&handles, sql, nr_params, ap);
+  va_end(ap);
+
+  handles_release(&handles);
+
+  return r ? -1 : 0;
+}
+
 static int running(int argc, char *argv[])
 {
   (void)argc;
@@ -215,6 +258,10 @@ static int running(int argc, char *argv[])
   int r = 0;
   const char *connstr = NULL;
   const char *sqls = NULL;
+  const char *sql = NULL;
+  time_t t0 = 0;
+  struct tm tm0 = {0};
+  char tmbuf[128]; tmbuf[0] = '\0';
 
 #ifdef _WIN32              /* { */
   connstr = "DSN=SQLSERVER_ODBC_DSN";
@@ -224,6 +271,12 @@ static int running(int argc, char *argv[])
          "insert into t (name, mark) values ('测试', '人物a');"
          "insert into t (name, mark) values ('测试', '人物x');"
          "select * from t;";
+  r = execute_batches_of_statements(connstr, sqls);
+  if (r) return -1;
+  sql = "insert into t (name, mark) values (?, ?)";
+  r = execute_with_params(connstr, sql, 2, "测试", "人物y");
+  if (r) return -1;
+  sqls = "select * from t;";
   r = execute_batches_of_statements(connstr, sqls);
   if (r) return -1;
 #endif                     /* } */
@@ -237,6 +290,14 @@ static int running(int argc, char *argv[])
          "insert into t (ts, name, mark) values (now(), '测试', '人物m');"
          "insert into t (ts, name, mark) values (now(), '测试', '人物n');"
          "select * from t;";
+  r = execute_batches_of_statements(connstr, sqls);
+  if (r) return -1;
+  time(&t0);
+  localtime_r(&t0, &tm0);
+  sql = "insert into bar.t (ts, name, mark) values (?, ?, ?)";
+  r = execute_with_params(connstr, sql, 3, "2023-05-07 10:11:44.215", "测试", "人物y");
+  if (r) return -1;
+  sqls = "select * from bar.t;";
   r = execute_batches_of_statements(connstr, sqls);
   if (r) return -1;
 

@@ -3054,7 +3054,7 @@ static SQLRETURN _stmt_param_get(stmt_t *stmt, size_t irow, size_t i_param, sqlc
   }
 
   const char *base    = buffer ? buffer + APD_record->DESC_OCTET_LENGTH * irow : NULL;
-  size_t len = len_arr ? len_arr[irow] : 0;
+  size_t len = len_arr ? len_arr[irow] : (base ? strlen(base) : 0);
   sqlc_data->is_null = 0;
 
   switch (ValueType) {
@@ -3066,7 +3066,7 @@ static SQLRETURN _stmt_param_get(stmt_t *stmt, size_t irow, size_t i_param, sqlc
       sqlc_data->str.str = (const char*)base;
       sqlc_data->str.len = (size_t)len;
       if (sqlc_data->str.len == (size_t)SQL_NTS) sqlc_data->str.len = strlen(sqlc_data->str.str);
-      OE("cchar:%.*s", (int)sqlc_data->str.len, sqlc_data->str.str);
+      OE("cchar[%zd,%zd]:%.*s", irow+1, i_param+1, (int)sqlc_data->str.len, sqlc_data->str.str);
       break;
     case SQL_C_DOUBLE:
       sqlc_data->dbl = *(double*)base;

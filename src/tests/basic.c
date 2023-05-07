@@ -971,6 +971,19 @@ static int test_trim(void)
   return 0;
 }
 
+static int test_gettimeofday(void)
+{
+  int r = 0;
+  struct timeval tv0 = {0};
+  r = gettimeofday(&tv0, NULL);
+  if (r) {
+    DUMP("gettimeofday failed:[%d]%s", errno, strerror(errno));
+    return -1;
+  }
+  DUMP("timeval:%" PRId64 ",%" PRId64 "", (int64_t)tv0.tv_sec, (int64_t)tv0.tv_usec);
+  return 0;
+}
+
 typedef int (*test_case_f)(void);
 
 #define RECORD(x) {x, #x}
@@ -991,6 +1004,7 @@ static struct {
   RECORD(test_iconv_perf_on_the_fly),
   RECORD(test_buffer),
   RECORD(test_trim),
+  RECORD(test_gettimeofday),
 };
 
 static void usage(const char *arg0)

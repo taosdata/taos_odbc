@@ -1099,6 +1099,9 @@ SQLRETURN conn_get_info(
     case SQL_SQL92_PREDICATES:
       *(SQLUINTEGER*)InfoValuePtr = 0;
       break;
+    case SQL_BATCH_SUPPORT:
+      *(SQLUINTEGER*)InfoValuePtr = (SQL_BS_SELECT_EXPLICIT | SQL_BS_ROW_COUNT_EXPLICIT);
+      break;
     default:
       conn_append_err_format(conn, "HY000", 0, "General error:`%s[%d/0x%x]` not implemented yet", sql_info_type(InfoType), InfoType, InfoType);
       return SQL_ERROR;

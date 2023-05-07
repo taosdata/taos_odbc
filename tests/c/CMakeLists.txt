@@ -110,6 +110,32 @@ add_test(NAME Vedge_cases_test
     COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/edge_cases_test)
 endif()
 
+add_executable(c_test
+    $<TARGET_OBJECTS:common_obj>
+    $<TARGET_OBJECTS:test_helper_obj>
+    $<TARGET_OBJECTS:ejson_parser_obj>
+    $<TARGET_OBJECTS:os_port_obj>
+    $<TARGET_OBJECTS:odbc_helpers_obj>
+    c_test.c)
+add_dependencies(c_test ex_cjson)
+
+target_include_directories(c_test PRIVATE ${CJSON_INSTALL_PATH}/include ${CMAKE_CURRENT_BINARY_DIR}/..)
+target_link_directories(c_test PRIVATE ${CJSON_INSTALL_PATH}/lib)
+if(NOT TODBC_WINDOWS)
+    target_link_libraries(c_test odbc cjson pthread)
+else()
+    set_source_files_properties(c_test.c PROPERTIES COMPILE_OPTIONS "/source-charset:utf-8")
+    target_link_libraries(c_test odbc32 cjson)
+endif()
+
+add_test(NAME c_test
+    COMMAND c_test)
+
+if(HAVE_VALGRIND)
+  add_test(NAME Vc_test
+      COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/c_test)
+endif()
+
 add_executable(odbc_test
     $<TARGET_OBJECTS:common_obj>
     $<TARGET_OBJECTS:test_helper_obj>

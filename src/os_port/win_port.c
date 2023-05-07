@@ -24,11 +24,15 @@
 
 #include "os_port.h"
 
+#include <stdint.h>
 #include <stdio.h>
 #ifdef _WIN32
 #include <psapi.h>
+#include <sysinfoapi.h>
 #pragma comment(lib, "psapi.lib")
 #endif
+
+#include <sysinfoapi.h>
 
 struct tm* localtime_r(const time_t *clock, struct tm *result)
 {
@@ -54,21 +58,20 @@ struct tm* gmtime_r(const time_t *clock, struct tm *result)
 
 int gettimeofday(struct timeval *tp, void *tzp)
 {
-  time_t clock;
-  struct tm tm;
-  SYSTEMTIME wtm;
-  GetLocalTime(&wtm);
-  tm.tm_year   = wtm.wYear - 1900;
-  tm.tm_mon    = wtm.wMonth - 1;
-  tm.tm_mday   = wtm.wDay;
-  tm.tm_hour   = wtm.wHour;
-  tm.tm_min    = wtm.wMinute;
-  tm.tm_sec    = wtm.wSecond;
-  tm.tm_isdst  = -1;
-  clock = mktime(&tm);
-  tp->tv_sec = (long)clock;
-  tp->tv_usec = wtm.wMilliseconds * 1000;
-  return (0);
+  static const uint64_t EPOCH = ((uint64_t) 116444736000000000ULL);
+  LARGE_INTEGER li;
+  FILETIME ft;
+  GetSystemTimeAsFileTime(&ft);
+
+  li.QuadPart   = ft.dwHighDateTime;
+  li.QuadPart <<= 32;
+  li.QuadPart  += ft.dwLowDateTime;
+  li.QuadPart  -= EPOCH;
+
+  tp->tv_sec    = (long)(li.QuadPart / 10000000);
+  tp->tv_usec   = (li.QuadPart % 10000000) / 10;
+
+  return 0;
 }
 
 char* strndup(const char *s, size_t n)

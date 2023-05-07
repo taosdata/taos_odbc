@@ -57,7 +57,7 @@ int gettimeofday(struct timeval *tp, void *tzp)
   time_t clock;
   struct tm tm;
   SYSTEMTIME wtm;
-  GetSystemTime(&wtm);
+  GetLocalTime(&wtm);
   tm.tm_year   = wtm.wYear - 1900;
   tm.tm_mon    = wtm.wMonth - 1;
   tm.tm_mday   = wtm.wDay;

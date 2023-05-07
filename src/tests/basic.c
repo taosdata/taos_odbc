@@ -974,6 +974,8 @@ static int test_trim(void)
 static int test_gettimeofday(void)
 {
   int r = 0;
+  time_t t0 = 0;
+  time(&t0);
   struct timeval tv0 = {0};
   r = gettimeofday(&tv0, NULL);
   if (r) {
@@ -981,6 +983,7 @@ static int test_gettimeofday(void)
     return -1;
   }
   DUMP("timeval:%" PRId64 ",%" PRId64 "", (int64_t)tv0.tv_sec, (int64_t)tv0.tv_usec);
+  DUMP("t0:%" PRId64 "", (int64_t)t0);
   return 0;
 }
 

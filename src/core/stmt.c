@@ -277,7 +277,7 @@ static void _stmt_reset_params(stmt_t *stmt)
   desc_header_t *IPD_header = &IPD->header;
   IPD_header->DESC_COUNT = 0;
 
-  tsdb_paramset_reset(&stmt->paramset);
+  tsdb_paramset_reset(&stmt->tsdb_paramset);
 }
 
 static void _stmt_release_stmt(stmt_t *stmt)
@@ -410,7 +410,7 @@ static void _stmt_release(stmt_t *stmt)
 
   errs_release(&stmt->errs);
   mem_release(&stmt->mem);
-  tsdb_paramset_release(&stmt->paramset);
+  tsdb_paramset_release(&stmt->tsdb_paramset);
   tsdb_binds_release(&stmt->tsdb_binds);
   sqls_release(&stmt->sqls);
   _param_state_release(&stmt->param_state);
@@ -5196,8 +5196,8 @@ static SQLRETURN _stmt_execute_prepare_caches(stmt_t *stmt, param_state_t *param
     param_state->i_param                        = j;
     param_state->APD_record = APD->records + j;
     param_state->IPD_record = IPD->records + j;
-    param_state->tsdb_field = &stmt->paramset.params[j].tsdb_field;
-    param_state->param_column = stmt->paramset.params + j;
+    param_state->tsdb_field = &stmt->tsdb_paramset.params[j].tsdb_field;
+    param_state->param_column = stmt->tsdb_paramset.params + j;
     param_state->tsdb_bind = stmt->tsdb_binds.mbs + j;
     if (!stmt->tsdb_stmt.is_insert_stmt) {
       sr = _stmt_guess_tsdb_params(stmt, param_state);
@@ -5239,8 +5239,8 @@ static SQLRETURN _stmt_execute_prepare_params(stmt_t *stmt, param_state_t *param
       param_state->i_param    = j;
       param_state->APD_record = APD->records + j;
       param_state->IPD_record = IPD->records + j;
-      param_state->tsdb_field = &stmt->paramset.params[j].tsdb_field;
-      param_state->param_column = stmt->paramset.params + j;
+      param_state->tsdb_field = &stmt->tsdb_paramset.params[j].tsdb_field;
+      param_state->param_column = stmt->tsdb_paramset.params + j;
       param_state->tsdb_bind = stmt->tsdb_binds.mbs + j;
       if (j == 0 && stmt->tsdb_stmt.is_insert_stmt && stmt->tsdb_stmt.params.subtbl_required) {
         continue;

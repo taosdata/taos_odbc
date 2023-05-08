@@ -712,7 +712,7 @@ struct stmt_s {
   mem_t                      tsdb_sql;
   sqlc_tsdb_t                current_sql;
 
-  tsdb_paramset_t            paramset;
+  tsdb_paramset_t            tsdb_paramset;
 
   tsdb_binds_t               tsdb_binds;
 

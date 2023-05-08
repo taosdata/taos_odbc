@@ -403,14 +403,14 @@ static SQLRETURN _tsdb_stmt_post_check(tsdb_stmt_t *stmt)
     return SQL_ERROR;
   }
 
-  r = _tsdb_paramset_calloc(&stmt->owner->paramset, n);
+  r = _tsdb_paramset_calloc(&stmt->owner->tsdb_paramset, n);
   if (r) {
     stmt_oom(stmt->owner);
     return SQL_ERROR;
   }
 
   for (int i=0; i<n; ++i) {
-    stmt->owner->paramset.params[i].tsdb_field = *_tsdb_stmt_get_tsdb_field_by_tsdb_params(stmt, i);
+    stmt->owner->tsdb_paramset.params[i].tsdb_field = *_tsdb_stmt_get_tsdb_field_by_tsdb_params(stmt, i);
   }
 
   return SQL_SUCCESS;

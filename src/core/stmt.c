@@ -2972,7 +2972,8 @@ static SQLRETURN _stmt_param_copy_sqlc_char_sql_varchar(stmt_t *stmt, const char
   sql_data_t    *data       = &param_state->sql_data;
   mem_t         *mem        = &data->mem;
 
-  if (n > (size_t)IPD_record->DESC_LENGTH) {
+  if (0 && n > (size_t)IPD_record->DESC_LENGTH) {
+    // FIXME: flaw found by `go` on windows
     stmt_append_err_format(stmt, "22001", 0,
         "String data, right truncated:param[%d,%d]:[%zd]%.*s, but %s(%zd) was specified previously by SQLBindParameter",
         i_row+1, i_param+1,
@@ -5015,6 +5016,9 @@ static tsdb_sqlc_sql_map_t _tsdb_sqlc_sql_map[] = {
     _stmt_param_conv_sqlc_char_to_tsdb_timestamp},
 
   {TSDB_DATA_TYPE_VARCHAR,   SQL_C_CHAR,    SQL_VARCHAR,
+    _stmt_param_adjust_tsdb_varchar,
+    _stmt_param_conv_sqlc_char_to_tsdb_varchar},
+  {TSDB_DATA_TYPE_VARCHAR,   SQL_C_CHAR,    SQL_WVARCHAR,
     _stmt_param_adjust_tsdb_varchar,
     _stmt_param_conv_sqlc_char_to_tsdb_varchar},
   {TSDB_DATA_TYPE_VARCHAR,   SQL_C_WCHAR,   SQL_WVARCHAR,

@@ -2731,7 +2731,7 @@ static SQLRETURN _stmt_sql_c_char_to_tsdb_timestamp(stmt_t *stmt, const char *s,
 {
   char *end;
   errno = 0;
-  long int v = strtol(s, &end, 0);
+  long long v = strtoll(s, &end, 0);
   int e = errno;
   if (e == ERANGE && (v == LONG_MAX || v == LONG_MIN)) {
     stmt_append_err_format(stmt, "22008", 0,
@@ -2987,7 +2987,7 @@ static SQLRETURN _stmt_param_copy_sqlc_char_sql_varchar(stmt_t *stmt, const char
     return SQL_ERROR;
   }
 
-  data->type    = IPD_record->DESC_CONCISE_TYPE;
+  data->type    = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
   data->str.str = (const char*)mem->base;
   data->str.len = mem->nr;
   OA_NIY(data->str.str[data->str.len] == '\0');
@@ -3030,7 +3030,7 @@ static SQLRETURN _stmt_param_copy_sqlc_char_sql_wvarchar(stmt_t *stmt, const cha
     return SQL_ERROR;
   }
 
-  data->type      = IPD_record->DESC_CONCISE_TYPE;
+  data->type      = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
   data->wstr.wstr = (const char*)mem->base;
   data->wstr.wlen = mem->nr / 2;
   int16_t *p = (int16_t*)data->wstr.wstr;
@@ -3073,7 +3073,7 @@ static SQLRETURN _stmt_param_copy_sqlc_wchar_sql_wvarchar(stmt_t *stmt, const ch
     return SQL_ERROR;
   }
 
-  data->type      = IPD_record->DESC_CONCISE_TYPE;
+  data->type      = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
   data->wstr.wstr = (const char*)mem->base;
   data->wstr.wlen = mem->nr / 2;
   int16_t *p = (int16_t*)data->wstr.wstr;
@@ -3117,7 +3117,7 @@ static SQLRETURN _stmt_param_copy_sqlc_wchar_sql_varchar(stmt_t *stmt, const cha
     return SQL_ERROR;
   }
 
-  data->type      = IPD_record->DESC_CONCISE_TYPE;
+  data->type      = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
   data->str.str   = (const char*)mem->base;
   data->str.len   = mem->nr;
   OA_NIY(data->str.str[data->str.len] == '\0');
@@ -5357,7 +5357,7 @@ static SQLRETURN _stmt_execute_with_params(stmt_t *stmt)
       return SQL_ERROR;
     }
     for (size_t i=0; i<nr_paramset_size; ++i) {
-      param_state->i_row = i;
+      param_state->i_row      = (int)i;
       param_state->i_param    = 0;
       param_state->APD_record = APD->records + 0;
       param_state->IPD_record = IPD->records + 0;

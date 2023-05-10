@@ -51,6 +51,9 @@ typedef struct ext_parser_param_s       ext_parser_param_t;
 
 typedef struct get_data_ctx_s           get_data_ctx_t;
 
+typedef struct param_bind_meta_s        param_bind_meta_t;
+typedef struct params_bind_meta_s       params_bind_meta_t;
+
 typedef struct param_state_s            param_state_t;
 
 typedef struct parser_ctx_s             parser_ctx_t;
@@ -67,6 +70,10 @@ typedef struct stmt_base_s              stmt_base_t;
 
 typedef struct sqlc_tsdb_s              sqlc_tsdb_t;
 typedef struct sqlc_data_s              sqlc_data_t;
+typedef struct sql_data_s               sql_data_t;
+
+typedef struct sqlc_sql_map_s           sqlc_sql_map_t;
+
 typedef struct sqls_s                   sqls_t;
 typedef struct sqls_parser_param_s      sqls_parser_param_t;
 
@@ -79,6 +86,8 @@ typedef enum tables_type_e              tables_type_t;
 
 typedef struct topic_s                  topic_t;
 typedef struct topic_cfg_s              topic_cfg_t;
+
+typedef struct tsdb_sqlc_sql_map_s      tsdb_sqlc_sql_map_t;
 
 typedef struct tsdb_stmt_s              tsdb_stmt_t;
 typedef struct tsdb_params_s            tsdb_params_t;

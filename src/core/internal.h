@@ -147,10 +147,49 @@ struct sqlc_data_s {
       size_t      len;
     }                   str;
     struct {
+      // UCS-2LE
       const char *wstr;
-      size_t      wlen;
+      size_t      wlen; // in characters
     }                   wstr;
     int64_t             ts;
+  };
+
+  mem_t          mem;
+  size_t         len;
+  size_t         cur;
+
+  uint8_t               is_null:1;
+};
+
+struct sql_data_s {
+  SQLSMALLINT         type;
+  union {
+    uint8_t             b;
+    int8_t              i8;
+    uint8_t             u8;
+    int16_t             i16;
+    uint16_t            u16;
+    int32_t             i32;
+    uint32_t            u32;
+    int64_t             i64;
+    uint64_t            u64;
+    float               flt;
+    double              dbl;
+    struct {
+      const char *str;
+      size_t      len;
+    }                   str;
+    struct {
+      // UCS-2LE
+      const char *wstr;
+      size_t      wlen; // in characters
+    }                   wstr;
+    struct {
+      int64_t           sec;
+      int64_t           nsec;
+      int64_t           i64;
+      uint8_t           is_i64:1;
+    }                   ts;
   };
 
   mem_t          mem;
@@ -663,7 +702,7 @@ struct typesinfo_s {
 };
 
 struct param_state_s {
-  int                        nr_paramset_size;
+  int                        nr_batch_size;
   size_t                     i_batch_offset;
 
   SQLSMALLINT                nr_tsdb_fields;
@@ -678,10 +717,76 @@ struct param_state_s {
   tsdb_param_column_t       *param_column;
   TAOS_MULTI_BIND           *tsdb_bind;
 
+  const char                *sqlc_base;
+  size_t                     sqlc_len;
+
   sqlc_data_t                sqlc_data;
+  sql_data_t                 sql_data;
 
   mem_t                      sqlc_to_sql;
   mem_t                      sql_to_tsdb;
+
+  uint8_t                    is_subtbl:1;
+};
+
+typedef SQLRETURN (*param_f)(stmt_t *stmt, param_state_t *param_state);
+
+struct param_bind_meta_s {
+  param_f                     check;     // check sqlc_data against sql_data and convert into sql_data
+  param_f                     guess;     // guess tsdb_type by sqlc_type
+  param_f                     get_sqlc;  // get sqlc
+  param_f                     adjust;    // adjust tsdb_array
+  param_f                     conv;      // conv sqlc to tsdb
+};
+
+struct params_bind_meta_s {
+  param_bind_meta_t         *base;
+  size_t                     cap;
+  size_t                     nr;
+};
+
+typedef SQLRETURN (*param_bind_set_APD_record_f)(stmt_t* stmt,
+    desc_record_t  *APD_record,
+    SQLUSMALLINT    ParameterNumber,
+    SQLSMALLINT     ValueType,
+    SQLPOINTER      ParameterValuePtr,
+    SQLLEN          BufferLength,
+    SQLLEN         *StrLen_or_IndPtr);
+
+typedef SQLRETURN (*param_bind_set_IPD_record_f)(stmt_t* stmt,
+    desc_record_t  *IPD_record,
+    SQLUSMALLINT    ParameterNumber,
+    SQLSMALLINT     InputOutputType,
+    SQLSMALLINT     ParameterType,
+    SQLULEN         ColumnSize,
+    SQLSMALLINT     DecimalDigits);
+
+typedef SQLRETURN (*param_bind_f)(stmt_t* stmt,
+    SQLUSMALLINT    ParameterNumber,
+    SQLSMALLINT     ValueType,
+    SQLSMALLINT     ParameterType,
+    SQLULEN         ColumnSize,
+    SQLSMALLINT     DecimalDigits,
+    SQLPOINTER      ParameterValuePtr,
+    SQLLEN          BufferLength,
+    SQLLEN         *StrLen_or_IndPtr);
+
+struct sqlc_sql_map_s {
+  SQLSMALLINT    ValueType;
+  SQLSMALLINT    ParameterType;
+  param_bind_set_APD_record_f       set_APD_record;
+  param_bind_set_IPD_record_f       set_IPD_record;
+  param_f        get_sqlc;  // get sqlc
+  param_f        check;     // check sqlc_data against sql_data and convert into sql_data
+  param_f        guess;     // guess tsdb_type by sqlc_type
+};
+
+struct tsdb_sqlc_sql_map_s {
+  int8_t         tsdb_type;
+  SQLSMALLINT    ValueType;
+  SQLSMALLINT    ParameterType;
+  param_f        adjust;    // adjust tsdb_array
+  param_f        conv;      // conv sqlc to tsdb
 };
 
 struct stmt_s {
@@ -699,6 +804,8 @@ struct stmt_s {
 
   descriptor_t               APD, IPD;
   descriptor_t               ARD, IRD;
+
+  params_bind_meta_t         params_bind_meta;
 
   descriptor_t              *current_APD;
   descriptor_t              *current_ARD;

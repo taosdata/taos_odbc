@@ -2475,9 +2475,109 @@ static int test_hard_coded_cases(SQLHANDLE henv)
   return 0;
 }
 
-int main(int argc, char *argv[])
+static int test_chars_with_handles(SQLHANDLE *env, SQLHANDLE *dbc, SQLHANDLE *stmt,
+  const char *conn_str, const char *sql, SQLSMALLINT TargetType)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  SQLHANDLE henv  = SQL_NULL_HANDLE;
+  SQLHANDLE hdbc  = SQL_NULL_HANDLE;
+  SQLHANDLE hstmt = SQL_NULL_HANDLE;
+
+  sr = CALL_SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &henv);
+  if (FAILED(sr)) return 1;
+  *env = henv;
+
+  sr = CALL_SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, 0);
+  if (FAILED(sr)) return -1;
+
+  sr = CALL_SQLAllocHandle(SQL_HANDLE_DBC, henv, &hdbc);
+  if (sr != SQL_SUCCESS) return -1;
+  *dbc = hdbc;
+
+  sr = CALL_SQLDriverConnect(hdbc, NULL, (SQLCHAR*)conn_str, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT);
+  if (sr != SQL_SUCCESS) return -1;
+
+  sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt);
+  if (sr != SQL_SUCCESS) return -1;
+  *stmt = hstmt;
+
+  char buf[4096]; buf[0] = '\0';
+  SQLPOINTER     TargetValuePtr       = buf;
+  SQLLEN         BufferLength         = sizeof(buf);
+  SQLLEN         StrLen_or_Ind        = 0;
+  sr = CALL_SQLBindCol(hstmt, 1, TargetType, TargetValuePtr, BufferLength, &StrLen_or_Ind);
+  if (sr != SQL_SUCCESS) return -1;
+
+  sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
+  if (sr != SQL_SUCCESS) return -1;
+
+  while (1) {
+    sr = CALL_SQLFetch(hstmt);
+    if (sr == SQL_NO_DATA) break;
+    if (sr != SQL_SUCCESS) return -1;
+    if (StrLen_or_Ind == SQL_NULL_DATA) {
+      fprintf(stderr, "<null>\n");
+      continue;
+    }
+    if (TargetType == SQL_C_CHAR) {
+      if (StrLen_or_Ind == SQL_NTS) {
+        fprintf(stderr, "[%s]\n", buf);
+      } else {
+        fprintf(stderr, "[%.*s]\n", (int)StrLen_or_Ind, buf);
+      }
+    }
+    fprintf(stderr, "[0x");
+    for (SQLLEN i=0; i<StrLen_or_Ind; ++i) {
+      fprintf(stderr, "%02x", (const unsigned char)buf[i]);
+    }
+    fprintf(stderr, "]\n");
+  }
+
+  return 0;
+}
+
+static int test_chars(void)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  SQLHANDLE henv  = SQL_NULL_HANDLE;
+  SQLHANDLE hdbc  = SQL_NULL_HANDLE;
+  SQLHANDLE hstmt = SQL_NULL_HANDLE;
+
+  sr = test_chars_with_handles(&henv, &hdbc, &hstmt, "DSN=TAOS_ODBC_DSN", "select name from bar.x", SQL_C_CHAR);
+
+  if (hstmt != SQL_NULL_HANDLE) {
+    CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+    hstmt = SQL_NULL_HANDLE;
+  }
+  if (hdbc != SQL_NULL_HANDLE) {
+    CALL_SQLDisconnect(hdbc);
+    CALL_SQLFreeHandle(SQL_HANDLE_DBC, hdbc);
+    hdbc = SQL_NULL_HANDLE;
+  }
+  if (henv != SQL_NULL_HANDLE) {
+    CALL_SQLFreeHandle(SQL_HANDLE_ENV, henv);
+    henv = SQL_NULL_HANDLE;
+  }
+
+  if (sr != SQL_SUCCESS) return -1;
+  return 0;
+}
+
+static int run(int argc, char *argv[])
 {
   int r = 0;
+
+  if (0) {
+    r = test_chars();
+    if (r) return -1;
+    // r = test_sql_server();
+    if (r) return -1;
+    if (1) return -1;
+    return 0;
+  }
+
   SQLRETURN sr = SQL_SUCCESS;
 
   SQLHANDLE henv  = SQL_NULL_HANDLE;
@@ -2503,6 +2603,15 @@ int main(int argc, char *argv[])
   } while (0);
 
   CALL_SQLFreeHandle(SQL_HANDLE_ENV, henv);
+
+  return r ? -1 : 0;
+}
+
+int main(int argc, char *argv[])
+{
+  int r = 0;
+
+  r = run(argc, argv);
 
   fprintf(stderr, "==%s==\n", r ? "failure" : "success");
 

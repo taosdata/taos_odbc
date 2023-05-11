@@ -51,7 +51,7 @@ func test_chars() {
       )
 
   // rows, err := db.Query("SELECT * FROM x WHERE name = ?", "测试")
-  rows, err := db.Query("SELECT * FROM bar.x")
+  rows, err := db.Query("SELECT name, mark FROM bar.x")
   if err != nil {
     log.Fatal(err)
   }
@@ -74,9 +74,11 @@ func test_chars() {
 func main() {
   if false {
     test_sql_server()
+    log.Fatal("==success==")
   }
   if false {
     test_chars()
+    log.Fatal("==success==")
   }
 
   // db, err := sql.Open("odbc", "DSN=TAOS_ODBC_DSN")

@@ -697,9 +697,41 @@ async function test_chars() {
   await conn.close();
 }
 
+async function test_params(conn_str) {
+  var r = -1;
+  const conn = await odbc.connect(conn_str);
+
+  try {
+    await conn.query('drop database if exists foo');
+    await conn.query('create database if not exists foo');
+    await conn.query('create table foo.t (ts timestamp, name varchar(20), mark nchar(20))');
+
+    stmt = await conn.createStatement();
+
+    try {
+      await stmt.prepare('insert into foo.t(ts, name) values (?,?)');
+      assert.equal(!!await stmt_bind_exec_check(stmt, [1662861451755, '检验']), 0);
+
+      r = 0;
+    } catch (error) {
+      console.error(error);
+      r = -1;
+    }
+
+    await stmt.close();
+  } catch (error) {
+    console.log(error);
+    r = -1;
+  }
+
+  await conn.close();
+  return r;
+}
+
 async function do_test_cases() {
   if (false) assert.equal(!!await test_chars(), 0)
   if (false) assert.equal(!!await test_sql_server(), 0)
+  if (false) assert.equal(!!await test_params('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL'),0);
   if (false) assert.equal(0)
   assert.equal(!!await connectToDatabase('DSN=xTAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL'),1);
   assert.equal(!!await connectToDatabase('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL'),0);

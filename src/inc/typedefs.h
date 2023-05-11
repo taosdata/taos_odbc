@@ -87,7 +87,7 @@ typedef enum tables_type_e              tables_type_t;
 typedef struct topic_s                  topic_t;
 typedef struct topic_cfg_s              topic_cfg_t;
 
-typedef struct tsdb_sqlc_sql_map_s      tsdb_sqlc_sql_map_t;
+typedef struct sqlc_sql_tsdb_map_s      sqlc_sql_tsdb_map_t;
 
 typedef struct tsdb_stmt_s              tsdb_stmt_t;
 typedef struct tsdb_params_s            tsdb_params_t;

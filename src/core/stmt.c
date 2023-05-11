@@ -5022,85 +5022,80 @@ static SQLRETURN _stmt_param_conv_sqlc_sbigint_to_tsdb_bool(stmt_t *stmt, param_
   return SQL_SUCCESS;
 }
 
-static tsdb_sqlc_sql_map_t _tsdb_sqlc_sql_map[] = {
-  {TSDB_DATA_TYPE_TIMESTAMP, SQL_C_SBIGINT, SQL_TYPE_TIMESTAMP,
+static sqlc_sql_tsdb_map_t _sqlc_sql_tsdb_map[] = {
+  {SQL_C_SBIGINT, SQL_VARCHAR, TSDB_DATA_TYPE_BIGINT,
     _stmt_param_adjust_reuse_sqlc_sbigint,
     _stmt_param_conv_dummy},
-  {TSDB_DATA_TYPE_TIMESTAMP, SQL_C_SBIGINT, SQL_BIGINT,
+  {SQL_C_SBIGINT, SQL_TYPE_TIMESTAMP, TSDB_DATA_TYPE_TIMESTAMP,
     _stmt_param_adjust_reuse_sqlc_sbigint,
     _stmt_param_conv_dummy},
-  {TSDB_DATA_TYPE_TIMESTAMP, SQL_C_DOUBLE,  SQL_TYPE_TIMESTAMP,
+  {SQL_C_SBIGINT, SQL_BIGINT, TSDB_DATA_TYPE_TIMESTAMP,
+    _stmt_param_adjust_reuse_sqlc_sbigint,
+    _stmt_param_conv_dummy},
+  {SQL_C_SBIGINT, SQL_BIGINT, TSDB_DATA_TYPE_BIGINT,
+    _stmt_param_adjust_reuse_sqlc_sbigint,
+    _stmt_param_conv_dummy},
+  {SQL_C_SBIGINT, SQL_INTEGER, TSDB_DATA_TYPE_INT,
+    _stmt_param_adjust_tsdb_int,
+    _stmt_param_conv_sqlc_sbigint_to_tsdb_int},
+  {SQL_C_SBIGINT, SQL_SMALLINT, TSDB_DATA_TYPE_SMALLINT,
+    _stmt_param_adjust_tsdb_smallint,
+    _stmt_param_conv_sqlc_sbigint_to_tsdb_smallint},
+  {SQL_C_SBIGINT, SQL_TINYINT, TSDB_DATA_TYPE_TINYINT,
+    _stmt_param_adjust_tsdb_tinyint,
+    _stmt_param_conv_sqlc_sbigint_to_tsdb_tinyint},
+  {SQL_C_SBIGINT, SQL_TINYINT, TSDB_DATA_TYPE_BOOL,
+    _stmt_param_adjust_tsdb_bool,
+    _stmt_param_conv_sqlc_sbigint_to_tsdb_bool},
+
+  {SQL_C_DOUBLE,  SQL_TYPE_TIMESTAMP, TSDB_DATA_TYPE_TIMESTAMP,
     _stmt_param_adjust_tsdb_timestamp,
     _stmt_param_conv_sqlc_double_to_tsdb_timestamp},
-  {TSDB_DATA_TYPE_TIMESTAMP, SQL_C_CHAR,    SQL_TYPE_TIMESTAMP,
-    _stmt_param_adjust_tsdb_timestamp,
-    _stmt_param_conv_sqlc_char_to_tsdb_timestamp},
-  {TSDB_DATA_TYPE_TIMESTAMP, SQL_C_CHAR,    SQL_VARCHAR,
-    _stmt_param_adjust_tsdb_timestamp,
-    _stmt_param_conv_sqlc_char_to_tsdb_timestamp},
-
-  {TSDB_DATA_TYPE_VARCHAR,   SQL_C_CHAR,    SQL_VARCHAR,
-    _stmt_param_adjust_tsdb_varchar,
-    _stmt_param_conv_sqlc_char_to_tsdb_varchar},
-  {TSDB_DATA_TYPE_VARCHAR,   SQL_C_CHAR,    SQL_WVARCHAR,
-    _stmt_param_adjust_tsdb_varchar,
-    _stmt_param_conv_sqlc_char_to_tsdb_varchar},
-  {TSDB_DATA_TYPE_VARCHAR,   SQL_C_WCHAR,   SQL_WVARCHAR,
-    _stmt_param_adjust_tsdb_varchar,
-    _stmt_param_conv_sqlc_wchar_to_tsdb_varchar},
-  {TSDB_DATA_TYPE_VARCHAR,   SQL_C_WCHAR,   SQL_VARCHAR,
-    _stmt_param_adjust_tsdb_varchar,
-    _stmt_param_conv_sqlc_wchar_to_tsdb_varchar},
-
-  {TSDB_DATA_TYPE_NCHAR,     SQL_C_CHAR,    SQL_WVARCHAR,
-    _stmt_param_adjust_tsdb_nchar,
-    _stmt_param_conv_sqlc_char_to_tsdb_nchar},
-  {TSDB_DATA_TYPE_NCHAR,     SQL_C_CHAR,    SQL_VARCHAR,
-    _stmt_param_adjust_tsdb_nchar,
-    _stmt_param_conv_sqlc_char_to_tsdb_nchar},
-  {TSDB_DATA_TYPE_NCHAR,     SQL_C_WCHAR,   SQL_WVARCHAR,
-    _stmt_param_adjust_tsdb_nchar,
-    _stmt_param_conv_sqlc_wchar_to_tsdb_nchar},
-
-  {TSDB_DATA_TYPE_BIGINT,    SQL_C_SBIGINT, SQL_BIGINT,
-    _stmt_param_adjust_reuse_sqlc_sbigint,
-    _stmt_param_conv_dummy},
-  {TSDB_DATA_TYPE_BIGINT,    SQL_C_SBIGINT, SQL_VARCHAR,
-    _stmt_param_adjust_reuse_sqlc_sbigint,
-    _stmt_param_conv_dummy},
-
-  {TSDB_DATA_TYPE_DOUBLE,    SQL_C_DOUBLE,  SQL_DOUBLE,
+  {SQL_C_DOUBLE,  SQL_DOUBLE, TSDB_DATA_TYPE_DOUBLE,
     _stmt_param_adjust_reuse_sqlc_double,
     _stmt_param_conv_dummy},
-  {TSDB_DATA_TYPE_DOUBLE,    SQL_C_DOUBLE,  SQL_VARCHAR,
+  {SQL_C_DOUBLE,  SQL_VARCHAR, TSDB_DATA_TYPE_DOUBLE,
     _stmt_param_adjust_reuse_sqlc_double,
     _stmt_param_conv_dummy},
-
-  {TSDB_DATA_TYPE_FLOAT,     SQL_C_DOUBLE,  SQL_REAL,
+  {SQL_C_DOUBLE,  SQL_REAL, TSDB_DATA_TYPE_FLOAT,
     _stmt_param_adjust_tsdb_float,
     _stmt_param_conv_sqlc_double_to_tsdb_float},
 
-  {TSDB_DATA_TYPE_INT,       SQL_C_SBIGINT, SQL_INTEGER,
-    _stmt_param_adjust_tsdb_int,
-    _stmt_param_conv_sqlc_sbigint_to_tsdb_int},
-  {TSDB_DATA_TYPE_INT,       SQL_C_SLONG,   SQL_INTEGER,
+  {SQL_C_CHAR, SQL_TYPE_TIMESTAMP, TSDB_DATA_TYPE_TIMESTAMP,
+    _stmt_param_adjust_tsdb_timestamp,
+    _stmt_param_conv_sqlc_char_to_tsdb_timestamp},
+  {SQL_C_CHAR, SQL_VARCHAR, TSDB_DATA_TYPE_TIMESTAMP,
+    _stmt_param_adjust_tsdb_timestamp,
+    _stmt_param_conv_sqlc_char_to_tsdb_timestamp},
+  {SQL_C_CHAR, SQL_VARCHAR, TSDB_DATA_TYPE_VARCHAR,
+    _stmt_param_adjust_tsdb_varchar,
+    _stmt_param_conv_sqlc_char_to_tsdb_varchar},
+  {SQL_C_CHAR, SQL_WVARCHAR, TSDB_DATA_TYPE_VARCHAR,
+    _stmt_param_adjust_tsdb_varchar,
+    _stmt_param_conv_sqlc_char_to_tsdb_varchar},
+  {SQL_C_CHAR, SQL_WVARCHAR, TSDB_DATA_TYPE_NCHAR,
+    _stmt_param_adjust_tsdb_nchar,
+    _stmt_param_conv_sqlc_char_to_tsdb_nchar},
+  {SQL_C_CHAR, SQL_VARCHAR, TSDB_DATA_TYPE_NCHAR,
+    _stmt_param_adjust_tsdb_nchar,
+    _stmt_param_conv_sqlc_char_to_tsdb_nchar},
+
+  {SQL_C_WCHAR, SQL_WVARCHAR, TSDB_DATA_TYPE_VARCHAR,
+    _stmt_param_adjust_tsdb_varchar,
+    _stmt_param_conv_sqlc_wchar_to_tsdb_varchar},
+  {SQL_C_WCHAR, SQL_VARCHAR, TSDB_DATA_TYPE_VARCHAR,
+    _stmt_param_adjust_tsdb_varchar,
+    _stmt_param_conv_sqlc_wchar_to_tsdb_varchar},
+  {SQL_C_WCHAR, SQL_WVARCHAR, TSDB_DATA_TYPE_NCHAR,
+    _stmt_param_adjust_tsdb_nchar,
+    _stmt_param_conv_sqlc_wchar_to_tsdb_nchar},
+
+  {SQL_C_SLONG, SQL_INTEGER, TSDB_DATA_TYPE_INT,
     _stmt_param_adjust_reuse_sqlc_long,
     _stmt_param_conv_dummy},
-  {TSDB_DATA_TYPE_INT,       SQL_C_LONG,    SQL_INTEGER,
+  {SQL_C_LONG, SQL_INTEGER, TSDB_DATA_TYPE_INT,
     _stmt_param_adjust_reuse_sqlc_long,
     _stmt_param_conv_dummy},
-
-  {TSDB_DATA_TYPE_SMALLINT,  SQL_C_SBIGINT, SQL_SMALLINT,
-    _stmt_param_adjust_tsdb_smallint,
-    _stmt_param_conv_sqlc_sbigint_to_tsdb_smallint},
-
-  {TSDB_DATA_TYPE_TINYINT,   SQL_C_SBIGINT, SQL_TINYINT,
-    _stmt_param_adjust_tsdb_tinyint,
-    _stmt_param_conv_sqlc_sbigint_to_tsdb_tinyint},
-
-  {TSDB_DATA_TYPE_BOOL,      SQL_C_SBIGINT, SQL_TINYINT,
-    _stmt_param_adjust_tsdb_bool,
-    _stmt_param_conv_sqlc_sbigint_to_tsdb_bool},
 };
 
 static SQLRETURN _stmt_param_tsdb_init(stmt_t *stmt, param_state_t *param_state)
@@ -5116,8 +5111,8 @@ static SQLRETURN _stmt_param_tsdb_init(stmt_t *stmt, param_state_t *param_state)
   SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
   int8_t      tsdb_type     = tsdb_field->type;
 
-  for (size_t i=0; i<sizeof(_tsdb_sqlc_sql_map)/sizeof(_tsdb_sqlc_sql_map[0]); ++i) {
-    tsdb_sqlc_sql_map_t *map = _tsdb_sqlc_sql_map + i;
+  for (size_t i=0; i<sizeof(_sqlc_sql_tsdb_map)/sizeof(_sqlc_sql_tsdb_map[0]); ++i) {
+    sqlc_sql_tsdb_map_t *map = _sqlc_sql_tsdb_map + i;
     if (map->tsdb_type != tsdb_type) continue;
     if (map->ValueType != ValueType) continue;
     if (map->ParameterType != ParameterType) continue;

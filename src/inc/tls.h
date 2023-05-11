@@ -36,6 +36,12 @@ size_t tls_size(void) FA_HIDDEN;
 tls_t* tls_get(void) FA_HIDDEN;
 void tls_release(tls_t *tls) FA_HIDDEN;
 mem_t* tls_get_mem_intermediate(void) FA_HIDDEN;
+static inline int tls_iconv(const char *fromcode, const char *tocode, const char *src, size_t len)
+{
+    mem_t *mem = tls_get_mem_intermediate();
+    if (!mem) return -1;
+    return mem_iconv(mem, fromcode, tocode, src, len);
+}
 
 charset_conv_t* tls_get_charset_conv(const char *fromcode, const char *tocode) FA_HIDDEN;
 

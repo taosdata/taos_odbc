@@ -94,6 +94,7 @@ int mem_expand(mem_t *mem, size_t delta) FA_HIDDEN;
 int mem_keep(mem_t *mem, size_t cap) FA_HIDDEN;
 int mem_conv(mem_t *mem, iconv_t cnv, const char *src, size_t len) FA_HIDDEN;
 int mem_conv_ex(mem_t *mem, const str_t *src, const char *dst_charset) FA_HIDDEN;
+int mem_iconv(mem_t *mem, const char *fromcode, const char *tocode, const char *src, size_t len) FA_HIDDEN;
 int mem_copy(mem_t *mem, const char *src) FA_HIDDEN;
 int mem_copy_str(mem_t *mem, const char *src, size_t len) FA_HIDDEN;
 

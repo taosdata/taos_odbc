@@ -197,6 +197,16 @@ int mem_conv_ex(mem_t *mem, const str_t *src, const char *dst_charset)
   return mem_conv(mem, charset_conv_get(cnv), src->str, src->bytes);
 }
 
+int mem_iconv(mem_t *mem, const char *fromcode, const char *tocode, const char *src, size_t len)
+{
+  mem_reset(mem);
+
+  charset_conv_t *cnv = tls_get_charset_conv(fromcode, tocode);
+  if (!cnv) return -1;
+
+  return mem_conv(mem, charset_conv_get(cnv), src, len);
+}
+
 int mem_copy(mem_t *mem, const char *src)
 {
   size_t len = strlen(src);

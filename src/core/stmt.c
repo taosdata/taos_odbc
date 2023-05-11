@@ -1736,6 +1736,14 @@ static SQLRETURN _stmt_get_data_copy_buf_to_char(stmt_t *stmt, stmt_get_data_arg
 
   const char *fromcode = conn_get_tsdb_charset(stmt->conn);
   const char *tocode   = conn_get_sqlc_charset(stmt->conn);
+  if (0) {
+    // FIXME:
+    get_data_ctx_t *ctx = &stmt->get_data_ctx;
+    tsdb_data_t *tsdb = &ctx->tsdb;
+    if (tsdb->type != TSDB_DATA_TYPE_NCHAR) {
+      tocode = "UTF-8";
+    }
+  }
   charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
   if (!cnv) {
     stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);

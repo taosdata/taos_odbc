@@ -25,6 +25,18 @@
 import pyodbc
 import sys
 
+if False:
+  cnxn = pyodbc.connect('DSN=SQLSERVER_ODBC_DSN')
+  cursor = cnxn.cursor()
+  x = cursor.execute("select name,mark from x").fetchall()
+  print(x, file=sys.stderr)
+
+if False:
+  cnxn = pyodbc.connect('DSN=TAOS_ODBC_DSN')
+  cursor = cnxn.cursor()
+  x = cursor.execute("select name,mark from bar.x").fetchall()
+  print(x, file=sys.stderr)
+
 # Specifying the ODBC driver, server name, database, etc. directly
 cnxn = pyodbc.connect('DRIVER={TAOS_ODBC_DRIVER};SERVER=localhost;DATABASE=information_schema;UID=root;PWD=taosdata')
 
@@ -33,7 +45,6 @@ cnxn = pyodbc.connect('DSN=TAOS_ODBC_DSN;PWD=taosdata')
 
 # Create a cursor from the connection
 cursor = cnxn.cursor()
-
 
 cursor.execute("drop database if exists bar")
 cursor.execute("create database if not exists bar")
@@ -96,4 +107,3 @@ y = [('试验', '测试'), ('测试', '试验')]
 assert str(x) == str(y), "{0} != {1}".format(x, y)
 
 print("success")
-

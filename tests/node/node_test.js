@@ -681,7 +681,26 @@ async function case10(conn_str) {
   return r;
 }
 
+async function test_sql_server() {
+  const conn = await odbc.connect('DSN=SQLSERVER_ODBC_DSN')
+  var result = await conn.query('select name, mark from x');
+  rows = await rs_collect(result);
+  console.log(rows);
+  await conn.close();
+}
+
+async function test_chars() {
+  const conn = await odbc.connect('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL');
+  var result = await conn.query('select name, mark from bar.x');
+  rows = await rs_collect(result);
+  console.log(rows);
+  await conn.close();
+}
+
 async function do_test_cases() {
+  if (false) assert.equal(!!await test_chars(), 0)
+  if (false) assert.equal(!!await test_sql_server(), 0)
+  if (false) assert.equal(0)
   assert.equal(!!await connectToDatabase('DSN=xTAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL'),1);
   assert.equal(!!await connectToDatabase('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL'),0);
   assert.equal(!!await execute('DSN=TAOS_ODBC_DSN', 'show databases'),0);

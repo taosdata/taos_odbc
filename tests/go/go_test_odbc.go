@@ -7,7 +7,78 @@ import (
     "fmt"
     )
 
+func test_sql_server() {
+  db, err := sql.Open("odbc", "DSN=SQLSERVER_ODBC_DSN")
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  var (
+      name string
+      mark string
+      )
+
+  // rows, err := db.Query("SELECT * FROM x WHERE name = ?", "测试")
+  rows, err := db.Query("SELECT * FROM x")
+  if err != nil {
+    log.Fatal(err)
+  }
+  defer rows.Close()
+  for rows.Next() {
+    err := rows.Scan(&name, &mark)
+    if err != nil {
+      log.Fatal(err)
+    }
+    fmt.Println(name, mark)
+  }
+  err = rows.Err()
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  defer db.Close()
+}
+
+func test_chars() {
+  db, err := sql.Open("odbc", "DSN=TAOS_ODBC_DSN")
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  var (
+      name string
+      mark string
+      )
+
+  // rows, err := db.Query("SELECT * FROM x WHERE name = ?", "测试")
+  rows, err := db.Query("SELECT * FROM bar.x")
+  if err != nil {
+    log.Fatal(err)
+  }
+  defer rows.Close()
+  for rows.Next() {
+    err := rows.Scan(&name, &mark)
+    if err != nil {
+      log.Fatal(err)
+    }
+    fmt.Println(name, mark)
+  }
+  err = rows.Err()
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  defer db.Close()
+}
+
 func main() {
+  if false {
+    test_sql_server()
+  }
+  if false {
+    test_chars()
+  }
+
   // db, err := sql.Open("odbc", "DSN=TAOS_ODBC_DSN")
   db, err := sql.Open("odbc", "Driver={TAOS_ODBC_DRIVER}")
   if err != nil {
@@ -48,5 +119,6 @@ func main() {
   }
 
   defer db.Close()
-}
 
+  fmt.Println("==success==")
+}

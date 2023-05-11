@@ -781,7 +781,7 @@ struct sqlc_sql_map_s {
   param_f        guess;     // guess tsdb_type by sqlc_type
 };
 
-struct sqlc_sql_tsdb_map_s {
+struct param_bind_map_s {
   SQLSMALLINT    ValueType;
   SQLSMALLINT    ParameterType;
   int8_t         tsdb_type;

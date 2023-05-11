@@ -5022,7 +5022,7 @@ static SQLRETURN _stmt_param_conv_sqlc_sbigint_to_tsdb_bool(stmt_t *stmt, param_
   return SQL_SUCCESS;
 }
 
-static sqlc_sql_tsdb_map_t _sqlc_sql_tsdb_map[] = {
+static param_bind_map_t _param_bind_map[] = {
   {SQL_C_SBIGINT, SQL_VARCHAR, TSDB_DATA_TYPE_BIGINT,
     _stmt_param_adjust_reuse_sqlc_sbigint,
     _stmt_param_conv_dummy},
@@ -5111,8 +5111,8 @@ static SQLRETURN _stmt_param_tsdb_init(stmt_t *stmt, param_state_t *param_state)
   SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
   int8_t      tsdb_type     = tsdb_field->type;
 
-  for (size_t i=0; i<sizeof(_sqlc_sql_tsdb_map)/sizeof(_sqlc_sql_tsdb_map[0]); ++i) {
-    sqlc_sql_tsdb_map_t *map = _sqlc_sql_tsdb_map + i;
+  for (size_t i=0; i<sizeof(_param_bind_map)/sizeof(_param_bind_map[0]); ++i) {
+    param_bind_map_t *map = _param_bind_map + i;
     if (map->tsdb_type != tsdb_type) continue;
     if (map->ValueType != ValueType) continue;
     if (map->ParameterType != ParameterType) continue;

@@ -1553,6 +1553,7 @@ SQLRETURN stmt_bind_col(stmt_t *stmt,
     return SQL_ERROR;
   }
 
+  OW("Column%d:%s",  ColumnNumber, sqlc_data_type(TargetType));
   return _stmt_bind_col(stmt, ColumnNumber, TargetType, TargetValuePtr, BufferLength, StrLen_or_IndPtr);
 }
 
@@ -1696,6 +1697,27 @@ static SQLRETURN _stmt_get_data_prepare_ctx(stmt_t *stmt, stmt_get_data_args_t *
 
 }
 
+static void dump_iconv(
+    const char *fromcode, const char *tocode,
+    const char *inbuf, size_t inbytes, size_t inbytesleft,
+    const char *outbuf, size_t outbytes, size_t outbytesleft)
+{
+  char ix[4096+1]; ix[0] = '\0';
+  char ox[4096+1]; ox[0] = '\0';
+  for (size_t i=0; i<inbytes && i<sizeof(ix)/2; ++i) {
+    snprintf(ix + i * 2, 3, "%02x", (const unsigned char)inbuf[i]);
+  }
+  for (size_t i=0; i<outbytes-outbytesleft && i<sizeof(ox)/2; ++i) {
+    snprintf(ox + i * 2, 3, "%02x", (const unsigned char)outbuf[i]);
+  }
+  char buf[16384]; buf[0] = '\0';
+  snprintf(buf, sizeof(buf), "%s=>%s:%zd,%zd;%zd,%zd;0x%.*s;0x%.*s",
+      fromcode, tocode, inbytes, inbytesleft, outbytes, outbytesleft,
+      (int)(inbytes*2), ix,
+      (int)(outbytes-outbytesleft)*2, ox);
+  OW("%s\n", buf);
+}
+
 static SQLRETURN _stmt_get_data_copy_buf_to_char(stmt_t *stmt, stmt_get_data_args_t *args)
 {
   get_data_ctx_t *ctx = &stmt->get_data_ctx;
@@ -1729,6 +1751,8 @@ static SQLRETURN _stmt_get_data_copy_buf_to_char(stmt_t *stmt, stmt_get_data_arg
   size_t           outbytesleft        = outbytes;
 
   size_t n = CALL_iconv(cnv->cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+  dump_iconv(fromcode, tocode, (char*)ctx->pos, inbytes, inbytesleft, (char*)args->TargetValuePtr, outbytes, outbytesleft);
+  OW("[%.*s]", (int)(outbytes - outbytesleft), (char*)args->TargetValuePtr);
   int e = errno;
   iconv(cnv->cnv, NULL, NULL, NULL, NULL);
   if (n == (size_t)-1) {

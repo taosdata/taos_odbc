@@ -46,12 +46,14 @@ while True:
     break
   print(row, file=sys.stderr)
 
+cursor.execute("drop table if exists x")
 cursor.execute("create table x (ts timestamp, name varchar(20), mark nchar(20))")
 cursor.execute("insert into x(ts, name, mark) values (now(), '测试', '试验')")
 # cnxn.commit()
 cursor.execute("insert into x(ts, name, mark) values (?, ?, ?)", 1682565350033, 'xes', 'no')
 # cnxn.commit()
 x = cursor.execute("select name,mark from x").fetchall()
+print(x, file=sys.stderr)
 y = [('xes', 'no'), ('测试', '试验')]
 assert str(x) == str(y), "{0} != {1}".format(x, y)
 
@@ -59,6 +61,7 @@ cursor.execute("drop stable if exists st")
 cursor.execute("create stable st (ts timestamp, age int) tags (name varchar(20))")
 cursor.execute("insert into 'suzhou' using st tags ('jiangsu') values (1665226861289, 100)")
 x = cursor.execute("select name,age from st").fetchall()
+print(x, file=sys.stderr)
 y = [('jiangsu', 100)]
 assert str(x) == str(y), "{0} != {1}".format(x, y)
 
@@ -66,6 +69,7 @@ cursor.execute("drop stable if exists st")
 cursor.execute("create stable st (ts timestamp, age int) tags (name varchar(20))")
 cursor.execute("insert into ? using st tags (?) values (?, ?)", 'suzhou', 'jiangsu', 1665226861289, 100)
 x = cursor.execute("select age,name from st").fetchall()
+print(x, file=sys.stderr)
 y = [(100, 'jiangsu')]
 assert str(x) == str(y), "{0} != {1}".format(x, y)
 
@@ -76,7 +80,19 @@ cursor.fast_executemany = False
 cursor.executemany("insert into ? using st tags (?) values (?, ?)", params)
 
 x = cursor.execute("select name,age from st").fetchall()
+print(x, file=sys.stderr)
 y = [('jiangsu', 101), ('Shanghai', 202)]
+assert str(x) == str(y), "{0} != {1}".format(x, y)
+
+cursor.execute("drop table if exists x")
+cursor.execute("create table x (ts timestamp, name varchar(20), mark nchar(20))")
+cursor.execute("insert into x(ts, name, mark) values (now(), '测试', '试验')")
+# cnxn.commit()
+cursor.execute("insert into x(ts, name, mark) values (?, ?, ?)", 1682565350033, '试验', '测试')
+# cnxn.commit()
+x = cursor.execute("select name,mark from x").fetchall()
+print(x, file=sys.stderr)
+y = [('试验', '测试'), ('测试', '试验')]
 assert str(x) == str(y), "{0} != {1}".format(x, y)
 
 print("success")

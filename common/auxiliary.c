@@ -258,4 +258,3 @@ char* tod_dirname(const char *path, char *buf, size_t sz)
   return buf;
 }
 #endif
-

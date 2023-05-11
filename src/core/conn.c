@@ -1161,6 +1161,7 @@ SQLRETURN conn_set_attr(
       return SQL_SUCCESS_WITH_INFO;
     case SQL_ATTR_ANSI_APP:
       OA_NIY(0);
+      break;
     default:
       conn_append_err_format(conn, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_conn_attr(Attribute), Attribute, Attribute);
       return SQL_ERROR;

@@ -163,30 +163,37 @@ def usage(arg0):
         f"{arg0} -l\n"
         f"  list all test cases")
 
-if __name__ == "__main__":
-  test_cases = [test_case0, test_charsets]
-
+def run(test_cases):
   if len(sys.argv) == 1:
     for t in test_cases:
       run_case(t)
-    exit(0)
+    return 0
 
   for i, arg in enumerate(sys.argv):
     if i == 0:
       continue
     if arg == "-h":
       usage(sys.argv[0])
-      exit(0)
+      return 0
     if arg == "-l":
       print("supported test cases:")
       for t in test_cases:
         print(f"  {t.__name__}")
-      exit(0)
+      return 0
     t = find_case(test_cases, arg)
     if t is None:
       print(f"test case `{arg}`:not found")
-      exit(1)
+      return 1
     run_case(t)
 
-print("success")
+if __name__ == "__main__":
+  test_cases = [test_case0, test_charsets]
+
+  r = run(test_cases)
+  if (r is None) or (r == 0):
+    print("==success==")
+    exit(0)
+  else:
+    print("==failure==")
+    exit(1)
 

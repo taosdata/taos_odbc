@@ -30,7 +30,7 @@
 
 
 #define DUMP(fmt, ...)             fprintf(stderr, fmt "\n", ##__VA_ARGS__)
-#define DCASE(fmt, ...)            fprintf(stderr, "L%d:%s():" fmt "\n", line, func, ##__VA_ARGS__)
+#define DCASE(fmt, ...)            fprintf(stderr, "@%d:%s():@%d:%s():" fmt "\n", __LINE__, __func__, line, func, ##__VA_ARGS__)
 
 typedef struct handles_s                 handles_t;
 struct handles_s {

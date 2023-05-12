@@ -40,6 +40,6 @@ if(HAVE_GO)
       COMMAND go build)
 
   add_test(NAME go_test
-      COMMAND ${CMAKE_CURRENT_BINARY_DIR}/go_test_odbc)
+      COMMAND ${CMAKE_CURRENT_BINARY_DIR}/go_test)
 endif()
 

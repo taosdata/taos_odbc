@@ -267,8 +267,10 @@ static int execute_with_int(const char *connstr, const char *sql, int v, size_t 
   return r ? -1 : 0;
 }
 
-static int test_case0(void)
+static int test_case0(handles_t *handles)
 {
+  (void)handles;
+
   int r = 0;
   const char *connstr = NULL;
   const char *sqls = NULL;
@@ -444,27 +446,73 @@ static int test_charsets(handles_t *handles)
   return 0;
 }
 
-static int running_with_handles(handles_t *handles)
-{
-  (void)handles;
-  int r = 0;
-  r = test_case0();
-  if (r) return -1;
-  r = test_charsets(handles);
-  if (r) return -1;
+typedef struct case_s              case_t;
+struct case_s {
+  const char               *name;
+  int (*routine)(handles_t *handles);
+};
 
-  return 0;
+#define RECORD(x) {#x, x}
+
+static int running_case(handles_t *handles, case_t *_case)
+{
+  return _case->routine(handles);
 }
 
-static int running(int argc, char *argv[])
+static void usage(const char *arg0)
 {
-  (void)argc;
-  (void)argv;
-  handles_t handles = {0};
+  fprintf(stderr, "%s -h\n"
+                  "  show this help page\n"
+                  "%s [name]...\n"
+                  "  running test case `name`\n"
+                  "%s -l\n"
+                  "  list all test cases\n",
+                  arg0, arg0, arg0);
+}
+
+static void list_cases(case_t *cases, size_t nr_cases)
+{
+  fprintf(stderr, "supported test cases:\n");
+  for (size_t i=0; i<nr_cases; ++i) {
+    fprintf(stderr, "  %s\n", cases[i].name); 
+  }
+}
+
+static int running_with_args(int argc, char *argv[], handles_t *handles)
+{
   int r = 0;
-  r = running_with_handles(&handles);
-  handles_release(&handles);
-  if (r) return -1;
+
+  case_t _cases[] = {
+    RECORD(test_case0),
+    RECORD(test_charsets),
+  };
+  size_t _nr_cases = sizeof(_cases)/sizeof(_cases[0]);
+
+  size_t nr_cases = 0;
+
+  for (int i=1; i<argc; ++i) {
+    const char *arg = argv[i];
+    if (strcmp(arg, "-h")==0) {
+      usage(argv[0]);
+      return 0;
+    }
+    if (strcmp(arg, "-l")==0) {
+      list_cases(_cases, _nr_cases);
+      return 0;
+    }
+    for (size_t j=0; j<_nr_cases; ++j) {
+      if (strcmp(_cases[j].name, arg)) continue;
+      r = running_case(handles, _cases + j);
+      if (r) return -1;
+      ++nr_cases;
+    }
+  }
+
+  if (nr_cases == 0) {
+    for (size_t i=0; i<_nr_cases; ++i) {
+      r = running_case(handles, _cases + i);
+    }
+  }
 
   return 0;
 }
@@ -472,7 +520,9 @@ static int running(int argc, char *argv[])
 int main(int argc, char *argv[])
 {
   int r = 0;
-  r = running(argc, argv);
+  handles_t handles = {0};
+  r = running_with_args(argc, argv, &handles);
+  handles_release(&handles);
   fprintf(stderr, "==%s==\n", r ? "failure" : "success");
   return !!r;
 }

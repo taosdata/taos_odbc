@@ -37,7 +37,7 @@ if(HAVE_GO)
       @ONLY)
 
   add_custom_target(go_test ALL
-      COMMAND go build ${CMAKE_CURRENT_BINARY_DIR}/go_test_odbc.go)
+      COMMAND go build)
 
   add_test(NAME go_test
       COMMAND ${CMAKE_CURRENT_BINARY_DIR}/go_test_odbc)

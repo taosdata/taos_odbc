@@ -454,6 +454,15 @@ struct case_s {
 
 #define RECORD(x) {#x, x}
 
+static case_t* find_case(case_t *cases, size_t nr_cases, const char *name)
+{
+  for (size_t i=0; i<nr_cases; ++i) {
+    case_t *p = cases + i;
+    if (strcmp(p->name, name)==0) return p;
+  }
+  return NULL;
+}
+
 static int running_case(handles_t *handles, case_t *_case)
 {
   return _case->routine(handles);
@@ -494,12 +503,14 @@ static int running_with_args(int argc, char *argv[], handles_t *handles, case_t 
       list_cases(_cases, _nr_cases);
       return 0;
     }
-    for (size_t j=0; j<_nr_cases; ++j) {
-      if (strcmp(_cases[j].name, arg)) continue;
-      r = running_case(handles, _cases + j);
-      if (r) return -1;
-      ++nr_cases;
+    case_t *p = find_case(_cases, _nr_cases, arg);
+    if (!p) {
+      DUMP("test case `%s`:not found", arg);
+      return -1;
     }
+    r = running_case(handles, p);
+    if (r) return -1;
+    ++nr_cases;
   }
 
   if (nr_cases == 0) {

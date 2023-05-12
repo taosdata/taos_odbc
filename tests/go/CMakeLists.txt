@@ -36,9 +36,10 @@ if(HAVE_GO)
       "${CMAKE_CURRENT_BINARY_DIR}/go.sum"
       @ONLY)
 
+  add_custom_target(go_test ALL
+      COMMAND go build ${CMAKE_CURRENT_BINARY_DIR}/go_test_odbc.go)
+
   add_test(NAME go_test
-      COMMAND go run ${CMAKE_CURRENT_BINARY_DIR}/go_test_odbc.go)
+      COMMAND ${CMAKE_CURRENT_BINARY_DIR}/go_test_odbc)
 endif()
-
-
 

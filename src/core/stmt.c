@@ -3040,6 +3040,10 @@ static SQLRETURN _stmt_param_copy_sqlc_char_sql_wvarchar(stmt_t *stmt, const cha
 
   const char *fromcode = conn_get_sqlc_charset(stmt->conn);
   const char *tocode   = "UCS-2LE";
+  if (1) {
+    // FIXME:
+    fromcode = conn_get_sqlc_charset_for_param_bind(stmt->conn);
+  }
   charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
   if (!cnv) {
     stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
@@ -4532,6 +4536,10 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_char_tsdb_varchar(stmt_t *stmt,
 
   const char *fromcode = conn_get_sqlc_charset(stmt->conn);
   const char *tocode   = conn_get_tsdb_charset(stmt->conn);
+  if (1) {
+    // FIXME:
+    fromcode = conn_get_sqlc_charset_for_param_bind(stmt->conn);
+  }
   charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
   if (!cnv) {
     stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);

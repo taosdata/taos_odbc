@@ -43,50 +43,14 @@ func test_sql_server() {
   defer db.Close()
 }
 
-func test_chars() {
-  db, err := sql.Open("odbc", "DSN=TAOS_ODBC_DSN")
-  if err != nil {
-    log.Fatal(err)
-  }
-
-  var (
-      name string
-      mark string
-      )
-
-  // rows, err := db.Query("SELECT * FROM x WHERE name = ?", "测试")
-  rows, err := db.Query("SELECT name, mark FROM bar.x")
-  if err != nil {
-    log.Fatal(err)
-  }
-  defer rows.Close()
-  for rows.Next() {
-    err := rows.Scan(&name, &mark)
-    if err != nil {
-      log.Fatal(err)
-    }
-    fmt.Println(name, mark)
-  }
-  err = rows.Err()
-  if err != nil {
-    log.Fatal(err)
-  }
-
-  defer db.Close()
-}
-
-func test() {
+func test_case0() int {
   if false {
     test_sql_server()
     log.Fatal("==success==")
   }
-  if false {
-    test_chars()
-    log.Fatal("==success==")
-  }
 
-  // db, err := sql.Open("odbc", "DSN=TAOS_ODBC_DSN")
-  db, err := sql.Open("odbc", "Driver={TAOS_ODBC_DRIVER}")
+  db, err := sql.Open("odbc", "DSN=TAOS_ODBC_DSN")
+  // db, err := sql.Open("odbc", "Driver={TAOS_ODBC_DRIVER}")
   if err != nil {
     log.Fatal(err)
   }
@@ -126,16 +90,119 @@ func test() {
 
   defer db.Close()
 
-  fmt.Println("==success==")
-}
-
-func test_case0() int {
   return 0
 }
 
-func test_case1() int {
+func exec_sqls(db *sql.DB, sqls []string) {
+  for _,sql := range sqls {
+    _, err := db.Exec(sql)
+    if err != nil {
+      log.Fatal(err)
+    }
+  }
+}
+
+func check_with_values(db *sql.DB, sql string, nr_rows int, nr_cols int, values []string) {
+  if nr_cols > 10 {
+    log.Fatal(fmt.Sprintf("columns more than %d:not supported yet", nr_cols))
+  }
+  rows, err := db.Query(sql)
+  if err != nil {
+    log.Fatal(err)
+  }
+  defer rows.Close()
+
+  cols, err := rows.Columns()
+  if err != nil {
+    log.Fatal(err)
+  }
+  _nr_cols := len(cols)
+
+  if _nr_cols != nr_cols {
+    s := fmt.Sprintf("expected %d columns, but got =={%d}==", nr_cols, _nr_cols)
+    log.Fatal(s)
+  }
+  i_row := 0
+  idx := 0
+  var (
+    v1  string
+    v2  string
+    v3  string
+    v4  string
+    v5  string
+    v6  string
+    v7  string
+    v8  string
+    v9  string
+    v10 string
+  )
+  for rows.Next() {
+    if i_row >= nr_rows {
+      log.Fatal(fmt.Sprintf("expected %d rows, but got ==more rows==", nr_rows))
+    }
+    if nr_cols == 1 {
+      err = rows.Scan(&v1)
+    } else if nr_cols == 2 {
+      err = rows.Scan(&v1, &v2)
+    } else if nr_cols == 3 {
+      err = rows.Scan(&v1, &v2, &v3)
+    } else if nr_cols == 4 {
+      err = rows.Scan(&v1, &v2, &v3, &v4)
+    } else if nr_cols == 5 {
+      err = rows.Scan(&v1, &v2, &v3, &v4, &v5)
+    } else if nr_cols == 6 {
+      err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6)
+    } else if nr_cols == 7 {
+      err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6, &v7)
+    } else if nr_cols == 8 {
+      err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6, &v7, &v8)
+    } else if nr_cols == 9 {
+      err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6, &v7, &v8, &v9)
+    } else {
+      err = rows.Scan(&v1, &v2, &v3, &v4, &v5, &v6, &v7, &v8, &v9, &v10)
+    }
+    if err != nil {
+      log.Fatal(err)
+    }
+    v := [...]string {v1, v2, v3, v4, v5, v6, v7, v8, v9, v10}
+    for i:=0; i<nr_cols; i++ {
+      if v[i] != values[idx+i] {
+        log.Fatal(fmt.Sprintf("[%d,%d]:expected [%s], but got ==%s==", i_row+1, i+1, values[idx+i], v[i]))
+      }
+    }
+    i_row += 1
+    idx += nr_cols
+  }
+
+  if i_row != nr_rows {
+    log.Fatal(fmt.Sprintf("expected %d rows, but got ==%d==", nr_rows, i_row))
+  }
+}
+
+func test_charsets() int {
+  var db *sql.DB
+  db, err := sql.Open("odbc", "DSN=TAOS_ODBC_DSN")
+  if err != nil {
+    log.Fatal(err)
+  }
+  defer db.Close()
+
+  sqls := [...]string {
+    "drop database if exists foo",
+    "create database if not exists foo",
+    "create table foo.t (ts timestamp, name varchar(20), mark nchar(20))",
+    "insert into foo.t (ts, name, mark) values (now(), 'name', 'mark')",
+    "insert into foo.t (ts, name, mark) values (now()+1s, '测试', '检验')"}
+
+  exec_sqls(db, sqls[:])
+  check_with_values(db, "select name from foo.t where name='name'", 1, 1, []string {"name"})
+  check_with_values(db, "select mark from foo.t where mark='mark'", 1, 1, []string {"mark"})
+  check_with_values(db, "select name from foo.t where name='测试'", 1, 1, []string {"测试"})
+  check_with_values(db, "select mark from foo.t where mark='检验'", 1, 1, []string {"检验"})
+
   return 0
 }
+
 
 func usage(arg0 string) {
   fmt.Fprintf(os.Stderr,
@@ -178,7 +245,7 @@ func run_cases(cases []func () int) {
 }
 
 func main() {
-  cases := []func () int { test_case0, test_case1 }
+  cases := []func () int { test_case0, test_charsets }
   nr_args := len(os.Args)
   nr_cases := 0
   if nr_args > 1 {

@@ -690,7 +690,7 @@ async function test_sql_server() {
 }
 
 async function test_chars() {
-  const conn = await odbc.connect('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL');
+  const conn = await odbc.connect('DSN=TAOS_ODBC_DSN');
   var result = await conn.query('select name, mark from bar.x');
   rows = await rs_collect(result);
   console.log(rows);
@@ -731,26 +731,26 @@ async function test_params(conn_str) {
 async function do_test_cases() {
   if (false) assert.equal(!!await test_chars(), 0)
   if (false) assert.equal(!!await test_sql_server(), 0)
-  if (false) assert.equal(!!await test_params('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL'),0);
+  if (false) assert.equal(!!await test_params('DSN=TAOS_ODBC_DSN'),0);
   if (false) assert.equal(0)
-  assert.equal(!!await connectToDatabase('DSN=xTAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL'),1);
-  assert.equal(!!await connectToDatabase('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL'),0);
+  assert.equal(!!await connectToDatabase('DSN=xTAOS_ODBC_DSN'),1);
+  assert.equal(!!await connectToDatabase('DSN=TAOS_ODBC_DSN'),0);
   assert.equal(!!await execute('DSN=TAOS_ODBC_DSN', 'show databases'),0);
   // // assert.equal(!!await execute('DSN=TAOS_ODBC_DSN', 'select ts, name from foo.t'),0);
   // // assert.equal(!!await execute('DSN=TAOS_ODBC_DSN; LEGACY', 'select * from foo.t'),1);
   assert.equal(!!await execute('DSN=TAOS_ODBC_DSN', 'xshow databases'),1);
-  assert.equal(!!await case0('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL'),0);
-  assert.equal(!!await case1('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL'),0);
-  assert.equal(!!await case2('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL'),0);
-  assert.equal(!!await case3('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL'),0);
-  assert.equal(!!await case4('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL'),0);
-  assert.equal(!!await case5('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION=1;CHARSET_FOR_PARAM_BIND=UTF-8;CACHE_SQL'),0);
-  assert.equal(!!await case6('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION=1;CHARSET_FOR_PARAM_BIND=UTF-8;CACHE_SQL'),0);
+  assert.equal(!!await case0('DSN=TAOS_ODBC_DSN'),0);
+  assert.equal(!!await case1('DSN=TAOS_ODBC_DSN'),0);
+  assert.equal(!!await case2('DSN=TAOS_ODBC_DSN'),0);
+  assert.equal(!!await case3('DSN=TAOS_ODBC_DSN'),0);
+  assert.equal(!!await case4('DSN=TAOS_ODBC_DSN'),0);
+  assert.equal(!!await case5('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION=1;CHARSET_FOR_PARAM_BIND=UTF-8'),0);
+  assert.equal(!!await case6('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION=1;CHARSET_FOR_PARAM_BIND=UTF-8'),0);
 
-  assert.equal(!!await case7('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL'),0);
-  assert.equal(!!await case8('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL'),0);
-  assert.equal(!!await case9('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL'),0);
-  assert.equal(!!await case10('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION;CACHE_SQL'),0);
+  assert.equal(!!await case7('DSN=TAOS_ODBC_DSN'),0);
+  assert.equal(!!await case8('DSN=TAOS_ODBC_DSN'),0);
+  assert.equal(!!await case9('DSN=TAOS_ODBC_DSN'),0);
+  assert.equal(!!await case10('DSN=TAOS_ODBC_DSN'),0);
 
   //assert.equal(0, 1);
   return 0;

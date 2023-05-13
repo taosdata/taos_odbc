@@ -122,8 +122,8 @@ DIGITS        [[:digit:]]+
 {CHARSET}     { R(); C(); return MKT(CHARSET); }
 {CHARSET_FOR_COL_BIND}     { R(); C(); return MKT(CHARSET_FOR_COL_BIND); }
 {CHARSET_FOR_PARAM_BIND}   { R(); C(); return MKT(CHARSET_FOR_PARAM_BIND); }
-{UNSIGNED_PROMOTION}        { R(); C(); return MKT(UNSIGNED_PROMOTION); }
-{TIMESTAMP_AS_IS}           { R(); C(); return MKT(TIMESTAMP_AS_IS); }
+{UNSIGNED_PROMOTION}       { R(); C(); return MKT(UNSIGNED_PROMOTION); }
+{TIMESTAMP_AS_IS}          { R(); C(); return MKT(TIMESTAMP_AS_IS); }
 {DIGITS}      { R(); SET_STR(); C(); return MKT(DIGITS); }
 {ID}          { R(); SET_STR(); C(); return MKT(ID); }
 "="           { R(); PUSH(EQ); C(); return *yytext; }

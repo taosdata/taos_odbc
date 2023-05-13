@@ -220,42 +220,21 @@ connect_str:
 
 attribute:
   DSN
-| DSN '='
 | DSN '=' VALUE                   { SET_DSN($3, @$); }
-| UID
-| UID '='
 | UID '=' VALUE                   { SET_UID($3, @$); }
-| DB
-| DB '='
 | DB '=' VALUE                    { SET_DB($3, @$); }
-| PWD
-| PWD '='
 | PWD '=' VALUE                   { SET_PWD($3, @$); }
 | DRIVER '=' VALUE                { SET_DRIVER($3, @$); }
 | DRIVER '=' '{' VALUE '}'        { SET_DRIVER($4, @$); }
-| ID
-| ID '='
 | ID '=' VALUE                    { ; }
-| SERVER
-| SERVER '='
 | SERVER '=' FQDN                 { SET_FQDN($3, @$); }
 | SERVER '=' FQDN ':'             { SET_FQDN($3, @$); }
 | SERVER '=' FQDN ':' DIGITS      { SET_FQDN_PORT($3, $5, @$); }
 | DATABASE '=' VALUE              { SET_DATABASE($3, @$); }
-| UNSIGNED_PROMOTION              { SET_UNSIGNED_PROMOTION("1", 1, @$); }
-| UNSIGNED_PROMOTION '='          { SET_UNSIGNED_PROMOTION("0", 1, @$); }
 | UNSIGNED_PROMOTION '=' DIGITS   { SET_UNSIGNED_PROMOTION($3.text, $3.leng, @$); }
-| TIMESTAMP_AS_IS                 { SET_TIMESTAMP_AS_IS("1", 1, @$); }
-| TIMESTAMP_AS_IS '='             { SET_TIMESTAMP_AS_IS("0", 1, @$); }
 | TIMESTAMP_AS_IS '=' DIGITS      { SET_TIMESTAMP_AS_IS($3.text, $3.leng, @$); }
-| CHARSET
-| CHARSET '='
 | CHARSET '=' VALUE               { SET_CHARSET($3, @$); }
-| CHARSET_FOR_COL_BIND
-| CHARSET_FOR_COL_BIND '='
 | CHARSET_FOR_COL_BIND '=' VALUE               { SET_CHARSET_FOR_COL_BIND($3, @$); }
-| CHARSET_FOR_PARAM_BIND
-| CHARSET_FOR_PARAM_BIND '='
 | CHARSET_FOR_PARAM_BIND '=' VALUE             { SET_CHARSET_FOR_PARAM_BIND($3, @$); }
 ;
 

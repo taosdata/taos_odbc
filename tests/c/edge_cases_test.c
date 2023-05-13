@@ -546,7 +546,7 @@ static int test(void)
 
   CHECK(test_connect("DSN=TAOS_ODBC_DSN", NULL, NULL, NULL));
   CHECK(test_connect("DSN=TAOS_ODBC_DSN;UID=;PWD=;", NULL, NULL, NULL));
-  CHECK(test_connect("Driver={TAOS_ODBC_DRIVER};UID=root;PWD=taosdata;Server=localhost:6030;DB=;UNSIGNED_PROMOTION=1;CACHE_SQL=1;", NULL, NULL, NULL));
+  CHECK(test_connect("Driver={TAOS_ODBC_DRIVER};UID=root;PWD=taosdata;Server=localhost:6030;DB=;UNSIGNED_PROMOTION=1;", NULL, NULL, NULL));
 
   CHECK(test_connect("Driver={TAOS_ODBC_DRIVER}", NULL, NULL, NULL));
 
@@ -571,15 +571,12 @@ static int test(void)
   CHECK(!test_connect("Driver={TAOS_ODBC_DRIVER};UNSIGNED_PROMOTION=x;", NULL, NULL, NULL));
   CHECK(!test_connect("Driver={TAOS_ODBC_DRIVER};UNSIGNED_PROMOTION=1x;", NULL, NULL, NULL));
 
-  CHECK(test_connect("Driver={TAOS_ODBC_DRIVER};CACHE_SQL=;", NULL, NULL, NULL));
-  CHECK(test_connect("Driver={TAOS_ODBC_DRIVER};CACHE_SQL=1;", NULL, NULL, NULL));
-  CHECK(!test_connect("Driver={TAOS_ODBC_DRIVER};CACHE_SQL=x;", NULL, NULL, NULL));
-  CHECK(!test_connect("Driver={TAOS_ODBC_DRIVER};CACHE_SQL=1x;", NULL, NULL, NULL));
+  CHECK(test_connect("Driver={TAOS_ODBC_DRIVER};", NULL, NULL, NULL));
 
   // FIXME: why these two internal-databases can not be opened during taos_connect
   //        taosc reports failure cause as: Invalid database name
-  CHECK(!test_connect("Driver={TAOS_ODBC_DRIVER};UID=root;PWD=taosdata;Server=localhost:6030;DB=performance_schema;UNSIGNED_PROMOTION=1;CACHE_SQL=1;", NULL, NULL, NULL));
-  CHECK(!test_connect("Driver={TAOS_ODBC_DRIVER};UID=root;PWD=taosdata;Server=localhost:6030;DB=information_schema;UNSIGNED_PROMOTION=1;CACHE_SQL=1;", NULL, NULL, NULL));
+  CHECK(!test_connect("Driver={TAOS_ODBC_DRIVER};UID=root;PWD=taosdata;Server=localhost:6030;DB=performance_schema;UNSIGNED_PROMOTION=1;", NULL, NULL, NULL));
+  CHECK(!test_connect("Driver={TAOS_ODBC_DRIVER};UID=root;PWD=taosdata;Server=localhost:6030;DB=information_schema;UNSIGNED_PROMOTION=1;", NULL, NULL, NULL));
 #endif               /* } */
 
   SQLRETURN sr;

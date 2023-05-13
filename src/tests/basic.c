@@ -77,14 +77,14 @@ static int test_conn_parser(void)
     },{
       // https://www.connectionstrings.com/dsn/
       __LINE__,
-      "DSN=myDsn;Uid=myUsername;Pwd=;",
+      "DSN=myDsn;Uid=myUsername;",
       {
         .dsn                    = "myDsn",
         .uid                    = "myUsername",
       },
     },{
       __LINE__,
-      "FILEDSN=c:\\myDsnFile.dsn;Uid=myUsername;Pwd=;",
+      "FILEDSN=c:\\myDsnFile.dsn;Uid=myUsername;",
       {
         .uid                    = "myUsername",
       },

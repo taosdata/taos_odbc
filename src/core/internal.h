@@ -351,7 +351,8 @@ struct conn_cfg_s {
   char                  *pwd;
   char                  *ip;
   char                  *db;
-  char                  *charset;
+  char                  *charset_for_col_bind;
+  char                  *charset_for_param_bind;
   int                    port;
 
   // NOTE: 1.this is to hack node.odbc, which maps SQL_TINYINT to SQL_C_UTINYINT

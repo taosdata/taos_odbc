@@ -133,14 +133,27 @@
         return -1;                                                                              \
       }                                                                                         \
     } while (0)
-    #define SET_CHARSET(_v, _loc) do {                                                          \
+    #define SET_CHARSET_FOR_COL_BIND(_v, _loc) do {                                             \
       if (!param) break;                                                                        \
-      TOD_SAFE_FREE(param->conn_cfg.charset);                                                   \
-      param->conn_cfg.charset = strndup(_v.text, _v.leng);                                      \
-      if (!param->conn_cfg.charset) {                                                           \
+      TOD_SAFE_FREE(param->conn_cfg.charset_for_col_bind);                                      \
+      param->conn_cfg.charset_for_col_bind = strndup(_v.text, _v.leng);                         \
+      if (!param->conn_cfg.charset_for_col_bind) {                                              \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
         return -1;                                                                              \
       }                                                                                         \
+    } while (0)
+    #define SET_CHARSET_FOR_PARAM_BIND(_v, _loc) do {                                           \
+      if (!param) break;                                                                        \
+      TOD_SAFE_FREE(param->conn_cfg.charset_for_param_bind);                                    \
+      param->conn_cfg.charset_for_param_bind = strndup(_v.text, _v.leng);                       \
+      if (!param->conn_cfg.charset_for_param_bind) {                                            \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
+        return -1;                                                                              \
+      }                                                                                         \
+    } while (0)
+    #define SET_CHARSET(_v, _loc) do {                                                          \
+      SET_CHARSET_FOR_COL_BIND(_v, _loc);                                                       \
+      SET_CHARSET_FOR_PARAM_BIND(_v, _loc);                                                     \
     } while (0)
     #define SET_UNSIGNED_PROMOTION(_s, _n, _loc) do {                                           \
       if (!param) break;                                                                        \
@@ -182,7 +195,8 @@
 %union { parser_token_t token; }
 %union { char c; }
 
-%token DSN UID PWD DRIVER SERVER DATABASE UNSIGNED_PROMOTION TIMESTAMP_AS_IS DB CHARSET
+%token DSN UID PWD DRIVER SERVER DATABASE UNSIGNED_PROMOTION TIMESTAMP_AS_IS DB
+%token CHARSET CHARSET_FOR_COL_BIND CHARSET_FOR_PARAM_BIND
 %token TOPIC
 %token <token> ID VALUE FQDN DIGITS
 %token <token> TNAME TKEY TVAL
@@ -237,6 +251,12 @@ attribute:
 | CHARSET
 | CHARSET '='
 | CHARSET '=' VALUE               { SET_CHARSET($3, @$); }
+| CHARSET_FOR_COL_BIND
+| CHARSET_FOR_COL_BIND '='
+| CHARSET_FOR_COL_BIND '=' VALUE               { SET_CHARSET_FOR_COL_BIND($3, @$); }
+| CHARSET_FOR_PARAM_BIND
+| CHARSET_FOR_PARAM_BIND '='
+| CHARSET_FOR_PARAM_BIND '=' VALUE             { SET_CHARSET_FOR_PARAM_BIND($3, @$); }
 ;
 
 %%

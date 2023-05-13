@@ -98,6 +98,8 @@ DRIVER        (?i:driver)
 SERVER        (?i:server)
 DATABASE      (?i:database)
 CHARSET       (?i:charset)
+CHARSET_FOR_COL_BIND   (?i:charset_col_bind)
+CHARSET_FOR_PARAM_BIND (?i:charset_param_bind)
 UNSIGNED_PROMOTION          (?i:unsigned_promotion)
 TIMESTAMP_AS_IS             (?i:timestamp_as_is)
 FQDN          [-[:alnum:]]+((\.[-[:alnum:]]+)+)*(\.)?
@@ -118,6 +120,8 @@ DIGITS        [[:digit:]]+
 {SERVER}      { R(); PUSH(SERVER); C(); return MKT(SERVER); }
 {DATABASE}    { R(); C(); return MKT(DATABASE); }
 {CHARSET}     { R(); C(); return MKT(CHARSET); }
+{CHARSET_FOR_COL_BIND}     { R(); C(); return MKT(CHARSET_FOR_COL_BIND); }
+{CHARSET_FOR_PARAM_BIND}   { R(); C(); return MKT(CHARSET_FOR_PARAM_BIND); }
 {UNSIGNED_PROMOTION}        { R(); C(); return MKT(UNSIGNED_PROMOTION); }
 {TIMESTAMP_AS_IS}           { R(); C(); return MKT(TIMESTAMP_AS_IS); }
 {DIGITS}      { R(); SET_STR(); C(); return MKT(DIGITS); }

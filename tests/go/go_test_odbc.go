@@ -104,7 +104,7 @@ func exec_sqls(db *sql.DB, sqls []string) {
 
 func check_with_values(db *sql.DB, sql string, nr_rows int, nr_cols int, values []string) {
   if nr_cols > 10 {
-    log.Fatal(fmt.Sprintf("columns more than %d:not supported yet", nr_cols))
+    log.Fatal(fmt.Sprintf("columns %d more than %d:not supported yet", nr_cols, 10))
   }
   rows, err := db.Query(sql)
   if err != nil {

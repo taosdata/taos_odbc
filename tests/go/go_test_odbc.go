@@ -206,6 +206,5 @@ func main() {
   }
 
   fmt.Println("==success==")
-  os.Exit(1)
 }
 

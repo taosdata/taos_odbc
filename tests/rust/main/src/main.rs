@@ -33,12 +33,20 @@ extern crate json;
 use odbc::*;
 use odbc_safe::AutocommitOn;
 use odbc_safe::Odbc3;
+use std::env;
 
 fn main() {
 
   env_logger::init();
 
-  let env: Environment<Odbc3> = create_environment_v3().unwrap();
+  // FIXME: better approach?
+  let encode = match env::consts::OS {
+    "windows" => "GB18030",
+    _         => "UTF-8"
+  };
+
+  // let env: Environment<Odbc3> = create_environment_v3().unwrap();
+  let env: Environment<Odbc3> = create_environment_v3_with_os_db_encoding(encode, encode).unwrap();
   _do_test_cases_in_env(&env)
 }
 
@@ -203,12 +211,14 @@ fn _test_case2(conn: &Connection<'_, AutocommitOn>) {
   assert_eq!(_test_exec_direct(&conn, r#"insert into t (ts, name, age, sex, text) values (1662861449753, "name2", 30, "female", "苏州人")"#), true);
   assert_eq!(_test_exec_direct(&conn, r#"insert into t (ts, name, age, sex, text) values (1662861450754, "name3", null, null, null)"#), true);
   assert_eq!(_test_exec_direct(&conn, r#"insert into t (ts, name, age, sex, text) values (1662861451755, "3245", null, null, null)"#), true);
+  assert_eq!(_test_exec_direct(&conn, r#"insert into t (ts, name, age, sex, text) values (1662861451756, "测试", null, null, null)"#), true);
 
   let _parsed = json::array!(
     {ts:r#"2022-09-11 09:57:28.752"#, name:r#"name1"#, age:"20", sex:r#"male"#, text:r#"中国人"#},
     {ts:r#"2022-09-11 09:57:29.753"#, name:r#"name2"#, age:"30", sex:r#"female"#, text:r#"苏州人"#},
     {ts:r#"2022-09-11 09:57:30.754"#, name:r#"name3"#, age:null, sex:null, text:null},
     {ts:r#"2022-09-11 09:57:31.755"#, name:r#"3245"#, age:null, sex:null, text:null},
+    {ts:r#"2022-09-11 09:57:31.756"#, name:r#"测试"#, age:null, sex:null, text:null},
   );
 
   let stmt = Statement::with_parent(conn).unwrap();
@@ -217,7 +227,8 @@ fn _test_case2(conn: &Connection<'_, AutocommitOn>) {
 
   let stmt = _stmt_bind_query_check!(stmt, &"name2", format!("[{}]", _parsed[1].dump()));
   let stmt = _stmt_bind_query_check!(stmt, &"name1", format!("[{}]", _parsed[0].dump()));
-  _stmt_bind_query_check!(stmt, &"name3", format!("[{}]", _parsed[2].dump()));
+  let stmt = _stmt_bind_query_check!(stmt, &"name3", format!("[{}]", _parsed[2].dump()));
+  _stmt_bind_query_check!(stmt, &"测试", format!("[{}]", _parsed[4].dump()));
 
   let stmt = Statement::with_parent(conn).unwrap();
   let stmt = stmt.prepare("select * from foo.t where name <> ?").unwrap();

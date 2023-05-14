@@ -235,7 +235,7 @@ macro(check_requirements)
     message(STATUS "${Green}`go` found -- ${GO_VERSION}, please be noted, go v1.20 and above are expected compatible${ColorReset}")
   endif()
 
-  if(NOT TODBC_WINDOWS)
+  if(TRUE OR NOT TODBC_WINDOWS)
     ## NOTE: check http-proxy sort of issues
     ## check `rustc`
     find_program(RUSTC NAMES rustc)

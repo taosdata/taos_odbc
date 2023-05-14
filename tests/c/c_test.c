@@ -24,7 +24,6 @@
 
 #include "odbc_helpers.h"
 
-#include <assert.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -637,9 +636,6 @@ static int _insert_with_values_ap(int line, const char *func, handles_t *handles
       lens[j][i] = n;
       if ((SQLULEN)n > ColumnSizes[j]) ColumnSizes[j] = n;
     }
-    assert(sizeof(values[j][0])/sizeof(values[j][0][0]) == 1024);
-    assert(values[j][0] == &values[j][0][0]);
-    assert(lens[j] == &lens[j][0]);
     sr = CALL_SQLBindParameter(handles->hstmt, (SQLUSMALLINT)j+1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR,
       ColumnSizes[j], 0, values[j], sizeof(values[j][0])/sizeof(values[j][0][0]), lens[j]);
     if (sr != SQL_SUCCESS) return -1;

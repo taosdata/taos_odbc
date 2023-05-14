@@ -67,10 +67,9 @@ static int test_conn_parser(void)
   } _cases[] = {
     {
       __LINE__,
-      " driver = {    ax bcd ; ;   }; dsn=server; uid=xxx; pwd=yyy",
+      " driver = {    ax bcd ; ;   }; uid=xxx; pwd=yyy",
       {
         .driver                 = "ax bcd ; ;",
-        .dsn                    = "server",
         .uid                    = "xxx",
         .pwd                    = "yyy",
       },
@@ -80,12 +79,6 @@ static int test_conn_parser(void)
       "DSN=myDsn;Uid=myUsername;",
       {
         .dsn                    = "myDsn",
-        .uid                    = "myUsername",
-      },
-    },{
-      __LINE__,
-      "FILEDSN=c:\\myDsnFile.dsn;Uid=myUsername;",
-      {
         .uid                    = "myUsername",
       },
     },{
@@ -173,44 +166,46 @@ static int test_conn_parser(void)
   const size_t _cases_nr = sizeof(_cases)/sizeof(_cases[0]);
   for (size_t i=0; i<_cases_nr; ++i) {
     const conn_cfg_t *expected = &_cases[i].expected;
+    conn_cfg_t parsed = {0};
     const char *s = _cases[i].conn_str;
     const int line = _cases[i].line;
-    conn_cfg_t *parsed = &param.conn_cfg;
+    param.conn_cfg = &parsed;
     int r = conn_parser_parse(s, strlen(s), &param);
     if (r) {
       E("parsing[@line:%d]:%s", line, s);
       E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
       E("failed:%s", param.ctx.err_msg);
-    } else if (cmp_strs(expected->driver, parsed->driver)) {
+    } else if (cmp_strs(expected->driver, param.conn_cfg->driver)) {
       E("parsing[@line:%d]:%s", line, s);
-      E("driver expected to be `%s`, but got ==%s==", expected->driver, parsed->driver);
+      E("driver expected to be `%s`, but got ==%s==", expected->driver, param.conn_cfg->driver);
       r = -1;
-    } else if (cmp_strs(expected->dsn, parsed->dsn)) {
+    } else if (cmp_strs(expected->dsn, param.conn_cfg->dsn)) {
       E("parsing[@line:%d]:%s", line, s);
-      E("dsn expected to be `%s`, but got ==%s==", expected->dsn, parsed->dsn);
+      E("dsn expected to be `%s`, but got ==%s==", expected->dsn, param.conn_cfg->dsn);
       r = -1;
-    } else if (cmp_strs(expected->uid, parsed->uid)) {
+    } else if (cmp_strs(expected->uid, param.conn_cfg->uid)) {
       E("parsing[@line:%d]:%s", line, s);
-      E("uid expected to be `%s`, but got ==%s==", expected->uid, parsed->uid);
+      E("uid expected to be `%s`, but got ==%s==", expected->uid, param.conn_cfg->uid);
       r = -1;
-    } else if (cmp_strs(expected->pwd, parsed->pwd)) {
+    } else if (cmp_strs(expected->pwd, param.conn_cfg->pwd)) {
       E("parsing[@line:%d]:%s", line, s);
-      E("pwd expected to be `%s`, but got ==%s==", expected->pwd, parsed->pwd);
+      E("pwd expected to be `%s`, but got ==%s==", expected->pwd, param.conn_cfg->pwd);
       r = -1;
-    } else if (cmp_strs(expected->ip, parsed->ip)) {
+    } else if (cmp_strs(expected->ip, param.conn_cfg->ip)) {
       E("parsing[@line:%d]:%s", line, s);
-      E("ip expected to be `%s`, but got ==%s==", expected->ip, parsed->ip);
+      E("ip expected to be `%s`, but got ==%s==", expected->ip, param.conn_cfg->ip);
       r = -1;
-    } else if (cmp_strs(expected->db, parsed->db)) {
+    } else if (cmp_strs(expected->db, param.conn_cfg->db)) {
       E("parsing[@line:%d]:%s", line, s);
-      E("db expected to be `%s`, but got ==%s==", expected->db, parsed->db);
+      E("db expected to be `%s`, but got ==%s==", expected->db, param.conn_cfg->db);
       r = -1;
-    } else if (expected->port != parsed->port) {
+    } else if (expected->port != param.conn_cfg->port) {
       E("parsing[@line:%d]:%s", line, s);
-      E("port expected to be `%d`, but got ==%d==", expected->port, parsed->port);
+      E("port expected to be `%d`, but got ==%d==", expected->port, param.conn_cfg->port);
       r = -1;
     }
     conn_parser_param_release(&param);
+    conn_cfg_release(&parsed);
     if (r) return -1;
   }
 

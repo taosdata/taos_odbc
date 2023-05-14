@@ -59,94 +59,98 @@
 
     #define SET_DSN(_v, _loc) do {                                                              \
       if (!param) break;                                                                        \
-      TOD_SAFE_FREE(param->conn_cfg.dsn);                                                       \
-      param->conn_cfg.dsn = strndup(_v.text, _v.leng);                                          \
-      if (!param->conn_cfg.dsn) {                                                               \
+      TOD_SAFE_FREE(param->conn_cfg->dsn);                                                      \
+      param->conn_cfg->dsn = strndup(_v.text, _v.leng);                                         \
+      if (!param->conn_cfg->dsn) {                                                              \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
+        return -1;                                                                              \
+      }                                                                                         \
+      if (!param->init) break;                                                                  \
+      char buf[1024]; buf[0] = '\0';                                                            \
+      if (param->init(param->conn_cfg, buf, sizeof(buf))) {                                     \
+        _yyerror_impl(&_loc, arg, param, buf);                                                  \
         return -1;                                                                              \
       }                                                                                         \
     } while (0)
     #define SET_UID(_v, _loc) do {                                                              \
       if (!param) break;                                                                        \
-      TOD_SAFE_FREE(param->conn_cfg.uid);                                                       \
-      param->conn_cfg.uid = strndup(_v.text, _v.leng);                                          \
-      if (!param->conn_cfg.uid) {                                                               \
+      TOD_SAFE_FREE(param->conn_cfg->uid);                                                      \
+      param->conn_cfg->uid = strndup(_v.text, _v.leng);                                         \
+      if (!param->conn_cfg->uid) {                                                              \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
         return -1;                                                                              \
       }                                                                                         \
     } while (0)
     #define SET_DB(_v, _loc) do {                                                               \
       if (!param) break;                                                                        \
-      TOD_SAFE_FREE(param->conn_cfg.db);                                                        \
-      param->conn_cfg.db = strndup(_v.text, _v.leng);                                           \
-      if (!param->conn_cfg.db) {                                                                \
+      TOD_SAFE_FREE(param->conn_cfg->db);                                                       \
+      param->conn_cfg->db = strndup(_v.text, _v.leng);                                          \
+      if (!param->conn_cfg->db) {                                                               \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
         return -1;                                                                              \
       }                                                                                         \
     } while (0)
     #define SET_PWD(_v, _loc) do {                                                              \
       if (!param) break;                                                                        \
-      TOD_SAFE_FREE(param->conn_cfg.pwd);                                                       \
-      param->conn_cfg.pwd = strndup(_v.text, _v.leng);                                          \
-      if (!param->conn_cfg.pwd) {                                                               \
+      TOD_SAFE_FREE(param->conn_cfg->pwd);                                                      \
+      param->conn_cfg->pwd = strndup(_v.text, _v.leng);                                         \
+      if (!param->conn_cfg->pwd) {                                                              \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
         return -1;                                                                              \
       }                                                                                         \
     } while (0)
     #define SET_DRIVER(_v, _loc) do {                                                           \
       if (!param) break;                                                                        \
-      TOD_SAFE_FREE(param->conn_cfg.driver);                                                    \
-      param->conn_cfg.driver = strndup(_v.text, _v.leng);                                       \
-      if (!param->conn_cfg.driver) {                                                            \
+      TOD_SAFE_FREE(param->conn_cfg->driver);                                                   \
+      param->conn_cfg->driver = strndup(_v.text, _v.leng);                                      \
+      if (!param->conn_cfg->driver) {                                                           \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
         return -1;                                                                              \
       }                                                                                         \
     } while (0)
     #define SET_FQDN(_v, _loc) do {                                                             \
       if (!param) break;                                                                        \
-      TOD_SAFE_FREE(param->conn_cfg.ip);                                                        \
-      param->conn_cfg.ip = strndup(_v.text, _v.leng);                                           \
-      if (!param->conn_cfg.ip) {                                                                \
+      TOD_SAFE_FREE(param->conn_cfg->ip);                                                       \
+      param->conn_cfg->ip = strndup(_v.text, _v.leng);                                          \
+      if (!param->conn_cfg->ip) {                                                               \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
         return -1;                                                                              \
       }                                                                                         \
-      param->conn_cfg.port = 0;                                                                 \
-      param->conn_cfg.port_set = 0;                                                             \
+      param->conn_cfg->port = 0;                                                                \
     } while (0)
     #define SET_FQDN_PORT(_v, _p, _loc) do {                                                    \
       if (!param) break;                                                                        \
-      TOD_SAFE_FREE(param->conn_cfg.ip);                                                        \
-      param->conn_cfg.ip = strndup(_v.text, _v.leng);                                           \
-      if (!param->conn_cfg.ip) {                                                                \
+      TOD_SAFE_FREE(param->conn_cfg->ip);                                                       \
+      param->conn_cfg->ip = strndup(_v.text, _v.leng);                                          \
+      if (!param->conn_cfg->ip) {                                                               \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
         return -1;                                                                              \
       }                                                                                         \
-      param->conn_cfg.port = strtol(_p.text, NULL, 10);                                         \
-      param->conn_cfg.port_set = 1;                                                             \
+      param->conn_cfg->port = strtol(_p.text, NULL, 10);                                        \
     } while (0)
     #define SET_DATABASE(_v, _loc) do {                                                         \
       if (!param) break;                                                                        \
-      TOD_SAFE_FREE(param->conn_cfg.db);                                                        \
-      param->conn_cfg.db = strndup(_v.text, _v.leng);                                           \
-      if (!param->conn_cfg.db) {                                                                \
+      TOD_SAFE_FREE(param->conn_cfg->db);                                                       \
+      param->conn_cfg->db = strndup(_v.text, _v.leng);                                          \
+      if (!param->conn_cfg->db) {                                                               \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
         return -1;                                                                              \
       }                                                                                         \
     } while (0)
     #define SET_CHARSET_FOR_COL_BIND(_v, _loc) do {                                             \
       if (!param) break;                                                                        \
-      TOD_SAFE_FREE(param->conn_cfg.charset_for_col_bind);                                      \
-      param->conn_cfg.charset_for_col_bind = strndup(_v.text, _v.leng);                         \
-      if (!param->conn_cfg.charset_for_col_bind) {                                              \
+      TOD_SAFE_FREE(param->conn_cfg->charset_for_col_bind);                                     \
+      param->conn_cfg->charset_for_col_bind = strndup(_v.text, _v.leng);                        \
+      if (!param->conn_cfg->charset_for_col_bind) {                                             \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
         return -1;                                                                              \
       }                                                                                         \
     } while (0)
     #define SET_CHARSET_FOR_PARAM_BIND(_v, _loc) do {                                           \
       if (!param) break;                                                                        \
-      TOD_SAFE_FREE(param->conn_cfg.charset_for_param_bind);                                    \
-      param->conn_cfg.charset_for_param_bind = strndup(_v.text, _v.leng);                       \
-      if (!param->conn_cfg.charset_for_param_bind) {                                            \
+      TOD_SAFE_FREE(param->conn_cfg->charset_for_param_bind);                                   \
+      param->conn_cfg->charset_for_param_bind = strndup(_v.text, _v.leng);                      \
+      if (!param->conn_cfg->charset_for_param_bind) {                                           \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
         return -1;                                                                              \
       }                                                                                         \
@@ -158,20 +162,17 @@
     #define SET_UNSIGNED_PROMOTION(_s, _n, _loc) do {                                           \
       if (!param) break;                                                                        \
       OA_NIY(_s[_n] == '\0');                                                                   \
-      param->conn_cfg.unsigned_promotion = !!(atoi(_s));                                        \
-      param->conn_cfg.unsigned_promotion_set = 1;                                               \
+      param->conn_cfg->unsigned_promotion = !!(atoi(_s));                                       \
     } while (0)
     #define SET_TIMESTAMP_AS_IS(_s, _n, _loc) do {                                              \
       if (!param) break;                                                                        \
       OA_NIY(_s[_n] == '\0');                                                                   \
-      param->conn_cfg.timestamp_as_is = !!(atoi(_s));                                           \
-      param->conn_cfg.timestamp_as_is_set = 1;                                                  \
+      param->conn_cfg->timestamp_as_is = !!(atoi(_s));                                          \
     } while (0)
 
     void conn_parser_param_release(conn_parser_param_t *param)
     {
       if (!param) return;
-      conn_cfg_release(&param->conn_cfg);
       param->ctx.err_msg[0] = '\0';
       param->ctx.row0 = 0;
     }
@@ -213,19 +214,42 @@ input:
 ;
 
 connect_str:
+  dsnx
+| dsn ';' attributes
+| driverx
+| driver ';' attributes
+;
+
+dsnx:
+  dsn
+| dsn ';'
+;
+
+dsn:
+  DSN '=' VALUE                   { SET_DSN($3, @$); }
+;
+
+driverx:
+  driver
+| driver ';'
+;
+
+
+driver:
+  DRIVER '=' VALUE                { SET_DRIVER($3, @$); }
+| DRIVER '=' '{' VALUE '}'        { SET_DRIVER($4, @$); }
+;
+
+attributes:
   attribute
-| connect_str ';'
-| connect_str ';' attribute
+| attributes ';'
+| attributes ';' attribute
 ;
 
 attribute:
-  DSN
-| DSN '=' VALUE                   { SET_DSN($3, @$); }
-| UID '=' VALUE                   { SET_UID($3, @$); }
+  UID '=' VALUE                   { SET_UID($3, @$); }
 | DB '=' VALUE                    { SET_DB($3, @$); }
 | PWD '=' VALUE                   { SET_PWD($3, @$); }
-| DRIVER '=' VALUE                { SET_DRIVER($3, @$); }
-| DRIVER '=' '{' VALUE '}'        { SET_DRIVER($4, @$); }
 | ID '=' VALUE                    { ; }
 | SERVER '=' FQDN                 { SET_FQDN($3, @$); }
 | SERVER '=' FQDN ':'             { SET_FQDN($3, @$); }

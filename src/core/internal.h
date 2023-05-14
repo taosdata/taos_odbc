@@ -361,10 +361,6 @@ struct conn_cfg_s {
   // NOTE: this is to hack PowerBI, which seems not displace seconds-fractional,
   //       thus, if timestamp_as_is is not set, TSDB_DATA_TYPE_TIMESTAMP would map to SQL_WVARCHAR
   unsigned int           timestamp_as_is:1;
-
-  unsigned int           unsigned_promotion_set:1;
-  unsigned int           timestamp_as_is_set:1;
-  unsigned int           port_set:1;
 };
 
 struct parser_nterm_s {
@@ -412,7 +408,8 @@ struct parser_ctx_s {
 };
 
 struct conn_parser_param_s {
-  conn_cfg_t             conn_cfg;
+  conn_cfg_t            *conn_cfg;
+  int (*init)(conn_cfg_t *conn_cfg, char *buf, size_t len);
 
   parser_ctx_t           ctx;
 };

@@ -35,8 +35,6 @@
 EXTERN_C_BEGIN
 
 void conn_cfg_release(conn_cfg_t *conn_str) FA_HIDDEN;
-void conn_cfg_transfer(conn_cfg_t *from, conn_cfg_t *to) FA_HIDDEN;
-int conn_cfg_init_other_fields(conn_cfg_t *cfg) FA_HIDDEN;
 
 conn_t* conn_create(env_t *env) FA_HIDDEN;
 conn_t* conn_ref(conn_t *conn) FA_HIDDEN;

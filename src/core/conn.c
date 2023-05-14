@@ -55,14 +55,6 @@ void conn_cfg_release(conn_cfg_t *conn_cfg)
   memset(conn_cfg, 0, sizeof(*conn_cfg));
 }
 
-void conn_cfg_transfer(conn_cfg_t *from, conn_cfg_t *to)
-{
-  if (from == to) return;
-  conn_cfg_release(to);
-  *to = *from;
-  memset(from, 0, sizeof(*from));
-}
-
 static void _conn_init(conn_t *conn, env_t *env)
 {
   conn->env = env_ref(env);
@@ -619,51 +611,66 @@ static void _conn_fill_out_connection_str(
   }
 }
 
-int conn_cfg_init_other_fields(conn_cfg_t *cfg)
+static int conn_cfg_init_by_dsn(conn_cfg_t *cfg, char *ebuf, size_t elen)
 {
   char buf[1024];
   buf[0] = '\0';
 
-  if (!cfg->dsn) return 0;
-
   int r = 0;
-  if (!cfg->unsigned_promotion_set) {
-    buf[0] = '\0';
-    r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "UNSIGNED_PROMOTION", (LPCSTR)"0", (LPSTR)buf, sizeof(buf), "Odbc.ini");
-    if (r == 1) cfg->unsigned_promotion = !!atoi(buf);
-  }
+  buf[0] = '\0';
+  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "UNSIGNED_PROMOTION", (LPCSTR)"0", (LPSTR)buf, sizeof(buf), "Odbc.ini");
+  if (r == 1) cfg->unsigned_promotion = !!atoi(buf);
 
   r = 0;
-  if (!cfg->timestamp_as_is_set) {
-    buf[0] = '\0';
-    r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "TIMESTAMP_AS_IS", (LPCSTR)"0", (LPSTR)buf, sizeof(buf), "Odbc.ini");
-    if (r == 1) cfg->timestamp_as_is = !!atoi(buf);
-  }
+  buf[0] = '\0';
+  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "TIMESTAMP_AS_IS", (LPCSTR)"0", (LPSTR)buf, sizeof(buf), "Odbc.ini");
+  if (r == 1) cfg->timestamp_as_is = !!atoi(buf);
 
-  if (!cfg->pwd) {
-    buf[0] = '\0';
-    r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "PWD", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
-    if (buf[0]) {
-      cfg->pwd = strdup(buf);
-      if (!cfg->pwd) return -1;
+  buf[0] = '\0';
+  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "PWD", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
+  if (buf[0]) {
+    cfg->pwd = strdup(buf);
+    if (!cfg->pwd) {
+      snprintf(ebuf, elen, "@%d:%s():out of memory", __LINE__, __func__);
     }
   }
 
-  if (!cfg->uid) {
-    buf[0] = '\0';
-    r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "UID", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
-    if (buf[0]) {
-      cfg->uid = strdup(buf);
-      if (!cfg->uid) return -1;
+  buf[0] = '\0';
+  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "UID", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
+  if (buf[0]) {
+    cfg->uid = strdup(buf);
+    if (!cfg->uid) {
+      snprintf(ebuf, elen, "@%d:%s():out of memory", __LINE__, __func__);
     }
   }
 
-  if (!cfg->db) {
-    buf[0] = '\0';
-    r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "DB", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
-    if (buf[0]) {
-      cfg->db = strdup(buf);
-      if (!cfg->db) return -1;
+  buf[0] = '\0';
+  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "DB", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
+  if (buf[0]) {
+    cfg->db = strdup(buf);
+    if (!cfg->db) {
+      snprintf(ebuf, elen, "@%d:%s():out of memory", __LINE__, __func__);
+      return -1;
+    }
+  }
+
+  buf[0] = '\0';
+  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "CHARSET_FOR_COL_BIND", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
+  if (buf[0]) {
+    cfg->charset_for_col_bind = strdup(buf);
+    if (!cfg->charset_for_col_bind) {
+      snprintf(ebuf, elen, "@%d:%s():out of memory", __LINE__, __func__);
+      return -1;
+    }
+  }
+
+  buf[0] = '\0';
+  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "CHARSET_FOR_PARAM_BIND", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
+  if (buf[0]) {
+    cfg->charset_for_param_bind = strdup(buf);
+    if (!cfg->charset_for_param_bind) {
+      snprintf(ebuf, elen, "@%d:%s():out of memory", __LINE__, __func__);
+      return -1;
     }
   }
 
@@ -702,6 +709,8 @@ SQLRETURN conn_driver_connect(
   }
 
   conn_parser_param_t param = {0};
+  param.conn_cfg        = &conn->cfg;
+  param.init            = conn_cfg_init_by_dsn;
   param.ctx.debug_flex  = env_get_debug_flex(conn->env);
   param.ctx.debug_bison = env_get_debug_bison(conn->env);
 
@@ -716,9 +725,6 @@ SQLRETURN conn_driver_connect(
       break;
     }
 
-    conn_cfg_transfer(&param.conn_cfg, &conn->cfg);
-
-    r = conn_cfg_init_other_fields(&conn->cfg);
     if (r) {
       conn_oom(conn);
       break;
@@ -835,9 +841,10 @@ SQLRETURN conn_connect(
     }
   }
 
-  r = conn_cfg_init_other_fields(&conn->cfg);
+  char buf[1024]; buf[0] = '\0';
+  r = conn_cfg_init_by_dsn(&conn->cfg, buf, sizeof(buf));
   if (r) {
-    conn_oom(conn);
+    conn_append_err_format(conn, "HY000", CALL_taos_errno(NULL), "General error:%s", buf);
     return SQL_ERROR;
   }
 

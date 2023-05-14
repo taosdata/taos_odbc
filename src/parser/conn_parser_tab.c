@@ -22,8 +22,6 @@
  * SOFTWARE.
  */
 
-#include "conn_parser.h"
-
 #include "../core/internal.h"        // FIXME:
 #include "conn.h"
 #include "log.h"

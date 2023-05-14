@@ -27,7 +27,11 @@
 #include <errno.h>
 #include <stdarg.h>
 #include <stdint.h>
+#ifdef _WIN32       /* { */
+#include <process.h>
+#else               /* }{ */
 #include <unistd.h>
+#endif              /* } */
 
 
 #define DUMP(fmt, ...)             fprintf(stderr, fmt "\n", ##__VA_ARGS__)
@@ -623,16 +627,21 @@ struct test_topic_s {
   volatile int8_t            flag; // 0: wait; 1: start; 2: stop
 };
 
-static void* _test_topic_routine(void *arg)
+static void _test_topic_routine_impl(test_topic_t *ds)
 {
   SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
-  test_topic_t *ds = (test_topic_t*)arg;
   handles_t handles = {0};
   r = handles_init(&handles, ds->conn_str);
-  if (r) return NULL;
+  if (r) return;
 
-  while (ds->flag == 0) sleep(0);
+  while (ds->flag == 0) {
+#ifdef _WIN32            /* { */
+    Sleep(0);
+#else                    /* }{ */
+    sleep(0);
+#endif                   /* } */
+  }
 
   for (size_t i=0; i<ds->_nr_cases; ++i) {
     char sql[4096]; sql[0] = '\0';
@@ -646,8 +655,23 @@ static void* _test_topic_routine(void *arg)
   }
 
   handles_release(&handles);
+}
+
+#ifdef _WIN32                   /* { */
+static unsigned __stdcall _test_topic_routine(void *arg)
+{
+  test_topic_t *ds = (test_topic_t*)arg;
+  _test_topic_routine_impl(ds);
+  return 0;
+}
+#else                           /* }{ */
+static void* _test_topic_routine(void *arg)
+{
+  test_topic_t *ds = (test_topic_t*)arg;
+  _test_topic_routine_impl(ds);
   return NULL;
 }
+#endif                          /* } */
 
 static int _test_topic_monitor(handles_t *handles, test_topic_t *ds)
 {
@@ -785,8 +809,13 @@ static int test_topic(handles_t *handles)
     0,
   };
 
+#ifdef _WIN32                   /* { */
+  uintptr_t worker;
+  worker = _beginthreadex(NULL, 0, _test_topic_routine, &ds, 0, NULL);
+#else                           /* }{ */
   pthread_t worker;
   r = pthread_create(&worker, NULL, _test_topic_routine, &ds);
+#endif                          /* } */
   if (r) {
     fprintf(stderr, "@%d:%s():pthread_create failed:[%d]%s\n", __LINE__, __func__, r, strerror(r));
     return -1;
@@ -795,7 +824,12 @@ static int test_topic(handles_t *handles)
 
   r = _test_topic_monitor(handles, &ds);
   ds.flag = 2;
+
+#ifdef _WIN32                   /* { */
+  WaitForSingleObject((HANDLE)worker, INFINITE);
+#else                           /* }{ */
   pthread_join(worker, NULL);
+#endif                          /* } */
 
   return r ? -1 : 0;
 }

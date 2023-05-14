@@ -24,6 +24,7 @@
 
 #include "odbc_helpers.h"
 
+#include <assert.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -340,6 +341,10 @@ static int _check_with_values_ap(int line, const char *func, handles_t *handles,
 {
   SQLRETURN sr = SQL_SUCCESS;
 
+  CALL_SQLCloseCursor(handles->hstmt);
+  CALL_SQLFreeStmt(handles->hstmt, SQL_UNBIND);
+  CALL_SQLFreeStmt(handles->hstmt, SQL_RESET_PARAMS);
+
   sr = CALL_SQLExecDirect(handles->hstmt, (SQLCHAR*)sql, SQL_NTS);
   if (FAILED(sr)) return -1;
 
@@ -401,6 +406,10 @@ static int _check_with_values_ap(int line, const char *func, handles_t *handles,
 static int _check_col_bind_with_values_ap(int line, const char *func, handles_t *handles, const char *sql, size_t nr_rows, size_t nr_cols, va_list ap)
 {
   SQLRETURN sr = SQL_SUCCESS;
+
+  CALL_SQLCloseCursor(handles->hstmt);
+  CALL_SQLFreeStmt(handles->hstmt, SQL_UNBIND);
+  CALL_SQLFreeStmt(handles->hstmt, SQL_RESET_PARAMS);
 
   char bufs[10][1024];
   SQLLEN lens[10];
@@ -573,6 +582,132 @@ static int test_charsets_with_col_bind(handles_t *handles)
   return 0;
 }
 
+static int _insert_with_values_ap(int line, const char *func, handles_t *handles, const char *sql, size_t nr_rows, size_t nr_cols, va_list ap)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+#define COLS         10
+#define ROWS         10
+  char values[COLS][ROWS][1024] = {0};
+  SQLLEN lens[COLS][ROWS] = {0};
+  SQLULEN ColumnSizes[COLS] = {0};
+  SQLUSMALLINT ParamStatusArray[ROWS] = {0};
+  SQLULEN ParamsProcessed = 0;
+#undef ROWS
+#undef COLS
+
+  size_t cols = sizeof(values) / sizeof(values[0]);
+  size_t rows = sizeof(values[0]) / sizeof(values[0][0]);
+  if (nr_rows > rows) {
+    DCASE("rows %zd more than %zd:not supported yet", nr_rows, rows);
+    return -1;
+  }
+  if (nr_cols > cols) {
+    DCASE("columns %zd more than %zd:not supported yet", nr_cols, cols);
+    return -1;
+  }
+
+  // Set the SQL_ATTR_PARAM_BIND_TYPE statement attribute to use
+  // column-wise binding.
+  sr = CALL_SQLSetStmtAttr(handles->hstmt, SQL_ATTR_PARAM_BIND_TYPE, SQL_PARAM_BIND_BY_COLUMN, 0);
+  if (sr != SQL_SUCCESS) return -1;
+
+  // Specify the number of elements in each parameter array.
+  sr = CALL_SQLSetStmtAttr(handles->hstmt, SQL_ATTR_PARAMSET_SIZE, (SQLPOINTER)nr_rows, 0);
+  if (sr != SQL_SUCCESS) return -1;
+
+  // Specify an array in which to return the status of each set of
+  // parameters.
+  if (0) sr = CALL_SQLSetStmtAttr(handles->hstmt, SQL_ATTR_PARAM_STATUS_PTR, ParamStatusArray, 0);
+  if (sr != SQL_SUCCESS) return -1;
+
+  // Specify an SQLUINTEGER value in which to return the number of sets of
+  // parameters processed.
+  if (0) sr = CALL_SQLSetStmtAttr(handles->hstmt, SQL_ATTR_PARAMS_PROCESSED_PTR, &ParamsProcessed, 0);
+  if (sr != SQL_SUCCESS) return -1;
+
+  for (size_t j=0; j<nr_cols; ++j) {
+    for (size_t i=0; i<nr_rows; ++i) {
+      const char *v = va_arg(ap, const char*);
+      int n = snprintf(values[j][i], sizeof(values[j][i]), "%s", v);
+      if (n < 0 || (size_t)n >= sizeof(values[j][i])) {
+        DCASE("internal logic error:value[%zd,%zd]:`%s` too big", i+1, j+1, v);
+        return -1;
+      }
+      lens[j][i] = n;
+      if ((SQLULEN)n > ColumnSizes[j]) ColumnSizes[j] = n;
+    }
+    assert(sizeof(values[j][0])/sizeof(values[j][0][0]) == 1024);
+    assert(values[j][0] == &values[j][0][0]);
+    assert(lens[j] == &lens[j][0]);
+    sr = CALL_SQLBindParameter(handles->hstmt, (SQLUSMALLINT)j+1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR,
+      ColumnSizes[j], 0, values[j], sizeof(values[j][0])/sizeof(values[j][0][0]), lens[j]);
+    if (sr != SQL_SUCCESS) return -1;
+  }
+
+  sr = CALL_SQLExecDirect(handles->hstmt, (SQLCHAR*)sql, SQL_NTS);
+  if (sr != SQL_SUCCESS) return -1;
+
+  return 0;
+}
+
+static int _insert_with_values(int line, const char *func, handles_t *handles, const char *sql, size_t nr_rows, size_t nr_cols, ...)
+{
+  int r = 0;
+
+  va_list ap;
+  va_start(ap, nr_cols);
+  r = _insert_with_values_ap(line, func, handles, sql, nr_rows, nr_cols, ap);
+  va_end(ap);
+
+  return r ? -1 : 0;
+}
+
+#define INSERT_WITH_VALUES(...)       _insert_with_values(__LINE__, __func__, ##__VA_ARGS__)
+
+static int test_charsets_with_param_bind(handles_t *handles)
+{
+  int r = 0;
+
+  const char *conn_str = NULL;
+  const char *sqls = NULL;
+  const char *sql = NULL;
+
+  handles_release(handles);
+
+  conn_str = "DSN=TAOS_ODBC_DSN";
+  r = handles_init(handles, conn_str);
+
+  sqls =
+    "drop database if exists foo;"
+    "create database if not exists foo;"
+    "create table foo.t (ts timestamp, name varchar(20), mark nchar(20));";
+  r = _execute_batches_of_statements(handles, sqls);
+  if (r) return -1;
+
+  sql = "insert into foo.t (ts, name, mark) values (?, ?, ?)";
+  r = INSERT_WITH_VALUES(handles, sql, 2, 3, "2023-05-14 12:13:14.567", "2023-05-14 12:13:15.678", "name", "测试", "mark", "检验");
+  if (r) return -1;
+
+  sql = "select name from foo.t where name='name'",
+  r = CHECK_WITH_VALUES(handles, 0, sql, 1, 1, "name");
+  if (r) return -1;
+
+  sql = "select mark from foo.t where mark='mark'",
+  r = CHECK_WITH_VALUES(handles, 0, sql, 1, 1, "mark");
+  if (r) return -1;
+
+  sql = "select name from foo.t where name='测试'",
+  r = CHECK_WITH_VALUES(handles, 0, sql, 1, 1, "测试");
+  if (r) return -1;
+
+  sql = "select mark from foo.t where mark='检验'",
+  r = CHECK_WITH_VALUES(handles, 0, sql, 1, 1, "检验");
+  if (r) return -1;
+
+  return 0;
+}
+
 static int _remove_topics(handles_t *handles, const char *db)
 {
   SQLRETURN sr = SQL_SUCCESS;
@@ -624,6 +759,7 @@ struct test_topic_s {
   const char *conn_str;
   const char *(*_cases)[2];
   size_t _nr_cases;
+  const char *(*_expects)[2];
   volatile int8_t            flag; // 0: wait; 1: start; 2: stop
 };
 
@@ -750,10 +886,10 @@ fetch:
 
     if (i<3) continue;
 
-    const char *exp = ds->_cases[demo_limit-1][i-3];
+    const char *exp = ds->_expects[demo_limit-1][i-3];
     if (Len_or_Ind == SQL_NULL_DATA) {
       if (exp) {
-        E("[%zd,%d] expected `%s`, but got ==null==", demo_limit, i+1, ds->_cases[demo_limit-1][i]);
+        E("[%zd,%d] expected `%s`, but got ==null==", demo_limit, i+1, ds->_expects[demo_limit-1][i]);
         return -1;
       }
     } else {
@@ -802,10 +938,16 @@ static int test_topic(handles_t *handles)
     {"测试", "检验"},
   };
 
+  const char *expects[][2] = {
+    {"name", "mark"},
+    {"测试", "检验"},
+  };
+
   test_topic_t ds = {
     conn_str,
     rows,
     sizeof(rows)/sizeof(rows[0]),
+    expects,
     0,
   };
 
@@ -918,6 +1060,7 @@ int main(int argc, char *argv[])
     RECORD(test_case0),
     RECORD(test_charsets),
     RECORD(test_charsets_with_col_bind),
+    RECORD(test_charsets_with_param_bind),
     RECORD(test_topic),
   };
 #undef RECORD

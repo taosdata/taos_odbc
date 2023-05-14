@@ -27,6 +27,7 @@
 #include <errno.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include <unistd.h>
 
 
 #define DUMP(fmt, ...)             fprintf(stderr, fmt "\n", ##__VA_ARGS__)
@@ -568,13 +569,221 @@ static int test_charsets_with_col_bind(handles_t *handles)
   return 0;
 }
 
+static int _remove_topics(handles_t *handles, const char *db)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  const char *sql = "select topic_name from information_schema.ins_topics where db_name = ?";
+  char topic_name_buf[1024]; topic_name_buf[0] = '\0';
+  char drop_buf[2048]; drop_buf[0] = '\0';
+
+again:
+
+  sr = CALL_SQLPrepare(handles->hstmt, (SQLCHAR*)sql, SQL_NTS);
+  if (sr != SQL_SUCCESS) return -1;
+
+  sr = CALL_SQLBindParameter(handles->hstmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, strlen(db), 0, (SQLPOINTER)db, (SQLLEN)strlen(db), NULL);
+  if (sr != SQL_SUCCESS) return -1;
+
+  SQLLEN topic_name_len = 0;
+
+  sr = CALL_SQLBindCol(handles->hstmt, 1, SQL_C_CHAR, topic_name_buf, sizeof(topic_name_buf), &topic_name_len);
+  if (sr != SQL_SUCCESS) return -1;
+
+  sr = CALL_SQLExecute(handles->hstmt);
+  if (sr != SQL_SUCCESS) return -1;
+
+  sr = CALL_SQLFetch(handles->hstmt);
+  if (sr == SQL_NO_DATA) {
+    CALL_SQLCloseCursor(handles->hstmt);
+    CALL_SQLFreeStmt(handles->hstmt, SQL_UNBIND);
+    CALL_SQLFreeStmt(handles->hstmt, SQL_RESET_PARAMS);
+    return 0;
+  }
+  if (sr != SQL_SUCCESS) return -1;
+  // FIXME: vulnerability
+  snprintf(drop_buf, sizeof(drop_buf), "drop topic `%s`", topic_name_buf);
+  CALL_SQLCloseCursor(handles->hstmt);
+  CALL_SQLFreeStmt(handles->hstmt, SQL_UNBIND);
+  CALL_SQLFreeStmt(handles->hstmt, SQL_RESET_PARAMS);
+  
+  sr = CALL_SQLExecDirect(handles->hstmt, (SQLCHAR*)drop_buf, SQL_NTS);
+  if (sr != SQL_SUCCESS) return -1;
+
+  goto again;
+}
+
+
+typedef struct test_topic_s      test_topic_t;
+struct test_topic_s {
+  const char *conn_str;
+  const char *(*_cases)[2];
+  size_t _nr_cases;
+  volatile int8_t            flag; // 0: wait; 1: start; 2: stop
+};
+
+static void* _test_topic_routine(void *arg)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
+  test_topic_t *ds = (test_topic_t*)arg;
+  handles_t handles = {0};
+  r = handles_init(&handles, ds->conn_str);
+  if (r) return NULL;
+
+  while (ds->flag == 0) sleep(0);
+
+  for (size_t i=0; i<ds->_nr_cases; ++i) {
+    char sql[4096]; sql[0] = '\0';
+    snprintf(sql, sizeof(sql), "insert into foobar.demo (ts, name, mark) values (now()+%zds, '%s', '%s')", i, ds->_cases[i][0], ds->_cases[i][1]);
+    sr = CALL_SQLExecDirect(handles.hstmt, (SQLCHAR*)sql, SQL_NTS);
+    CALL_SQLCloseCursor(handles.hstmt);
+    if (sr != SQL_SUCCESS) {
+      r = -1;
+      break;
+    }
+  }
+
+  handles_release(&handles);
+  return NULL;
+}
+
+static int _test_topic_monitor(handles_t *handles, test_topic_t *ds)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  SQLHANDLE hstmt = handles->hstmt;
+
+  size_t demo_limit = 0;
+  SQLSMALLINT ColumnCount;
+
+  char name[4096], value[4096];
+  char sql[1024]; sql[0] = '\0';
+  char row_buf[4096]; row_buf[0] = '\0';
+  char *p = NULL;
+  const char *end = NULL;
+  SQLSMALLINT    NameLength;
+  SQLSMALLINT    DataType;
+  SQLULEN        ColumnSize;
+  SQLSMALLINT    DecimalDigits;
+  SQLSMALLINT    Nullable;
+
+  // syntax: !topic [name]+ [{[key[=val];]*}]?");
+  // ref: https://github.com/taosdata/TDengine/blob/main/docs/en/07-develop/07-tmq.mdx#create-a-consumer
+  // NOTE: although both 'enable.auto.commit' and 'auto.commit.interval.ms' are still valid,
+  //       taos_odbc chooses it's owner way to call `tmq_commit_sync` under the hood.
+  snprintf(sql, sizeof(sql), "!topic demo {group.id=cgrpName; taos_odbc.limit.seconds=30; taos_odbc.limit.records=%zd}", ds->_nr_cases);
+
+  DUMP("starting topic consumer ...");
+  DUMP("will stop either 30 seconds have passed or %zd records have been fetched", ds->_nr_cases);
+  DUMP("press Ctrl-C to abort");
+  sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
+  if (sr != SQL_SUCCESS) return -1;
+
+describe:
+
+  sr = CALL_SQLNumResultCols(hstmt, &ColumnCount);
+  if (sr != SQL_SUCCESS) return -1;
+
+fetch:
+
+  if (demo_limit == ds->_nr_cases) {
+    DUMP("demo_limit of #%zd has been reached", ds->_nr_cases);
+    return 0;
+  }
+
+  sr = CALL_SQLFetch(hstmt);
+  if (sr == SQL_NO_DATA) {
+    sr = CALL_SQLMoreResults(hstmt);
+    if (sr == SQL_NO_DATA) return 0;
+    if (sr == SQL_SUCCESS) goto describe;
+  }
+  if (sr != SQL_SUCCESS) return -1;
+
+  demo_limit++;
+
+  row_buf[0] = '\0';
+  p = row_buf;
+  end = row_buf + sizeof(row_buf);
+  for (int i=0; i<ColumnCount; ++i) {
+    sr = CALL_SQLDescribeCol(hstmt, i+1, (SQLCHAR*)name, sizeof(name), &NameLength, &DataType, &ColumnSize, &DecimalDigits, &Nullable);
+    if (sr != SQL_SUCCESS) return -1;
+
+    SQLLEN Len_or_Ind;
+    sr = CALL_SQLGetData(hstmt, i+1, SQL_C_CHAR, value, sizeof(value), &Len_or_Ind);
+    if (sr != SQL_SUCCESS) return -1;
+
+    int n = snprintf(p, end - p, "%s%s:[%s]",
+        i ? ";" : "",
+        name,
+        Len_or_Ind == SQL_NULL_DATA ? "null" : value);
+    if (n < 0 || n >= end - p) {
+      E("buffer too small");
+      return -1;
+    }
+    p += n;
+  }
+
+  DUMP("new data:%s", row_buf);
+
+  goto fetch;
+}
+
+static int test_topic(handles_t *handles)
+{
+  int r = 0;
+
+  const char *conn_str = NULL;
+  const char *sqls = NULL;
+
+  handles_release(handles);
+
+  conn_str = "DSN=TAOS_ODBC_DSN";
+  r = handles_init(handles, conn_str);
+
+  r = _remove_topics(handles, "foobar");
+  if (r) return -1;
+
+  sqls =
+    "drop database if exists foobar;"
+    "create database if not exists foobar WAL_RETENTION_PERIOD 2592000;"
+    "create table foobar.demo (ts timestamp, name varchar(20), mark nchar(20));"
+    "create topic demo as select name, mark from foobar.demo;";
+  r = _execute_batches_of_statements(handles, sqls);
+  if (r) return -1;
+
+  const char *rows[][2] = {
+    {"name", "mark"},
+    {"测试", "检验"},
+  };
+
+  test_topic_t ds = {
+    conn_str,
+    rows,
+    sizeof(rows)/sizeof(rows[0]),
+    0,
+  };
+
+  pthread_t worker;
+  r = pthread_create(&worker, NULL, _test_topic_routine, &ds);
+  if (r) {
+    fprintf(stderr, "@%d:%s():pthread_create failed:[%d]%s\n", __LINE__, __func__, r, strerror(r));
+    return -1;
+  }
+  ds.flag = 1;
+
+  r = _test_topic_monitor(handles, &ds);
+  ds.flag = 2;
+  pthread_join(worker, NULL);
+
+  return r ? -1 : 0;
+}
+
 typedef struct case_s              case_t;
 struct case_s {
   const char               *name;
   int (*routine)(handles_t *handles);
 };
-
-#define RECORD(x) {#x, x}
 
 static case_t* find_case(case_t *cases, size_t nr_cases, const char *name)
 {
@@ -649,11 +858,14 @@ int main(int argc, char *argv[])
 {
   int r = 0;
 
+#define RECORD(x) {#x, x}
   case_t _cases[] = {
     RECORD(test_case0),
     RECORD(test_charsets),
     RECORD(test_charsets_with_col_bind),
+    RECORD(test_topic),
   };
+#undef RECORD
   size_t _nr_cases = sizeof(_cases)/sizeof(_cases[0]);
 
   handles_t handles = {0};

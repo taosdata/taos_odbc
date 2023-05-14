@@ -579,7 +579,7 @@ static int _remove_topics(handles_t *handles, const char *db)
 
 again:
 
-  sr = CALL_SQLPrepare(handles->hstmt, (SQLCHAR*)sql, SQL_NTS);
+  if (0) sr = CALL_SQLPrepare(handles->hstmt, (SQLCHAR*)sql, SQL_NTS);
   if (sr != SQL_SUCCESS) return -1;
 
   sr = CALL_SQLBindParameter(handles->hstmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, strlen(db), 0, (SQLPOINTER)db, (SQLLEN)strlen(db), NULL);
@@ -590,7 +590,8 @@ again:
   sr = CALL_SQLBindCol(handles->hstmt, 1, SQL_C_CHAR, topic_name_buf, sizeof(topic_name_buf), &topic_name_len);
   if (sr != SQL_SUCCESS) return -1;
 
-  sr = CALL_SQLExecute(handles->hstmt);
+  if (0) sr = CALL_SQLExecute(handles->hstmt);
+  else   sr = CALL_SQLExecDirect(handles->hstmt, (SQLCHAR*)sql, SQL_NTS);
   if (sr != SQL_SUCCESS) return -1;
 
   sr = CALL_SQLFetch(handles->hstmt);
@@ -722,6 +723,26 @@ fetch:
       return -1;
     }
     p += n;
+
+    if (i<3) continue;
+
+    const char *exp = ds->_cases[demo_limit-1][i-3];
+    if (Len_or_Ind == SQL_NULL_DATA) {
+      if (exp) {
+        E("[%zd,%d] expected `%s`, but got ==null==", demo_limit, i+1, ds->_cases[demo_limit-1][i]);
+        return -1;
+      }
+    } else {
+      if (Len_or_Ind == SQL_NTS) Len_or_Ind = strlen(value);
+      if (!exp) {
+        E("[%zd,%d] expected null, but got ==`%.*s`==", demo_limit, i+1, (int)Len_or_Ind, value);
+        return -1;
+      }
+      if ((size_t)Len_or_Ind != strlen(exp) || strncmp(value, exp, (size_t)Len_or_Ind)) {
+        E("[%zd,%d] expected `%s`, but got ==`%.*s`==", demo_limit, i+1, exp, (int)Len_or_Ind, value);
+        return -1;
+      }
+    }
   }
 
   DUMP("new data:%s", row_buf);

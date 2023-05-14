@@ -690,6 +690,8 @@ SQLRETURN conn_driver_connect(
   (void)WindowHandle;
   SQLRETURN sr = SQL_SUCCESS;
 
+  conn_cfg_release(&conn->cfg);
+
   if (StringLength1 == SQL_NTS) StringLength1 = (SQLSMALLINT)strlen((const char*)InConnectionString);
 
   switch (DriverCompletion) {
@@ -828,11 +830,12 @@ SQLRETURN conn_connect(
 {
   int r = 0;
 
+  conn_cfg_release(&conn->cfg);
+
   if (NameLength1 == SQL_NTS) NameLength1 = ServerName ? (SQLSMALLINT)strlen((const char*)ServerName) : 0;
   if (NameLength2 == SQL_NTS) NameLength2 = UserName ? (SQLSMALLINT)strlen((const char*)UserName) : 0;
   if (NameLength3 == SQL_NTS) NameLength3 = Authentication ? (SQLSMALLINT)strlen((const char*)Authentication) : 0;
 
-  conn_cfg_release(&conn->cfg);
   if (ServerName) {
     conn->cfg.dsn = strndup((const char*)ServerName, NameLength1);
     if (!conn->cfg.dsn) {

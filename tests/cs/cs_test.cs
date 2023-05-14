@@ -114,13 +114,17 @@ namespace ConsoleApp1
         static void Main(string[] args)
         {
             Console.WriteLine("Hello, World!");
-            string connString = "DSN=SQLSERVER_ODBC_DSN";
-            string queryString = "drop table if exists t;create table t(name varchar(20), mark nchar(20)); insert into t (name, mark) values ('测试', '人物')";
-            execute_non_query(connString, queryString);
-            execute_query(connString, "select * from t");
-            execute_query_with_params(connString, "insert into t (name, mark) values (?, ?)", new string [] {"测试", "人物"});
-            execute_query_with_params(connString, "select * from t where name = ?", new string [] {"测试"});
-            execute_query_with_params(connString, "select * from t where mark = ?", new string [] {"人物"});
+            string connString;
+            string queryString;
+            // if (false) {
+            //     connString = "DSN=SQLSERVER_ODBC_DSN";
+            //     queryString = "drop table if exists t;create table t(name varchar(20), mark nchar(20)); insert into t (name, mark) values ('测试', '人物')";
+            //     execute_non_query(connString, queryString);
+            //     execute_query(connString, "select * from t");
+            //     execute_query_with_params(connString, "insert into t (name, mark) values (?, ?)", new string [] {"测试", "人物"});
+            //     execute_query_with_params(connString, "select * from t where name = ?", new string [] {"测试"});
+            //     execute_query_with_params(connString, "select * from t where mark = ?", new string [] {"人物"});
+            // }
 
             connString = "DSN=TAOS_ODBC_DSN";
             queryString = "drop database if exists s; create database if not exists s; use s; drop table if exists t;create table t(ts timestamp, name varchar(20), mark nchar(20)); insert into t (ts, name, mark) values (now(), '测试', '人物')";

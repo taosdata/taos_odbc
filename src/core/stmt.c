@@ -619,44 +619,63 @@ static int _stmt_time_precision(stmt_t *stmt)
   return time_precision;
 }
 
+typedef struct col_bind_map_s            col_bind_map_t;
+struct col_bind_map_s {
+  int                    tsdb_type;
+
+  const char            *type_name;
+
+  int                    sql_type;
+  int                    sql_promoted;
+
+  const char            *suffix;
+
+  int                    length;
+  int                    octet_length;
+  int                    precision;
+  int                    scale;
+  int                    display_size;
+  int                    num_prec_radix;
+  int                    unsigned_;
+
+  int                    searchable;
+};
+
+static col_bind_map_t _col_bind_map[] = {
+  {TSDB_DATA_TYPE_TIMESTAMP, "TIMESTAMP",         SQL_TYPE_TIMESTAMP, SQL_TYPE_TIMESTAMP, "'",  0,  8,  0, 0,  8, 10, SQL_TRUE, SQL_SEARCHABLE},
+  {TSDB_DATA_TYPE_BOOL,      "BOOL",              SQL_BIT,            SQL_BIT,            "",   1,  1,  1, 0,  1, 10, SQL_TRUE, SQL_PRED_BASIC},
+  {TSDB_DATA_TYPE_TINYINT,   "TINYINT",           SQL_TINYINT,        SQL_SMALLINT,       "",   3,  1,  3, 0,  4, 10, SQL_FALSE,SQL_PRED_BASIC},
+  {TSDB_DATA_TYPE_SMALLINT,  "SMALLINT",          SQL_SMALLINT,       SQL_SMALLINT,       "",   5,  2,  5, 0,  6, 10, SQL_FALSE,SQL_PRED_BASIC},
+  {TSDB_DATA_TYPE_INT,       "INT",               SQL_INTEGER,        SQL_INTEGER,        "",  10,  4, 10, 0, 11, 10, SQL_FALSE,SQL_PRED_BASIC},
+  {TSDB_DATA_TYPE_BIGINT,    "BIGINT",            SQL_BIGINT,         SQL_BIGINT,         "",  19,  8, 19, 0, 20, 10, SQL_FALSE,SQL_PRED_BASIC},
+  {TSDB_DATA_TYPE_FLOAT,     "FLOAT",             SQL_REAL,           SQL_REAL,           "",   7,  4, 24, 0, 14,  2, SQL_FALSE,SQL_PRED_BASIC},
+  {TSDB_DATA_TYPE_DOUBLE,    "DOUBLE",            SQL_DOUBLE,         SQL_DOUBLE,         "",  15,  8, 53, 0, 24,  2, SQL_FALSE,SQL_PRED_BASIC},
+  {TSDB_DATA_TYPE_VARCHAR,   "VARCHAR",           SQL_VARCHAR,        SQL_VARCHAR,        "'", -1, -1, -1, 0, -1, 10, SQL_TRUE, SQL_SEARCHABLE},
+  {TSDB_DATA_TYPE_NCHAR,     "NCHAR",             SQL_WVARCHAR,       SQL_WVARCHAR,       "'", -1, -2, -1, 0, -2, 10, SQL_TRUE, SQL_SEARCHABLE},
+  {TSDB_DATA_TYPE_UTINYINT,  "TINYINT UNSIGNED",  SQL_TINYINT,        SQL_TINYINT,        "",   3,  1,  3, 0,  3, 10, SQL_TRUE, SQL_PRED_BASIC},
+  {TSDB_DATA_TYPE_USMALLINT, "SMALLINT UNSIGNED", SQL_SMALLINT,       SQL_INTEGER,        "",   5,  2,  5, 0,  5, 10, SQL_TRUE, SQL_PRED_BASIC},
+  {TSDB_DATA_TYPE_UINT,      "INT UNSIGNED",      SQL_INTEGER,        SQL_BIGINT,         "",  10,  4, 10, 0, 10, 10, SQL_TRUE, SQL_PRED_BASIC},
+  {TSDB_DATA_TYPE_UBIGINT,   "BIGINT UNSIGNED",   SQL_BIGINT,         SQL_BIGINT,         "",  20,  8, 20, 0, 20, 10, SQL_TRUE, SQL_PRED_BASIC},
+};
+
 static SQLRETURN _stmt_col_DESC_TYPE(
     stmt_t               *stmt,
     const TAOS_FIELD     *col,
     SQLLEN               *NumericAttributePtr)
 {
-  static struct {
-    int                 tsdb_type;
-    int                 sql_type;
-    int                 sql_promoted;
-  } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              SQL_TYPE_TIMESTAMP,        SQL_DATETIME},
-    {TSDB_DATA_TYPE_BOOL,                   SQL_BIT,                   SQL_BIT},
-    {TSDB_DATA_TYPE_TINYINT,                SQL_TINYINT,               SQL_SMALLINT},
-    {TSDB_DATA_TYPE_SMALLINT,               SQL_SMALLINT,              SQL_SMALLINT},
-    {TSDB_DATA_TYPE_INT,                    SQL_INTEGER,               SQL_INTEGER},
-    {TSDB_DATA_TYPE_BIGINT,                 SQL_BIGINT,                SQL_BIGINT},
-    {TSDB_DATA_TYPE_FLOAT,                  SQL_REAL,                  SQL_REAL},
-    {TSDB_DATA_TYPE_DOUBLE,                 SQL_DOUBLE,                SQL_DOUBLE},
-    {TSDB_DATA_TYPE_VARCHAR,                SQL_VARCHAR,               SQL_VARCHAR},
-    {TSDB_DATA_TYPE_NCHAR,                  SQL_WVARCHAR,              SQL_WVARCHAR},
-    {TSDB_DATA_TYPE_UTINYINT,               SQL_TINYINT,               SQL_TINYINT},
-    {TSDB_DATA_TYPE_USMALLINT,              SQL_SMALLINT,              SQL_INTEGER},
-    {TSDB_DATA_TYPE_UINT,                   SQL_INTEGER,               SQL_BIGINT},
-    {TSDB_DATA_TYPE_UBIGINT,                SQL_BIGINT,                SQL_BIGINT},
-  };
-
-  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-    if (col->type != _maps[i].tsdb_type) continue;
+  for (size_t i=0; i<sizeof(_col_bind_map)/sizeof(_col_bind_map[0]); ++i) {
+    if (col->type != _col_bind_map[i].tsdb_type) continue;
+    if (stmt->conn->cfg.unsigned_promotion) {
+      *NumericAttributePtr = _col_bind_map[i].sql_promoted;
+    } else {
+      *NumericAttributePtr = _col_bind_map[i].sql_type;
+    }
     if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
       if (!stmt->conn->cfg.timestamp_as_is) {
         *NumericAttributePtr = SQL_WVARCHAR;
-        return SQL_SUCCESS;
+      } else {
+        *NumericAttributePtr = SQL_DATETIME;
       }
-    }
-    if (stmt->conn->cfg.unsigned_promotion) {
-      *NumericAttributePtr = _maps[i].sql_promoted;
-    } else {
-      *NumericAttributePtr = _maps[i].sql_type;
     }
     return SQL_SUCCESS;
   }
@@ -669,39 +688,18 @@ static SQLRETURN _stmt_col_DESC_CONCISE_TYPE(
     const TAOS_FIELD     *col,
     SQLLEN               *NumericAttributePtr)
 {
-  static struct {
-    int                 tsdb_type;
-    int                 sql_type;
-    int                 sql_promoted;
-  } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              SQL_TYPE_TIMESTAMP,        SQL_TYPE_TIMESTAMP},
-    {TSDB_DATA_TYPE_BOOL,                   SQL_BIT,                   SQL_BIT},
-    {TSDB_DATA_TYPE_TINYINT,                SQL_TINYINT,               SQL_SMALLINT},
-    {TSDB_DATA_TYPE_SMALLINT,               SQL_SMALLINT,              SQL_SMALLINT},
-    {TSDB_DATA_TYPE_INT,                    SQL_INTEGER,               SQL_INTEGER},
-    {TSDB_DATA_TYPE_BIGINT,                 SQL_BIGINT,                SQL_BIGINT},
-    {TSDB_DATA_TYPE_FLOAT,                  SQL_REAL,                  SQL_REAL},
-    {TSDB_DATA_TYPE_DOUBLE,                 SQL_DOUBLE,                SQL_DOUBLE},
-    {TSDB_DATA_TYPE_VARCHAR,                SQL_VARCHAR,               SQL_VARCHAR},
-    {TSDB_DATA_TYPE_NCHAR,                  SQL_WVARCHAR,              SQL_WVARCHAR},
-    {TSDB_DATA_TYPE_UTINYINT,               SQL_TINYINT,               SQL_TINYINT},
-    {TSDB_DATA_TYPE_USMALLINT,              SQL_SMALLINT,              SQL_INTEGER},
-    {TSDB_DATA_TYPE_UINT,                   SQL_INTEGER,               SQL_BIGINT},
-    {TSDB_DATA_TYPE_UBIGINT,                SQL_BIGINT,                SQL_BIGINT},
-  };
-
-  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-    if (col->type != _maps[i].tsdb_type) continue;
+  for (size_t i=0; i<sizeof(_col_bind_map)/sizeof(_col_bind_map[0]); ++i) {
+    if (col->type != _col_bind_map[i].tsdb_type) continue;
+    if (stmt->conn->cfg.unsigned_promotion) {
+      *NumericAttributePtr = _col_bind_map[i].sql_promoted;
+    } else {
+      *NumericAttributePtr = _col_bind_map[i].sql_type;
+    }
     if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
       if (!stmt->conn->cfg.timestamp_as_is) {
         *NumericAttributePtr = SQL_WVARCHAR;
         return SQL_SUCCESS;
       }
-    }
-    if (stmt->conn->cfg.unsigned_promotion) {
-      *NumericAttributePtr = _maps[i].sql_promoted;
-    } else {
-      *NumericAttributePtr = _maps[i].sql_type;
     }
     return SQL_SUCCESS;
   }
@@ -716,43 +714,23 @@ static SQLRETURN _stmt_col_DESC_OCTET_LENGTH(
 {
   int time_precision = _stmt_time_precision(stmt);
 
-  static struct {
-    int                 tsdb_type;
-    int                 octet_length;
-  } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              8},
-    {TSDB_DATA_TYPE_BOOL,                   1},
-    {TSDB_DATA_TYPE_TINYINT,                1},
-    {TSDB_DATA_TYPE_SMALLINT,               2},
-    {TSDB_DATA_TYPE_INT,                    4},
-    {TSDB_DATA_TYPE_BIGINT,                 8},
-    {TSDB_DATA_TYPE_FLOAT,                  4},
-    {TSDB_DATA_TYPE_DOUBLE,                 8},
-    {TSDB_DATA_TYPE_VARCHAR,                -1},
-    {TSDB_DATA_TYPE_NCHAR,                  -2},
-    {TSDB_DATA_TYPE_UTINYINT,               1},
-    {TSDB_DATA_TYPE_USMALLINT,              2},
-    {TSDB_DATA_TYPE_UINT,                   4},
-    {TSDB_DATA_TYPE_UBIGINT,                8},
-  };
-
-  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-    if (col->type != _maps[i].tsdb_type) continue;
+  for (size_t i=0; i<sizeof(_col_bind_map)/sizeof(_col_bind_map[0]); ++i) {
+    if (col->type != _col_bind_map[i].tsdb_type) continue;
     if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
       if (!stmt->conn->cfg.timestamp_as_is) {
         *NumericAttributePtr = (20 + (time_precision + 1) * 3) * 2;
         return SQL_SUCCESS;
       }
     }
-    if (_maps[i].octet_length > 0 && _maps[i].octet_length != col->bytes) {
+    if (_col_bind_map[i].octet_length > 0 && _col_bind_map[i].octet_length != col->bytes) {
       stmt_append_err_format(stmt, "HY000", 0, "General error:octet length for `%s` is expected to be %d, but got ==%d==",
-          taos_data_type(col->type), _maps[i].octet_length, col->bytes);
+          taos_data_type(col->type), _col_bind_map[i].octet_length, col->bytes);
       return SQL_ERROR;
     }
-    if (_maps[i].octet_length < 0) {
-      *NumericAttributePtr = 0 - col->bytes * _maps[i].octet_length;
+    if (_col_bind_map[i].octet_length < 0) {
+      *NumericAttributePtr = 0 - col->bytes * _col_bind_map[i].octet_length;
     } else {
-      *NumericAttributePtr = _maps[i].octet_length;
+      *NumericAttributePtr = _col_bind_map[i].octet_length;
     }
     return SQL_SUCCESS;
   }
@@ -766,28 +744,8 @@ static SQLRETURN _stmt_col_DESC_PRECISION(
 {
   int time_precision = _stmt_time_precision(stmt);
 
-  static struct {
-    int                 tsdb_type;
-    int                 precision;
-  } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              0},
-    {TSDB_DATA_TYPE_BOOL,                   1},
-    {TSDB_DATA_TYPE_TINYINT,                3},
-    {TSDB_DATA_TYPE_SMALLINT,               5},
-    {TSDB_DATA_TYPE_INT,                    10},
-    {TSDB_DATA_TYPE_BIGINT,                 19},
-    {TSDB_DATA_TYPE_FLOAT,                  24},
-    {TSDB_DATA_TYPE_DOUBLE,                 53},
-    {TSDB_DATA_TYPE_VARCHAR,                -1},
-    {TSDB_DATA_TYPE_NCHAR,                  -1},
-    {TSDB_DATA_TYPE_UTINYINT,               3},
-    {TSDB_DATA_TYPE_USMALLINT,              5},
-    {TSDB_DATA_TYPE_UINT,                   10},
-    {TSDB_DATA_TYPE_UBIGINT,                20},
-  };
-
-  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-    if (col->type != _maps[i].tsdb_type) continue;
+  for (size_t i=0; i<sizeof(_col_bind_map)/sizeof(_col_bind_map[0]); ++i) {
+    if (col->type != _col_bind_map[i].tsdb_type) continue;
     if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
       if (!stmt->conn->cfg.timestamp_as_is) {
         *NumericAttributePtr = 20 + (time_precision + 1) * 3;
@@ -796,10 +754,10 @@ static SQLRETURN _stmt_col_DESC_PRECISION(
       }
       return SQL_SUCCESS;
     }
-    if (_maps[i].precision == -1) {
+    if (_col_bind_map[i].precision == -1) {
       *NumericAttributePtr = col->bytes;
     } else {
-      *NumericAttributePtr = _maps[i].precision;
+      *NumericAttributePtr = _col_bind_map[i].precision;
     }
     return SQL_SUCCESS;
   }
@@ -813,37 +771,17 @@ static SQLRETURN _stmt_col_DESC_SCALE(
 {
   int time_precision = _stmt_time_precision(stmt);
 
-  static struct {
-    int                 tsdb_type;
-    int                 scale;
-  } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              0},
-    {TSDB_DATA_TYPE_BOOL,                   0},
-    {TSDB_DATA_TYPE_TINYINT,                0},
-    {TSDB_DATA_TYPE_SMALLINT,               0},
-    {TSDB_DATA_TYPE_INT,                    0},
-    {TSDB_DATA_TYPE_BIGINT,                 0},
-    {TSDB_DATA_TYPE_FLOAT,                  0},
-    {TSDB_DATA_TYPE_DOUBLE,                 0},
-    {TSDB_DATA_TYPE_VARCHAR,                0},
-    {TSDB_DATA_TYPE_NCHAR,                  0},
-    {TSDB_DATA_TYPE_UTINYINT,               0},
-    {TSDB_DATA_TYPE_USMALLINT,              0},
-    {TSDB_DATA_TYPE_UINT,                   0},
-    {TSDB_DATA_TYPE_UBIGINT,                0},
-  };
-
-  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-    if (col->type != _maps[i].tsdb_type) continue;
+  for (size_t i=0; i<sizeof(_col_bind_map)/sizeof(_col_bind_map[0]); ++i) {
+    if (col->type != _col_bind_map[i].tsdb_type) continue;
     if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
       if (!stmt->conn->cfg.timestamp_as_is) {
-        *NumericAttributePtr = _maps[i].scale;
+        *NumericAttributePtr = _col_bind_map[i].scale;
       } else {
         *NumericAttributePtr = (time_precision + 1) * 3;
       }
       return SQL_SUCCESS;
     }
-    *NumericAttributePtr = _maps[i].scale;
+    *NumericAttributePtr = _col_bind_map[i].scale;
     return SQL_SUCCESS;
   }
   return SQL_ERROR;
@@ -856,38 +794,18 @@ static SQLRETURN _stmt_col_DESC_DISPLAY_SIZE(
 {
   int time_precision = _stmt_time_precision(stmt);
 
-  static struct {
-    int                 tsdb_type;
-    int                 display_size;
-  } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              8},
-    {TSDB_DATA_TYPE_BOOL,                   1},
-    {TSDB_DATA_TYPE_TINYINT,                4},
-    {TSDB_DATA_TYPE_SMALLINT,               6},
-    {TSDB_DATA_TYPE_INT,                   11},
-    {TSDB_DATA_TYPE_BIGINT,                20},
-    {TSDB_DATA_TYPE_FLOAT,                 14},
-    {TSDB_DATA_TYPE_DOUBLE,                24},
-    {TSDB_DATA_TYPE_VARCHAR,                -1},
-    {TSDB_DATA_TYPE_NCHAR,                  -2},
-    {TSDB_DATA_TYPE_UTINYINT,               3},
-    {TSDB_DATA_TYPE_USMALLINT,              5},
-    {TSDB_DATA_TYPE_UINT,                  10},
-    {TSDB_DATA_TYPE_UBIGINT,               20},
-  };
-
-  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-    if (col->type != _maps[i].tsdb_type) continue;
+  for (size_t i=0; i<sizeof(_col_bind_map)/sizeof(_col_bind_map[0]); ++i) {
+    if (col->type != _col_bind_map[i].tsdb_type) continue;
     if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
       if (!stmt->conn->cfg.timestamp_as_is) {
         *NumericAttributePtr = 20 + (time_precision + 1) * 3;
         return SQL_SUCCESS;
       }
     }
-    if (_maps[i].display_size < 0) {
-      *NumericAttributePtr = 0 - col->bytes * _maps[i].display_size;
+    if (_col_bind_map[i].display_size < 0) {
+      *NumericAttributePtr = 0 - col->bytes * _col_bind_map[i].display_size;
     } else {
-      *NumericAttributePtr = _maps[i].display_size;
+      *NumericAttributePtr = _col_bind_map[i].display_size;
     }
     return SQL_SUCCESS;
   }
@@ -899,41 +817,11 @@ static SQLRETURN _stmt_col_DESC_SEARCHABLE(
     const TAOS_FIELD     *col,
     SQLLEN               *NumericAttributePtr)
 {
-  int time_precision = _stmt_time_precision(stmt);
+  (void)stmt;
 
-  static struct {
-    int                 tsdb_type;
-    int                 display_size;
-  } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              SQL_SEARCHABLE},
-    {TSDB_DATA_TYPE_BOOL,                   SQL_PRED_BASIC},
-    {TSDB_DATA_TYPE_TINYINT,                SQL_PRED_BASIC},
-    {TSDB_DATA_TYPE_SMALLINT,               SQL_PRED_BASIC},
-    {TSDB_DATA_TYPE_INT,                    SQL_PRED_BASIC},
-    {TSDB_DATA_TYPE_BIGINT,                 SQL_PRED_BASIC},
-    {TSDB_DATA_TYPE_FLOAT,                  SQL_PRED_BASIC},
-    {TSDB_DATA_TYPE_DOUBLE,                 SQL_PRED_BASIC},
-    {TSDB_DATA_TYPE_VARCHAR,                SQL_SEARCHABLE},
-    {TSDB_DATA_TYPE_NCHAR,                  SQL_SEARCHABLE},
-    {TSDB_DATA_TYPE_UTINYINT,               SQL_PRED_BASIC},
-    {TSDB_DATA_TYPE_USMALLINT,              SQL_PRED_BASIC},
-    {TSDB_DATA_TYPE_UINT,                   SQL_PRED_BASIC},
-    {TSDB_DATA_TYPE_UBIGINT,                SQL_PRED_BASIC},
-  };
-
-  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-    if (col->type != _maps[i].tsdb_type) continue;
-    if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
-      if (!stmt->conn->cfg.timestamp_as_is) {
-        *NumericAttributePtr = 20 + (time_precision + 1) * 3;
-        return SQL_SUCCESS;
-      }
-    }
-    if (_maps[i].display_size < 0) {
-      *NumericAttributePtr = -col->bytes;
-    } else {
-      *NumericAttributePtr = _maps[i].display_size;
-    }
+  for (size_t i=0; i<sizeof(_col_bind_map)/sizeof(_col_bind_map[0]); ++i) {
+    if (col->type != _col_bind_map[i].tsdb_type) continue;
+    *NumericAttributePtr = _col_bind_map[i].searchable;
     return SQL_SUCCESS;
   }
   return SQL_ERROR;
@@ -964,29 +852,9 @@ static SQLRETURN _stmt_col_DESC_TYPE_NAME(
     SQLSMALLINT           BufferLength,
     SQLSMALLINT          *StringLengthPtr)
 {
-  static struct {
-    int                 tsdb_type;
-    const char         *name;
-  } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              "TIMESTAMP"},
-    {TSDB_DATA_TYPE_BOOL,                   "BOOL"},
-    {TSDB_DATA_TYPE_TINYINT,                "TINYINT"},
-    {TSDB_DATA_TYPE_SMALLINT,               "SMALLINT"},
-    {TSDB_DATA_TYPE_INT,                    "INT"},
-    {TSDB_DATA_TYPE_BIGINT,                 "BIGINT"},
-    {TSDB_DATA_TYPE_FLOAT,                  "FLOAT"},
-    {TSDB_DATA_TYPE_DOUBLE,                 "DOUBLE"},
-    {TSDB_DATA_TYPE_VARCHAR,                "VARCHAR"},
-    {TSDB_DATA_TYPE_NCHAR,                  "NCHAR"},
-    {TSDB_DATA_TYPE_UTINYINT,               "TINYINT UNSIGNED"},
-    {TSDB_DATA_TYPE_USMALLINT,              "SMALLINT UNSIGNED"},
-    {TSDB_DATA_TYPE_UINT,                   "INT UNSIGNED"},
-    {TSDB_DATA_TYPE_UBIGINT,                "BIGINT UNSIGNED"},
-  };
-
-  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-    if (col->type != _maps[i].tsdb_type) continue;
-    const char *name = _maps[i].name;
+  for (size_t i=0; i<sizeof(_col_bind_map)/sizeof(_col_bind_map[0]); ++i) {
+    if (col->type != _col_bind_map[i].tsdb_type) continue;
+    const char *name = _col_bind_map[i].type_name;
     if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
       if (!stmt->conn->cfg.timestamp_as_is) {
         name = "NCHAR";
@@ -1011,36 +879,16 @@ static SQLRETURN _stmt_col_DESC_LENGTH(
 {
   int time_precision = _stmt_time_precision(stmt);
 
-  static struct {
-    int                 tsdb_type;
-    int                 length;
-  } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              0},
-    {TSDB_DATA_TYPE_BOOL,                   1},
-    {TSDB_DATA_TYPE_TINYINT,                3},
-    {TSDB_DATA_TYPE_SMALLINT,               5},
-    {TSDB_DATA_TYPE_INT,                    10},
-    {TSDB_DATA_TYPE_BIGINT,                 19},
-    {TSDB_DATA_TYPE_FLOAT,                  7},    // FIXME: not 24 as precision
-    {TSDB_DATA_TYPE_DOUBLE,                 15},   // FIXME: not 53 as precision
-    {TSDB_DATA_TYPE_VARCHAR,                -1},
-    {TSDB_DATA_TYPE_NCHAR,                  -1},
-    {TSDB_DATA_TYPE_UTINYINT,               3},
-    {TSDB_DATA_TYPE_USMALLINT,              5},
-    {TSDB_DATA_TYPE_UINT,                   10},
-    {TSDB_DATA_TYPE_UBIGINT,                20},
-  };
-
-  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-    if (col->type != _maps[i].tsdb_type) continue;
+  for (size_t i=0; i<sizeof(_col_bind_map)/sizeof(_col_bind_map[0]); ++i) {
+    if (col->type != _col_bind_map[i].tsdb_type) continue;
     if (col->type == TSDB_DATA_TYPE_TIMESTAMP) {
       *NumericAttributePtr = 20 + (time_precision + 1) * 3;
       return SQL_SUCCESS;
     }
-    if (_maps[i].length == -1) {
+    if (_col_bind_map[i].length == -1) {
       *NumericAttributePtr = col->bytes;
     } else {
-      *NumericAttributePtr = _maps[i].length;
+      *NumericAttributePtr = _col_bind_map[i].length;
     }
     return SQL_SUCCESS;
   }
@@ -1053,29 +901,9 @@ static SQLRETURN _stmt_col_DESC_NUM_PREC_RADIX(
     SQLLEN               *NumericAttributePtr)
 {
   (void)stmt;
-  static struct {
-    int                 tsdb_type;
-    int                 radix;
-  } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              10},
-    {TSDB_DATA_TYPE_BOOL,                   10},
-    {TSDB_DATA_TYPE_TINYINT,                10},
-    {TSDB_DATA_TYPE_SMALLINT,               10},
-    {TSDB_DATA_TYPE_INT,                    10},
-    {TSDB_DATA_TYPE_BIGINT,                 10},
-    {TSDB_DATA_TYPE_FLOAT,                  2},
-    {TSDB_DATA_TYPE_DOUBLE,                 2},
-    {TSDB_DATA_TYPE_VARCHAR,                10},
-    {TSDB_DATA_TYPE_NCHAR,                  10},
-    {TSDB_DATA_TYPE_UTINYINT,               10},
-    {TSDB_DATA_TYPE_USMALLINT,              10},
-    {TSDB_DATA_TYPE_UINT,                   10},
-    {TSDB_DATA_TYPE_UBIGINT,                10},
-  };
-
-  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-    if (col->type != _maps[i].tsdb_type) continue;
-    *NumericAttributePtr = _maps[i].radix;
+  for (size_t i=0; i<sizeof(_col_bind_map)/sizeof(_col_bind_map[0]); ++i) {
+    if (col->type != _col_bind_map[i].tsdb_type) continue;
+    *NumericAttributePtr = _col_bind_map[i].num_prec_radix;
     return SQL_SUCCESS;
   }
   return SQL_ERROR;
@@ -1088,29 +916,9 @@ static SQLRETURN _stmt_col_DESC_UNSIGNED(
 {
   (void)stmt;
 
-  static struct {
-    int                 tsdb_type;
-    int                 unsigned_;
-  } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              SQL_TRUE},
-    {TSDB_DATA_TYPE_BOOL,                   SQL_TRUE},
-    {TSDB_DATA_TYPE_TINYINT,                SQL_FALSE},
-    {TSDB_DATA_TYPE_SMALLINT,               SQL_FALSE},
-    {TSDB_DATA_TYPE_INT,                    SQL_FALSE},
-    {TSDB_DATA_TYPE_BIGINT,                 SQL_FALSE},
-    {TSDB_DATA_TYPE_FLOAT,                  SQL_FALSE},
-    {TSDB_DATA_TYPE_DOUBLE,                 SQL_FALSE},
-    {TSDB_DATA_TYPE_VARCHAR,                SQL_TRUE},
-    {TSDB_DATA_TYPE_NCHAR,                  SQL_TRUE},
-    {TSDB_DATA_TYPE_UTINYINT,               SQL_TRUE},
-    {TSDB_DATA_TYPE_USMALLINT,              SQL_TRUE},
-    {TSDB_DATA_TYPE_UINT,                   SQL_TRUE},
-    {TSDB_DATA_TYPE_UBIGINT,                SQL_TRUE},
-  };
-
-  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-    if (col->type != _maps[i].tsdb_type) continue;
-    *NumericAttributePtr = _maps[i].unsigned_;
+  for (size_t i=0; i<sizeof(_col_bind_map)/sizeof(_col_bind_map[0]); ++i) {
+    if (col->type != _col_bind_map[i].tsdb_type) continue;
+    *NumericAttributePtr = _col_bind_map[i].unsigned_;
     return SQL_SUCCESS;
   }
   return SQL_ERROR;
@@ -1123,29 +931,9 @@ static SQLRETURN _stmt_col_DESC_LITERAL_SUFFIX(
     SQLSMALLINT           BufferLength,
     SQLSMALLINT          *StringLengthPtr)
 {
-  static struct {
-    int                 tsdb_type;
-    const char         *suffix;
-  } _maps[] = {
-    {TSDB_DATA_TYPE_TIMESTAMP,              "'"},
-    {TSDB_DATA_TYPE_BOOL,                   ""},
-    {TSDB_DATA_TYPE_TINYINT,                ""},
-    {TSDB_DATA_TYPE_SMALLINT,               ""},
-    {TSDB_DATA_TYPE_INT,                    ""},
-    {TSDB_DATA_TYPE_BIGINT,                 ""},
-    {TSDB_DATA_TYPE_FLOAT,                  ""},
-    {TSDB_DATA_TYPE_DOUBLE,                 ""},
-    {TSDB_DATA_TYPE_VARCHAR,                "'"},
-    {TSDB_DATA_TYPE_NCHAR,                  "'"},
-    {TSDB_DATA_TYPE_UTINYINT,               ""},
-    {TSDB_DATA_TYPE_USMALLINT,              ""},
-    {TSDB_DATA_TYPE_UINT,                   ""},
-    {TSDB_DATA_TYPE_UBIGINT,                ""},
-  };
-
-  for (size_t i=0; i<sizeof(_maps)/sizeof(_maps[0]); ++i) {
-    if (col->type != _maps[i].tsdb_type) continue;
-    const char *suffix = _maps[i].suffix;
+  for (size_t i=0; i<sizeof(_col_bind_map)/sizeof(_col_bind_map[0]); ++i) {
+    if (col->type != _col_bind_map[i].tsdb_type) continue;
+    const char *suffix = _col_bind_map[i].suffix;
     int n = snprintf(CharacterAttributePtr, BufferLength, "%s", suffix);
     if (n < 0) {
       int e = errno;

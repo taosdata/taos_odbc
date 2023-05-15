@@ -231,10 +231,10 @@ macro(check_requirements)
   endif ()
 
   ## check `go`
-  tod_find_prog(GO 1.20 go "version" ".*go([0-9\.]+).*")
+  tod_find_prog(GO 1.17 go "version" ".*go([0-9\.]+).*")
   if (NOT HAVE_GO)
     message(STATUS "${Yellow}"
-                   "`go v1.20 or above` not found, "
+                   "`go v1.17 or above` not found, "
                    "thus go-related-test-cases would be eliminated, you may refer to https://go.dev/"
                    "${ColorReset}")
   endif ()

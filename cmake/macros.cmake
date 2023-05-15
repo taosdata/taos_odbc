@@ -22,6 +22,19 @@
 # SOFTWARE.
 ###############################################################################
 
+macro(tod_find_prog name version prog ver_arg ver_regex)
+  find_program(${name} NO_CACHE NAMES ${prog})
+  if (${name})
+    set(${name}_NAME ${prog})
+    execute_process(COMMAND ${prog} ${ver_arg} ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE ${name}_VERSION)
+    string(REGEX REPLACE ${ver_regex} "\\1" ${name}_VERSION_ONLY ${${name}_VERSION})
+    if (${${name}_VERSION_ONLY} VERSION_GREATER_EQUAL ${version})
+      set(HAVE_${name} ON)
+      message(STATUS "${Green}${${name}_VERSION} found:`${${name}}`, please be noted, ${prog} v${version} and above are expected compatible${ColorReset}")
+    endif ()
+  endif ()
+endmacro()
+
 macro(check_requirements)
   if(NOT WIN32)
     string(ASCII 27 Esc)
@@ -188,97 +201,86 @@ macro(check_requirements)
   endif()
 
   ## check `valgrind`
-  find_program(VALGRIND NAMES valgrind)
-  if(NOT VALGRIND)
-    message(STATUS "${Yellow}`valgrind` tool not found, thus valgrind-related-test-cases would be eliminated, you may refer to https://valgrind.org/${ColorReset}")
-  else()
-    set(HAVE_VALGRIND ON)
-  endif()
+  tod_find_prog(VALGRIND 3.18 valgrind "--version" "valgrind-(.*)")
+  if (NOT HAVE_VALGRIND)
+    message(STATUS "${Yellow}"
+                   "`valgrind 3.18 or above` not found, "
+                   "thus valgrind-related-test-cases would be eliminated, you may refer to https://valgrind.org/"
+                   "${ColorReset}")
+  endif ()
 
   ## check `node`
-  find_program(NODEJS NAMES node)
-  if(NOT NODEJS)
-    message(STATUS "${Yellow}`node` not found, thus nodejs-related-test-cases would be eliminated, you may refer to https://nodejs.org/${ColorReset}")
-  else()
-    set(HAVE_NODEJS ON)
-    execute_process(COMMAND node --version ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE NODEJS_VERSION)
-    message(STATUS "${Green}`node` found -- ${NODEJS_VERSION}, please be noted, nodejs v12 and above are expected compatible${ColorReset}")
-  endif()
+  tod_find_prog(NODEJS 12 node "--version" "v(.*)")
+  if (NOT HAVE_NODEJS)
+    message(STATUS "${Yellow}"
+                   "`node v12 or above` not found, "
+                   "thus node-related-test-cases would be eliminated, you may refer to https://nodejs.org/"
+                   "${ColorReset}")
+  endif ()
 
   ## check `python3`
-  set(PYTHON3_NAME python)
-  find_program(PYTHON3 NO_CACHE NAMES python)
-  if (NOT PYTHON3)
-    set(PYTHON3_NAME python3)
-    find_program(PYTHON3 NO_CACHE NAMES python3)
-  endif ()
-  if (NOT PYTHON3)
-    message(STATUS "${Yellow}neither `python3` nor `python` is found, thus python3-related-test-cases would be eliminated, you may refer to https://www.python.org/${ColorReset}")
-  else ()
-    execute_process(COMMAND ${PYTHON3_NAME} --version ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE PYTHON3_VERSION)
-    string(REPLACE "Python " "" PYTHON3_VERSION_ONLY ${PYTHON3_VERSION})
-    if (${PYTHON3_VERSION_ONLY} VERSION_LESS "3.10")
-      message(STATUS "${Yellow}`${PYTHON3_VERSION}` found -- please be noted, python v3.10 and above are expected compatible, thus python3-related-test-cases would be eliminated, you may refer to https://www.python.org/${ColorReset}")
-    else ()
-      set(HAVE_PYTHON3 ON)
-      message(STATUS "${Green}`python{3}` found -- ${PYTHON3_VERSION}, please be noted, python3 v3.10 and above are expected compatible${ColorReset}")
+  tod_find_prog(PYTHON3 3.10 python "--version" "Python (.*)")
+  if (NOT HAVE_PYTHON3)
+    tod_find_prog(PYTHON3 3.10 python3 "--version" "Python (.*)")
+    if (NOT HAVE_PYTHON3)
+      message(STATUS "${Yellow}"
+                     "`python 3.10 or above` not found, "
+                     "thus python3-related-test-cases would be eliminated, you may refer to https://www.python.org/"
+                     "${ColorReset}")
     endif ()
   endif ()
 
   ## check `go`
-  find_program(GO NAMES go)
-  if(NOT GO)
-    message(STATUS "${Yellow}`go` not found, thus go-related-test-cases would be eliminated, you may refer to https://go.dev/${ColorReset}")
-  else()
-    set(HAVE_GO ON)
-    execute_process(COMMAND go version ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE GO_VERSION)
-    message(STATUS "${Green}`go` found -- ${GO_VERSION}, please be noted, go v1.20 and above are expected compatible${ColorReset}")
-  endif()
+  tod_find_prog(GO 1.20 go "version" ".*go([0-9\.]+).*")
+  if (NOT HAVE_GO)
+    message(STATUS "${Yellow}"
+                   "`go v1.20 or above` not found, "
+                   "thus go-related-test-cases would be eliminated, you may refer to https://go.dev/"
+                   "${ColorReset}")
+  endif ()
 
   if(TRUE OR NOT TODBC_WINDOWS)
     ## NOTE: check http-proxy sort of issues
     ## check `rustc`
-    find_program(RUSTC NAMES rustc)
-    if(NOT RUSTC)
-      message(STATUS "${Yellow}`rustc` not found, thus rustc-related-test-cases would be eliminated, you may refer to https://rust-lang.org/${ColorReset}")
-    else()
-      set(HAVE_RUSTC ON)
-      execute_process(COMMAND rustc --version ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE RUSTC_VERSION)
-      message(STATUS "${Green}`rustc` found -- ${RUSTC_VERSION}, please be noted, rustc v1.63 and above are expected compatible${ColorReset}")
-    endif()
+    tod_find_prog(RUSTC 1.63 rustc "--version" "rustc ([0-9\.]+).*")
+    if (NOT HAVE_RUSTC)
+      message(STATUS "${Yellow}"
+                     "`rustc v1.63 or above` not found, "
+                     "thus rustc-related-test-cases would be eliminated, you may refer to https://rust-lang.org/"
+                     "${ColorReset}")
+    endif ()
 
     ## check `cargo`
-    find_program(CARGO NAMES cargo)
-    if(NOT CARGO)
-      message(STATUS "${Yellow}`cargo` not found, thus cargo-related-test-cases would be eliminated, you may refer to https://rust-lang.org/${ColorReset}")
-    else()
-      set(HAVE_CARGO ON)
-      execute_process(COMMAND cargo --version ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE CARGO_VERSION)
-      message(STATUS "${Green}`cargo` found -- ${CARGO_VERSION}, please be noted, cargo v1.63 and above are expected compatible${ColorReset}")
-    endif()
+    tod_find_prog(CARGO 1.63 cargo "--version" "cargo ([0-9\.]+).*")
+    if (NOT HAVE_CARGO)
+      message(STATUS "${Yellow}"
+                     "`cargo v1.63 or above` not found, "
+                     "thus cargo-related-test-cases would be eliminated, you may refer to https://rust-lang.org/"
+                     "${ColorReset}")
+    endif ()
   endif()
 
   ## check `mysql`
   if (ENABLE_MYSQL_TEST)
-    find_program(HAVE_MYSQL NAMES mysql)
-    if(NOT HAVE_MYSQL)
-      message(FATAL_ERROR "${Yellow}`mysql-related-test-cases` is requested, but `mysql` is not found, you may refer to https://www.mysql.com/${ColorReset}")
-    else()
-      execute_process(COMMAND mysql --version ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE MYSQL_VERSION)
-      message(STATUS "${Green}`mysql` found -- ${MYSQL_VERSION}, please be noted, mysql v8.0 and above are expected compatible${ColorReset}")
-    endif()
+    tod_find_prog(MYSQL 8.0.32 mysql "--version" "mysql[ ]+Ver[ ]+([0-9\.]+).*")
+    if (NOT HAVE_MYSQL)
+      message(STATUS "${Yellow}"
+                     "`mysql 8.0.32 or above` not found, "
+                     "thus mysql-related-test-cases would be eliminated, you may refer to https://www.mysql.com/"
+                     "${ColorReset}")
+    endif ()
   endif()
 
   ## check `sqlite3`
   if(ENABLE_SQLITE3_TEST)
-    find_program(HAVE_SQLITE3 NAMES sqlite3)
-    if(NOT HAVE_SQLITE3)
-      message(FATAL_ERROR "${Yellow}`sqlite3-related-test-cases` is requested, but `sqlite3` is not found, you may refer to https://www.sqlite.org/${ColorReset}")
-    else()
-      execute_process(COMMAND sqlite3 --version ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE SQLITE3_VERSION)
-      message(STATUS "${Green}`sqlite3` found -- ${SQLITE3_VERSION}, please be noted, sqlite3 v3.31 and above are expected compatible${ColorReset}")
-    endif()
-  endif()
+    tod_find_prog(SQLITE3 3.37 sqlite3 "--version" "([0-9\.]+).*")
+    if (NOT HAVE_SQLITE3)
+      message(STATUS "${Yellow}"
+                     "`sqlite3 3.37 or above` not found, "
+                     "thus sqlite3-related-test-cases would be eliminated, you may refer to https://www.sqlite.org/"
+                     "${ColorReset}")
+    endif ()
+  endif ()
 
 endmacro()
 

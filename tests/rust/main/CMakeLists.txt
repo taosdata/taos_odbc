@@ -25,22 +25,22 @@
 if(HAVE_CARGO)
   if(TODBC_WINDOWS)
     add_custom_target(rust_test_build ALL
-        COMMAND cargo build --manifest-path ${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml --target-dir ${CMAKE_CURRENT_BINARY_DIR})
+        COMMAND ${CARGO_NAME} build --manifest-path ${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml --target-dir ${CMAKE_CURRENT_BINARY_DIR})
 
     add_test(NAME rust_test
-        COMMAND cargo run --manifest-path ${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml --target-dir ${CMAKE_CURRENT_BINARY_DIR})
+        COMMAND ${CARGO_NAME} run --manifest-path ${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml --target-dir ${CMAKE_CURRENT_BINARY_DIR})
 
-    add_test(NAME cargo_test
-        COMMAND cargo test --manifest-path ${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml --target-dir ${CMAKE_CURRENT_BINARY_DIR})
+    add_test(NAME ${CARGO_NAME}_test
+        COMMAND ${CARGO_NAME} test --manifest-path ${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml --target-dir ${CMAKE_CURRENT_BINARY_DIR})
   else()
     add_custom_target(rust_test_build ALL
-        COMMAND env RUST_BACKTRACE=1 cargo build --manifest-path ${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml --target-dir ${CMAKE_CURRENT_BINARY_DIR})
+        COMMAND env RUST_BACKTRACE=1 ${CARGO_NAME} build --manifest-path ${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml --target-dir ${CMAKE_CURRENT_BINARY_DIR})
 
     add_test(NAME rust_test
-        COMMAND env RUST_BACKTRACE=1 cargo run --manifest-path ${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml --target-dir ${CMAKE_CURRENT_BINARY_DIR})
+        COMMAND env RUST_BACKTRACE=1 ${CARGO_NAME} run --manifest-path ${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml --target-dir ${CMAKE_CURRENT_BINARY_DIR})
 
-    add_test(NAME cargo_test
-        COMMAND env RUST_BACKTRACE=1 cargo test --manifest-path ${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml --target-dir ${CMAKE_CURRENT_BINARY_DIR})
+    add_test(NAME ${CARGO_NAME}_test
+        COMMAND env RUST_BACKTRACE=1 ${CARGO_NAME} test --manifest-path ${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml --target-dir ${CMAKE_CURRENT_BINARY_DIR})
   endif()
 
   if(HAVE_VALGRIND)

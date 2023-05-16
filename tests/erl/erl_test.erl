@@ -53,7 +53,7 @@ start() ->
   end,
 
   case odbc:sql_query(C,"select name, mark from foo.t") of
-    {selected,_,_} -> ok
+    {selected,["name","mark"],[{"name1", <<109,0,97,0,114,0,107,0,49,0>>},{"name2", <<109,0,97,0,114,0,107,0,50,0>>},{"name", <<109,0,97,0,114,0,107,0>>}]} -> ok
   end,
 
   ok.

@@ -176,6 +176,7 @@ static void _init_temp(void)
   snprintf(_temp_file, sizeof(_temp_file), "%s/taos_odbc.log", temp);
   _system_logger.logger    = logger_to_temp;
   _system_logger.temp.file = fopen(_temp_file, "a");
+  setvbuf(_system_logger.temp.file, NULL, _IOLBF, 0);
 }
 
 #ifdef _WIN32              /* { */

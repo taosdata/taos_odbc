@@ -22,31 +22,17 @@
 # SOFTWARE.
 ###############################################################################
 
-configure_file(test_config.h.in ${CMAKE_CURRENT_BINARY_DIR}/test_config.h)
+if(HAVE_ERLANG)
+  configure_file(
+      "${CMAKE_CURRENT_SOURCE_DIR}/erl_test.erl"
+      "${CMAKE_CURRENT_BINARY_DIR}/erl_test.erl"
+      @ONLY)
 
-list(APPEND test_helper_SOURCES
-    test_helper.c)
+  add_custom_target(erl_test ALL
+      COMMAND erlc ${CMAKE_CURRENT_BINARY_DIR}/erl_test.erl)
 
-add_library(test_helper_obj OBJECT ${test_helper_SOURCES})
-if(TODBC_WINDOWS)
-    add_dependencies(test_helper_obj ex_iconv ex_cjson)
-endif()
-set_property(TARGET test_helper_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
-target_include_directories(test_helper_obj PRIVATE
-    ${CMAKE_CURRENT_BINARY_DIR} ${CJSON_INSTALL_PATH}/include)
-
-if (TODBC_WINDOWS)
-    add_subdirectory(cs)
-endif ()
-
-add_subdirectory(c)
-add_subdirectory(cpp)
-if(NOT USE_SAN)
-  add_subdirectory(node)
-  add_subdirectory(rust)
-  add_subdirectory(python)
-  add_subdirectory(go)
-  add_subdirectory(erl)
+  add_test(NAME erl_test
+      COMMAND ${ERLANG_NAME} -noshell -s erl_test start -s init stop)
 endif()
 
-add_subdirectory(taos)
+

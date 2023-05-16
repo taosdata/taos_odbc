@@ -22,11 +22,15 @@
 # SOFTWARE.
 ###############################################################################
 
-macro(tod_find_prog name version prog ver_arg ver_regex)
+macro(tod_find_prog name version prog ver_arg ver_regex var_type)
   find_program(${name} NO_CACHE NAMES ${prog})
   if (${name})
     set(${name}_NAME ${prog})
-    execute_process(COMMAND ${prog} ${ver_arg} ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE ${name}_VERSION)
+    if ("${var_type}" STREQUAL "OUTPUT_VARIABLE")
+      execute_process(COMMAND ${prog} ${ver_arg} ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE ${name}_VERSION)
+    else ()
+      execute_process(COMMAND ${prog} ${ver_arg} OUTPUT_QUIET ERROR_STRIP_TRAILING_WHITESPACE ERROR_VARIABLE ${name}_VERSION)
+    endif ()
     string(REGEX REPLACE ${ver_regex} "\\1" ${name}_VERSION_ONLY ${${name}_VERSION})
     if (${${name}_VERSION_ONLY} VERSION_GREATER_EQUAL ${version})
       set(HAVE_${name} ON)
@@ -201,7 +205,7 @@ macro(check_requirements)
   endif()
 
   ## check `valgrind`
-  tod_find_prog(VALGRIND 3.18 valgrind "--version" "valgrind-(.*)")
+  tod_find_prog(VALGRIND 3.18 valgrind "--version" "valgrind-(.*)" OUTPUT_VARIABLE)
   if (NOT HAVE_VALGRIND)
     message(STATUS "${Yellow}"
                    "`valgrind 3.18 or above` not found, "
@@ -210,7 +214,7 @@ macro(check_requirements)
   endif ()
 
   ## check `node`
-  tod_find_prog(NODEJS 12 node "--version" "v(.*)")
+  tod_find_prog(NODEJS 12 node "--version" "v(.*)" OUTPUT_VARIABLE)
   if (NOT HAVE_NODEJS)
     message(STATUS "${Yellow}"
                    "`node v12 or above` not found, "
@@ -219,9 +223,9 @@ macro(check_requirements)
   endif ()
 
   ## check `python3`
-  tod_find_prog(PYTHON3 3.10 python "--version" "Python (.*)")
+  tod_find_prog(PYTHON3 3.10 python "--version" "Python (.*)" OUTPUT_VARIABLE)
   if (NOT HAVE_PYTHON3)
-    tod_find_prog(PYTHON3 3.10 python3 "--version" "Python (.*)")
+    tod_find_prog(PYTHON3 3.10 python3 "--version" "Python (.*)" OUTPUT_VARIABLE)
     if (NOT HAVE_PYTHON3)
       message(STATUS "${Yellow}"
                      "`python 3.10 or above` not found, "
@@ -231,7 +235,7 @@ macro(check_requirements)
   endif ()
 
   ## check `go`
-  tod_find_prog(GO 1.17 go "version" ".*go([0-9\.]+).*")
+  tod_find_prog(GO 1.17 go "version" ".*go([0-9\.]+).*" OUTPUT_VARIABLE)
   if (NOT HAVE_GO)
     message(STATUS "${Yellow}"
                    "`go v1.17 or above` not found, "
@@ -239,30 +243,37 @@ macro(check_requirements)
                    "${ColorReset}")
   endif ()
 
-  if(TRUE OR NOT TODBC_WINDOWS)
-    ## NOTE: check http-proxy sort of issues
-    ## check `rustc`
-    tod_find_prog(RUSTC 1.63 rustc "--version" "rustc ([0-9\.]+).*")
-    if (NOT HAVE_RUSTC)
-      message(STATUS "${Yellow}"
-                     "`rustc v1.63 or above` not found, "
-                     "thus rustc-related-test-cases would be eliminated, you may refer to https://rust-lang.org/"
-                     "${ColorReset}")
-    endif ()
+  ## NOTE: check http-proxy sort of issues
+  ## check `rustc`
+  tod_find_prog(RUSTC 1.63 rustc "--version" "rustc ([0-9\.]+).*" OUTPUT_VARIABLE)
+  if (NOT HAVE_RUSTC)
+    message(STATUS "${Yellow}"
+                   "`rustc v1.63 or above` not found, "
+                   "thus rustc-related-test-cases would be eliminated, you may refer to https://rust-lang.org/"
+                   "${ColorReset}")
+  endif ()
 
-    ## check `cargo`
-    tod_find_prog(CARGO 1.63 cargo "--version" "cargo ([0-9\.]+).*")
-    if (NOT HAVE_CARGO)
-      message(STATUS "${Yellow}"
-                     "`cargo v1.63 or above` not found, "
-                     "thus cargo-related-test-cases would be eliminated, you may refer to https://rust-lang.org/"
-                     "${ColorReset}")
-    endif ()
-  endif()
+  ## check `cargo`
+  tod_find_prog(CARGO 1.63 cargo "--version" "cargo ([0-9\.]+).*" OUTPUT_VARIABLE)
+  if (NOT HAVE_CARGO)
+    message(STATUS "${Yellow}"
+                   "`cargo v1.63 or above` not found, "
+                   "thus cargo-related-test-cases would be eliminated, you may refer to https://rust-lang.org/"
+                   "${ColorReset}")
+  endif ()
+
+  ## check `erlang`
+  tod_find_prog(ERLANG 12.2 erl "-version" ".* ([0-9\.]+).*" ERROR_VARIABLE)
+  if (NOT HAVE_ERLANG)
+    message(STATUS "${Yellow}"
+                   "`erlang v12.2 or above` not found, "
+                   "thus erlang-related-test-cases would be eliminated, you may refer to https://erlang.org/"
+                   "${ColorReset}")
+  endif ()
 
   ## check `mysql`
   if (ENABLE_MYSQL_TEST)
-    tod_find_prog(MYSQL 8.0.32 mysql "--version" "mysql[ ]+Ver[ ]+([0-9\.]+).*")
+    tod_find_prog(MYSQL 8.0.32 mysql "--version" "mysql[ ]+Ver[ ]+([0-9\.]+).*" OUTPUT_VARIABLE)
     if (NOT HAVE_MYSQL)
       message(STATUS "${Yellow}"
                      "`mysql 8.0.32 or above` not found, "
@@ -273,7 +284,7 @@ macro(check_requirements)
 
   ## check `sqlite3`
   if(ENABLE_SQLITE3_TEST)
-    tod_find_prog(SQLITE3 3.37 sqlite3 "--version" "([0-9\.]+).*")
+    tod_find_prog(SQLITE3 3.37 sqlite3 "--version" "([0-9\.]+).*" OUTPUT_VARIABLE)
     if (NOT HAVE_SQLITE3)
       message(STATUS "${Yellow}"
                      "`sqlite3 3.37 or above` not found, "

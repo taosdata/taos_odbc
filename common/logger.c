@@ -164,67 +164,73 @@ static void logger_to_syslog(const char *log)
 }
 #endif                     /* } */
 
+static void _init_stderr(void)
+{
+}
+
+static void _init_temp(void)
+{
+  const char *temp = getenv("TEMP");
+  if (!temp) temp = DEFAULT_TEMP_PATH;
+  char _temp_file[TEMP_MAX_PATH+1];
+  snprintf(_temp_file, sizeof(_temp_file), "%s/taos_odbc.log", temp);
+  _system_logger.logger    = logger_to_temp;
+  _system_logger.temp.file = fopen(_temp_file, "a");
+}
+
+#ifdef _WIN32              /* { */
+static void _init_event(void)
+{
+  _system_logger.logger   = logger_to_event;
+}
+#elif defined(__APPLE__)   /* }{ */
+#else                      /* }{ */
+static void _init_syslog(void)
+{
+  _system_logger.logger   = logger_to_syslog;
+}
+#endif                     /* } */
+
 static void _init_system_logger(void)
 {
+  struct {
+    const char *name;
+    void  (*init)(void);
+  } cfgs[] = {
+    { "stderr", _init_stderr },
+    { "temp",   _init_temp },
+#ifdef _WIN32              /* { */
+    { "event",  _init_event },
+#elif defined(__APPLE__)   /* }{ */
+#else                      /* }{ */
+    { "syslog", _init_syslog },
+#endif                     /* } */
+  };
+  size_t nr_cfgs = sizeof(cfgs)/sizeof(cfgs[0]);
+
   const char *env = getenv("TAOS_ODBC_LOGGER");
   if (!env) {
-#ifdef _WIN32              /* { */
-    fprintf(stderr,
-        "environment variable `TAOS_ODBC_LOGGER` could be set as `stderr/temp/event`, but not set. system logger level fall back to `stderr`\n");
-    return;
-#elif defined(__APPLE__)   /* }{ */
-    fprintf(stderr,
-        "environment variable `TAOS_ODBC_LOGGER` could be set as `stderr/temp`, but not set. system logger level fall back to `stderr`\n");
-    return;
-#else                      /* }{ */
-    fprintf(stderr,
-        "environment variable `TAOS_ODBC_LOGGER` could be set as `stderr/temp/syslog`, but not set. system logger level fall back to `stderr`\n");
-    return;
-#endif                     /* } */
-  }
-
-  if (0 == tod_strcasecmp(env, "stderr")) {
+    fprintf(stderr, "environment variable `TAOS_ODBC_LOGGER` could be set as `");
+    for (size_t i=0; i<nr_cfgs; ++i) {
+      if (i) fprintf(stderr, "/%s", cfgs[i].name);
+      else   fprintf(stderr, "%s", cfgs[i].name);
+    }
+    fprintf(stderr, "`, but not set. system logger level fall back to `stderr`\n");
     return;
   }
 
-  if (0 == tod_strcasecmp(env, "temp")) {
-    const char *temp = getenv("TEMP");
-    if (!temp) temp = DEFAULT_TEMP_PATH;
-    char _temp_file[TEMP_MAX_PATH+1];
-    snprintf(_temp_file, sizeof(_temp_file), "%s/taos_odbc.log", temp);
-    _system_logger.logger    = logger_to_temp;
-    _system_logger.temp.file = fopen(_temp_file, "a");
+  for (size_t i=0; i<nr_cfgs; ++i) {
+    if (tod_strcasecmp(env, cfgs[i].name)) continue;
+    cfgs[i].init();
     return;
   }
 
-#ifdef _WIN32              /* { */
-  if (0 && 0 == tod_strcasecmp(env, "event")) {
-    _system_logger.logger   = logger_to_event;
-    return;
+  fprintf(stderr, "environment variable `TAOS_ODBC_LOGGER` could be set as `");
+  for (size_t i=0; i<nr_cfgs; ++i) {
+    if (i) fprintf(stderr, "/%s", cfgs[i].name);
+    else   fprintf(stderr, "%s", cfgs[i].name);
   }
-#elif !defined(__APPLE__)  /* }{ */
-  if (0 == tod_strcasecmp(env, "syslog")) {
-    _system_logger.logger   = logger_to_syslog;
-    return;
-  }
-#endif                     /* } */
-
-#ifdef _WIN32              /* { */
-    fprintf(stderr,
-        "environment variable `TAOS_ODBC_LOGGER` could be set as `stderr/temp`, but got `%s`. system logger level fall back to `stderr`\n",
-        env);
-    return;
-#elif defined(__APPLE__)   /* }{ */
-    fprintf(stderr,
-        "environment variable `TAOS_ODBC_LOGGER` could be set as `stderr/temp`, but got `%s`. system logger level fall back to `stderr`\n",
-        env);
-    return;
-#else                      /* }{ */
-    fprintf(stderr,
-        "environment variable `TAOS_ODBC_LOGGER` could be set as `stderr/temp/syslog`, but got `%s`. system logger level fall back to `stderr`\n",
-        env);
-    return;
-#endif                     /* } */
+  fprintf(stderr, "`, but got `%s`. system logger level fall back to `stderr`\n", env);
   return;
 }
 

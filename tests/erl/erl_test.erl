@@ -45,5 +45,16 @@ start() ->
      {selected,["name","mark"],[{"name",<<109,0,97,0,114,0,107,0>>}]}] -> ok
   end,
 
+  case odbc:param_query(C, "insert into foo.t (ts, name, mark) values (?,?,?)",
+                [{{sql_varchar,40}, ["2023-05-16 03:04:05.012", "2023-05-16 03:04:05.121"]},
+                 {{sql_varchar,40}, ["name1", "name2"]},
+                 {{sql_varchar,40}, ["mark1", "mark2"]}]) of
+    {updated,0} -> ok        % FIXME: flaw in taosc?
+  end,
+
+  case odbc:sql_query(C,"select name, mark from foo.t") of
+    {selected,_,_} -> ok
+  end,
+
   ok.
 

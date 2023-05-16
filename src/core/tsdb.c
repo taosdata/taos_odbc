@@ -321,6 +321,8 @@ static SQLRETURN _stmt_post_query(tsdb_stmt_t *stmt)
     if (fields->nr > 0) {
       fields->fields = CALL_taos_fetch_fields(res->res);
     }
+  } else {
+    if (0) res->affected_row_count = CALL_taos_stmt_affected_rows(stmt->owner);
   }
 
   return SQL_SUCCESS;

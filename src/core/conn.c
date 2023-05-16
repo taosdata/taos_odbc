@@ -1115,6 +1115,14 @@ SQLRETURN conn_get_info(
     case SQL_BATCH_SUPPORT:
       *(SQLUINTEGER*)InfoValuePtr = (SQL_BS_SELECT_EXPLICIT | SQL_BS_ROW_COUNT_EXPLICIT);
       break;
+    case SQL_DYNAMIC_CURSOR_ATTRIBUTES1:
+      // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetinfo-function?view=sql-server-ver16
+      *(SQLUINTEGER*)InfoValuePtr = SQL_CA1_NEXT | SQL_CA1_ABSOLUTE | SQL_CA1_RELATIVE;
+      break;
+    case SQL_DYNAMIC_CURSOR_ATTRIBUTES2:
+      // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetinfo-function?view=sql-server-ver16
+      *(SQLUINTEGER*)InfoValuePtr = SQL_CA2_READ_ONLY_CONCURRENCY;
+      break;
     default:
       conn_append_err_format(conn, "HY000", 0, "General error:`%s[%d/0x%x]` not implemented yet", sql_info_type(InfoType), InfoType, InfoType);
       return SQL_ERROR;

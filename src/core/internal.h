@@ -197,6 +197,7 @@ struct sql_data_s {
   size_t         cur;
 
   uint8_t               is_null:1;
+  uint8_t               unsigned_:1;
 };
 
 struct env_s {
@@ -723,6 +724,7 @@ struct param_state_s {
 
   mem_t                      sqlc_to_sql;
   mem_t                      sql_to_tsdb;
+  mem_t                      tmp;
 
   uint8_t                    is_subtbl:1;
 };

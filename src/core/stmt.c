@@ -228,6 +228,7 @@ static void _param_state_reset(param_state_t *param_state)
   if (!param_state) return;
   mem_reset(&param_state->sqlc_to_sql);
   mem_reset(&param_state->sql_to_tsdb);
+  mem_reset(&param_state->tmp);
   _sqlc_data_reset(&param_state->sqlc_data);
   _sql_data_reset(&param_state->sql_data);
 
@@ -253,6 +254,7 @@ static void _param_state_release(param_state_t *param_state)
   _param_state_reset(param_state);
   mem_release(&param_state->sqlc_to_sql);
   mem_release(&param_state->sql_to_tsdb);
+  mem_release(&param_state->tmp);
   _sqlc_data_release(&param_state->sqlc_data);
   _sql_data_release(&param_state->sql_data);
 }
@@ -3109,7 +3111,7 @@ static SQLRETURN _stmt_param_copy_to_sql_timestamp(stmt_t *stmt, const char *src
 
   sql_data_t    *data       = &param_state->sql_data;
 
-  data->type = SQL_TIMESTAMP;
+  data->type = SQL_TYPE_TIMESTAMP;
 
   const char *p;
   const char *format = "%Y-%m-%d %H:%M:%S";
@@ -3164,17 +3166,10 @@ static SQLRETURN _stmt_param_copy_to_sql_timestamp(stmt_t *stmt, const char *src
 
 static SQLRETURN _stmt_param_check_sqlc_sbigint_sql_timestamp(stmt_t *stmt, param_state_t *param_state)
 {
-  SQLRETURN sr = SQL_SUCCESS;
-
   char buf[128];
   snprintf(buf, sizeof(buf), "%" PRId64 "", param_state->sqlc_data.i64);
 
-  sr = _stmt_param_copy_to_sql_timestamp(stmt, buf, strlen(buf), param_state);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
-
-  param_state->sql_data.type = SQL_TYPE_TIMESTAMP;
-
-  return SQL_SUCCESS;
+  return _stmt_param_copy_to_sql_timestamp(stmt, buf, strlen(buf), param_state);
 }
 
 static SQLRETURN _stmt_param_check_sqlc_sbigint_sql_bigint(stmt_t *stmt, param_state_t *param_state)
@@ -3326,15 +3321,251 @@ static SQLRETURN _stmt_param_check_sqlc_char_sql_wvarchar(stmt_t *stmt, param_st
 
 static SQLRETURN _stmt_param_check_sqlc_char_sql_timestamp(stmt_t *stmt, param_state_t *param_state)
 {
-  SQLRETURN sr = SQL_SUCCESS;
+  const char *s = param_state->sqlc_data.str.str;
+  size_t      n = param_state->sqlc_data.str.len;
+
+  return _stmt_param_copy_to_sql_timestamp(stmt, s, n, param_state);
+}
+
+static SQLRETURN _stmt_param_check_sqlc_char_sql_bigint(stmt_t *stmt, param_state_t *param_state)
+{
+  int r = 0;
 
   const char *s = param_state->sqlc_data.str.str;
   size_t      n = param_state->sqlc_data.str.len;
 
-  sr = _stmt_param_copy_to_sql_timestamp(stmt, s, n, param_state);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
+  mem_t *mem = &param_state->tmp;
 
-  param_state->sql_data.type = SQL_TYPE_TIMESTAMP;
+  r = mem_copy_str(mem, s, n);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+
+  char *end = NULL;
+  long long ll = strtoll((const char*)mem->base, &end, 0);
+  int e = errno;
+  if (end) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:conversion from `%s` to `SQL_BIGINT` failed:invalid character[0x%02x]",
+        (const char*)mem->base, *end);
+    return SQL_ERROR;
+  }
+  if (e == ERANGE) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:conversion from `%s` to `SQL_BIGINT` failed:overflow or underflow occurs",
+        (const char*)mem->base);
+    return SQL_ERROR;
+  }
+
+  param_state->sql_data.type = SQL_BIGINT;
+  param_state->sql_data.i64  = ll;
+  param_state->sql_data.unsigned_ = 0;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_param_check_sqlc_char_sql_integer(stmt_t *stmt, param_state_t *param_state)
+{
+  int r = 0;
+
+  const char *s = param_state->sqlc_data.str.str;
+  size_t      n = param_state->sqlc_data.str.len;
+
+  mem_t *mem = &param_state->tmp;
+
+  r = mem_copy_str(mem, s, n);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+
+  char *end = NULL;
+  long long ll = strtoll((const char*)mem->base, &end, 0);
+  int e = errno;
+  if (end) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:conversion from `%s` to `SQL_INTEGER` failed:invalid character[0x%02x]",
+        (const char*)mem->base, *end);
+    return SQL_ERROR;
+  }
+  if (e == ERANGE) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:conversion from `%s` to `SQL_INTEGER` failed:overflow or underflow occurs",
+        (const char*)mem->base);
+    return SQL_ERROR;
+  }
+
+  if (ll > UINT_MAX) {
+    stmt_append_err_format(stmt, "22003", 0,
+        "Numeric value out of range:conversion from `%s` to `SQL_INTEGER` failed",
+        (const char*)mem->base);
+    return SQL_ERROR;
+  }
+  if (ll < INT_MIN) {
+    stmt_append_err_format(stmt, "22003", 0,
+        "Numeric value out of range:conversion from `%s` to `SQL_INTEGER` failed",
+        (const char*)mem->base);
+    return SQL_ERROR;
+  }
+
+  param_state->sql_data.type = SQL_INTEGER;
+  if (ll > INT_MAX) {
+    param_state->sql_data.u32  = (uint32_t)ll;
+    param_state->sql_data.unsigned_ = 1;
+  } else {
+    param_state->sql_data.i32  = (int32_t)ll;
+    param_state->sql_data.unsigned_ = 0;
+  }
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_param_check_sqlc_char_sql_smallint(stmt_t *stmt, param_state_t *param_state)
+{
+  int r = 0;
+
+  const char *s = param_state->sqlc_data.str.str;
+  size_t      n = param_state->sqlc_data.str.len;
+
+  mem_t *mem = &param_state->tmp;
+
+  r = mem_copy_str(mem, s, n);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+
+  char *end = NULL;
+  long long ll = strtoll((const char*)mem->base, &end, 0);
+  int e = errno;
+  if (end) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:conversion from `%s` to `SQL_SMALLINT` failed:invalid character[0x%02x]",
+        (const char*)mem->base, *end);
+    return SQL_ERROR;
+  }
+  if (e == ERANGE) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:conversion from `%s` to `SQL_SMALLINT` failed:overflow or underflow occurs",
+        (const char*)mem->base);
+    return SQL_ERROR;
+  }
+
+  if (ll > UINT16_MAX) {
+    stmt_append_err_format(stmt, "22003", 0,
+        "Numeric value out of range:conversion from `%s` to `SQL_SMALLINT` failed",
+        (const char*)mem->base);
+    return SQL_ERROR;
+  }
+  if (ll < INT16_MIN) {
+    stmt_append_err_format(stmt, "22003", 0,
+        "Numeric value out of range:conversion from `%s` to `SQL_SMALLINT` failed",
+        (const char*)mem->base);
+    return SQL_ERROR;
+  }
+
+  param_state->sql_data.type = SQL_SMALLINT;
+  if (ll > INT16_MAX) {
+    param_state->sql_data.u16  = (uint16_t)ll;
+    param_state->sql_data.unsigned_ = 1;
+  } else {
+    param_state->sql_data.i16  = (int16_t)ll;
+    param_state->sql_data.unsigned_ = 0;
+  }
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_param_check_sqlc_char_sql_tinyint(stmt_t *stmt, param_state_t *param_state)
+{
+  int r = 0;
+
+  const char *s = param_state->sqlc_data.str.str;
+  size_t      n = param_state->sqlc_data.str.len;
+
+  mem_t *mem = &param_state->tmp;
+
+  r = mem_copy_str(mem, s, n);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+
+  char *end = NULL;
+  long long ll = strtoll((const char*)mem->base, &end, 0);
+  int e = errno;
+  if (end) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:conversion from `%s` to `SQL_TINYINT` failed:invalid character[0x%02x]",
+        (const char*)mem->base, *end);
+    return SQL_ERROR;
+  }
+  if (e == ERANGE) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:conversion from `%s` to `SQL_TINYINT` failed:overflow or underflow occurs",
+        (const char*)mem->base);
+    return SQL_ERROR;
+  }
+
+  if (ll > UINT8_MAX) {
+    stmt_append_err_format(stmt, "22003", 0,
+        "Numeric value out of range:conversion from `%s` to `SQL_TINYINT` failed",
+        (const char*)mem->base);
+    return SQL_ERROR;
+  }
+  if (ll < INT8_MIN) {
+    stmt_append_err_format(stmt, "22003", 0,
+        "Numeric value out of range:conversion from `%s` to `SQL_TINYINT` failed",
+        (const char*)mem->base);
+    return SQL_ERROR;
+  }
+
+  param_state->sql_data.type = SQL_TINYINT;
+  if (ll > INT8_MAX) {
+    param_state->sql_data.u8  = (uint8_t)ll;
+    param_state->sql_data.unsigned_ = 1;
+  } else {
+    param_state->sql_data.i8  = (int8_t)ll;
+    param_state->sql_data.unsigned_ = 0;
+  }
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_param_check_sqlc_char_sql_bit(stmt_t *stmt, param_state_t *param_state)
+{
+  int r = 0;
+
+  const char *s = param_state->sqlc_data.str.str;
+  size_t      n = param_state->sqlc_data.str.len;
+
+  mem_t *mem = &param_state->tmp;
+
+  r = mem_copy_str(mem, s, n);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+
+  char *end = NULL;
+  long long ll = strtoll((const char*)mem->base, &end, 0);
+  int e = errno;
+  if (end) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:conversion from `%s` to `SQL_BIT` failed:invalid character[0x%02x]",
+        (const char*)mem->base, *end);
+    return SQL_ERROR;
+  }
+  if (e == ERANGE) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:conversion from `%s` to `SQL_BIT` failed:overflow or underflow occurs",
+        (const char*)mem->base);
+    return SQL_ERROR;
+  }
+
+  param_state->sql_data.type = SQL_BIT;
+  param_state->sql_data.b  = !!ll;
 
   return SQL_SUCCESS;
 }
@@ -3427,6 +3658,29 @@ static SQLRETURN _stmt_param_check_sqlc_wchar_sql_varchar(stmt_t *stmt, param_st
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_param_check_sqlc_wchar_sql_timestamp(stmt_t *stmt, param_state_t *param_state)
+{
+  int r = 0;
+
+  const char *wstr = param_state->sqlc_data.wstr.wstr;
+  size_t      wlen = param_state->sqlc_data.wstr.wlen;
+
+  const char *fromcode = "UCS-2LE";
+  const char *tocode   = "UTF-8";
+
+  mem_t *mem = &param_state->tmp;
+  r = mem_iconv(mem, fromcode, tocode, wstr, wlen*2);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+
+  const char *s = (const char*)mem->base;
+  size_t      n = mem->nr;
+
+  return _stmt_param_copy_to_sql_timestamp(stmt, s, n, param_state);
 }
 
 static SQLRETURN _stmt_param_check_sqlc_slong_sql_integer(stmt_t *stmt, param_state_t *param_state)
@@ -3991,48 +4245,80 @@ static sqlc_sql_map_t          _sqlc_sql_map[] = {
     _stmt_param_get_sqlc_char,
     _stmt_param_check_sqlc_char_sql_varchar,
     _stmt_param_guess_sqlc_char},
-  {SQL_C_SBIGINT, SQL_TYPE_TIMESTAMP,
-    _stmt_param_bind_set_APD_record_sqlc_sbigint,
-    _stmt_param_bind_set_IPD_record_sql_timestamp,
-    _stmt_param_get_sqlc_sbigint,
-    _stmt_param_check_sqlc_sbigint_sql_timestamp,
-    _stmt_param_guess_sqlc_sbigint},
   {SQL_C_CHAR, SQL_WVARCHAR,
     _stmt_param_bind_set_APD_record_sqlc_char,
     _stmt_param_bind_set_IPD_record_sql_wvarchar,
     _stmt_param_get_sqlc_char,
     _stmt_param_check_sqlc_char_sql_wvarchar,
     _stmt_param_guess_sqlc_char},
-  {SQL_C_SBIGINT, SQL_BIGINT,
-    _stmt_param_bind_set_APD_record_sqlc_sbigint,
-    _stmt_param_bind_set_IPD_record_sql_bigint,
-    _stmt_param_get_sqlc_sbigint,
-    _stmt_param_check_sqlc_sbigint_sql_bigint,
-    _stmt_param_guess_sqlc_sbigint},
-  {SQL_C_DOUBLE, SQL_TYPE_TIMESTAMP,
-    _stmt_param_bind_set_APD_record_sqlc_double,
-    _stmt_param_bind_set_IPD_record_sql_timestamp,
-    _stmt_param_get_sqlc_double,
-    _stmt_param_check_sqlc_double_sql_timestamp,
-    _stmt_param_guess_sqlc_double},
   {SQL_C_CHAR, SQL_TYPE_TIMESTAMP,
     _stmt_param_bind_set_APD_record_sqlc_char,
     _stmt_param_bind_set_IPD_record_sql_timestamp,
     _stmt_param_get_sqlc_char,
     _stmt_param_check_sqlc_char_sql_timestamp,
     _stmt_param_guess_sqlc_char},
-  {SQL_C_SLONG, SQL_INTEGER,
-    _stmt_param_bind_set_APD_record_sqlc_slong,
-    _stmt_param_bind_set_IPD_record_sql_integer,
-    _stmt_param_get_sqlc_slong,
-    _stmt_param_check_sqlc_slong_sql_integer,
-    _stmt_param_guess_sqlc_slong},
-  {SQL_C_DOUBLE, SQL_DOUBLE,
-    _stmt_param_bind_set_APD_record_sqlc_double,
-    _stmt_param_bind_set_IPD_record_sql_double,
-    _stmt_param_get_sqlc_double,
-    _stmt_param_check_sqlc_double_sql_double,
-    _stmt_param_guess_sqlc_double},
+  {SQL_C_CHAR, SQL_BIGINT,
+    _stmt_param_bind_set_APD_record_sqlc_char,
+    _stmt_param_bind_set_IPD_record_sql_bigint,
+    _stmt_param_get_sqlc_char,
+    _stmt_param_check_sqlc_char_sql_bigint,
+    _stmt_param_guess_sqlc_char},
+  {SQL_C_CHAR, SQL_INTEGER,
+    _stmt_param_bind_set_APD_record_sqlc_char,
+    _stmt_param_bind_set_IPD_record_sql_bigint,
+    _stmt_param_get_sqlc_char,
+    _stmt_param_check_sqlc_char_sql_integer,
+    _stmt_param_guess_sqlc_char},
+  {SQL_C_CHAR, SQL_SMALLINT,
+    _stmt_param_bind_set_APD_record_sqlc_char,
+    _stmt_param_bind_set_IPD_record_sql_bigint,
+    _stmt_param_get_sqlc_char,
+    _stmt_param_check_sqlc_char_sql_smallint,
+    _stmt_param_guess_sqlc_char},
+  {SQL_C_CHAR, SQL_TINYINT,
+    _stmt_param_bind_set_APD_record_sqlc_char,
+    _stmt_param_bind_set_IPD_record_sql_bigint,
+    _stmt_param_get_sqlc_char,
+    _stmt_param_check_sqlc_char_sql_tinyint,
+    _stmt_param_guess_sqlc_char},
+  {SQL_C_CHAR, SQL_BIT,
+    _stmt_param_bind_set_APD_record_sqlc_char,
+    _stmt_param_bind_set_IPD_record_sql_bigint,
+    _stmt_param_get_sqlc_char,
+    _stmt_param_check_sqlc_char_sql_bit,
+    _stmt_param_guess_sqlc_char},
+
+  {SQL_C_WCHAR, SQL_WVARCHAR,
+    _stmt_param_bind_set_APD_record_sqlc_wchar,
+    _stmt_param_bind_set_IPD_record_sql_wvarchar,
+    _stmt_param_get_sqlc_wchar,
+    _stmt_param_check_sqlc_wchar_sql_wvarchar,
+    _stmt_param_guess_sqlc_wchar},
+  {SQL_C_WCHAR, SQL_VARCHAR,
+    _stmt_param_bind_set_APD_record_sqlc_wchar,
+    _stmt_param_bind_set_IPD_record_sql_varchar,
+    _stmt_param_get_sqlc_wchar,
+    _stmt_param_check_sqlc_wchar_sql_varchar,
+    _stmt_param_guess_sqlc_wchar},
+  {SQL_C_WCHAR, SQL_TYPE_TIMESTAMP,
+    _stmt_param_bind_set_APD_record_sqlc_wchar,
+    _stmt_param_bind_set_IPD_record_sql_timestamp,
+    _stmt_param_get_sqlc_wchar,
+    _stmt_param_check_sqlc_wchar_sql_timestamp,
+    _stmt_param_guess_sqlc_wchar},
+
+  {SQL_C_SBIGINT, SQL_TYPE_TIMESTAMP,
+    _stmt_param_bind_set_APD_record_sqlc_sbigint,
+    _stmt_param_bind_set_IPD_record_sql_timestamp,
+    _stmt_param_get_sqlc_sbigint,
+    _stmt_param_check_sqlc_sbigint_sql_timestamp,
+    _stmt_param_guess_sqlc_sbigint},
+  {SQL_C_SBIGINT, SQL_BIGINT,
+    _stmt_param_bind_set_APD_record_sqlc_sbigint,
+    _stmt_param_bind_set_IPD_record_sql_bigint,
+    _stmt_param_get_sqlc_sbigint,
+    _stmt_param_check_sqlc_sbigint_sql_bigint,
+    _stmt_param_guess_sqlc_sbigint},
   {SQL_C_SBIGINT, SQL_INTEGER,
     _stmt_param_bind_set_APD_record_sqlc_sbigint,
     _stmt_param_bind_set_IPD_record_sql_integer,
@@ -4045,18 +4331,6 @@ static sqlc_sql_map_t          _sqlc_sql_map[] = {
     _stmt_param_get_sqlc_sbigint,
     _stmt_param_check_sqlc_sbigint_sql_varchar,
     _stmt_param_guess_sqlc_sbigint},
-  {SQL_C_DOUBLE, SQL_VARCHAR,
-    _stmt_param_bind_set_APD_record_sqlc_double,
-    _stmt_param_bind_set_IPD_record_sql_varchar,
-    _stmt_param_get_sqlc_double,
-    _stmt_param_check_sqlc_double_sql_varchar,
-    _stmt_param_guess_sqlc_double},
-  {SQL_C_DOUBLE, SQL_REAL,
-    _stmt_param_bind_set_APD_record_sqlc_double,
-    _stmt_param_bind_set_IPD_record_sql_real,
-    _stmt_param_get_sqlc_double,
-    _stmt_param_check_sqlc_double_sql_real,
-    _stmt_param_guess_sqlc_double},
   {SQL_C_SBIGINT, SQL_SMALLINT,
     _stmt_param_bind_set_APD_record_sqlc_sbigint,
     _stmt_param_bind_set_IPD_record_sql_smallint,
@@ -4069,24 +4343,44 @@ static sqlc_sql_map_t          _sqlc_sql_map[] = {
     _stmt_param_get_sqlc_sbigint,
     _stmt_param_check_sqlc_sbigint_sql_tinyint,
     _stmt_param_guess_sqlc_sbigint},
-  {SQL_C_WCHAR, SQL_WVARCHAR,
-    _stmt_param_bind_set_APD_record_sqlc_wchar,
-    _stmt_param_bind_set_IPD_record_sql_wvarchar,
-    _stmt_param_get_sqlc_wchar,
-    _stmt_param_check_sqlc_wchar_sql_wvarchar,
-    _stmt_param_guess_sqlc_wchar},
+
+  {SQL_C_SLONG, SQL_INTEGER,
+    _stmt_param_bind_set_APD_record_sqlc_slong,
+    _stmt_param_bind_set_IPD_record_sql_integer,
+    _stmt_param_get_sqlc_slong,
+    _stmt_param_check_sqlc_slong_sql_integer,
+    _stmt_param_guess_sqlc_slong},
   {SQL_C_LONG, SQL_INTEGER,
     _stmt_param_bind_set_APD_record_sqlc_long,
     _stmt_param_bind_set_IPD_record_sql_integer,
     _stmt_param_get_sqlc_long,
     _stmt_param_check_sqlc_long_sql_integer,
     _stmt_param_guess_sqlc_long},
-  {SQL_C_WCHAR, SQL_VARCHAR,
-    _stmt_param_bind_set_APD_record_sqlc_wchar,
+
+  {SQL_C_DOUBLE, SQL_TYPE_TIMESTAMP,
+    _stmt_param_bind_set_APD_record_sqlc_double,
+    _stmt_param_bind_set_IPD_record_sql_timestamp,
+    _stmt_param_get_sqlc_double,
+    _stmt_param_check_sqlc_double_sql_timestamp,
+    _stmt_param_guess_sqlc_double},
+  {SQL_C_DOUBLE, SQL_DOUBLE,
+    _stmt_param_bind_set_APD_record_sqlc_double,
+    _stmt_param_bind_set_IPD_record_sql_double,
+    _stmt_param_get_sqlc_double,
+    _stmt_param_check_sqlc_double_sql_double,
+    _stmt_param_guess_sqlc_double},
+  {SQL_C_DOUBLE, SQL_VARCHAR,
+    _stmt_param_bind_set_APD_record_sqlc_double,
     _stmt_param_bind_set_IPD_record_sql_varchar,
-    _stmt_param_get_sqlc_wchar,
-    _stmt_param_check_sqlc_wchar_sql_varchar,
-    _stmt_param_guess_sqlc_wchar},
+    _stmt_param_get_sqlc_double,
+    _stmt_param_check_sqlc_double_sql_varchar,
+    _stmt_param_guess_sqlc_double},
+  {SQL_C_DOUBLE, SQL_REAL,
+    _stmt_param_bind_set_APD_record_sqlc_double,
+    _stmt_param_bind_set_IPD_record_sql_real,
+    _stmt_param_get_sqlc_double,
+    _stmt_param_check_sqlc_double_sql_real,
+    _stmt_param_guess_sqlc_double},
 };
 
 static SQLRETURN _stmt_bind_param(

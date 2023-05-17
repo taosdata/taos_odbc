@@ -63,6 +63,7 @@ endif()
 include(CTest)
 include(cmake/macros.cmake)
 
+set_colorful()
 check_requirements()
 
 include_directories(inc)
@@ -95,3 +96,4 @@ add_subdirectory(src)
 add_subdirectory(templates)
 add_subdirectory(tests)
 add_subdirectory(samples)
+

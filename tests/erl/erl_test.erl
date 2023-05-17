@@ -49,11 +49,22 @@ start() ->
                 [{{sql_varchar,40}, ["2023-05-16 03:04:05.012", "2023-05-16 03:04:05.121"]},
                  {{sql_varchar,40}, ["name1", "name2"]},
                  {{sql_varchar,40}, ["mark1", "mark2"]}]) of
-    {updated,0} -> ok        % FIXME: flaw in taosc?
+    {updated,2} -> ok
   end,
 
   case odbc:sql_query(C,"select name, mark from foo.t") of
     {selected,["name","mark"],[{"name1", <<109,0,97,0,114,0,107,0,49,0>>},{"name2", <<109,0,97,0,114,0,107,0,50,0>>},{"name", <<109,0,97,0,114,0,107,0>>}]} -> ok
+  end,
+
+  case odbc:sql_query(C, "create stable foo.st (ts timestamp, age int) tags (name varchar(20));") of
+    {updated,0} -> ok
+  end,
+
+  case odbc:param_query(C, "insert into foo.t1 using foo.st tags (?) values (?,?)",
+                [{{sql_varchar,40}, ["shanghai"]},
+                 {{sql_varchar,40}, ["2023-05-17 13:14:15.012"]},
+                 {sql_integer, [34]}]) of
+    {updated,1} -> ok
   end,
 
   ok.

@@ -503,18 +503,12 @@ static SQLRETURN _do_conn_connect(conn_t *conn)
 
     if (cfg->db && db == NULL) {
       // FIXME: vulnerability!!!
-      char buf[1024];
-      snprintf(buf, sizeof(buf), "use %s", cfg->db);
-      TAOS_RES *res = CALL_taos_query(conn->taos, buf);
-      int e = CALL_taos_errno(res);
+      int e = taos_select_db(conn->taos, cfg->db);
       if (e) {
-        const char *estr = CALL_taos_errstr(res);
-        conn_append_err_format(conn, "HY000", e, "General error:[taosc]%s, executing:%s", estr, buf);
-        if (res) CALL_taos_free_result(res);
+        const char *estr = CALL_taos_errstr(NULL);
+        conn_append_err_format(conn, "HY000", e, "General error:[taosc]%s, selecting db:%s", estr, cfg->db);
         break;
       }
-
-      if (res) CALL_taos_free_result(res);
     }
 
     return SQL_SUCCESS;
@@ -962,6 +956,36 @@ static SQLRETURN _conn_get_catalog_name_separator(
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _conn_get_info_database_name(
+    conn_t         *conn,
+    SQLUSMALLINT    InfoType,
+    SQLPOINTER      InfoValuePtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr)
+{
+  int r = 0;
+
+  char buf[1024]; buf[0] = '\0';
+  int required = 0;
+  r = CALL_taos_get_current_db(conn->taos, buf, (int)sizeof(buf), &required);
+  if (r) {
+    int e = taos_errno(NULL);
+    conn_append_err_format(conn, "HY000", e, "General error:get current db failed:[taosc]%s", taos_errstr(NULL));
+    return SQL_ERROR;
+  }
+
+  int n = snprintf((char*)InfoValuePtr, BufferLength, "%s", buf);
+  if (StringLengthPtr) *StringLengthPtr = n;
+
+  if (n >= BufferLength) {
+    conn_append_err_format(conn, "01004", 0, "String data, right truncated:`%s[%d/0x%x]`", sql_info_type(InfoType), InfoType, InfoType);
+    // FIXME: or SQL_ERROR?
+    return SQL_SUCCESS_WITH_INFO;
+  }
+
+  return SQL_SUCCESS;
+}
+
 SQLRETURN conn_get_info(
     conn_t         *conn,
     SQLUSMALLINT    InfoType,
@@ -1126,6 +1150,8 @@ SQLRETURN conn_get_info(
     case SQL_PARAM_ARRAY_ROW_COUNTS:
       *(SQLUINTEGER*)InfoValuePtr = SQL_PARC_NO_BATCH; // FIXME: more test cases
       break;
+    case SQL_DATABASE_NAME:
+      return _conn_get_info_database_name(conn, InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
     default:
       conn_append_err_format(conn, "HY000", 0, "General error:`%s[%d/0x%x]` not implemented yet", sql_info_type(InfoType), InfoType, InfoType);
       return SQL_ERROR;
@@ -1199,14 +1225,26 @@ static SQLRETURN _conn_get_attr_current_qualifier(
     SQLINTEGER    BufferLength,
     SQLINTEGER   *StringLengthPtr)
 {
-  if (0) {
-    conn_append_err(conn, "HYC00", 0, "Optional feature not implemented:`SQL_CURRENT_QUALIFIER` not supported yet");
+  int r = 0;
+
+  char buf[1024]; buf[0] = '\0';
+  int required = 0;
+  r = CALL_taos_get_current_db(conn->taos, buf, (int)sizeof(buf), &required);
+  if (r) {
+    int e = taos_errno(NULL);
+    conn_append_err_format(conn, "HY000", e, "General error:get current db failed:[taosc]%s", taos_errstr(NULL));
     return SQL_ERROR;
   }
-  const char *current_qualifier = "information_schema";
-  current_qualifier = "";
-  int n = snprintf((char*)Value, BufferLength, "%s", current_qualifier);
+
+  int n = snprintf((char*)Value, BufferLength, "%s", buf);
   if (StringLengthPtr) *StringLengthPtr = n;
+
+  if (n >= BufferLength) {
+    conn_append_err(conn, "01004", 0, "String data, right truncated`");
+    // FIXME: or SQL_ERROR?
+    return SQL_SUCCESS_WITH_INFO;
+  }
+
   return SQL_SUCCESS;
 }
 
@@ -1218,7 +1256,7 @@ SQLRETURN conn_get_attr(
     SQLINTEGER   *StringLengthPtr)
 {
   switch (Attribute) {
-    case SQL_CURRENT_QUALIFIER:
+    case SQL_CURRENT_QUALIFIER: /* SQL_ATTR_CURRENT_CATALOG */
       return _conn_get_attr_current_qualifier(conn, Value, BufferLength, StringLengthPtr);
     default:
       conn_append_err_format(conn, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_conn_attr(Attribute), Attribute, Attribute);

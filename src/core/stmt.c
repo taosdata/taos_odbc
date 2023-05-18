@@ -3570,6 +3570,66 @@ static SQLRETURN _stmt_param_check_sqlc_char_sql_bit(stmt_t *stmt, param_state_t
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_param_check_sqlc_char_sql_double(stmt_t *stmt, param_state_t *param_state)
+{
+  int r = 0;
+
+  const char *s = param_state->sqlc_data.str.str;
+  size_t      n = param_state->sqlc_data.str.len;
+
+  mem_t *mem = &param_state->tmp;
+
+  r = mem_copy_str(mem, s, n);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+
+  double v = 0.;
+  r = sscanf((const char*)mem->base, "%lg", &v);
+  if (r != 1) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:conversion from `%s` to `SQL_DOUBLE` failed",
+        (const char*)mem->base);
+    return SQL_ERROR;
+  }
+
+  param_state->sql_data.type = SQL_DOUBLE;
+  param_state->sql_data.dbl = v;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_param_check_sqlc_char_sql_float(stmt_t *stmt, param_state_t *param_state)
+{
+  int r = 0;
+
+  const char *s = param_state->sqlc_data.str.str;
+  size_t      n = param_state->sqlc_data.str.len;
+
+  mem_t *mem = &param_state->tmp;
+
+  r = mem_copy_str(mem, s, n);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+
+  float v = 0.;
+  r = sscanf((const char*)mem->base, "%g", &v);
+  if (r != 1) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:conversion from `%s` to `SQL_FLOAT` failed",
+        (const char*)mem->base);
+    return SQL_ERROR;
+  }
+
+  param_state->sql_data.type = SQL_FLOAT;
+  param_state->sql_data.flt = (float)v;
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_param_check_sqlc_double_sql_timestamp(stmt_t *stmt, param_state_t *param_state)
 {
   SQLRETURN sr = SQL_SUCCESS;
@@ -4287,6 +4347,19 @@ static sqlc_sql_map_t          _sqlc_sql_map[] = {
     _stmt_param_get_sqlc_char,
     _stmt_param_check_sqlc_char_sql_bit,
     _stmt_param_guess_sqlc_char},
+  {SQL_C_CHAR, SQL_DOUBLE,
+    _stmt_param_bind_set_APD_record_sqlc_char,
+    _stmt_param_bind_set_IPD_record_sql_bigint,
+    _stmt_param_get_sqlc_char,
+    _stmt_param_check_sqlc_char_sql_double,
+    _stmt_param_guess_sqlc_char},
+  {SQL_C_CHAR, SQL_FLOAT,
+    _stmt_param_bind_set_APD_record_sqlc_char,
+    _stmt_param_bind_set_IPD_record_sql_bigint,
+    _stmt_param_get_sqlc_char,
+    _stmt_param_check_sqlc_char_sql_float,
+    _stmt_param_guess_sqlc_char},
+
 
   {SQL_C_WCHAR, SQL_WVARCHAR,
     _stmt_param_bind_set_APD_record_sqlc_wchar,

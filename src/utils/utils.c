@@ -217,10 +217,10 @@ int mem_copy_str(mem_t *mem, const char *src, size_t len)
 {
   int r = 0;
   mem_reset(mem);
-  r = mem_keep(mem, len + 1);
+  r = mem_keep(mem, len + 4);
   if (r) return -1;
   memcpy(mem->base, src, len);
-  mem->base[len] = '\0';
+  *(int32_t*)(mem->base + len) = 0;
   mem->nr = len;
   return 0;
 }

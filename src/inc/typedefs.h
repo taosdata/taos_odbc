@@ -29,6 +29,8 @@ typedef char charset_name_t[64];
 typedef struct charset_conv_s           charset_conv_t;
 typedef struct charset_conv_mgr_s       charset_conv_mgr_t;
 
+typedef struct col_bind_map_s           col_bind_map_t;
+
 typedef struct columns_args_s           columns_args_t;
 typedef struct columns_s                columns_t;
 

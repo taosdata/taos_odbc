@@ -11,7 +11,7 @@
         executes: [
           {
             params: [
-              ["suzhou", "suzhou", {timestamp:1662961548650}, 20]
+              ["suzhou", "suzhou", {timestamp:1662961548.650}, 20]
             ]
           }
         ]
@@ -26,14 +26,14 @@
         executes: [
           {
             params: [
-              ["suzhou", "suzhou", {timestamp:1662961548650}, 20],
-              ["suzhou", "suzhou", {timestamp:1662961548651}, 21],
-              ["suzhou", "suzhou", {timestamp:1662961548652}, 22],
-              ["shanghai", "shanghai", {timestamp:1662961548750}, 23],
-              ["shanghai", "shanghai", {timestamp:1662961548751}, 24],
-              ["shanghai", "shanghai", {timestamp:1662961548752}, 25],
-              ["suzhou", "suzhou", {timestamp:1662961548850}, 26],
-              ["shanghai", "shanghai", {timestamp:1662961548950}, 27],
+              ["suzhou", "suzhou", {timestamp:1662961548.650}, 20],
+              ["suzhou", "suzhou", {timestamp:1662961548.651}, 21],
+              ["suzhou", "suzhou", {timestamp:1662961548.652}, 22],
+              ["shanghai", "shanghai", {timestamp:1662961548.750}, 23],
+              ["shanghai", "shanghai", {timestamp:1662961548.751}, 24],
+              ["shanghai", "shanghai", {timestamp:1662961548.752}, 25],
+              ["suzhou", "suzhou", {timestamp:1662961548.850}, 26],
+              ["shanghai", "shanghai", {timestamp:1662961548.950}, 27],
             ]
           }
         ]

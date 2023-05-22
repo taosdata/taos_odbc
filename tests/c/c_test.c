@@ -585,8 +585,8 @@ static int _insert_with_values_ap(int line, const char *func, handles_t *handles
 {
   SQLRETURN sr = SQL_SUCCESS;
 
-#define COLS         10
-#define ROWS         10
+#define COLS         20
+#define ROWS         20
   char values[COLS][ROWS][1024] = {0};
   SQLLEN lens[COLS][ROWS] = {0};
   SQLULEN ColumnSizes[COLS] = {0};
@@ -972,6 +972,41 @@ static int test_topic(handles_t *handles)
   return r ? -1 : 0;
 }
 
+static int test_params_with_all_chars(handles_t *handles)
+{
+  int r = 0;
+
+  const char *conn_str = NULL;
+  const char *sqls = NULL;
+  const char *sql = NULL;
+
+  handles_release(handles);
+
+  conn_str = "DSN=TAOS_ODBC_DSN";
+  r = handles_init(handles, conn_str);
+
+  sqls =
+    "drop database if exists foo;"
+    "create database if not exists foo;"
+    "create table foo.t (ts timestamp, b bool, "
+                        "i8 tinyint, u8 tinyint unsigned, i16 smallint, u16 smallint unsigned, i32 int, u32 int unsigned, i64 bigint, u64 bigint unsigned, "
+                        "flt float, dbl double, name varchar(20), mark nchar(20));";
+  r = _execute_batches_of_statements(handles, sqls);
+  if (r) return -1;
+
+  sql = "insert into foo.t (ts, b, i8, u8, i16, u16, i32, u32, i64, u64, flt, dbl, name, mark) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+  r = INSERT_WITH_VALUES(handles, sql, 1, 14, "2023-05-14 12:13:14.567", "1", "127", "255", "32767", "65535",
+      "2147483647", "4294967295", "9223372036854775807", "18446744073709551615", "1.23", "2.34", "测试", "检验");
+  if (r) return -1;
+
+  sql = "select * from foo.t where name='测试'",
+  r = CHECK_WITH_VALUES(handles, 0, sql, 1, 14, "2023-05-14 12:13:14.567", "true", "127", "255", "32767", "65535",
+      "2147483647", "4294967295", "9223372036854775807", "18446744073709551615", "1.23", "2.34", "测试", "检验");
+  if (r) return -1;
+
+  return 0;
+}
+
 typedef struct case_s              case_t;
 struct case_s {
   const char               *name;
@@ -1058,6 +1093,7 @@ int main(int argc, char *argv[])
     RECORD(test_charsets_with_col_bind),
     RECORD(test_charsets_with_param_bind),
     RECORD(test_topic),
+    RECORD(test_params_with_all_chars),
   };
 #undef RECORD
   size_t _nr_cases = sizeof(_cases)/sizeof(_cases[0]);

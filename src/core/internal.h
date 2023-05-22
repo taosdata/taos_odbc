@@ -722,11 +722,30 @@ struct param_state_s {
   sqlc_data_t                sqlc_data;
   sql_data_t                 sql_data;
 
-  mem_t                      sqlc_to_sql;
-  mem_t                      sql_to_tsdb;
   mem_t                      tmp;
 
   uint8_t                    is_subtbl:1;
+};
+
+struct col_bind_map_s {
+  int                    tsdb_type;
+
+  const char            *type_name;
+
+  int                    sql_type;
+  int                    sql_promoted;
+
+  const char            *suffix;
+
+  int                    length;
+  int                    octet_length;
+  int                    precision;
+  int                    scale;
+  int                    display_size;
+  int                    num_prec_radix;
+  int                    unsigned_;
+
+  int                    searchable;
 };
 
 typedef SQLRETURN (*param_f)(stmt_t *stmt, param_state_t *param_state);

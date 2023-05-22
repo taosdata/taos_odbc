@@ -83,17 +83,17 @@
         sql:"insert into t (ts, name) values (?, ?)",
         executes: [
           {
-            params: [{timestamp:1662961548651},"great"]
+            params: [{timestamp:1662961548.651},"great"]
           },{
-            params: [{timestamp:1662961468652},"wall"]
+            params: [{timestamp:1662961468.652},"wall"]
           },{
-            params: [{timestamp:1665185796610},"6610"]
+            params: [{timestamp:1665185796.610},"6610"]
           },{
-            params: [{timestamp:1665185796611},{str:null}]
+            params: [{timestamp:1665185796.611},{str:null}]
           },{
-            params: [1662961478754,"bigint"]
+            params: [1662961478.754,"bigint"]
           },{
-            params: [             1662961478755,"wrong"]
+            params: [             1662961478.755,"wrong"]
           }
         ]
       },{
@@ -122,9 +122,9 @@
         executes: [
           {
             params: [
-              [{timestamp:1662961548650},"great"],
-              [{timestamp:1662961468651},{str:null}],
-              [{timestamp:1662961468652},"wall"]
+              [{timestamp:1662961548.650},"great"],
+              [{timestamp:1662961468.651},{str:null}],
+              [{timestamp:1662961468.652},"wall"]
             ]
           }
         ]
@@ -150,9 +150,9 @@
         executes: [
           {
             params: [
-              [{timestamp:1662961548650},"great"],
-              [{timestamp:1662961468651},{str:null}],
-              [{timestamp:1662961468652},"wall"]
+              [{timestamp:1662961548.650},"great"],
+              [{timestamp:1662961468.651},{str:null}],
+              [{timestamp:1662961468.652},"wall"]
             ]
           }
         ]
@@ -179,9 +179,9 @@
         executes: [
           {
             params: [
-              [{timestamp:1662961548650},"great"],
-              [{timestamp:1662961468651},{str:null}],
-              [{timestamp:1662961468652},"wall"]
+              [{timestamp:1662961548.650},"great"],
+              [{timestamp:1662961468.651},{str:null}],
+              [{timestamp:1662961468.652},"wall"]
             ],
             positive:false
           }
@@ -202,9 +202,9 @@
         executes: [
           {
             params: [
-              [{timestamp:1662961548650},"江苏苏州"],
-              [{timestamp:1662961468651},{str:null}],
-              [{timestamp:1662961468652},"江苏连云港"]
+              [{timestamp:1662961548.650},"江苏苏州"],
+              [{timestamp:1662961468.651},{str:null}],
+              [{timestamp:1662961468.652},"江苏连云港"]
             ]
           }
         ]
@@ -230,9 +230,9 @@
         executes: [
           {
             params: [
-              [{timestamp:1662961548650},"江苏苏州"],
-              [{timestamp:1662961468651},{str:null}],
-              [{timestamp:1662961468652},"abcde"]
+              [{timestamp:1662961548.650},"江苏苏州"],
+              [{timestamp:1662961468.651},{str:null}],
+              [{timestamp:1662961468.652},"abcde"]
             ],
             positive:true
           }
@@ -257,7 +257,7 @@
         executes: [
           {
             params: [
-              [{timestamp:1662961548650},4]
+              [{timestamp:1662961548.650},4]
             ],
             positive:false
           }

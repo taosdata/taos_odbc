@@ -2923,7 +2923,7 @@ static SQLRETURN _stmt_param_copy_double_sql_timestamp(stmt_t *stmt, const doubl
   sql_data_t    *data       = &param_state->sql_data;
 
   data->ts.sec = (int64_t)dbl;
-  data->ts.nsec = (dbl - data->ts.sec) * 1000000000;
+  data->ts.nsec = (int64_t)((dbl - data->ts.sec) * 1000000000);
   data->ts.is_i64 = 0;
   data->type    = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
 

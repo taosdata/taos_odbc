@@ -1474,7 +1474,7 @@ SQLRETURN stmt_bind_col(stmt_t *stmt,
     return SQL_ERROR;
   }
 
-  OW("Column%d:%s",  ColumnNumber, sqlc_data_type(TargetType));
+  // OW("Column%d:%s",  ColumnNumber, sqlc_data_type(TargetType));
   return _stmt_bind_col(stmt, ColumnNumber, TargetType, TargetValuePtr, BufferLength, StrLen_or_IndPtr);
 }
 
@@ -1670,8 +1670,8 @@ static SQLRETURN _stmt_get_data_copy_buf_to_char(stmt_t *stmt, stmt_get_data_arg
   size_t           outbytesleft        = outbytes;
 
   size_t n = CALL_iconv(cnv->cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
-  dump_iconv(fromcode, tocode, (char*)ctx->pos, inbytes, inbytesleft, (char*)args->TargetValuePtr, outbytes, outbytesleft);
-  OW("[%.*s]", (int)(outbytes - outbytesleft), (char*)args->TargetValuePtr);
+  if (0) dump_iconv(fromcode, tocode, (char*)ctx->pos, inbytes, inbytesleft, (char*)args->TargetValuePtr, outbytes, outbytesleft);
+  // OW("[%.*s]", (int)(outbytes - outbytesleft), (char*)args->TargetValuePtr);
   int e = errno;
   iconv(cnv->cnv, NULL, NULL, NULL, NULL);
   if (n == (size_t)-1) {
@@ -2725,7 +2725,7 @@ static SQLRETURN _stmt_conv_sql_c_char_to_tsdb_timestamp_x(stmt_t *stmt, const c
   SQLRETURN sr = SQL_SUCCESS;
 
   int64_t v = 0;
-  OW("len:%zd", len);
+  // OW("len:%zd", len);
 
   const char *p;
   const char *format = "%Y-%m-%d %H:%M:%S";
@@ -4211,7 +4211,7 @@ static SQLRETURN _stmt_param_get_sqlc_char(stmt_t* stmt, param_state_t *param_st
   sqlc_data->str.str = base;
   sqlc_data->str.len = len;
   if (sqlc_data->str.len == (size_t)SQL_NTS) sqlc_data->str.len = strlen(sqlc_data->str.str);
-  OW("cchar[%zd,%zd]:%.*s", irow+1, i_param+1, (int)sqlc_data->str.len, sqlc_data->str.str);
+  // OW("cchar[%zd,%zd]:%.*s", irow+1, i_param+1, (int)sqlc_data->str.len, sqlc_data->str.str);
 
   return SQL_SUCCESS;
 }
@@ -4224,7 +4224,7 @@ static SQLRETURN _stmt_param_get_sqlc_sbigint(stmt_t* stmt, param_state_t *param
   const char    *base          = param_state->sqlc_base;
 
   sqlc_data->i64 = *(int64_t*)base;
-  OW("sbigint:%" PRId64 "", sqlc_data->i64);
+  // OW("sbigint:%" PRId64 "", sqlc_data->i64);
 
   return SQL_SUCCESS;
 }
@@ -4237,7 +4237,7 @@ static SQLRETURN _stmt_param_get_sqlc_double(stmt_t* stmt, param_state_t *param_
   const char    *base          = param_state->sqlc_base;
 
   sqlc_data->dbl = *(double*)base;
-  OW("double:%lg", sqlc_data->dbl);
+  // OW("double:%lg", sqlc_data->dbl);
 
   return SQL_SUCCESS;
 }
@@ -4250,7 +4250,7 @@ static SQLRETURN _stmt_param_get_sqlc_slong(stmt_t* stmt, param_state_t *param_s
   const char    *base          = param_state->sqlc_base;
 
   sqlc_data->i32 = *(int32_t*)base;
-  OW("slong:%d", sqlc_data->i32);
+  // OW("slong:%d", sqlc_data->i32);
 
   return SQL_SUCCESS;
 }
@@ -4286,7 +4286,7 @@ static SQLRETURN _stmt_param_get_sqlc_long(stmt_t* stmt, param_state_t *param_st
   const char    *base          = param_state->sqlc_base;
 
   sqlc_data->i32 = *(int32_t*)base;
-  OW("long:%d", sqlc_data->i32);
+  // OW("long:%d", sqlc_data->i32);
 
   return SQL_SUCCESS;
 }

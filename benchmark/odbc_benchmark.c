@@ -157,7 +157,6 @@ struct odbc_conn_cfg_s {
   const char                    *sqlc_names[64];
   int                            sqlc_types[64];
   int                            sqlc_col_sizes[64];
-  size_t                         nr_sqlc_types;
 
 
   const char                    *drop;
@@ -343,7 +342,7 @@ static int _gen_sqls(odbc_conn_cfg_t *cfg)
   }
   p += n;
 
-  for (size_t i=0; i<cfg->nr_sqlc_types; ++i) {
+  for (size_t i=0; i<cfg->cols; ++i) {
     int sqlc_type = cfg->sqlc_types[i];
     const char *s = cfg->sqlc_names[i];
     if (!s) {
@@ -380,7 +379,7 @@ static int _gen_sqls(odbc_conn_cfg_t *cfg)
   }
   p += n;
 
-  for (size_t i=0; i<cfg->nr_sqlc_types; ++i) {
+  for (size_t i=0; i<cfg->cols; ++i) {
     if (i) {
       n = snprintf(p, end - p, ", t%zd", i);
     } else {
@@ -400,7 +399,7 @@ static int _gen_sqls(odbc_conn_cfg_t *cfg)
   }
   p += n;
 
-  for (size_t i=0; i<cfg->nr_sqlc_types; ++i) {
+  for (size_t i=0; i<cfg->cols; ++i) {
     if (i) {
       n = snprintf(p, end - p, ", ?");
     } else {
@@ -475,19 +474,21 @@ static int _add_sqlc_type(odbc_conn_cfg_t *cfg, const char *sqlc)
 {
   int r = 0;
 
-  if (cfg->nr_sqlc_types >= cfg->cols) {
-    E("%s specified, but # of cols overflow:%zd > %zd", sqlc, cfg->nr_sqlc_types, cfg->cols);
-    return -1;
-  }
-
   int sqlc_type = 0;
   int col_size = 0;
   r = _parse_sqlc_type(sqlc, &sqlc_type, &col_size);
   if (r) return -1;
-  cfg->sqlc_names[cfg->nr_sqlc_types] = sqlc;
-  cfg->sqlc_types[cfg->nr_sqlc_types] = sqlc_type;
-  cfg->sqlc_col_sizes[cfg->nr_sqlc_types] = col_size;
-  cfg->nr_sqlc_types += 1;
+
+  const size_t nr_cols = sizeof(cfg->sqlc_types) / sizeof(cfg->sqlc_types[0]);
+  if (cfg->cols >= nr_cols) {
+    E("%s specified, but # of cols overflow:%zd >= %zd", sqlc, cfg->cols, nr_cols);
+    return -1;
+  }
+
+  cfg->sqlc_names[cfg->cols] = sqlc;
+  cfg->sqlc_types[cfg->cols] = sqlc_type;
+  cfg->sqlc_col_sizes[cfg->cols] = col_size;
+  cfg->cols += 1;
 
   return 0;
 }
@@ -499,10 +500,6 @@ int main(int argc, char *argv[])
   odbc_conn_cfg_t cfg = {0};
   cfg.conn = "DSN=TAOS_ODBC_DSN;DATABASE=bar";
   cfg.rows = 32767; // INT16_MAX
-  cfg.cols = 2;
-  cfg.nr_sqlc_types = 0;
-
-  const size_t nr_cols = sizeof(cfg.sqlc_types) / sizeof(cfg.sqlc_types[0]);
 
   for (int i=1; i<argc; ++i) {
     const char *arg = argv[i];
@@ -551,57 +548,16 @@ int main(int argc, char *argv[])
       cfg.rows = (size_t)rows;
       continue;
     }
-    if (strcmp(arg, "--cols") == 0) {
-      ++i;
-      if (i>=argc) {
-        E("<cols> is expected after `--cols`, but got ==null==");
-        return -1;
-      }
-      char *end = NULL;
-      errno = 0;
-      long long cols = strtoll(argv[i], &end, 0);
-      if (end && *end) {
-        E("<cols> is expected after `--cols`, but got ==%s==", argv[i]);
-        return -1;
-      }
-      if (cols == LLONG_MIN && errno == ERANGE) {
-        E("<cols> is expected after `--cols`, but got ==%s==", argv[i]);
-        return -1;
-      }
-      if (cols == LLONG_MAX && errno == ERANGE) {
-        E("<cols> is expected after `--cols`, but got ==%s==", argv[i]);
-        return -1;
-      }
-      if (cols == 0 && errno == EINVAL) {
-        E("<cols> is expected after `--cols`, but got ==%s==", argv[i]);
-        return -1;
-      }
-      if (cols < 0 || cols > UINT16_MAX) {
-        E("<cols> is expected after `--cols`, but got ==%s==", argv[i]);
-        return -1;
-      }
-      if ((size_t)cols > nr_cols) {
-        E("<cols> is expected not greater than %zd after `--cols`, but got ==%s==", nr_cols, argv[i]);
-        return -1;
-      }
-      cfg.cols = (size_t)cols;
-      continue;
-    }
 
     r = _add_sqlc_type(&cfg, argv[i]);
     if (r) return -1;
   }
 
-  if (cfg.nr_sqlc_types == 0) {
+  if (cfg.cols == 0) {
     r = _add_sqlc_type(&cfg, "timestamp");
     if (r) return -1;
     r = _add_sqlc_type(&cfg, "varchar(20)");
     if (r) return -1;
-  }
-
-  if (cfg.nr_sqlc_types != cfg.cols) {
-    E("%zd cols is required, but got ==%zd==", cfg.cols, cfg.nr_sqlc_types);
-    return -1;
   }
 
   r = _gen_sqls(&cfg);

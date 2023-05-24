@@ -196,7 +196,6 @@ struct taos_conn_cfg_s {
   const char                    *tsdb_names[64];
   int                            tsdb_types[64];
   int                            tsdb_col_sizes[64];
-  size_t                         nr_tsdb_types;
 
 
   const char                    *drop;
@@ -382,7 +381,7 @@ static int _gen_sqls(taos_conn_cfg_t *cfg)
   }
   p += n;
 
-  for (size_t i=0; i<cfg->nr_tsdb_types; ++i) {
+  for (size_t i=0; i<cfg->cols; ++i) {
     int tsdb_type = cfg->tsdb_types[i];
     const char *s = cfg->tsdb_names[i];
     if (!s) {
@@ -419,7 +418,7 @@ static int _gen_sqls(taos_conn_cfg_t *cfg)
   }
   p += n;
 
-  for (size_t i=0; i<cfg->nr_tsdb_types; ++i) {
+  for (size_t i=0; i<cfg->cols; ++i) {
     if (i) {
       n = snprintf(p, end - p, ", t%zd", i);
     } else {
@@ -439,7 +438,7 @@ static int _gen_sqls(taos_conn_cfg_t *cfg)
   }
   p += n;
 
-  for (size_t i=0; i<cfg->nr_tsdb_types; ++i) {
+  for (size_t i=0; i<cfg->cols; ++i) {
     if (i) {
       n = snprintf(p, end - p, ", ?");
     } else {
@@ -466,19 +465,21 @@ static int _add_tsdb_type(taos_conn_cfg_t *cfg, const char *tsdb)
 {
   int r = 0;
 
-  if (cfg->nr_tsdb_types >= cfg->cols) {
-    E("%s specified, but # of cols overflow:%zd > %zd", tsdb, cfg->nr_tsdb_types, cfg->cols);
-    return -1;
-  }
-
   int tsdb_type = 0;
   int col_size = 0;
   r = _parse_tsdb_type(tsdb, &tsdb_type, &col_size);
   if (r) return -1;
-  cfg->tsdb_names[cfg->nr_tsdb_types] = tsdb;
-  cfg->tsdb_types[cfg->nr_tsdb_types] = tsdb_type;
-  cfg->tsdb_col_sizes[cfg->nr_tsdb_types] = col_size;
-  cfg->nr_tsdb_types += 1;
+
+  const size_t nr_cols = sizeof(cfg->tsdb_types) / sizeof(cfg->tsdb_types[0]);
+  if (cfg->cols >= nr_cols) {
+    E("%s specified, but # of cols overflow:%zd >= %zd", tsdb, cfg->cols, nr_cols);
+    return -1;
+  }
+
+  cfg->tsdb_names[cfg->cols] = tsdb;
+  cfg->tsdb_types[cfg->cols] = tsdb_type;
+  cfg->tsdb_col_sizes[cfg->cols] = col_size;
+  cfg->cols += 1;
 
   return 0;
 }
@@ -490,10 +491,6 @@ int main(int argc, char *argv[])
   taos_conn_cfg_t cfg = {0};
   cfg.db = "bar";
   cfg.rows = 32767; // INT16_MAX
-  cfg.cols = 2;
-  cfg.nr_tsdb_types = 0;
-
-  const size_t nr_cols = sizeof(cfg.tsdb_types) / sizeof(cfg.tsdb_types[0]);
 
   for (int i=1; i<argc; ++i) {
     const char *arg = argv[i];
@@ -601,57 +598,16 @@ int main(int argc, char *argv[])
       cfg.rows = (size_t)rows;
       continue;
     }
-    if (strcmp(arg, "--cols") == 0) {
-      ++i;
-      if (i>=argc) {
-        E("<cols> is expected after `--cols`, but got ==null==");
-        return -1;
-      }
-      char *end = NULL;
-      errno = 0;
-      long long cols = strtoll(argv[i], &end, 0);
-      if (end && *end) {
-        E("<cols> is expected after `--cols`, but got ==%s==", argv[i]);
-        return -1;
-      }
-      if (cols == LLONG_MIN && errno == ERANGE) {
-        E("<cols> is expected after `--cols`, but got ==%s==", argv[i]);
-        return -1;
-      }
-      if (cols == LLONG_MAX && errno == ERANGE) {
-        E("<cols> is expected after `--cols`, but got ==%s==", argv[i]);
-        return -1;
-      }
-      if (cols == 0 && errno == EINVAL) {
-        E("<cols> is expected after `--cols`, but got ==%s==", argv[i]);
-        return -1;
-      }
-      if (cols < 0 || cols > UINT16_MAX) {
-        E("<cols> is expected after `--cols`, but got ==%s==", argv[i]);
-        return -1;
-      }
-      if ((size_t)cols > nr_cols) {
-        E("<cols> is expected not greater than %zd after `--cols`, but got ==%s==", nr_cols, argv[i]);
-        return -1;
-      }
-      cfg.cols = (size_t)cols;
-      continue;
-    }
 
     r = _add_tsdb_type(&cfg, argv[i]);
     if (r) return -1;
   }
 
-  if (cfg.nr_tsdb_types == 0) {
+  if (cfg.cols == 0) {
     r = _add_tsdb_type(&cfg, "timestamp");
     if (r) return -1;
     r = _add_tsdb_type(&cfg, "varchar(20)");
     if (r) return -1;
-  }
-
-  if (cfg.nr_tsdb_types != cfg.cols) {
-    E("%zd cols is required, but got ==%zd==", cfg.cols, cfg.nr_tsdb_types);
-    return -1;
   }
 
   r = _gen_sqls(&cfg);

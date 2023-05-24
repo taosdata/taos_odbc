@@ -292,7 +292,7 @@ static void usage(const char *arg0)
 {
   fprintf(stderr, "%s -h\n"
                   "  show this help page\n"
-                  "%s --ip <ip> --usr <usr> --pwd <pwd> --db <db> --port <port>\n"
+                  "%s --ip <ip> --usr <usr> --pwd <pwd> --db <db> --port <port> --rows <rows> [field_desc]...\n"
                   "  running benchmark\n",
                   arg0, arg0);
 }

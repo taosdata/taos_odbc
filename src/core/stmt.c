@@ -4202,8 +4202,6 @@ static SQLRETURN _stmt_param_get_sqlc_char(stmt_t* stmt, param_state_t *param_st
 {
   (void)stmt;
 
-  size_t irow                  = param_state->i_row;
-  size_t i_param               = param_state->i_param;
   sqlc_data_t *sqlc_data       = &param_state->sqlc_data;
   const char    *base          = param_state->sqlc_base;
   size_t         len           = param_state->sqlc_len;
@@ -4211,7 +4209,6 @@ static SQLRETURN _stmt_param_get_sqlc_char(stmt_t* stmt, param_state_t *param_st
   sqlc_data->str.str = base;
   sqlc_data->str.len = len;
   if (sqlc_data->str.len == (size_t)SQL_NTS) sqlc_data->str.len = strlen(sqlc_data->str.str);
-  // OW("cchar[%zd,%zd]:%.*s", irow+1, i_param+1, (int)sqlc_data->str.len, sqlc_data->str.str);
 
   return SQL_SUCCESS;
 }

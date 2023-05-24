@@ -350,7 +350,7 @@ static int _run(odbc_conn_cfg_t *cfg, SQLHANDLE *penv, SQLHANDLE *pdbc, SQLHANDL
 
   const char *sql = "insert into benchmark_case0 (ts, name) values (?, ?)";
   const size_t nr_cols = 2;
-  const size_t nr_rows = 102400;
+  const size_t nr_rows = INT16_MAX; // 32767
 
   void **data = NULL;
 

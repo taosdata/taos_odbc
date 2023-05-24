@@ -270,7 +270,7 @@ static int benchmark_case0(TAOS *taos, TAOS_STMT *stmt)
 
   const char *sql = "insert into benchmark_case0 (ts, name) values (?, ?)";
   const size_t nr_cols = 2;
-  const size_t nr_rows = 102400;
+  const size_t nr_rows = INT16_MAX; // 32767
 
   TAOS_MULTI_BIND *binds = NULL;
   int r = _run_prepare(stmt, sql, nr_rows, nr_cols, &binds, TSDB_DATA_TYPE_TIMESTAMP, TSDB_DATA_TYPE_VARCHAR, 20);

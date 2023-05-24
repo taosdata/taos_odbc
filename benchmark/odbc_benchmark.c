@@ -272,6 +272,8 @@ static int _run_prepare(SQLHANDLE hstmt, odbc_conn_cfg_t *cfg, void ***data)
   r = _prepare_and_run(hstmt, cfg);
   gettimeofday(&tv1, NULL);
 
+  if (r) return -1;
+
   double diff = difftime(tv1.tv_sec, tv0.tv_sec);
   diff += ((double)(tv1.tv_usec - tv0.tv_usec)) / 1000000;
 
@@ -285,7 +287,7 @@ static int _run_prepare(SQLHANDLE hstmt, odbc_conn_cfg_t *cfg, void ***data)
   }
   SFREE(StrLen_or_IndPtr);
 
-  return r ? -1 : 0;
+  return 0;
 }
 
 static void usage(const char *arg0)
@@ -589,6 +591,8 @@ int main(int argc, char *argv[])
     SQLFreeHandle(SQL_HANDLE_ENV, henv);
     henv = SQL_NULL_HANDLE;
   }
+
+  fprintf(stderr, "==%s==\n", r ? "failure" : "success");
 
   return r ? 1 : 0;
 }

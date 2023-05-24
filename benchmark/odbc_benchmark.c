@@ -26,6 +26,8 @@
 #include <windows.h>
 #endif                  /* } */
 
+#include <errno.h>
+#include <limits.h>
 #include <stdint.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -145,29 +147,46 @@ static int _char_prepare(void **data, SQLLEN **pn, size_t rows, size_t i_col, si
   return 0;
 }
 
-static int _prepare_data_v(SQLHANDLE hstmt, size_t rows, size_t cols,
-    SQLUSMALLINT **ParamStatusArray, SQLLEN ***StrLen_or_IndPtr, SQLULEN *ParamsProcessed, void ***data, va_list ap)
+typedef struct odbc_conn_cfg_s               odbc_conn_cfg_t;
+struct odbc_conn_cfg_s {
+  const char                    *conn;
+  size_t                         rows;
+  size_t                         cols;
+
+  const char                    *sqlc_names[64];
+  int                            sqlc_types[64];
+  int                            sqlc_col_sizes[64];
+  size_t                         nr_sqlc_types;
+
+
+  const char                    *drop;
+  char                           create[4096];
+  char                           insert[4096];
+};
+
+static int _prepare_data_v(SQLHANDLE hstmt, odbc_conn_cfg_t *cfg,
+    SQLUSMALLINT **ParamStatusArray, SQLLEN ***StrLen_or_IndPtr, SQLULEN *ParamsProcessed, void ***data)
 {
   SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
 
   int len = 0;
 
-  void **p = (void**)calloc(cols, sizeof(*p));
+  void **p = (void**)calloc(cfg->cols, sizeof(*p));
   if (!p) {
     E("oom");
     return -1;
   }
   *data = p;
 
-  SQLUSMALLINT *pa = (SQLUSMALLINT*)calloc(rows, sizeof(*pa));
+  SQLUSMALLINT *pa = (SQLUSMALLINT*)calloc(cfg->rows, sizeof(*pa));
   if (!pa) {
     E("oom");
     return -1;
   }
   *ParamStatusArray = pa;
 
-  SQLLEN **pn = (SQLLEN**)calloc(cols, sizeof(*pn));
+  SQLLEN **pn = (SQLLEN**)calloc(cfg->cols, sizeof(*pn));
   if (!pn) {
     E("oom");
     return -1;
@@ -179,33 +198,32 @@ static int _prepare_data_v(SQLHANDLE hstmt, size_t rows, size_t cols,
   SQLSetStmtAttr(hstmt, SQL_ATTR_PARAM_BIND_TYPE, SQL_PARAM_BIND_BY_COLUMN, 0);
 
   // Specify the number of elements in each parameter array.
-  SQLSetStmtAttr(hstmt, SQL_ATTR_PARAMSET_SIZE, (SQLPOINTER)(uintptr_t)(SQLULEN)rows, 0);
+  SQLSetStmtAttr(hstmt, SQL_ATTR_PARAMSET_SIZE, (SQLPOINTER)(uintptr_t)(SQLULEN)cfg->rows, 0);
 
   // Specify an array in which to return the status of each set of
   // parameters.
-  E("pa:%p", pa);
   SQLSetStmtAttr(hstmt, SQL_ATTR_PARAM_STATUS_PTR, pa, 0);
 
   // Specify an SQLUINTEGER value in which to return the number of sets of
   // parameters processed.
   SQLSetStmtAttr(hstmt, SQL_ATTR_PARAMS_PROCESSED_PTR, ParamsProcessed, 0);
 
-  for (size_t i=0; i<cols; ++i) {
-    SQLSMALLINT     sqlc_type       = va_arg(ap, int);
+  for (size_t i=0; i<cfg->cols; ++i) {
+    SQLSMALLINT     sqlc_type       = cfg->sqlc_types[i];
     SQLSMALLINT     sql_type        = 0;
     SQLUSMALLINT    ColumnSize      = 0;
     SQLSMALLINT     DecimalDigits   = 0;
     SQLLEN          BufferLength    = 0;
     switch (sqlc_type) {
       case SQL_C_SBIGINT:
-        if (i == 0) r = _timestamp_prepare(p, pn, rows, i);
-        else        r = _bigint_prepare(p, pn, rows, i);
+        if (i == 0) r = _timestamp_prepare(p, pn, cfg->rows, i);
+        else        r = _bigint_prepare(p, pn, cfg->rows, i);
         if (r) return -1;
         sql_type = SQL_BIGINT;
         break;
       case SQL_C_CHAR:
-        len = va_arg(ap, int);
-        r = _char_prepare(p, pn, rows, i, len);
+        len = cfg->sqlc_col_sizes[i];
+        r = _char_prepare(p, pn, cfg->rows, i, len);
         if (r) return -1;
         sql_type = SQL_VARCHAR;
         ColumnSize = len;
@@ -223,11 +241,11 @@ static int _prepare_data_v(SQLHANDLE hstmt, size_t rows, size_t cols,
   return 0;
 }
 
-static int _prepare_and_run(SQLHANDLE hstmt, const char *sql)
+static int _prepare_and_run(SQLHANDLE hstmt, odbc_conn_cfg_t *cfg)
 {
   SQLRETURN sr = SQL_SUCCESS;
 
-  sr = SQLPrepare(hstmt, (SQLCHAR*)sql, SQL_NTS);
+  sr = SQLPrepare(hstmt, (SQLCHAR*)cfg->insert, SQL_NTS);
   if (sr != SQL_SUCCESS) return -1;
 
   sr = SQLExecute(hstmt);
@@ -236,7 +254,7 @@ static int _prepare_and_run(SQLHANDLE hstmt, const char *sql)
   return 0;
 }
 
-static int _run_prepare(SQLHANDLE hstmt, const char *sql, size_t rows, size_t cols, void ***data, ...)
+static int _run_prepare(SQLHANDLE hstmt, odbc_conn_cfg_t *cfg, void ***data)
 {
   int r = 0;
 
@@ -244,28 +262,25 @@ static int _run_prepare(SQLHANDLE hstmt, const char *sql, size_t rows, size_t co
   SQLULEN ParamsProcessed = 0;
   SQLLEN **StrLen_or_IndPtr = NULL;
 
-  va_list ap;
-  va_start(ap, data);
-  r = _prepare_data_v(hstmt, rows, cols, &ParamStatusArray, &StrLen_or_IndPtr, &ParamsProcessed, data, ap);
-  va_end(ap);
+  r = _prepare_data_v(hstmt, cfg, &ParamStatusArray, &StrLen_or_IndPtr, &ParamsProcessed, data);
 
   if (r) return -1;
 
   struct timeval tv0 = {0};
   struct timeval tv1 = {0};
   gettimeofday(&tv0, NULL);
-  r = _prepare_and_run(hstmt, sql);
+  r = _prepare_and_run(hstmt, cfg);
   gettimeofday(&tv1, NULL);
 
   double diff = difftime(tv1.tv_sec, tv0.tv_sec);
   diff += ((double)(tv1.tv_usec - tv0.tv_usec)) / 1000000;
 
-  E("run_with_params(%s), with %zd rows / %zd cols:", sql, rows, cols);
+  E("run_with_params(%s), with %zd rows / %zd cols:", cfg->insert, cfg->rows, cfg->cols);
   E("elapsed: %lfsecs", diff);
-  E("throughput: %lf rows/secs", rows / diff);
+  E("throughput: %lf rows/secs", cfg->rows / diff);
 
   SFREE(ParamStatusArray);
-  for (size_t i=0; i<cols; ++i) {
+  for (size_t i=0; i<cfg->cols; ++i) {
     SFREE(StrLen_or_IndPtr[i]);
   }
   SFREE(StrLen_or_IndPtr);
@@ -282,15 +297,133 @@ static void usage(const char *arg0)
                   arg0, arg0);
 }
 
-typedef struct odbc_conn_cfg_s               odbc_conn_cfg_t;
-struct odbc_conn_cfg_s {
-  const char                    *conn;
-};
+static int _parse_sqlc_type(const char *sqlc, int *sqlc_type, int *col_size)
+{
+  if (strcmp(sqlc, "timestamp") == 0) {
+    *sqlc_type = SQL_C_SBIGINT;
+    *col_size  = 0;
+    return 0;
+  }
+
+  if (strcmp(sqlc, "bigint") == 0) {
+    *sqlc_type = SQL_C_SBIGINT;
+    *col_size  = 0;
+    return 0;
+  }
+
+  int n = 0;
+
+  n = sscanf(sqlc, "varchar(%d)", col_size);
+  if (n == 1) {
+    *sqlc_type = SQL_C_CHAR;
+    return 0;
+  }
+
+  E("unknown type `%s`", sqlc);
+  return -1;
+}
+
+static int _gen_sqls(odbc_conn_cfg_t *cfg)
+{
+  int n = 0;
+  char *p = NULL;
+  char *end = NULL;
+
+  cfg->drop = "drop table if exists benchmark_case0",
+
+  // create
+  p = cfg->create;
+  end = cfg->create + sizeof(cfg->create);
+
+  n = snprintf(p, end - p, "create table benchmark_case0 (");
+  if (n < 0 || n >= end - p) {
+    E("buffer too small");
+    return -1;
+  }
+  p += n;
+
+  for (size_t i=0; i<cfg->nr_sqlc_types; ++i) {
+    int sqlc_type = cfg->sqlc_types[i];
+    const char *s = cfg->sqlc_names[i];
+    if (!s) {
+      E("unknown sqlc_type [%d]", sqlc_type);
+      return -1;
+    }
+    if (i) {
+      n = snprintf(p, end - p, ", t%zd %s", i, s);
+    } else {
+      n = snprintf(p, end - p, "t%zd %s", i, s);
+    }
+    if (n < 0 || n >= end - p) {
+      E("buffer too small");
+      return -1;
+    }
+    p += n;
+  }
+
+  n = snprintf(p, end - p, ")");
+  if (n < 0 || n >= end - p) {
+    E("buffer too small");
+    return -1;
+  }
+  p += n;
+
+  // insert
+  p = cfg->insert;
+  end = cfg->insert + sizeof(cfg->insert);
+
+  n = snprintf(p, end - p, "insert into benchmark_case0 (");
+  if (n < 0 || n >= end - p) {
+    E("buffer too small");
+    return -1;
+  }
+  p += n;
+
+  for (size_t i=0; i<cfg->nr_sqlc_types; ++i) {
+    if (i) {
+      n = snprintf(p, end - p, ", t%zd", i);
+    } else {
+      n = snprintf(p, end - p, "t%zd", i);
+    }
+    if (n < 0 || n >= end - p) {
+      E("buffer too small");
+      return -1;
+    }
+    p += n;
+  }
+
+  n = snprintf(p, end - p, ") values (");
+  if (n < 0 || n >= end - p) {
+    E("buffer too small");
+    return -1;
+  }
+  p += n;
+
+  for (size_t i=0; i<cfg->nr_sqlc_types; ++i) {
+    if (i) {
+      n = snprintf(p, end - p, ", ?");
+    } else {
+      n = snprintf(p, end - p, "?");
+    }
+    if (n < 0 || n >= end - p) {
+      E("buffer too small");
+      return -1;
+    }
+    p += n;
+  }
+
+  n = snprintf(p, end - p, ")");
+  if (n < 0 || n >= end - p) {
+    E("buffer too small");
+    return -1;
+  }
+  p += n;
+
+  return 0;
+}
 
 static int _run(odbc_conn_cfg_t *cfg, SQLHANDLE *penv, SQLHANDLE *pdbc, SQLHANDLE *pstmt)
 {
-  (void)pstmt;
-
   SQLRETURN sr = SQL_SUCCESS;
 
   sr = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, penv);
@@ -317,35 +450,18 @@ static int _run(odbc_conn_cfg_t *cfg, SQLHANDLE *penv, SQLHANDLE *pdbc, SQLHANDL
 
   SQLHANDLE hstmt = *pstmt;
 
-  const char *sqls =
-    "drop table if exists benchmark_case0;"
-    "create table benchmark_case0 (ts timestamp, name varchar(20));";
-
-  sr = SQLExecDirect(hstmt, (SQLCHAR*)sqls, SQL_NTS);
+  sr = SQLExecDirect(hstmt, (SQLCHAR*)cfg->drop, SQL_NTS);
   if (sr != SQL_SUCCESS) return -1;
-  while (1) {
-    SQLLEN RowCount = 0;
-    sr = SQLRowCount(hstmt, &RowCount);
-    if (sr != SQL_SUCCESS) return -1;
 
-    sr = SQLFetch(hstmt);
-    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO && sr != SQL_NO_DATA) return -1;
-
-    sr = SQLMoreResults(hstmt);
-    if (sr == SQL_NO_DATA) break;
-    if (sr != SQL_SUCCESS) return -1;
-  }
-
-  const char *sql = "insert into benchmark_case0 (ts, name) values (?, ?)";
-  const size_t nr_cols = 2;
-  const size_t nr_rows = INT16_MAX; // 32767
+  sr = SQLExecDirect(hstmt, (SQLCHAR*)cfg->create, SQL_NTS);
+  if (sr != SQL_SUCCESS) return -1;
 
   void **data = NULL;
 
-  int r = _run_prepare(hstmt, sql, nr_rows, nr_cols, &data, SQL_C_SBIGINT, SQL_C_CHAR, 20);
+  int r = _run_prepare(hstmt, cfg, &data);
 
   if (data) {
-    for (size_t i=0; i<nr_cols; ++i) {
+    for (size_t i=0; i<cfg->cols; ++i) {
       SFREE(data[i]);
     }
     SFREE(data);
@@ -354,10 +470,39 @@ static int _run(odbc_conn_cfg_t *cfg, SQLHANDLE *penv, SQLHANDLE *pdbc, SQLHANDL
   return r ? -1 : 0;
 }
 
+static int _add_sqlc_type(odbc_conn_cfg_t *cfg, const char *sqlc)
+{
+  int r = 0;
+
+  if (cfg->nr_sqlc_types >= cfg->cols) {
+    E("%s specified, but # of cols overflow:%zd > %zd", sqlc, cfg->nr_sqlc_types, cfg->cols);
+    return -1;
+  }
+
+  int sqlc_type = 0;
+  int col_size = 0;
+  r = _parse_sqlc_type(sqlc, &sqlc_type, &col_size);
+  if (r) return -1;
+  cfg->sqlc_names[cfg->nr_sqlc_types] = sqlc;
+  cfg->sqlc_types[cfg->nr_sqlc_types] = sqlc_type;
+  cfg->sqlc_col_sizes[cfg->nr_sqlc_types] = col_size;
+  cfg->nr_sqlc_types += 1;
+
+  return 0;
+}
+
 int main(int argc, char *argv[])
 {
+  int r = 0;
+
   odbc_conn_cfg_t cfg = {0};
   cfg.conn = "DSN=TAOS_ODBC_DSN;DATABASE=bar";
+  cfg.rows = 32767; // INT16_MAX
+  cfg.cols = 2;
+  cfg.nr_sqlc_types = 0;
+
+  const size_t nr_cols = sizeof(cfg.sqlc_types) / sizeof(cfg.sqlc_types[0]);
+
   for (int i=1; i<argc; ++i) {
     const char *arg = argv[i];
     if (strcmp(arg, "-h") == 0) {
@@ -373,9 +518,93 @@ int main(int argc, char *argv[])
       cfg.conn = argv[i];
       continue;
     }
+    if (strcmp(arg, "--rows") == 0) {
+      ++i;
+      if (i>=argc) {
+        E("<rows> is expected after `--rows`, but got ==null==");
+        return -1;
+      }
+      char *end = NULL;
+      errno = 0;
+      long long rows = strtoll(argv[i], &end, 0);
+      if (end && *end) {
+        E("<rows> is expected after `--rows`, but got ==%s==", argv[i]);
+        return -1;
+      }
+      if (rows == LLONG_MIN && errno == ERANGE) {
+        E("<rows> is expected after `--rows`, but got ==%s==", argv[i]);
+        return -1;
+      }
+      if (rows == LLONG_MAX && errno == ERANGE) {
+        E("<rows> is expected after `--rows`, but got ==%s==", argv[i]);
+        return -1;
+      }
+      if (rows == 0 && errno == EINVAL) {
+        E("<rows> is expected after `--rows`, but got ==%s==", argv[i]);
+        return -1;
+      }
+      if (rows < 0 || rows > UINT16_MAX) {
+        E("<rows> is expected after `--rows`, but got ==%s==", argv[i]);
+        return -1;
+      }
+      cfg.rows = (size_t)rows;
+      continue;
+    }
+    if (strcmp(arg, "--cols") == 0) {
+      ++i;
+      if (i>=argc) {
+        E("<cols> is expected after `--cols`, but got ==null==");
+        return -1;
+      }
+      char *end = NULL;
+      errno = 0;
+      long long cols = strtoll(argv[i], &end, 0);
+      if (end && *end) {
+        E("<cols> is expected after `--cols`, but got ==%s==", argv[i]);
+        return -1;
+      }
+      if (cols == LLONG_MIN && errno == ERANGE) {
+        E("<cols> is expected after `--cols`, but got ==%s==", argv[i]);
+        return -1;
+      }
+      if (cols == LLONG_MAX && errno == ERANGE) {
+        E("<cols> is expected after `--cols`, but got ==%s==", argv[i]);
+        return -1;
+      }
+      if (cols == 0 && errno == EINVAL) {
+        E("<cols> is expected after `--cols`, but got ==%s==", argv[i]);
+        return -1;
+      }
+      if (cols < 0 || cols > UINT16_MAX) {
+        E("<cols> is expected after `--cols`, but got ==%s==", argv[i]);
+        return -1;
+      }
+      if ((size_t)cols > nr_cols) {
+        E("<cols> is expected not greater than %zd after `--cols`, but got ==%s==", nr_cols, argv[i]);
+        return -1;
+      }
+      cfg.cols = (size_t)cols;
+      continue;
+    }
+
+    r = _add_sqlc_type(&cfg, argv[i]);
+    if (r) return -1;
   }
 
-  int r = 0;
+  if (cfg.nr_sqlc_types == 0) {
+    r = _add_sqlc_type(&cfg, "timestamp");
+    if (r) return -1;
+    r = _add_sqlc_type(&cfg, "varchar(20)");
+    if (r) return -1;
+  }
+
+  if (cfg.nr_sqlc_types != cfg.cols) {
+    E("%zd cols is required, but got ==%zd==", cfg.cols, cfg.nr_sqlc_types);
+    return -1;
+  }
+
+  r = _gen_sqls(&cfg);
+  if (r) return -1;
 
 #ifdef _WIN32                    /* { */
   srand((unsigned int)time(NULL));

@@ -92,7 +92,7 @@ static int _bind_timestamp_prepare(TAOS_MULTI_BIND *bind, size_t rows)
   char     *is_null              = NULL;
   int       num                  = (int)rows;
 
-  
+
   bind->buffer_type          = buffer_type;
   bind->buffer_length        = buffer_length;
   bind->buffer               = buffer;
@@ -117,6 +117,38 @@ static int _bind_timestamp_prepare(TAOS_MULTI_BIND *bind, size_t rows)
   return 0;
 }
 
+static int _bind_bigint_prepare(TAOS_MULTI_BIND *bind, size_t rows)
+{
+  int       buffer_type          = TSDB_DATA_TYPE_BIGINT;
+  uintptr_t buffer_length        = sizeof(int64_t);
+  void     *buffer               = calloc(rows, buffer_length);
+  int32_t  *length               = NULL;
+  char     *is_null              = NULL;
+  int       num                  = (int)rows;
+
+
+  bind->buffer_type          = buffer_type;
+  bind->buffer_length        = buffer_length;
+  bind->buffer               = buffer;
+  bind->length               = length;
+  bind->is_null              = is_null;
+  bind->num                  = num;
+
+  if (!bind->buffer) {
+    E("oom");
+    return -1;
+  }
+
+  int64_t *base = (int64_t*)bind->buffer;
+
+  for (size_t i=0; i<rows; ++i) {
+    base[i] = rand();
+    // E("bigint:[%zd]", base[i]);
+  }
+
+  return 0;
+}
+
 static int _bind_varchar_prepare(TAOS_MULTI_BIND *bind, size_t rows, size_t len)
 {
   int       buffer_type          = TSDB_DATA_TYPE_VARCHAR;
@@ -125,7 +157,7 @@ static int _bind_varchar_prepare(TAOS_MULTI_BIND *bind, size_t rows, size_t len)
   int32_t  *length               = calloc(rows, sizeof(*length));
   char     *is_null              = NULL;
   int       num                  = (int)rows;
-  
+
   bind->buffer_type          = buffer_type;
   bind->buffer_length        = buffer_length;
   bind->buffer               = buffer;
@@ -150,18 +182,43 @@ static int _bind_varchar_prepare(TAOS_MULTI_BIND *bind, size_t rows, size_t len)
   return 0;
 }
 
-static int _binds_prepare_v(TAOS_MULTI_BIND *binds, size_t rows, size_t cols, va_list ap)
+typedef struct taos_conn_cfg_s               taos_conn_cfg_t;
+struct taos_conn_cfg_s {
+  const char                    *ip;
+  const char                    *usr;
+  const char                    *pwd;
+  const char                    *db;
+  uint16_t                       port;
+  size_t                         rows;
+  size_t                         cols;
+
+  const char                    *tsdb_names[64];
+  int                            tsdb_types[64];
+  int                            tsdb_col_sizes[64];
+  size_t                         nr_tsdb_types;
+
+
+  const char                    *drop;
+  char                           create[4096];
+  char                           insert[4096];
+};
+
+static int _binds_prepare_v(TAOS_MULTI_BIND *binds, taos_conn_cfg_t *cfg)
 {
   int r = 0;
-  for (size_t i=0; i<cols; ++i) {
-    int tsdb_type = va_arg(ap, int);
+  for (size_t i=0; i<cfg->cols; ++i) {
+    int tsdb_type = cfg->tsdb_types[i];
     switch (tsdb_type) {
       case TSDB_DATA_TYPE_TIMESTAMP:
-        r = _bind_timestamp_prepare(binds + i, rows);
+        r = _bind_timestamp_prepare(binds + i, cfg->rows);
         if (r) return -1;
         break;
       case TSDB_DATA_TYPE_VARCHAR:
-        r = _bind_varchar_prepare(binds + i, rows, va_arg(ap, int));
+        r = _bind_varchar_prepare(binds + i, cfg->rows, cfg->tsdb_col_sizes[i]);
+        if (r) return -1;
+        break;
+      case TSDB_DATA_TYPE_BIGINT:
+        r = _bind_bigint_prepare(binds + i, cfg->rows);
         if (r) return -1;
         break;
       default:
@@ -203,33 +260,30 @@ static int _prepare_and_run(TAOS_STMT *stmt, const char *sql, TAOS_MULTI_BIND *b
   return 0;
 }
 
-static int _run_prepare(TAOS_STMT *stmt, const char *sql, size_t rows, size_t cols, TAOS_MULTI_BIND **binds, ...)
+static int _run_prepare(TAOS_STMT *stmt, taos_conn_cfg_t *cfg, TAOS_MULTI_BIND **binds)
 {
   int r = 0;
 
-  TAOS_MULTI_BIND *p = (TAOS_MULTI_BIND*)calloc(cols, sizeof(*p));
+  TAOS_MULTI_BIND *p = (TAOS_MULTI_BIND*)calloc(cfg->cols, sizeof(*p));
   if (!p) return -1;
   *binds = p;
 
-  va_list ap;
-  va_start(ap, binds);
-  r = _binds_prepare_v(*binds, rows, cols, ap);
-  va_end(ap);
+  r = _binds_prepare_v(*binds, cfg);
 
   if (r) return -1;
 
   struct timeval tv0 = {0};
   struct timeval tv1 = {0};
   gettimeofday(&tv0, NULL);
-  r = _prepare_and_run(stmt, sql, *binds);
+  r = _prepare_and_run(stmt, cfg->insert, *binds);
   gettimeofday(&tv1, NULL);
 
   double diff = difftime(tv1.tv_sec, tv0.tv_sec);
   diff += ((double)(tv1.tv_usec - tv0.tv_usec)) / 1000000;
 
-  E("run_with_params(%s), with %zd rows / %zd cols:", sql, rows, cols);
+  E("run_with_params(%s), with %zd rows / %zd cols:", cfg->insert, cfg->rows, cfg->cols);
   E("elapsed: %lfsecs", diff);
-  E("throughput: %lf rows/secs", rows / diff);
+  E("throughput: %lf rows/secs", cfg->rows / diff);
 
   return r ? -1 : 0;
 }
@@ -243,57 +297,203 @@ static void usage(const char *arg0)
                   arg0, arg0);
 }
 
-static int benchmark_case0(TAOS *taos, TAOS_STMT *stmt)
+static int _execute(TAOS *taos, const char *sql)
 {
-  (void)stmt;
+  TAOS_RES *res = NULL;
+  int e = 0;
 
-  const char *sqls[] = {
-    "drop table if exists benchmark_case0",
-    "create table benchmark_case0 (ts timestamp, name varchar(20))",
-  };
-  size_t nr_sqls = sizeof(sqls) / sizeof(sqls[0]);
-  for (size_t i=0; i<nr_sqls; ++i) {
-    const char *sql = sqls[i];
-    TAOS_RES *res = taos_query(taos, sql);
-    int e = taos_errno(res);
-    if (e) {
-      E("taos_query failed for `%s`:[%d/0x%x]%s", sql, e, e, taos_errstr(res));
-    }
-    if (res) {
-      taos_free_result(res);
-      res = NULL;
-    }
-    if (e) return -1;
+  res = taos_query(taos, sql);
+  e = taos_errno(res);
+  if (e) {
+    E("taos_query failed for `%s`:[%d/0x%x]%s", sql, e, e, taos_errstr(res));
   }
+  if (res) {
+    taos_free_result(res);
+    res = NULL;
+  }
+  if (e) return -1;
 
-  const char *sql = "insert into benchmark_case0 (ts, name) values (?, ?)";
-  const size_t nr_cols = 2;
-  const size_t nr_rows = INT16_MAX; // 32767
+  return 0;
+}
+
+static int benchmark_case0(TAOS *taos, TAOS_STMT *stmt, taos_conn_cfg_t *cfg)
+{
+  int r = 0;
+
+  r = _execute(taos, cfg->drop);
+  if (r) return -1;
+  r = _execute(taos, cfg->create);
+  if (r) return -1;
 
   TAOS_MULTI_BIND *binds = NULL;
-  int r = _run_prepare(stmt, sql, nr_rows, nr_cols, &binds, TSDB_DATA_TYPE_TIMESTAMP, TSDB_DATA_TYPE_VARCHAR, 20);
+  r = _run_prepare(stmt, cfg, &binds);
 
   if (binds) {
-    _binds_free(binds, nr_cols);
+    _binds_free(binds, cfg->cols);
     binds = NULL;
   }
 
   return r ? -1 : 0;
 }
 
-typedef struct taos_conn_cfg_s               taos_conn_cfg_t;
-struct taos_conn_cfg_s {
-  const char                    *ip;
-  const char                    *usr;
-  const char                    *pwd;
-  const char                    *db;
-  uint16_t                       port;
-};
+static int _parse_tsdb_type(const char *tsdb, int *tsdb_type, int *col_size)
+{
+  if (strcmp(tsdb, "timestamp") == 0) {
+    *tsdb_type = TSDB_DATA_TYPE_TIMESTAMP;
+    *col_size  = 0;
+    return 0;
+  }
+
+  if (strcmp(tsdb, "bigint") == 0) {
+    *tsdb_type = TSDB_DATA_TYPE_BIGINT;
+    *col_size  = 0;
+    return 0;
+  }
+
+  int n = 0;
+
+  n = sscanf(tsdb, "varchar(%d)", col_size);
+  if (n == 1) {
+    *tsdb_type = TSDB_DATA_TYPE_VARCHAR;
+    return 0;
+  }
+
+  E("unknown type `%s`", tsdb);
+  return -1;
+}
+
+static int _gen_sqls(taos_conn_cfg_t *cfg)
+{
+  int n = 0;
+  char *p = NULL;
+  char *end = NULL;
+
+  cfg->drop = "drop table if exists benchmark_case0",
+
+  // create
+  p = cfg->create;
+  end = cfg->create + sizeof(cfg->create);
+
+  n = snprintf(p, end - p, "create table benchmark_case0 (");
+  if (n < 0 || n >= end - p) {
+    E("buffer too small");
+    return -1;
+  }
+  p += n;
+
+  for (size_t i=0; i<cfg->nr_tsdb_types; ++i) {
+    int tsdb_type = cfg->tsdb_types[i];
+    const char *s = cfg->tsdb_names[i];
+    if (!s) {
+      E("unknown tsdb_type [%d]", tsdb_type);
+      return -1;
+    }
+    if (i) {
+      n = snprintf(p, end - p, ", t%zd %s", i, s);
+    } else {
+      n = snprintf(p, end - p, "t%zd %s", i, s);
+    }
+    if (n < 0 || n >= end - p) {
+      E("buffer too small");
+      return -1;
+    }
+    p += n;
+  }
+
+  n = snprintf(p, end - p, ")");
+  if (n < 0 || n >= end - p) {
+    E("buffer too small");
+    return -1;
+  }
+  p += n;
+
+  // insert
+  p = cfg->insert;
+  end = cfg->insert + sizeof(cfg->insert);
+
+  n = snprintf(p, end - p, "insert into benchmark_case0 (");
+  if (n < 0 || n >= end - p) {
+    E("buffer too small");
+    return -1;
+  }
+  p += n;
+
+  for (size_t i=0; i<cfg->nr_tsdb_types; ++i) {
+    if (i) {
+      n = snprintf(p, end - p, ", t%zd", i);
+    } else {
+      n = snprintf(p, end - p, "t%zd", i);
+    }
+    if (n < 0 || n >= end - p) {
+      E("buffer too small");
+      return -1;
+    }
+    p += n;
+  }
+
+  n = snprintf(p, end - p, ") values (");
+  if (n < 0 || n >= end - p) {
+    E("buffer too small");
+    return -1;
+  }
+  p += n;
+
+  for (size_t i=0; i<cfg->nr_tsdb_types; ++i) {
+    if (i) {
+      n = snprintf(p, end - p, ", ?");
+    } else {
+      n = snprintf(p, end - p, "?");
+    }
+    if (n < 0 || n >= end - p) {
+      E("buffer too small");
+      return -1;
+    }
+    p += n;
+  }
+
+  n = snprintf(p, end - p, ")");
+  if (n < 0 || n >= end - p) {
+    E("buffer too small");
+    return -1;
+  }
+  p += n;
+
+  return 0;
+}
+
+static int _add_tsdb_type(taos_conn_cfg_t *cfg, const char *tsdb)
+{
+  int r = 0;
+
+  if (cfg->nr_tsdb_types >= cfg->cols) {
+    E("%s specified, but # of cols overflow:%zd > %zd", tsdb, cfg->nr_tsdb_types, cfg->cols);
+    return -1;
+  }
+
+  int tsdb_type = 0;
+  int col_size = 0;
+  r = _parse_tsdb_type(tsdb, &tsdb_type, &col_size);
+  if (r) return -1;
+  cfg->tsdb_names[cfg->nr_tsdb_types] = tsdb;
+  cfg->tsdb_types[cfg->nr_tsdb_types] = tsdb_type;
+  cfg->tsdb_col_sizes[cfg->nr_tsdb_types] = col_size;
+  cfg->nr_tsdb_types += 1;
+
+  return 0;
+}
 
 int main(int argc, char *argv[])
 {
+  int r = 0;
+
   taos_conn_cfg_t cfg = {0};
   cfg.db = "bar";
+  cfg.rows = 32767; // INT16_MAX
+  cfg.cols = 2;
+  cfg.nr_tsdb_types = 0;
+
+  const size_t nr_cols = sizeof(cfg.tsdb_types) / sizeof(cfg.tsdb_types[0]);
+
   for (int i=1; i<argc; ++i) {
     const char *arg = argv[i];
     if (strcmp(arg, "-h") == 0) {
@@ -368,9 +568,93 @@ int main(int argc, char *argv[])
       cfg.port = (uint16_t)port;
       continue;
     }
+    if (strcmp(arg, "--rows") == 0) {
+      ++i;
+      if (i>=argc) {
+        E("<rows> is expected after `--rows`, but got ==null==");
+        return -1;
+      }
+      char *end = NULL;
+      errno = 0;
+      long long rows = strtoll(argv[i], &end, 0);
+      if (end && *end) {
+        E("<rows> is expected after `--rows`, but got ==%s==", argv[i]);
+        return -1;
+      }
+      if (rows == LLONG_MIN && errno == ERANGE) {
+        E("<rows> is expected after `--rows`, but got ==%s==", argv[i]);
+        return -1;
+      }
+      if (rows == LLONG_MAX && errno == ERANGE) {
+        E("<rows> is expected after `--rows`, but got ==%s==", argv[i]);
+        return -1;
+      }
+      if (rows == 0 && errno == EINVAL) {
+        E("<rows> is expected after `--rows`, but got ==%s==", argv[i]);
+        return -1;
+      }
+      if (rows < 0 || rows > UINT16_MAX) {
+        E("<rows> is expected after `--rows`, but got ==%s==", argv[i]);
+        return -1;
+      }
+      cfg.rows = (size_t)rows;
+      continue;
+    }
+    if (strcmp(arg, "--cols") == 0) {
+      ++i;
+      if (i>=argc) {
+        E("<cols> is expected after `--cols`, but got ==null==");
+        return -1;
+      }
+      char *end = NULL;
+      errno = 0;
+      long long cols = strtoll(argv[i], &end, 0);
+      if (end && *end) {
+        E("<cols> is expected after `--cols`, but got ==%s==", argv[i]);
+        return -1;
+      }
+      if (cols == LLONG_MIN && errno == ERANGE) {
+        E("<cols> is expected after `--cols`, but got ==%s==", argv[i]);
+        return -1;
+      }
+      if (cols == LLONG_MAX && errno == ERANGE) {
+        E("<cols> is expected after `--cols`, but got ==%s==", argv[i]);
+        return -1;
+      }
+      if (cols == 0 && errno == EINVAL) {
+        E("<cols> is expected after `--cols`, but got ==%s==", argv[i]);
+        return -1;
+      }
+      if (cols < 0 || cols > UINT16_MAX) {
+        E("<cols> is expected after `--cols`, but got ==%s==", argv[i]);
+        return -1;
+      }
+      if ((size_t)cols > nr_cols) {
+        E("<cols> is expected not greater than %zd after `--cols`, but got ==%s==", nr_cols, argv[i]);
+        return -1;
+      }
+      cfg.cols = (size_t)cols;
+      continue;
+    }
+
+    r = _add_tsdb_type(&cfg, argv[i]);
+    if (r) return -1;
   }
 
-  int r = 0;
+  if (cfg.nr_tsdb_types == 0) {
+    r = _add_tsdb_type(&cfg, "timestamp");
+    if (r) return -1;
+    r = _add_tsdb_type(&cfg, "varchar(20)");
+    if (r) return -1;
+  }
+
+  if (cfg.nr_tsdb_types != cfg.cols) {
+    E("%zd cols is required, but got ==%zd==", cfg.cols, cfg.nr_tsdb_types);
+    return -1;
+  }
+
+  r = _gen_sqls(&cfg);
+  if (r) return -1;
 
 #ifdef _WIN32                    /* { */
   srand((unsigned int)time(NULL));
@@ -391,7 +675,7 @@ int main(int argc, char *argv[])
       r = -1;
       break;
     }
-    r = benchmark_case0(taos, stmt);
+    r = benchmark_case0(taos, stmt, &cfg);
   } while (0);
 
   if (stmt) {

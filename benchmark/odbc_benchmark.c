@@ -22,8 +22,9 @@
  * SOFTWARE.
  */
 
-#include <sql.h>
-#include <sqlext.h>
+#ifdef _WIN32           /* { */
+#include <windows.h>
+#endif                  /* } */
 
 #include <stdint.h>
 #include <stdarg.h>
@@ -32,10 +33,38 @@
 #include <string.h>
 #include <time.h>
 
+#include <sql.h>
+#include <sqlext.h>
+
+#ifdef _WIN32           /* { */
+static int gettimeofday(struct timeval *tp, void *tzp);
+#else                   /* }{ */
 #include <sys/time.h>
+#endif                  /* } */
+
 
 #define E(fmt, ...) fprintf(stderr, "@%d:%s():" fmt "\n", __LINE__, __func__, ##__VA_ARGS__)
 #define SFREE(x) if (x) { free(x); x = NULL; }
+
+#ifdef _WIN32           /* { */
+static int gettimeofday(struct timeval *tp, void *tzp)
+{
+  static const uint64_t EPOCH = ((uint64_t) 116444736000000000ULL);
+  LARGE_INTEGER li;
+  FILETIME ft;
+  GetSystemTimeAsFileTime(&ft);
+
+  li.QuadPart   = ft.dwHighDateTime;
+  li.QuadPart <<= 32;
+  li.QuadPart  += ft.dwLowDateTime;
+  li.QuadPart  -= EPOCH;
+
+  tp->tv_sec    = (long)(li.QuadPart / 10000000);
+  tp->tv_usec   = (li.QuadPart % 10000000) / 10;
+
+  return 0;
+}
+#endif                  /* } */
 
 static int _timestamp_prepare(void **data, SQLLEN **pn, size_t rows, size_t i_col)
 {
@@ -402,7 +431,12 @@ int main(int argc, char *argv[])
 
   int r = 0;
 
+#ifdef _WIN32                    /* { */
+  srand((unsigned int)time(NULL));
+#else                            /* }{ */
   srand(time(NULL));
+#endif                           /* } */
+
 
   if (cfg.conn == NULL && cfg.dsn == NULL) {
     cfg.dsn = "TAOS_ODBC_DSN";

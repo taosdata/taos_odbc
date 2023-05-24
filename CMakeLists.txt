@@ -96,4 +96,5 @@ add_subdirectory(src)
 add_subdirectory(templates)
 add_subdirectory(tests)
 add_subdirectory(samples)
+add_subdirectory(benchmark)
 

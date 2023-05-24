@@ -248,8 +248,6 @@ static int benchmark_case0(TAOS *taos, TAOS_STMT *stmt)
   (void)stmt;
 
   const char *sqls[] = {
-    "create database if not exists bar",
-    "use bar",
     "drop table if exists benchmark_case0",
     "create table benchmark_case0 (ts timestamp, name varchar(20))",
   };
@@ -295,6 +293,7 @@ struct taos_conn_cfg_s {
 int main(int argc, char *argv[])
 {
   taos_conn_cfg_t cfg = {0};
+  cfg.db = "bar";
   for (int i=1; i<argc; ++i) {
     const char *arg = argv[i];
     if (strcmp(arg, "-h") == 0) {

@@ -277,18 +277,13 @@ static void usage(const char *arg0)
 {
   fprintf(stderr, "%s -h\n"
                   "  show this help page\n"
-                  "%s --dsn <ip> --usr <usr> --pwd <pwd>\n"
-                  "  running benchmark\n"
                   "%s --conn <conn>\n"
                   "  running benchmark\n",
-                  arg0, arg0, arg0);
+                  arg0, arg0);
 }
 
 typedef struct odbc_conn_cfg_s               odbc_conn_cfg_t;
 struct odbc_conn_cfg_s {
-  const char                    *dsn;
-  const char                    *usr;
-  const char                    *pwd;
   const char                    *conn;
 };
 
@@ -311,16 +306,11 @@ static int _run(odbc_conn_cfg_t *cfg, SQLHANDLE *penv, SQLHANDLE *pdbc, SQLHANDL
 
   SQLHANDLE hdbc = *pdbc;
 
-  if (cfg->dsn) {
-    sr = SQLConnect(hdbc, (SQLCHAR*)cfg->dsn, SQL_NTS, (SQLCHAR*)cfg->usr, SQL_NTS, (SQLCHAR*)cfg->pwd, SQL_NTS);
-    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) return -1;
-  } else {
-    char buf[1024];
-    buf[0] = '\0';
-    SQLSMALLINT StringLength = 0;
-    sr = SQLDriverConnect(hdbc, NULL, (SQLCHAR*)cfg->conn, SQL_NTS, (SQLCHAR*)buf, sizeof(buf), &StringLength, SQL_DRIVER_COMPLETE);
-    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) return -1;
-  }
+  char buf[1024];
+  buf[0] = '\0';
+  SQLSMALLINT StringLength = 0;
+  sr = SQLDriverConnect(hdbc, NULL, (SQLCHAR*)cfg->conn, SQL_NTS, (SQLCHAR*)buf, sizeof(buf), &StringLength, SQL_DRIVER_COMPLETE);
+  if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) return -1;
 
   sr = SQLAllocHandle(SQL_HANDLE_STMT, hdbc, pstmt);
   if (sr != SQL_SUCCESS) return -1;
@@ -328,8 +318,6 @@ static int _run(odbc_conn_cfg_t *cfg, SQLHANDLE *penv, SQLHANDLE *pdbc, SQLHANDL
   SQLHANDLE hstmt = *pstmt;
 
   const char *sqls =
-    "create database if not exists bar;"
-    "use bar;"
     "drop table if exists benchmark_case0;"
     "create table benchmark_case0 (ts timestamp, name varchar(20));";
 
@@ -369,50 +357,12 @@ static int _run(odbc_conn_cfg_t *cfg, SQLHANDLE *penv, SQLHANDLE *pdbc, SQLHANDL
 int main(int argc, char *argv[])
 {
   odbc_conn_cfg_t cfg = {0};
+  cfg.conn = "DSN=TAOS_ODBC_DSN;DATABASE=bar";
   for (int i=1; i<argc; ++i) {
     const char *arg = argv[i];
     if (strcmp(arg, "-h") == 0) {
       usage(argv[0]);
       return 0;
-    }
-    if (strcmp(arg, "--dsn") == 0) {
-      ++i;
-      if (i>=argc) {
-        E("<dsn> is expected after `--dsn`, but got ==null==");
-        return -1;
-      }
-      cfg.dsn = argv[i];
-      if (cfg.conn) {
-        E("--conn <conn> has been set");
-        return -1;
-      }
-      continue;
-    }
-    if (strcmp(arg, "--usr") == 0) {
-      ++i;
-      if (i>=argc) {
-        E("<usr> is expected after `--usr`, but got ==null==");
-        return -1;
-      }
-      cfg.usr = argv[i];
-      if (!cfg.dsn) {
-        E("`--dsn <dsn>` is expected, but got ==null==");
-        return -1;
-      }
-      continue;
-    }
-    if (strcmp(arg, "--pwd") == 0) {
-      ++i;
-      if (i>=argc) {
-        E("<pwd> is expected after `--pwd`, but got ==null==");
-        return -1;
-      }
-      cfg.pwd = argv[i];
-      if (!cfg.dsn) {
-        E("`--dsn <dsn>` is expected, but got ==null==");
-        return -1;
-      }
-      continue;
     }
     if (strcmp(arg, "--conn") == 0) {
       ++i;
@@ -421,10 +371,6 @@ int main(int argc, char *argv[])
         return -1;
       }
       cfg.conn = argv[i];
-      if (cfg.dsn) {
-        E("--dsn <dsn> has been set");
-        return -1;
-      }
       continue;
     }
   }
@@ -437,10 +383,6 @@ int main(int argc, char *argv[])
   srand(time(NULL));
 #endif                           /* } */
 
-
-  if (cfg.conn == NULL && cfg.dsn == NULL) {
-    cfg.dsn = "TAOS_ODBC_DSN";
-  }
 
   SQLHANDLE henv = SQL_NULL_HANDLE, hdbc = SQL_NULL_HANDLE, hstmt = SQL_NULL_HANDLE;
 

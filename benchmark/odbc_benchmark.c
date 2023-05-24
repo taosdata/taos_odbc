@@ -40,6 +40,7 @@
 
 #ifdef _WIN32           /* { */
 static int gettimeofday(struct timeval *tp, void *tzp);
+#define sscanf sscanf_s
 #else                   /* }{ */
 #include <sys/time.h>
 #endif                  /* } */

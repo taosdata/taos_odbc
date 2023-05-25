@@ -271,6 +271,15 @@ macro(check_requirements)
                    "${ColorReset}")
   endif ()
 
+  ## check `haskell`
+  tod_find_prog(HASKELL_CABAL 3.6 cabal "--version" ".* version ([0-9\.]+).*" OUTPUT_VARIABLE)
+  if (NOT HAVE_HASKELL_CABAL)
+    message(STATUS "${Yellow}"
+                   "`HASKELL cabal v3.6 or above` not found, "
+                   "thus haskell-related-test-cases would be eliminated, you may refer to https://www.haskell.org/ or https://www.haskell.org/ghcup/"
+                   "${ColorReset}")
+  endif ()
+
   ## check `mysql`
   if (ENABLE_MYSQL_TEST)
     tod_find_prog(MYSQL 8.0.32 mysql "--version" "mysql[ ]+Ver[ ]+([0-9\.]+).*" OUTPUT_VARIABLE)

@@ -22,32 +22,13 @@
 # SOFTWARE.
 ###############################################################################
 
-configure_file(test_config.h.in ${CMAKE_CURRENT_BINARY_DIR}/test_config.h)
+if(HAVE_HASKELL_CABAL)
+  add_custom_target(hs_test ALL
+      COMMAND cabal build --builddir ${CMAKE_CURRENT_BINARY_DIR}
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
-list(APPEND test_helper_SOURCES
-    test_helper.c)
-
-add_library(test_helper_obj OBJECT ${test_helper_SOURCES})
-if(TODBC_WINDOWS)
-    add_dependencies(test_helper_obj ex_iconv ex_cjson)
-endif()
-set_property(TARGET test_helper_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
-target_include_directories(test_helper_obj PRIVATE
-    ${CMAKE_CURRENT_BINARY_DIR} ${CJSON_INSTALL_PATH}/include)
-
-if (TODBC_WINDOWS)
-    add_subdirectory(cs)
-endif ()
-
-add_subdirectory(c)
-add_subdirectory(cpp)
-if(NOT USE_SAN)
-  add_subdirectory(node)
-  add_subdirectory(rust)
-  add_subdirectory(python)
-  add_subdirectory(go)
-  add_subdirectory(erl)
-  add_subdirectory(hs)
+  add_test(NAME hs_test
+      COMMAND cabal run --builddir ${CMAKE_CURRENT_BINARY_DIR}
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 endif()
 
-add_subdirectory(taos)

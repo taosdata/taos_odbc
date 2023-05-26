@@ -26,7 +26,6 @@ module Main where
 import Database.HDBC
 import Database.HDBC.ODBC
 import Text.Printf
-import Control.Exception
 
 main :: IO ()
 main = do
@@ -41,5 +40,4 @@ main = do
   printf "affected rows:%d\n" v3
   v4 <- execute stmt [toSql "2023-05-25 12:23:34.567", toSql "中国"]
   printf "affected rows:%d\n" v4
-  assert (False == True) (return ())
 

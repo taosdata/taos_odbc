@@ -26,18 +26,20 @@ module Main where
 import Database.HDBC
 import Database.HDBC.ODBC
 import Text.Printf
+import Control.Exception
 
 main :: IO ()
 main = do
   putStrLn "Hello, Haskell!"
   conn <- connectODBC "DSN=TAOS_ODBC_DSN;Database=bar"
-  v <- run conn "drop table if exists haskell" []
-  printf "affected rows:%d\n" v
-  v <- run conn "create table if not exists haskell (ts timestamp, name varchar(20))" []
-  printf "affected rows:%d\n" v
+  v1 <- run conn "drop table if exists haskell" []
+  printf "affected rows:%d\n" v1
+  v2 <- run conn "create table if not exists haskell (ts timestamp, name varchar(20))" []
+  printf "affected rows:%d\n" v2
   stmt <- prepare conn "insert into haskell (ts, name) values (?, ?)"
-  v <- execute stmt [toSql "2023-05-25 12:23:34.567", toSql "hello"]
-  printf "affected rows:%d\n" v
-  v <- execute stmt [toSql "2023-05-25 12:23:34.567", toSql "中国"]
-  printf "affected rows:%d\n" v
+  v3 <- execute stmt [toSql "2023-05-25 12:23:34.567", toSql "hello"]
+  printf "affected rows:%d\n" v3
+  v4 <- execute stmt [toSql "2023-05-25 12:23:34.567", toSql "中国"]
+  printf "affected rows:%d\n" v4
+  assert (False == True) (return ())
 

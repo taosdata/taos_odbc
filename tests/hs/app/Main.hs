@@ -27,17 +27,34 @@ import Database.HDBC
 import Database.HDBC.ODBC
 import Text.Printf
 
+myAssert :: Monad m => Bool -> String -> m ()
+myAssert p s
+  | p == True = return ()
+  | otherwise = error s
+
 main :: IO ()
 main = do
   putStrLn "Hello, Haskell!"
   conn <- connectODBC "DSN=TAOS_ODBC_DSN;Database=bar"
+
   v1 <- run conn "drop table if exists haskell" []
   printf "affected rows:%d\n" v1
+  myAssert (v1==0) $ ("affected rows is expected to be 0, but got ==" ++ (show v1) ++ "==")
+
   v2 <- run conn "create table if not exists haskell (ts timestamp, name varchar(20))" []
   printf "affected rows:%d\n" v2
+  myAssert (v2==0) $ ("affected rows is expected to be 0, but got ==" ++ (show v2) ++ "==")
+
   stmt <- prepare conn "insert into haskell (ts, name) values (?, ?)"
+
   v3 <- execute stmt [toSql "2023-05-25 12:23:34.567", toSql "hello"]
   printf "affected rows:%d\n" v3
-  v4 <- execute stmt [toSql "2023-05-25 12:23:34.567", toSql "中国"]
+  myAssert (v3==1) $ ("affected rows is expected to be 1, but got ==" ++ (show v3) ++ "==")
+
+  v4 <- execute stmt [toSql "2023-05-25 12:23:34.568", toSql "中国"]
   printf "affected rows:%d\n" v4
+  -- NOTE: taosc seems accumulate all affected rows previously
+  myAssert (v4==2) $ ("affected rows is expected to be 2, but got ==" ++ (show v4) ++ "==")
+
+  commit conn
 

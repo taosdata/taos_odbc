@@ -3102,6 +3102,16 @@ static SQLRETURN _stmt_param_copy_to_sql_timestamp(stmt_t *stmt, const char *src
 {
   SQLRETURN sr = SQL_SUCCESS;
 
+  char buf[1024];
+  int n = snprintf(buf, sizeof(buf), "%.*s", (int)len, src);
+  if (n < 0 || (size_t)n >= sizeof(buf)) {
+    stmt_append_err_format(stmt, "22007", 0,
+        "Invalid datetime format:timestamp is too long, but got ==[%.*s]==", (int)len, src);
+    return SQL_ERROR;
+  }
+  src = buf;
+  len = (size_t)n;
+
   sql_data_t    *data       = &param_state->sql_data;
 
   data->type = SQL_TYPE_TIMESTAMP;
@@ -3131,7 +3141,7 @@ static SQLRETURN _stmt_param_copy_to_sql_timestamp(stmt_t *stmt, const char *src
   if (!p || !*p) return SQL_SUCCESS;
 
   // TODO: precision
-  int n = (int)(len - (p-src));
+  n = (int)(len - (p-src));
   if (n<0 || n>9) {
     stmt_append_err_format(stmt, "22007", 0,
         "Invalid datetime format:timestamp is required, but got ==[%.*s]==", (int)len, src);
@@ -3142,7 +3152,7 @@ static SQLRETURN _stmt_param_copy_to_sql_timestamp(stmt_t *stmt, const char *src
   int64_t x = strtol(p+1, &end, 10);
   if (end && *end) {
     stmt_append_err_format(stmt, "22007", 0,
-        "Invalid datetime format:`ms` timestamp is required, but got ==[%.*s]==", (int)len, src);
+        "Invalid datetime format:`ms` timestamp is required, but got ==[%.*s]==, unexpected [0x%02x] @ %zd", (int)len, src, (unsigned char)*end, (size_t)(end - src));
     return SQL_ERROR;
   }
   if (x < 0) {

@@ -80,7 +80,7 @@ executable hs-test
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    base ^>=4.16.4.0, HDBC, HDBC-odbc
+    build-depends:    base ^>=4.16.4.0, time, HDBC, HDBC-odbc
 
     -- Directories containing source files.
     hs-source-dirs:   app

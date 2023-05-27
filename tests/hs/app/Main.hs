@@ -25,6 +25,7 @@ module Main where
 
 import Database.HDBC
 import Database.HDBC.ODBC
+import Data.Time
 import Text.Printf
 
 myAssert :: Monad m => Bool -> String -> m ()
@@ -47,11 +48,17 @@ main = do
 
   stmt <- prepare conn "insert into haskell (ts, name) values (?, ?)"
 
-  v3 <- execute stmt [toSql "2023-05-25 12:23:34.567", toSql "hello"]
+  t3 <- fmap (formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S.%3q") $ getZonedTime
+  v3 <- execute stmt [toSql t3, toSql "hello"]
   printf "affected rows:%d\n" v3
   myAssert (v3==1) $ ("affected rows is expected to be 1, but got ==" ++ (show v3) ++ "==")
 
-  v4 <- execute stmt [toSql "2023-05-25 12:23:34.568", toSql "中国"]
+  t4 <- fmap (formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S.%3q") $ getZonedTime
+  v4 <- execute stmt [toSql t4, toSql "中国"]
   printf "affected rows:%d\n" v4
   myAssert (v4==1) $ ("affected rows is expected to be 1, but got ==" ++ (show v4) ++ "==")
+
+  rs <- quickQuery conn "select * from haskell" []
+  print $ show rs
+  myAssert (rs == [[toSql t3, toSql "hello"],[toSql t4, toSql "中国"]]) "data queried is not as expected"
 

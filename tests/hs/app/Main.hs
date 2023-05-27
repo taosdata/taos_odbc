@@ -33,6 +33,15 @@ myAssert p s
   | p == True = return ()
   | otherwise = error s
 
+getNextTick :: Maybe String -> IO String
+getNextTick Nothing = fmap (formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S.%3q") $ getZonedTime
+getNextTick (Just prev) = do
+  t <- fmap (formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S.%3q") $ getZonedTime
+  if t > prev then
+    return t
+  else
+    getNextTick (Just prev)
+
 main :: IO ()
 main = do
   putStrLn "Hello, Haskell!"
@@ -48,12 +57,12 @@ main = do
 
   stmt <- prepare conn "insert into haskell (ts, name) values (?, ?)"
 
-  t3 <- fmap (formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S.%3q") $ getZonedTime
+  t3 <- getNextTick Nothing
   v3 <- execute stmt [toSql t3, toSql "hello"]
   printf "affected rows:%d\n" v3
   myAssert (v3==1) $ ("affected rows is expected to be 1, but got ==" ++ (show v3) ++ "==")
 
-  t4 <- fmap (formatTime defaultTimeLocale "%Y-%m-%d %H:%M:%S.%3q") $ getZonedTime
+  t4 <- getNextTick (Just t3)
   v4 <- execute stmt [toSql t4, toSql "中国"]
   printf "affected rows:%d\n" v4
   myAssert (v4==1) $ ("affected rows is expected to be 1, but got ==" ++ (show v4) ++ "==")

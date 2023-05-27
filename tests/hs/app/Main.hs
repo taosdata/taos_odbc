@@ -53,8 +53,5 @@ main = do
 
   v4 <- execute stmt [toSql "2023-05-25 12:23:34.568", toSql "中国"]
   printf "affected rows:%d\n" v4
-  -- NOTE: taosc seems accumulate all affected rows previously
-  myAssert (v4==2) $ ("affected rows is expected to be 2, but got ==" ++ (show v4) ++ "==")
-
-  commit conn
+  myAssert (v4==1) $ ("affected rows is expected to be 1, but got ==" ++ (show v4) ++ "==")
 

@@ -6245,10 +6245,6 @@ static SQLRETURN _stmt_prepare_params(stmt_t *stmt, param_state_t *param_state)
   int r = 0;
   SQLRETURN sr = SQL_SUCCESS;
 
-  SQLSMALLINT n = 0;
-  sr = _stmt_get_num_params(stmt, &n);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
-
   descriptor_t *APD = stmt_APD(stmt);
   descriptor_t *IPD = stmt_IPD(stmt);
   desc_header_t *IPD_header = &IPD->header;
@@ -6281,7 +6277,7 @@ static SQLRETURN _stmt_prepare_params(stmt_t *stmt, param_state_t *param_state)
     if (params_processed<=1) return SQL_ERROR;
 
     int num = (int)(params_processed - 1);
-    for (int i=0; i<n; ++i) {
+    for (int i=0; i<param_state->nr_tsdb_fields; ++i) {
       TAOS_MULTI_BIND *mbs = stmt->tsdb_binds.mbs + i;
       mbs->num = num;
     }

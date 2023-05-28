@@ -2974,17 +2974,9 @@ static SQLRETURN _stmt_param_copy_sqlc_char_sql_wvarchar(stmt_t *stmt, const cha
   sql_data_t    *data       = &param_state->sql_data;
   mem_t         *mem        = &data->mem;
 
-  const char *fromcode = conn_get_sqlc_charset(stmt->conn);
-  const char *tocode   = "UCS-2LE";
-  if (1) {
-    // FIXME:
-    fromcode = conn_get_sqlc_charset_for_param_bind(stmt->conn);
-  }
-  charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
-  if (!cnv) {
-    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
-    return SQL_ERROR;
-  }
+  charset_conv_t *cnv  = param_state->cnv_from_sqlc_charset_for_param_bind_to_wchar;
+  const char *fromcode = cnv->from;
+  const char *tocode   = cnv->to;
 
   r = mem_conv(mem, cnv->cnv, s, n);
   if (r) {
@@ -3022,13 +3014,9 @@ static SQLRETURN _stmt_param_copy_sqlc_wchar_sql_wvarchar(stmt_t *stmt, const ch
   sql_data_t    *data       = &param_state->sql_data;
   mem_t         *mem        = &data->mem;
 
-  const char *fromcode = "UCS-2LE";
-  const char *tocode   = "UCS-2LE";
-  charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
-  if (!cnv) {
-    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
-    return SQL_ERROR;
-  }
+  charset_conv_t *cnv  = param_state->cnv_from_wchar_to_wchar;
+  const char *fromcode = cnv->from;
+  const char *tocode   = cnv->to;
 
   r = mem_conv(mem, cnv->cnv, wstr, wlen * 2);
   if (r) {
@@ -3065,13 +3053,9 @@ static SQLRETURN _stmt_param_copy_sqlc_wchar_sql_varchar(stmt_t *stmt, const cha
   sql_data_t    *data       = &param_state->sql_data;
   mem_t         *mem        = &data->mem;
 
-  const char *fromcode = "UCS-2LE";
-  const char *tocode   = conn_get_sqlc_charset(stmt->conn);
-  charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
-  if (!cnv) {
-    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
-    return SQL_ERROR;
-  }
+  charset_conv_t *cnv  = param_state->cnv_from_wchar_to_sqlc;
+  const char *fromcode = cnv->from;
+  const char *tocode   = cnv->to;
 
   r = mem_conv(mem, cnv->cnv, wstr, wlen * 2);
   if (r) {
@@ -4974,17 +4958,7 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_char_tsdb_varchar(stmt_t *stmt,
   int                   i_row             = param_state->i_row;
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
 
-  const char *fromcode = conn_get_sqlc_charset(stmt->conn);
-  const char *tocode   = conn_get_tsdb_charset(stmt->conn);
-  if (1) {
-    // FIXME:
-    fromcode = conn_get_sqlc_charset_for_param_bind(stmt->conn);
-  }
-  charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
-  if (!cnv) {
-    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
-    return SQL_ERROR;
-  }
+  charset_conv_t *cnv  = param_state->cnv_from_sqlc_charset_for_param_bind_to_tsdb;
 
   char *tsdb_varchar = tsdb_bind->buffer;
   tsdb_varchar += (i_row - param_state->i_batch_offset) * tsdb_bind->buffer_length;
@@ -5077,13 +5051,7 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_wchar_tsdb_varchar(stmt_t *stmt
   int                   i_row             = param_state->i_row;
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
 
-  const char *fromcode = "UCS-2LE";
-  const char *tocode   = conn_get_tsdb_charset(stmt->conn);
-  charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
-  if (!cnv) {
-    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
-    return SQL_ERROR;
-  }
+  charset_conv_t *cnv  = param_state->cnv_from_wchar_to_tsdb;
 
   char *tsdb_varchar = tsdb_bind->buffer;
   tsdb_varchar += (i_row - param_state->i_batch_offset) * tsdb_bind->buffer_length;
@@ -6360,6 +6328,68 @@ static SQLRETURN _stmt_execute_rebind_subtbl(stmt_t *stmt, const char *subtbl, s
   return tsdb_stmt_rebind_subtbl(&stmt->tsdb_stmt);
 }
 
+static SQLRETURN _stmt_init_param_state_cnvs(stmt_t *stmt, param_state_t *param_state)
+{
+  const char *fromcode = NULL;
+  const char *tocode   = NULL;
+  charset_conv_t *cnv  = NULL;
+
+  fromcode = conn_get_sqlc_charset(stmt->conn);
+  tocode   = "UCS-2LE";
+  if (1) {
+    // FIXME:
+    fromcode = conn_get_sqlc_charset_for_param_bind(stmt->conn);
+  }
+  cnv  = tls_get_charset_conv(fromcode, tocode);
+  if (!cnv) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
+    return SQL_ERROR;
+  }
+  param_state->cnv_from_sqlc_charset_for_param_bind_to_wchar = cnv;
+
+  fromcode = "UCS-2LE";
+  tocode   = "UCS-2LE";
+  cnv  = tls_get_charset_conv(fromcode, tocode);
+  if (!cnv) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
+    return SQL_ERROR;
+  }
+  param_state->cnv_from_wchar_to_wchar = cnv;
+
+  fromcode = "UCS-2LE";
+  tocode   = conn_get_sqlc_charset(stmt->conn);
+  cnv  = tls_get_charset_conv(fromcode, tocode);
+  if (!cnv) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
+    return SQL_ERROR;
+  }
+  param_state->cnv_from_wchar_to_sqlc = cnv;
+
+  fromcode = conn_get_sqlc_charset(stmt->conn);
+  tocode   = conn_get_tsdb_charset(stmt->conn);
+  if (1) {
+    // FIXME:
+    fromcode = conn_get_sqlc_charset_for_param_bind(stmt->conn);
+  }
+  cnv  = tls_get_charset_conv(fromcode, tocode);
+  if (!cnv) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
+    return SQL_ERROR;
+  }
+  param_state->cnv_from_sqlc_charset_for_param_bind_to_tsdb = cnv;
+
+  fromcode = "UCS-2LE";
+  tocode   = conn_get_tsdb_charset(stmt->conn);
+  cnv  = tls_get_charset_conv(fromcode, tocode);
+  if (!cnv) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
+    return SQL_ERROR;
+  }
+  param_state->cnv_from_wchar_to_tsdb = cnv;
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_execute_with_params(stmt_t *stmt)
 {
   SQLRETURN sr = SQL_SUCCESS;
@@ -6391,6 +6421,9 @@ static SQLRETURN _stmt_execute_with_params(stmt_t *stmt)
   _param_state_reset(param_state);
   param_state->nr_tsdb_fields            = n;
   param_state->i_batch_offset            = 0;
+
+  sr = _stmt_init_param_state_cnvs(stmt, param_state);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   if (stmt->tsdb_stmt.is_insert_stmt && stmt->tsdb_stmt.params.subtbl_required) {
     desc_record_t *APD_record = APD->records + 0;

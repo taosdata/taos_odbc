@@ -724,6 +724,12 @@ struct param_state_s {
 
   mem_t                      tmp;
 
+  charset_conv_t            *cnv_from_sqlc_charset_for_param_bind_to_wchar;
+  charset_conv_t            *cnv_from_wchar_to_wchar;
+  charset_conv_t            *cnv_from_wchar_to_sqlc;
+  charset_conv_t            *cnv_from_sqlc_charset_for_param_bind_to_tsdb;
+  charset_conv_t            *cnv_from_wchar_to_tsdb;
+
   uint8_t                    is_subtbl:1;
 };
 

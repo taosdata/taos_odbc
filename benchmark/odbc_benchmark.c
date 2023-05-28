@@ -543,10 +543,6 @@ int main(int argc, char *argv[])
         E("<rows> is expected after `--rows`, but got ==%s==", argv[i]);
         return -1;
       }
-      if (rows < 0 || rows > UINT16_MAX) {
-        E("<rows> is expected after `--rows`, but got ==%s==", argv[i]);
-        return -1;
-      }
       cfg.rows = (size_t)rows;
       continue;
     }

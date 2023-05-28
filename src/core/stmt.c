@@ -1153,7 +1153,7 @@ static SQLRETURN _stmt_fill_IRD(stmt_t *stmt)
     sr = _stmt_col_set_empty_string(stmt, IRD_record->DESC_CATALOG_NAME, sizeof(IRD_record->DESC_CATALOG_NAME), &StringLength);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-    sr = _stmt_col_DESC_CONCISE_TYPE(stmt, _map, &IRD_record->DESC_CONCISE_TYPE); 
+    sr = _stmt_col_DESC_CONCISE_TYPE(stmt, _map, &IRD_record->DESC_CONCISE_TYPE);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
 
     IRD_record->DESC_DATA_PTR = NULL;
@@ -6481,7 +6481,21 @@ static SQLRETURN _stmt_execute_with_params(stmt_t *stmt)
         continue;
       }
 
-      if (subtbl_len == len && strncmp(subtbl, base, len) == 0) continue;
+      if (subtbl_len == len && strncmp(subtbl, base, len) == 0) {
+        if (i + 1 % INT16_MAX) continue;
+
+        param_state->i_batch_offset   = i_offset;
+        param_state->nr_batch_size    = (int)(i - i_offset);
+
+        sr = _stmt_prepare_params(stmt, param_state);
+        if (sr != SQL_SUCCESS) return SQL_ERROR;
+        sr = stmt->base->execute(stmt->base);
+        if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+        i_offset   = i;
+
+        continue;
+      }
 
       sr = _stmt_execute_rebind_subtbl(stmt, subtbl, subtbl_len);
       if (sr != SQL_SUCCESS) return SQL_ERROR;
@@ -6506,12 +6520,20 @@ static SQLRETURN _stmt_execute_with_params(stmt_t *stmt)
     if (sr != SQL_SUCCESS) return SQL_ERROR;
   }
 
-  param_state->i_batch_offset = i_offset;
-  param_state->nr_batch_size  = (int)(nr_paramset_size - i_offset);
+  for (; i_offset < nr_paramset_size; i_offset += INT16_MAX) {
+    size_t nr = nr_paramset_size - i_offset;
+    if (nr > INT16_MAX) nr = INT16_MAX;
 
-  sr = _stmt_prepare_params(stmt, param_state);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
-  return stmt->base->execute(stmt->base);
+    param_state->i_batch_offset = i_offset;
+    param_state->nr_batch_size  = (int)nr;
+
+    sr = _stmt_prepare_params(stmt, param_state);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+    sr = stmt->base->execute(stmt->base);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
 }
 
 static SQLRETURN _stmt_execute(stmt_t *stmt)

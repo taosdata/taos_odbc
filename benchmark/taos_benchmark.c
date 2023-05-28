@@ -230,14 +230,11 @@ static int _binds_prepare_v(TAOS_MULTI_BIND *binds, taos_conn_cfg_t *cfg)
   return 0;
 }
 
-static int _prepare_and_run(TAOS_STMT *stmt, const char *sql, TAOS_MULTI_BIND *binds)
+static int _bind_and_run(TAOS_STMT *stmt, taos_conn_cfg_t *cfg, TAOS_MULTI_BIND *binds)
 {
   int r = 0;
-  r = taos_stmt_prepare(stmt, sql, (unsigned long)strlen(sql));
-  if (r) {
-    E("taos_stmt_prepare failed for `%s`:[%d/0x%x]%s", sql, taos_errno(NULL), taos_errno(NULL), taos_errstr(NULL));
-    return -1;
-  }
+
+  const char *sql = cfg->insert;
 
   r = taos_stmt_bind_param_batch(stmt, binds);
   if (r) {
@@ -260,6 +257,42 @@ static int _prepare_and_run(TAOS_STMT *stmt, const char *sql, TAOS_MULTI_BIND *b
   return 0;
 }
 
+static int _prepare_and_run(TAOS_STMT *stmt, taos_conn_cfg_t *cfg, TAOS_MULTI_BIND *binds)
+{
+  int r = 0;
+  const char *sql = cfg->insert;
+
+  r = taos_stmt_prepare(stmt, sql, (unsigned long)strlen(sql));
+  if (r) {
+    E("taos_stmt_prepare failed for `%s`:[%d/0x%x]%s", sql, taos_errno(NULL), taos_errno(NULL), taos_errstr(NULL));
+    return -1;
+  }
+
+  TAOS_MULTI_BIND this_binds[64];
+  size_t nr_this_binds = sizeof(this_binds) / sizeof(this_binds[0]);
+  if (cfg->cols > nr_this_binds) {
+    E("too many cols %zd, no greater than %zd cols is permitted", cfg->cols, nr_this_binds);
+    return -1;
+  }
+  for (size_t i=0; i<cfg->rows; i += INT16_MAX) {
+    size_t num = cfg->rows - i;
+    if (num > INT16_MAX) num = INT16_MAX;
+    for (size_t j=0; j<cfg->cols; ++j) {
+      this_binds[j] = binds[j];
+      this_binds[j].num = (int)num;
+      this_binds[j].buffer_type    = binds[j].buffer_type;
+      this_binds[j].buffer_length  = binds[j].buffer_length;
+      this_binds[j].buffer         = binds[j].buffer ? (((char*)binds[j].buffer) + binds[j].buffer_length * i) : NULL;
+      this_binds[j].length         = binds[j].length ? (binds[j].length + i) : NULL;
+      this_binds[j].is_null        = binds[j].is_null ? (binds[j].is_null + i) : NULL;
+    }
+    r = _bind_and_run(stmt, cfg, this_binds);
+    if (r) return -1;
+  }
+
+  return 0;
+}
+
 static int _run_prepare(TAOS_STMT *stmt, taos_conn_cfg_t *cfg, TAOS_MULTI_BIND **binds)
 {
   int r = 0;
@@ -275,7 +308,7 @@ static int _run_prepare(TAOS_STMT *stmt, taos_conn_cfg_t *cfg, TAOS_MULTI_BIND *
   struct timeval tv0 = {0};
   struct timeval tv1 = {0};
   gettimeofday(&tv0, NULL);
-  r = _prepare_and_run(stmt, cfg->insert, *binds);
+  r = _prepare_and_run(stmt, cfg, *binds);
   gettimeofday(&tv1, NULL);
 
   if (r) return -1;
@@ -590,10 +623,6 @@ int main(int argc, char *argv[])
         return -1;
       }
       if (rows == 0 && errno == EINVAL) {
-        E("<rows> is expected after `--rows`, but got ==%s==", argv[i]);
-        return -1;
-      }
-      if (rows < 0 || rows > UINT16_MAX) {
         E("<rows> is expected after `--rows`, but got ==%s==", argv[i]);
         return -1;
       }

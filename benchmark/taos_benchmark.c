@@ -317,7 +317,7 @@ static int _run_prepare(TAOS_STMT *stmt, taos_conn_cfg_t *cfg, TAOS_MULTI_BIND *
   diff += ((double)(tv1.tv_usec - tv0.tv_usec)) / 1000000;
 
   E("run_with_params(%s), with %zd rows / %zd cols:", cfg->insert, cfg->rows, cfg->cols);
-  E("elapsed: %lfsecs", diff);
+  E("elapsed: %lf secs", diff);
   E("throughput: %lf rows/secs", cfg->rows / diff);
 
   return 0;

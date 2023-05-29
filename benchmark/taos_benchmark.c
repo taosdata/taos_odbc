@@ -345,6 +345,39 @@ static int _bind_varchar_prepare(TAOS_MULTI_BIND *bind, size_t rows, size_t len)
   return 0;
 }
 
+static int _bind_nchar_prepare(TAOS_MULTI_BIND *bind, size_t rows, size_t len)
+{
+  int       buffer_type          = TSDB_DATA_TYPE_NCHAR;
+  uintptr_t buffer_length        = len + 1;
+  void     *buffer               = calloc(rows, buffer_length);
+  int32_t  *length               = calloc(rows, sizeof(*length));
+  char     *is_null              = NULL;
+  int       num                  = (int)rows;
+
+  bind->buffer_type          = buffer_type;
+  bind->buffer_length        = buffer_length;
+  bind->buffer               = buffer;
+  bind->length               = length;
+  bind->is_null              = is_null;
+  bind->num                  = num;
+
+  if (!bind->buffer || !bind->length) {
+    E("oom");
+    return -1;
+  }
+
+  char *base = (char*)bind->buffer;
+
+  for (size_t i=0; i<rows; ++i) {
+    int v = rand();
+    int n = snprintf(base + i * bind->buffer_length, bind->buffer_length, "%0*d", (int)(bind->buffer_length - 1), v);
+    // E("varchar:[%s]", base + i * bind->buffer_length);
+    bind->length[i] = n;
+  }
+
+  return 0;
+}
+
 typedef struct taos_conn_cfg_s               taos_conn_cfg_t;
 struct taos_conn_cfg_s {
   const char                    *ip;
@@ -377,6 +410,10 @@ static int _binds_prepare_v(TAOS_MULTI_BIND *binds, taos_conn_cfg_t *cfg)
         break;
       case TSDB_DATA_TYPE_VARCHAR:
         r = _bind_varchar_prepare(binds + i, cfg->rows, cfg->tsdb_col_sizes[i]);
+        if (r) return -1;
+        break;
+      case TSDB_DATA_TYPE_NCHAR:
+        r = _bind_nchar_prepare(binds + i, cfg->rows, cfg->tsdb_col_sizes[i]);
         if (r) return -1;
         break;
       case TSDB_DATA_TYPE_BIGINT:
@@ -602,6 +639,12 @@ static int _parse_tsdb_type(const char *tsdb, int *tsdb_type, int *col_size)
   n = sscanf(tsdb, "varchar(%d)", col_size);
   if (n == 1) {
     *tsdb_type = TSDB_DATA_TYPE_VARCHAR;
+    return 0;
+  }
+
+  n = sscanf(tsdb, "nchar(%d)", col_size);
+  if (n == 1) {
+    *tsdb_type = TSDB_DATA_TYPE_NCHAR;
     return 0;
   }
 

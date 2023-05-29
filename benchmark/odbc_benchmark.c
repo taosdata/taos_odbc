@@ -503,6 +503,13 @@ static int _parse_sqlc_type(const char *sqlc, int *sqlc_type, int *col_size)
     return 0;
   }
 
+  n = sscanf(sqlc, "nchar(%d)", col_size);
+  if (n == 1) {
+    // NOTE: we check map SQL_C_CHAR/SQL_VARCHAR/TSDB_DATA_TYPE_NCHAR
+    *sqlc_type = SQL_C_CHAR;
+    return 0;
+  }
+
   E("unknown type `%s`", sqlc);
   return -1;
 }

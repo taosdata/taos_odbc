@@ -150,6 +150,168 @@ static int _bind_bigint_prepare(TAOS_MULTI_BIND *bind, size_t rows)
   return 0;
 }
 
+static int _bind_int_prepare(TAOS_MULTI_BIND *bind, size_t rows)
+{
+  int       buffer_type          = TSDB_DATA_TYPE_INT;
+  uintptr_t buffer_length        = sizeof(int32_t);
+  void     *buffer               = calloc(rows, buffer_length);
+  int32_t  *length               = NULL;
+  char     *is_null              = NULL;
+  int       num                  = (int)rows;
+
+
+  bind->buffer_type          = buffer_type;
+  bind->buffer_length        = buffer_length;
+  bind->buffer               = buffer;
+  bind->length               = length;
+  bind->is_null              = is_null;
+  bind->num                  = num;
+
+  if (!bind->buffer) {
+    E("oom");
+    return -1;
+  }
+
+  int32_t *base = (int32_t*)bind->buffer;
+
+  for (size_t i=0; i<rows; ++i) {
+    base[i] = rand();
+    // E("int:[%zd]", base[i]);
+  }
+
+  return 0;
+}
+
+static int _bind_smallint_prepare(TAOS_MULTI_BIND *bind, size_t rows)
+{
+  int       buffer_type          = TSDB_DATA_TYPE_SMALLINT;
+  uintptr_t buffer_length        = sizeof(int16_t);
+  void     *buffer               = calloc(rows, buffer_length);
+  int32_t  *length               = NULL;
+  char     *is_null              = NULL;
+  int       num                  = (int)rows;
+
+
+  bind->buffer_type          = buffer_type;
+  bind->buffer_length        = buffer_length;
+  bind->buffer               = buffer;
+  bind->length               = length;
+  bind->is_null              = is_null;
+  bind->num                  = num;
+
+  if (!bind->buffer) {
+    E("oom");
+    return -1;
+  }
+
+  int16_t *base = (int16_t*)bind->buffer;
+
+  for (size_t i=0; i<rows; ++i) {
+    base[i] = rand();
+    // E("smallint:[%zd]", base[i]);
+  }
+
+  return 0;
+}
+
+static int _bind_tinyint_prepare(TAOS_MULTI_BIND *bind, size_t rows)
+{
+  int       buffer_type          = TSDB_DATA_TYPE_TINYINT;
+  uintptr_t buffer_length        = sizeof(int8_t);
+  void     *buffer               = calloc(rows, buffer_length);
+  int32_t  *length               = NULL;
+  char     *is_null              = NULL;
+  int       num                  = (int)rows;
+
+
+  bind->buffer_type          = buffer_type;
+  bind->buffer_length        = buffer_length;
+  bind->buffer               = buffer;
+  bind->length               = length;
+  bind->is_null              = is_null;
+  bind->num                  = num;
+
+  if (!bind->buffer) {
+    E("oom");
+    return -1;
+  }
+
+  int8_t *base = (int8_t*)bind->buffer;
+
+  for (size_t i=0; i<rows; ++i) {
+    base[i] = rand();
+    // E("tinyint:[%zd]", base[i]);
+  }
+
+  return 0;
+}
+
+static int _bind_double_prepare(TAOS_MULTI_BIND *bind, size_t rows)
+{
+  int       buffer_type          = TSDB_DATA_TYPE_DOUBLE;
+  uintptr_t buffer_length        = sizeof(double);
+  void     *buffer               = calloc(rows, buffer_length);
+  int32_t  *length               = NULL;
+  char     *is_null              = NULL;
+  int       num                  = (int)rows;
+
+
+  bind->buffer_type          = buffer_type;
+  bind->buffer_length        = buffer_length;
+  bind->buffer               = buffer;
+  bind->length               = length;
+  bind->is_null              = is_null;
+  bind->num                  = num;
+
+  if (!bind->buffer) {
+    E("oom");
+    return -1;
+  }
+
+  double *base = (double*)bind->buffer;
+
+  for (size_t i=0; i<rows; ++i) {
+    base[i] = rand();
+    base[i] /= (double)rand();
+    // E("double:[%lg]", base[i]);
+  }
+
+  return 0;
+}
+
+static int _bind_float_prepare(TAOS_MULTI_BIND *bind, size_t rows)
+{
+  int       buffer_type          = TSDB_DATA_TYPE_FLOAT;
+  uintptr_t buffer_length        = sizeof(float);
+  void     *buffer               = calloc(rows, buffer_length);
+  int32_t  *length               = NULL;
+  char     *is_null              = NULL;
+  int       num                  = (int)rows;
+
+
+  bind->buffer_type          = buffer_type;
+  bind->buffer_length        = buffer_length;
+  bind->buffer               = buffer;
+  bind->length               = length;
+  bind->is_null              = is_null;
+  bind->num                  = num;
+
+  if (!bind->buffer) {
+    E("oom");
+    return -1;
+  }
+
+  float *base = (float*)bind->buffer;
+
+  for (size_t i=0; i<rows; ++i) {
+    base[i] = rand();
+    base[i] /= (float)rand();
+    // E("float:[%lg]", base[i]);
+  }
+
+  return 0;
+}
+
 static int _bind_varchar_prepare(TAOS_MULTI_BIND *bind, size_t rows, size_t len)
 {
   int       buffer_type          = TSDB_DATA_TYPE_VARCHAR;
@@ -219,6 +381,26 @@ static int _binds_prepare_v(TAOS_MULTI_BIND *binds, taos_conn_cfg_t *cfg)
         break;
       case TSDB_DATA_TYPE_BIGINT:
         r = _bind_bigint_prepare(binds + i, cfg->rows);
+        if (r) return -1;
+        break;
+      case TSDB_DATA_TYPE_INT:
+        r = _bind_int_prepare(binds + i, cfg->rows);
+        if (r) return -1;
+        break;
+      case TSDB_DATA_TYPE_SMALLINT:
+        r = _bind_smallint_prepare(binds + i, cfg->rows);
+        if (r) return -1;
+        break;
+      case TSDB_DATA_TYPE_TINYINT:
+        r = _bind_tinyint_prepare(binds + i, cfg->rows);
+        if (r) return -1;
+        break;
+      case TSDB_DATA_TYPE_DOUBLE:
+        r = _bind_double_prepare(binds + i, cfg->rows);
+        if (r) return -1;
+        break;
+      case TSDB_DATA_TYPE_FLOAT:
+        r = _bind_float_prepare(binds + i, cfg->rows);
         if (r) return -1;
         break;
       default:
@@ -381,6 +563,36 @@ static int _parse_tsdb_type(const char *tsdb, int *tsdb_type, int *col_size)
 
   if (strcmp(tsdb, "bigint") == 0) {
     *tsdb_type = TSDB_DATA_TYPE_BIGINT;
+    *col_size  = 0;
+    return 0;
+  }
+
+  if (strcmp(tsdb, "int") == 0) {
+    *tsdb_type = TSDB_DATA_TYPE_INT;
+    *col_size  = 0;
+    return 0;
+  }
+
+  if (strcmp(tsdb, "smallint") == 0) {
+    *tsdb_type = TSDB_DATA_TYPE_SMALLINT;
+    *col_size  = 0;
+    return 0;
+  }
+
+  if (strcmp(tsdb, "tinyint") == 0) {
+    *tsdb_type = TSDB_DATA_TYPE_TINYINT;
+    *col_size  = 0;
+    return 0;
+  }
+
+  if (strcmp(tsdb, "double") == 0) {
+    *tsdb_type = TSDB_DATA_TYPE_DOUBLE;
+    *col_size  = 0;
+    return 0;
+  }
+
+  if (strcmp(tsdb, "float") == 0) {
+    *tsdb_type = TSDB_DATA_TYPE_FLOAT;
     *col_size  = 0;
     return 0;
   }

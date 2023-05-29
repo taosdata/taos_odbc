@@ -122,6 +122,133 @@ static int _bigint_prepare(void **data, SQLLEN **pn, size_t rows, size_t i_col)
   return 0;
 }
 
+static int _int_prepare(void **data, SQLLEN **pn, size_t rows, size_t i_col)
+{
+  int32_t *p32 = (int32_t*)calloc(rows, sizeof(*p32));
+  if (!p32) {
+    E("oom");
+    return -1;
+  }
+  data[i_col] = p32;
+
+  SQLLEN *p = (SQLLEN*)calloc(rows, sizeof(*p));
+  if (!p) {
+    E("oom");
+    return -1;
+  }
+  pn[i_col] = p;
+
+  for (size_t i=0; i<rows; ++i) {
+    p32[i] = rand();
+    p[i] = sizeof(p32[i]);
+    // E("int:[%zd]", p32[i]);
+  }
+
+  return 0;
+}
+
+static int _short_prepare(void **data, SQLLEN **pn, size_t rows, size_t i_col)
+{
+  int16_t *p16 = (int16_t*)calloc(rows, sizeof(*p16));
+  if (!p16) {
+    E("oom");
+    return -1;
+  }
+  data[i_col] = p16;
+
+  SQLLEN *p = (SQLLEN*)calloc(rows, sizeof(*p));
+  if (!p) {
+    E("oom");
+    return -1;
+  }
+  pn[i_col] = p;
+
+  for (size_t i=0; i<rows; ++i) {
+    p16[i] = rand();
+    p[i] = sizeof(p16[i]);
+    // E("smallint:[%zd]", p16[i]);
+  }
+
+  return 0;
+}
+
+static int _tinyint_prepare(void **data, SQLLEN **pn, size_t rows, size_t i_col)
+{
+  int8_t *p8 = (int8_t*)calloc(rows, sizeof(*p8));
+  if (!p8) {
+    E("oom");
+    return -1;
+  }
+  data[i_col] = p8;
+
+  SQLLEN *p = (SQLLEN*)calloc(rows, sizeof(*p));
+  if (!p) {
+    E("oom");
+    return -1;
+  }
+  pn[i_col] = p;
+
+  for (size_t i=0; i<rows; ++i) {
+    p8[i] = rand();
+    p[i] = sizeof(p8[i]);
+    // E("tinyint:[%zd]", p8[i]);
+  }
+
+  return 0;
+}
+
+static int _double_prepare(void **data, SQLLEN **pn, size_t rows, size_t i_col)
+{
+  double *dbl = (double*)calloc(rows, sizeof(*dbl));
+  if (!dbl) {
+    E("oom");
+    return -1;
+  }
+  data[i_col] = dbl;
+
+  SQLLEN *p = (SQLLEN*)calloc(rows, sizeof(*p));
+  if (!p) {
+    E("oom");
+    return -1;
+  }
+  pn[i_col] = p;
+
+  for (size_t i=0; i<rows; ++i) {
+    dbl[i] = rand();
+    dbl[i] /= (double)rand();
+    p[i] = sizeof(dbl[i]);
+    // E("double:[%lg]", dbl[i]);
+  }
+
+  return 0;
+}
+
+static int _float_prepare(void **data, SQLLEN **pn, size_t rows, size_t i_col)
+{
+  float *flt = (float*)calloc(rows, sizeof(*flt));
+  if (!flt) {
+    E("oom");
+    return -1;
+  }
+  data[i_col] = flt;
+
+  SQLLEN *p = (SQLLEN*)calloc(rows, sizeof(*p));
+  if (!p) {
+    E("oom");
+    return -1;
+  }
+  pn[i_col] = p;
+
+  for (size_t i=0; i<rows; ++i) {
+    flt[i] = rand();
+    flt[i] /= (float)rand();
+    p[i] = sizeof(flt[i]);
+    // E("float:[%lg]", flt[i]);
+  }
+
+  return 0;
+}
+
 static int _char_prepare(void **data, SQLLEN **pn, size_t rows, size_t i_col, size_t len)
 {
   char *ps = (char*)calloc(rows, len + 1);
@@ -221,6 +348,31 @@ static int _prepare_data_v(SQLHANDLE hstmt, odbc_conn_cfg_t *cfg,
         if (r) return -1;
         sql_type = SQL_BIGINT;
         break;
+      case SQL_C_SLONG:
+        r = _int_prepare(p, pn, cfg->rows, i);
+        if (r) return -1;
+        sql_type = SQL_INTEGER;
+        break;
+      case SQL_C_SHORT:
+        r = _short_prepare(p, pn, cfg->rows, i);
+        if (r) return -1;
+        sql_type = SQL_SMALLINT;
+        break;
+      case SQL_C_STINYINT:
+        r = _tinyint_prepare(p, pn, cfg->rows, i);
+        if (r) return -1;
+        sql_type = SQL_TINYINT;
+        break;
+      case SQL_C_DOUBLE:
+        r = _double_prepare(p, pn, cfg->rows, i);
+        if (r) return -1;
+        sql_type = SQL_DOUBLE;
+        break;
+      case SQL_C_FLOAT:
+        r = _float_prepare(p, pn, cfg->rows, i);
+        if (r) return -1;
+        sql_type = SQL_REAL;
+        break;
       case SQL_C_CHAR:
         len = cfg->sqlc_col_sizes[i];
         r = _char_prepare(p, pn, cfg->rows, i, len);
@@ -309,6 +461,36 @@ static int _parse_sqlc_type(const char *sqlc, int *sqlc_type, int *col_size)
 
   if (strcmp(sqlc, "bigint") == 0) {
     *sqlc_type = SQL_C_SBIGINT;
+    *col_size  = 0;
+    return 0;
+  }
+
+  if (strcmp(sqlc, "int") == 0) {
+    *sqlc_type = SQL_C_SLONG;
+    *col_size  = 0;
+    return 0;
+  }
+
+  if (strcmp(sqlc, "smallint") == 0) {
+    *sqlc_type = SQL_C_SHORT;
+    *col_size  = 0;
+    return 0;
+  }
+
+  if (strcmp(sqlc, "tinyint") == 0) {
+    *sqlc_type = SQL_C_STINYINT;
+    *col_size  = 0;
+    return 0;
+  }
+
+  if (strcmp(sqlc, "double") == 0) {
+    *sqlc_type = SQL_C_DOUBLE;
+    *col_size  = 0;
+    return 0;
+  }
+
+  if (strcmp(sqlc, "float") == 0) {
+    *sqlc_type = SQL_C_FLOAT;
     *col_size  = 0;
     return 0;
   }

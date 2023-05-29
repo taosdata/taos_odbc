@@ -3634,6 +3634,19 @@ static SQLRETURN _stmt_param_check_sqlc_double_sql_double(stmt_t *stmt, param_st
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_param_check_sqlc_float_sql_real(stmt_t *stmt, param_state_t *param_state)
+{
+  (void)stmt;
+
+  sqlc_data_t   *sqlc_data  = &param_state->sqlc_data;
+  sql_data_t    *data       = &param_state->sql_data;
+
+  data->flt  = sqlc_data->flt;
+  data->type = SQL_FLOAT;
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_param_check_sqlc_double_sql_varchar(stmt_t *stmt, param_state_t *param_state)
 {
   SQLRETURN sr = SQL_SUCCESS;
@@ -3716,26 +3729,6 @@ static SQLRETURN _stmt_param_check_sqlc_wchar_sql_timestamp(stmt_t *stmt, param_
   return _stmt_param_copy_to_sql_timestamp(stmt, s, n, param_state);
 }
 
-static SQLRETURN _stmt_param_check_sqlc_slong_sql_integer(stmt_t *stmt, param_state_t *param_state)
-{
-  (void)stmt;
-
-  sqlc_data_t   *sqlc_data  = &param_state->sqlc_data;
-  sql_data_t    *data       = &param_state->sql_data;
-
-  int32_t v = sqlc_data->i32;
-
-  data->i32  = v;
-  data->type = SQL_INTEGER;
-
-  return SQL_SUCCESS;
-}
-
-static SQLRETURN _stmt_param_check_sqlc_long_sql_integer(stmt_t *stmt, param_state_t *param_state)
-{
-  return _stmt_param_check_sqlc_slong_sql_integer(stmt, param_state);
-}
-
 static SQLRETURN _stmt_guess_tsdb_params_for_sql_c_char(stmt_t *stmt, param_state_t *param_state)
 {
   (void)stmt;
@@ -3813,6 +3806,18 @@ static SQLRETURN _stmt_param_guess_sqlc_double(stmt_t *stmt, param_state_t *para
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_param_guess_sqlc_float(stmt_t *stmt, param_state_t *param_state)
+{
+  (void)stmt;
+
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+
+  tsdb_field->type      = TSDB_DATA_TYPE_FLOAT;
+  tsdb_field->bytes     = sizeof(float);
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_param_guess_sqlc_slong(stmt_t *stmt, param_state_t *param_state)
 {
   (void)stmt;
@@ -3828,6 +3833,30 @@ static SQLRETURN _stmt_param_guess_sqlc_slong(stmt_t *stmt, param_state_t *param
 static SQLRETURN _stmt_param_guess_sqlc_long(stmt_t *stmt, param_state_t *param_state)
 {
   return _stmt_param_guess_sqlc_slong(stmt, param_state);
+}
+
+static SQLRETURN _stmt_param_guess_sqlc_short(stmt_t *stmt, param_state_t *param_state)
+{
+  (void)stmt;
+
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+
+  tsdb_field->type = TSDB_DATA_TYPE_SMALLINT;
+  tsdb_field->bytes = sizeof(int16_t);
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_param_guess_sqlc_tinyint(stmt_t *stmt, param_state_t *param_state)
+{
+  (void)stmt;
+
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+
+  tsdb_field->type = TSDB_DATA_TYPE_SMALLINT;
+  tsdb_field->bytes = sizeof(int8_t);
+
+  return SQL_SUCCESS;
 }
 
 static SQLRETURN _stmt_param_guess_sqlc_wchar(stmt_t *stmt, param_state_t *param_state)
@@ -3900,6 +3929,28 @@ static SQLRETURN _stmt_param_bind_set_APD_record_sqlc_double(stmt_t* stmt,
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_param_bind_set_APD_record_sqlc_float(stmt_t* stmt,
+    desc_record_t  *APD_record,
+    SQLUSMALLINT    ParameterNumber,
+    SQLSMALLINT     ValueType,
+    SQLPOINTER      ParameterValuePtr,
+    SQLLEN          BufferLength,
+    SQLLEN         *StrLen_or_IndPtr)
+{
+  (void)stmt;
+  (void)ParameterNumber;
+  (void)BufferLength;
+
+  APD_record->DESC_TYPE                = ValueType;
+  APD_record->DESC_CONCISE_TYPE        = ValueType;
+  APD_record->DESC_OCTET_LENGTH        = 4;
+  APD_record->DESC_DATA_PTR            = ParameterValuePtr;
+  APD_record->DESC_INDICATOR_PTR       = StrLen_or_IndPtr;
+  APD_record->DESC_OCTET_LENGTH_PTR    = StrLen_or_IndPtr;
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_param_bind_set_APD_record_sqlc_slong(stmt_t* stmt,
     desc_record_t  *APD_record,
     SQLUSMALLINT    ParameterNumber,
@@ -3958,6 +4009,50 @@ static SQLRETURN _stmt_param_bind_set_APD_record_sqlc_long(stmt_t* stmt,
   APD_record->DESC_TYPE                = ValueType;
   APD_record->DESC_CONCISE_TYPE        = ValueType;
   APD_record->DESC_OCTET_LENGTH        = 4;
+  APD_record->DESC_DATA_PTR            = ParameterValuePtr;
+  APD_record->DESC_INDICATOR_PTR       = StrLen_or_IndPtr;
+  APD_record->DESC_OCTET_LENGTH_PTR    = StrLen_or_IndPtr;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_param_bind_set_APD_record_sqlc_short(stmt_t* stmt,
+    desc_record_t  *APD_record,
+    SQLUSMALLINT    ParameterNumber,
+    SQLSMALLINT     ValueType,
+    SQLPOINTER      ParameterValuePtr,
+    SQLLEN          BufferLength,
+    SQLLEN         *StrLen_or_IndPtr)
+{
+  (void)stmt;
+  (void)ParameterNumber;
+  (void)BufferLength;
+
+  APD_record->DESC_TYPE                = ValueType;
+  APD_record->DESC_CONCISE_TYPE        = ValueType;
+  APD_record->DESC_OCTET_LENGTH        = 2;
+  APD_record->DESC_DATA_PTR            = ParameterValuePtr;
+  APD_record->DESC_INDICATOR_PTR       = StrLen_or_IndPtr;
+  APD_record->DESC_OCTET_LENGTH_PTR    = StrLen_or_IndPtr;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_param_bind_set_APD_record_sqlc_tinyint(stmt_t* stmt,
+    desc_record_t  *APD_record,
+    SQLUSMALLINT    ParameterNumber,
+    SQLSMALLINT     ValueType,
+    SQLPOINTER      ParameterValuePtr,
+    SQLLEN          BufferLength,
+    SQLLEN         *StrLen_or_IndPtr)
+{
+  (void)stmt;
+  (void)ParameterNumber;
+  (void)BufferLength;
+
+  APD_record->DESC_TYPE                = ValueType;
+  APD_record->DESC_CONCISE_TYPE        = ValueType;
+  APD_record->DESC_OCTET_LENGTH        = 1;
   APD_record->DESC_DATA_PTR            = ParameterValuePtr;
   APD_record->DESC_INDICATOR_PTR       = StrLen_or_IndPtr;
   APD_record->DESC_OCTET_LENGTH_PTR    = StrLen_or_IndPtr;
@@ -4219,6 +4314,19 @@ static SQLRETURN _stmt_param_get_sqlc_double(stmt_t* stmt, param_state_t *param_
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_param_get_sqlc_float(stmt_t* stmt, param_state_t *param_state)
+{
+  (void)stmt;
+
+  sqlc_data_t *sqlc_data       = &param_state->sqlc_data;
+  const char    *base          = param_state->sqlc_base;
+
+  sqlc_data->flt = *(float*)base;
+  // OW("float:%lg", sqlc_data->flt);
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_param_get_sqlc_slong(stmt_t* stmt, param_state_t *param_state)
 {
   (void)stmt;
@@ -4264,6 +4372,32 @@ static SQLRETURN _stmt_param_get_sqlc_long(stmt_t* stmt, param_state_t *param_st
 
   sqlc_data->i32 = *(int32_t*)base;
   // OW("long:%d", sqlc_data->i32);
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_param_get_sqlc_short(stmt_t* stmt, param_state_t *param_state)
+{
+  (void)stmt;
+
+  sqlc_data_t *sqlc_data       = &param_state->sqlc_data;
+  const char    *base          = param_state->sqlc_base;
+
+  sqlc_data->i16 = *(int16_t*)base;
+  // OW("short:%d", sqlc_data->i16);
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_param_get_sqlc_tinyint(stmt_t* stmt, param_state_t *param_state)
+{
+  (void)stmt;
+
+  sqlc_data_t *sqlc_data       = &param_state->sqlc_data;
+  const char    *base          = param_state->sqlc_base;
+
+  sqlc_data->i8 = *(int8_t*)base;
+  // OW("tinyint:%d", sqlc_data->i8);
 
   return SQL_SUCCESS;
 }
@@ -4391,14 +4525,28 @@ static sqlc_sql_map_t          _sqlc_sql_map[] = {
     _stmt_param_bind_set_APD_record_sqlc_slong,
     _stmt_param_bind_set_IPD_record_sql_integer,
     _stmt_param_get_sqlc_slong,
-    _stmt_param_check_sqlc_slong_sql_integer,
+    _stmt_param_check_dummy,
     _stmt_param_guess_sqlc_slong},
   {SQL_C_LONG, SQL_INTEGER,
     _stmt_param_bind_set_APD_record_sqlc_long,
     _stmt_param_bind_set_IPD_record_sql_integer,
     _stmt_param_get_sqlc_long,
-    _stmt_param_check_sqlc_long_sql_integer,
+    _stmt_param_check_dummy,
     _stmt_param_guess_sqlc_long},
+
+  {SQL_C_SHORT, SQL_SMALLINT,
+    _stmt_param_bind_set_APD_record_sqlc_short,
+    _stmt_param_bind_set_IPD_record_sql_smallint,
+    _stmt_param_get_sqlc_short,
+    _stmt_param_check_dummy,
+    _stmt_param_guess_sqlc_short},
+
+  {SQL_C_STINYINT, SQL_TINYINT,
+    _stmt_param_bind_set_APD_record_sqlc_tinyint,
+    _stmt_param_bind_set_IPD_record_sql_tinyint,
+    _stmt_param_get_sqlc_tinyint,
+    _stmt_param_check_dummy,
+    _stmt_param_guess_sqlc_tinyint},
 
   {SQL_C_DOUBLE, SQL_TYPE_TIMESTAMP,
     _stmt_param_bind_set_APD_record_sqlc_double,
@@ -4424,6 +4572,13 @@ static sqlc_sql_map_t          _sqlc_sql_map[] = {
     _stmt_param_get_sqlc_double,
     _stmt_param_check_sqlc_double_sql_real,
     _stmt_param_guess_sqlc_double},
+
+  {SQL_C_FLOAT, SQL_REAL,
+    _stmt_param_bind_set_APD_record_sqlc_float,
+    _stmt_param_bind_set_IPD_record_sql_real,
+    _stmt_param_get_sqlc_float,
+    _stmt_param_check_sqlc_float_sql_real,
+    _stmt_param_guess_sqlc_float},
 };
 
 static SQLRETURN _stmt_bind_param(
@@ -4625,6 +4780,27 @@ static SQLRETURN _stmt_param_adjust_reuse_sqlc_double(stmt_t *stmt, param_state_
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_param_adjust_reuse_sqlc_float(stmt_t *stmt, param_state_t *param_state)
+{
+  (void)stmt;
+
+  desc_record_t        *APD_record        = param_state->APD_record;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  tsdb_bind->buffer_type = tsdb_field->type;
+  tsdb_bind->length = NULL;
+  tsdb_bind->buffer_length = sizeof(float);
+
+  char *buffer = (char*)APD_record->DESC_DATA_PTR;
+  if (buffer) {
+    buffer = buffer + tsdb_bind->buffer_length * param_state->i_batch_offset;
+  }
+  tsdb_bind->buffer = buffer;
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_param_adjust_reuse_sqlc_long(stmt_t *stmt, param_state_t *param_state)
 {
   (void)stmt;
@@ -4636,6 +4812,48 @@ static SQLRETURN _stmt_param_adjust_reuse_sqlc_long(stmt_t *stmt, param_state_t 
   tsdb_bind->buffer_type = tsdb_field->type;
   tsdb_bind->length = NULL;
   tsdb_bind->buffer_length = sizeof(int32_t);
+
+  char *buffer = (char*)APD_record->DESC_DATA_PTR;
+  if (buffer) {
+    buffer = buffer + tsdb_bind->buffer_length * param_state->i_batch_offset;
+  }
+  tsdb_bind->buffer = buffer;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_param_adjust_reuse_sqlc_short(stmt_t *stmt, param_state_t *param_state)
+{
+  (void)stmt;
+
+  desc_record_t        *APD_record        = param_state->APD_record;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  tsdb_bind->buffer_type = tsdb_field->type;
+  tsdb_bind->length = NULL;
+  tsdb_bind->buffer_length = sizeof(int16_t);
+
+  char *buffer = (char*)APD_record->DESC_DATA_PTR;
+  if (buffer) {
+    buffer = buffer + tsdb_bind->buffer_length * param_state->i_batch_offset;
+  }
+  tsdb_bind->buffer = buffer;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_param_adjust_reuse_sqlc_tinyint(stmt_t *stmt, param_state_t *param_state)
+{
+  (void)stmt;
+
+  desc_record_t        *APD_record        = param_state->APD_record;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  tsdb_bind->buffer_type = tsdb_field->type;
+  tsdb_bind->length = NULL;
+  tsdb_bind->buffer_length = sizeof(int8_t);
 
   char *buffer = (char*)APD_record->DESC_DATA_PTR;
   if (buffer) {
@@ -5954,6 +6172,10 @@ static param_bind_map_t _param_bind_map[] = {
     _stmt_param_adjust_tsdb_float,
     _stmt_param_conv_sql_real_to_tsdb_float},
 
+  {SQL_C_FLOAT,  SQL_REAL, TSDB_DATA_TYPE_FLOAT,
+    _stmt_param_adjust_reuse_sqlc_float,
+    _stmt_param_conv_dummy},
+
   {SQL_C_CHAR, SQL_TYPE_TIMESTAMP, TSDB_DATA_TYPE_TIMESTAMP,
     _stmt_param_adjust_tsdb_timestamp,
     _stmt_param_conv_sql_timestamp_to_tsdb_timestamp},
@@ -6021,6 +6243,14 @@ static param_bind_map_t _param_bind_map[] = {
     _stmt_param_conv_dummy},
   {SQL_C_LONG, SQL_INTEGER, TSDB_DATA_TYPE_INT,
     _stmt_param_adjust_reuse_sqlc_long,
+    _stmt_param_conv_dummy},
+
+  {SQL_C_SHORT, SQL_SMALLINT, TSDB_DATA_TYPE_SMALLINT,
+    _stmt_param_adjust_reuse_sqlc_short,
+    _stmt_param_conv_dummy},
+
+  {SQL_C_STINYINT, SQL_TINYINT, TSDB_DATA_TYPE_TINYINT,
+    _stmt_param_adjust_reuse_sqlc_tinyint,
     _stmt_param_conv_dummy},
 };
 

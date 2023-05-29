@@ -1649,8 +1649,6 @@ static SQLRETURN _stmt_get_data_copy_buf_to_char(stmt_t *stmt, stmt_get_data_arg
   const char *tocode   = conn_get_sqlc_charset(stmt->conn);
   if (1) {
     // FIXME:
-    get_data_ctx_t *ctx = &stmt->get_data_ctx;
-    tsdb_data_t *tsdb = &ctx->tsdb;
     if (tsdb->type != TSDB_DATA_TYPE_NCHAR) {
       tocode = conn_get_sqlc_charset_for_col_bind(stmt->conn);
     }

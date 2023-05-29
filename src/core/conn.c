@@ -419,6 +419,8 @@ static int _conn_get_timezone(conn_t *conn)
 
 static SQLRETURN _do_conn_connect(conn_t *conn)
 {
+  SQLRETURN sr;
+
   const conn_cfg_t *cfg = &conn->cfg;
   const char *db = cfg->db;
   if (db && (tod_strcasecmp(db, "information_schema")==0 || tod_strcasecmp(db, "performance_schema")==0)) {
@@ -452,7 +454,6 @@ static SQLRETURN _do_conn_connect(conn_t *conn)
 
   conn->svr_info = CALL_taos_get_server_info(conn->taos);
   do {
-    SQLRETURN sr;
     int r;
     sr = _conn_get_configs_from_information_schema_ins_configs(conn);
     if (sr == SQL_ERROR) break;

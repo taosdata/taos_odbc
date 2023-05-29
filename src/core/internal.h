@@ -428,6 +428,14 @@ struct sqls_parser_param_s {
   parser_ctx_t           ctx;
 };
 
+struct charset_convs_s {
+  charset_conv_t            *cnv_from_sqlc_charset_for_param_bind_to_wchar;
+  charset_conv_t            *cnv_from_wchar_to_wchar;
+  charset_conv_t            *cnv_from_wchar_to_sqlc;
+  charset_conv_t            *cnv_from_sqlc_charset_for_param_bind_to_tsdb;
+  charset_conv_t            *cnv_from_wchar_to_tsdb;
+};
+
 struct conn_s {
   atomic_int          refc;
   atomic_int          stmts;
@@ -725,11 +733,7 @@ struct param_state_s {
 
   mem_t                      tmp;
 
-  charset_conv_t            *cnv_from_sqlc_charset_for_param_bind_to_wchar;
-  charset_conv_t            *cnv_from_wchar_to_wchar;
-  charset_conv_t            *cnv_from_wchar_to_sqlc;
-  charset_conv_t            *cnv_from_sqlc_charset_for_param_bind_to_tsdb;
-  charset_conv_t            *cnv_from_wchar_to_tsdb;
+  charset_convs_t            charset_convs;
 
   uint8_t                    is_subtbl:1;
   uint8_t                    row_with_info:1;

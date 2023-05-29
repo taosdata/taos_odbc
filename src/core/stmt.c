@@ -2974,7 +2974,7 @@ static SQLRETURN _stmt_param_copy_sqlc_char_sql_wvarchar(stmt_t *stmt, const cha
   sql_data_t    *data       = &param_state->sql_data;
   mem_t         *mem        = &data->mem;
 
-  charset_conv_t *cnv  = param_state->cnv_from_sqlc_charset_for_param_bind_to_wchar;
+  charset_conv_t *cnv  = param_state->charset_convs.cnv_from_sqlc_charset_for_param_bind_to_wchar;
   const char *fromcode = cnv->from;
   const char *tocode   = cnv->to;
 
@@ -3014,7 +3014,7 @@ static SQLRETURN _stmt_param_copy_sqlc_wchar_sql_wvarchar(stmt_t *stmt, const ch
   sql_data_t    *data       = &param_state->sql_data;
   mem_t         *mem        = &data->mem;
 
-  charset_conv_t *cnv  = param_state->cnv_from_wchar_to_wchar;
+  charset_conv_t *cnv  = param_state->charset_convs.cnv_from_wchar_to_wchar;
   const char *fromcode = cnv->from;
   const char *tocode   = cnv->to;
 
@@ -3053,7 +3053,7 @@ static SQLRETURN _stmt_param_copy_sqlc_wchar_sql_varchar(stmt_t *stmt, const cha
   sql_data_t    *data       = &param_state->sql_data;
   mem_t         *mem        = &data->mem;
 
-  charset_conv_t *cnv  = param_state->cnv_from_wchar_to_sqlc;
+  charset_conv_t *cnv  = param_state->charset_convs.cnv_from_wchar_to_sqlc;
   const char *fromcode = cnv->from;
   const char *tocode   = cnv->to;
 
@@ -4944,7 +4944,7 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_char_tsdb_varchar(stmt_t *stmt,
   int                   i_row             = param_state->i_row;
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
 
-  charset_conv_t *cnv  = param_state->cnv_from_sqlc_charset_for_param_bind_to_tsdb;
+  charset_conv_t *cnv  = param_state->charset_convs.cnv_from_sqlc_charset_for_param_bind_to_tsdb;
 
   char *tsdb_varchar = tsdb_bind->buffer;
   tsdb_varchar += (i_row - param_state->i_batch_offset) * tsdb_bind->buffer_length;
@@ -5037,7 +5037,7 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_wchar_tsdb_varchar(stmt_t *stmt
   int                   i_row             = param_state->i_row;
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
 
-  charset_conv_t *cnv  = param_state->cnv_from_wchar_to_tsdb;
+  charset_conv_t *cnv  = param_state->charset_convs.cnv_from_wchar_to_tsdb;
 
   char *tsdb_varchar = tsdb_bind->buffer;
   tsdb_varchar += (i_row - param_state->i_batch_offset) * tsdb_bind->buffer_length;
@@ -6185,7 +6185,7 @@ static SQLRETURN _stmt_init_param_state_cnvs(stmt_t *stmt, param_state_t *param_
     stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
     return SQL_ERROR;
   }
-  param_state->cnv_from_sqlc_charset_for_param_bind_to_wchar = cnv;
+  param_state->charset_convs.cnv_from_sqlc_charset_for_param_bind_to_wchar = cnv;
 
   fromcode = "UCS-2LE";
   tocode   = "UCS-2LE";
@@ -6194,7 +6194,7 @@ static SQLRETURN _stmt_init_param_state_cnvs(stmt_t *stmt, param_state_t *param_
     stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
     return SQL_ERROR;
   }
-  param_state->cnv_from_wchar_to_wchar = cnv;
+  param_state->charset_convs.cnv_from_wchar_to_wchar = cnv;
 
   fromcode = "UCS-2LE";
   tocode   = conn_get_sqlc_charset(stmt->conn);
@@ -6203,7 +6203,7 @@ static SQLRETURN _stmt_init_param_state_cnvs(stmt_t *stmt, param_state_t *param_
     stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
     return SQL_ERROR;
   }
-  param_state->cnv_from_wchar_to_sqlc = cnv;
+  param_state->charset_convs.cnv_from_wchar_to_sqlc = cnv;
 
   fromcode = conn_get_sqlc_charset(stmt->conn);
   tocode   = conn_get_tsdb_charset(stmt->conn);
@@ -6216,7 +6216,7 @@ static SQLRETURN _stmt_init_param_state_cnvs(stmt_t *stmt, param_state_t *param_
     stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
     return SQL_ERROR;
   }
-  param_state->cnv_from_sqlc_charset_for_param_bind_to_tsdb = cnv;
+  param_state->charset_convs.cnv_from_sqlc_charset_for_param_bind_to_tsdb = cnv;
 
   fromcode = "UCS-2LE";
   tocode   = conn_get_tsdb_charset(stmt->conn);
@@ -6225,7 +6225,7 @@ static SQLRETURN _stmt_init_param_state_cnvs(stmt_t *stmt, param_state_t *param_
     stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
     return SQL_ERROR;
   }
-  param_state->cnv_from_wchar_to_tsdb = cnv;
+  param_state->charset_convs.cnv_from_wchar_to_tsdb = cnv;
 
   return SQL_SUCCESS;
 }

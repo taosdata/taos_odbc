@@ -703,6 +703,7 @@ struct typesinfo_s {
 struct param_state_s {
   int                        nr_batch_size;
   size_t                     i_batch_offset;
+  SQLULEN                    i_current_row;
 
   SQLSMALLINT                nr_tsdb_fields;
 
@@ -731,6 +732,8 @@ struct param_state_s {
   charset_conv_t            *cnv_from_wchar_to_tsdb;
 
   uint8_t                    is_subtbl:1;
+  uint8_t                    row_with_info:1;
+  uint8_t                    row_err:1;
 };
 
 struct col_bind_map_s {

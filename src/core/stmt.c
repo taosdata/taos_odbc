@@ -3151,24 +3151,10 @@ static SQLRETURN _stmt_param_copy_to_sql_timestamp(stmt_t *stmt, const char *src
   return SQL_SUCCESS;
 }
 
-static SQLRETURN _stmt_param_check_sqlc_sbigint_sql_timestamp(stmt_t *stmt, param_state_t *param_state)
-{
-  char buf[128];
-  snprintf(buf, sizeof(buf), "%" PRId64 "", param_state->sqlc_data.i64);
-
-  return _stmt_param_copy_to_sql_timestamp(stmt, buf, strlen(buf), param_state);
-}
-
-static SQLRETURN _stmt_param_check_sqlc_sbigint_sql_bigint(stmt_t *stmt, param_state_t *param_state)
+static SQLRETURN _stmt_param_check_dummy(stmt_t *stmt, param_state_t *param_state)
 {
   (void)stmt;
-
-  sqlc_data_t   *sqlc_data  = &param_state->sqlc_data;
-  sql_data_t    *data       = &param_state->sql_data;
-
-  data->type = SQL_BIGINT;
-  data->i64  = sqlc_data->i64;
-
+  (void)param_state;
   return SQL_SUCCESS;
 }
 
@@ -4368,13 +4354,13 @@ static sqlc_sql_map_t          _sqlc_sql_map[] = {
     _stmt_param_bind_set_APD_record_sqlc_sbigint,
     _stmt_param_bind_set_IPD_record_sql_timestamp,
     _stmt_param_get_sqlc_sbigint,
-    _stmt_param_check_sqlc_sbigint_sql_timestamp,
+    _stmt_param_check_dummy,
     _stmt_param_guess_sqlc_sbigint},
   {SQL_C_SBIGINT, SQL_BIGINT,
     _stmt_param_bind_set_APD_record_sqlc_sbigint,
     _stmt_param_bind_set_IPD_record_sql_bigint,
     _stmt_param_get_sqlc_sbigint,
-    _stmt_param_check_sqlc_sbigint_sql_bigint,
+    _stmt_param_check_dummy,
     _stmt_param_guess_sqlc_sbigint},
   {SQL_C_SBIGINT, SQL_INTEGER,
     _stmt_param_bind_set_APD_record_sqlc_sbigint,
@@ -5089,55 +5075,6 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_wchar_tsdb_varchar(stmt_t *stmt
   }
 
   return SQL_SUCCESS;
-}
-
-static SQLRETURN _stmt_param_conv(stmt_t *stmt, param_state_t *param_state)
-{
-  param_bind_meta_t *meta = params_bind_meta_get(&stmt->params_bind_meta, param_state->i_param);
-  if (!meta || !meta->conv) {
-    int            i_row      = param_state->i_row;
-    int            i_param    = param_state->i_param;
-    desc_record_t *APD_record = param_state->APD_record;
-    desc_record_t *IPD_record = param_state->IPD_record;
-    TAOS_FIELD_E  *tsdb_field = param_state->tsdb_field;
-
-    SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
-    SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
-
-    stmt_append_err_format(stmt, "HY000", 0,
-        "General error:no param converter found for parameter(#%d,#%d) [%s/%s/%s]",
-        i_row + 1, i_param + 1,
-        sqlc_data_type(ValueType), sql_data_type(ParameterType), taos_data_type(tsdb_field->type));
-    return SQL_ERROR;
-  }
-
-  return meta->conv(stmt, param_state);
-}
-
-static SQLRETURN _stmt_conv_param_data(stmt_t *stmt, param_state_t *param_state)
-{
-  int                        i_row                      = param_state->i_row;
-  int                        i_param                    = param_state->i_param;
-  desc_record_t             *APD_record                 = param_state->APD_record;
-
-  TAOS_MULTI_BIND           *tsdb_bind                  = param_state->tsdb_bind;
-
-  if (param_state->sqlc_data.is_null) {
-    if (!tsdb_bind->is_null) {
-      stmt_append_err_format(stmt, "22002", 0,
-          "Indicator variable required but not supplied:Parameter(#%d,#%d)[%s] is null",
-          i_row + 1, i_param + 1, sqlc_data_type(APD_record->DESC_CONCISE_TYPE));
-      return SQL_ERROR;
-    }
-    tsdb_bind->is_null[i_row - param_state->i_batch_offset] = 1;
-    return SQL_SUCCESS;
-  }
-
-  if (tsdb_bind->is_null) {
-    tsdb_bind->is_null[i_row - param_state->i_batch_offset] = 0;
-  }
-
-  return _stmt_param_conv(stmt, param_state);
 }
 
 static SQLRETURN _stmt_param_guess(stmt_t *stmt, param_state_t *param_state)
@@ -6145,7 +6082,59 @@ static SQLRETURN _stmt_param_check(stmt_t *stmt, param_state_t *param_state)
     return SQL_ERROR;
   }
   if (param_state->sqlc_data.is_null) return SQL_SUCCESS;
+  if (meta->check == _stmt_param_check_dummy) return SQL_SUCCESS;
   return meta->check(stmt, param_state);
+}
+
+static SQLRETURN _stmt_param_conv(stmt_t *stmt, param_state_t *param_state)
+{
+  param_bind_meta_t *meta = params_bind_meta_get(&stmt->params_bind_meta, param_state->i_param);
+  if (!meta || !meta->conv) {
+    int            i_row      = param_state->i_row;
+    int            i_param    = param_state->i_param;
+    desc_record_t *APD_record = param_state->APD_record;
+    desc_record_t *IPD_record = param_state->IPD_record;
+    TAOS_FIELD_E  *tsdb_field = param_state->tsdb_field;
+
+    SQLSMALLINT ValueType     = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
+    SQLSMALLINT ParameterType = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
+
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:no param converter found for parameter(#%d,#%d) [%s/%s/%s]",
+        i_row + 1, i_param + 1,
+        sqlc_data_type(ValueType), sql_data_type(ParameterType), taos_data_type(tsdb_field->type));
+    return SQL_ERROR;
+  }
+
+  if (meta->conv == _stmt_param_conv_dummy) return SQL_SUCCESS;
+
+  return meta->conv(stmt, param_state);
+}
+
+static SQLRETURN _stmt_conv_param_data(stmt_t *stmt, param_state_t *param_state)
+{
+  int                        i_row                      = param_state->i_row;
+  int                        i_param                    = param_state->i_param;
+  desc_record_t             *APD_record                 = param_state->APD_record;
+
+  TAOS_MULTI_BIND           *tsdb_bind                  = param_state->tsdb_bind;
+
+  if (param_state->sqlc_data.is_null) {
+    if (!tsdb_bind->is_null) {
+      stmt_append_err_format(stmt, "22002", 0,
+          "Indicator variable required but not supplied:Parameter(#%d,#%d)[%s] is null",
+          i_row + 1, i_param + 1, sqlc_data_type(APD_record->DESC_CONCISE_TYPE));
+      return SQL_ERROR;
+    }
+    tsdb_bind->is_null[i_row - param_state->i_batch_offset] = 1;
+    return SQL_SUCCESS;
+  }
+
+  if (tsdb_bind->is_null) {
+    tsdb_bind->is_null[i_row - param_state->i_batch_offset] = 0;
+  }
+
+  return _stmt_param_conv(stmt, param_state);
 }
 
 static SQLRETURN _stmt_param_check_and_conv(stmt_t *stmt, param_state_t *param_state)
@@ -6163,151 +6152,6 @@ static SQLRETURN _stmt_param_check_and_conv(stmt_t *stmt, param_state_t *param_s
   if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) return sr;
   if (with_info) return SQL_SUCCESS_WITH_INFO;
   return sr;
-}
-
-static SQLRETURN _stmt_execute_prepare_params(stmt_t *stmt, param_state_t *param_state)
-{
-  SQLRETURN sr = SQL_SUCCESS;
-
-  descriptor_t *APD = stmt_APD(stmt);
-
-  descriptor_t *IPD = stmt_IPD(stmt);
-  desc_header_t *IPD_header = &IPD->header;
-
-  SQLUSMALLINT *param_status_ptr = IPD_header->DESC_ARRAY_STATUS_PTR;
-  SQLULEN *params_processed_ptr = IPD_header->DESC_ROWS_PROCESSED_PTR;
-  if (params_processed_ptr) *params_processed_ptr = 0;
-  if (param_status_ptr) {
-    for (int i=0; i<param_state->nr_batch_size; ++i) {
-      param_status_ptr[i + param_state->i_batch_offset] = SQL_PARAM_UNUSED;
-    }
-  }
-
-  int with_info = 0;
-  for (int i=0; i<param_state->nr_batch_size; ++i) {
-    int row_with_info = 0;
-    sr = SQL_SUCCESS;
-    param_state->i_row = (int)(i + param_state->i_batch_offset);
-    for (int j=0; j<param_state->nr_tsdb_fields; ++j) {
-      param_state->i_param    = j;
-      param_state->APD_record = APD->records + j;
-      param_state->IPD_record = IPD->records + j;
-      param_state->tsdb_field = &stmt->tsdb_paramset.params[j].tsdb_field;
-      param_state->param_column = stmt->tsdb_paramset.params + j;
-      param_state->tsdb_bind = stmt->tsdb_binds.mbs + j;
-      param_state->is_subtbl = 0;
-      if (j == 0 && stmt->tsdb_stmt.is_insert_stmt && stmt->tsdb_stmt.params.subtbl_required) {
-        param_state->is_subtbl = 1;
-      }
-
-      sr = _stmt_param_get(stmt, param_state);
-      if (sr != SQL_SUCCESS) return SQL_ERROR;
-
-      sr = _stmt_param_check_and_conv(stmt, param_state);
-      if (sr == SQL_SUCCESS) continue;
-      if (sr == SQL_SUCCESS_WITH_INFO) {
-        if (stmt->strict) {
-          sr = SQL_ERROR;
-          break;
-        }
-        row_with_info = 1;
-        continue;
-      }
-      if (sr != SQL_ERROR) {
-        stmt_append_err(stmt, "HY000", 0, "General error:internal logic error when processing paramset");
-        sr = SQL_ERROR;
-      }
-      break;
-    }
-
-    if (params_processed_ptr) *params_processed_ptr += 1;
-
-    if (sr == SQL_ERROR) {
-      if (param_status_ptr) param_status_ptr[i + param_state->i_batch_offset] = SQL_PARAM_ERROR;
-      return SQL_ERROR;
-    }
-
-    if (row_with_info) {
-      with_info = 1;
-      if (!param_status_ptr) return SQL_ERROR;
-      param_status_ptr[i + param_state->i_batch_offset] = SQL_PARAM_SUCCESS_WITH_INFO;
-    } else {
-      if (param_status_ptr) param_status_ptr[i + param_state->i_batch_offset] = SQL_PARAM_SUCCESS;
-    }
-  }
-
-  if (with_info) return SQL_SUCCESS_WITH_INFO;
-  return SQL_SUCCESS;
-}
-
-static SQLRETURN _stmt_prepare_params(stmt_t *stmt, param_state_t *param_state)
-{
-  int r = 0;
-  SQLRETURN sr = SQL_SUCCESS;
-
-  descriptor_t *APD = stmt_APD(stmt);
-  descriptor_t *IPD = stmt_IPD(stmt);
-  desc_header_t *IPD_header = &IPD->header;
-
-  for (int j=0; j<param_state->nr_tsdb_fields; ++j) {
-    param_state->i_param    = j;
-    param_state->APD_record = APD->records + j;
-    param_state->IPD_record = IPD->records + j;
-    param_state->tsdb_field = &stmt->tsdb_paramset.params[j].tsdb_field;
-    if (!stmt->tsdb_stmt.is_insert_stmt) {
-      sr = _stmt_param_guess(stmt, param_state);
-      if (sr != SQL_SUCCESS) return SQL_ERROR;
-    }
-    sr = _stmt_param_tsdb_init(stmt, param_state);
-    if (sr != SQL_SUCCESS) return SQL_ERROR;
-
-    param_state->param_column = stmt->tsdb_paramset.params + j;
-    param_state->tsdb_bind = stmt->tsdb_binds.mbs + j;
-    sr = _stmt_param_tsdb_array_adjust(stmt, param_state);
-    if (sr != SQL_SUCCESS) return SQL_ERROR;
-  }
-
-  sr = _stmt_execute_prepare_params(stmt, param_state);
-
-  if (sr == SQL_ERROR) {
-    SQLULEN params_processed = 0;
-    SQLULEN *params_processed_ptr = IPD_header->DESC_ROWS_PROCESSED_PTR;
-    if (params_processed_ptr) params_processed = *params_processed_ptr;
-
-    if (params_processed<=1) return SQL_ERROR;
-
-    int num = (int)(params_processed - 1);
-    for (int i=0; i<param_state->nr_tsdb_fields; ++i) {
-      TAOS_MULTI_BIND *mbs = stmt->tsdb_binds.mbs + i;
-      mbs->num = num;
-    }
-  }
-
-  tsdb_params_t *tsdb_params = &stmt->tsdb_stmt.params;
-  if (stmt->tsdb_stmt.is_insert_stmt) {
-    if (tsdb_params->nr_tag_fields) {
-      TAOS_MULTI_BIND *mbs = stmt->tsdb_binds.mbs + (!!stmt->tsdb_stmt.params.subtbl_required);
-      r = CALL_taos_stmt_set_tags(stmt->tsdb_stmt.stmt, mbs);
-      if (r) {
-        stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->tsdb_stmt.stmt));
-        return SQL_ERROR;
-      }
-    }
-  }
-
-  r = CALL_taos_stmt_bind_param_batch(stmt->tsdb_stmt.stmt, stmt->tsdb_binds.mbs + (!!stmt->tsdb_stmt.params.subtbl_required) + stmt->tsdb_stmt.params.nr_tag_fields);
-  if (r) {
-    stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->tsdb_stmt.stmt));
-    return SQL_ERROR;
-  }
-
-  r = CALL_taos_stmt_add_batch(stmt->tsdb_stmt.stmt);
-  if (r) {
-    stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->tsdb_stmt.stmt));
-    return SQL_ERROR;
-  }
-
-  return SQL_SUCCESS;
 }
 
 static SQLRETURN _stmt_execute_rebind_subtbl(stmt_t *stmt, const char *subtbl, size_t subtbl_len)
@@ -6386,15 +6230,300 @@ static SQLRETURN _stmt_init_param_state_cnvs(stmt_t *stmt, param_state_t *param_
   return SQL_SUCCESS;
 }
 
-static SQLRETURN _stmt_execute_with_params(stmt_t *stmt)
+static SQLRETURN _stmt_prepare_col_subtbl(stmt_t *stmt, param_state_t *param_state)
 {
   SQLRETURN sr = SQL_SUCCESS;
+
+  char buf_subtbl[192 * 6];
+  const char *fromcode = NULL;
+  const char *tocode   = conn_get_sqlc_charset(stmt->conn);
+  charset_conv_t *cnv = NULL;
+
+  const char *subtbl = NULL;
+  size_t subtbl_len  = 0;
+
+  desc_record_t *APD_record = param_state->APD_record;
+
+  SQLSMALLINT ValueType = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
+  switch (ValueType) {
+    case SQL_C_WCHAR:
+      fromcode = "UCS-2LE";
+      break;
+    case SQL_C_CHAR:
+      fromcode = tocode;
+      break;
+    default:
+      stmt_append_err_format(stmt, "HY000", 0, "General error:subtbl is required as `SQL_C_CHAR|SQL_C_WCHAR` type, but got ==[%s]==", sqlc_data_type(ValueType));
+      return SQL_ERROR;
+  }
+
+  cnv  = tls_get_charset_conv(fromcode, tocode);
+  if (!cnv) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
+    return SQL_ERROR;
+  }
+
+  for (size_t i_row_offset = 0; i_row_offset < (size_t)param_state->nr_batch_size; ++i_row_offset) {
+    size_t i_row = param_state->i_batch_offset + i_row_offset;
+    param_state->i_row      = (int)i_row;
+
+    sr = _stmt_param_get(stmt, param_state);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    if (param_state->sqlc_data.is_null) {
+      stmt_append_err(stmt, "HY000", 0, "General error:subtbl is required, but got ==null==");
+      return SQL_ERROR;
+    }
+
+    sr = _stmt_param_check(stmt, param_state);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    char buf[sizeof(buf_subtbl)];
+    const char *base = NULL;
+    size_t len = 0;
+
+    size_t           inbytes = 0;
+    char            *inbuf   = NULL;
+
+    if (ValueType == SQL_C_WCHAR) {
+      inbuf               = (char*)param_state->sqlc_data.wstr.wstr;
+      inbytes             = param_state->sqlc_data.wstr.wlen * 2;
+    } else {
+      inbuf               = (char*)param_state->sqlc_data.str.str;
+      inbytes             = param_state->sqlc_data.str.len;
+    }
+
+    size_t           inbytesleft         = inbytes;
+    char            *outbuf              = buf;
+    const size_t     outbytes            = sizeof(buf);
+    size_t           outbytesleft        = sizeof(buf);
+
+    size_t n = CALL_iconv(cnv->cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+    int e = errno;
+    iconv(cnv->cnv, NULL, NULL, NULL, NULL);
+    if (n == (size_t)-1) {
+      OA_NIY(0);
+      if (e != E2BIG) {
+        stmt_append_err_format(stmt, "HY000", 0,
+            "General error:[iconv]Character set conversion for `%s` to `%s` failed:[%d]%s",
+            cnv->from, cnv->to, e, strerror(e));
+        return SQL_ERROR;
+      }
+    }
+
+    // FIXME: check outbytesleft;
+    *outbuf = '\0';
+    base = buf;
+    len  = outbytes - outbytesleft;
+
+    if (subtbl == NULL) {
+      strncpy(buf_subtbl, base, len);
+      buf_subtbl[len] = '\0';
+      subtbl      = buf_subtbl;
+      subtbl_len  = len;
+
+      sr = _stmt_execute_rebind_subtbl(stmt, subtbl, subtbl_len);
+      if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+      continue;
+    }
+
+    if (subtbl_len == len && strncmp(subtbl, base, len) == 0) continue;
+
+    param_state->nr_batch_size    = (int)(i_row - param_state->i_batch_offset);
+    return SQL_SUCCESS;
+  }
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_prepare_col(stmt_t *stmt, param_state_t *param_state)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  if (param_state->i_param == 0 && stmt->tsdb_stmt.is_insert_stmt && stmt->tsdb_stmt.params.subtbl_required) {
+    param_state->is_subtbl  = 1;
+    return _stmt_prepare_col_subtbl(stmt, param_state);
+  }
+
+  param_state->is_subtbl  = 0;
+  param_state->tsdb_field = &stmt->tsdb_paramset.params[param_state->i_param].tsdb_field;
+
+  if (param_state->i_batch_offset == 0) {
+    if (!stmt->tsdb_stmt.is_insert_stmt) {
+      sr = _stmt_param_guess(stmt, param_state);
+      if (sr != SQL_SUCCESS) return SQL_ERROR;
+    }
+    sr = _stmt_param_tsdb_init(stmt, param_state);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+  }
+
+  param_state->param_column = stmt->tsdb_paramset.params + param_state->i_param;
+  param_state->tsdb_bind = stmt->tsdb_binds.mbs + param_state->i_param;
+
+  sr = _stmt_param_tsdb_array_adjust(stmt, param_state);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  return SQL_SUCCESS;
+}
+
+static void _stmt_prepare_col_data(stmt_t *stmt, param_state_t *param_state)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  if (param_state->i_param == 0 && stmt->tsdb_stmt.is_insert_stmt && stmt->tsdb_stmt.params.subtbl_required) {
+    param_state->is_subtbl  = 1;
+    return;
+  }
+
+  param_state->is_subtbl  = 0;
+
+  descriptor_t *IPD = stmt_IPD(stmt);
+  desc_header_t *IPD_header = &IPD->header;
+
+  SQLUSMALLINT *param_status_ptr = IPD_header->DESC_ARRAY_STATUS_PTR;
+
+  param_state->tsdb_bind = stmt->tsdb_binds.mbs + param_state->i_param;
+
+  size_t i_row_offset = 0;
+  size_t i_row = 0;
+  for (; i_row_offset < (size_t)param_state->nr_batch_size; ++i_row_offset) {
+    i_row = param_state->i_batch_offset + i_row_offset;
+    param_state->i_row      = (int)i_row;
+
+    if (param_status_ptr) {
+      param_status_ptr[i_row] = SQL_PARAM_UNUSED;
+    }
+
+    sr = _stmt_param_get(stmt, param_state);
+    if (sr != SQL_SUCCESS) {
+      sr = SQL_ERROR;
+    } else {
+      sr = _stmt_param_check_and_conv(stmt, param_state);
+    }
+    switch (sr) {
+      case SQL_SUCCESS:
+        break;
+      case SQL_SUCCESS_WITH_INFO:
+        if (stmt->strict) {
+          sr = SQL_ERROR;
+        } else {
+          param_state->row_with_info = 1;
+        }
+        break;
+      case SQL_ERROR:
+        break;
+      default:
+        stmt_append_err(stmt, "HY000", 0, "General error:internal logic error when processing paramset");
+        sr = SQL_ERROR;
+        break;
+    }
+
+    if (sr == SQL_ERROR) {
+      if (param_status_ptr) {
+        param_status_ptr[i_row] = SQL_PARAM_ERROR;
+      }
+      param_state->row_err = 1;
+      break;
+    }
+
+    if (param_status_ptr) {
+      param_status_ptr[i_row] = param_state->row_with_info ? SQL_PARAM_SUCCESS_WITH_INFO : SQL_PARAM_SUCCESS;
+    }
+  }
+
+  param_state->i_current_row = i_row;
+  param_state->nr_batch_size = i_row_offset;
+}
+
+static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *param_state)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
 
   descriptor_t *APD = stmt_APD(stmt);
   desc_header_t *APD_header = &APD->header;
   descriptor_t *IPD = stmt_IPD(stmt);
+  desc_header_t *IPD_header = &IPD->header;
 
   size_t nr_paramset_size = APD_header->DESC_ARRAY_SIZE;
+  SQLULEN *params_processed_ptr = IPD_header->DESC_ROWS_PROCESSED_PTR;
+  if (params_processed_ptr) *params_processed_ptr = 0;
+  SQLULEN nr_params_processed = 0;
+
+  for (size_t i_row = 0; i_row < nr_paramset_size; /* i_row += param_state->nr_batch_size */) {
+    param_state->i_batch_offset = i_row;
+    param_state->nr_batch_size = nr_paramset_size - i_row;
+    if (param_state->nr_batch_size > INT16_MAX) param_state->nr_batch_size = INT16_MAX;
+
+    param_state->row_with_info = 0;
+    param_state->row_err = 0;
+
+    for (size_t i_col = 0; i_col < (size_t)param_state->nr_tsdb_fields; ++i_col) {
+      param_state->i_param    = i_col;
+      param_state->APD_record = APD->records + i_col;
+      param_state->IPD_record = IPD->records + i_col;
+      param_state->i_current_row = i_row;
+
+      sr = _stmt_prepare_col(stmt, param_state);
+      if (sr != SQL_SUCCESS) return sr;
+
+      _stmt_prepare_col_data(stmt, param_state);
+
+      if (param_state->nr_batch_size == 0) break;
+    }
+
+    if (param_state->nr_batch_size == 0) {
+      if (param_state->i_current_row == 0) return SQL_ERROR;
+      return SQL_SUCCESS;
+    }
+
+    nr_params_processed += param_state->nr_batch_size;
+    if (params_processed_ptr) *params_processed_ptr = nr_params_processed;
+
+    for (size_t i=0; i<(size_t)param_state->nr_tsdb_fields; ++i) {
+      TAOS_MULTI_BIND *mbs = stmt->tsdb_binds.mbs + i;
+      mbs->num = (int)param_state->nr_batch_size;
+    }
+
+    tsdb_params_t *tsdb_params = &stmt->tsdb_stmt.params;
+    if (stmt->tsdb_stmt.is_insert_stmt) {
+      if (tsdb_params->nr_tag_fields) {
+        TAOS_MULTI_BIND *mbs = stmt->tsdb_binds.mbs + (!!stmt->tsdb_stmt.params.subtbl_required);
+        r = CALL_taos_stmt_set_tags(stmt->tsdb_stmt.stmt, mbs);
+        if (r) {
+          stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->tsdb_stmt.stmt));
+          return SQL_ERROR;
+        }
+      }
+    }
+
+    r = CALL_taos_stmt_bind_param_batch(stmt->tsdb_stmt.stmt, stmt->tsdb_binds.mbs + (!!stmt->tsdb_stmt.params.subtbl_required) + stmt->tsdb_stmt.params.nr_tag_fields);
+    if (r) {
+      stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->tsdb_stmt.stmt));
+      return SQL_ERROR;
+    }
+
+    r = CALL_taos_stmt_add_batch(stmt->tsdb_stmt.stmt);
+    if (r) {
+      stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->tsdb_stmt.stmt));
+      return SQL_ERROR;
+    }
+
+    sr = stmt->base->execute(stmt->base);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    if (param_state->row_err) return SQL_SUCCESS_WITH_INFO;
+
+    i_row = param_state->i_current_row + 1;
+  }
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_execute_with_params(stmt_t *stmt)
+{
+  SQLRETURN sr = SQL_SUCCESS;
 
   SQLSMALLINT n = 0;
   sr = _stmt_get_num_params(stmt, &n);
@@ -6405,14 +6534,6 @@ static SQLRETURN _stmt_execute_with_params(stmt_t *stmt)
     return SQL_ERROR;
   }
 
-  char buf_subtbl[192 * 6];
-  const char *tocode   = conn_get_sqlc_charset(stmt->conn);
-  charset_conv_t *cnv = NULL;
-
-  const char *subtbl = NULL;
-  size_t subtbl_len  = 0;
-  size_t i_offset = 0;
-
   param_state_t *param_state = &stmt->param_state;
   _param_state_reset(param_state);
   param_state->nr_tsdb_fields            = n;
@@ -6421,148 +6542,7 @@ static SQLRETURN _stmt_execute_with_params(stmt_t *stmt)
   sr = _stmt_init_param_state_cnvs(stmt, param_state);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-  if (stmt->tsdb_stmt.is_insert_stmt && stmt->tsdb_stmt.params.subtbl_required) {
-    desc_record_t *APD_record = APD->records + 0;
-
-    SQLSMALLINT ValueType = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
-    if (ValueType != SQL_C_CHAR && ValueType != SQL_C_WCHAR) {
-      stmt_append_err_format(stmt, "HY000", 0, "General error:subtbl is required as `SQL_C_CHAR|SQL_C_WCHAR` type, but got ==[%s]==", sqlc_data_type(ValueType));
-      return SQL_ERROR;
-    }
-    for (size_t i=0; i<nr_paramset_size; ++i) {
-      param_state->i_row      = (int)i;
-      param_state->i_param    = 0;
-      param_state->APD_record = APD->records + 0;
-      param_state->IPD_record = IPD->records + 0;
-      param_state->is_subtbl  = 1;
-
-      sr = _stmt_param_get(stmt, param_state);
-      if (sr != SQL_SUCCESS) return SQL_ERROR;
-
-      if (param_state->sqlc_data.is_null) {
-        stmt_append_err(stmt, "HY000", 0, "General error:subtbl is required, but got ==null==");
-        return SQL_ERROR;
-      }
-
-      sr = _stmt_param_check(stmt, param_state);
-      if (sr != SQL_SUCCESS) return SQL_ERROR;
-
-      char buf[192 * 6];
-      const char *base = NULL;
-      size_t len = 0;
-
-      size_t           inbytes = 0;
-      char            *inbuf   = NULL;
-
-      if (ValueType == SQL_C_WCHAR) {
-        if (!cnv) {
-          const char *fromcode = "UCS-2LE";
-          cnv  = tls_get_charset_conv(fromcode, tocode);
-          if (!cnv) {
-            stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
-            return SQL_ERROR;
-          }
-        }
-
-        inbuf               = (char*)param_state->sqlc_data.wstr.wstr;
-        inbytes             = param_state->sqlc_data.wstr.wlen * 2;
-      } else {
-        if (!cnv) {
-          const char *fromcode = tocode;
-          cnv  = tls_get_charset_conv(fromcode, tocode);
-          if (!cnv) {
-            stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
-            return SQL_ERROR;
-          }
-        }
-
-        inbuf               = (char*)param_state->sqlc_data.str.str;
-        inbytes             = param_state->sqlc_data.str.len;
-      }
-
-      size_t           inbytesleft         = inbytes;
-      char            *outbuf              = buf;
-      const size_t     outbytes            = sizeof(buf);
-      size_t           outbytesleft        = sizeof(buf);
-
-      size_t n = CALL_iconv(cnv->cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
-      int e = errno;
-      iconv(cnv->cnv, NULL, NULL, NULL, NULL);
-      if (n == (size_t)-1) {
-        OA_NIY(0);
-        if (e != E2BIG) {
-          stmt_append_err_format(stmt, "HY000", 0,
-              "General error:[iconv]Character set conversion for `%s` to `%s` failed:[%d]%s",
-              cnv->from, cnv->to, e, strerror(e));
-          return SQL_ERROR;
-        }
-      }
-
-      *outbuf = '\0';
-      base = buf;
-      len  = outbytes - outbytesleft;
-
-      if (subtbl == NULL) {
-        strncpy(buf_subtbl, base, len);
-        buf_subtbl[len] = '\0';
-        subtbl      = buf_subtbl;
-        subtbl_len  = len;
-        continue;
-      }
-
-      if (subtbl_len == len && strncmp(subtbl, base, len) == 0) {
-        if (i + 1 % INT16_MAX) continue;
-
-        param_state->i_batch_offset   = i_offset;
-        param_state->nr_batch_size    = (int)(i - i_offset);
-
-        sr = _stmt_prepare_params(stmt, param_state);
-        if (sr != SQL_SUCCESS) return SQL_ERROR;
-        sr = stmt->base->execute(stmt->base);
-        if (sr != SQL_SUCCESS) return SQL_ERROR;
-
-        i_offset   = i;
-
-        continue;
-      }
-
-      sr = _stmt_execute_rebind_subtbl(stmt, subtbl, subtbl_len);
-      if (sr != SQL_SUCCESS) return SQL_ERROR;
-
-      param_state->i_batch_offset   = i_offset;
-      param_state->nr_batch_size    = (int)(i - i_offset);
-
-      sr = _stmt_prepare_params(stmt, param_state);
-      if (sr != SQL_SUCCESS) return SQL_ERROR;
-      sr = stmt->base->execute(stmt->base);
-      if (sr != SQL_SUCCESS) return SQL_ERROR;
-
-      strncpy(buf_subtbl, base, len);
-      buf_subtbl[len] = '\0';
-      subtbl     = buf_subtbl;
-      subtbl_len = len;
-
-      i_offset   = i;
-    }
-
-    sr = _stmt_execute_rebind_subtbl(stmt, subtbl, subtbl_len);
-    if (sr != SQL_SUCCESS) return SQL_ERROR;
-  }
-
-  for (; i_offset < nr_paramset_size; i_offset += INT16_MAX) {
-    size_t nr = nr_paramset_size - i_offset;
-    if (nr > INT16_MAX) nr = INT16_MAX;
-
-    param_state->i_batch_offset = i_offset;
-    param_state->nr_batch_size  = (int)nr;
-
-    sr = _stmt_prepare_params(stmt, param_state);
-    if (sr != SQL_SUCCESS) return SQL_ERROR;
-    sr = stmt->base->execute(stmt->base);
-    if (sr != SQL_SUCCESS) return SQL_ERROR;
-  }
-
-  return SQL_SUCCESS;
+  return _stmt_execute_with_param_state(stmt, param_state);
 }
 
 static SQLRETURN _stmt_execute(stmt_t *stmt)

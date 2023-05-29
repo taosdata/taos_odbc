@@ -240,7 +240,7 @@ static int _float_prepare(void **data, SQLLEN **pn, size_t rows, size_t i_col)
   pn[i_col] = p;
 
   for (size_t i=0; i<rows; ++i) {
-    flt[i] = rand();
+    flt[i] = (float)rand();
     flt[i] /= (float)rand();
     p[i] = sizeof(flt[i]);
     // E("float:[%lg]", flt[i]);

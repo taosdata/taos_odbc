@@ -304,7 +304,7 @@ static int _bind_float_prepare(TAOS_MULTI_BIND *bind, size_t rows)
   float *base = (float*)bind->buffer;
 
   for (size_t i=0; i<rows; ++i) {
-    base[i] = rand();
+    base[i] = (float)rand();
     base[i] /= (float)rand();
     // E("float:[%lg]", base[i]);
   }

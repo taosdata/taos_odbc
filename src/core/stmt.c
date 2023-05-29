@@ -6433,7 +6433,7 @@ static void _stmt_prepare_col_data(stmt_t *stmt, param_state_t *param_state)
   }
 
   param_state->i_current_row = i_row;
-  param_state->nr_batch_size = i_row_offset;
+  param_state->nr_batch_size = (int)i_row_offset;
 }
 
 static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *param_state)
@@ -6453,14 +6453,14 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
 
   for (size_t i_row = 0; i_row < nr_paramset_size; /* i_row += param_state->nr_batch_size */) {
     param_state->i_batch_offset = i_row;
-    param_state->nr_batch_size = nr_paramset_size - i_row;
+    param_state->nr_batch_size = (int)(nr_paramset_size - i_row);
     if (param_state->nr_batch_size > INT16_MAX) param_state->nr_batch_size = INT16_MAX;
 
     param_state->row_with_info = 0;
     param_state->row_err = 0;
 
     for (size_t i_col = 0; i_col < (size_t)param_state->nr_tsdb_fields; ++i_col) {
-      param_state->i_param    = i_col;
+      param_state->i_param    = (int)i_col;
       param_state->APD_record = APD->records + i_col;
       param_state->IPD_record = IPD->records + i_col;
       param_state->i_current_row = i_row;

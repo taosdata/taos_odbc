@@ -32,9 +32,16 @@
 (assert (eq 0 (exec-update *con* "drop table if exists common_lisp")))
 (assert (eq 0 (exec-update *con* "create table if not exists common_lisp(ts timestamp, name varchar(20))")))
 (setf *stm* (prepare-statement *con* "insert into common_lisp(ts, name) values(?,?)" '(:string :in) '(:unicode-string :in)))
-(assert (eq 1 (exec-prepared-update *stm* "2023-05-30 12:13:14.567" "你好hello中国")))
+;; (assert (eq 1 (exec-prepared-update *stm* "2023-05-30 12:13:14.567" "你好hello中国")))
 
-(assert (equal (make-list 1 :initial-element '("2023-05-30 12:13:14.567" "你好hello中国")) (exec-query *con* "select * from common_lisp")))
+(defvar *params*)
+(defvar *rows_expected*)
+(setf *params*         '("2023-05-30 12:13:14.567" "你好hello中国"))
+(setf *rows_expected* '(("2023-05-30 12:13:14.567" "你好hello中国")))
+(assert (eq 1 (multiple-value-bind (ts name) (values-list *params*) (exec-prepared-update *stm* ts name))))
+
+;; (assert (equal '(("2023-05-30 12:13:14.567" "你好hello中国")) (multiple-value-bind (x) (exec-query *con* "select * from common_lisp") x)))
+(assert (equal *rows_expected* (exec-query *con* "select * from common_lisp")))
 
 (free-statement *stm*)
 (close-connection *con*)

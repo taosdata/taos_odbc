@@ -34,7 +34,7 @@
 (setf *stm* (prepare-statement *con* "insert into common_lisp(ts, name) values(?,?)" '(:string :in) '(:unicode-string :in)))
 (assert (eq 1 (exec-prepared-update *stm* "2023-05-30 12:13:14.567" "你好hello中国")))
 
-(exec-query *con* "select * from common_lisp")
+(assert (equal (make-list 1 :initial-element '("2023-05-30 12:13:14.567" "你好hello中国")) (exec-query *con* "select * from common_lisp")))
 
 (free-statement *stm*)
 (close-connection *con*)

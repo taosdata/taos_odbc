@@ -4730,6 +4730,12 @@ static SQLRETURN _stmt_param_get(stmt_t *stmt, param_state_t *param_state)
   sqlc_data->is_null = 0;
   const char *base    = buffer ? buffer + APD_record->DESC_OCTET_LENGTH * irow : NULL;
   size_t len = len_arr ? (size_t)(len_arr[irow]) : (base ? strlen(base) : 0);
+  if (1) {
+    // NOTE: this is to hacking common_lisp plain-odbc `feature`
+    if (len_arr && len >> 32) {
+      len = (int32_t)len;
+    }
+  }
   param_state->sqlc_base = base;
   param_state->sqlc_len  = len;
 

@@ -280,6 +280,15 @@ macro(check_requirements)
                    "${ColorReset}")
   endif ()
 
+  ## check `common lisp`
+  tod_find_prog(COMMON_LISP_SBCL 2.1.11 sbcl "--version" ".* ([0-9\.]+).*" OUTPUT_VARIABLE)
+  if (NOT HAVE_COMMON_LISP_SBCL)
+    message(STATUS "${Yellow}"
+                   "`common lisp SBCL v2.1.11 or above` not found, "
+                   "thus common-lisp-related-test-cases would be eliminated, you may refer to https://lisp-lang.org/ or https://lisp-lang.org/learn/getting-started/"
+                   "${ColorReset}")
+  endif ()
+
   ## check `mysql`
   if (ENABLE_MYSQL_TEST)
     tod_find_prog(MYSQL 8.0.32 mysql "--version" "mysql[ ]+Ver[ ]+([0-9\.]+).*" OUTPUT_VARIABLE)

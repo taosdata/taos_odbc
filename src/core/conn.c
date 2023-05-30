@@ -762,7 +762,7 @@ static SQLRETURN _conn_commit(conn_t *conn)
 {
   int outstandings = atomic_load(&conn->outstandings);
   if (outstandings == 0) {
-    conn_append_err_format(conn, "01000", 0, "General warning:no outstanding connection");
+    conn_append_err_format(conn, "01000", 0, "General warning:no outstanding transactions to commit");
     return SQL_SUCCESS_WITH_INFO;
   }
 
@@ -774,7 +774,7 @@ static int _conn_rollback(conn_t *conn)
 {
   int outstandings = atomic_load(&conn->outstandings);
   if (outstandings == 0) {
-    conn_append_err_format(conn, "01000", 0, "General warning:no outstandings");
+    conn_append_err_format(conn, "01000", 0, "General warning:no outstanding transactions to rollback");
     return SQL_SUCCESS_WITH_INFO;
   }
 
@@ -987,6 +987,27 @@ static SQLRETURN _conn_get_info_database_name(
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _conn_get_info_user_name(
+    conn_t         *conn,
+    SQLUSMALLINT    InfoType,
+    SQLPOINTER      InfoValuePtr,
+    SQLSMALLINT     BufferLength,
+    SQLSMALLINT    *StringLengthPtr)
+{
+  // NOTE: [taosc] has no user-name bounded to database, thus we choose login name to return
+  const char *uid = conn->cfg.uid;
+  int n = snprintf((char*)InfoValuePtr, BufferLength, "%s", uid);
+  if (StringLengthPtr) *StringLengthPtr = n;
+
+  if (n >= BufferLength) {
+    conn_append_err_format(conn, "01004", 0, "String data, right truncated:`%s[%d/0x%x]`", sql_info_type(InfoType), InfoType, InfoType);
+    // FIXME: or SQL_ERROR?
+    return SQL_SUCCESS_WITH_INFO;
+  }
+
+  return SQL_SUCCESS;
+}
+
 SQLRETURN conn_get_info(
     conn_t         *conn,
     SQLUSMALLINT    InfoType,
@@ -1153,6 +1174,8 @@ SQLRETURN conn_get_info(
       break;
     case SQL_DATABASE_NAME:
       return _conn_get_info_database_name(conn, InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+    case SQL_USER_NAME:
+      return _conn_get_info_user_name(conn, InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
     default:
       conn_append_err_format(conn, "HY000", 0, "General error:`%s[%d/0x%x]` not implemented yet", sql_info_type(InfoType), InfoType, InfoType);
       return SQL_ERROR;

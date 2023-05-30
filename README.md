@@ -73,9 +73,8 @@ SQLTablePrivileges
 SQLTables (post-filter workaround, to be removed when taosc is right in place)
 ```
 - **enable ODBC-aware software to communicate with TDengine**
-- **enable any programming language with ODBC-bindings/ODBC-plugings to communicate with TDengine, potentially**
+- **enable any programming language with ODBC-bindings/ODBC-plugings to communicate with TDengine. programming languages listed as follows are demonstrated in test-cases:**
 ```
-programming languages together with ODBC-API/-bindings listed as follows are demonstrated in test-cases:
 C/C++(ODBC-API)
 CSharp(System.Data.Odbc)
 Erlang(odbc module)

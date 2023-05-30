@@ -29,10 +29,12 @@
 (defvar *stm*)
 
 (setf *con* (connect-generic :dsn "TAOS_ODBC_DSN" :uid "root" :pwd "taosdata" :database "bar"))
-(exec-command *con* "drop table if exists common_lisp")
-(exec-command *con* "create table if not exists common_lisp(ts timestamp, name varchar(20))")
+(assert (eq 0 (exec-update *con* "drop table if exists common_lisp")))
+(assert (eq 0 (exec-update *con* "create table if not exists common_lisp(ts timestamp, name varchar(20))")))
 (setf *stm* (prepare-statement *con* "insert into common_lisp(ts, name) values(?,?)" '(:string :in) '(:unicode-string :in)))
-(exec-prepared-update *stm* "2023-05-30 12:13:14.567" "你好hello中国")
+(assert (eq 1 (exec-prepared-update *stm* "2023-05-30 12:13:14.567" "你好hello中国")))
+
+(exec-query *con* "select * from common_lisp")
 
 (free-statement *stm*)
 (close-connection *con*)

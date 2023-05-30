@@ -24,7 +24,7 @@
 
 if(HAVE_COMMON_LISP_SBCL)
   add_test(NAME lisp_test
-      COMMAND sbcl --disable-debugger --load ${CMAKE_CURRENT_SOURCE_DIR}/lisp_test.lisp --quit)
+      COMMAND sbcl --disable-debugger --eval "(ql:quickload :plain-odbc)" --load ${CMAKE_CURRENT_SOURCE_DIR}/lisp_test.lisp --quit)
 endif()
 
 

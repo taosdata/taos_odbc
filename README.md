@@ -262,6 +262,7 @@ ctest --test-dir build --output-on-failure -C Debug
 ### Layout of source code, directories only
 ```
 <root>
+├── benchmark
 ├── cmake
 ├── common
 ├── inc
@@ -279,7 +280,14 @@ ctest --test-dir build --output-on-failure -C Debug
 ├── tests
 │   ├── c
 │   ├── cpp
+│   ├── cs
+│   ├── erl
+│   ├── go
+│   ├── hs
+│   │   └── app
+│   ├── lisp
 │   ├── node
+│   ├── python
 │   ├── rust
 │   │   └── main
 │   │       └── src

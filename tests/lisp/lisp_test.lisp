@@ -22,29 +22,53 @@
 
 (write-line "Hello, Common Lisp!")
 
-(asdf:oos 'asdf:load-op :plain-odbc)
-(use-package :plain-odbc)
+;; (asdf:oos 'asdf:load-op :plain-odbc)
+(ql:quickload '(:plain-odbc :local-time))
+(use-package '(:plain-odbc :local-time))
 
-(defvar *con*)
-(defvar *stm*)
+(defun getNextTick (t0)
+  (loop 
+    (when (timestamp> (now) t0) (return (now)))
+  )
+)
 
-(setf *con* (connect-generic :dsn "TAOS_ODBC_DSN" :uid "root" :pwd "taosdata" :database "bar"))
-(assert (eq 0 (exec-update *con* "drop table if exists common_lisp")))
-(assert (eq 0 (exec-update *con* "create table if not exists common_lisp(ts timestamp, name varchar(20))")))
-(setf *stm* (prepare-statement *con* "insert into common_lisp(ts, name) values(?,?)" '(:string :in) '(:unicode-string :in)))
-;; (assert (eq 1 (exec-prepared-update *stm* "2023-05-30 12:13:14.567" "你好hello中国")))
+(defun tsFormat (t0)
+  (format NIL "~4,'0d-~2,'0d-~2,'0d ~2,'0d:~2,'0d:~2,'0d.~3,'0d"
+    (timestamp-year t0) (timestamp-month t0) (timestamp-day t0)
+    (timestamp-hour t0) (timestamp-minute t0) (timestamp-second t0) (floor (nsec-of t0) 1000000))
+)
 
-(defvar *params*)
-(defvar *rows_expected*)
-(setf *params*         '("2023-05-30 12:13:14.567" "你好hello中国"))
-(setf *rows_expected* '(("2023-05-30 12:13:14.567" "你好hello中国")))
-(assert (eq 1 (multiple-value-bind (ts name) (values-list *params*) (exec-prepared-update *stm* ts name))))
+(defun prepareExecAndCheck (con insert params param-values select rows_expected)
+  (let ((stm))
+    (setf stm (apply #'prepare-statement (cons con (cons insert params))))
+    (assert (eq 1 (apply #'exec-prepared-update (cons stm param-values))))
+    (assert (equal rows_expected (apply #'exec-query (cons con (cons select nil)))))
+    (free-statement stm)
+  )
+)
 
-;; (assert (equal '(("2023-05-30 12:13:14.567" "你好hello中国")) (multiple-value-bind (x) (exec-query *con* "select * from common_lisp") x)))
-(assert (equal *rows_expected* (exec-query *con* "select * from common_lisp")))
+(defun main ()
+  (let ((con) (t0))
+    (setf con (connect-generic :dsn "TAOS_ODBC_DSN" :uid "root" :pwd "taosdata" :database "bar"))
 
-(free-statement *stm*)
-(close-connection *con*)
+    (assert (eq 0 (exec-update con "drop table if exists common_lisp")))
+    (assert (eq 0 (exec-update con "create table if not exists common_lisp(ts timestamp, name varchar(20))")))
+
+    (setf t0 (tsFormat (getNextTick (now))))
+
+    (prepareExecAndCheck
+      con
+      "insert into common_lisp (ts, name) values (?, ?)"
+      '((:string :in) (:unicode-string :in))
+      (list t0 "你好hello中国")
+      "select * from common_lisp"
+      (list (list t0 "你好hello中国")))
+
+    (close-connection con)
+  )
+)
+
+(main)
 
 (write-line "==success==")
 

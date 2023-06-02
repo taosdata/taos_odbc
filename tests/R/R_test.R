@@ -22,34 +22,45 @@
 # SOFTWARE.
 ###############################################################################
 
-configure_file(test_config.h.in ${CMAKE_CURRENT_BINARY_DIR}/test_config.h)
+#install.packages("odbc")
+#install.packages("assert")
 
-list(APPEND test_helper_SOURCES
-    test_helper.c)
+library(DBI)
+library(odbc)
+library(assert)
 
-add_library(test_helper_obj OBJECT ${test_helper_SOURCES})
-if(TODBC_WINDOWS)
-    add_dependencies(test_helper_obj ex_iconv ex_cjson)
-endif()
-set_property(TARGET test_helper_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
-target_include_directories(test_helper_obj PRIVATE
-    ${CMAKE_CURRENT_BINARY_DIR} ${CJSON_INSTALL_PATH}/include)
+getNextTs <- function(t0) {
+  repeat {
+    t1 <- format.POSIXct(Sys.time(), "%Y-%m-%d %H:%M:%OS3")
+    if (t1 != t0) {
+      break
+    }
+  }
+  format.POSIXct(Sys.time(), "%Y-%m-%d %H:%M:%OS3")
+}
 
-if (TODBC_WINDOWS)
-    add_subdirectory(cs)
-endif ()
+conn <- dbConnect(odbc::odbc(), dsn="TAOS_ODBC_DSN", database="bar")
+assert(!is.null(conn))
 
-add_subdirectory(c)
-add_subdirectory(cpp)
-if(NOT USE_SAN)
-  add_subdirectory(node)
-  add_subdirectory(rust)
-  add_subdirectory(python)
-  add_subdirectory(go)
-  add_subdirectory(erl)
-  add_subdirectory(hs)
-  add_subdirectory(lisp)
-  add_subdirectory(R)
-endif()
+assert(0L == dbExecute(conn, "drop table if exists r_table"))
+assert(0L == dbExecute(conn, "create table if not exists r_table (ts timestamp, name varchar(20))"))
 
-add_subdirectory(taos)
+t1 <- getNextTs("")
+t2 <- getNextTs(t1)
+
+rs <- dbSendStatement(conn, "insert into r_table (ts, name) values (?, ?)")
+dbBind(rs, list(c(t1, t2), c("你好hello中国", "你好hello中国")))
+dbClearResult(rs)
+
+t = data.frame(
+    ts = c(t1, t2),
+    name = c("你好hello中国", "你好hello中国")
+)
+
+rs <- dbSendQuery(conn, "select * from r_table")
+df <- dbFetch(rs)
+assert(all.equal(t, df))
+dbClearResult(rs)
+
+dbDisconnect(conn)
+

@@ -289,6 +289,15 @@ macro(check_requirements)
                    "${ColorReset}")
   endif ()
 
+  ## check `R`
+  tod_find_prog(R_SCRIPT 4.3.0 Rscript "--version" ".* ([0-9\.]+) .*" OUTPUT_VARIABLE)
+  if (NOT HAVE_R_SCRIPT)
+    message(STATUS "${Yellow}"
+                   "`Rscript v4.3.0 or above` not found, "
+                   "thus R-script-related-test-cases would be eliminated, you may refer to https://www.r-project.org/"
+                   "${ColorReset}")
+  endif ()
+
   ## check `mysql`
   if (ENABLE_MYSQL_TEST)
     tod_find_prog(MYSQL 8.0.32 mysql "--version" "mysql[ ]+Ver[ ]+([0-9\.]+).*" OUTPUT_VARIABLE)

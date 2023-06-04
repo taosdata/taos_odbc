@@ -92,5 +92,6 @@ set_target_properties(taos_odbc PROPERTIES
     VERSION 0.1)
 install(TARGETS taos_odbc)
 
+add_subdirectory(udf)
 add_subdirectory(tests)
 

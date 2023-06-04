@@ -1176,6 +1176,36 @@ SQLRETURN conn_get_info(
       return _conn_get_info_database_name(conn, InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_USER_NAME:
       return _conn_get_info_user_name(conn, InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+
+    // NOTE: https://learn.microsoft.com/en-us/sql/odbc/reference/appendixes/sqlgetinfo-support?view=sql-server-ver16
+    case SQL_ALTER_TABLE:
+      *(SQLINTEGER*)InfoValuePtr = SQL_AT_DROP_COLUMN | SQL_AT_ADD_COLUMN; // FIXME:
+      break;
+    case SQL_FETCH_DIRECTION:
+      *(SQLINTEGER*)InfoValuePtr = SQL_FD_FETCH_NEXT; // FIXME:
+      break;
+    case SQL_LOCK_TYPES:
+      *(SQLINTEGER*)InfoValuePtr = SQL_LCK_NO_CHANGE; // FIXME:
+      break;
+    case SQL_ODBC_API_CONFORMANCE:
+      *(SQLSMALLINT*)InfoValuePtr = SQL_OAC_LEVEL2; // FIXME:
+      break;
+    case SQL_ODBC_SQL_CONFORMANCE:
+      *(SQLSMALLINT*)InfoValuePtr = SQL_OSC_MINIMUM; // FIXME:
+      break;
+    case SQL_POS_OPERATIONS:
+      *(SQLINTEGER*)InfoValuePtr = 0; // FIXME:
+      break;
+    case SQL_POSITIONED_STATEMENTS:
+      *(SQLINTEGER*)InfoValuePtr = 0; // FIXME:
+      break;
+    case SQL_SCROLL_CONCURRENCY:
+      *(SQLINTEGER*)InfoValuePtr = SQL_SCCO_READ_ONLY; // FIXME:
+      break;
+    case SQL_STATIC_SENSITIVITY:
+      *(SQLINTEGER*)InfoValuePtr = 0; // FIXME:
+      break;
+
     default:
       conn_append_err_format(conn, "HY000", 0, "General error:`%s[%d/0x%x]` not implemented yet", sql_info_type(InfoType), InfoType, InfoType);
       return SQL_ERROR;

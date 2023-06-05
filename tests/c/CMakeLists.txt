@@ -136,6 +136,9 @@ if(HAVE_VALGRIND)
       COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/c_test)
 endif()
 
+add_test(NAME c_test_pooling
+    COMMAND c_test --pooling)
+
 add_executable(odbc_test
     $<TARGET_OBJECTS:common_obj>
     $<TARGET_OBJECTS:test_helper_obj>

@@ -46,22 +46,45 @@ struct handles_s {
   uint8_t              connected:1;
 };
 
+static void handles_free_stmt(handles_t *handles)
+{
+  if (!handles) return;
+  if (handles->hstmt == SQL_NULL_HANDLE) return;
+
+  CALL_SQLFreeHandle(SQL_HANDLE_STMT, handles->hstmt);
+  handles->hstmt = SQL_NULL_HANDLE;
+}
+
+static void handles_disconnect(handles_t *handles)
+{
+  if (!handles) return;
+
+  if (handles->hdbc == SQL_NULL_HANDLE) return;
+
+  if (!handles->connected) return;
+
+  handles_free_stmt(handles);
+
+  CALL_SQLDisconnect(handles->hdbc);
+  handles->connected = 0;
+}
+
+static void handles_free_conn(handles_t *handles)
+{
+  if (!handles) return;
+  if (handles->hdbc == SQL_NULL_HANDLE) return;
+
+  handles_disconnect(handles);
+
+  CALL_SQLFreeHandle(SQL_HANDLE_DBC, handles->hdbc);
+  handles->hdbc = SQL_NULL_HANDLE;
+}
+
 static void handles_release(handles_t *handles)
 {
   if (!handles) return;
-  if (handles->hstmt != SQL_NULL_HANDLE) {
-    CALL_SQLFreeHandle(SQL_HANDLE_STMT, handles->hstmt);
-    handles->hstmt = SQL_NULL_HANDLE;
-  }
 
-  if (handles->hdbc != SQL_NULL_HANDLE) {
-    if (handles->connected) {
-      CALL_SQLDisconnect(handles->hdbc);
-      handles->connected = 0;
-    }
-    CALL_SQLFreeHandle(SQL_HANDLE_DBC, handles->hdbc);
-    handles->hdbc = SQL_NULL_HANDLE;
-  }
+  handles_free_conn(handles);
 
   if (handles->henv != SQL_NULL_HANDLE) {
     CALL_SQLFreeHandle(SQL_HANDLE_ENV, handles->henv);
@@ -76,7 +99,7 @@ static int _driver_connect(SQLHANDLE hdbc, const char *connstr)
   char buf[1024];
   buf[0] = '\0';
   SQLSMALLINT StringLength = 0;
-  sr = CALL_SQLDriverConnect(hdbc, NULL, (SQLCHAR*)connstr, SQL_NTS, (SQLCHAR*)buf, sizeof(buf), &StringLength, SQL_DRIVER_COMPLETE);
+  sr = CALL_SQLDriverConnect(hdbc, NULL, (SQLCHAR*)connstr, SQL_NTS, (SQLCHAR*)buf, sizeof(buf), &StringLength, SQL_DRIVER_NOPROMPT);
   if (FAILED(sr)) return -1;
 
   return 0;
@@ -93,6 +116,9 @@ static int handles_init(handles_t *handles, const char *connstr)
       if (FAILED(sr)) break;
 
       sr = CALL_SQLSetEnvAttr(handles->henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, 0);
+      if (FAILED(sr)) break;
+
+      if (0) sr = CALL_SQLSetEnvAttr(handles->henv, SQL_ATTR_CONNECTION_POOLING, (SQLPOINTER)SQL_CP_ONE_PER_DRIVER, 0);
       if (FAILED(sr)) break;
     }
 
@@ -200,7 +226,7 @@ static int execute_batches_of_statements(const char *connstr, const char *sqls)
 
   r = _execute_batches_of_statements(&handles, sqls);
 
-  handles_release(&handles);
+  handles_disconnect(&handles);
 
   return r ? -1 : 0;
 }
@@ -237,7 +263,7 @@ static int execute_with_params(const char *connstr, const char *sql, size_t nr_p
   r = _execute_with_params(&handles, sql, nr_params, ap);
   va_end(ap);
 
-  handles_release(&handles);
+  handles_disconnect(&handles);
 
   return r ? -1 : 0;
 }
@@ -267,7 +293,7 @@ static int execute_with_int(const char *connstr, const char *sql, int v, size_t 
 
   r = _execute_with_int(&handles, sql, v, len);
 
-  handles_release(&handles);
+  handles_disconnect(&handles);
 
   return r ? -1 : 0;
 }
@@ -507,7 +533,7 @@ static int test_charsets(handles_t *handles)
   const char *sqls = NULL;
   const char *sql = NULL;
 
-  handles_release(handles);
+  handles_disconnect(handles);
 
   conn_str = "DSN=TAOS_ODBC_DSN";
   r = handles_init(handles, conn_str);
@@ -548,7 +574,7 @@ static int test_charsets_with_col_bind(handles_t *handles)
   const char *sqls = NULL;
   const char *sql = NULL;
 
-  handles_release(handles);
+  handles_disconnect(handles);
 
   conn_str = "DSN=TAOS_ODBC_DSN";
   r = handles_init(handles, conn_str);
@@ -669,7 +695,7 @@ static int test_charsets_with_param_bind(handles_t *handles)
   const char *sqls = NULL;
   const char *sql = NULL;
 
-  handles_release(handles);
+  handles_disconnect(handles);
 
   conn_str = "DSN=TAOS_ODBC_DSN";
   r = handles_init(handles, conn_str);
@@ -786,7 +812,7 @@ static void _test_topic_routine_impl(test_topic_t *ds)
     }
   }
 
-  handles_release(&handles);
+  handles_disconnect(&handles);
 }
 
 #ifdef _WIN32                   /* { */
@@ -913,7 +939,7 @@ static int test_topic(handles_t *handles)
   const char *conn_str = NULL;
   const char *sqls = NULL;
 
-  handles_release(handles);
+  handles_disconnect(handles);
 
   conn_str = "DSN=TAOS_ODBC_DSN";
   r = handles_init(handles, conn_str);
@@ -980,7 +1006,7 @@ static int test_params_with_all_chars(handles_t *handles)
   const char *sqls = NULL;
   const char *sql = NULL;
 
-  handles_release(handles);
+  handles_disconnect(handles);
 
   conn_str = "DSN=TAOS_ODBC_DSN";
   r = handles_init(handles, conn_str);
@@ -1007,6 +1033,49 @@ static int test_params_with_all_chars(handles_t *handles)
   return 0;
 }
 
+static int test_pool_stmt(handles_t *handles)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  sr = CALL_SQLExecDirect(handles->hstmt, (SQLCHAR*)"select * from information_schema.ins_tables", SQL_NTS);
+  if (FAILED(sr)) return -1;
+
+  CALL_SQLCloseCursor(handles->hstmt);
+  return 0;
+}
+
+static int test_pool(handles_t *handles)
+{
+  int r = 0;
+  SQLRETURN sr = SQL_SUCCESS;
+
+  const char *conn_str = NULL;
+
+  if (0) sr = CALL_SQLSetEnvAttr(SQL_NULL_HANDLE, SQL_ATTR_CONNECTION_POOLING, (SQLPOINTER)SQL_CP_ONE_PER_DRIVER, 0);
+  if (FAILED(sr)) return -1;
+
+  handles_disconnect(handles);
+
+  conn_str = "DSN=TAOS_ODBC_DSN";
+  r = handles_init(handles, conn_str);
+  if (r) return -1;
+
+  r = test_pool_stmt(handles);
+  if (r) return -1;
+
+  handles_disconnect(handles);
+
+  r = handles_init(handles, conn_str);
+  if (r) return -1;
+
+  r = test_pool_stmt(handles);
+  if (r) return -1;
+
+  handles_disconnect(handles);
+
+  return 0;
+}
+
 typedef struct case_s              case_t;
 struct case_s {
   const char               *name;
@@ -1024,14 +1093,17 @@ static case_t* find_case(case_t *cases, size_t nr_cases, const char *name)
 
 static int running_case(handles_t *handles, case_t *_case)
 {
-  return _case->routine(handles);
+  int r = 0;
+  r = _case->routine(handles);
+  handles_disconnect(handles);
+  return r;
 }
 
 static void usage(const char *arg0)
 {
   fprintf(stderr, "%s -h\n"
                   "  show this help page\n"
-                  "%s [name]...\n"
+                  "%s [--pooling] [name]...\n"
                   "  running test case `name`\n"
                   "%s -l\n"
                   "  list all test cases\n",
@@ -1061,6 +1133,12 @@ static int running_with_args(int argc, char *argv[], handles_t *handles, case_t 
     if (strcmp(arg, "-l")==0) {
       list_cases(_cases, _nr_cases);
       return 0;
+    }
+    if (strcmp(arg, "--pooling")==0) {
+      SQLRETURN sr = SQL_SUCCESS;
+      sr = CALL_SQLSetEnvAttr(SQL_NULL_HANDLE, SQL_ATTR_CONNECTION_POOLING, (SQLPOINTER)SQL_CP_ONE_PER_DRIVER, 0);
+      if (FAILED(sr)) return -1;
+      continue;
     }
     case_t *p = find_case(_cases, _nr_cases, arg);
     if (!p) {
@@ -1094,9 +1172,14 @@ int main(int argc, char *argv[])
     RECORD(test_charsets_with_param_bind),
     RECORD(test_topic),
     RECORD(test_params_with_all_chars),
+    RECORD(test_pool),  // NOTE: for the test purpose, this must keep in the last!!!
   };
 #undef RECORD
   size_t _nr_cases = sizeof(_cases)/sizeof(_cases[0]);
+
+  SQLRETURN sr = SQL_SUCCESS;
+  if (0) sr = CALL_SQLSetEnvAttr(SQL_NULL_HANDLE, SQL_ATTR_CONNECTION_POOLING, (SQLPOINTER)SQL_CP_ONE_PER_DRIVER, 0);
+  if (FAILED(sr)) return -1;
 
   handles_t handles = {0};
   r = running_with_args(argc, argv, &handles, _cases, _nr_cases);

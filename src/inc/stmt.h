@@ -38,8 +38,6 @@ void stmt_clr_errs(stmt_t *stmt) FA_HIDDEN;
 
 descriptor_t* stmt_APD(stmt_t *stmt) FA_HIDDEN;
 descriptor_t* stmt_IPD(stmt_t *stmt) FA_HIDDEN;
-descriptor_t* stmt_IRD(stmt_t *stmt) FA_HIDDEN;
-descriptor_t* stmt_ARD(stmt_t *stmt) FA_HIDDEN;
 
 SQLRETURN stmt_exec_direct(stmt_t *stmt, SQLCHAR *StatementText, SQLINTEGER TextLength) FA_HIDDEN;
 SQLRETURN stmt_get_row_count(stmt_t *stmt, SQLLEN *row_count_ptr) FA_HIDDEN;
@@ -291,9 +289,6 @@ SQLRETURN stmt_table_privileges(
 SQLRETURN stmt_complete_async(
     stmt_t      *stmt,
     RETCODE     *AsyncRetCodePtr) FA_HIDDEN;
-
-void sqls_reset(sqls_t *sqls) FA_HIDDEN;
-void sqls_release(sqls_t *sqls) FA_HIDDEN;
 
 EXTERN_C_END
 

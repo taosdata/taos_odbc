@@ -149,30 +149,7 @@ static int _tsdb_paramset_calloc(tsdb_paramset_t *paramset, int nr)
   return 0;
 }
 
-void tsdb_stmt_reset(tsdb_stmt_t *stmt)
-{
-  if (!stmt) return;
-  tsdb_stmt_close_result(stmt);
-  if (stmt->stmt) {
-    int r = CALL_taos_stmt_close(stmt->stmt);
-    OA_NIY(r == 0);
-    stmt->stmt = NULL;
-  }
-}
-
-void tsdb_stmt_release(tsdb_stmt_t *stmt)
-{
-  if (!stmt) return;
-  tsdb_stmt_reset(stmt);
-
-  tsdb_res_release(&stmt->res);
-
-  tsdb_params_release(&stmt->params);
-
-  stmt->owner = NULL;
-}
-
-void tsdb_params_reset_tag_fields(tsdb_params_t *params)
+static void _tsdb_params_reset_tag_fields(tsdb_params_t *params)
 {
   if (params->tag_fields) {
     CALL_taos_stmt_reclaim_fields(params->owner->stmt, params->tag_fields);
@@ -181,12 +158,12 @@ void tsdb_params_reset_tag_fields(tsdb_params_t *params)
   params->nr_tag_fields = 0;
 }
 
-static void tsdb_params_reset_params(tsdb_params_t *params)
+static void _tsdb_params_reset_params(tsdb_params_t *params)
 {
   params->nr_params = 0;
 }
 
-static const TAOS_FIELD_E        default_param_field = {
+static const TAOS_FIELD_E        _default_param_field = {
   .name        = "",
   .type        = TSDB_DATA_TYPE_VARCHAR,
   .precision   = 0,
@@ -194,9 +171,9 @@ static const TAOS_FIELD_E        default_param_field = {
   .bytes       = 16384,
 };
 
-void tsdb_params_reset_col_fields(tsdb_params_t *params)
+static void _tsdb_params_reset_col_fields(tsdb_params_t *params)
 {
-  if (params->col_fields == &default_param_field) params->col_fields = NULL;
+  if (params->col_fields == &_default_param_field) params->col_fields = NULL;
 
   if (params->col_fields) {
     CALL_taos_stmt_reclaim_fields(params->owner->stmt, params->col_fields);
@@ -206,11 +183,11 @@ void tsdb_params_reset_col_fields(tsdb_params_t *params)
   params->nr_col_fields = 0;
 }
 
-void tsdb_params_reset(tsdb_params_t *params)
+static void _tsdb_params_reset(tsdb_params_t *params)
 {
-  tsdb_params_reset_tag_fields(params);
-  tsdb_params_reset_col_fields(params);
-  tsdb_params_reset_params(params);
+  _tsdb_params_reset_tag_fields(params);
+  _tsdb_params_reset_col_fields(params);
+  _tsdb_params_reset_params(params);
 
   TOD_SAFE_FREE(params->subtbl);
   params->subtbl_required = 0;
@@ -218,31 +195,58 @@ void tsdb_params_reset(tsdb_params_t *params)
   params->qms = 0;
 }
 
-void tsdb_params_release(tsdb_params_t *params)
+static void _tsdb_params_release(tsdb_params_t *params)
 {
-  tsdb_params_reset(params);
+  _tsdb_params_reset(params);
 
   params->owner = NULL;
 }
 
-void tsdb_binds_reset(tsdb_binds_t *tsdb_binds)
+static void _tsdb_binds_reset(tsdb_binds_t *tsdb_binds)
 {
   tsdb_binds->nr = 0;
 }
 
 void tsdb_binds_release(tsdb_binds_t *tsdb_binds)
 {
-  tsdb_binds_reset(tsdb_binds);
+  _tsdb_binds_reset(tsdb_binds);
 
   TOD_SAFE_FREE(tsdb_binds->mbs);
   tsdb_binds->cap = 0;
 }
 
+static void _tsdb_fields_reset(tsdb_fields_t *fields)
+{
+  if (!fields) return;
+  fields->fields         = NULL;
+  fields->nr             = 0;
+}
+
+static void _tsdb_fields_release(tsdb_fields_t *fields)
+{
+  if (!fields) return;
+  _tsdb_fields_reset(fields);
+}
+
+static void _tsdb_rows_block_reset(tsdb_rows_block_t *rows_block)
+{
+  if (!rows_block) return;
+  rows_block->rows                 = NULL;
+  rows_block->nr                   = 0;
+  rows_block->pos                  = 0;
+}
+
+static void _tsdb_rows_block_release(tsdb_rows_block_t *rows_block)
+{
+  if (!rows_block) return;
+  _tsdb_rows_block_reset(rows_block);
+}
+
 void tsdb_res_reset(tsdb_res_t *res)
 {
   if (!res) return;
-  tsdb_rows_block_reset(&res->rows_block);
-  tsdb_fields_reset(&res->fields);
+  _tsdb_rows_block_reset(&res->rows_block);
+  _tsdb_fields_reset(&res->fields);
   if (res->res) {
     if (res->res_is_from_taos_query) {
       CALL_taos_free_result(res->res);
@@ -259,40 +263,13 @@ void tsdb_res_release(tsdb_res_t *res)
   if (!res) return;
   tsdb_res_reset(res);
 
-  tsdb_rows_block_release(&res->rows_block);
-  tsdb_fields_release(&res->fields);
-}
-
-void tsdb_fields_reset(tsdb_fields_t *fields)
-{
-  if (!fields) return;
-  fields->fields         = NULL;
-  fields->nr             = 0;
-}
-
-void tsdb_fields_release(tsdb_fields_t *fields)
-{
-  if (!fields) return;
-  tsdb_fields_reset(fields);
-}
-
-void tsdb_rows_block_reset(tsdb_rows_block_t *rows_block)
-{
-  if (!rows_block) return;
-  rows_block->rows                 = NULL;
-  rows_block->nr                   = 0;
-  rows_block->pos                  = 0;
-}
-
-void tsdb_rows_block_release(tsdb_rows_block_t *rows_block)
-{
-  if (!rows_block) return;
-  tsdb_rows_block_reset(rows_block);
+  _tsdb_rows_block_release(&res->rows_block);
+  _tsdb_fields_release(&res->fields);
 }
 
 static int _tsdb_binds_keep(tsdb_binds_t *tsdb_binds, int nr_params)
 {
-  tsdb_binds_reset(tsdb_binds);
+  _tsdb_binds_reset(tsdb_binds);
   if (nr_params > tsdb_binds->cap) {
     int cap = (nr_params + 15) / 16 * 16;
     TAOS_MULTI_BIND *mbs = (TAOS_MULTI_BIND*)realloc(tsdb_binds->mbs, sizeof(*mbs) * cap);
@@ -351,10 +328,10 @@ static TAOS_FIELD_E* _tsdb_stmt_get_tsdb_field_by_tsdb_params(tsdb_stmt_t *stmt,
 {
   tsdb_params_t *params = &stmt->params;
 
-  if (!stmt->is_insert_stmt) return (TAOS_FIELD_E*)&default_param_field;
+  if (!stmt->is_insert_stmt) return (TAOS_FIELD_E*)&_default_param_field;
 
   if (i_param == 0 && params->subtbl_required) {
-    return (TAOS_FIELD_E*)&default_param_field;
+    return (TAOS_FIELD_E*)&_default_param_field;
   }
   i_param -= !!params->subtbl_required;
   if (i_param < params->nr_tag_fields)
@@ -691,6 +668,23 @@ static SQLRETURN _get_col_fields(stmt_base_t *base, TAOS_FIELD **fields, size_t 
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _tsdb_stmt_fetch_rows_block(tsdb_stmt_t *stmt)
+{
+  tsdb_res_t           *res          = &stmt->res;
+  tsdb_rows_block_t    *rows_block   = &res->rows_block;
+
+  _tsdb_rows_block_reset(rows_block);
+
+  TAOS_ROW rows = NULL;
+  int nr_rows = CALL_taos_fetch_block(res->res, &rows);
+  if (nr_rows == 0) return SQL_NO_DATA;
+  rows_block->rows   = rows;
+  rows_block->nr     = nr_rows;
+  rows_block->pos    = 0;
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _fetch_row(stmt_base_t *base)
 {
   SQLRETURN sr = SQL_SUCCESS;
@@ -702,7 +696,7 @@ static SQLRETURN _fetch_row(stmt_base_t *base)
 again:
   // TODO: before and after
   if (rows_block->pos >= rows_block->nr) {
-    sr = tsdb_stmt_fetch_rows_block(stmt);
+    sr = _tsdb_stmt_fetch_rows_block(stmt);
     if (sr == SQL_NO_DATA) return SQL_NO_DATA;
     if (sr != SQL_SUCCESS) return SQL_ERROR;
     goto again;
@@ -717,6 +711,92 @@ static SQLRETURN _more_results(stmt_base_t *base)
   return SQL_NO_DATA;
 }
 
+static SQLRETURN _tsdb_stmt_describe_param_by_field(
+    tsdb_stmt_t    *stmt,
+    SQLUSMALLINT    ParameterNumber,
+    SQLSMALLINT    *DataTypePtr,
+    SQLULEN        *ParameterSizePtr,
+    SQLSMALLINT    *DecimalDigitsPtr,
+    SQLSMALLINT    *NullablePtr,
+    TAOS_FIELD_E   *field)
+{
+  int type = field->type;
+  int bytes = field->bytes;
+
+  switch (type) {
+    case TSDB_DATA_TYPE_INT:
+    case TSDB_DATA_TYPE_UINT:
+      if (DataTypePtr)      *DataTypePtr      = SQL_INTEGER;
+      if (ParameterSizePtr) *ParameterSizePtr = 10;
+      if (DecimalDigitsPtr) *DecimalDigitsPtr = 0;
+      if (NullablePtr)      *NullablePtr      = SQL_NULLABLE_UNKNOWN;
+      break;
+    case TSDB_DATA_TYPE_SMALLINT:
+    case TSDB_DATA_TYPE_USMALLINT:
+      if (DataTypePtr)      *DataTypePtr      = SQL_SMALLINT;
+      if (ParameterSizePtr) *ParameterSizePtr = 5;
+      if (DecimalDigitsPtr) *DecimalDigitsPtr = 0;
+      if (NullablePtr)      *NullablePtr      = SQL_NULLABLE_UNKNOWN;
+      break;
+    case TSDB_DATA_TYPE_TINYINT:
+    case TSDB_DATA_TYPE_UTINYINT:
+      if (DataTypePtr)      *DataTypePtr      = SQL_TINYINT;
+      if (ParameterSizePtr) *ParameterSizePtr = 3;
+      if (DecimalDigitsPtr) *DecimalDigitsPtr = 0;
+      if (NullablePtr)      *NullablePtr      = SQL_NULLABLE_UNKNOWN;
+      break;
+    case TSDB_DATA_TYPE_BOOL:
+      if (DataTypePtr)      *DataTypePtr      = SQL_TINYINT; // FIXME: SQL_BIT
+      if (ParameterSizePtr) *ParameterSizePtr = 3;
+      if (DecimalDigitsPtr) *DecimalDigitsPtr = 0;
+      if (NullablePtr)      *NullablePtr      = SQL_NULLABLE_UNKNOWN;
+      break;
+    case TSDB_DATA_TYPE_BIGINT:
+      if (DataTypePtr)      *DataTypePtr      = SQL_BIGINT;
+      if (ParameterSizePtr) *ParameterSizePtr = 19;
+      if (DecimalDigitsPtr) *DecimalDigitsPtr = 0;
+      if (NullablePtr)      *NullablePtr      = SQL_NULLABLE_UNKNOWN;
+      break;
+    case TSDB_DATA_TYPE_FLOAT:
+      if (DataTypePtr)      *DataTypePtr      = SQL_REAL;
+      if (ParameterSizePtr) *ParameterSizePtr = 7;
+      if (DecimalDigitsPtr) *DecimalDigitsPtr = 0;
+      if (NullablePtr)      *NullablePtr      = SQL_NULLABLE_UNKNOWN;
+      break;
+    case TSDB_DATA_TYPE_DOUBLE:
+      if (DataTypePtr)      *DataTypePtr      = SQL_DOUBLE;
+      if (ParameterSizePtr) *ParameterSizePtr = 15;
+      if (DecimalDigitsPtr) *DecimalDigitsPtr = 0;
+      if (NullablePtr)      *NullablePtr      = SQL_NULLABLE_UNKNOWN;
+      break;
+    case TSDB_DATA_TYPE_VARCHAR:
+      if (DataTypePtr)      *DataTypePtr      = SQL_VARCHAR;
+      if (ParameterSizePtr) *ParameterSizePtr = bytes - 2;
+      if (DecimalDigitsPtr) *DecimalDigitsPtr = 0;
+      if (NullablePtr)      *NullablePtr      = SQL_NULLABLE_UNKNOWN;
+      break;
+    case TSDB_DATA_TYPE_TIMESTAMP:
+      if (DataTypePtr)      *DataTypePtr      = SQL_TYPE_TIMESTAMP;
+      if (DecimalDigitsPtr) *DecimalDigitsPtr = (field->precision + 1) * 3;
+      if (ParameterSizePtr) *ParameterSizePtr = 20 + *DecimalDigitsPtr;
+      if (NullablePtr)      *NullablePtr      = SQL_NULLABLE_UNKNOWN;
+      break;
+    case TSDB_DATA_TYPE_NCHAR:
+      if (DataTypePtr)      *DataTypePtr      = SQL_WVARCHAR;
+      // /* taos internal storage: sizeof(int16_t) + payload */
+      if (ParameterSizePtr) *ParameterSizePtr = (bytes - 2) / 4;
+      if (DecimalDigitsPtr) *DecimalDigitsPtr = 0;
+      if (NullablePtr)      *NullablePtr      = SQL_NULLABLE_UNKNOWN;
+      break;
+    default:
+      stmt_append_err_format(stmt->owner, "HY000", 0,
+          "General error:#%d param:`%s[0x%x/%d]` not implemented yet", ParameterNumber, taos_data_type(type), type, type);
+      return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _describe_param(stmt_base_t *base,
       SQLUSMALLINT    ParameterNumber,
       SQLSMALLINT    *DataTypePtr,
@@ -725,7 +805,8 @@ static SQLRETURN _describe_param(stmt_base_t *base,
       SQLSMALLINT    *NullablePtr)
 {
   tsdb_stmt_t *stmt = (tsdb_stmt_t*)base;
-  return tsdb_stmt_describe_param(stmt, ParameterNumber, DataTypePtr, ParameterSizePtr, DecimalDigitsPtr, NullablePtr);
+  TAOS_FIELD_E *tsdb_field = _tsdb_stmt_get_tsdb_field_by_tsdb_params(stmt, ParameterNumber - 1);
+  return _tsdb_stmt_describe_param_by_field(stmt, ParameterNumber, DataTypePtr, ParameterSizePtr, DecimalDigitsPtr, NullablePtr, tsdb_field);
 }
 
 static SQLRETURN _get_num_params(stmt_base_t *base, SQLSMALLINT *ParameterCountPtr)
@@ -816,134 +897,47 @@ void tsdb_stmt_init(tsdb_stmt_t *stmt, stmt_t *owner)
 void tsdb_stmt_unprepare(tsdb_stmt_t *stmt)
 {
   stmt->current_sql = NULL;
-  tsdb_params_reset(&stmt->params);
+  _tsdb_params_reset(&stmt->params);
   stmt->prepared = 0;
   stmt->is_topic = 0;
   stmt->is_insert_stmt = 0;
-  tsdb_binds_reset(&stmt->owner->tsdb_binds);
+  _tsdb_binds_reset(&stmt->owner->tsdb_binds);
 }
 
-void tsdb_stmt_close_result(tsdb_stmt_t *stmt)
+static void _tsdb_stmt_close_result(tsdb_stmt_t *stmt)
 {
   tsdb_res_reset(&stmt->res);
 }
+
+void tsdb_stmt_reset(tsdb_stmt_t *stmt)
+{
+  if (!stmt) return;
+  _tsdb_stmt_close_result(stmt);
+  if (stmt->stmt) {
+    int r = CALL_taos_stmt_close(stmt->stmt);
+    OA_NIY(r == 0);
+    stmt->stmt = NULL;
+  }
+}
+
+void tsdb_stmt_release(tsdb_stmt_t *stmt)
+{
+  if (!stmt) return;
+  tsdb_stmt_reset(stmt);
+
+  tsdb_res_release(&stmt->res);
+
+  _tsdb_params_release(&stmt->params);
+
+  stmt->owner = NULL;
+}
+
 
 SQLRETURN tsdb_stmt_query(tsdb_stmt_t *stmt, const sqlc_tsdb_t *sqlc_tsdb)
 {
   SQLRETURN sr = _prepare(&stmt->base, sqlc_tsdb);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
   return _execute(&stmt->base);
-}
-
-static SQLRETURN _tsdb_stmt_describe_param_by_field(
-    tsdb_stmt_t    *stmt,
-    SQLUSMALLINT    ParameterNumber,
-    SQLSMALLINT    *DataTypePtr,
-    SQLULEN        *ParameterSizePtr,
-    SQLSMALLINT    *DecimalDigitsPtr,
-    SQLSMALLINT    *NullablePtr,
-    TAOS_FIELD_E   *field)
-{
-  int type = field->type;
-  int bytes = field->bytes;
-
-  switch (type) {
-    case TSDB_DATA_TYPE_INT:
-    case TSDB_DATA_TYPE_UINT:
-      if (DataTypePtr)      *DataTypePtr      = SQL_INTEGER;
-      if (ParameterSizePtr) *ParameterSizePtr = 10;
-      if (DecimalDigitsPtr) *DecimalDigitsPtr = 0;
-      if (NullablePtr)      *NullablePtr      = SQL_NULLABLE_UNKNOWN;
-      break;
-    case TSDB_DATA_TYPE_SMALLINT:
-    case TSDB_DATA_TYPE_USMALLINT:
-      if (DataTypePtr)      *DataTypePtr      = SQL_SMALLINT;
-      if (ParameterSizePtr) *ParameterSizePtr = 5;
-      if (DecimalDigitsPtr) *DecimalDigitsPtr = 0;
-      if (NullablePtr)      *NullablePtr      = SQL_NULLABLE_UNKNOWN;
-      break;
-    case TSDB_DATA_TYPE_TINYINT:
-    case TSDB_DATA_TYPE_UTINYINT:
-      if (DataTypePtr)      *DataTypePtr      = SQL_TINYINT;
-      if (ParameterSizePtr) *ParameterSizePtr = 3;
-      if (DecimalDigitsPtr) *DecimalDigitsPtr = 0;
-      if (NullablePtr)      *NullablePtr      = SQL_NULLABLE_UNKNOWN;
-      break;
-    case TSDB_DATA_TYPE_BOOL:
-      if (DataTypePtr)      *DataTypePtr      = SQL_TINYINT; // FIXME: SQL_BIT
-      if (ParameterSizePtr) *ParameterSizePtr = 3;
-      if (DecimalDigitsPtr) *DecimalDigitsPtr = 0;
-      if (NullablePtr)      *NullablePtr      = SQL_NULLABLE_UNKNOWN;
-      break;
-    case TSDB_DATA_TYPE_BIGINT:
-      if (DataTypePtr)      *DataTypePtr      = SQL_BIGINT;
-      if (ParameterSizePtr) *ParameterSizePtr = 19;
-      if (DecimalDigitsPtr) *DecimalDigitsPtr = 0;
-      if (NullablePtr)      *NullablePtr      = SQL_NULLABLE_UNKNOWN;
-      break;
-    case TSDB_DATA_TYPE_FLOAT:
-      if (DataTypePtr)      *DataTypePtr      = SQL_REAL;
-      if (ParameterSizePtr) *ParameterSizePtr = 7;
-      if (DecimalDigitsPtr) *DecimalDigitsPtr = 0;
-      if (NullablePtr)      *NullablePtr      = SQL_NULLABLE_UNKNOWN;
-      break;
-    case TSDB_DATA_TYPE_DOUBLE:
-      if (DataTypePtr)      *DataTypePtr      = SQL_DOUBLE;
-      if (ParameterSizePtr) *ParameterSizePtr = 15;
-      if (DecimalDigitsPtr) *DecimalDigitsPtr = 0;
-      if (NullablePtr)      *NullablePtr      = SQL_NULLABLE_UNKNOWN;
-      break;
-    case TSDB_DATA_TYPE_VARCHAR:
-      if (DataTypePtr)      *DataTypePtr      = SQL_VARCHAR;
-      if (ParameterSizePtr) *ParameterSizePtr = bytes - 2;
-      if (DecimalDigitsPtr) *DecimalDigitsPtr = 0;
-      if (NullablePtr)      *NullablePtr      = SQL_NULLABLE_UNKNOWN;
-      break;
-    case TSDB_DATA_TYPE_TIMESTAMP:
-      if (DataTypePtr)      *DataTypePtr      = SQL_TYPE_TIMESTAMP;
-      if (DecimalDigitsPtr) *DecimalDigitsPtr = (field->precision + 1) * 3;
-      if (ParameterSizePtr) *ParameterSizePtr = 20 + *DecimalDigitsPtr;
-      if (NullablePtr)      *NullablePtr      = SQL_NULLABLE_UNKNOWN;
-      break;
-    case TSDB_DATA_TYPE_NCHAR:
-      if (DataTypePtr)      *DataTypePtr      = SQL_WVARCHAR;
-      // /* taos internal storage: sizeof(int16_t) + payload */
-      if (ParameterSizePtr) *ParameterSizePtr = (bytes - 2) / 4;
-      if (DecimalDigitsPtr) *DecimalDigitsPtr = 0;
-      if (NullablePtr)      *NullablePtr      = SQL_NULLABLE_UNKNOWN;
-      break;
-    default:
-      stmt_append_err_format(stmt->owner, "HY000", 0,
-          "General error:#%d param:`%s[0x%x/%d]` not implemented yet", ParameterNumber, taos_data_type(type), type, type);
-      return SQL_ERROR;
-  }
-
-  if (1) return SQL_SUCCESS;
-
-  if (field != &default_param_field) return SQL_SUCCESS;
-
-  if (!stmt->is_insert_stmt) {
-    stmt_append_err(stmt->owner, "01000", 0,
-        "General warning:Arbitrary `SQL_VARCHAR(16384)` is chosen to return because of taos lacking param-desc for non-insert-statement");
-  } else {
-    stmt_append_err(stmt->owner, "01000", 0,
-        "General warning:Arbitrary `SQL_VARCHAR(16384)` is chosen to return because of taos extension of lazy-param-desc");
-  }
-
-  return SQL_SUCCESS_WITH_INFO;
-}
-
-SQLRETURN tsdb_stmt_describe_param(
-    tsdb_stmt_t    *stmt,
-    SQLUSMALLINT    ParameterNumber,
-    SQLSMALLINT    *DataTypePtr,
-    SQLULEN        *ParameterSizePtr,
-    SQLSMALLINT    *DecimalDigitsPtr,
-    SQLSMALLINT    *NullablePtr)
-{
-  // OA_ILE(stmt->prepared);
-  TAOS_FIELD_E *tsdb_field = _tsdb_stmt_get_tsdb_field_by_tsdb_params(stmt, ParameterNumber - 1);
-  return _tsdb_stmt_describe_param_by_field(stmt, ParameterNumber, DataTypePtr, ParameterSizePtr, DecimalDigitsPtr, NullablePtr, tsdb_field);
 }
 
 SQLRETURN tsdb_stmt_rebind_subtbl(tsdb_stmt_t *stmt)
@@ -955,9 +949,9 @@ SQLRETURN tsdb_stmt_rebind_subtbl(tsdb_stmt_t *stmt)
     return SQL_ERROR;
   }
 
-  tsdb_params_reset_tag_fields(&stmt->params);
-  tsdb_params_reset_col_fields(&stmt->params);
-  tsdb_params_reset_params(&stmt->params);
+  _tsdb_params_reset_tag_fields(&stmt->params);
+  _tsdb_params_reset_col_fields(&stmt->params);
+  _tsdb_params_reset_params(&stmt->params);
 
   int e = 0;
   const char *subtbl = stmt->params.subtbl;
@@ -978,22 +972,5 @@ SQLRETURN tsdb_stmt_rebind_subtbl(tsdb_stmt_t *stmt)
   stmt->params.subtbl_required = 1;
 
   return _tsdb_stmt_post_check(stmt);
-}
-
-SQLRETURN tsdb_stmt_fetch_rows_block(tsdb_stmt_t *stmt)
-{
-  tsdb_res_t           *res          = &stmt->res;
-  tsdb_rows_block_t    *rows_block   = &res->rows_block;
-
-  tsdb_rows_block_reset(rows_block);
-
-  TAOS_ROW rows = NULL;
-  int nr_rows = CALL_taos_fetch_block(res->res, &rows);
-  if (nr_rows == 0) return SQL_NO_DATA;
-  rows_block->rows   = rows;
-  rows_block->nr     = nr_rows;
-  rows_block->pos    = 0;
-
-  return SQL_SUCCESS;
 }
 

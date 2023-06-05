@@ -49,7 +49,7 @@
 #include <time.h>
 #include <wchar.h>
 
-static void param_bind_meta_reset(param_bind_meta_t *param_bind_meta)
+static void _param_bind_meta_reset(param_bind_meta_t *param_bind_meta)
 {
   if (!param_bind_meta) return;
   param_bind_meta->check    = NULL;
@@ -59,43 +59,43 @@ static void param_bind_meta_reset(param_bind_meta_t *param_bind_meta)
   param_bind_meta->conv     = NULL;
 }
 
-static void param_bind_meta_release(param_bind_meta_t *param_bind_meta)
+static void _param_bind_meta_release(param_bind_meta_t *param_bind_meta)
 {
   if (!param_bind_meta) return;
-  param_bind_meta_reset(param_bind_meta);
+  _param_bind_meta_reset(param_bind_meta);
 }
 
-static void params_bind_meta_reset(params_bind_meta_t *params_bind_meta)
+static void _params_bind_meta_reset(params_bind_meta_t *params_bind_meta)
 {
   if (!params_bind_meta) return;
   for (size_t i=0; i<params_bind_meta->nr; ++i) {
     param_bind_meta_t *p = params_bind_meta->base + i;
-    param_bind_meta_reset(p);
+    _param_bind_meta_reset(p);
   }
 
   params_bind_meta->nr = 0;
 }
 
-static void params_bind_meta_release(params_bind_meta_t *params_bind_meta)
+static void _params_bind_meta_release(params_bind_meta_t *params_bind_meta)
 {
   if (!params_bind_meta) return;
-  params_bind_meta_reset(params_bind_meta);
+  _params_bind_meta_reset(params_bind_meta);
   for (size_t i=0; i<params_bind_meta->cap; ++i) {
     param_bind_meta_t *p = params_bind_meta->base + i;
-    param_bind_meta_release(p);
+    _param_bind_meta_release(p);
   }
 
   params_bind_meta->cap = 0;
   TOD_SAFE_FREE(params_bind_meta->base);
 }
 
-static param_bind_meta_t* params_bind_meta_get(params_bind_meta_t *params_bind_meta, size_t i_param)
+static param_bind_meta_t* _params_bind_meta_get(params_bind_meta_t *params_bind_meta, size_t i_param)
 {
   if (i_param >= params_bind_meta->nr) return NULL;
   return params_bind_meta->base + i_param;
 }
 
-static int params_bind_meta_keep(params_bind_meta_t *params_bind_meta, size_t cap)
+static int _params_bind_meta_keep(params_bind_meta_t *params_bind_meta, size_t cap)
 {
   if (cap <= params_bind_meta->cap) return 0;
 
@@ -110,9 +110,9 @@ static int params_bind_meta_keep(params_bind_meta_t *params_bind_meta, size_t ca
   return 0;
 }
 
-static int params_bind_meta_set_check(params_bind_meta_t *params_bind_meta, size_t i_param, param_f check)
+static int _params_bind_meta_set_check(params_bind_meta_t *params_bind_meta, size_t i_param, param_f check)
 {
-  if (params_bind_meta_keep(params_bind_meta, i_param + 1)) return -1;
+  if (_params_bind_meta_keep(params_bind_meta, i_param + 1)) return -1;
 
   params_bind_meta->base[i_param].check = check;
   if (i_param >= params_bind_meta->nr) {
@@ -122,9 +122,9 @@ static int params_bind_meta_set_check(params_bind_meta_t *params_bind_meta, size
   return 0;
 }
 
-static int params_bind_meta_set_guess(params_bind_meta_t *params_bind_meta, size_t i_param, param_f guess)
+static int _params_bind_meta_set_guess(params_bind_meta_t *params_bind_meta, size_t i_param, param_f guess)
 {
-  if (params_bind_meta_keep(params_bind_meta, i_param + 1)) return -1;
+  if (_params_bind_meta_keep(params_bind_meta, i_param + 1)) return -1;
 
   params_bind_meta->base[i_param].guess = guess;
   if (i_param >= params_bind_meta->nr) {
@@ -134,9 +134,9 @@ static int params_bind_meta_set_guess(params_bind_meta_t *params_bind_meta, size
   return 0;
 }
 
-static int params_bind_meta_set_get_sqlc(params_bind_meta_t *params_bind_meta, size_t i_param, param_f get_sqlc)
+static int _params_bind_meta_set_get_sqlc(params_bind_meta_t *params_bind_meta, size_t i_param, param_f get_sqlc)
 {
-  if (params_bind_meta_keep(params_bind_meta, i_param + 1)) return -1;
+  if (_params_bind_meta_keep(params_bind_meta, i_param + 1)) return -1;
 
   params_bind_meta->base[i_param].get_sqlc = get_sqlc;
   if (i_param >= params_bind_meta->nr) {
@@ -146,9 +146,9 @@ static int params_bind_meta_set_get_sqlc(params_bind_meta_t *params_bind_meta, s
   return 0;
 }
 
-static int params_bind_meta_set_adjust(params_bind_meta_t *params_bind_meta, size_t i_param, param_f adjust)
+static int _params_bind_meta_set_adjust(params_bind_meta_t *params_bind_meta, size_t i_param, param_f adjust)
 {
-  if (params_bind_meta_keep(params_bind_meta, i_param + 1)) return -1;
+  if (_params_bind_meta_keep(params_bind_meta, i_param + 1)) return -1;
 
   params_bind_meta->base[i_param].adjust = adjust;
   if (i_param >= params_bind_meta->nr) {
@@ -158,9 +158,9 @@ static int params_bind_meta_set_adjust(params_bind_meta_t *params_bind_meta, siz
   return 0;
 }
 
-static int params_bind_meta_set_conv(params_bind_meta_t *params_bind_meta, size_t i_param, param_f conv)
+static int _params_bind_meta_set_conv(params_bind_meta_t *params_bind_meta, size_t i_param, param_f conv)
 {
-  if (params_bind_meta_keep(params_bind_meta, i_param + 1)) return -1;
+  if (_params_bind_meta_keep(params_bind_meta, i_param + 1)) return -1;
 
   params_bind_meta->base[i_param].conv = conv;
   if (i_param >= params_bind_meta->nr) {
@@ -170,22 +170,22 @@ static int params_bind_meta_set_conv(params_bind_meta_t *params_bind_meta, size_
   return 0;
 }
 
-static int params_bind_meta_set(params_bind_meta_t *params_bind_meta, size_t i_param, param_f check, param_f guess, param_f get_sqlc)
+static int _params_bind_meta_set(params_bind_meta_t *params_bind_meta, size_t i_param, param_f check, param_f guess, param_f get_sqlc)
 {
-  if (params_bind_meta_set_check(params_bind_meta, i_param, check))    return -1;
-  if (params_bind_meta_set_guess(params_bind_meta, i_param, guess))    return -1;
-  if (params_bind_meta_set_get_sqlc(params_bind_meta, i_param, get_sqlc)) return -1;
+  if (_params_bind_meta_set_check(params_bind_meta, i_param, check))    return -1;
+  if (_params_bind_meta_set_guess(params_bind_meta, i_param, guess))    return -1;
+  if (_params_bind_meta_set_get_sqlc(params_bind_meta, i_param, get_sqlc)) return -1;
   return 0;
 }
 
-static int params_bind_meta_set_adjust_conv(params_bind_meta_t *params_bind_meta, size_t i_param, param_f adjust, param_f conv)
+static int _params_bind_meta_set_adjust_conv(params_bind_meta_t *params_bind_meta, size_t i_param, param_f adjust, param_f conv)
 {
-  if (params_bind_meta_set_adjust(params_bind_meta, i_param, adjust)) return -1;
-  if (params_bind_meta_set_conv(params_bind_meta, i_param, conv)) return -1;
+  if (_params_bind_meta_set_adjust(params_bind_meta, i_param, adjust)) return -1;
+  if (_params_bind_meta_set_conv(params_bind_meta, i_param, conv)) return -1;
   return 0;
 }
 
-void sqls_reset(sqls_t *sqls)
+static void _sqls_reset(sqls_t *sqls)
 {
   if (!sqls) return;
   sqls->nr     = 0;
@@ -193,10 +193,10 @@ void sqls_reset(sqls_t *sqls)
   sqls->failed = 0;
 }
 
-void sqls_release(sqls_t *sqls)
+static void _sqls_release(sqls_t *sqls)
 {
   if (!sqls) return;
-  sqls_reset(sqls);
+  _sqls_reset(sqls);
   TOD_SAFE_FREE(sqls->sqls);
   sqls->cap = 0;
 }
@@ -337,19 +337,19 @@ descriptor_t* stmt_IPD(stmt_t *stmt)
   return &stmt->IPD;
 }
 
-descriptor_t* stmt_IRD(stmt_t *stmt)
+static descriptor_t* _stmt_IRD(stmt_t *stmt)
 {
   return &stmt->IRD;
 }
 
-descriptor_t* stmt_ARD(stmt_t *stmt)
+static descriptor_t* _stmt_ARD(stmt_t *stmt)
 {
   return stmt->current_ARD;
 }
 
 static SQLULEN* _stmt_get_rows_fetched_ptr(stmt_t *stmt)
 {
-  descriptor_t *IRD = stmt_IRD(stmt);
+  descriptor_t *IRD = _stmt_IRD(stmt);
   desc_header_t *IRD_header = &IRD->header;
   return IRD_header->DESC_ROWS_PROCESSED_PTR;
 }
@@ -410,7 +410,7 @@ static void _stmt_close_result(stmt_t *stmt)
 
 static void _stmt_unbind_cols(stmt_t *stmt)
 {
-  descriptor_t *ARD = stmt_ARD(stmt);
+  descriptor_t *ARD = _stmt_ARD(stmt);
   desc_header_t *ARD_header = &ARD->header;
   ARD_header->DESC_COUNT = 0;
   memset(ARD->records, 0, sizeof(*ARD->records) * ARD->cap);
@@ -426,7 +426,7 @@ static void _stmt_reset_params(stmt_t *stmt)
   desc_header_t *IPD_header = &IPD->header;
   IPD_header->DESC_COUNT = 0;
 
-  params_bind_meta_reset(&stmt->params_bind_meta);
+  _params_bind_meta_reset(&stmt->params_bind_meta);
   tsdb_paramset_reset(&stmt->tsdb_paramset);
 }
 
@@ -562,9 +562,9 @@ static void _stmt_release(stmt_t *stmt)
   mem_release(&stmt->mem);
   tsdb_paramset_release(&stmt->tsdb_paramset);
   tsdb_binds_release(&stmt->tsdb_binds);
-  sqls_release(&stmt->sqls);
+  _sqls_release(&stmt->sqls);
   _param_state_release(&stmt->param_state);
-  params_bind_meta_release(&stmt->params_bind_meta);
+  _params_bind_meta_release(&stmt->params_bind_meta);
 
   int prev = atomic_fetch_sub(&stmt->conn->stmts, 1);
   OA_ILE(prev >= 1);
@@ -1113,7 +1113,7 @@ static SQLRETURN _stmt_fill_IRD(stmt_t *stmt)
   sr = stmt->base->get_col_fields(stmt->base, &fields, &nr);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-  descriptor_t *IRD = stmt_IRD(stmt);
+  descriptor_t *IRD = _stmt_IRD(stmt);
   desc_header_t *IRD_header = &IRD->header;
 
   sr = descriptor_keep(IRD, stmt, nr);
@@ -1225,7 +1225,7 @@ static SQLRETURN _stmt_fill_IRD(stmt_t *stmt)
 
 static SQLRETURN _stmt_set_rows_fetched_ptr(stmt_t *stmt, SQLULEN *rows_fetched_ptr)
 {
-  descriptor_t *IRD = stmt_IRD(stmt);
+  descriptor_t *IRD = _stmt_IRD(stmt);
   desc_header_t *IRD_header = &IRD->header;
   IRD_header->DESC_ROWS_PROCESSED_PTR = rows_fetched_ptr;
 
@@ -1242,7 +1242,7 @@ static void _stmt_unprepare(stmt_t *stmt)
 
 static SQLULEN _stmt_get_row_array_size(stmt_t *stmt)
 {
-  descriptor_t *ARD = stmt_ARD(stmt);
+  descriptor_t *ARD = _stmt_ARD(stmt);
   desc_header_t *ARD_header = &ARD->header;
   return ARD_header->DESC_ARRAY_SIZE;
 }
@@ -1277,7 +1277,7 @@ static SQLRETURN _stmt_set_paramset_size(stmt_t *stmt, SQLULEN paramset_size)
 
 static SQLRETURN _stmt_set_row_status_ptr(stmt_t *stmt, SQLUSMALLINT *row_status_ptr)
 {
-  descriptor_t *IRD = stmt_IRD(stmt);
+  descriptor_t *IRD = _stmt_IRD(stmt);
   desc_header_t *IRD_header = &IRD->header;
   IRD_header->DESC_ARRAY_STATUS_PTR = row_status_ptr;
   return SQL_SUCCESS;
@@ -1285,7 +1285,7 @@ static SQLRETURN _stmt_set_row_status_ptr(stmt_t *stmt, SQLUSMALLINT *row_status
 
 // static SQLUSMALLINT* stmt_get_row_status_ptr(stmt_t *stmt)
 // {
-//   descriptor_t *IRD = stmt_IRD(stmt);
+//   descriptor_t *IRD = _stmt_IRD(stmt);
 //   desc_header_t *IRD_header = &IRD->header;
 //   return IRD_header->DESC_ARRAY_STATUS_PTR;
 // }
@@ -1322,16 +1322,16 @@ static SQLRETURN _stmt_set_row_bind_type(stmt_t *stmt, SQLULEN row_bind_type)
     return SQL_ERROR;
   }
 
-  descriptor_t *ARD = stmt_ARD(stmt);
+  descriptor_t *ARD = _stmt_ARD(stmt);
   desc_header_t *ARD_header = &ARD->header;
   ARD_header->DESC_BIND_TYPE = row_bind_type;
 
   return SQL_SUCCESS;
 }
 
-// static SQLULEN stmt_get_row_bind_type(stmt_t *stmt)
+// static SQLULEN _stmt_get_row_bind_type(stmt_t *stmt)
 // {
-//   descriptor_t *ARD = stmt_ARD(stmt);
+//   descriptor_t *ARD = _stmt_ARD(stmt);
 //   desc_header_t *ARD_header = &ARD->header;
 //   return ARD_header->DESC_BIND_TYPE;
 // }
@@ -1385,7 +1385,7 @@ static SQLRETURN _stmt_set_max_length(stmt_t *stmt, SQLULEN max_length)
 
 static SQLRETURN _stmt_set_row_bind_offset_ptr(stmt_t *stmt, SQLULEN *row_bind_offset_ptr)
 {
-  descriptor_t *ARD = stmt_ARD(stmt);
+  descriptor_t *ARD = _stmt_ARD(stmt);
   desc_header_t *ARD_header = &ARD->header;
   ARD_header->DESC_BIND_OFFSET_PTR = row_bind_offset_ptr;
 
@@ -1394,7 +1394,7 @@ static SQLRETURN _stmt_set_row_bind_offset_ptr(stmt_t *stmt, SQLULEN *row_bind_o
 
 // static SQLULEN* _stmt_get_row_bind_offset_ptr(stmt_t *stmt)
 // {
-//   descriptor_t *ARD = stmt_ARD(stmt);
+//   descriptor_t *ARD = _stmt_ARD(stmt);
 //   desc_header_t *ARD_header = &ARD->header;
 //   return ARD_header->DESC_BIND_OFFSET_PTR;
 // }
@@ -1418,7 +1418,7 @@ SQLRETURN stmt_describe_col(stmt_t *stmt,
 
   SQLLEN NumericAttribute;
 
-  descriptor_t *IRD = stmt_IRD(stmt);
+  descriptor_t *IRD = _stmt_IRD(stmt);
   desc_record_t *IRD_record = IRD->records + ColumnNumber - 1;
 
   sr = _stmt_col_copy_string(stmt, IRD_record->DESC_NAME, sizeof(IRD_record->DESC_NAME), ColumnName, BufferLength, NameLengthPtr);
@@ -1458,7 +1458,7 @@ static SQLRETURN _stmt_bind_col(stmt_t *stmt,
     SQLLEN         BufferLength,
     SQLLEN        *StrLen_or_IndPtr)
 {
-  descriptor_t *ARD = stmt_ARD(stmt);
+  descriptor_t *ARD = _stmt_ARD(stmt);
   return descriptor_bind_col(ARD, stmt, ColumnNumber, TargetType, TargetValuePtr, BufferLength, StrLen_or_IndPtr);
 }
 
@@ -1608,7 +1608,7 @@ static SQLRETURN _stmt_get_data_prepare_ctx(stmt_t *stmt, stmt_get_data_args_t *
   return SQL_SUCCESS;
 }
 
-static void dump_iconv(
+static void _dump_iconv(
     const char *fromcode, const char *tocode,
     const char *inbuf, size_t inbytes, size_t inbytesleft,
     const char *outbuf, size_t outbytes, size_t outbytesleft)
@@ -1668,7 +1668,7 @@ static SQLRETURN _stmt_get_data_copy_buf_to_char(stmt_t *stmt, stmt_get_data_arg
   size_t           outbytesleft        = outbytes;
 
   size_t n = CALL_iconv(cnv->cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
-  if (0) dump_iconv(fromcode, tocode, (char*)ctx->pos, inbytes, inbytesleft, (char*)args->TargetValuePtr, outbytes, outbytesleft);
+  if (0) _dump_iconv(fromcode, tocode, (char*)ctx->pos, inbytes, inbytesleft, (char*)args->TargetValuePtr, outbytes, outbytesleft);
   // OW("[%.*s]", (int)(outbytes - outbytesleft), (char*)args->TargetValuePtr);
   int e = errno;
   iconv(cnv->cnv, NULL, NULL, NULL, NULL);
@@ -2464,7 +2464,7 @@ static SQLRETURN _stmt_fetch_row(stmt_t *stmt)
 
 static SQLRETURN _stmt_fill_col(stmt_t *stmt, size_t i_row, size_t i_col)
 {
-  descriptor_t *ARD = stmt_ARD(stmt);
+  descriptor_t *ARD = _stmt_ARD(stmt);
   desc_header_t *ARD_header = &ARD->header;
 
   if (i_col >= ARD_header->DESC_COUNT) return SQL_SUCCESS;
@@ -2496,7 +2496,7 @@ static SQLRETURN _stmt_fill_row(stmt_t *stmt, size_t i_row)
 {
   SQLRETURN sr = SQL_SUCCESS;
 
-  descriptor_t *ARD = stmt_ARD(stmt);
+  descriptor_t *ARD = _stmt_ARD(stmt);
   desc_header_t *ARD_header = &ARD->header;
 
   int with_info = 0;
@@ -2525,7 +2525,7 @@ static SQLRETURN _stmt_fetch_rows(stmt_t *stmt, const size_t row_array_size, siz
   SQLRETURN sr = SQL_SUCCESS;
   SQLRETURN sr_row = SQL_ROW_SUCCESS;
 
-  descriptor_t *IRD = stmt_IRD(stmt);
+  descriptor_t *IRD = _stmt_IRD(stmt);
   desc_header_t *IRD_header = &IRD->header;
 
   size_t i_row = 0;
@@ -2571,7 +2571,7 @@ static SQLRETURN _stmt_fetch_x(stmt_t *stmt)
 
   _get_data_ctx_reset(&stmt->get_data_ctx);
 
-  descriptor_t *IRD = stmt_IRD(stmt);
+  descriptor_t *IRD = _stmt_IRD(stmt);
   desc_header_t *IRD_header = &IRD->header;
 
   size_t row_array_size = _stmt_get_row_array_size(stmt);
@@ -2598,7 +2598,7 @@ static SQLRETURN _stmt_fetch(stmt_t *stmt)
 {
   _get_data_ctx_reset(&stmt->get_data_ctx);
 
-  descriptor_t *ARD = stmt_ARD(stmt);
+  descriptor_t *ARD = _stmt_ARD(stmt);
   desc_header_t *ARD_header = &ARD->header;
 
   if (ARD_header->DESC_BIND_TYPE != SQL_BIND_BY_COLUMN) {
@@ -2836,7 +2836,7 @@ static SQLRETURN _stmt_cache_and_parse(stmt_t *stmt, sqls_parser_param_t *param,
   int r = 0;
 
   mem_reset(&stmt->raw);
-  sqls_reset(&stmt->sqls);
+  _sqls_reset(&stmt->sqls);
 
   r = mem_keep(&stmt->raw, len + 1);
   if (r) {
@@ -4644,7 +4644,7 @@ static SQLRETURN _stmt_bind_param(
     if (map->guess == NULL) break;
     if (map->get_sqlc == NULL) break;
 
-    r = params_bind_meta_set(&stmt->params_bind_meta, ParameterNumber-1, map->check, map->guess, map->get_sqlc);
+    r = _params_bind_meta_set(&stmt->params_bind_meta, ParameterNumber-1, map->check, map->guess, map->get_sqlc);
     if (r) {
       stmt_oom(stmt);
       return SQL_ERROR;
@@ -4688,7 +4688,7 @@ SQLRETURN stmt_bind_param(
 
 static SQLRETURN _stmt_param_get_sqlc(stmt_t *stmt, param_state_t *param_state)
 {
-  param_bind_meta_t *meta = params_bind_meta_get(&stmt->params_bind_meta, param_state->i_param);
+  param_bind_meta_t *meta = _params_bind_meta_get(&stmt->params_bind_meta, param_state->i_param);
   if (!meta || !meta->get_sqlc) {
     int            i_row      = param_state->i_row;
     int            i_param    = param_state->i_param;
@@ -5112,7 +5112,7 @@ static SQLRETURN _stmt_param_adjust_tsdb_double(stmt_t *stmt, param_state_t *par
 
 static SQLRETURN _stmt_param_adjust(stmt_t *stmt, param_state_t *param_state)
 {
-  param_bind_meta_t *meta = params_bind_meta_get(&stmt->params_bind_meta, param_state->i_param);
+  param_bind_meta_t *meta = _params_bind_meta_get(&stmt->params_bind_meta, param_state->i_param);
   if (!meta || !meta->adjust) {
     int            i_param    = param_state->i_param;
     desc_record_t *APD_record = param_state->APD_record;
@@ -5301,7 +5301,7 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_wchar_tsdb_varchar(stmt_t *stmt
 
 static SQLRETURN _stmt_param_guess(stmt_t *stmt, param_state_t *param_state)
 {
-  param_bind_meta_t *meta = params_bind_meta_get(&stmt->params_bind_meta, param_state->i_param);
+  param_bind_meta_t *meta = _params_bind_meta_get(&stmt->params_bind_meta, param_state->i_param);
   if (!meta || !meta->guess) {
     int            i_row      = param_state->i_row;
     int            i_param    = param_state->i_param;
@@ -6280,7 +6280,7 @@ static SQLRETURN _stmt_param_tsdb_init(stmt_t *stmt, param_state_t *param_state)
     if (map->adjust == NULL) break;
     if (map->conv   == NULL) break;
 
-    r = params_bind_meta_set_adjust_conv(&stmt->params_bind_meta, i_param, map->adjust, map->conv);
+    r = _params_bind_meta_set_adjust_conv(&stmt->params_bind_meta, i_param, map->adjust, map->conv);
     if (r) {
       stmt_oom(stmt);
       return SQL_ERROR;
@@ -6299,7 +6299,7 @@ static SQLRETURN _stmt_param_tsdb_init(stmt_t *stmt, param_state_t *param_state)
 
 static SQLRETURN _stmt_param_check(stmt_t *stmt, param_state_t *param_state)
 {
-  param_bind_meta_t *meta = params_bind_meta_get(&stmt->params_bind_meta, param_state->i_param);
+  param_bind_meta_t *meta = _params_bind_meta_get(&stmt->params_bind_meta, param_state->i_param);
   if (!meta || !meta->check) {
     int            i_row      = param_state->i_row;
     int            i_param    = param_state->i_param;
@@ -6322,7 +6322,7 @@ static SQLRETURN _stmt_param_check(stmt_t *stmt, param_state_t *param_state)
 
 static SQLRETURN _stmt_param_conv(stmt_t *stmt, param_state_t *param_state)
 {
-  param_bind_meta_t *meta = params_bind_meta_get(&stmt->params_bind_meta, param_state->i_param);
+  param_bind_meta_t *meta = _params_bind_meta_get(&stmt->params_bind_meta, param_state->i_param);
   if (!meta || !meta->conv) {
     int            i_row      = param_state->i_row;
     int            i_param    = param_state->i_param;
@@ -6983,7 +6983,7 @@ static SQLRETURN _stmt_set_row_array_size(stmt_t *stmt, SQLULEN row_array_size)
     return SQL_SUCCESS_WITH_INFO;
   }
 
-  descriptor_t *ARD = stmt_ARD(stmt);
+  descriptor_t *ARD = _stmt_ARD(stmt);
   desc_header_t *ARD_header = &ARD->header;
   ARD_header->DESC_ARRAY_SIZE = row_array_size;
 
@@ -7249,7 +7249,7 @@ SQLRETURN stmt_col_attribute(
     return SQL_ERROR;
   }
 
-  descriptor_t *IRD = stmt_IRD(stmt);
+  descriptor_t *IRD = _stmt_IRD(stmt);
   desc_record_t *IRD_record = IRD->records + ColumnNumber - 1;
 
   // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility

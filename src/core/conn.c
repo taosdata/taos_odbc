@@ -606,7 +606,7 @@ static void _conn_fill_out_connection_str(
   }
 }
 
-static int conn_cfg_init_by_dsn(conn_cfg_t *cfg, char *ebuf, size_t elen)
+static int _conn_cfg_init_by_dsn(conn_cfg_t *cfg, char *ebuf, size_t elen)
 {
   char buf[1024];
   buf[0] = '\0';
@@ -707,7 +707,7 @@ SQLRETURN conn_driver_connect(
 
   conn_parser_param_t param = {0};
   param.conn_cfg        = &conn->cfg;
-  param.init            = conn_cfg_init_by_dsn;
+  param.init            = _conn_cfg_init_by_dsn;
   param.ctx.debug_flex  = env_get_debug_flex(conn->env);
   param.ctx.debug_bison = env_get_debug_bison(conn->env);
 
@@ -840,7 +840,7 @@ SQLRETURN conn_connect(
   }
 
   char buf[1024]; buf[0] = '\0';
-  r = conn_cfg_init_by_dsn(&conn->cfg, buf, sizeof(buf));
+  r = _conn_cfg_init_by_dsn(&conn->cfg, buf, sizeof(buf));
   if (r) {
     conn_append_err_format(conn, "HY000", CALL_taos_errno(NULL), "General error:%s", buf);
     return SQL_ERROR;

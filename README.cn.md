@@ -98,12 +98,24 @@ SQLTables (暂时使用post-filter来补救一下，等待taosc有新的实现�
 - odbc 驱动管理器, 例如Linux平台上的unixodbc(2.3.6 或以上). 注: windows平台上odbc驱动管理器已经预装.
 - iconv, 应该不需要单独安装了，基本上libc都已经内建了. 注: 在Windows平台编译的过程中, 会自动下载并编译安装win_iconv.
 - valgrind, 如果您想对程序进行性能分析及内存泄漏探查的话
-- node, 如果您想同时跑nodejs测试程序的话
+- node, v12.0 或以上，如果您想同时跑nodejs测试程序的话
   - node odbc, 2.4.4 或以上, https://www.npmjs.com/package/odbc
-- rust, 如果您想同时跑rust测试程序的话
+- rust, v1.63 或以上，如果您想同时跑rust测试程序的话
   - odbc, 0.17.0 或以上, https://docs.rs/odbc/latest/odbc/
   - env_logger, 0.8.2 或以上, https://docs.rs/env_logger/latest/env_logger/
   - json
+- python3, v3.10 或以上，如果您想同时跑python3测试程序的话
+  - pyodbc, 4.0.39 或以上, https://www.python.org/
+- go, v1.17 或以上，如果您想同时跑go测试程序的话
+  - github.com/alexbrainman/odbc, https://go.dev/
+- erlang, v12.2 或以上，如果您想同时跑erlang测试程序的话
+  - https://www.erlang.org/doc/apps/odbc/getting_started.html, https://erlang.org/
+- haskell, cabal v3.6 或以上，如果您想同时跑haskell测试程序的话
+  - https://www.haskell.org/ or https://www.haskell.org/ghcup/
+- common lisp, sbcl v2.1.11 或以上，如果您想同时跑common lisp测试程序的话
+  - plain-odbc, https://plain-odbc.common-lisp.dev/, https://lisp-lang.org/ or https://lisp-lang.org/learn/getting-started/
+- R, v4.3 或以上，如果您想同时跑R测试程序的话
+  - https://www.r-project.org/
 
 ### 安装TDengine 3.0
 - 请参考TDengine官方说明，https://tdengine.com

@@ -99,12 +99,24 @@ SQLTables (post-filter workaround, to be removed when taosc is right in place)
 - odbc driver manager, such as unixodbc(2.3.6 or above) in linux. NOTE: odbc driver manager is pre-installed on windows platform
 - iconv, should've been already included in libc. NOTE: win_iconv would be downloaded when building this project
 - valgrind, if you wish to debug and profile executables, such as detecting potential memory leakages
-- node, if you wish to enable nodejs-test-cases
+- node, v12.0 or above if you wish to enable nodejs-test-cases
   - node odbc, 2.4.4 or above, https://www.npmjs.com/package/odbc
-- rust, if you wish to enable rust-test-cases
+- rust, v1.63 or above if you wish to enable rust-test-cases
   - odbc, 0.17.0 or above, https://docs.rs/odbc/latest/odbc/
   - env_logger, 0.8.2 or above, https://docs.rs/env_logger/latest/env_logger/
   - json
+- python3, v3.10 or above if you wish to enable python3-test-cases
+  - pyodbc, 4.0.39 or above, https://www.python.org/
+- go, v1.17 or above if you wish to enable go-test-cases
+  - github.com/alexbrainman/odbc, https://go.dev/
+- erlang, v12.2 or above if you wish to enable erlang-test-cases
+  - https://www.erlang.org/doc/apps/odbc/getting_started.html, https://erlang.org/
+- haskell, cabal v3.6 or above, ghc v9.2 or above,  if you wish to enable haskell-test-cases
+  - https://www.haskell.org/ or https://www.haskell.org/ghcup/
+- common lisp, sbcl v2.1.11 or above if you wish to enable common-lisp-test-cases
+  - plain-odbc, https://plain-odbc.common-lisp.dev/, https://lisp-lang.org/ or https://lisp-lang.org/learn/getting-started/
+- R, v4.3 or above, if you wish to enable R-test-cases
+  - https://www.r-project.org/
 
 ### Installing TDengine 3.0
 - please visit https://tdengine.com

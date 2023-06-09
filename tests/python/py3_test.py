@@ -41,6 +41,7 @@ if False:
 def test_case0():
   # Specifying the ODBC driver, server name, database, etc. directly
   cnxn = pyodbc.connect('DRIVER={TAOS_ODBC_DRIVER};SERVER=localhost;DATABASE=information_schema;UID=root;PWD=taosdata')
+  cnxn.close()
 
   # Using a DSN, but providing a password as well
   cnxn = pyodbc.connect('DSN=TAOS_ODBC_DSN;PWD=taosdata')
@@ -108,6 +109,9 @@ def test_case0():
   y = [('试验', '测试'), ('测试', '试验')]
   assert str(x) == str(y), "{0} != {1}".format(x, y)
 
+  cursor.close()
+  cnxn.close()
+
 def check_with_values(cnxn, sql, nr_rows, nr_cols, *vals):
   cursor = cnxn.execute(sql)
   assert len(cursor.description) == nr_cols, f"expected {nr_cols} columns, but got =={len(cursor.description)}=="
@@ -138,6 +142,7 @@ def test_charsets():
   check_with_values(cnxn, "select mark from foo.t where mark='mark'", 1, 1, "mark")
   check_with_values(cnxn, "select name from foo.t where name='测试'", 1, 1, "测试")
   check_with_values(cnxn, "select mark from foo.t where mark='检验'", 1, 1, "检验")
+  cnxn.close()
 
 
 def find_case(test_cases, name):

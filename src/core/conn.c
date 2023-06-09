@@ -137,6 +137,11 @@ SQLRETURN conn_free(conn_t *conn)
     return SQL_ERROR;
   }
 
+  if (conn->taos) {
+    conn_append_err(conn, "HY000", 0, "General error:SQLDisconnect not called yet");
+    return SQL_ERROR;
+  }
+
   size_t stmts = conn->nr_stmts;
   if (stmts) {
     conn_append_err_format(conn, "HY000", 0, "General error:%zd statements are still outstanding", stmts);

@@ -49,6 +49,10 @@
 
 (defun main ()
   (let ((con) (t0))
+    (setf con (connect-generic :dsn "TAOS_ODBC_DSN" :uid "root" :pwd "taosdata"))
+    (assert (eq 0 (exec-update con "create database if not exists bar")))
+    (close-connection con)
+
     (setf con (connect-generic :dsn "TAOS_ODBC_DSN" :uid "root" :pwd "taosdata" :database "bar"))
 
     (assert (eq 0 (exec-update con "drop table if exists common_lisp")))

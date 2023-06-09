@@ -39,6 +39,10 @@ getNextTs <- function(t0) {
   format.POSIXct(Sys.time(), "%Y-%m-%d %H:%M:%OS3")
 }
 
+conn <- dbConnect(odbc::odbc(), dsn="TAOS_ODBC_DSN")
+assert(0L == dbExecute(conn, "create database if not exists bar"))
+dbDisconnect(conn)
+
 conn <- dbConnect(odbc::odbc(), dsn="TAOS_ODBC_DSN", database="bar")
 assert(!is.null(conn))
 

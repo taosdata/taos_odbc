@@ -49,11 +49,12 @@ func test_case0() int {
     log.Fatal("==success==")
   }
 
-  db, err := sql.Open("odbc", "DSN=TAOS_ODBC_DSN;CHARSET_FOR_COL_BIND=UTF-8")
-  // db, err := sql.Open("odbc", "Driver={TAOS_ODBC_DRIVER}")
+  db0, err := sql.Open("odbc", "DSN=TAOS_ODBC_DSN;CHARSET_FOR_COL_BIND=UTF-8")
+  // db0, err := sql.Open("odbc", "Driver={TAOS_ODBC_DRIVER}")
   if err != nil {
     log.Fatal(err)
   }
+  defer db0.Close()
 
   var (
       ts string
@@ -61,7 +62,7 @@ func test_case0() int {
       mark string
       )
 
-  res, err := db.Exec("drop database if exists xyz")
+  res, err := db0.Exec("drop database if exists xyz")
   if err != nil { log.Fatal(err) }
   n, err := res.RowsAffected()
   if err != nil { log.Fatal(err) }
@@ -70,6 +71,20 @@ func test_case0() int {
   // nn, err := res.LastInsertId()
   // if err != nil { log.Fatal(err) }
   // fmt.Println(nn)
+
+  db, err := sql.Open("odbc", "DSN=TAOS_ODBC_DSN;CHARSET_FOR_COL_BIND=UTF-8")
+  if err != nil {
+    log.Fatal(err)
+  }
+  defer db.Close()
+
+  sqls := [...]string {
+    "drop database if exists bar",
+    "create database if not exists bar",
+    "create table bar.x (ts timestamp, name varchar(20), mark nchar(20))",
+    "insert into bar.x (ts, name, mark) values (now(), 'name', 'mark')",
+    "insert into bar.x (ts, name, mark) values (now()+1s, '人a', '检验')"}
+  exec_sqls(db, sqls[:])
 
   rows, err := db.Query("SELECT * FROM bar.x WHERE name = ?", "人a")
   if err != nil {
@@ -87,8 +102,6 @@ func test_case0() int {
   if err != nil {
     log.Fatal(err)
   }
-
-  defer db.Close()
 
   return 0
 }

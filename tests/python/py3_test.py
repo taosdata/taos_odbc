@@ -29,12 +29,16 @@ if False:
   cnxn = pyodbc.connect('DSN=SQLSERVER_ODBC_DSN')
   cursor = cnxn.cursor()
   x = cursor.execute("select name,mark from x").fetchall()
+  cursor.close()
+  cnxn.close()
   print(x, file=sys.stderr)
 
 if False:
   cnxn = pyodbc.connect('DSN=TAOS_ODBC_DSN')
   cursor = cnxn.cursor()
   x = cursor.execute("select name,mark from bar.x").fetchall()
+  cursor.close()
+  cnxn.close()
   print(x, file=sys.stderr)
 
 
@@ -126,6 +130,8 @@ def check_with_values(cnxn, sql, nr_rows, nr_cols, *vals):
       idx += 1
     i_row += 1
     row = cursor.fetchone()
+
+  cursor.close()
 
   assert i_row == nr_rows, "expected {0} rows, but got =={1}==".format(nr_rows, i_row)
 

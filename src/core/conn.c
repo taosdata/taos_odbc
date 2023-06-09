@@ -57,6 +57,8 @@ void conn_cfg_release(conn_cfg_t *conn_cfg)
 
 static void _conn_init(conn_t *conn, env_t *env)
 {
+  INIT_TOD_LIST_HEAD(&conn->stmts);
+
   conn->env = env_ref(env);
   int prev = atomic_fetch_add(&env->conns, 1);
   OA_ILE(prev >= 0);
@@ -82,7 +84,7 @@ static void _conn_release(conn_t *conn)
 
   int prev = atomic_fetch_sub(&conn->env->conns, 1);
   OA_ILE(prev >= 1);
-  int stmts = atomic_load(&conn->stmts);
+  size_t stmts = conn->nr_stmts;
   OA_ILE(stmts == 0);
   env_unref(conn->env);
   conn->env = NULL;
@@ -135,9 +137,9 @@ SQLRETURN conn_free(conn_t *conn)
     return SQL_ERROR;
   }
 
-  int stmts = atomic_load(&conn->stmts);
+  size_t stmts = conn->nr_stmts;
   if (stmts) {
-    conn_append_err_format(conn, "HY000", 0, "General error:%d statements are still outstanding", stmts);
+    conn_append_err_format(conn, "HY000", 0, "General error:%zd statements are still outstanding", stmts);
     return SQL_ERROR;
   }
 
@@ -748,8 +750,14 @@ SQLRETURN conn_driver_connect(
 
 void conn_disconnect(conn_t *conn)
 {
-  int stmts = atomic_load(&conn->stmts);
-  OA_ILE(stmts == 0);
+  stmt_t *p, *n;
+  tod_list_for_each_entry_safe(p, n, &conn->stmts, stmt_t, node) {
+    OW("statement [%p] is still associated with connection [%p], but have to be freed by SQLDisconnect, "
+       "and it's application's responsibility not use the statment anymore", p, conn);
+    OA_NIY(p->refc == 1);
+    stmt_unref(p);
+  }
+  conn->nr_stmts = 0;
 
   if (conn->taos) {
     CALL_taos_close(conn->taos);

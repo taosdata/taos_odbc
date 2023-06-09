@@ -61,8 +61,7 @@ keepDatabase :: String -> IO ()
 keepDatabase db = do
   conn <- connectODBC "DSN=TAOS_ODBC_DSN"
   runAndCheck conn (printf "create database if not exists %s" db) 0
-  -- FIXME: taos_odbc: disconnect connection shall trigger deleting all statements allocated within
-  -- disconnect conn
+  disconnect conn
 
 main :: IO ()
 main = do

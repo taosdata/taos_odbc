@@ -284,8 +284,6 @@ static void _stmt_init_descriptors(stmt_t *stmt)
 static void _stmt_init(stmt_t *stmt, conn_t *conn)
 {
   stmt->conn = conn_ref(conn);
-  int prev = atomic_fetch_add(&conn->stmts, 1);
-  OA_ILE(prev >= 0);
 
   stmt->strict = 1;
 
@@ -566,8 +564,6 @@ static void _stmt_release(stmt_t *stmt)
   _param_state_release(&stmt->param_state);
   _params_bind_meta_release(&stmt->params_bind_meta);
 
-  int prev = atomic_fetch_sub(&stmt->conn->stmts, 1);
-  OA_ILE(prev >= 1);
   conn_unref(stmt->conn);
   stmt->conn = NULL;
 
@@ -581,6 +577,9 @@ stmt_t* stmt_create(conn_t *conn)
     conn_oom(conn);
     return NULL;
   }
+
+  tod_list_add_tail(&stmt->node, &conn->stmts);
+  conn->nr_stmts += 1;
 
   _stmt_init(stmt, conn);
 
@@ -600,6 +599,8 @@ stmt_t* stmt_unref(stmt_t *stmt)
   if (prev>1) return stmt;
   OA_ILE(prev==1);
 
+  tod_list_del(&stmt->node);
+  stmt->conn->nr_stmts -= 1;
   _stmt_release(stmt);
   free(stmt);
 

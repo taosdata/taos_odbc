@@ -438,9 +438,11 @@ struct charset_convs_s {
 
 struct conn_s {
   atomic_int          refc;
-  atomic_int          stmts;
   atomic_int          descs;
   atomic_int          outstandings;
+
+  size_t                   nr_stmts;
+  struct tod_list_head     stmts;
 
   env_t              *env;
 
@@ -823,6 +825,8 @@ struct param_bind_map_s {
 
 struct stmt_s {
   atomic_int                 refc;
+
+  struct tod_list_head       node;
 
   conn_t                    *conn;
 

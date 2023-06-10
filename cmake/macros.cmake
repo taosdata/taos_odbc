@@ -113,7 +113,7 @@ macro(check_requirements)
   find_library(TAOSWS NAMES taosws PATHS C:/TDengine/driver)
   if(${TAOSWS}-NOTFOUND)
     message(STATUS "${Yellow}"
-                   "`libtaosws.so` is required but not found, you may refer to https://github.com/taosdata/TDengine"
+                   "`libtaosws.so` is not found, you may refer to https://github.com/taosdata/TDengine"
                    "${ColorReset}")
   else()
     set(CMAKE_REQUIRED_LIBRARIES taosws)
@@ -127,7 +127,7 @@ macro(check_requirements)
     check_symbol_exists(ws_query "taosws.h" HAVE_TAOSWS)
     if(NOT HAVE_TAOSWS)
       message(STATUS "${Yellow}"
-                     "`taosws.h` is required but not found, you may refer to https://github.com/taosdata/TDengine"
+                     "`taosws.h` is not found, you may refer to https://github.com/taosdata/TDengine"
                      "${ColorReset}")
     endif()
   endif()

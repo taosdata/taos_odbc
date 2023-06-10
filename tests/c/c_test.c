@@ -224,7 +224,7 @@ static int execute_batches_of_statements(const char *connstr, const char *sqls)
   r = handles_init(&handles, connstr);
   if (r) return -1;
 
-  r = _execute_batches_of_statements(&handles, sqls);
+  if (sqls) r = _execute_batches_of_statements(&handles, sqls);
 
   handles_disconnect(&handles);
 
@@ -1044,6 +1044,24 @@ static int test_pool_stmt(handles_t *handles)
   return 0;
 }
 
+#ifdef HAVE_TAOSWS               /* { */
+static int test_taosws_conn(handles_t *handles)
+{
+  (void)handles;
+
+  int r = 0;
+  const char *connstr = NULL;
+  const char *sqls = NULL;
+
+  connstr = "DSN=TAOS_ODBC_DSN;URL={taos://127.0.0.1:6041}";
+  sqls = NULL;
+  r = execute_batches_of_statements(connstr, sqls);
+  if (r) return -1;
+
+  return 0;
+}
+#endif                           /* }*/
+
 static int test_pool(handles_t *handles)
 {
   int r = 0;
@@ -1172,6 +1190,9 @@ int main(int argc, char *argv[])
     RECORD(test_charsets_with_param_bind),
     RECORD(test_topic),
     RECORD(test_params_with_all_chars),
+#ifdef HAVE_TAOSWS               /* { */
+    RECORD(test_taosws_conn),
+#endif                           /* } */
     RECORD(test_pool),  // NOTE: for the test purpose, this must keep in the last!!!
   };
 #undef RECORD

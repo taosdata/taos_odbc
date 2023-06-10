@@ -26,5 +26,6 @@
 #define _taos_odbc_config_h_
 
 #cmakedefine FAKE_TAOS
+#cmakedefine HAVE_TAOSWS
 
 #endif // _taos_odbc_config_h_

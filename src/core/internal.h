@@ -25,6 +25,8 @@
 #ifndef _internal_h_
 #define _internal_h_
 
+#include "taos_odbc_config.h"
+
 #include "os_port.h"
 #include "enums.h"
 
@@ -36,6 +38,9 @@
 #include "taos_helpers.h"
 
 #include <taos.h>
+#ifdef HAVE_TAOSWS           /* { */
+#include <taosws.h>
+#endif                       /* } */
 
 EXTERN_C_BEGIN
 
@@ -348,10 +353,14 @@ struct charset_conv_mgr_s {
 struct conn_cfg_s {
   char                  *driver;
   char                  *dsn;
+
+  char                  *url;
+
   char                  *uid;
   char                  *pwd;
   char                  *ip;
   char                  *db;
+
   char                  *charset_for_col_bind;
   char                  *charset_for_param_bind;
   int                    port;
@@ -473,6 +482,7 @@ struct conn_s {
   errs_t              errs;
 
   TAOS               *taos;
+  WS_TAOS            *ws_taos;
 
 #ifdef _WIN32           /* { */
   HWND                win_handle;

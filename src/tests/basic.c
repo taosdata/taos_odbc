@@ -160,6 +160,21 @@ static int test_conn_parser(void)
         .db                     = "lmdb",
         .port                   = 378378378,
       },
+    },{
+      __LINE__,
+      "Driver={MySQL ODBC 3.51 中文 driver};URL={taos://localhost:6041}",
+      {
+        .driver                 = "MySQL ODBC 3.51 中文 driver",
+        .url                    = "taos://localhost:6041",
+      },
+    },{
+      __LINE__,
+      "DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION=1;CHARSET_FOR_PARAM_BIND=UTF-8",
+      {
+        .dsn                    = "TAOS_ODBC_DSN",
+        .unsigned_promotion     = 1,
+        .charset_for_col_bind   = "UTF-8",
+      },
     },
   };
 
@@ -171,39 +186,62 @@ static int test_conn_parser(void)
     const int line = _cases[i].line;
     param.conn_cfg = &parsed;
     int r = conn_parser_parse(s, strlen(s), &param);
-    if (r) {
-      E("parsing[@line:%d]:%s", line, s);
-      E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
-      E("failed:%s", param.ctx.err_msg);
-    } else if (cmp_strs(expected->driver, param.conn_cfg->driver)) {
-      E("parsing[@line:%d]:%s", line, s);
-      E("driver expected to be `%s`, but got ==%s==", expected->driver, param.conn_cfg->driver);
-      r = -1;
-    } else if (cmp_strs(expected->dsn, param.conn_cfg->dsn)) {
-      E("parsing[@line:%d]:%s", line, s);
-      E("dsn expected to be `%s`, but got ==%s==", expected->dsn, param.conn_cfg->dsn);
-      r = -1;
-    } else if (cmp_strs(expected->uid, param.conn_cfg->uid)) {
-      E("parsing[@line:%d]:%s", line, s);
-      E("uid expected to be `%s`, but got ==%s==", expected->uid, param.conn_cfg->uid);
-      r = -1;
-    } else if (cmp_strs(expected->pwd, param.conn_cfg->pwd)) {
-      E("parsing[@line:%d]:%s", line, s);
-      E("pwd expected to be `%s`, but got ==%s==", expected->pwd, param.conn_cfg->pwd);
-      r = -1;
-    } else if (cmp_strs(expected->ip, param.conn_cfg->ip)) {
-      E("parsing[@line:%d]:%s", line, s);
-      E("ip expected to be `%s`, but got ==%s==", expected->ip, param.conn_cfg->ip);
-      r = -1;
-    } else if (cmp_strs(expected->db, param.conn_cfg->db)) {
-      E("parsing[@line:%d]:%s", line, s);
-      E("db expected to be `%s`, but got ==%s==", expected->db, param.conn_cfg->db);
-      r = -1;
-    } else if (expected->port != param.conn_cfg->port) {
-      E("parsing[@line:%d]:%s", line, s);
-      E("port expected to be `%d`, but got ==%d==", expected->port, param.conn_cfg->port);
-      r = -1;
-    }
+    do {
+      if (r) {
+        E("parsing[@line:%d]:%s", line, s);
+        E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+        E("failed:%s", param.ctx.err_msg);
+        break;
+      }
+      if (cmp_strs(expected->driver, param.conn_cfg->driver)) {
+        E("parsing[@line:%d]:%s", line, s);
+        E("driver expected to be `%s`, but got ==%s==", expected->driver, param.conn_cfg->driver);
+        r = -1;
+        break;
+      }
+      if (cmp_strs(expected->url, param.conn_cfg->url)) {
+        E("parsing[@line:%d]:%s", line, s);
+        E("url expected to be `%s`, but got ==%s==", expected->url, param.conn_cfg->url);
+        r = -1;
+        break;
+      }
+      if (cmp_strs(expected->dsn, param.conn_cfg->dsn)) {
+        E("parsing[@line:%d]:%s", line, s);
+        E("dsn expected to be `%s`, but got ==%s==", expected->dsn, param.conn_cfg->dsn);
+        r = -1;
+        break;
+      }
+      if (cmp_strs(expected->uid, param.conn_cfg->uid)) {
+        E("parsing[@line:%d]:%s", line, s);
+        E("uid expected to be `%s`, but got ==%s==", expected->uid, param.conn_cfg->uid);
+        r = -1;
+        break;
+      }
+      if (cmp_strs(expected->pwd, param.conn_cfg->pwd)) {
+        E("parsing[@line:%d]:%s", line, s);
+        E("pwd expected to be `%s`, but got ==%s==", expected->pwd, param.conn_cfg->pwd);
+        r = -1;
+        break;
+      }
+      if (cmp_strs(expected->ip, param.conn_cfg->ip)) {
+        E("parsing[@line:%d]:%s", line, s);
+        E("ip expected to be `%s`, but got ==%s==", expected->ip, param.conn_cfg->ip);
+        r = -1;
+        break;
+      }
+      if (cmp_strs(expected->db, param.conn_cfg->db)) {
+        E("parsing[@line:%d]:%s", line, s);
+        E("db expected to be `%s`, but got ==%s==", expected->db, param.conn_cfg->db);
+        r = -1;
+        break;
+      }
+      if (expected->port != param.conn_cfg->port) {
+        E("parsing[@line:%d]:%s", line, s);
+        E("port expected to be `%d`, but got ==%d==", expected->port, param.conn_cfg->port);
+        r = -1;
+        break;
+      }
+    } while (0);
     conn_parser_param_release(&param);
     conn_cfg_release(&parsed);
     if (r) return -1;

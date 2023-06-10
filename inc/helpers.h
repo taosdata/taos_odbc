@@ -25,6 +25,8 @@
 #ifndef _helpers_h_
 #define _helpers_h_
 
+#include "taos_odbc_config.h"
+
 #include "os_port.h"
 
 #include "logger.h"

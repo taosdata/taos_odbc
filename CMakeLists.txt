@@ -80,6 +80,7 @@ if(TODBC_WINDOWS)
   #add_compile_options(/source-charset:utf-8)
   add_compile_options(/DICONV_CONST=)
 endif()
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 if(TODBC_DARWIN)
   message(STATUS "USE_SAN is ${USE_SAN}")

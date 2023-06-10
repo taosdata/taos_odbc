@@ -27,8 +27,6 @@
 #include "os_port.h"
 #include "taos_helpers.h"
 
-#include "taos_odbc_config.h"
-
 typedef void (*taos_stmt_reclaim_fields_f)(TAOS_STMT *stmt, TAOS_FIELD_E *fields);
 
 static taos_stmt_reclaim_fields_f loaded_taos_stmt_reclaim_fields = NULL;

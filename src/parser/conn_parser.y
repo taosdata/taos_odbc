@@ -108,6 +108,15 @@
         return -1;                                                                              \
       }                                                                                         \
     } while (0)
+    #define SET_URL(_v, _loc) do {                                                              \
+      if (!param) break;                                                                        \
+      TOD_SAFE_FREE(param->conn_cfg->url);                                                      \
+      param->conn_cfg->url = strndup(_v.text, _v.leng);                                         \
+      if (!param->conn_cfg->url) {                                                              \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
+        return -1;                                                                              \
+      }                                                                                         \
+    } while (0)
     #define SET_FQDN(_v, _loc) do {                                                             \
       if (!param) break;                                                                        \
       TOD_SAFE_FREE(param->conn_cfg->ip);                                                       \
@@ -196,7 +205,7 @@
 %union { parser_token_t token; }
 %union { char c; }
 
-%token DSN UID PWD DRIVER SERVER DATABASE UNSIGNED_PROMOTION TIMESTAMP_AS_IS DB
+%token DSN UID PWD DRIVER URL SERVER DATABASE UNSIGNED_PROMOTION TIMESTAMP_AS_IS DB
 %token CHARSET CHARSET_FOR_COL_BIND CHARSET_FOR_PARAM_BIND
 %token TOPIC
 %token <token> ID VALUE FQDN DIGITS
@@ -215,38 +224,67 @@ input:
 
 connect_str:
   dsnx
-| dsn ';' attributes
 | driverx
-| driver ';' attributes
 ;
 
 dsnx:
   dsn
-| dsn ';'
+| dsn_semi
+| dsn_semi attributes
+;
+
+driverx:
+  driver
+| driver_semi
+| driver_semi attributes
+;
+
+dsn_semi:
+  dsn ';'
+| dsn_semi ';'
+;
+
+driver_semi:
+  driver ';'
+| driver_semi ';'
+;
+
+attributes:
+  odbc
+| url
+| attrs
+;
+
+odbc:
+  odbc_attr
+| odbc ';'
+| odbc ';' odbc_attr
+| odbc ';' attribute
+;
+
+url:
+  url_attr
+| url ';'
+| url ';' url_attr
+| url ';' attribute
+;
+
+attrs:
+  attribute
+| attrs ';'
+| attrs ';' attribute
 ;
 
 dsn:
   DSN '=' VALUE                   { SET_DSN($3, @$); }
 ;
 
-driverx:
-  driver
-| driver ';'
-;
-
-
 driver:
   DRIVER '=' VALUE                { SET_DRIVER($3, @$); }
 | DRIVER '=' '{' VALUE '}'        { SET_DRIVER($4, @$); }
 ;
 
-attributes:
-  attribute
-| attributes ';'
-| attributes ';' attribute
-;
-
-attribute:
+odbc_attr:
   UID '=' VALUE                   { SET_UID($3, @$); }
 | DB '=' VALUE                    { SET_DB($3, @$); }
 | PWD '=' VALUE                   { SET_PWD($3, @$); }
@@ -255,7 +293,14 @@ attribute:
 | SERVER '=' FQDN ':'             { SET_FQDN($3, @$); }
 | SERVER '=' FQDN ':' DIGITS      { SET_FQDN_PORT($3, $5, @$); }
 | DATABASE '=' VALUE              { SET_DATABASE($3, @$); }
-| UNSIGNED_PROMOTION '=' DIGITS   { SET_UNSIGNED_PROMOTION($3.text, $3.leng, @$); }
+;
+
+url_attr:
+  URL '=' '{' VALUE '}'           { SET_URL($4, @$); }
+;
+
+attribute:
+  UNSIGNED_PROMOTION '=' DIGITS   { SET_UNSIGNED_PROMOTION($3.text, $3.leng, @$); }
 | TIMESTAMP_AS_IS '=' DIGITS      { SET_TIMESTAMP_AS_IS($3.text, $3.leng, @$); }
 | CHARSET '=' VALUE               { SET_CHARSET($3, @$); }
 | CHARSET_FOR_COL_BIND '=' VALUE               { SET_CHARSET_FOR_COL_BIND($3, @$); }

@@ -95,6 +95,7 @@ UID           (?i:uid)
 PWD           (?i:pwd)
 DB            (?i:db)
 DRIVER        (?i:driver)
+URL           (?i:url)
 SERVER        (?i:server)
 DATABASE      (?i:database)
 CHARSET       (?i:charset)
@@ -117,6 +118,7 @@ DIGITS        [[:digit:]]+
 {PWD}         { R(); C(); return MKT(PWD); }
 {DB}          { R(); C(); return MKT(DB); }
 {DRIVER}      { R(); C(); return MKT(DRIVER); }
+{URL}         { R(); C(); return MKT(URL); }
 {SERVER}      { R(); PUSH(SERVER); C(); return MKT(SERVER); }
 {DATABASE}    { R(); C(); return MKT(DATABASE); }
 {CHARSET}     { R(); C(); return MKT(CHARSET); }

@@ -36,6 +36,7 @@ valgrind --leak-check=full                                                \
          --exit-on-first-error=no                                         \
          --error-exitcode=1                                               \
          --suppressions=${_path_to_valgrind}/taos.supp                    \
+         --suppressions=${_path_to_valgrind}/taosws.supp                  \
          --suppressions=${_path_to_valgrind}/node.supp                    \
          --suppressions=${_path_to_valgrind}/mysql.supp                   \
          --suppressions=${_path_to_valgrind}/sqlite3.supp                 \

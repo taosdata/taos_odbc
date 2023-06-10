@@ -109,6 +109,29 @@ macro(check_requirements)
     message(FATAL_ERROR "${Red}`taos.h` is required but not found, you may refer to https://github.com/taosdata/TDengine${ColorReset}")
   endif()
 
+  ## check `taosws`
+  find_library(TAOSWS NAMES taosws PATHS C:/TDengine/driver)
+  if(${TAOSWS}-NOTFOUND)
+    message(STATUS "${Yellow}"
+                   "`libtaosws.so` is required but not found, you may refer to https://github.com/taosdata/TDengine"
+                   "${ColorReset}")
+  else()
+    set(CMAKE_REQUIRED_LIBRARIES taosws)
+    if(TODBC_DARWIN)
+      set(CMAKE_REQUIRED_INCLUDES /usr/local/include)
+      set(CMAKE_REQUIRED_LINK_OPTIONS -L/usr/local/lib)
+    elseif(TODBC_WINDOWS)
+      set(CMAKE_REQUIRED_INCLUDES C:/TDengine/include)
+      set(CMAKE_REQUIRED_LINK_OPTIONS /LIBPATH:C:/TDengine/driver)
+    endif()
+    check_symbol_exists(ws_query "taosws.h" HAVE_TAOSWS)
+    if(NOT HAVE_TAOSWS)
+      message(STATUS "${Yellow}"
+                     "`taosws.h` is required but not found, you may refer to https://github.com/taosdata/TDengine"
+                     "${ColorReset}")
+    endif()
+  endif()
+
   if(TODBC_DARWIN)
     ## check `iconv`
     find_package(Iconv)

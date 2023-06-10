@@ -142,10 +142,12 @@ SQLRETURN conn_free(conn_t *conn)
     return SQL_ERROR;
   }
 
+#ifdef HAVE_TAOSWS           /* { */
   if (conn->ws_taos) {
     conn_append_err(conn, "HY000", 0, "General error:SQLDisconnect not called yet");
     return SQL_ERROR;
   }
+#endif                       /* } */
 
   size_t stmts = conn->nr_stmts;
   if (stmts) {
@@ -435,12 +437,17 @@ static SQLRETURN _do_conn_connect(conn_t *conn)
 
   const conn_cfg_t *cfg = &conn->cfg;
   if (conn->cfg.url) {
+#ifdef HAVE_TAOSWS           /* { */
     conn->ws_taos = ws_connect_with_dsn(conn->cfg.url);
     if (!conn->ws_taos) {
       conn_append_err_format(conn, "08001", ws_errno(NULL), "Client unable to establish connection:[%s][%s]", conn->cfg.url, ws_errstr(NULL));
       return SQL_ERROR;
     }
     return SQL_SUCCESS;
+#else                        /* }{ */
+    conn_append_err_format(conn, "08001", 0, "Client unable to establish connection:websocket backend not supported yet");
+    return SQL_ERROR;
+#endif                       /* } */
   }
 
   const char *db = cfg->db;
@@ -800,10 +807,12 @@ void conn_disconnect(conn_t *conn)
     CALL_taos_close(conn->taos);
     conn->taos = NULL;
   }
+#ifdef HAVE_TAOSWS           /* { */
   if (conn->ws_taos) {
     ws_close(conn->ws_taos);
     conn->ws_taos = NULL;
   }
+#endif                       /* } */
   conn_cfg_release(&conn->cfg);
 }
 

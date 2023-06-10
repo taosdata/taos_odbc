@@ -482,7 +482,9 @@ struct conn_s {
   errs_t              errs;
 
   TAOS               *taos;
+#ifdef HAVE_TAOSWS           /* { */
   WS_TAOS            *ws_taos;
+#endif                       /* } */
 
 #ifdef _WIN32           /* { */
   HWND                win_handle;

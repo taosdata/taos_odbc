@@ -27,8 +27,9 @@
 
 #include "helpers.h"
 
-#include <string.h>
 #include <taos.h>
+
+#include <string.h>
 #include <taoserror.h>
 
 #define LOGD_TAOS(file, line, func, fmt, ...) do {                                                \
@@ -960,6 +961,8 @@ struct tsdb_data_s {
 };
 
 int helper_get_tsdb(TAOS_RES *res, int block, TAOS_FIELD *fields, int time_precision, TAOS_ROW rows, int i_row, int i_col, tsdb_data_t *tsdb, char *buf, size_t len) FA_HIDDEN;
+
+int helper_get_tsdb_impl(int time_precision, const char *name, uint8_t col_type, const void *col_data, uint32_t col_len, int i_row, int i_col, tsdb_data_t *tsdb, char *buf, size_t len) FA_HIDDEN;
 
 EXTERN_C_END
 

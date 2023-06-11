@@ -135,6 +135,8 @@ const char* conn_get_tsdb_charset(conn_t *conn) FA_HIDDEN;
 const char* conn_get_sqlc_charset_for_col_bind(conn_t *conn) FA_HIDDEN;
 const char* conn_get_sqlc_charset_for_param_bind(conn_t *conn) FA_HIDDEN;
 
+int conn_is_ws_backended(conn_t *conn) FA_HIDDEN;
+
 EXTERN_C_END
 
 #endif //  _conn_h_

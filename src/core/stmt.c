@@ -6805,7 +6805,7 @@ static SQLRETURN _stmt_exec_direct(stmt_t *stmt)
   SQLRETURN sr = SQL_SUCCESS;
 
   OA_ILE(stmt->conn);
-  OA_ILE(stmt->conn->taos);
+  OA_ILE(stmt->conn->ds_taos.taos);
 
   descriptor_t *APD = stmt_APD(stmt);
   desc_header_t *APD_header = &APD->header;
@@ -6996,7 +6996,7 @@ SQLRETURN stmt_execute(stmt_t *stmt)
   SQLRETURN sr = SQL_SUCCESS;
 
   OA_ILE(stmt->conn);
-  OA_ILE(stmt->conn->taos);
+  OA_ILE(stmt->conn->ds_taos.taos);
 
   // NOTE: no need to check whether it's prepared or not, DM would have already checked
 

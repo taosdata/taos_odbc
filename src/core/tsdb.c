@@ -311,7 +311,7 @@ static SQLRETURN _query(stmt_base_t *base, const sqlc_tsdb_t *sqlc_tsdb)
 
   tsdb_res_t          *res         = &stmt->res;
   tsdb_res_reset(res);
-  res->res = CALL_taos_query(stmt->owner->conn->taos, sqlc_tsdb->tsdb);
+  res->res = CALL_taos_query(stmt->owner->conn->ds_taos.taos, sqlc_tsdb->tsdb);
   res->res_is_from_taos_query = res->res ? 1 : 0;
 
   int e = CALL_taos_errno(res->res);
@@ -550,7 +550,7 @@ static SQLRETURN _tsdb_stmt_prepare(tsdb_stmt_t *stmt, const sqlc_tsdb_t *sqlc_t
   int r = 0;
   SQLRETURN sr = SQL_SUCCESS;
 
-  stmt->stmt = CALL_taos_stmt_init(stmt->owner->conn->taos);
+  stmt->stmt = CALL_taos_stmt_init(stmt->owner->conn->ds_taos.taos);
   if (!stmt->stmt) {
     stmt_append_err_format(stmt->owner, "HY000", CALL_taos_errno(NULL), "General error:[taosc]%s", CALL_taos_errstr(NULL));
     return SQL_ERROR;

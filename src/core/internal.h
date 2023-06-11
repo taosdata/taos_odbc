@@ -445,19 +445,24 @@ struct charset_convs_s {
   charset_conv_t            *cnv_from_wchar_to_tsdb;
 };
 
-struct ds_taos_s {
+struct ds_conn_s {
   conn_t                *conn;
   void                  *taos;
-};
-
-struct ds_res_s {
-  conn_t                *conn;
-  void                  *res;
 };
 
 struct ds_fields_s {
   conn_t                *conn;
   const void            *fields;
+  size_t                 nr_fields;
+};
+
+struct ds_res_s {
+  conn_t                *conn;
+  void                  *res;
+
+  int                    result_precision;
+
+  ds_fields_t            fields;
 };
 
 struct ds_block_s {
@@ -503,7 +508,7 @@ struct conn_s {
 
   errs_t              errs;
 
-  ds_taos_t           ds_taos;
+  ds_conn_t           ds_conn;
 
 #ifdef _WIN32           /* { */
   HWND                win_handle;

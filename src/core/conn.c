@@ -58,7 +58,7 @@ void conn_cfg_release(conn_cfg_t *conn_cfg)
 
 static void _conn_init(conn_t *conn, env_t *env)
 {
-  conn->ds_taos.conn = conn;
+  conn->ds_conn.conn = conn;
 
   INIT_TOD_LIST_HEAD(&conn->stmts);
 
@@ -83,7 +83,7 @@ static void _conn_release_information_schema_ins_configs(conn_t *conn)
 
 static void _conn_release(conn_t *conn)
 {
-  OA_ILE(conn->ds_taos.taos == NULL);
+  OA_ILE(conn->ds_conn.taos == NULL);
 
   int prev = atomic_fetch_sub(&conn->env->conns, 1);
   OA_ILE(prev >= 1);
@@ -134,7 +134,7 @@ conn_t* conn_unref(conn_t *conn)
 
 static int _conn_is_connected(conn_t *conn)
 {
-  return !!conn->ds_taos.taos;
+  return !!conn->ds_conn.taos;
 }
 
 SQLRETURN conn_free(conn_t *conn)
@@ -193,159 +193,23 @@ static int _conn_save_from_information_schema_ins_configs(conn_t *conn, int name
   return 0;
 }
 
-#ifdef HAVE_TAOSWS           /* { */
-static int _conn_get_into_tsdb(conn_t *conn, WS_RES *res, const WS_FIELD *fields, int time_precision, int i_row, int i_col, tsdb_data_t *tsdb)
-{
-  int r = 0;
-
-  char buf[4096]; buf[0] = '\0';
-  uint8_t     col_type = 0;
-  const void *col_data = NULL;
-  uint32_t    col_len  = 0;
-
-  const WS_FIELD *field = fields + i_col;
-  col_data = ws_get_value_in_block(res, i_row, i_col, &col_type, &col_len);
-
-  r = helper_get_tsdb_impl(time_precision, field->name, col_type, col_data, col_len, i_row, i_col, tsdb, buf, sizeof(buf));
-  if (r) {
-    conn_append_err_format(conn, "HY000", 0, "General error:%.*s", (int)strlen(buf), buf);
-    return -1;
-  }
-
-  return 0;
-}
-
-static SQLRETURN _conn_get_configs_from_information_schema_ins_configs_with_ws_res(conn_t *conn, WS_RES *res)
-{
-  int                  nr_fields        = 0;
-
-  ds_res_t ds_res = {
-    .conn                = conn,
-    .res                 = res,
-  };
-
-  int time_precision = ds_res_get_result_precision(&ds_res);
-
-  int r = 0;
-  nr_fields = ds_res_field_count(&ds_res);
-  if (nr_fields == -1) {
-    int err = ds_res_errno(&ds_res);
-    const char *s = ds_res_errstr(&ds_res);
-    conn_append_err_format(conn, "HY000", 0,
-        "General error:failed to fetch # of fields from `information_schema.ins_configs`:[%d]%s", err, s);
-    return SQL_ERROR;
-  }
-  if (nr_fields != 2) {
-    conn_append_err_format(conn, "HY000", 0,
-        "General error:# of fields from `information_schema.ins_configs` is expected 2 but got ==%d==", nr_fields);
-    return SQL_ERROR;
-  }
-  ds_fields_t ds_fields = {
-    .conn    = conn,
-    .fields  = NULL,
-  };
-  ds_res_fetch_fields(&ds_res, &ds_fields);
-  if (!ds_fields.fields) {
-    int err = ds_res_errno(&ds_res);
-    const char *s = ds_res_errstr(&ds_res);
-    conn_append_err_format(conn, "HY000", 0,
-        "General error:failed to fetch fields from `information_schema.ins_configs`:[%d]%s", err, s);
-    return SQL_ERROR;
-  }
-  for (int i=0; i<nr_fields; ++i) {
-    int8_t fld_type = ds_fields_type(&ds_fields, i);
-    if (fld_type != TSDB_DATA_TYPE_VARCHAR) {
-      conn_append_err_format(conn, "HY000", 0,
-          "General error:field[#%d] from `information_schema.ins_configs` is expected `TSDB_DATA_TYPE_VARCHAR` but got ==%s==",
-          i + 1, taos_data_type(fld_type));
-      return SQL_ERROR;
-    }
-  }
-
-  ds_block_t ds_block = {
-    .conn             = conn,
-    .nr_rows_in_block = 0,
-    .block            = NULL,
-  };
-  r = ds_res_fetch_block(&ds_res, &ds_block);
-  if (r || !ds_block.block) {
-    int err = ds_res_errno(&ds_res);
-    const char *s = ds_res_errstr(&ds_res);
-    conn_append_err_format(conn, "HY000", 0,
-        "General error:failed to fetch block from `information_schema.ins_configs`:[%d]%s", err, s);
-    return SQL_ERROR;
-  }
-  for (int i=0; i<ds_block.nr_rows_in_block; ++i) {
-    tsdb_data_t name = {0};
-    r = _conn_get_into_tsdb(conn, res, (const WS_FIELD*)ds_fields.fields, time_precision, i, 0, &name);
-    if (r) return SQL_ERROR;
-    if (name.type != TSDB_DATA_TYPE_VARCHAR || name.is_null) {
-      conn_append_err(conn, "HY000", 0, "General error:internal logic error or taosc conformance issue");
-      return SQL_ERROR;
-    }
-
-    tsdb_data_t value = {0};
-    r = _conn_get_into_tsdb(conn, res, (const WS_FIELD*)ds_fields.fields, time_precision, i, 1, &value);
-    if (r) return SQL_ERROR;
-    if (value.type != TSDB_DATA_TYPE_VARCHAR || value.is_null) {
-      conn_append_err(conn, "HY000", 0, "General error:internal logic error or taosc conformance issue");
-      return SQL_ERROR;
-    }
-
-    r = _conn_save_from_information_schema_ins_configs(conn, (int)name.str.len, name.str.str, (int)value.str.len, value.str.str);
-    if (r) {
-      conn_append_err_format(conn, "HY000", 0,
-          "General error: save `%.*s:%.*s` failed", (int)name.str.len, name.str.str, (int)value.str.len, value.str.str);
-      return SQL_ERROR;
-    }
-  }
-  return SQL_SUCCESS;
-}
-#endif                       /* } */
-
-static SQLRETURN _conn_get_configs_from_information_schema_ins_configs_with_res(conn_t *conn, TAOS_RES *res)
+static SQLRETURN _conn_get_configs_from_information_schema_ins_configs_with_res(conn_t *conn, ds_res_t *ds_res)
 {
   int nr_fields                = 0;
 
-  ds_res_t ds_res = {
-    .conn    = conn,
-    .res     = res,
-  };
-
-  int time_precision = ds_res_get_result_precision(&ds_res);
-
   int r = 0;
-  nr_fields = ds_res_field_count(&ds_res);
-  if (nr_fields == -1) {
-    int err = ds_res_errno(&ds_res);
-    const char *s = ds_res_errstr(&ds_res);
-    conn_append_err_format(conn, "HY000", 0,
-        "General error:failed to fetch # of fields from `information_schema.ins_configs`:[%d]%s", err, s);
-    return SQL_ERROR;
-  }
+  nr_fields = ds_res->fields.nr_fields;
   if (nr_fields != 2) {
     conn_append_err_format(conn, "HY000", 0,
         "General error:# of fields from `information_schema.ins_configs` is expected 2 but got ==%d==", nr_fields);
     return SQL_ERROR;
   }
 
-  ds_fields_t ds_fields = {
-    .conn      = conn,
-    .fields    = NULL,
-  };
-  ds_res_fetch_fields(&ds_res, &ds_fields);
-  if (!ds_fields.fields) {
-    int err = ds_res_errno(&ds_res);
-    const char *s = ds_res_errstr(&ds_res);
-    conn_append_err_format(conn, "HY000", 0,
-        "General error:failed to fetch fields from `information_schema.ins_configs`:[%d]%s", err, s);
-    return SQL_ERROR;
-  }
-  for (int i=0; i<nr_fields; ++i) {
-    int8_t fld_type = ds_fields_type(&ds_fields, i);
+  for (size_t i=0; i<ds_res->fields.nr_fields; ++i) {
+    int8_t fld_type = ds_fields_type(&ds_res->fields, i);
     if (fld_type != TSDB_DATA_TYPE_VARCHAR) {
       conn_append_err_format(conn, "HY000", 0,
-          "General error:field[#%d] from `information_schema.ins_configs` is expected `TSDB_DATA_TYPE_VARCHAR` but got ==%s==",
+          "General error:field[#%zd] from `information_schema.ins_configs` is expected `TSDB_DATA_TYPE_VARCHAR` but got ==%s==",
           i + 1, taos_data_type(fld_type));
       return SQL_ERROR;
     }
@@ -356,19 +220,19 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs_with_res(
     .nr_rows_in_block = 0,
     .block            = NULL,
   };
-  r = ds_res_fetch_block(&ds_res, &ds_block);
+  r = ds_res_fetch_block(ds_res, &ds_block);
   if (r || !ds_block.block) {
-    int err = ds_res_errno(&ds_res);
-    const char *s = ds_res_errstr(&ds_res);
+    int err = ds_res_errno(ds_res);
+    const char *s = ds_res_errstr(ds_res);
     conn_append_err_format(conn, "HY000", 0,
         "General error:failed to fetch block from `information_schema.ins_configs`:[%d]%s", err, s);
     return SQL_ERROR;
   }
+  char buf[4096]; buf[0] = '\0';
   for (int i=0; i<ds_block.nr_rows_in_block; ++i) {
-    char buf[4096];
 
     tsdb_data_t name = {0};
-    r = helper_get_tsdb(res, 1, (TAOS_FIELD*)ds_fields.fields, time_precision, (TAOS_ROW)ds_block.block, i, 0, &name, buf, sizeof(buf));
+    r = ds_res_block_get_into_tsdb(ds_res, &ds_block, i, 0, &name, buf, sizeof(buf));
     if (r) {
       conn_append_err_format(conn, "HY000", 0, "General error:%.*s", (int)strlen(buf), buf);
       return SQL_ERROR;
@@ -379,7 +243,7 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs_with_res(
     }
 
     tsdb_data_t value = {0};
-    r = helper_get_tsdb(res, 1, (TAOS_FIELD*)ds_fields.fields, time_precision, (TAOS_ROW)ds_block.block, i, 1, &value, buf, sizeof(buf));
+    r = ds_res_block_get_into_tsdb(ds_res, &ds_block, i, 1, &value, buf, sizeof(buf));
     if (r) {
       conn_append_err_format(conn, "HY000", 0, "General error:%.*s", (int)strlen(buf), buf);
       return SQL_ERROR;
@@ -405,51 +269,21 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs(conn_t *c
   if (1) return SQL_SUCCESS;
 #endif                      /* } */
 
-#ifdef HAVE_TAOSWS           /* { */
-  if (conn->cfg.url) {
-    WS_TAOS *taos = (WS_TAOS*)conn->ds_taos.taos;
-    OA_ILE(taos);
-    const char *sql = "select * from information_schema.ins_configs";
-    WS_RES *res = ws_query(taos, sql);
-    ds_res_t ds_res = {
-      .conn    = conn,
-      .res     = res,
-    };
-    int e = ds_res_errno(&ds_res);
-    if (e) {
-      const char *estr = ds_res_errstr(&ds_res);
-      conn_append_err_format(conn, "HY000", 0,
-          "General error:failed to query `%s`:[%d]%s", sql, e, estr);
-      if (res) ws_free_result(res);
-      return SQL_ERROR;
-    }
-
-    OA_ILE(res);
-    SQLRETURN sr = _conn_get_configs_from_information_schema_ins_configs_with_ws_res(conn, res);
-    ws_free_result(res);
-    return sr;
-  }
-#endif                       /* } */
-  TAOS *taos = (TAOS*)conn->ds_taos.taos;
-  OA_ILE(taos);
+  ds_res_t ds_res = {0};
   const char *sql = "select * from information_schema.ins_configs";
-  TAOS_RES *res = CALL_taos_query(taos, sql);
-  ds_res_t ds_res = {
-    .conn    = conn,
-    .res     = res,
-  };
+  ds_conn_query(&conn->ds_conn, sql, &ds_res);
   int e = ds_res_errno(&ds_res);
   if (e) {
     const char *estr = ds_res_errstr(&ds_res);
     conn_append_err_format(conn, "HY000", 0,
         "General error:failed to query `%s`:[%d]%s", sql, e, estr);
-    if (res) CALL_taos_free_result(res);
+    ds_res_close(&ds_res);
     return SQL_ERROR;
   }
 
-  OA_ILE(res);
-  SQLRETURN sr = _conn_get_configs_from_information_schema_ins_configs_with_res(conn, res);
-  CALL_taos_free_result(res);
+  OA_ILE(ds_res.res);
+  SQLRETURN sr = _conn_get_configs_from_information_schema_ins_configs_with_res(conn, &ds_res);
+  ds_res_close(&ds_res);
   return sr;
 }
 
@@ -508,213 +342,89 @@ static int _conn_get_timezone_from_tsdb(conn_t *conn, const tsdb_data_t *ts)
   }
 
   conn->tz = tz; // +0800 for Asia/Shanghai
-  conn->tz_seconds = (tz / 100) * 60 * 60 + (tz % 100) * 60;
+  conn->tz_seconds = ((tz / 100) * 60 + (tz % 100)) * 60;
 
   return 0;
 }
 
-#ifdef HAVE_TAOSWS           /* { */
-static int _conn_get_timezone_from_ws_res(conn_t *conn, const char *sql, WS_RES *res)
+static int _conn_get_timezone_from_res(conn_t *conn, const char *sql, ds_res_t *ds_res)
 {
-#ifdef FAKE_TAOS            /* { */
-  conn->tz = 800;
-  conn->tz_seconds = 28800;
-  return 0;
-#else                       /* }{ */
-  int                  nr_fields        = 0;
-
-  ds_res_t ds_res = {
-    .conn                = conn,
-    .res                 = res,
-  };
-
-  int time_precision = ds_res_get_result_precision(&ds_res);
-
-  int r = 0;
-  nr_fields = ds_res_field_count(&ds_res);
-  if (nr_fields == -1) {
-    int err = ds_res_errno(&ds_res);
-    const char *s = ds_res_errstr(&ds_res);
-    conn_append_err_format(conn, "HY000", 0,
-        "General error:failed to fetch # of fields from `%s`:[%d]%s", sql, err, s);
-    return -1;
-  }
-  if (nr_fields != 1) {
-    conn_append_err_format(conn, "HY000", 0,
-        "General error:# of fields from `%s` is expected 2 but got ==%d==", sql, nr_fields);
-    return -1;
-  }
-
-  ds_fields_t ds_fields = {
-    .conn     = conn,
-    .fields   = NULL,
-  };
-  ds_res_fetch_fields(&ds_res, &ds_fields);
-  if (!ds_fields.fields) {
-    int err = ds_res_errno(&ds_res);
-    const char *s = ds_res_errstr(&ds_res);
-    conn_append_err_format(conn, "HY000", 0,
-        "General error:failed to fetch fields from `%s`:[%d]%s", sql, err, s);
-    return -1;
-  }
-  int8_t fld_type = ds_fields_type(&ds_fields, 0);
-  if (fld_type != TSDB_DATA_TYPE_VARCHAR) {
-    conn_append_err_format(conn, "HY000", 0,
-        "General error:field[#%d] from `%s` is expected `TSDB_DATA_TYPE_VARCHAR` but got ==%s==",
-        1, sql, taos_data_type(fld_type));
-    return -1;
-  }
-
-  ds_block_t ds_block = {
-    .conn             = conn,
-    .nr_rows_in_block = 0,
-    .block            = NULL,
-  };
-  r = ds_res_fetch_block(&ds_res, &ds_block);
-  if (r || !ds_block.block) {
-    int err = ds_res_errno(&ds_res);
-    const char *s = ds_res_errstr(&ds_res);
-    conn_append_err_format(conn, "HY000", 0,
-        "General error:failed to fetch block from `%s`:[%d]%s", sql, err, s);
-    return -1;
-  }
-
-  tsdb_data_t ts = {0};
-  r = _conn_get_into_tsdb(conn, res, (const WS_FIELD*)ds_fields.fields, time_precision, 0, 0, &ts);
-  if (r) return SQL_ERROR;
-  return _conn_get_timezone_from_tsdb(conn, &ts);
-#endif                      /* } */
-}
-#endif                       /* } */
-
-static int _conn_get_timezone_from_res(conn_t *conn, const char *sql, TAOS_RES *res)
-{
-#ifdef FAKE_TAOS            /* { */
-  conn->tz = 800;
-  conn->tz_seconds = 28800;
-  return 0;
-#else                       /* }{ */
   int nr_fields                = 0;
 
-  ds_res_t ds_res = {
-    .conn                = conn,
-    .res                 = res,
-  };
-
-  int time_precision = ds_res_get_result_precision(&ds_res);
-
   int r = 0;
-  nr_fields = CALL_taos_field_count(res);
-  if (nr_fields == -1) {
-    int err = ds_res_errno(&ds_res);
-    const char *s = ds_res_errstr(&ds_res);
-    conn_append_err_format(conn, "HY000", 0,
-        "General error:failed to fetch # of fields from `%s`:[%d]%s", sql, err, s);
-    return -1;
-  }
+  nr_fields = ds_res->fields.nr_fields;
   if (nr_fields != 1) {
     conn_append_err_format(conn, "HY000", 0,
         "General error:# of fields from `%s` is expected 2 but got ==%d==", sql, nr_fields);
     return -1;
   }
 
-  ds_fields_t ds_fields = {
-    .conn      = conn,
-    .fields    = NULL,
-  };
-  ds_res_fetch_fields(&ds_res, &ds_fields);
-  if (!ds_fields.fields) {
-    int err = ds_res_errno(&ds_res);
-    const char *s = ds_res_errstr(&ds_res);
-    conn_append_err_format(conn, "HY000", 0,
-        "General error:failed to fetch fields from `%s`:[%d]%s", sql, err, s);
-    return -1;
-  }
-
-  int8_t fld_type = ds_fields_type(&ds_fields, 0);
+  int8_t fld_type = ds_fields_type(&ds_res->fields, 0);
   if (fld_type != TSDB_DATA_TYPE_VARCHAR) {
     conn_append_err_format(conn, "HY000", 0,
         "General error:field[#%d] from `%s` is expected `TSDB_DATA_TYPE_VARCHAR` but got ==%s==",
         1, sql, taos_data_type(fld_type));
     return -1;
   }
+
   ds_block_t ds_block = {
     .conn             = conn,
     .nr_rows_in_block = 0,
     .block            = NULL,
   };
-  r = ds_res_fetch_block(&ds_res, &ds_block);
+  r = ds_res_fetch_block(ds_res, &ds_block);
   if (r || !ds_block.block) {
-    int err = ds_res_errno(&ds_res);
-    const char *s = ds_res_errstr(&ds_res);
+    int err = ds_res_errno(ds_res);
+    const char *s = ds_res_errstr(ds_res);
     conn_append_err_format(conn, "HY000", 0,
         "General error:failed to fetch block from `%s`:[%d]%s", sql, err, s);
     return -1;
   }
 
-  char buf[4096];
+  char buf[4096]; buf[0] = '\0';
 
   tsdb_data_t ts = {0};
-  r = helper_get_tsdb(res, 1, (TAOS_FIELD*)ds_fields.fields, time_precision, (TAOS_ROW)ds_block.block, 0, 0, &ts, buf, sizeof(buf));
+  r = ds_res_block_get_into_tsdb(ds_res, &ds_block, 0, 0, &ts, buf, sizeof(buf));
   if (r) {
     conn_append_err_format(conn, "HY000", 0, "General error:%.*s", (int)strlen(buf), buf);
     return -1;
   }
 
   return _conn_get_timezone_from_tsdb(conn, &ts);
-#endif                      /* } */
 }
 
 static int _conn_get_timezone(conn_t *conn)
 {
-  const char *sql = "select to_iso8601(0) as ts";
-#ifdef HAVE_TAOSWS           /* { */
-  if (conn->cfg.url) {
-    WS_TAOS *taos = (WS_TAOS*)conn->ds_taos.taos;
-    WS_RES *res = ws_query(taos, sql);
-    int e = ws_errno(res);
-    if (e) {
-      const char *estr = ws_errstr(res);
-      conn_append_err_format(conn, "HY000", 0,
-          "General error:failed to query `%s`:[%d]%s", sql, e, estr);
-      if (res) ws_free_result(res);
-      return -1;
-    }
+  int r = 0;
 
-    OA_ILE(res);
-    int r = _conn_get_timezone_from_ws_res(conn, sql, res);
-    ws_free_result(res);
-    return r;
-  }
-#endif                       /* } */
-  TAOS *taos = conn->ds_taos.taos;
-  TAOS_RES *res = CALL_taos_query(taos, sql);
-  int e = CALL_taos_errno(res);
+#ifdef FAKE_TAOS            /* { */
+  conn->tz = 800;
+  conn->tz_seconds = 28800;
+  return 0;
+#endif                      /* } */
+
+  const char *sql = "select to_iso8601(0) as ts";
+  ds_res_t ds_res = {0};
+  ds_conn_query(&conn->ds_conn, sql, &ds_res);
+  int e = ds_res_errno(&ds_res);
   if (e) {
-    const char *estr = CALL_taos_errstr(res);
+    const char *estr = ds_res_errstr(&ds_res);
     conn_append_err_format(conn, "HY000", 0,
         "General error:failed to query `%s`:[%d]%s", sql, e, estr);
-    if (res) CALL_taos_free_result(res);
+    ds_res_close(&ds_res);
     return -1;
   }
 
-  OA_ILE(res);
-  int r = _conn_get_timezone_from_res(conn, sql, res);
-  CALL_taos_free_result(res);
+  OA_ILE(ds_res.res);
+
+  r = _conn_get_timezone_from_res(conn, sql, &ds_res);
+  ds_res_close(&ds_res);
   return r;
 }
 
 static SQLRETURN _conn_get_server_info(conn_t *conn)
 {
-#ifdef HAVE_TAOSWS           /* { */
-  if (conn->cfg.url) {
-    WS_TAOS *taos = (WS_TAOS*)conn->ds_taos.taos;
-    conn->svr_info = ws_get_server_info(taos);
-    return SQL_SUCCESS;
-  }
-#endif                       /* } */
-  TAOS *taos = conn->ds_taos.taos;
-  conn->svr_info = CALL_taos_get_server_info(taos);
+  conn->svr_info = ds_conn_get_server_info(&conn->ds_conn);
   return SQL_SUCCESS;
 }
 
@@ -784,8 +494,8 @@ static SQLRETURN _do_conn_connect(conn_t *conn)
   const char *db = cfg->db;
   if (conn->cfg.url) {
 #ifdef HAVE_TAOSWS           /* { */
-    conn->ds_taos.taos = ws_connect_with_dsn(conn->cfg.url);
-    if (!conn->ds_taos.taos) {
+    conn->ds_conn.taos = ws_connect_with_dsn(conn->cfg.url);
+    if (!conn->ds_conn.taos) {
       conn_append_err_format(conn, "08001", ws_errno(NULL), "Client unable to establish connection:[%s][%s]", conn->cfg.url, ws_errstr(NULL));
       return SQL_ERROR;
     }
@@ -798,8 +508,8 @@ static SQLRETURN _do_conn_connect(conn_t *conn)
       db = NULL;
     }
 
-    conn->ds_taos.taos = CALL_taos_connect(cfg->ip, cfg->uid, cfg->pwd, db, cfg->port);
-    if (!conn->ds_taos.taos) {
+    conn->ds_conn.taos = CALL_taos_connect(cfg->ip, cfg->uid, cfg->pwd, db, cfg->port);
+    if (!conn->ds_conn.taos) {
       char buf[1024];
       fixed_buf_t buffer = {0};
       buffer.buf = buf;
@@ -819,14 +529,14 @@ static SQLRETURN _do_conn_connect(conn_t *conn)
       }
       if (cfg->db) fixed_buf_sprintf(n, &buffer, "/%s", cfg->db);
 
-      conn_append_err_format(conn, "08001", CALL_taos_errno(NULL), "Client unable to establish connection:[%s][%s]", buffer.buf, CALL_taos_errstr(NULL));
+      conn_append_err_format(conn, "08001", taos_errno(NULL), "Client unable to establish connection:[%s][%s]", buffer.buf, taos_errstr(NULL));
       return SQL_ERROR;
     }
     if (conn->cfg.db && db == NULL) {
       // FIXME: vulnerability!!!
-      int e = taos_select_db(conn->ds_taos.taos, conn->cfg.db);
+      int e = taos_select_db(conn->ds_conn.taos, conn->cfg.db);
       if (e) {
-        const char *estr = CALL_taos_errstr(NULL);
+        const char *estr = taos_errstr(NULL);
         conn_append_err_format(conn, "HY000", e, "General error:[taosc]%s, selecting db:%s", estr, cfg->db);
         conn_disconnect(conn);
         return SQL_ERROR;
@@ -1089,22 +799,6 @@ SQLRETURN conn_driver_connect(
   return SQL_ERROR;
 }
 
-static void ds_taos_close(ds_taos_t *ds_taos)
-{
-  if (!ds_taos || !ds_taos->conn || !ds_taos->taos) return;
-
-#ifdef HAVE_TAOSWS           /* { */
-  if (ds_taos->conn->cfg.url) {
-    ws_close((WS_RES*)ds_taos->taos);
-    ds_taos->taos = NULL;
-    return;
-  }
-#endif                       /* } */
-
-  CALL_taos_close((TAOS*)ds_taos->taos);
-  ds_taos->taos = NULL;
-}
-
 void conn_disconnect(conn_t *conn)
 {
   stmt_t *p, *n;
@@ -1116,7 +810,7 @@ void conn_disconnect(conn_t *conn)
   }
   conn->nr_stmts = 0;
 
-  ds_taos_close(&conn->ds_taos);
+  ds_conn_close(&conn->ds_conn);
   conn_cfg_release(&conn->cfg);
 }
 
@@ -1214,7 +908,7 @@ SQLRETURN conn_connect(
   char buf[1024]; buf[0] = '\0';
   r = _conn_cfg_init_by_dsn(&conn->cfg, buf, sizeof(buf));
   if (r) {
-    conn_append_err_format(conn, "HY000", CALL_taos_errno(NULL), "General error:%s", buf);
+    conn_append_err_format(conn, "HY000", taos_errno(NULL), "General error:%s", buf);
     return SQL_ERROR;
   }
 
@@ -1255,31 +949,6 @@ static SQLRETURN _conn_set_string(
   return SQL_SUCCESS;
 }
 
-static const char* ds_taos_get_server_info(ds_taos_t *ds_taos)
-{
-  conn_t *conn = ds_taos->conn;
-#ifdef HAVE_TAOSWS           /* { */
-  if (conn->cfg.url) {
-    return ws_get_server_info((WS_TAOS*)ds_taos->taos);
-  }
-#endif                       /* } */
-
-  return CALL_taos_get_server_info((TAOS*)ds_taos->taos);
-}
-
-static const char* ds_taos_get_client_info(ds_taos_t *ds_taos)
-{
-  conn_t *conn = ds_taos->conn;
-#ifdef HAVE_TAOSWS           /* { */
-  if (conn->cfg.url) {
-    // FIXME:
-    return "client_info-undefined-under-taosws-for-the-moment";
-  }
-#endif                       /* } */
-
-  return CALL_taos_get_client_info();
-}
-
 static SQLRETURN _conn_get_info_dbms_ver(
     conn_t         *conn,
     SQLUSMALLINT    InfoType,
@@ -1287,7 +956,7 @@ static SQLRETURN _conn_get_info_dbms_ver(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr)
 {
-  const char *server = ds_taos_get_server_info(&conn->ds_taos);
+  const char *server = ds_conn_get_server_info(&conn->ds_conn);
   if (!server) {
     conn_append_err_format(conn, "HY000", 0, "General error:`%s[%d/0x%x]` internal logic error", sql_info_type(InfoType), InfoType, InfoType);
     return SQL_ERROR;
@@ -1296,7 +965,7 @@ static SQLRETURN _conn_get_info_dbms_ver(
   int v1=0, v2=0, v3=0, v4=0;
   sscanf(server, "ver:%d.%d.%d.%d", &v1, &v2, &v3, &v4);
 
-  const char *client = ds_taos_get_client_info(&conn->ds_taos);
+  const char *client = ds_conn_get_client_info(&conn->ds_conn);
   if (!client) {
     conn_append_err_format(conn, "HY000", 0, "General error:`%s[%d/0x%x]` internal logic error", sql_info_type(InfoType), InfoType, InfoType);
     return SQL_ERROR;
@@ -1339,28 +1008,6 @@ static SQLRETURN _conn_get_info_driver_name(
   }
 }
 
-static SQLRETURN ds_taos_get_current_db(ds_taos_t *ds_taos, char *buf, size_t len)
-{
-  int r = 0;
-
-  conn_t *conn = ds_taos->conn;
-#ifdef HAVE_TAOSWS           /* { */
-  if (conn->cfg.url) {
-    conn_append_err(conn, "HY000", 0, "General error:websocket backend not implemented yet");
-    return SQL_ERROR;
-  }
-#endif                       /* } */
-
-  int required = 0; // FIXME: what usage?
-  r = CALL_taos_get_current_db((TAOS*)ds_taos->taos, buf, (int)len, &required);
-  if (r) {
-    int e = taos_errno(NULL);
-    conn_append_err_format(conn, "HY000", e, "General error:get current db failed:[taosc]%s", taos_errstr(NULL));
-    return SQL_ERROR;
-  }
-  return SQL_SUCCESS;
-}
-
 static SQLRETURN _conn_get_info_database_name(
     conn_t         *conn,
     SQLUSMALLINT    InfoType,
@@ -1369,17 +1016,18 @@ static SQLRETURN _conn_get_info_database_name(
     SQLSMALLINT    *StringLengthPtr)
 {
   // FIXME: `database` or current database selected?
-  SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
 
-  char buf[1024]; buf[0] = '\0';
-  sr = ds_taos_get_current_db(&conn->ds_taos, buf, (int)sizeof(buf));
-  if (sr != SQL_SUCCESS) {
-    int e = taos_errno(NULL);
-    conn_append_err_format(conn, "HY000", e, "General error:get current db failed:[taosc]%s", taos_errstr(NULL));
+  int e = 0;
+  const char *errstr = NULL;
+  char db[1024]; db[0] = '\0';
+  r = ds_conn_get_current_db(&conn->ds_conn, db, sizeof(db), &e, &errstr);
+  if (r) {
+    conn_append_err_format(conn, "HY000", e, "General error:%s", errstr);
     return SQL_ERROR;
   }
 
-  int n = snprintf((char*)InfoValuePtr, BufferLength, "%s", buf);
+  int n = snprintf((char*)InfoValuePtr, BufferLength, "%s", db);
   if (StringLengthPtr) *StringLengthPtr = n;
 
   if (n >= BufferLength) {
@@ -1391,9 +1039,11 @@ static SQLRETURN _conn_get_info_database_name(
   return SQL_SUCCESS;
 }
 
-static const char* ds_taos_get_uid(ds_taos_t *ds_taos)
+static const char* ds_conn_get_uid(ds_conn_t *ds_conn)
 {
-  conn_t *conn = ds_taos->conn;
+  OA_NIY(ds_conn->conn);
+
+  conn_t *conn = ds_conn->conn;
 #ifdef HAVE_TAOSWS           /* { */
   if (conn->cfg.url) {
     conn_append_err(conn, "HY000", 0, "General error:websocket backend not implemented yet");
@@ -1412,7 +1062,7 @@ static SQLRETURN _conn_get_info_user_name(
     SQLSMALLINT     BufferLength,
     SQLSMALLINT    *StringLengthPtr)
 {
-  const char *uid = ds_taos_get_uid(&conn->ds_taos);
+  const char *uid = ds_conn_get_uid(&conn->ds_conn);
   if (!uid) return SQL_ERROR;
   int n = snprintf((char*)InfoValuePtr, BufferLength, "%s", uid);
   if (StringLengthPtr) *StringLengthPtr = n;
@@ -1702,17 +1352,18 @@ static SQLRETURN _conn_get_attr_current_qualifier(
     SQLINTEGER    BufferLength,
     SQLINTEGER   *StringLengthPtr)
 {
-  SQLRETURN sr = SQL_SUCCESS;
+  int r = 0;
 
-  char buf[1024]; buf[0] = '\0';
-  sr = ds_taos_get_current_db(&conn->ds_taos, buf, (int)sizeof(buf));
-  if (sr != SQL_SUCCESS) {
-    int e = taos_errno(NULL);
-    conn_append_err_format(conn, "HY000", e, "General error:get current db failed:[taosc]%s", taos_errstr(NULL));
+  int e = 0;
+  const char *errstr = NULL;
+  char db[1024]; db[0] = '\0';
+  r = ds_conn_get_current_db(&conn->ds_conn, db, sizeof(db), &e, &errstr);
+  if (r) {
+    conn_append_err_format(conn, "HY000", e, "General error:%s", errstr);
     return SQL_ERROR;
   }
 
-  int n = snprintf((char*)Value, BufferLength, "%s", buf);
+  int n = snprintf((char*)Value, BufferLength, "%s", db);
   if (StringLengthPtr) *StringLengthPtr = n;
 
   if (n >= BufferLength) {

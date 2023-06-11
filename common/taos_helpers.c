@@ -52,7 +52,8 @@ void bridge_taos_stmt_reclaim_fields(TAOS_STMT *stmt, TAOS_FIELD_E *fields)
 #endif
 }
 
-int helper_get_tsdb_impl(int time_precision, const char *name, uint8_t col_type, const void *col_data, uint32_t col_len, int i_row, int i_col, tsdb_data_t *tsdb, char *buf, size_t len)
+int helper_get_tsdb_impl(int time_precision, const char *name, uint8_t col_type, const void *col_data, uint32_t col_len,
+    int i_row, int i_col, tsdb_data_t *tsdb, char *buf, size_t len)
 {
   // FIXME: what to tell the difference between is_null(res[i_row,i_col])? and i_row/i_col out of bound?
   if (!col_data) {

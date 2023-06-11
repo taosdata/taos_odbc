@@ -45,7 +45,7 @@ typedef struct desc_s                   desc_t;
 typedef struct desc_header_s            desc_header_t;
 typedef struct desc_record_s            desc_record_t;
 
-typedef struct ds_taos_s                ds_taos_t;
+typedef struct ds_conn_s                ds_conn_t;
 typedef struct ds_res_s                 ds_res_t;
 typedef struct ds_fields_s              ds_fields_t;
 typedef struct ds_block_s               ds_block_t;

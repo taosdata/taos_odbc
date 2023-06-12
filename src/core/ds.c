@@ -27,30 +27,69 @@
 #include "ds.h"
 #include "log.h"
 
-void ds_conn_query(ds_conn_t *ds_conn, const char *sql, ds_res_t *ds_res)
+static void _ds_res_setup(ds_res_t *ds_res);
+static void _ds_block_setup(ds_block_t *ds_block);
+static void _ds_fields_setup(ds_fields_t *ds_fields);
+
+#ifdef HAVE_TAOSWS           /* { */
+static void _ds_ws_query(ds_conn_t *ds_conn, const char *sql, ds_res_t *ds_res)
 {
   OA_NIY(ds_conn->conn);
 
-  ds_res->conn        = ds_conn->conn;
-  ds_res->fields.conn = ds_conn->conn;
+  WS_TAOS *ws_taos = (WS_TAOS*)ds_conn->taos;
+  WS_RES  *res     = ws_query(ws_taos, sql);
 
-#ifdef HAVE_TAOSWS           /* { */
-  if (ds_conn->conn->cfg.url) {
-    WS_TAOS *ws_taos = (WS_TAOS*)ds_conn->taos;
-    WS_RES  *res     = ws_query(ws_taos, sql);
+  ds_res->res = res;
+  if (ws_errno(res)) return;
+  if (!res) return;
+  ds_res->result_precision = ws_result_precision(res);
+  if (ws_errno(res)) return;
+  ds_res->fields.nr_fields = ws_field_count(res);
+  if (ws_errno(res)) return;
+  ds_res->fields.fields = ws_fetch_fields(res);
 
-    ds_res->res = res;
-    if (ws_errno(res)) return;
-    if (!res) return;
-    ds_res->result_precision = ws_result_precision(res);
-    if (ws_errno(res)) return;
-    ds_res->fields.nr_fields = ws_field_count(res);
-    if (ws_errno(res)) return;
-    ds_res->fields.fields = ws_fetch_fields(res);
+  return;
+}
 
-    return;
-  }
+static const char* _ds_ws_get_server_info(ds_conn_t *ds_conn)
+{
+  OA_NIY(ds_conn->conn);
+
+  return ws_get_server_info((WS_TAOS*)ds_conn->taos);
+}
+
+static const char* _ds_ws_get_client_info(ds_conn_t *ds_conn)
+{
+  OA_NIY(ds_conn->conn);
+
+  // FIXME:
+  return "client_info-undefined-under-taosws-for-the-moment";
+}
+
+static int _ds_ws_get_current_db(ds_conn_t *ds_conn, char *db, size_t len, int *e, const char **errstr)
+{
+  (void)db;
+  (void)len;
+
+  OA_NIY(ds_conn->conn);
+
+  *e = 0;
+  *errstr = "websocket backend not implemented yet";
+  return -1;
+}
+
+static void _ds_ws_close(ds_conn_t *ds_conn)
+{
+  if (!ds_conn->conn || !ds_conn->taos) return;
+
+  ws_close((WS_RES*)ds_conn->taos);
+  ds_conn->taos = NULL;
+}
 #endif                       /* } */
+
+static void _ds_tsdb_query(ds_conn_t *ds_conn, const char *sql, ds_res_t *ds_res)
+{
+  OA_NIY(ds_conn->conn);
 
   TAOS *taos    = (TAOS*)ds_conn->taos;
   TAOS_RES *res = CALL_taos_query(taos, sql);
@@ -67,48 +106,25 @@ void ds_conn_query(ds_conn_t *ds_conn, const char *sql, ds_res_t *ds_res)
   return;
 }
 
-const char* ds_conn_get_server_info(ds_conn_t *ds_conn)
+static const char* _ds_tsdb_get_server_info(ds_conn_t *ds_conn)
 {
   OA_NIY(ds_conn->conn);
-
-#ifdef HAVE_TAOSWS           /* { */
-  if (ds_conn->conn->cfg.url) {
-    return ws_get_server_info((WS_TAOS*)ds_conn->taos);
-  }
-#endif                       /* } */
 
   return CALL_taos_get_server_info((TAOS*)ds_conn->taos);
 }
 
-const char* ds_conn_get_client_info(ds_conn_t *ds_conn)
+static const char* _ds_tsdb_get_client_info(ds_conn_t *ds_conn)
 {
   OA_NIY(ds_conn->conn);
-
-#ifdef HAVE_TAOSWS           /* { */
-  if (ds_conn->conn->cfg.url) {
-    // FIXME:
-    return "client_info-undefined-under-taosws-for-the-moment";
-  }
-#endif                       /* } */
 
   return CALL_taos_get_client_info();
 }
 
-int ds_conn_get_current_db(ds_conn_t *ds_conn, char *db, size_t len, int *e, const char **errstr)
+static int _ds_tsdb_get_current_db(ds_conn_t *ds_conn, char *db, size_t len, int *e, const char **errstr)
 {
   int r = 0;
 
   OA_NIY(ds_conn->conn);
-
-  conn_t *conn = ds_conn->conn;
-
-#ifdef HAVE_TAOSWS           /* { */
-  if (conn->cfg.url) {
-    *e = 0;
-    *errstr = "websocket backend not implemented yet";
-    return -1;
-  }
-#endif                       /* } */
 
   int required = 0; // FIXME: what usage?
   r = CALL_taos_get_current_db((TAOS*)ds_conn->taos, db, (int)len, &required);
@@ -121,107 +137,168 @@ int ds_conn_get_current_db(ds_conn_t *ds_conn, char *db, size_t len, int *e, con
   return 0;
 }
 
-void ds_conn_close(ds_conn_t *ds_conn)
+static void _ds_tsdb_close(ds_conn_t *ds_conn)
 {
   if (!ds_conn->conn || !ds_conn->taos) return;
-
-#ifdef HAVE_TAOSWS           /* { */
-  if (ds_conn->conn->cfg.url) {
-    ws_close((WS_RES*)ds_conn->taos);
-    ds_conn->taos = NULL;
-    return;
-  }
-#endif                       /* } */
-
   CALL_taos_close((TAOS*)ds_conn->taos);
   ds_conn->taos = NULL;
 }
 
-
-void ds_res_close(ds_res_t *ds_res)
+void ds_conn_setup(ds_conn_t *ds_conn)
 {
-  OA_NIY(ds_res->conn);
-
-  if (!ds_res->res) return;
+  OA_NIY(ds_conn->conn);
 
 #ifdef HAVE_TAOSWS           /* { */
-  if (ds_res->conn->cfg.url) {
-    ws_free_result((WS_RES*)ds_res->res);
-    ds_res->res = NULL;
+  if (ds_conn->conn->cfg.url) {
+    ds_conn->query               = _ds_ws_query;
+    ds_conn->get_server_info     = _ds_ws_get_server_info;
+    ds_conn->get_client_info     = _ds_ws_get_client_info;
+    ds_conn->get_current_db      = _ds_ws_get_current_db;
+    ds_conn->close               = _ds_ws_close;
     return;
   }
 #endif                       /* } */
 
-  CALL_taos_free_result((TAOS_RES*)ds_res->res);
+  ds_conn->query               = _ds_tsdb_query;
+  ds_conn->get_server_info     = _ds_tsdb_get_server_info;
+  ds_conn->get_client_info     = _ds_tsdb_get_client_info;
+  ds_conn->get_current_db      = _ds_tsdb_get_current_db;
+  ds_conn->close               = _ds_tsdb_close;
   return;
 }
 
-int ds_res_errno(ds_res_t *ds_res)
+void ds_conn_query(ds_conn_t *ds_conn, const char *sql, ds_res_t *ds_res)
 {
-  OA_NIY(ds_res->conn);
+  OA_NIY(ds_conn->conn);
 
-#ifdef HAVE_TAOSWS           /* { */
-  if (ds_res->conn->cfg.url) {
-    return ws_errno((WS_RES*)ds_res->res);
-  }
-#endif                       /* } */
+  ds_res->ds_conn = ds_conn;
+  _ds_res_setup(ds_res);
 
-  return taos_errno((TAOS_RES*)ds_res->res);
+  ds_conn->query(ds_conn, sql, ds_res);
 }
 
-const char* ds_res_errstr(ds_res_t *ds_res)
+const char* ds_conn_get_server_info(ds_conn_t *ds_conn)
 {
-  OA_NIY(ds_res->conn);
+  OA_NIY(ds_conn->conn);
 
-#ifdef HAVE_TAOSWS           /* { */
-  if (ds_res->conn->cfg.url) {
-    return ws_errstr((WS_RES*)ds_res->res);
-  }
-#endif                       /* } */
-
-  return taos_errstr((TAOS_RES*)ds_res->res);
+  return ds_conn->get_server_info(ds_conn);
 }
 
-int8_t ds_fields_type(ds_fields_t *ds_fields, int i_col)
+const char* ds_conn_get_client_info(ds_conn_t *ds_conn)
 {
-  OA_NIY(ds_fields->conn);
+  OA_NIY(ds_conn->conn);
 
-#ifdef HAVE_TAOSWS           /* { */
-  if (ds_fields->conn->cfg.url) {
-    const WS_FIELD *fields = (const WS_FIELD*)ds_fields->fields;
-    return (int8_t)fields[i_col].type;
-  }
-#endif                       /* } */
-
-  const TAOS_FIELD *fields = (const TAOS_FIELD*)ds_fields->fields;
-  return fields[i_col].type;
+  return ds_conn->get_client_info(ds_conn);
 }
 
-int ds_res_fetch_block(ds_res_t *ds_res, ds_block_t *ds_block)
+int ds_conn_get_current_db(ds_conn_t *ds_conn, char *db, size_t len, int *e, const char **errstr)
+{
+  OA_NIY(ds_conn->conn);
+
+  return ds_conn->get_current_db(ds_conn, db, len, e, errstr);
+}
+
+void ds_conn_close(ds_conn_t *ds_conn)
+{
+  return ds_conn->close(ds_conn);
+}
+
+#ifdef HAVE_TAOSWS           /* { */
+static void _ds_res_ws_close(ds_res_t *ds_res)
+{
+  WS_RES *res = (WS_RES*)ds_res->res;
+
+  ws_free_result(res);
+  ds_res->res = NULL;
+}
+
+static int _ds_res_ws_errno(ds_res_t *ds_res)
+{
+  WS_RES *res = (WS_RES*)ds_res->res;
+  return ws_errno(res);
+}
+
+static const char* _ds_res_ws_errstr(ds_res_t *ds_res)
+{
+  WS_RES *res = (WS_RES*)ds_res->res;
+  return ws_errstr(res);
+}
+
+static int _ds_res_ws_fetch_block(ds_res_t *ds_res)
 {
   int r = 0;
 
-  OA_NIY(ds_res->conn);
+  WS_RES *res = (WS_RES*)ds_res->res;
 
-  ds_block->conn = ds_res->conn;
-
-#ifdef HAVE_TAOSWS           /* { */
-  if (ds_res->conn->cfg.url) {
-    const void *block = NULL;
-    int32_t rows_in_block = 0;
-    r = ws_fetch_block((WS_RES*)ds_res->res, &block, &rows_in_block);
-    if (r == 0) {
-      ds_block->nr_rows_in_block = rows_in_block;
-      ds_block->block            = block;
-    }
-    return r;
+  const void *block = NULL;
+  int32_t rows_in_block = 0;
+  r = ws_fetch_block(res, &block, &rows_in_block);
+  if (r == 0) {
+    ds_block_t *ds_block = &ds_res->block;
+    ds_block->nr_rows_in_block = rows_in_block;
+    ds_block->block            = block;
   }
+
+  return r;
+}
+
+static int8_t _ds_fields_ws_field_type(ds_fields_t *ds_fields, int i_col)
+{
+  const WS_FIELD *fields = (const WS_FIELD*)ds_fields->fields;
+  return (int8_t)fields[i_col].type;
+}
+
+static int _ds_block_ws_get_into_tsdb(ds_block_t *ds_block, int i_row, int i_col, tsdb_data_t *tsdb, char *buf, size_t len)
+{
+  ds_res_t *ds_res = ds_block->ds_res;
+
+  WS_RES   *res        = (WS_RES*)ds_res->res;
+  WS_FIELD *fields     = (WS_FIELD*)ds_res->fields.fields;
+  int result_precision = ds_res->result_precision;
+
+  uint8_t     col_type = 0;
+  const void *col_data = NULL;
+  uint32_t    col_len  = 0;
+
+  col_data = ws_get_value_in_block(res, i_row, i_col, &col_type, &col_len);
+
+  const WS_FIELD *field = fields + i_col;
+
+  return helper_get_tsdb_impl(result_precision, field->name, col_type, col_data, col_len, i_row, i_col, tsdb, buf, len);
+}
+
 #endif                       /* } */
+
+static void _ds_res_tsdb_close(ds_res_t *ds_res)
+{
+  TAOS_RES *res = (TAOS_RES*)ds_res->res;
+  CALL_taos_free_result(res);
+  ds_res->res = NULL;
+}
+
+static int _ds_res_tsdb_errno(ds_res_t *ds_res)
+{
+  TAOS_RES *res = (TAOS_RES*)ds_res->res;
+  return taos_errno(res);
+}
+
+static const char* _ds_res_tsdb_errstr(ds_res_t *ds_res)
+{
+  TAOS_RES *res = (TAOS_RES*)ds_res->res;
+  return taos_errstr(res);
+}
+
+static int _ds_res_tsdb_fetch_block(ds_res_t *ds_res)
+{
+  int r = 0;
+
+  TAOS_RES *res = (TAOS_RES*)ds_res->res;
 
   int rows_in_block = 0;
   TAOS_ROW rows = NULL;
-  r = CALL_taos_fetch_block_s((TAOS_RES*)ds_res->res, &rows_in_block, &rows);
+  r = CALL_taos_fetch_block_s(res, &rows_in_block, &rows);
   if (r == 0) {
+    ds_block_t *ds_block = &ds_res->block;
     ds_block->nr_rows_in_block = rows_in_block;
     ds_block->block            = rows;
   }
@@ -229,25 +306,15 @@ int ds_res_fetch_block(ds_res_t *ds_res, ds_block_t *ds_block)
   return r;
 }
 
-int ds_res_block_get_into_tsdb(ds_res_t *ds_res, ds_block_t *ds_block, int i_row, int i_col, tsdb_data_t *tsdb, char *buf, size_t len)
+static int8_t _ds_fields_tsdb_field_type(ds_fields_t *ds_fields, int i_col)
 {
-#ifdef HAVE_TAOSWS           /* { */
-  if (ds_res->conn->cfg.url) {
-    WS_RES   *res        = (WS_RES*)ds_res->res;
-    WS_FIELD *fields     = (WS_FIELD*)ds_res->fields.fields;
-    int result_precision = ds_res->result_precision;
+  const TAOS_FIELD *fields = (const TAOS_FIELD*)ds_fields->fields;
+  return fields[i_col].type;
+}
 
-    uint8_t     col_type = 0;
-    const void *col_data = NULL;
-    uint32_t    col_len  = 0;
-
-    col_data = ws_get_value_in_block(res, i_row, i_col, &col_type, &col_len);
-
-    const WS_FIELD *field = fields + i_col;
-
-    return helper_get_tsdb_impl(result_precision, field->name, col_type, col_data, col_len, i_row, i_col, tsdb, buf, len);
-  }
-#endif                       /* } */
+static int _ds_block_tsdb_get_into_tsdb(ds_block_t *ds_block, int i_row, int i_col, tsdb_data_t *tsdb, char *buf, size_t len)
+{
+  ds_res_t *ds_res = ds_block->ds_res;
 
   int block_mode = 1;
   TAOS_RES     *res    = (TAOS_RES*)ds_res->res;
@@ -256,5 +323,115 @@ int ds_res_block_get_into_tsdb(ds_res_t *ds_res, ds_block_t *ds_block, int i_row
   int result_precision = ds_res->result_precision;
 
   return helper_get_tsdb(res, block_mode, fields, result_precision, block, i_row, i_col, tsdb, buf, len);
+}
+
+static void _ds_res_setup(ds_res_t *ds_res)
+{
+  OA_NIY(ds_res->ds_conn);
+  OA_NIY(ds_res->ds_conn->conn);
+
+  conn_t *conn = ds_res->ds_conn->conn;
+
+  ds_res->fields.ds_res  = ds_res;
+  _ds_fields_setup(&ds_res->fields);
+
+  ds_res->block.ds_res = ds_res;
+  _ds_block_setup(&ds_res->block);
+
+#ifdef HAVE_TAOSWS           /* { */
+  if (conn->cfg.url) {
+    ds_res->close             = _ds_res_ws_close;
+    ds_res->errno             = _ds_res_ws_errno;
+    ds_res->errstr            = _ds_res_ws_errstr;
+    ds_res->fetch_block       = _ds_res_ws_fetch_block;
+    return;
+  }
+#endif                       /* } */
+
+  ds_res->close             = _ds_res_tsdb_close;
+  ds_res->errno             = _ds_res_tsdb_errno;
+  ds_res->errstr            = _ds_res_tsdb_errstr;
+  ds_res->fetch_block       = _ds_res_tsdb_fetch_block;
+  return;
+}
+
+void ds_res_close(ds_res_t *ds_res)
+{
+  if (!ds_res->res) return;
+
+  ds_res->close(ds_res);
+}
+
+int ds_res_errno(ds_res_t *ds_res)
+{
+  OA_NIY(ds_res->ds_conn);
+
+  return ds_res->errno(ds_res);
+}
+
+const char* ds_res_errstr(ds_res_t *ds_res)
+{
+  OA_NIY(ds_res->ds_conn);
+
+  return ds_res->errstr(ds_res);
+}
+
+int ds_res_fetch_block(ds_res_t *ds_res)
+{
+  OA_NIY(ds_res->ds_conn);
+  OA_NIY(ds_res->block.ds_res == ds_res);
+
+  return ds_res->fetch_block(ds_res);
+}
+
+static void _ds_fields_setup(ds_fields_t *ds_fields)
+{
+  OA_NIY(ds_fields->ds_res);
+
+  ds_res_t *ds_res = ds_fields->ds_res;
+  OA_NIY(ds_res->ds_conn);
+  OA_NIY(ds_res->ds_conn->conn);
+
+#ifdef HAVE_TAOSWS           /* { */
+  if (ds_res->ds_conn->conn->cfg.url) {
+    ds_fields->field_type = _ds_fields_ws_field_type;
+    return;
+  }
+#endif                       /* } */
+
+  ds_fields->field_type = _ds_fields_tsdb_field_type;
+  return;
+}
+
+int8_t ds_fields_field_type(ds_fields_t *ds_fields, int i_col)
+{
+  OA_NIY(ds_fields->ds_res);
+
+  return ds_fields->field_type(ds_fields, i_col);
+}
+
+static void _ds_block_setup(ds_block_t *ds_block)
+{
+  OA_NIY(ds_block->ds_res);
+
+  ds_res_t *ds_res = ds_block->ds_res;
+  OA_NIY(ds_res->ds_conn);
+  OA_NIY(ds_res->ds_conn->conn);
+
+#ifdef HAVE_TAOSWS           /* { */
+  if (ds_res->ds_conn->conn->cfg.url) {
+    ds_block->get_into_tsdb   = _ds_block_ws_get_into_tsdb;
+    return;
+  }
+#endif                       /* } */
+
+  ds_block->get_into_tsdb   = _ds_block_tsdb_get_into_tsdb;
+  return;
+}
+
+int ds_block_get_into_tsdb(ds_block_t *ds_block, int i_row, int i_col, tsdb_data_t *tsdb, char *buf, size_t len)
+{
+  OA_NIY(ds_block->get_into_tsdb);
+  return ds_block->get_into_tsdb(ds_block, i_row, i_col, tsdb, buf, len);
 }
 

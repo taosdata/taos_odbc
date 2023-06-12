@@ -206,7 +206,7 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs_with_res(
   }
 
   for (size_t i=0; i<ds_res->fields.nr_fields; ++i) {
-    int8_t fld_type = ds_fields_type(&ds_res->fields, i);
+    int8_t fld_type = ds_fields_field_type(&ds_res->fields, i);
     if (fld_type != TSDB_DATA_TYPE_VARCHAR) {
       conn_append_err_format(conn, "HY000", 0,
           "General error:field[#%zd] from `information_schema.ins_configs` is expected `TSDB_DATA_TYPE_VARCHAR` but got ==%s==",
@@ -215,13 +215,8 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs_with_res(
     }
   }
 
-  ds_block_t ds_block = {
-    .conn             = conn,
-    .nr_rows_in_block = 0,
-    .block            = NULL,
-  };
-  r = ds_res_fetch_block(ds_res, &ds_block);
-  if (r || !ds_block.block) {
+  r = ds_res_fetch_block(ds_res);
+  if (r || !ds_res->block.block) {
     int err = ds_res_errno(ds_res);
     const char *s = ds_res_errstr(ds_res);
     conn_append_err_format(conn, "HY000", 0,
@@ -229,10 +224,10 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs_with_res(
     return SQL_ERROR;
   }
   char buf[4096]; buf[0] = '\0';
-  for (int i=0; i<ds_block.nr_rows_in_block; ++i) {
+  for (int i=0; i<ds_res->block.nr_rows_in_block; ++i) {
 
     tsdb_data_t name = {0};
-    r = ds_res_block_get_into_tsdb(ds_res, &ds_block, i, 0, &name, buf, sizeof(buf));
+    r = ds_block_get_into_tsdb(&ds_res->block, i, 0, &name, buf, sizeof(buf));
     if (r) {
       conn_append_err_format(conn, "HY000", 0, "General error:%.*s", (int)strlen(buf), buf);
       return SQL_ERROR;
@@ -243,7 +238,7 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs_with_res(
     }
 
     tsdb_data_t value = {0};
-    r = ds_res_block_get_into_tsdb(ds_res, &ds_block, i, 1, &value, buf, sizeof(buf));
+    r = ds_block_get_into_tsdb(&ds_res->block, i, 1, &value, buf, sizeof(buf));
     if (r) {
       conn_append_err_format(conn, "HY000", 0, "General error:%.*s", (int)strlen(buf), buf);
       return SQL_ERROR;
@@ -359,7 +354,7 @@ static int _conn_get_timezone_from_res(conn_t *conn, const char *sql, ds_res_t *
     return -1;
   }
 
-  int8_t fld_type = ds_fields_type(&ds_res->fields, 0);
+  int8_t fld_type = ds_fields_field_type(&ds_res->fields, 0);
   if (fld_type != TSDB_DATA_TYPE_VARCHAR) {
     conn_append_err_format(conn, "HY000", 0,
         "General error:field[#%d] from `%s` is expected `TSDB_DATA_TYPE_VARCHAR` but got ==%s==",
@@ -367,13 +362,8 @@ static int _conn_get_timezone_from_res(conn_t *conn, const char *sql, ds_res_t *
     return -1;
   }
 
-  ds_block_t ds_block = {
-    .conn             = conn,
-    .nr_rows_in_block = 0,
-    .block            = NULL,
-  };
-  r = ds_res_fetch_block(ds_res, &ds_block);
-  if (r || !ds_block.block) {
+  r = ds_res_fetch_block(ds_res);
+  if (r || !ds_res->block.block) {
     int err = ds_res_errno(ds_res);
     const char *s = ds_res_errstr(ds_res);
     conn_append_err_format(conn, "HY000", 0,
@@ -384,7 +374,7 @@ static int _conn_get_timezone_from_res(conn_t *conn, const char *sql, ds_res_t *
   char buf[4096]; buf[0] = '\0';
 
   tsdb_data_t ts = {0};
-  r = ds_res_block_get_into_tsdb(ds_res, &ds_block, 0, 0, &ts, buf, sizeof(buf));
+  r = ds_block_get_into_tsdb(&ds_res->block, 0, 0, &ts, buf, sizeof(buf));
   if (r) {
     conn_append_err_format(conn, "HY000", 0, "General error:%.*s", (int)strlen(buf), buf);
     return -1;
@@ -489,6 +479,8 @@ static SQLRETURN _conn_post_connected(conn_t *conn)
 static SQLRETURN _do_conn_connect(conn_t *conn)
 {
   SQLRETURN sr;
+
+  ds_conn_setup(&conn->ds_conn);
 
   const conn_cfg_t *cfg = &conn->cfg;
   const char *db = cfg->db;

@@ -448,11 +448,13 @@ struct charset_convs_s {
 struct ds_conn_s {
   conn_t                *conn;
   void                  *taos;
-  void        (*query)           (ds_conn_t *ds_conn, const char *sql, ds_res_t *ds_res);
+  int         (*query)           (ds_conn_t *ds_conn, const char *sql, ds_res_t *ds_res);
   const char* (*get_server_info) (ds_conn_t *ds_conn);
   const char* (*get_client_info) (ds_conn_t *ds_conn);
   int         (*get_current_db)  (ds_conn_t *ds_conn, char *db, size_t len, int *e, const char **errstr);
   void        (*close)           (ds_conn_t *ds_conn);
+
+  int         (*stmt_init)       (ds_conn_t *ds_conn, ds_stmt_t *ds_stmt);
 };
 
 struct ds_fields_s {
@@ -486,6 +488,14 @@ struct ds_res_s {
 
   ds_fields_t            fields;
   ds_block_t             block;
+};
+
+struct ds_stmt_s {
+  ds_conn_t              *ds_conn;
+  void                   *stmt;
+
+  void        (*close)       (ds_stmt_t *ds_stmt);
+  int         (*prepare)     (ds_stmt_t *ds_stmt, const char *sql);
 };
 
 struct conn_s {

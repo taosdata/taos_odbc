@@ -53,6 +53,7 @@ typedef struct ds_conn_s                ds_conn_t;
 typedef struct ds_res_s                 ds_res_t;
 typedef struct ds_fields_s              ds_fields_t;
 typedef struct ds_block_s               ds_block_t;
+typedef struct ds_stmt_s                ds_stmt_t;
 
 typedef struct env_s                    env_t;
 

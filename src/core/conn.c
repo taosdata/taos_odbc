@@ -260,15 +260,17 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs_with_res(
 
 static SQLRETURN _conn_get_configs_from_information_schema_ins_configs(conn_t *conn)
 {
+  int r = 0;
+
 #ifdef FAKE_TAOS            /* { */
   if (1) return SQL_SUCCESS;
 #endif                      /* } */
 
   ds_res_t ds_res = {0};
   const char *sql = "select * from information_schema.ins_configs";
-  ds_conn_query(&conn->ds_conn, sql, &ds_res);
-  int e = ds_res_errno(&ds_res);
-  if (e) {
+  r = ds_conn_query(&conn->ds_conn, sql, &ds_res);
+  if (r) {
+    int e = ds_res_errno(&ds_res);
     const char *estr = ds_res_errstr(&ds_res);
     conn_append_err_format(conn, "HY000", 0,
         "General error:failed to query `%s`:[%d]%s", sql, e, estr);
@@ -395,9 +397,9 @@ static int _conn_get_timezone(conn_t *conn)
 
   const char *sql = "select to_iso8601(0) as ts";
   ds_res_t ds_res = {0};
-  ds_conn_query(&conn->ds_conn, sql, &ds_res);
-  int e = ds_res_errno(&ds_res);
-  if (e) {
+  r = ds_conn_query(&conn->ds_conn, sql, &ds_res);
+  if (r) {
+    int e = ds_res_errno(&ds_res);
     const char *estr = ds_res_errstr(&ds_res);
     conn_append_err_format(conn, "HY000", 0,
         "General error:failed to query `%s`:[%d]%s", sql, e, estr);

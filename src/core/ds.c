@@ -27,12 +27,13 @@
 #include "ds.h"
 #include "log.h"
 
+static void _ds_stmt_setup(ds_stmt_t *ds_stmt);
 static void _ds_res_setup(ds_res_t *ds_res);
 static void _ds_block_setup(ds_block_t *ds_block);
 static void _ds_fields_setup(ds_fields_t *ds_fields);
 
 #ifdef HAVE_TAOSWS           /* { */
-static void _ds_ws_query(ds_conn_t *ds_conn, const char *sql, ds_res_t *ds_res)
+static int _ds_ws_query(ds_conn_t *ds_conn, const char *sql, ds_res_t *ds_res)
 {
   OA_NIY(ds_conn->conn);
 
@@ -40,15 +41,15 @@ static void _ds_ws_query(ds_conn_t *ds_conn, const char *sql, ds_res_t *ds_res)
   WS_RES  *res     = ws_query(ws_taos, sql);
 
   ds_res->res = res;
-  if (ws_errno(res)) return;
-  if (!res) return;
+  if (ws_errno(res)) return -1;
+  if (!res) return 0;
   ds_res->result_precision = ws_result_precision(res);
-  if (ws_errno(res)) return;
+  if (ws_errno(res)) return -1;
   ds_res->fields.nr_fields = ws_field_count(res);
-  if (ws_errno(res)) return;
+  if (ws_errno(res)) return -1;
   ds_res->fields.fields = ws_fetch_fields(res);
 
-  return;
+  return 0;
 }
 
 static const char* _ds_ws_get_server_info(ds_conn_t *ds_conn)
@@ -85,9 +86,45 @@ static void _ds_ws_close(ds_conn_t *ds_conn)
   ws_close((WS_RES*)ds_conn->taos);
   ds_conn->taos = NULL;
 }
+
+static int _ds_ws_stmt_init(ds_conn_t *ds_conn, ds_stmt_t *ds_stmt)
+{
+  OA_NIY(ds_conn->conn);
+
+  WS_TAOS *ws_taos = (WS_TAOS*)ds_conn->taos;
+  WS_STMT *ws_stmt = ws_stmt_init(ws_taos);
+  if (!ws_stmt) return -1;
+
+  ds_stmt->stmt = ws_stmt;
+  return 0;
+}
+
+static void _ds_stmt_ws_close(ds_stmt_t *ds_stmt)
+{
+  OA_NIY(ds_stmt->ds_conn);
+
+  WS_STMT *ws_stmt = (WS_STMT*)ds_stmt->stmt;
+  if (!ws_stmt) return;
+
+  ws_stmt_close(ws_stmt);
+  ds_stmt->stmt = NULL;
+}
+
+static int _ds_stmt_ws_prepare(ds_stmt_t *ds_stmt, const char *sql)
+{
+  OA_NIY(ds_stmt->ds_conn);
+  OA_NIY(ds_stmt->stmt);
+
+  WS_STMT *ws_stmt = (WS_STMT*)ds_stmt->stmt;
+
+  int r = ws_stmt_prepare(ws_stmt, sql, strlen(sql));
+  if (r) return -1;
+
+  return 0;
+}
 #endif                       /* } */
 
-static void _ds_tsdb_query(ds_conn_t *ds_conn, const char *sql, ds_res_t *ds_res)
+static int _ds_tsdb_query(ds_conn_t *ds_conn, const char *sql, ds_res_t *ds_res)
 {
   OA_NIY(ds_conn->conn);
 
@@ -95,15 +132,15 @@ static void _ds_tsdb_query(ds_conn_t *ds_conn, const char *sql, ds_res_t *ds_res
   TAOS_RES *res = CALL_taos_query(taos, sql);
 
   ds_res->res = res;
-  if (taos_errno(res)) return;
-  if (!res) return;
+  if (taos_errno(res)) return -1;
+  if (!res) return -1;
   ds_res->result_precision = CALL_taos_result_precision(res);
-  if (taos_errno(res)) return;
+  if (taos_errno(res)) return -1;
   ds_res->fields.nr_fields = CALL_taos_field_count(res);
-  if (taos_errno(res)) return;
+  if (taos_errno(res)) return -1;
   ds_res->fields.fields = CALL_taos_fetch_fields(res);
 
-  return;
+  return 0;
 }
 
 static const char* _ds_tsdb_get_server_info(ds_conn_t *ds_conn)
@@ -144,6 +181,42 @@ static void _ds_tsdb_close(ds_conn_t *ds_conn)
   ds_conn->taos = NULL;
 }
 
+static int _ds_tsdb_stmt_init(ds_conn_t *ds_conn, ds_stmt_t *ds_stmt)
+{
+  OA_NIY(ds_conn->conn);
+
+  TAOS      *taos = (TAOS*)ds_conn->taos;
+  TAOS_STMT *stmt = taos_stmt_init(taos);
+  if (!stmt) return -1;
+
+  ds_stmt->stmt = stmt;
+  return 0;
+}
+
+static void _ds_stmt_tsdb_close(ds_stmt_t *ds_stmt)
+{
+  OA_NIY(ds_stmt->ds_conn);
+
+  TAOS_STMT *stmt = (TAOS_STMT*)ds_stmt->stmt;
+  if (!stmt) return;
+
+  taos_stmt_close(stmt);
+  ds_stmt->stmt = NULL;
+}
+
+static int _ds_stmt_tsdb_prepare(ds_stmt_t *ds_stmt, const char *sql)
+{
+  OA_NIY(ds_stmt->ds_conn);
+  OA_NIY(ds_stmt->stmt);
+
+  TAOS_STMT *stmt = (TAOS_STMT*)ds_stmt->stmt;
+
+  int r = taos_stmt_prepare(stmt, sql, strlen(sql));
+  if (r) return -1;
+
+  return 0;
+}
+
 void ds_conn_setup(ds_conn_t *ds_conn)
 {
   OA_NIY(ds_conn->conn);
@@ -155,6 +228,8 @@ void ds_conn_setup(ds_conn_t *ds_conn)
     ds_conn->get_client_info     = _ds_ws_get_client_info;
     ds_conn->get_current_db      = _ds_ws_get_current_db;
     ds_conn->close               = _ds_ws_close;
+
+    ds_conn->stmt_init           = _ds_ws_stmt_init;
     return;
   }
 #endif                       /* } */
@@ -164,22 +239,26 @@ void ds_conn_setup(ds_conn_t *ds_conn)
   ds_conn->get_client_info     = _ds_tsdb_get_client_info;
   ds_conn->get_current_db      = _ds_tsdb_get_current_db;
   ds_conn->close               = _ds_tsdb_close;
+
+  ds_conn->stmt_init           = _ds_tsdb_stmt_init;
   return;
 }
 
-void ds_conn_query(ds_conn_t *ds_conn, const char *sql, ds_res_t *ds_res)
+int ds_conn_query(ds_conn_t *ds_conn, const char *sql, ds_res_t *ds_res)
 {
   OA_NIY(ds_conn->conn);
+  OA_NIY(ds_conn->query);
 
   ds_res->ds_conn = ds_conn;
   _ds_res_setup(ds_res);
 
-  ds_conn->query(ds_conn, sql, ds_res);
+  return ds_conn->query(ds_conn, sql, ds_res);
 }
 
 const char* ds_conn_get_server_info(ds_conn_t *ds_conn)
 {
   OA_NIY(ds_conn->conn);
+  OA_NIY(ds_conn->get_server_info);
 
   return ds_conn->get_server_info(ds_conn);
 }
@@ -187,6 +266,7 @@ const char* ds_conn_get_server_info(ds_conn_t *ds_conn)
 const char* ds_conn_get_client_info(ds_conn_t *ds_conn)
 {
   OA_NIY(ds_conn->conn);
+  OA_NIY(ds_conn->get_client_info);
 
   return ds_conn->get_client_info(ds_conn);
 }
@@ -194,13 +274,60 @@ const char* ds_conn_get_client_info(ds_conn_t *ds_conn)
 int ds_conn_get_current_db(ds_conn_t *ds_conn, char *db, size_t len, int *e, const char **errstr)
 {
   OA_NIY(ds_conn->conn);
+  OA_NIY(ds_conn->get_current_db);
 
   return ds_conn->get_current_db(ds_conn, db, len, e, errstr);
 }
 
 void ds_conn_close(ds_conn_t *ds_conn)
 {
+  OA_NIY(ds_conn->close);
+
   return ds_conn->close(ds_conn);
+}
+
+int ds_conn_stmt_init(ds_conn_t *ds_conn, ds_stmt_t *ds_stmt)
+{
+  OA_NIY(ds_stmt->ds_conn == ds_conn);
+  OA_NIY(ds_conn->stmt_init);
+
+  _ds_stmt_setup(ds_stmt);
+
+  return ds_conn->stmt_init(ds_conn, ds_stmt);
+}
+
+static void _ds_stmt_setup(ds_stmt_t *ds_stmt)
+{
+  OA_NIY(ds_stmt->ds_conn);
+  OA_NIY(ds_stmt->ds_conn->conn);
+
+  conn_t *conn = ds_stmt->ds_conn->conn;
+
+#ifdef HAVE_TAOSWS           /* { */
+  if (conn->cfg.url) {
+    ds_stmt->close             = _ds_stmt_ws_close;
+    ds_stmt->prepare           = _ds_stmt_ws_prepare;
+    return;
+  }
+#endif                       /* } */
+
+  ds_stmt->close             = _ds_stmt_tsdb_close;
+  ds_stmt->prepare           = _ds_stmt_tsdb_prepare;
+  return;
+}
+
+void ds_stmt_close(ds_stmt_t *ds_stmt)
+{
+  OA_NIY(ds_stmt->close);
+
+  ds_stmt->close(ds_stmt);
+}
+
+int ds_stmt_prepare(ds_stmt_t *ds_stmt, const char *sql)
+{
+  OA_NIY(ds_stmt->prepare);
+
+  return ds_stmt->prepare(ds_stmt, sql);
 }
 
 #ifdef HAVE_TAOSWS           /* { */
@@ -358,6 +485,7 @@ static void _ds_res_setup(ds_res_t *ds_res)
 void ds_res_close(ds_res_t *ds_res)
 {
   if (!ds_res->res) return;
+  OA_NIY(ds_res->close);
 
   ds_res->close(ds_res);
 }
@@ -365,6 +493,7 @@ void ds_res_close(ds_res_t *ds_res)
 int ds_res_errno(ds_res_t *ds_res)
 {
   OA_NIY(ds_res->ds_conn);
+  OA_NIY(ds_res->errno);
 
   return ds_res->errno(ds_res);
 }
@@ -372,6 +501,7 @@ int ds_res_errno(ds_res_t *ds_res)
 const char* ds_res_errstr(ds_res_t *ds_res)
 {
   OA_NIY(ds_res->ds_conn);
+  OA_NIY(ds_res->errstr);
 
   return ds_res->errstr(ds_res);
 }
@@ -380,6 +510,7 @@ int ds_res_fetch_block(ds_res_t *ds_res)
 {
   OA_NIY(ds_res->ds_conn);
   OA_NIY(ds_res->block.ds_res == ds_res);
+  OA_NIY(ds_res->fetch_block);
 
   return ds_res->fetch_block(ds_res);
 }
@@ -406,6 +537,7 @@ static void _ds_fields_setup(ds_fields_t *ds_fields)
 int8_t ds_fields_field_type(ds_fields_t *ds_fields, int i_col)
 {
   OA_NIY(ds_fields->ds_res);
+  OA_NIY(ds_fields->field_type);
 
   return ds_fields->field_type(ds_fields, i_col);
 }

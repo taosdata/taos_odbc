@@ -26,6 +26,7 @@
 
 #include "../test_helper.h"
 
+#include <assert.h>
 #include <float.h>
 #include <math.h>
 
@@ -215,8 +216,9 @@ static int cjson_cmp_tsdb_double(int i_col, ejson_t *val, const char *base)
   return r;
 }
 
-static int field_cmp_val(int i_field, TAOS_FIELD *field, char *col, ejson_t *val)
+static int field_cmp_val(int i_field, TAOS_FIELD *field, TAOS_ROW record, int *lengths, ejson_t *val)
 {
+  const char *col = record[i_field];
   if (!col) {
     return cjson_cmp_tsdb_null(i_field, val);
   }
@@ -225,21 +227,28 @@ static int field_cmp_val(int i_field, TAOS_FIELD *field, char *col, ejson_t *val
   switch (type) {
     case TSDB_DATA_TYPE_VARCHAR:
       bytes = *(int16_t*)(col - sizeof(int16_t));
+      assert(bytes == lengths[i_field]);
       return cjson_cmp_tsdb_str_len(i_field, val, col, bytes);
       break;
     case TSDB_DATA_TYPE_NCHAR:
       bytes = *(int16_t*)(col - sizeof(int16_t));
+      assert(bytes == lengths[i_field]);
       return cjson_cmp_tsdb_str_len(i_field, val, col, bytes);
       break;
     case TSDB_DATA_TYPE_TIMESTAMP:
+      assert(8 == lengths[i_field]);
       return cjson_cmp_tsdb_timestamp(i_field, val, col);
     case TSDB_DATA_TYPE_INT:
+      assert(4 == lengths[i_field]);
       return cjson_cmp_tsdb_int(i_field, val, col);
     case TSDB_DATA_TYPE_BIGINT:
+      assert(8 == lengths[i_field]);
       return cjson_cmp_tsdb_bigint(i_field, val, col);
     case TSDB_DATA_TYPE_FLOAT:
+      assert(4 == lengths[i_field]);
       return cjson_cmp_tsdb_float(i_field, val, col);
     case TSDB_DATA_TYPE_DOUBLE:
+      assert(8 == lengths[i_field]);
       return cjson_cmp_tsdb_double(i_field, val, col);
     default:
       E("col #%d [%d/0x%x]%s not implemented yet", i_field+1, type, type, CALL_taos_data_type(type));
@@ -267,13 +276,15 @@ static int record_cmp_row(int nr_fields, TAOS_FIELD *fields, TAOS_ROW record, ej
       return -1;
     }
 
-    int *offsets = CALL_taos_get_column_data_offset(res, i);
+    // int *offsets = CALL_taos_get_column_data_offset(res, i);
 
-    char *col = record[i];
-    if (col) col += offsets ? *offsets : 0;
+    // char *col = record[i];
+    // if (col) col += offsets ? *offsets : 0;
+
+    int *lengths = CALL_taos_fetch_lengths(res);
 
     TAOS_FIELD *field = fields + i;
-    int r = field_cmp_val(i, field, col, val);
+    int r = field_cmp_val(i, field, record, lengths, val);
     if (r) return -1;
   }
 

@@ -301,9 +301,9 @@ static void _ds_stmt_setup(ds_stmt_t *ds_stmt)
   OA_NIY(ds_stmt->ds_conn);
   OA_NIY(ds_stmt->ds_conn->conn);
 
+#ifdef HAVE_TAOSWS           /* { */
   conn_t *conn = ds_stmt->ds_conn->conn;
 
-#ifdef HAVE_TAOSWS           /* { */
   if (conn->cfg.url) {
     ds_stmt->close             = _ds_stmt_ws_close;
     ds_stmt->prepare           = _ds_stmt_ws_prepare;
@@ -457,8 +457,6 @@ static void _ds_res_setup(ds_res_t *ds_res)
   OA_NIY(ds_res->ds_conn);
   OA_NIY(ds_res->ds_conn->conn);
 
-  conn_t *conn = ds_res->ds_conn->conn;
-
   ds_res->fields.ds_res  = ds_res;
   _ds_fields_setup(&ds_res->fields);
 
@@ -466,6 +464,8 @@ static void _ds_res_setup(ds_res_t *ds_res)
   _ds_block_setup(&ds_res->block);
 
 #ifdef HAVE_TAOSWS           /* { */
+  conn_t *conn = ds_res->ds_conn->conn;
+
   if (conn->cfg.url) {
     ds_res->close             = _ds_res_ws_close;
     ds_res->errno             = _ds_res_ws_errno;

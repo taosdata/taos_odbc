@@ -650,11 +650,16 @@ static int _conn_cfg_init_by_dsn(conn_cfg_t *cfg, char *ebuf, size_t elen)
   buf[0] = '\0';
   r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "URL", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
   if (buf[0]) {
+#ifdef HAVE_TAOSWS           /* { */
     cfg->url = strdup(buf);
     if (!cfg->url) {
       snprintf(ebuf, elen, "@%d:%s():out of memory", __LINE__, __func__);
       return -1;
     }
+#else                        /* }{ */
+    snprintf(ebuf, elen, "@%d:%s():websocket not supported yet, but seen URL in `%s`", __LINE__, __func__, cfg->dsn);
+    return -1;
+#endif                       /* } */
   } else {
     buf[0] = '\0';
     r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "PWD", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");

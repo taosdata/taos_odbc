@@ -211,7 +211,7 @@ static int _ds_stmt_tsdb_prepare(ds_stmt_t *ds_stmt, const char *sql)
 
   TAOS_STMT *stmt = (TAOS_STMT*)ds_stmt->stmt;
 
-  int r = taos_stmt_prepare(stmt, sql, strlen(sql));
+  int r = taos_stmt_prepare(stmt, sql, (unsigned long)strlen(sql));
   if (r) return -1;
 
   return 0;
@@ -283,7 +283,7 @@ void ds_conn_close(ds_conn_t *ds_conn)
 {
   OA_NIY(ds_conn->close);
 
-  return ds_conn->close(ds_conn);
+  ds_conn->close(ds_conn);
 }
 
 int ds_conn_stmt_init(ds_conn_t *ds_conn, ds_stmt_t *ds_stmt)
@@ -468,7 +468,7 @@ static void _ds_res_setup(ds_res_t *ds_res)
 
   if (conn->cfg.url) {
     ds_res->close             = _ds_res_ws_close;
-    ds_res->errno             = _ds_res_ws_errno;
+    ds_res->xerrno            = _ds_res_ws_errno;
     ds_res->errstr            = _ds_res_ws_errstr;
     ds_res->fetch_block       = _ds_res_ws_fetch_block;
     return;
@@ -476,7 +476,7 @@ static void _ds_res_setup(ds_res_t *ds_res)
 #endif                       /* } */
 
   ds_res->close             = _ds_res_tsdb_close;
-  ds_res->errno             = _ds_res_tsdb_errno;
+  ds_res->xerrno            = _ds_res_tsdb_errno;
   ds_res->errstr            = _ds_res_tsdb_errstr;
   ds_res->fetch_block       = _ds_res_tsdb_fetch_block;
   return;
@@ -493,9 +493,9 @@ void ds_res_close(ds_res_t *ds_res)
 int ds_res_errno(ds_res_t *ds_res)
 {
   OA_NIY(ds_res->ds_conn);
-  OA_NIY(ds_res->errno);
+  OA_NIY(ds_res->xerrno);
 
-  return ds_res->errno(ds_res);
+  return ds_res->xerrno(ds_res);
 }
 
 const char* ds_res_errstr(ds_res_t *ds_res)

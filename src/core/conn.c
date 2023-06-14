@@ -198,7 +198,7 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs_with_res(
   int nr_fields                = 0;
 
   int r = 0;
-  nr_fields = ds_res->fields.nr_fields;
+  nr_fields = (int)ds_res->fields.nr_fields;
   if (nr_fields != 2) {
     conn_append_err_format(conn, "HY000", 0,
         "General error:# of fields from `information_schema.ins_configs` is expected 2 but got ==%d==", nr_fields);
@@ -206,7 +206,7 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs_with_res(
   }
 
   for (size_t i=0; i<ds_res->fields.nr_fields; ++i) {
-    int8_t fld_type = ds_fields_field_type(&ds_res->fields, i);
+    int8_t fld_type = ds_fields_field_type(&ds_res->fields, (int)i);
     if (fld_type != TSDB_DATA_TYPE_VARCHAR) {
       conn_append_err_format(conn, "HY000", 0,
           "General error:field[#%zd] from `information_schema.ins_configs` is expected `TSDB_DATA_TYPE_VARCHAR` but got ==%s==",
@@ -349,7 +349,7 @@ static int _conn_get_timezone_from_res(conn_t *conn, const char *sql, ds_res_t *
   int nr_fields                = 0;
 
   int r = 0;
-  nr_fields = ds_res->fields.nr_fields;
+  nr_fields = (int)ds_res->fields.nr_fields;
   if (nr_fields != 1) {
     conn_append_err_format(conn, "HY000", 0,
         "General error:# of fields from `%s` is expected 2 but got ==%d==", sql, nr_fields);

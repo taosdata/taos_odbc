@@ -480,7 +480,7 @@ struct ds_res_s {
   void                  *res;
 
   void        (*close)               (ds_res_t *ds_res);
-  int         (*errno)               (ds_res_t *ds_res);
+  int         (*xerrno)              (ds_res_t *ds_res);
   const char* (*errstr)              (ds_res_t *ds_res);
   int         (*fetch_block)         (ds_res_t *ds_res);
 

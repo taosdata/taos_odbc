@@ -579,11 +579,13 @@ struct tsdb_fields_s {
 
 struct tsdb_rows_block_s {
   TAOS_ROW            rows;
+  const void         *ws_ptr;        // NOTE: libtaosws, ugly for the moment!!!
   size_t              nr;
   size_t              pos;           // 1-based
 };
 
 struct tsdb_res_s {
+  tsdb_stmt_t               *owner;
   TAOS_RES                  *res;
   size_t                     affected_row_count;
   int                        time_precision;

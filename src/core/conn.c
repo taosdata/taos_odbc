@@ -648,7 +648,7 @@ static int _conn_cfg_init_by_dsn(conn_cfg_t *cfg, char *ebuf, size_t elen)
   int r = 0;
 
   buf[0] = '\0';
-  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "URL", (LPCSTR)NULL, (LPSTR)buf, sizeof(buf), "Odbc.ini");
+  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "URL", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
   if (buf[0]) {
     cfg->url = strdup(buf);
     if (!cfg->url) {

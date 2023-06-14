@@ -94,7 +94,15 @@ static void _topic_reset_res(topic_t *topic, SQLRETURN *psr)
     }
   }
   if (topic->res) {
-    CALL_taos_free_result(topic->res);
+#ifdef HAVE_TAOSWS           /* { */
+    if (topic->owner->conn->cfg.url) {
+      ws_free_result((WS_RES*)topic->res);
+    } else {
+#endif                       /* } */
+      CALL_taos_free_result(topic->res);
+#ifdef HAVE_TAOSWS           /* { */
+    }
+#endif                       /* } */
     topic->res = NULL;
   }
   if (psr) *psr = sr;
@@ -198,14 +206,33 @@ static SQLRETURN _topic_desc_tripple(topic_t *topic)
 
   topic->res_vgroup_id  = CALL_tmq_get_vgroup_id(topic->res);
 
-  TAOS_FIELD *fields = CALL_taos_fetch_fields(topic->res);
-  if (!fields) {
-    stmt_append_err_format(topic->owner, "HY000", 0,
-        "General error:taos_fetch_fields failed:[%d]%s",
-        taos_errno(topic->res), taos_errstr(topic->res));
-    return SQL_ERROR;
-  }
-  size_t nr = CALL_taos_field_count(topic->res);
+  TAOS_FIELD *fields = NULL;
+  size_t nr = 0;
+
+#ifdef HAVE_TAOSWS           /* { */
+    if (topic->owner->conn->cfg.url) {
+      DLL_EXPORT int         taos_fetch_raw_block(TAOS_RES *res, int *numOfRows, void **pData);
+      fields = (TAOS_FIELD*)ws_fetch_fields((WS_RES*)topic->res);
+      if (!fields) {
+        stmt_append_err_format(topic->owner, "HY000", 0,
+            "General error:taos_fetch_fields failed:[%d]%s",
+            ws_errno(topic->res), ws_errstr(topic->res));
+        return SQL_ERROR;
+      }
+      nr = ws_field_count(topic->res);
+    } else {
+#endif                       /* } */
+      fields = CALL_taos_fetch_fields(topic->res);
+      if (!fields) {
+        stmt_append_err_format(topic->owner, "HY000", 0,
+            "General error:taos_fetch_fields failed:[%d]%s",
+            taos_errno(topic->res), taos_errstr(topic->res));
+        return SQL_ERROR;
+      }
+      nr = CALL_taos_field_count(topic->res);
+#ifdef HAVE_TAOSWS           /* { */
+    }
+#endif                       /* } */
 
   const char *pseudos[] = {
     "_topic_name",
@@ -311,16 +338,25 @@ again:
   if (sr == SQL_NO_DATA) return SQL_NO_DATA;
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-  row = CALL_taos_fetch_row(topic->res);
-  if (row == NULL) {
-    // NOTE: once no row is available, which implicitly means that user has traversed all rows within current res
-    //       this seems the right time to call tmq_commit_sync
-    _topic_reset_res(topic, &sr);
-    if (sr != SQL_SUCCESS) return SQL_ERROR;
-    goto again;
-  }
+#ifdef HAVE_TAOSWS           /* { */
+    if (topic->owner->conn->cfg.url) {
+      stmt_append_err(topic->owner, "HY000", 0, "General error:not implemented yet");
+      return SQL_ERROR;
+    } else {
+#endif                       /* } */
+      row = CALL_taos_fetch_row(topic->res);
+      if (row == NULL) {
+        // NOTE: once no row is available, which implicitly means that user has traversed all rows within current res
+        //       this seems the right time to call tmq_commit_sync
+        _topic_reset_res(topic, &sr);
+        if (sr != SQL_SUCCESS) return SQL_ERROR;
+        goto again;
+      }
+      topic->row = row;
+#ifdef HAVE_TAOSWS           /* { */
+    }
+#endif                       /* } */
 
-  topic->row = row;
   ++topic->records_count;
   return SQL_SUCCESS;
 }
@@ -430,7 +466,17 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
     return SQL_SUCCESS;
   }
 
-  int *offsets = CALL_taos_get_column_data_offset(topic->res, i-3);
+  int *offsets = NULL;
+
+#ifdef HAVE_TAOSWS           /* { */
+    if (topic->owner->conn->cfg.url) {
+      stmt_append_err(topic->owner, "HY000", 0, "General error:not implemented yet");
+    } else {
+#endif                       /* } */
+      offsets = CALL_taos_get_column_data_offset(topic->res, i-3);
+#ifdef HAVE_TAOSWS           /* { */
+    }
+#endif                       /* } */
 
   char *col = row[i-3];
   if (col) col += offsets ? *offsets : 0;
@@ -490,7 +536,15 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
 
     case TSDB_DATA_TYPE_TIMESTAMP:
       tsdb->ts.ts = *(int64_t*)col;
-      tsdb->ts.precision = CALL_taos_result_precision(topic->res);
+#ifdef HAVE_TAOSWS           /* { */
+      if (topic->owner->conn->cfg.url) {
+        tsdb->ts.precision = ws_result_precision((WS_RES*)topic->res);
+      } else {
+#endif                       /* } */
+        tsdb->ts.precision = CALL_taos_result_precision(topic->res);
+#ifdef HAVE_TAOSWS           /* { */
+      }
+#endif                       /* } */
       break;
 
     case TSDB_DATA_TYPE_BOOL:

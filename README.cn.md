@@ -9,69 +9,71 @@
 ### 特性
 - **开发中的TDengine 3.0 TAOS ODBC驱动**
 - **目前驱动中已经导出的SQLxxx函数如下**:
-```
-ConfigDSN              (windows 平台仅有)
-ConfigDriver           (windows 平台仅有)
-ConfigTranslator       (windows 平台仅有)
-SQLAllocHandle
-SQLBindCol
-SQLBindParameter
-SQLBrowseConnect
-SQLBulkOperations
-SQLCloseCursor
-SQLColAttribute
-SQLColumnPrivileges
-SQLColumns
-SQLCompleteAsync
-SQLConnect
-SQLCopyDesc
-SQLDescribeCol
-SQLDescribeParam
-SQLDisconnect
-SQLDriverConnect
-SQLEndTran
-SQLExecDirect
-SQLExecute
-SQLExtendedFetch
-SQLFetch
-SQLFetchScroll
-SQLForeignKeys
-SQLFreeHandle
-SQLFreeStmt
-SQLGetConnectAttr
-SQLGetCursorName
-SQLGetData
-SQLGetDescField
-SQLGetDescRec
-SQLGetDiagField
-SQLGetDiagRec
-SQLGetEnvAttr
-SQLGetInfo
-SQLGetStmtAttr
-SQLGetTypeInfo
-SQLMoreResults
-SQLNativeSql
-SQLNumParams
-SQLNumResultCols
-SQLParamData
-SQLPrepare
-SQLPrimaryKeys
-SQLProcedureColumns
-SQLProcedures
-SQLPutData
-SQLRowCount
-SQLSetConnectAttr
-SQLSetCursorName
-SQLSetDescField
-SQLSetDescRec
-SQLSetEnvAttr
-SQLSetPos
-SQLSetStmtAttr
-SQLSpecialColumns
-SQLStatistics
-SQLTablePrivileges
-SQLTables (暂时使用post-filter来补救一下，等待taosc有新的实现后再移除)
-```
+
+| ODBC/Setup API | linux (ubuntu 22.04) | macosx (ventura 13.2.1) | windows 11 | note |
+| :----- | :---- | :---- | :---- | :---- |
+| ConfigDSN | ✗ | ✗ | ✓ | |
+| ConfigDriver | ✗ | ✗ | ✓ | |
+| ConfigTranslator | ✗ | ✗ | ✓ | |
+| SQLAllocHandle | ✓ | ✓ | ✓ | |
+| SQLBindCol  | ✓ | ✓ | ✓ | 只支持按列绑定模式 |
+| SQLBindParameter | ✓ | ✓ | ✓ | 只支持按列绑定模式 |
+| SQLBrowseConnect | ✗ | ✗ | ✗ | |
+| SQLBulkOperations | ✗ | ✗ | ✗ | TDengine没有对应实现 |
+| SQLCloseCursor | ✓ | ✓ | ✓ | |
+| SQLColAttribute | ✓ | ✓ | ✓ | 部分实现, 并持续更新中 |
+| SQLColumnPrivileges | ✗ | ✗ | ✗ | TDengine没有严格的对应实现 |
+| SQLColumns | ✓ | ✓ | ✓ | |
+| SQLCompleteAsync | ✗ | ✗ | ✗ | |
+| SQLConnect | ✓ | ✓ | ✓ | |
+| SQLCopyDesc | ✗ | ✗ | ✗ | |
+| SQLDescribeCol | ✓ | ✓ | ✓ | |
+| SQLDescribeParam | ✓ | ✓ | ✓ | 部分实现, 并持续更新中 |
+| SQLDisconnect | ✓ | ✓ | ✓ | |
+| SQLDriverConnect | ✓ | ✓ | ✓ | |
+| SQLEndTran | ✓ | ✓ | ✓ | TDengine不支持事务, 因此最多只是模拟 |
+| SQLExecDirect | ✓ | ✓ | ✓ | |
+| SQLExecute | ✓ | ✓ | ✓ | |
+| SQLExtendedFetch | ✗ | ✗ | ✗ | |
+| SQLFetch | ✓ | ✓ | ✓ | |
+| SQLFetchScroll | ✓ | ✓ | ✓ | TDengine没有对应实现, 只支持SQL_FETCH_NEXT |
+| SQLForeignKeys | ✗ | ✗ | ✗ | TDengine没有对应实现 |
+| SQLFreeHandle | ✓ | ✓ | ✓ | |
+| SQLFreeStmt | ✓ | ✓ | ✓ | |
+| SQLGetConnectAttr | ✓ | ✓ | ✓ | 部分实现, 并持续更新中 |
+| SQLGetCursorName | ✗ | ✗ | ✗ | TDengine没有对应实现 |
+| SQLGetData | ✓ | ✓ | ✓ | |
+| SQLGetDescField | ✗ | ✗ | ✗ | |
+| SQLGetDescRec | ✗ | ✗ | ✗ | |
+| SQLGetDiagField | ✓ | ✓ | ✓ | |
+| SQLGetDiagRec | ✓ | ✓ | ✓ | |
+| SQLGetEnvAttr | ✓ | ✓ | ✓ | 部分实现, 并持续更新中 |
+| SQLGetInfo | ✓ | ✓ | ✓ | 部分实现, 并持续更新中 |
+| SQLGetStmtAttr | ✓ | ✓ | ✓ | 部分实现, 并持续更新中 |
+| SQLGetTypeInfo | ✓ | ✓ | ✓ | |
+| SQLMoreResults | ✓ | ✓ | ✓ | |
+| SQLNativeSql | ✗ | ✗ | ✗ | TDengine没有对应实现 |
+| SQLNumParams | ✓ | ✓ | ✓ | TDengine只是部分实现, 因此某些场合下只实现了一种变通 |
+| SQLNumResultCols | ✓ | ✓ | ✓ | |
+| SQLParamData | ✗ | ✗ | ✗ | |
+| SQLPrepare | ✓ | ✓ | ✓ | TDengine只是部分实现, 因此某些场合下只实现了一种变通 |
+| SQLPrimaryKeys | ✓ | ✓ | ✓ | |
+| SQLProcedureColumns | ✗ | ✗ | ✗ | TDengine没有对应实现 |
+| SQLProcedures | ✗ | ✗ | ✗ | TDengine没有对应实现 |
+| SQLPutData | ✗ | ✗ | ✗ | |
+| SQLRowCount | ✓ | ✓ | ✓ | |
+| SQLSetConnectAttr | ✓ | ✓ | ✓ | 部分实现, 并持续更新中 |
+| SQLSetCursorName | ✗ | ✗ | ✗ | TDengine没有对应实现 |
+| SQLSetDescField | ✗ | ✗ | ✗ | |
+| SQLSetDescRec | ✗ | ✗ | ✗ | |
+| SQLSetEnvAttr | ✓ | ✓ | ✓ | 部分实现, 并持续更新中 |
+| SQLSetPos | ✗ | ✗ | ✗ | TDengine没有对应实现 |
+| SQLSetStmtAttr | ✓ | ✓ | ✓ | 部分实现, 并持续更新中 |
+| SQLSpecialColumns | ✗ | ✗ | ✗ | TDengine没有对应实现 |
+| SQLStatistics | ✗ | ✗ | ✗ | TDengine没有对应实现 |
+| SQLTablePrivileges | ✗ | ✗ | ✗ | TDengine没有严格的对应实现 |
+| SQLTables | ✓ | ✓ | ✓ | |
+
 - **ODBC应用程序将可以利用该驱动实现对TDengine时序数据库的操作**
 - **相信，任何具有ODBC-绑定/插件的编程语言、框架，利用该驱动，也可实现对TDengine时序数据库的操作. 目前在测试用例中提供了如下程序语言及相关绑定的实现:**
 

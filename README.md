@@ -9,69 +9,71 @@ English | [简体中文](README.cn.md)
 ### Features
 - **on-going implementation of ODBC driver for TDengine 3.0 (TAOS)**
 - **currently exported ODBC functions are**:
-```
-ConfigDSN              (windows port only)
-ConfigDriver           (windows port only)
-ConfigTranslator       (windows port only)
-SQLAllocHandle
-SQLBindCol
-SQLBindParameter
-SQLBrowseConnect
-SQLBulkOperations
-SQLCloseCursor
-SQLColAttribute
-SQLColumnPrivileges
-SQLColumns
-SQLCompleteAsync
-SQLConnect
-SQLCopyDesc
-SQLDescribeCol
-SQLDescribeParam
-SQLDisconnect
-SQLDriverConnect
-SQLEndTran
-SQLExecDirect
-SQLExecute
-SQLExtendedFetch
-SQLFetch
-SQLFetchScroll
-SQLForeignKeys
-SQLFreeHandle
-SQLFreeStmt
-SQLGetConnectAttr
-SQLGetCursorName
-SQLGetData
-SQLGetDescField
-SQLGetDescRec
-SQLGetDiagField
-SQLGetDiagRec
-SQLGetEnvAttr
-SQLGetInfo
-SQLGetStmtAttr
-SQLGetTypeInfo
-SQLMoreResults
-SQLNativeSql
-SQLNumParams
-SQLNumResultCols
-SQLParamData
-SQLPrepare
-SQLPrimaryKeys
-SQLProcedureColumns
-SQLProcedures
-SQLPutData
-SQLRowCount
-SQLSetConnectAttr
-SQLSetCursorName
-SQLSetDescField
-SQLSetDescRec
-SQLSetEnvAttr
-SQLSetPos
-SQLSetStmtAttr
-SQLSpecialColumns
-SQLStatistics
-SQLTablePrivileges
-SQLTables (post-filter workaround, to be removed when taosc is right in place)
-```
+
+| ODBC/Setup API | linux (ubuntu 22.04) | macosx (ventura 13.2.1) | windows 11 | note |
+| :----- | :---- | :---- | :---- | :---- |
+| ConfigDSN | ✗ | ✗ | ✓ | |
+| ConfigDriver | ✗ | ✗ | ✓ | |
+| ConfigTranslator | ✗ | ✗ | ✓ | |
+| SQLAllocHandle | ✓ | ✓ | ✓ | |
+| SQLBindCol  | ✓ | ✓ | ✓ | Column-Wise Binding only |
+| SQLBindParameter | ✓ | ✓ | ✓ | Column-Wise Binding only |
+| SQLBrowseConnect | ✗ | ✗ | ✗ | |
+| SQLBulkOperations | ✗ | ✗ | ✗ | TDengine has no counterpart |
+| SQLCloseCursor | ✓ | ✓ | ✓ | |
+| SQLColAttribute | ✓ | ✓ | ✓ | partially and on-going |
+| SQLColumnPrivileges | ✗ | ✗ | ✗ | TDengine seems have no strict counterpart |
+| SQLColumns | ✓ | ✓ | ✓ | |
+| SQLCompleteAsync | ✗ | ✗ | ✗ | |
+| SQLConnect | ✓ | ✓ | ✓ | |
+| SQLCopyDesc | ✗ | ✗ | ✗ | |
+| SQLDescribeCol | ✓ | ✓ | ✓ | |
+| SQLDescribeParam | ✓ | ✓ | ✓ | partially and on-going |
+| SQLDisconnect | ✓ | ✓ | ✓ | |
+| SQLDriverConnect | ✓ | ✓ | ✓ | |
+| SQLEndTran | ✓ | ✓ | ✓ | TDengine is non-transactional, thus this is at most simulating |
+| SQLExecDirect | ✓ | ✓ | ✓ | |
+| SQLExecute | ✓ | ✓ | ✓ | |
+| SQLExtendedFetch | ✗ | ✗ | ✗ | |
+| SQLFetch | ✓ | ✓ | ✓ | |
+| SQLFetchScroll | ✓ | ✓ | ✓ | TDengine has no counterpart, just implement SQL_FETCH_NEXT |
+| SQLForeignKeys | ✗ | ✗ | ✗ | TDengine has no counterpart |
+| SQLFreeHandle | ✓ | ✓ | ✓ | |
+| SQLFreeStmt | ✓ | ✓ | ✓ | |
+| SQLGetConnectAttr | ✓ | ✓ | ✓ | partially and on-going |
+| SQLGetCursorName | ✗ | ✗ | ✗ | TDengine has no counterpart |
+| SQLGetData | ✓ | ✓ | ✓ | |
+| SQLGetDescField | ✗ | ✗ | ✗ | |
+| SQLGetDescRec | ✗ | ✗ | ✗ | |
+| SQLGetDiagField | ✓ | ✓ | ✓ | |
+| SQLGetDiagRec | ✓ | ✓ | ✓ | |
+| SQLGetEnvAttr | ✓ | ✓ | ✓ | partially and on-going |
+| SQLGetInfo | ✓ | ✓ | ✓ | partially and on-going |
+| SQLGetStmtAttr | ✓ | ✓ | ✓ | partially and on-going |
+| SQLGetTypeInfo | ✓ | ✓ | ✓ | |
+| SQLMoreResults | ✓ | ✓ | ✓ | |
+| SQLNativeSql | ✗ | ✗ | ✗ | TDengine has no counterpart |
+| SQLNumParams | ✓ | ✓ | ✓ | TDengine has partially support, thus workaround in some cases |
+| SQLNumResultCols | ✓ | ✓ | ✓ | |
+| SQLParamData | ✗ | ✗ | ✗ | |
+| SQLPrepare | ✓ | ✓ | ✓ | TDengine has partially support, thus workaround in some cases |
+| SQLPrimaryKeys | ✓ | ✓ | ✓ | |
+| SQLProcedureColumns | ✗ | ✗ | ✗ | TDengine has no counterpart |
+| SQLProcedures | ✗ | ✗ | ✗ | TDengine has no counterpart |
+| SQLPutData | ✗ | ✗ | ✗ | |
+| SQLRowCount | ✓ | ✓ | ✓ | |
+| SQLSetConnectAttr | ✓ | ✓ | ✓ | partially and on-going |
+| SQLSetCursorName | ✗ | ✗ | ✗ | TDengine has no counterpart |
+| SQLSetDescField | ✗ | ✗ | ✗ | |
+| SQLSetDescRec | ✗ | ✗ | ✗ | |
+| SQLSetEnvAttr | ✓ | ✓ | ✓ | partially and on-going |
+| SQLSetPos | ✗ | ✗ | ✗ | TDengine has no counterpart |
+| SQLSetStmtAttr | ✓ | ✓ | ✓ | partially and on-going |
+| SQLSpecialColumns | ✗ | ✗ | ✗ | TDengine has no counterpart |
+| SQLStatistics | ✗ | ✗ | ✗ | TDengine has no counterpart |
+| SQLTablePrivileges | ✗ | ✗ | ✗ | TDengine has no strict counterpart |
+| SQLTables | ✓ | ✓ | ✓ | |
+
 - **enable ODBC-aware software to communicate with TDengine**
 - **enable any programming language with ODBC-bindings/ODBC-plugings to communicate with TDengine. programming languages listed as follows are demonstrated in test-cases:**
 

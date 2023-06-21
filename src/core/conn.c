@@ -1309,6 +1309,18 @@ SQLRETURN conn_set_attr(
   (void)StringLength;
 
   switch (Attribute) {
+    case SQL_ATTR_ACCESS_MODE:
+      if ((SQLUINTEGER)(uintptr_t)ValuePtr == SQL_MODE_READ_WRITE) return SQL_SUCCESS;
+      conn_append_err_format(conn, "01S02", 0,
+          "Option value changed:`%u` for `SQL_ATTR_ACCESS_MODE` is substituted by `SQL_MODE_READ_WRITE`",
+          (SQLUINTEGER)(uintptr_t)ValuePtr);
+      return SQL_SUCCESS_WITH_INFO;
+    case SQL_ATTR_ASYNC_ENABLE:
+      if ((SQLULEN)(uintptr_t)ValuePtr == SQL_ASYNC_ENABLE_OFF) return SQL_SUCCESS;
+      conn_append_err_format(conn, "01S02", 0,
+          "Option value changed:`%u` for `SQL_ATTR_ASYNC_ENABLE` is substituted by `SQL_ASYNC_ENABLE_OFF`",
+          (SQLUINTEGER)(uintptr_t)ValuePtr);
+      return SQL_SUCCESS_WITH_INFO;
     case SQL_ATTR_CONNECTION_TIMEOUT:
       if (0 == (SQLUINTEGER)(uintptr_t)ValuePtr) return SQL_SUCCESS;
       conn_append_err_format(conn, "01S02", 0,
@@ -1335,13 +1347,24 @@ SQLRETURN conn_set_attr(
           "Option value changed:`%u` for `SQL_ATTR_AUTOCOMMIT` is substituted by `SQL_AUTOCOMMIT_ON`",
           (SQLUINTEGER)(uintptr_t)ValuePtr);
       return SQL_SUCCESS_WITH_INFO;
+    case SQL_ATTR_METADATA_ID:
+      // FIXME:
+      if ((SQLUINTEGER)(uintptr_t)ValuePtr == SQL_FALSE) return SQL_SUCCESS;
+      break;
+    case SQL_ATTR_ODBC_CURSORS:
+      // FIXME:
+      if ((SQLULEN)(uintptr_t)ValuePtr == SQL_CUR_USE_DRIVER) return SQL_SUCCESS;
+      break;
+    case SQL_ATTR_CURRENT_CATALOG:
+      break;
     case SQL_ATTR_ANSI_APP:
       OA_NIY(0);
       break;
     default:
-      conn_append_err_format(conn, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_conn_attr(Attribute), Attribute, Attribute);
-      return SQL_ERROR;
+      break;
   }
+  conn_append_err_format(conn, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_conn_attr(Attribute), Attribute, Attribute);
+  return SQL_ERROR;
 }
 
 #if (ODBCVER >= 0x0300)           /* { */

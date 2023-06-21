@@ -1338,9 +1338,9 @@ SQLRETURN conn_set_attr(
       conn->win_handle = (HWND)ValuePtr;
       return SQL_SUCCESS;
 #endif             /* } */
-    // case SQL_ATTR_TXN_ISOLATION:
-    //   conn->txn_isolation = *(int32_t*)ValuePtr;
-    //   return SQL_SUCCESS;
+    case SQL_ATTR_TXN_ISOLATION:
+      conn->txn_isolation = *(int32_t*)ValuePtr;
+      return SQL_SUCCESS;
     case SQL_ATTR_AUTOCOMMIT:
       if ((SQLUINTEGER)(uintptr_t)ValuePtr == SQL_AUTOCOMMIT_ON) return SQL_SUCCESS;
       conn_append_err_format(conn, "01S02", 0,

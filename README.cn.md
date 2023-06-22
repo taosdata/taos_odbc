@@ -94,7 +94,7 @@
 | 属性 | 备注 |
 | :----- | :---- |
 | SQL_ATTR_AUTO_IPD | 只读属性 |
-| SQL_ATTR_CONNECTION_DEAD | |
+| SQL_ATTR_CONNECTION_DEAD | 只读属性 |
 | SQL_ATTR_ENLIST_IN_DTC | |
 | SQL_ATTR_PACKET_SIZE | |
 | SQL_ATTR_TRACE | |

@@ -94,7 +94,7 @@ English | [简体中文](README.cn.md)
 | Attribute | Note |
 | :----- | :---- |
 | SQL_ATTR_AUTO_IPD | Readonly attribute |
-| SQL_ATTR_CONNECTION_DEAD | |
+| SQL_ATTR_CONNECTION_DEAD | Readonly attribute |
 | SQL_ATTR_ENLIST_IN_DTC | |
 | SQL_ATTR_PACKET_SIZE | |
 | SQL_ATTR_TRACE | |

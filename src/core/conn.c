@@ -1409,6 +1409,34 @@ static SQLRETURN _conn_get_attr_current_qualifier(
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _conn_check_alive(conn_t *conn, SQLPOINTER Value)
+{
+  int r = 0;
+
+  *(SQLUINTEGER*)Value = SQL_CD_TRUE;
+
+  if (conn->dead) return SQL_SUCCESS;
+  if (conn->ds_conn.taos == NULL) return SQL_SUCCESS;
+
+  // FIXME: check [taosc] for better performance!!!
+  const char *sql = "select 1";
+  ds_res_t ds_res = {0};
+
+  r = ds_conn_query(&conn->ds_conn, sql, &ds_res);
+  if (r) {
+    conn->dead = 1;
+    int e = ds_res_errno(&ds_res);
+    const char *estr = ds_res_errstr(&ds_res);
+    OW("connection[%p] is dead because of query `%s` failure:[%d]%s", conn, sql, e, estr);
+  } else {
+    *(SQLUINTEGER*)Value = SQL_CD_FALSE;
+  }
+
+  ds_res_close(&ds_res);
+
+  return SQL_SUCCESS;
+}
+
 SQLRETURN conn_get_attr(
     conn_t       *conn,
     SQLINTEGER    Attribute,
@@ -1424,6 +1452,8 @@ SQLRETURN conn_get_attr(
   switch (Attribute) {
     case SQL_CURRENT_QUALIFIER: /* SQL_ATTR_CURRENT_CATALOG */
       return _conn_get_attr_current_qualifier(conn, Value, BufferLength, StringLengthPtr);
+    case SQL_ATTR_CONNECTION_DEAD:
+      return _conn_check_alive(conn, Value);
     default:
       conn_append_err_format(conn, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_conn_attr(Attribute), Attribute, Attribute);
       return SQL_ERROR;

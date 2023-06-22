@@ -542,6 +542,7 @@ struct conn_s {
   int32_t             txn_isolation;
 
   unsigned int        fmt_time:1;
+  unsigned int        dead:1;
 };
 
 struct stmt_get_data_args_s {

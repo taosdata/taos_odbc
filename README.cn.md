@@ -76,7 +76,7 @@
 
 - **暂未支持的statement属性 (SQLSetStmtAttr)**
 
-| Attribute | Note |
+| 属性 | 备注 |
 | :----- | :---- |
 | SQL_ATTR_CONCURRENCY | TDengine没有updatable-CURSOR机制 |
 | SQL_ATTR_FETCH_BOOKMARK_PTR | TDengine没有BOOKMARK机制 |
@@ -88,6 +88,19 @@
 | SQL_ATTR_ROW_NUMBER | 只读属性 |
 | SQL_ATTR_ROW_OPERATION_PTR | |
 | SQL_ATTR_SIMULATE_CURSOR | |
+
+- **暂未支持的connection属性 (SQLSetConnectAttr)**
+
+| 属性 | 备注 |
+| :----- | :---- |
+| SQL_ATTR_AUTO_IPD | 只读属性 |
+| SQL_ATTR_CONNECTION_DEAD | |
+| SQL_ATTR_ENLIST_IN_DTC | |
+| SQL_ATTR_PACKET_SIZE | |
+| SQL_ATTR_TRACE | |
+| SQL_ATTR_TRACEFILE | |
+| SQL_ATTR_TRANSLATE_LIB | |
+| SQL_ATTR_TRANSLATE_OPTION | |
 
 - **ODBC应用程序将可以利用该驱动实现对TDengine时序数据库的操作**
 - **相信，任何具有ODBC-绑定/插件的编程语言、框架，利用该驱动，也可实现对TDengine时序数据库的操作. 目前在测试用例中提供了如下程序语言及相关绑定的实现:**

@@ -89,6 +89,19 @@ English | [简体中文](README.cn.md)
 | SQL_ATTR_ROW_OPERATION_PTR | |
 | SQL_ATTR_SIMULATE_CURSOR | |
 
+- **non-supported-connection-attributes (SQLSetConnectAttr)**
+
+| Attribute | Note |
+| :----- | :---- |
+| SQL_ATTR_AUTO_IPD | Readonly attribute |
+| SQL_ATTR_CONNECTION_DEAD | |
+| SQL_ATTR_ENLIST_IN_DTC | |
+| SQL_ATTR_PACKET_SIZE | |
+| SQL_ATTR_TRACE | |
+| SQL_ATTR_TRACEFILE | |
+| SQL_ATTR_TRANSLATE_LIB | |
+| SQL_ATTR_TRANSLATE_OPTION | |
+
 - **enable ODBC-aware software to communicate with TDengine**
 - **enable any programming language with ODBC-bindings/ODBC-plugings to communicate with TDengine. programming languages listed as follows are demonstrated in test-cases:**
 

@@ -22,30 +22,24 @@
 # SOFTWARE.
 ###############################################################################
 
-add_executable(dump
-    $<TARGET_OBJECTS:common_obj>
-    $<TARGET_OBJECTS:os_port_obj>
-    $<TARGET_OBJECTS:odbc_helpers_obj>
-    dump.c)
-add_dependencies(dump ex_cjson)
+macro(add_sample name)
+  add_executable(${name}
+      $<TARGET_OBJECTS:common_obj>
+      $<TARGET_OBJECTS:os_port_obj>
+      $<TARGET_OBJECTS:odbc_helpers_obj>
+      ${name}.c)
+  add_dependencies(${name} ex_cjson)
 
-target_include_directories(dump PRIVATE ${CJSON_INSTALL_PATH}/include)
-target_link_directories(dump PRIVATE ${CJSON_INSTALL_PATH}/lib)
-if(NOT TODBC_WINDOWS)
-    target_link_libraries(dump odbc cjson pthread)
-else()
-    set_source_files_properties(dump.c PROPERTIES COMPILE_OPTIONS "/source-charset:utf-8")
-    target_link_libraries(dump odbc32 cjson)
-endif()
+  target_include_directories(${name} PRIVATE ${CJSON_INSTALL_PATH}/include)
+  target_link_directories(${name} PRIVATE ${CJSON_INSTALL_PATH}/lib)
+  if(NOT TODBC_WINDOWS)
+      target_link_libraries(${name} odbc cjson pthread)
+  else()
+      set_source_files_properties(${name}.c PROPERTIES COMPILE_OPTIONS "/source-charset:utf-8")
+      target_link_libraries(${name} odbc32 cjson)
+  endif()
+endmacro()
 
-add_executable(demo_topic
-    $<TARGET_OBJECTS:common_obj>
-    $<TARGET_OBJECTS:os_port_obj>
-    demo_topic.c)
-
-if(NOT TODBC_WINDOWS)
-    target_link_libraries(demo_topic odbc pthread)
-else()
-    target_link_libraries(demo_topic odbc32)
-endif()
-
+add_sample(dump)
+add_sample(demo_topic)
+add_sample(bind_col)

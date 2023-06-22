@@ -1072,6 +1072,18 @@ static int test_json_tag(handles_t *handles)
     "\"值1\"");
   if (r) return -1;
 
+  sql = "select v1 from foo.s1 where info contains 'k1'";
+  r = CHECK_WITH_VALUES(handles, 0, sql, 2, 1,
+    "1",
+    "2");
+  if (r) return -1;
+
+  sql = "select v1 from foo.s1 where info->'k1' match '值1'";
+  r = CHECK_WITH_VALUES(handles, 0, sql, 2, 1,
+    "1",
+    "2");
+  if (r) return -1;
+
   return 0;
 }
 

@@ -55,12 +55,12 @@ English | [简体中文](README.cn.md)
 | SQLNativeSql | ✗ | ✗ | ✗ | TDengine has no counterpart |
 | SQLNumParams | ✓ | ✓ | ✓ | TDengine has partially support, thus workaround in some cases |
 | SQLNumResultCols | ✓ | ✓ | ✓ | |
-| SQLParamData | ✗ | ✗ | ✗ | |
+| SQLParamData | ✗ | ✗ | ✗ | TDengine has no counterpart |
 | SQLPrepare | ✓ | ✓ | ✓ | TDengine has partially support, thus workaround in some cases |
 | SQLPrimaryKeys | ✓ | ✓ | ✓ | |
 | SQLProcedureColumns | ✗ | ✗ | ✗ | TDengine has no counterpart |
 | SQLProcedures | ✗ | ✗ | ✗ | TDengine has no counterpart |
-| SQLPutData | ✗ | ✗ | ✗ | |
+| SQLPutData | ✗ | ✗ | ✗ | TDengine has no counterpart |
 | SQLRowCount | ✓ | ✓ | ✓ | |
 | SQLSetConnectAttr | ✓ | ✓ | ✓ | partially and on-going |
 | SQLSetCursorName | ✗ | ✗ | ✗ | TDengine has no counterpart |

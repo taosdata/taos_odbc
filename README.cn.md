@@ -55,12 +55,12 @@
 | SQLNativeSql | ✗ | ✗ | ✗ | TDengine没有对应实现 |
 | SQLNumParams | ✓ | ✓ | ✓ | TDengine只是部分实现, 因此某些场合下只实现了一种变通 |
 | SQLNumResultCols | ✓ | ✓ | ✓ | |
-| SQLParamData | ✗ | ✗ | ✗ | |
+| SQLParamData | ✗ | ✗ | ✗ | TDengine没有对应实现 |
 | SQLPrepare | ✓ | ✓ | ✓ | TDengine只是部分实现, 因此某些场合下只实现了一种变通 |
 | SQLPrimaryKeys | ✓ | ✓ | ✓ | |
 | SQLProcedureColumns | ✗ | ✗ | ✗ | TDengine没有对应实现 |
 | SQLProcedures | ✗ | ✗ | ✗ | TDengine没有对应实现 |
-| SQLPutData | ✗ | ✗ | ✗ | |
+| SQLPutData | ✗ | ✗ | ✗ | TDengine没有对应实现 |
 | SQLRowCount | ✓ | ✓ | ✓ | |
 | SQLSetConnectAttr | ✓ | ✓ | ✓ | 部分实现, 并持续更新中 |
 | SQLSetCursorName | ✗ | ✗ | ✗ | TDengine没有对应实现 |

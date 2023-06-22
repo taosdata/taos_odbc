@@ -43,6 +43,7 @@ int main (int argc, char *argv[])
   SQLHDBC   hdbc  = SQL_NULL_HDBC;
   SQLHSTMT  hstmt = SQL_NULL_HSTMT;
 
+  // create table foo.t (ts timestamp, name varchar(20), age int)
   const char *dsn = "TAOS_ODBC_DSN";
   const char *sql = "insert into foo.t (ts, name, age) values (?, ?, ?)";
 

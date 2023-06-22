@@ -41,12 +41,14 @@ int main (int argc, char *argv[])
   SQLHSTMT  hstmt = SQL_NULL_HSTMT;
   SQLRETURN sr;
 
-  SQLCHAR name[1024]; name[0] = '\0';
+  char ts[1024]; ts[0] = '\0';
+  char name[1024]; name[0] = '\0';
   int age = 0;
-  SQLLEN len_name = 0, len_age = 0;
+  SQLLEN len_ts = 0, len_name = 0, len_age = 0;
 
+  // create table foo.t (ts timestamp, name varchar(20), age int)
   const char *dsn = "TAOS_ODBC_DSN";
-  const char *sql = "select name, age from foo.t";
+  const char *sql = "select ts, name, age from foo.t";
 
   sr = CALL_SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &henv);
   sr = CALL_SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER*)SQL_OV_ODBC3, 0);
@@ -55,14 +57,15 @@ int main (int argc, char *argv[])
   sr = CALL_SQLConnect(hdbc, (SQLCHAR*)dsn, SQL_NTS, (SQLCHAR*) NULL, 0, NULL, 0);
   sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt);
   sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
-  sr = CALL_SQLBindCol(hstmt, 1, SQL_C_CHAR,   &name, sizeof(name), &len_name);
-  sr = CALL_SQLBindCol(hstmt, 2, SQL_C_SLONG,  &age,  sizeof(age),  &len_age);
+  sr = CALL_SQLBindCol(hstmt, 1, SQL_C_CHAR,   &ts,   sizeof(ts),   &len_ts);
+  sr = CALL_SQLBindCol(hstmt, 2, SQL_C_CHAR,   &name, sizeof(name), &len_name);
+  sr = CALL_SQLBindCol(hstmt, 3, SQL_C_SLONG,  &age,  sizeof(age),  &len_age);
 
   for (int i=0; ; i++) {
     sr = CALL_SQLFetch(hstmt);
     if (sr == SQL_NO_DATA) break;
     if (sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO) {
-      DUMP("row[%d]: name[%s], age[%d]", i+1, name, age);
+      DUMP("row[%d]: ts[%s], name[%s], age[%d]", i+1, ts, name, age);
       continue;
     }
     break;

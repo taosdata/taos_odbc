@@ -12,21 +12,21 @@ English | [简体中文](README.cn.md)
 
 | ODBC/Setup API | linux (ubuntu 22.04) | macosx (ventura 13.2.1) | windows 11 | note |
 | :----- | :---- | :---- | :---- | :---- |
-| ConfigDSN | ❎ | ❎ | ✅ | |
-| ConfigDriver | ❎ | ❎✅❎ | ✅ | |
-| ConfigTranslator | ❎ | ❎ | ✅ | |
+| ConfigDSN | ❌ | ❌ | ✅ | |
+| ConfigDriver | ❌ | ❌✅❌ | ✅ | |
+| ConfigTranslator | ❌ | ❌ | ✅ | |
 | SQLAllocHandle | ✅ | ✅ | ✅ | |
 | SQLBindCol  | ✅ | ✅ | ✅ | Column-Wise Binding only |
 | SQLBindParameter | ✅ | ✅ | ✅ | Column-Wise Binding only |
-| SQLBrowseConnect | ❎ | ❎ | ❎ | |
-| SQLBulkOperations | ❎ | ❎ | ❎ | TDengine has no counterpart |
+| SQLBrowseConnect | ❌ | ❌ | ❌ | |
+| SQLBulkOperations | ❌ | ❌ | ❌ | TDengine has no counterpart |
 | SQLCloseCursor | ✅ | ✅ | ✅ | |
 | SQLColAttribute | ✅ | ✅ | ✅ | |
-| SQLColumnPrivileges | ❎ | ❎ | ❎ | TDengine seems have no strict counterpart |
+| SQLColumnPrivileges | ❌ | ❌ | ❌ | TDengine seems have no strict counterpart |
 | SQLColumns | ✅ | ✅ | ✅ | |
-| SQLCompleteAsync | ❎ | ❎ | ❎ | |
+| SQLCompleteAsync | ❌ | ❌ | ❌ | |
 | SQLConnect | ✅ | ✅ | ✅ | |
-| SQLCopyDesc | ❎ | ❎ | ❎ | |
+| SQLCopyDesc | ❌ | ❌ | ❌ | |
 | SQLDescribeCol | ✅ | ✅ | ✅ | |
 | SQLDescribeParam | ✅ | ✅ | ✅ | partially and on-going |
 | SQLDisconnect | ✅ | ✅ | ✅ | |
@@ -34,17 +34,17 @@ English | [简体中文](README.cn.md)
 | SQLEndTran | ✅ | ✅ | ✅ | TDengine is non-transactional, thus this is at most simulating |
 | SQLExecDirect | ✅ | ✅ | ✅ | |
 | SQLExecute | ✅ | ✅ | ✅ | |
-| SQLExtendedFetch | ❎ | ❎ | ❎ | |
+| SQLExtendedFetch | ❌ | ❌ | ❌ | |
 | SQLFetch | ✅ | ✅ | ✅ | |
 | SQLFetchScroll | ✅ | ✅ | ✅ | TDengine has no counterpart, just implement SQL_FETCH_NEXT |
-| SQLForeignKeys | ❎ | ❎ | ❎ | TDengine has no counterpart |
+| SQLForeignKeys | ❌ | ❌ | ❌ | TDengine has no counterpart |
 | SQLFreeHandle | ✅ | ✅ | ✅ | |
 | SQLFreeStmt | ✅ | ✅ | ✅ | |
 | SQLGetConnectAttr | ✅ | ✅ | ✅ | partially and on-going |
-| SQLGetCursorName | ❎ | ❎ | ❎ | TDengine has no counterpart |
+| SQLGetCursorName | ❌ | ❌ | ❌ | TDengine has no counterpart |
 | SQLGetData | ✅ | ✅ | ✅ | |
-| SQLGetDescField | ❎ | ❎ | ❎ | |
-| SQLGetDescRec | ❎ | ❎ | ❎ | |
+| SQLGetDescField | ❌ | ❌ | ❌ | |
+| SQLGetDescRec | ❌ | ❌ | ❌ | |
 | SQLGetDiagField | ✅ | ✅ | ✅ | |
 | SQLGetDiagRec | ✅ | ✅ | ✅ | |
 | SQLGetEnvAttr | ✅ | ✅ | ✅ | partially and on-going |
@@ -52,26 +52,26 @@ English | [简体中文](README.cn.md)
 | SQLGetStmtAttr | ✅ | ✅ | ✅ | partially and on-going |
 | SQLGetTypeInfo | ✅ | ✅ | ✅ | |
 | SQLMoreResults | ✅ | ✅ | ✅ | |
-| SQLNativeSql | ❎ | ❎ | ❎ | TDengine has no counterpart |
+| SQLNativeSql | ❌ | ❌ | ❌ | TDengine has no counterpart |
 | SQLNumParams | ✅ | ✅ | ✅ | TDengine has partially support, thus workaround in some cases |
 | SQLNumResultCols | ✅ | ✅ | ✅ | |
-| SQLParamData | ❎ | ❎ | ❎ | TDengine has no counterpart |
+| SQLParamData | ❌ | ❌ | ❌ | TDengine has no counterpart |
 | SQLPrepare | ✅ | ✅ | ✅ | TDengine has partially support, thus workaround in some cases |
 | SQLPrimaryKeys | ✅ | ✅ | ✅ | |
-| SQLProcedureColumns | ❎ | ❎ | ❎ | TDengine has no counterpart |
-| SQLProcedures | ❎ | ❎ | ❎ | TDengine has no counterpart |
-| SQLPutData | ❎ | ❎ | ❎ | TDengine has no counterpart |
+| SQLProcedureColumns | ❌ | ❌ | ❌ | TDengine has no counterpart |
+| SQLProcedures | ❌ | ❌ | ❌ | TDengine has no counterpart |
+| SQLPutData | ❌ | ❌ | ❌ | TDengine has no counterpart |
 | SQLRowCount | ✅ | ✅ | ✅ | |
 | SQLSetConnectAttr | ✅ | ✅ | ✅ | partially and on-going |
-| SQLSetCursorName | ❎ | ❎ | ❎ | TDengine has no counterpart |
-| SQLSetDescField | ❎ | ❎ | ❎ | |
-| SQLSetDescRec | ❎ | ❎ | ❎ | |
+| SQLSetCursorName | ❌ | ❌ | ❌ | TDengine has no counterpart |
+| SQLSetDescField | ❌ | ❌ | ❌ | |
+| SQLSetDescRec | ❌ | ❌ | ❌ | |
 | SQLSetEnvAttr | ✅ | ✅ | ✅ | partially and on-going |
-| SQLSetPos | ❎ | ❎ | ❎ | TDengine has no counterpart |
+| SQLSetPos | ❌ | ❌ | ❌ | TDengine has no counterpart |
 | SQLSetStmtAttr | ✅ | ✅ | ✅ | partially and on-going |
-| SQLSpecialColumns | ❎ | ❎ | ❎ | TDengine has no counterpart |
-| SQLStatistics | ❎ | ❎ | ❎ | TDengine has no counterpart |
-| SQLTablePrivileges | ❎ | ❎ | ❎ | TDengine has no strict counterpart |
+| SQLSpecialColumns | ❌ | ❌ | ❌ | TDengine has no counterpart |
+| SQLStatistics | ❌ | ❌ | ❌ | TDengine has no counterpart |
+| SQLTablePrivileges | ❌ | ❌ | ❌ | TDengine has no strict counterpart |
 | SQLTables | ✅ | ✅ | ✅ | |
 
 - **non-supported-statement-attributes (SQLSetStmtAttr)**

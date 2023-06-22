@@ -12,21 +12,21 @@
 
 | ODBC/Setup API | linux (ubuntu 22.04) | macosx (ventura 13.2.1) | windows 11 | note |
 | :----- | :---- | :---- | :---- | :---- |
-| ConfigDSN | ❎ | ❎ | ✅ | |
-| ConfigDriver | ❎ | ❎ | ✅ | |
-| ConfigTranslator | ❎ | ❎ | ✅ | |
+| ConfigDSN | ❌ | ❌ | ✅ | |
+| ConfigDriver | ❌ | ❌ | ✅ | |
+| ConfigTranslator | ❌ | ❌ | ✅ | |
 | SQLAllocHandle | ✅ | ✅ | ✅ | |
 | SQLBindCol  | ✅ | ✅ | ✅ | 只支持按列绑定模式 |
 | SQLBindParameter | ✅ | ✅ | ✅ | 只支持按列绑定模式 |
-| SQLBrowseConnect | ❎ | ❎ | ❎ | |
-| SQLBulkOperations | ❎ | ❎ | ❎ | TDengine没有对应实现 |
+| SQLBrowseConnect | ❌ | ❌ | ❌ | |
+| SQLBulkOperations | ❌ | ❌ | ❌ | TDengine没有对应实现 |
 | SQLCloseCursor | ✅ | ✅ | ✅ | |
 | SQLColAttribute | ✅ | ✅ | ✅ | |
-| SQLColumnPrivileges | ❎ | ❎ | ❎ | TDengine没有严格的对应实现 |
+| SQLColumnPrivileges | ❌ | ❌ | ❌ | TDengine没有严格的对应实现 |
 | SQLColumns | ✅ | ✅ | ✅ | |
-| SQLCompleteAsync | ❎ | ❎ | ❎ | |
+| SQLCompleteAsync | ❌ | ❌ | ❌ | |
 | SQLConnect | ✅ | ✅ | ✅ | |
-| SQLCopyDesc | ❎ | ❎ | ❎ | |
+| SQLCopyDesc | ❌ | ❌ | ❌ | |
 | SQLDescribeCol | ✅ | ✅ | ✅ | |
 | SQLDescribeParam | ✅ | ✅ | ✅ | 部分实现, 并持续更新中 |
 | SQLDisconnect | ✅ | ✅ | ✅ | |
@@ -34,17 +34,17 @@
 | SQLEndTran | ✅ | ✅ | ✅ | TDengine不支持事务, 因此最多只是模拟 |
 | SQLExecDirect | ✅ | ✅ | ✅ | |
 | SQLExecute | ✅ | ✅ | ✅ | |
-| SQLExtendedFetch | ❎ | ❎ | ❎ | |
+| SQLExtendedFetch | ❌ | ❌ | ❌ | |
 | SQLFetch | ✅ | ✅ | ✅ | |
 | SQLFetchScroll | ✅ | ✅ | ✅ | TDengine没有对应实现, 只支持SQL_FETCH_NEXT |
-| SQLForeignKeys | ❎ | ❎ | ❎ | TDengine没有对应实现 |
+| SQLForeignKeys | ❌ | ❌ | ❌ | TDengine没有对应实现 |
 | SQLFreeHandle | ✅ | ✅ | ✅ | |
 | SQLFreeStmt | ✅ | ✅ | ✅ | |
 | SQLGetConnectAttr | ✅ | ✅ | ✅ | 部分实现, 并持续更新中 |
-| SQLGetCursorName | ❎ | ❎ | ❎ | TDengine没有对应实现 |
+| SQLGetCursorName | ❌ | ❌ | ❌ | TDengine没有对应实现 |
 | SQLGetData | ✅ | ✅ | ✅ | |
-| SQLGetDescField | ❎ | ❎ | ❎ | |
-| SQLGetDescRec | ❎ | ❎ | ❎ | |
+| SQLGetDescField | ❌ | ❌ | ❌ | |
+| SQLGetDescRec | ❌ | ❌ | ❌ | |
 | SQLGetDiagField | ✅ | ✅ | ✅ | |
 | SQLGetDiagRec | ✅ | ✅ | ✅ | |
 | SQLGetEnvAttr | ✅ | ✅ | ✅ | 部分实现, 并持续更新中 |
@@ -52,26 +52,26 @@
 | SQLGetStmtAttr | ✅ | ✅ | ✅ | 部分实现, 并持续更新中 |
 | SQLGetTypeInfo | ✅ | ✅ | ✅ | |
 | SQLMoreResults | ✅ | ✅ | ✅ | |
-| SQLNativeSql | ❎ | ❎ | ❎ | TDengine没有对应实现 |
+| SQLNativeSql | ❌ | ❌ | ❌ | TDengine没有对应实现 |
 | SQLNumParams | ✅ | ✅ | ✅ | TDengine只是部分实现, 因此某些场合下只实现了一种变通 |
 | SQLNumResultCols | ✅ | ✅ | ✅ | |
-| SQLParamData | ❎ | ❎ | ❎ | TDengine没有对应实现 |
+| SQLParamData | ❌ | ❌ | ❌ | TDengine没有对应实现 |
 | SQLPrepare | ✅ | ✅ | ✅ | TDengine只是部分实现, 因此某些场合下只实现了一种变通 |
 | SQLPrimaryKeys | ✅ | ✅ | ✅ | |
-| SQLProcedureColumns | ❎ | ❎ | ❎ | TDengine没有对应实现 |
-| SQLProcedures | ❎ | ❎ | ❎ | TDengine没有对应实现 |
-| SQLPutData | ❎ | ❎ | ❎ | TDengine没有对应实现 |
+| SQLProcedureColumns | ❌ | ❌ | ❌ | TDengine没有对应实现 |
+| SQLProcedures | ❌ | ❌ | ❌ | TDengine没有对应实现 |
+| SQLPutData | ❌ | ❌ | ❌ | TDengine没有对应实现 |
 | SQLRowCount | ✅ | ✅ | ✅ | |
 | SQLSetConnectAttr | ✅ | ✅ | ✅ | 部分实现, 并持续更新中 |
-| SQLSetCursorName | ❎ | ❎ | ❎ | TDengine没有对应实现 |
-| SQLSetDescField | ❎ | ❎ | ❎ | |
-| SQLSetDescRec | ❎ | ❎ | ❎ | |
+| SQLSetCursorName | ❌ | ❌ | ❌ | TDengine没有对应实现 |
+| SQLSetDescField | ❌ | ❌ | ❌ | |
+| SQLSetDescRec | ❌ | ❌ | ❌ | |
 | SQLSetEnvAttr | ✅ | ✅ | ✅ | 部分实现, 并持续更新中 |
-| SQLSetPos | ❎ | ❎ | ❎ | TDengine没有对应实现 |
+| SQLSetPos | ❌ | ❌ | ❌ | TDengine没有对应实现 |
 | SQLSetStmtAttr | ✅ | ✅ | ✅ | 部分实现, 并持续更新中 |
-| SQLSpecialColumns | ❎ | ❎ | ❎ | TDengine没有对应实现 |
-| SQLStatistics | ❎ | ❎ | ❎ | TDengine没有对应实现 |
-| SQLTablePrivileges | ❎ | ❎ | ❎ | TDengine没有严格的对应实现 |
+| SQLSpecialColumns | ❌ | ❌ | ❌ | TDengine没有对应实现 |
+| SQLStatistics | ❌ | ❌ | ❌ | TDengine没有对应实现 |
+| SQLTablePrivileges | ❌ | ❌ | ❌ | TDengine没有严格的对应实现 |
 | SQLTables | ✅ | ✅ | ✅ | |
 
 - **暂未支持的statement属性 (SQLSetStmtAttr)**

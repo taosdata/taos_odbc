@@ -528,7 +528,7 @@ static SQLRETURN _do_conn_connect(conn_t *conn)
     }
     if (conn->cfg.db && db == NULL) {
       // FIXME: vulnerability!!!
-      int e = taos_select_db(conn->ds_conn.taos, conn->cfg.db);
+      int e = CALL_taos_select_db(conn->ds_conn.taos, conn->cfg.db);
       if (e) {
         const char *estr = taos_errstr(NULL);
         conn_append_err_format(conn, "HY000", e, "General error:[taosc]%s, selecting db:%s", estr, cfg->db);
@@ -1301,6 +1301,8 @@ SQLRETURN conn_set_attr(
     SQLPOINTER    ValuePtr,
     SQLINTEGER    StringLength)
 {
+  int r = 0;
+
   if (conn->cfg.url) {
     conn_append_err(conn, "HY000", 0, "General error:websocket backend not implemented yet");
     return SQL_ERROR;
@@ -1321,30 +1323,27 @@ SQLRETURN conn_set_attr(
           "Option value changed:`%u` for `SQL_ATTR_ASYNC_ENABLE` is substituted by `SQL_ASYNC_ENABLE_OFF`",
           (SQLUINTEGER)(uintptr_t)ValuePtr);
       return SQL_SUCCESS_WITH_INFO;
+    case SQL_ATTR_AUTOCOMMIT:
+      if ((SQLUINTEGER)(uintptr_t)ValuePtr == SQL_AUTOCOMMIT_ON) return SQL_SUCCESS;
+      conn_append_err_format(conn, "01S02", 0,
+          "Option value changed:`%u` for `SQL_ATTR_AUTOCOMMIT` is substituted by `SQL_AUTOCOMMIT_ON`",
+          (SQLUINTEGER)(uintptr_t)ValuePtr);
+      return SQL_SUCCESS_WITH_INFO;
     case SQL_ATTR_CONNECTION_TIMEOUT:
       if (0 == (SQLUINTEGER)(uintptr_t)ValuePtr) return SQL_SUCCESS;
       conn_append_err_format(conn, "01S02", 0,
           "Option value changed:`%u` for `SQL_ATTR_CONNECTION_TIMEOUT` is substituted by `0`",
           (SQLUINTEGER)(uintptr_t)ValuePtr);
       return SQL_SUCCESS_WITH_INFO;
+    case SQL_ATTR_CURRENT_CATALOG:
+      r = CALL_taos_select_db(conn->ds_conn.taos, (const char*)ValuePtr);
+      if (r == 0) return SQL_SUCCESS;
+      conn_append_err_format(conn, "HY000", r, "General error:[taosc]%s, failed to select db:%s", taos_errstr(NULL), (const char*)ValuePtr);
+      return SQL_ERROR;
     case SQL_ATTR_LOGIN_TIMEOUT:
       if (0 == (SQLUINTEGER)(uintptr_t)ValuePtr) return SQL_SUCCESS;
       conn_append_err_format(conn, "01S02", 0,
           "Option value changed:`%u` for `SQL_ATTR_LOGIN_TIMEOUT` is substituted by `0`",
-          (SQLUINTEGER)(uintptr_t)ValuePtr);
-      return SQL_SUCCESS_WITH_INFO;
-#ifdef _WIN32      /* { */
-    case SQL_ATTR_QUIET_MODE:
-      conn->win_handle = (HWND)ValuePtr;
-      return SQL_SUCCESS;
-#endif             /* } */
-    case SQL_ATTR_TXN_ISOLATION:
-      conn->txn_isolation = *(int32_t*)ValuePtr;
-      return SQL_SUCCESS;
-    case SQL_ATTR_AUTOCOMMIT:
-      if ((SQLUINTEGER)(uintptr_t)ValuePtr == SQL_AUTOCOMMIT_ON) return SQL_SUCCESS;
-      conn_append_err_format(conn, "01S02", 0,
-          "Option value changed:`%u` for `SQL_ATTR_AUTOCOMMIT` is substituted by `SQL_AUTOCOMMIT_ON`",
           (SQLUINTEGER)(uintptr_t)ValuePtr);
       return SQL_SUCCESS_WITH_INFO;
     case SQL_ATTR_METADATA_ID:
@@ -1355,11 +1354,24 @@ SQLRETURN conn_set_attr(
       // FIXME:
       if ((SQLULEN)(uintptr_t)ValuePtr == SQL_CUR_USE_DRIVER) return SQL_SUCCESS;
       break;
-    case SQL_ATTR_CURRENT_CATALOG:
-      break;
-    case SQL_ATTR_ANSI_APP:
-      OA_NIY(0);
-      break;
+#ifdef _WIN32      /* { */
+    case SQL_ATTR_QUIET_MODE:
+      conn->win_handle = (HWND)ValuePtr;
+      return SQL_SUCCESS;
+#endif             /* } */
+    case SQL_ATTR_TXN_ISOLATION:
+      conn->txn_isolation = *(int32_t*)ValuePtr;
+      return SQL_SUCCESS;
+
+    case SQL_ATTR_AUTO_IPD:
+    case SQL_ATTR_CONNECTION_DEAD:
+    case SQL_ATTR_ENLIST_IN_DTC:
+    case SQL_ATTR_PACKET_SIZE:
+    case SQL_ATTR_TRACE:
+    case SQL_ATTR_TRACEFILE:
+    case SQL_ATTR_TRANSLATE_LIB:
+    case SQL_ATTR_TRANSLATE_OPTION:
+      // fall-through
     default:
       break;
   }

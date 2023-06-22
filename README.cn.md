@@ -21,7 +21,7 @@
 | SQLBrowseConnect | ✗ | ✗ | ✗ | |
 | SQLBulkOperations | ✗ | ✗ | ✗ | TDengine没有对应实现 |
 | SQLCloseCursor | ✓ | ✓ | ✓ | |
-| SQLColAttribute | ✓ | ✓ | ✓ | 部分实现, 并持续更新中 |
+| SQLColAttribute | ✓ | ✓ | ✓ | |
 | SQLColumnPrivileges | ✗ | ✗ | ✗ | TDengine没有严格的对应实现 |
 | SQLColumns | ✓ | ✓ | ✓ | |
 | SQLCompleteAsync | ✗ | ✗ | ✗ | |

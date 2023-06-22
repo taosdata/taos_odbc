@@ -21,7 +21,7 @@ English | [简体中文](README.cn.md)
 | SQLBrowseConnect | ✗ | ✗ | ✗ | |
 | SQLBulkOperations | ✗ | ✗ | ✗ | TDengine has no counterpart |
 | SQLCloseCursor | ✓ | ✓ | ✓ | |
-| SQLColAttribute | ✓ | ✓ | ✓ | partially and on-going |
+| SQLColAttribute | ✓ | ✓ | ✓ | |
 | SQLColumnPrivileges | ✗ | ✗ | ✗ | TDengine seems have no strict counterpart |
 | SQLColumns | ✓ | ✓ | ✓ | |
 | SQLCompleteAsync | ✗ | ✗ | ✗ | |

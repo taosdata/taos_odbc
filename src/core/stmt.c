@@ -7330,19 +7330,53 @@ SQLRETURN stmt_col_attribute(
 
   // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
   switch(FieldIdentifier) {
-    case SQL_DESC_TYPE:
-      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_TYPE;
+    case SQL_DESC_AUTO_UNIQUE_VALUE:
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_AUTO_UNIQUE_VALUE;
       return SQL_SUCCESS;
+    case SQL_DESC_BASE_COLUMN_NAME:
+    case SQL_DESC_BASE_TABLE_NAME:
+      if (_stmt_col_set_empty_string(stmt, CharacterAttributePtr, BufferLength, StringLengthPtr) != SQL_SUCCESS) break;
+      return SQL_SUCCESS;
+    case SQL_DESC_CASE_SENSITIVE:
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_CASE_SENSITIVE;
+      return SQL_SUCCESS;
+    case SQL_DESC_CATALOG_NAME:
+      return _stmt_col_copy_string(stmt, IRD_record->DESC_CATALOG_NAME, sizeof(IRD_record->DESC_CATALOG_NAME), CharacterAttributePtr, BufferLength, StringLengthPtr);
     case SQL_DESC_CONCISE_TYPE:
       if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_CONCISE_TYPE;
+      return SQL_SUCCESS;
+    case SQL_DESC_COUNT:
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_COUNT;
+      return SQL_SUCCESS;
+    case SQL_DESC_DISPLAY_SIZE:
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_DISPLAY_SIZE;
+      return SQL_SUCCESS;
+    case SQL_DESC_FIXED_PREC_SCALE:
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_FIXED_PREC_SCALE;
+      return SQL_SUCCESS;
+    case SQL_DESC_LABEL: // FIXME: share the same result?
+      return _stmt_col_copy_string(stmt, IRD_record->DESC_LABEL, sizeof(IRD_record->DESC_LABEL), CharacterAttributePtr, BufferLength, StringLengthPtr);
+    case SQL_DESC_LENGTH:
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_LENGTH;
+      return SQL_SUCCESS;
+    case SQL_DESC_LITERAL_PREFIX:
+      return _stmt_col_copy_string(stmt, IRD_record->DESC_LITERAL_PREFIX, sizeof(IRD_record->DESC_LITERAL_PREFIX), CharacterAttributePtr, BufferLength, StringLengthPtr);
+    case SQL_DESC_LITERAL_SUFFIX:
+      return _stmt_col_copy_string(stmt, IRD_record->DESC_LITERAL_SUFFIX, sizeof(IRD_record->DESC_LITERAL_SUFFIX), CharacterAttributePtr, BufferLength, StringLengthPtr);
+    case SQL_DESC_LOCAL_TYPE_NAME: // FIXME: share the same result?
+      return _stmt_col_copy_string(stmt, IRD_record->DESC_LOCAL_TYPE_NAME, sizeof(IRD_record->DESC_LOCAL_TYPE_NAME), CharacterAttributePtr, BufferLength, StringLengthPtr);
+    case SQL_DESC_NAME:
+      return _stmt_col_copy_string(stmt, IRD_record->DESC_NAME, sizeof(IRD_record->DESC_NAME), CharacterAttributePtr, BufferLength, StringLengthPtr);
+    case SQL_DESC_NULLABLE:
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_NULLABLE;
+      return SQL_SUCCESS;
+    case SQL_DESC_NUM_PREC_RADIX:
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_NUM_PREC_RADIX;
       return SQL_SUCCESS;
     case SQL_DESC_OCTET_LENGTH:
       if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_OCTET_LENGTH;
       return SQL_SUCCESS;
     // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolattribute-function?view=sql-server-ver16#backward-compatibility
-    case SQL_DESC_LENGTH:
-      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_LENGTH;
-      return SQL_SUCCESS;
     case SQL_DESC_PRECISION:
     case SQL_COLUMN_PRECISION:
       if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_PRECISION;
@@ -7352,62 +7386,28 @@ SQLRETURN stmt_col_attribute(
     case SQL_COLUMN_SCALE:
       if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_SCALE;
       return SQL_SUCCESS;
-    case SQL_DESC_AUTO_UNIQUE_VALUE:
-      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_AUTO_UNIQUE_VALUE;
-      return SQL_SUCCESS;
-    case SQL_DESC_UPDATABLE:
-      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_UPDATABLE;
-      return SQL_SUCCESS;
-    case SQL_DESC_NULLABLE:
-      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_NULLABLE;
-      return SQL_SUCCESS;
-    case SQL_DESC_CASE_SENSITIVE:
-      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_CASE_SENSITIVE;
-      return SQL_SUCCESS;
-    case SQL_DESC_FIXED_PREC_SCALE:
-      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_FIXED_PREC_SCALE;
-      return SQL_SUCCESS;
-    case SQL_DESC_COUNT:
-      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_COUNT;
-      return SQL_SUCCESS;
-    case SQL_DESC_UNNAMED:
-      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_UNNAMED;
-      return SQL_SUCCESS;
-    case SQL_DESC_DISPLAY_SIZE:
-      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_DISPLAY_SIZE;
-      return SQL_SUCCESS;
+    case SQL_DESC_SCHEMA_NAME:
+      return _stmt_col_copy_string(stmt, IRD_record->DESC_SCHEMA_NAME, sizeof(IRD_record->DESC_SCHEMA_NAME), CharacterAttributePtr, BufferLength, StringLengthPtr);
     case SQL_DESC_SEARCHABLE:
       if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_SEARCHABLE;
       return SQL_SUCCESS;
-    case SQL_DESC_NAME:
-      return _stmt_col_copy_string(stmt, IRD_record->DESC_NAME, sizeof(IRD_record->DESC_NAME), CharacterAttributePtr, BufferLength, StringLengthPtr);
-    case SQL_DESC_LABEL: // FIXME: share the same result?
-      return _stmt_col_copy_string(stmt, IRD_record->DESC_LABEL, sizeof(IRD_record->DESC_LABEL), CharacterAttributePtr, BufferLength, StringLengthPtr);
+    case SQL_DESC_TABLE_NAME:
+      return _stmt_col_copy_string(stmt, IRD_record->DESC_TABLE_NAME, sizeof(IRD_record->DESC_TABLE_NAME), CharacterAttributePtr, BufferLength, StringLengthPtr);
+    case SQL_DESC_TYPE:
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_TYPE;
       return SQL_SUCCESS;
     case SQL_DESC_TYPE_NAME:
       return _stmt_col_copy_string(stmt, IRD_record->DESC_TYPE_NAME, sizeof(IRD_record->DESC_TYPE_NAME), CharacterAttributePtr, BufferLength, StringLengthPtr);
-    case SQL_DESC_LOCAL_TYPE_NAME: // FIXME: share the same result?
-      return _stmt_col_copy_string(stmt, IRD_record->DESC_LOCAL_TYPE_NAME, sizeof(IRD_record->DESC_LOCAL_TYPE_NAME), CharacterAttributePtr, BufferLength, StringLengthPtr);
-    case SQL_DESC_NUM_PREC_RADIX:
-      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_NUM_PREC_RADIX;
+    case SQL_DESC_UNNAMED:
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_UNNAMED;
       return SQL_SUCCESS;
     case SQL_DESC_UNSIGNED:
       if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_UNSIGNED;
       return SQL_SUCCESS;
-    case SQL_DESC_CATALOG_NAME:
-      return _stmt_col_copy_string(stmt, IRD_record->DESC_CATALOG_NAME, sizeof(IRD_record->DESC_CATALOG_NAME), CharacterAttributePtr, BufferLength, StringLengthPtr);
-    case SQL_DESC_SCHEMA_NAME:
-      return _stmt_col_copy_string(stmt, IRD_record->DESC_SCHEMA_NAME, sizeof(IRD_record->DESC_SCHEMA_NAME), CharacterAttributePtr, BufferLength, StringLengthPtr);
-    case SQL_DESC_TABLE_NAME:
-      return _stmt_col_copy_string(stmt, IRD_record->DESC_TABLE_NAME, sizeof(IRD_record->DESC_TABLE_NAME), CharacterAttributePtr, BufferLength, StringLengthPtr);
-    case SQL_DESC_BASE_COLUMN_NAME:
-    case SQL_DESC_BASE_TABLE_NAME:
-      if (_stmt_col_set_empty_string(stmt, CharacterAttributePtr, BufferLength, StringLengthPtr) != SQL_SUCCESS) break;
+    case SQL_DESC_UPDATABLE:
+      if (NumericAttributePtr) *NumericAttributePtr = IRD_record->DESC_UPDATABLE;
       return SQL_SUCCESS;
-    case SQL_DESC_LITERAL_PREFIX:
-      return _stmt_col_copy_string(stmt, IRD_record->DESC_LITERAL_PREFIX, sizeof(IRD_record->DESC_LITERAL_PREFIX), CharacterAttributePtr, BufferLength, StringLengthPtr);
-    case SQL_DESC_LITERAL_SUFFIX:
-      return _stmt_col_copy_string(stmt, IRD_record->DESC_LITERAL_SUFFIX, sizeof(IRD_record->DESC_LITERAL_SUFFIX), CharacterAttributePtr, BufferLength, StringLengthPtr);
+
     default:
       stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[%d/0x%x]` not supported yet", sql_col_attribute(FieldIdentifier), FieldIdentifier, FieldIdentifier);
       return SQL_ERROR;

@@ -98,9 +98,5 @@ set_target_properties(taos_odbc PROPERTIES
     VERSION 0.1)
 install(TARGETS taos_odbc)
 
-if (TODBC_LINUX)
-  add_subdirectory(udf)
-endif ()
-
 add_subdirectory(tests)
 

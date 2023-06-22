@@ -179,6 +179,26 @@ static const type_info_rec_t _records[] = {
     /* NUM_PREC_RADIX        */      NULL_FIELD,
     /* INTERVAL_PRECISION    */      NULL_FIELD,
   },{
+    /* TYPE_NAME             */      "JSON",
+    /* DATA_TYPE             */      SQL_WVARCHAR,
+    /* COLUMN_SIZE           */      16384,            // NOTE: hard-coded
+    /* LITERAL_PREFIX        */      "'",
+    /* LITERAL_SUFFIX        */      "'",
+    /* CREATE_PARAMS         */      "max length",     // NOTE: what does `max` means?
+    /* NULLABLE              */      SQL_NULLABLE,
+    /* CASE_SENSITIVE        */      SQL_FALSE,
+    /* SEARCHABLE            */      SQL_SEARCHABLE,
+    /* UNSIGNED_ATTRIBUTE    */      NULL_FIELD,
+    /* FIXED_PREC_SCALE      */      SQL_FALSE,
+    /* AUTO_UNIQUE_VALUE     */      NULL_FIELD,
+    /* LOCAL_TYPE_NAME       */      "JSON",
+    /* MINIMUM_SCALE         */      NULL_FIELD,
+    /* MAXIMUM_SCALE         */      NULL_FIELD,
+    /* SQL_DATA_TYPE         */      SQL_WVARCHAR,
+    /* SQL_DATETIME_SUB      */      NULL_FIELD,
+    /* NUM_PREC_RADIX        */      NULL_FIELD,
+    /* INTERVAL_PRECISION    */      NULL_FIELD,
+  },{
     /* TYPE_NAME             */      "INT",
     /* DATA_TYPE             */      SQL_INTEGER,
     /* COLUMN_SIZE           */      10,

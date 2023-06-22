@@ -1033,6 +1033,39 @@ static int test_params_with_all_chars(handles_t *handles)
   return 0;
 }
 
+static int test_json_tag(handles_t *handles)
+{
+  int r = 0;
+
+  const char *conn_str = NULL;
+  const char *sqls = NULL;
+  const char *sql = NULL;
+
+  handles_disconnect(handles);
+
+  conn_str = "DSN=TAOS_ODBC_DSN";
+  r = handles_init(handles, conn_str);
+
+  sqls =
+    "drop database if exists foo;"
+    "create database if not exists foo;"
+    "create stable foo.s1 (ts timestamp, v1 int) tags (info json);";
+  r = _execute_batches_of_statements(handles, sqls);
+  if (r) return -1;
+
+  sql = "insert into foo.s1_1 using foo.s1 tags (?) values (?, ?)";
+  r = INSERT_WITH_VALUES(handles, sql, 1, 3,
+    "{\"k1\":\"值1\"}", "2023-05-14 12:13:14.567", "1");
+  if (r) return -1;
+
+  sql = "select * from foo.s1";
+  r = CHECK_WITH_VALUES(handles, 0, sql, 1, 3,
+    "2023-05-14 12:13:14.567", "1", "{\"k1\":\"值1\"}");
+  if (r) return -1;
+
+  return 0;
+}
+
 static int test_pool_stmt(handles_t *handles)
 {
   SQLRETURN sr = SQL_SUCCESS;
@@ -1190,6 +1223,7 @@ int main(int argc, char *argv[])
     RECORD(test_charsets_with_param_bind),
     RECORD(test_topic),
     RECORD(test_params_with_all_chars),
+    RECORD(test_json_tag),
 #ifdef HAVE_TAOSWS               /* { */
     RECORD(test_taosws_conn),
 #endif                           /* } */

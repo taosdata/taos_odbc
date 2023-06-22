@@ -764,6 +764,21 @@ static col_bind_map_t _col_bind_map[] = {
     .unsigned_      = SQL_TRUE,
     .searchable     = SQL_SEARCHABLE,
   },{
+    // FIXME:
+    .tsdb_type      = TSDB_DATA_TYPE_JSON,
+    .type_name      = "JSON",
+    .sql_type       = SQL_WVARCHAR,
+    .sql_promoted   = SQL_WVARCHAR,
+    .suffix         = "'",
+    .length         = -1,
+    .octet_length   = -2,
+    .precision      = -1,
+    .scale          = 0,
+    .display_size   = -2,
+    .num_prec_radix = 10,
+    .unsigned_      = SQL_TRUE,
+    .searchable     = SQL_SEARCHABLE,
+  },{
     .tsdb_type      = TSDB_DATA_TYPE_UTINYINT,
     .type_name      = "TINYINT UNSIGNED",
     .sql_type       = SQL_TINYINT,
@@ -1599,6 +1614,10 @@ static SQLRETURN _stmt_get_data_prepare_ctx(stmt_t *stmt, stmt_get_data_args_t *
       ctx->nr = tsdb->str.len;
       ctx->pos = tsdb->str.str;
       break;
+    case TSDB_DATA_TYPE_JSON:
+      ctx->nr = tsdb->str.len;
+      ctx->pos = tsdb->str.str;
+      break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Column[%d] conversion from `%s[0x%x/%d]` not implemented yet",
@@ -1650,7 +1669,7 @@ static SQLRETURN _stmt_get_data_copy_buf_to_char(stmt_t *stmt, stmt_get_data_arg
   const char *tocode   = conn_get_sqlc_charset(stmt->conn);
   if (1) {
     // FIXME:
-    if (tsdb->type != TSDB_DATA_TYPE_NCHAR) {
+    if (tsdb->type != TSDB_DATA_TYPE_NCHAR && tsdb->type != TSDB_DATA_TYPE_JSON) {
       tocode = conn_get_sqlc_charset_for_col_bind(stmt->conn);
     }
   }
@@ -2109,6 +2128,11 @@ static SQLRETURN _stmt_get_data_copy_nchar(stmt_t *stmt, const char *s, size_t n
   return _stmt_get_data_copy_varchar(stmt, s, nr, args);
 }
 
+static SQLRETURN _stmt_get_data_copy_json(stmt_t *stmt, const char *s, size_t nr, stmt_get_data_args_t *args)
+{
+  return _stmt_get_data_copy_nchar(stmt, s, nr, args);
+}
+
 static SQLRETURN _stmt_get_data_copy_timestamp(stmt_t *stmt, int64_t v, int precision, stmt_get_data_args_t *args)
 {
   get_data_ctx_t *ctx = &stmt->get_data_ctx;
@@ -2384,6 +2408,8 @@ static SQLRETURN _stmt_get_data_copy(stmt_t *stmt, stmt_get_data_args_t *args)
       return _stmt_get_data_copy_timestamp(stmt, tsdb->ts.ts, tsdb->ts.precision, args);
     case TSDB_DATA_TYPE_NCHAR:
       return _stmt_get_data_copy_nchar(stmt, tsdb->str.str, tsdb->str.len, args);
+    case TSDB_DATA_TYPE_JSON:
+      return _stmt_get_data_copy_json(stmt, tsdb->str.str, tsdb->str.len, args);
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]`not implemented yet",
@@ -5414,6 +5440,11 @@ static SQLRETURN _stmt_param_adjust_tsdb_nchar(stmt_t *stmt, param_state_t *para
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_param_adjust_tsdb_json(stmt_t *stmt, param_state_t *param_state)
+{
+  return _stmt_param_adjust_tsdb_nchar(stmt, param_state);
+}
+
 static SQLRETURN _stmt_param_conv_dummy(stmt_t *stmt, param_state_t *param_state)
 {
   (void)stmt;
@@ -5619,6 +5650,11 @@ static SQLRETURN _stmt_param_conv_sqlc_char_to_tsdb_nchar(stmt_t *stmt, param_st
   return _stmt_conv_param_data_from_sqlc_char_tsdb_varchar(stmt, param_state, s, len);
 }
 
+static SQLRETURN _stmt_param_conv_sqlc_char_to_tsdb_json(stmt_t *stmt, param_state_t *param_state)
+{
+  return _stmt_param_conv_sqlc_char_to_tsdb_nchar(stmt, param_state);
+}
+
 static SQLRETURN _stmt_param_conv_sqlc_char_to_tsdb_timestamp(stmt_t *stmt, param_state_t *param_state)
 {
   const char *s = param_state->sqlc_data.str.str;
@@ -5639,6 +5675,11 @@ static SQLRETURN _stmt_param_conv_sqlc_wchar_to_tsdb_nchar(stmt_t *stmt, param_s
   const char *wstr = param_state->sqlc_data.wstr.wstr;
   size_t      wlen = param_state->sqlc_data.wstr.wlen;
   return _stmt_conv_param_data_from_sqlc_wchar_tsdb_varchar(stmt, param_state, wstr, wlen);
+}
+
+static SQLRETURN _stmt_param_conv_sqlc_wchar_to_tsdb_json(stmt_t *stmt, param_state_t *param_state)
+{
+  return _stmt_param_conv_sqlc_wchar_to_tsdb_nchar(stmt, param_state);
 }
 
 static SQLRETURN _stmt_param_conv_sqlc_char_to_tsdb_bool(stmt_t *stmt, param_state_t *param_state)
@@ -6199,6 +6240,12 @@ static param_bind_map_t _param_bind_map[] = {
   {SQL_C_CHAR, SQL_VARCHAR, TSDB_DATA_TYPE_NCHAR,
     _stmt_param_adjust_tsdb_nchar,
     _stmt_param_conv_sqlc_char_to_tsdb_nchar},
+  {SQL_C_CHAR, SQL_WVARCHAR, TSDB_DATA_TYPE_JSON,
+    _stmt_param_adjust_tsdb_json,
+    _stmt_param_conv_sqlc_char_to_tsdb_json},
+  {SQL_C_CHAR, SQL_VARCHAR, TSDB_DATA_TYPE_JSON,
+    _stmt_param_adjust_tsdb_json,
+    _stmt_param_conv_sqlc_char_to_tsdb_json},
   {SQL_C_CHAR, SQL_VARCHAR, TSDB_DATA_TYPE_BOOL,
     _stmt_param_adjust_tsdb_bool,
     _stmt_param_conv_sqlc_char_to_tsdb_bool},
@@ -6242,6 +6289,10 @@ static param_bind_map_t _param_bind_map[] = {
   {SQL_C_WCHAR, SQL_WVARCHAR, TSDB_DATA_TYPE_NCHAR,
     _stmt_param_adjust_tsdb_nchar,
     _stmt_param_conv_sqlc_wchar_to_tsdb_nchar},
+  {SQL_C_WCHAR, SQL_WVARCHAR, TSDB_DATA_TYPE_JSON,
+    _stmt_param_adjust_tsdb_json,
+    _stmt_param_conv_sqlc_wchar_to_tsdb_json},
+
 
   {SQL_C_SLONG, SQL_INTEGER, TSDB_DATA_TYPE_INT,
     _stmt_param_adjust_reuse_sqlc_long,

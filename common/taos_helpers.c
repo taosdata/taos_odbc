@@ -122,6 +122,7 @@ int helper_get_tsdb_impl(int time_precision, const char *name, uint8_t col_type,
       } break;
     case TSDB_DATA_TYPE_VARCHAR:
     case TSDB_DATA_TYPE_NCHAR:
+    case TSDB_DATA_TYPE_JSON:
       {
         char *col = (char*)col_data;
         // // FIXME:
@@ -227,6 +228,7 @@ int helper_get_tsdb(TAOS_RES *res, int block, TAOS_FIELD *fields, int time_preci
       } break;
     case TSDB_DATA_TYPE_VARCHAR:
     case TSDB_DATA_TYPE_NCHAR:
+    case TSDB_DATA_TYPE_JSON:
       if (block) {
         int *offsets = CALL_taos_get_column_data_offset(res, i_col);
         char *col = (char*)(rows[i_col]);

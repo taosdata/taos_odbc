@@ -74,6 +74,21 @@ English | [简体中文](README.cn.md)
 | SQLTablePrivileges | ✗ | ✗ | ✗ | TDengine has no strict counterpart |
 | SQLTables | ✓ | ✓ | ✓ | |
 
+- **non-supported-statement-attributes (SQLSetStmtAttr)**
+
+| Attribute | Note |
+| :----- | :---- |
+| SQL_ATTR_CONCURRENCY | TDengine has no updatable-CURSOR machanism |
+| SQL_ATTR_FETCH_BOOKMARK_PTR | TDengine has no BOOKMARK machanism |
+| SQL_ATTR_IMP_PARAM_DESC | |
+| SQL_ATTR_IMP_ROW_DESC | |
+| SQL_ATTR_KEYSET_SIZE | |
+| SQL_ATTR_PARAM_BIND_OFFSET_PTR | |
+| SQL_ATTR_PARAM_OPERATION_PTR | |
+| SQL_ATTR_ROW_NUMBER | Readonly attribute |
+| SQL_ATTR_ROW_OPERATION_PTR | |
+| SQL_ATTR_SIMULATE_CURSOR | |
+
 - **enable ODBC-aware software to communicate with TDengine**
 - **enable any programming language with ODBC-bindings/ODBC-plugings to communicate with TDengine. programming languages listed as follows are demonstrated in test-cases:**
 

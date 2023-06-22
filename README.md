@@ -13,7 +13,7 @@ English | [简体中文](README.cn.md)
 | ODBC/Setup API | linux (ubuntu 22.04) | macosx (ventura 13.2.1) | windows 11 | note |
 | :----- | :---- | :---- | :---- | :---- |
 | ConfigDSN | ❌ | ❌ | ✅ | |
-| ConfigDriver | ❌ | ❌✅❌ | ✅ | |
+| ConfigDriver | ❌ | ❌ | ✅ | |
 | ConfigTranslator | ❌ | ❌ | ✅ | |
 | SQLAllocHandle | ✅ | ✅ | ✅ | |
 | SQLBindCol  | ✅ | ✅ | ✅ | Column-Wise Binding only |

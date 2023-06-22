@@ -44,7 +44,7 @@ const char *sql_free_statement_option(SQLULEN v) FA_HIDDEN;
 const char *sql_return_type(SQLRETURN v) FA_HIDDEN;
 const char *sql_env_attr(SQLLEN v) FA_HIDDEN;
 const char *sql_input_output_type(SQLLEN v) FA_HIDDEN;
-const char *sql_stmt_attr(SQLLEN v) FA_HIDDEN;
+const char *sql_stmt_attr(SQLULEN v) FA_HIDDEN;
 const char *sql_nullable(SQLLEN v) FA_HIDDEN;
 const char *sql_fetch_orientation(SQLLEN v) FA_HIDDEN;
 const char *sql_diag_identifier(SQLLEN v) FA_HIDDEN;

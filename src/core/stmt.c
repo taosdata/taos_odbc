@@ -7091,13 +7091,51 @@ SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr,
       return SQL_SUCCESS_WITH_INFO;
     case SQL_ATTR_USE_BOOKMARKS:
       if ((SQLULEN)(uintptr_t)ValuePtr == SQL_UB_OFF) return SQL_SUCCESS;
-      stmt_append_err_format(stmt, "HY000", 0, "General error:`%zd/%s` for `SQL_ATTR_USE_BOOKMARKS` is not supported yet",
-          (SQLULEN)(uintptr_t)ValuePtr, sql_stmt_attr((SQLINTEGER)(uintptr_t)ValuePtr));
-      return SQL_ERROR;
+      break;
+    case SQL_ATTR_ASYNC_ENABLE:
+      if ((SQLULEN)(uintptr_t)ValuePtr == SQL_ASYNC_ENABLE_OFF) return SQL_SUCCESS;
+      break;
+    case SQL_ATTR_CURSOR_SCROLLABLE:
+      if ((SQLULEN)(uintptr_t)ValuePtr == SQL_NONSCROLLABLE) return SQL_SUCCESS;
+      break;
+    case SQL_ATTR_CURSOR_SENSITIVITY:
+      if ((SQLULEN)(uintptr_t)ValuePtr == SQL_UNSPECIFIED) return SQL_SUCCESS;
+      break;
+    case SQL_ATTR_ENABLE_AUTO_IPD:
+      if ((SQLULEN)(uintptr_t)ValuePtr == SQL_FALSE) return SQL_SUCCESS;
+      break;
+    case SQL_ATTR_MAX_ROWS:
+      if ((SQLULEN)(uintptr_t)ValuePtr == 0) return SQL_SUCCESS;
+      break;
+    case SQL_ATTR_METADATA_ID:
+      // FIXME:
+      if ((SQLULEN)(uintptr_t)ValuePtr == SQL_FALSE) return SQL_SUCCESS;
+      break;
+    case SQL_ATTR_NOSCAN:
+      // FIXME:
+      if ((SQLULEN)(uintptr_t)ValuePtr == SQL_NOSCAN_ON) return SQL_SUCCESS;
+      break;
+    case SQL_ATTR_RETRIEVE_DATA:
+      if ((SQLULEN)(uintptr_t)ValuePtr == SQL_RD_ON) return SQL_SUCCESS;
+      break;
+    case SQL_ATTR_CONCURRENCY:
+    case SQL_ATTR_FETCH_BOOKMARK_PTR:
+    case SQL_ATTR_IMP_PARAM_DESC:
+    case SQL_ATTR_IMP_ROW_DESC:
+    case SQL_ATTR_KEYSET_SIZE:
+    case SQL_ATTR_PARAM_BIND_OFFSET_PTR:
+    case SQL_ATTR_PARAM_OPERATION_PTR:
+    case SQL_ATTR_ROW_NUMBER:
+    case SQL_ATTR_ROW_OPERATION_PTR:
+    case SQL_ATTR_SIMULATE_CURSOR:
+      // fall-through
     default:
-      stmt_append_err_format(stmt, "HYC00", 0, "Optional feature not implemented:`%s[0x%x/%d]` not supported yet", sql_stmt_attr(Attribute), Attribute, Attribute);
-      return SQL_ERROR;
+      break;
   }
+
+  stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[0x%x/%d]` for `%p` not supported yet",
+      sql_stmt_attr(Attribute), Attribute, Attribute, ValuePtr);
+  return SQL_ERROR;
 }
 
 #if (ODBCVER >= 0x0300)          /* { */

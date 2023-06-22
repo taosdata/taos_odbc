@@ -443,7 +443,7 @@ const char *sql_input_output_type(SQLLEN v)
   }
 }
 
-const char *sql_stmt_attr(SQLLEN v)
+const char *sql_stmt_attr(SQLULEN v)
 {
   switch (v) {
     CASE(SQL_ATTR_APP_PARAM_DESC);

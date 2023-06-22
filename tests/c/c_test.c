@@ -1054,13 +1054,16 @@ static int test_json_tag(handles_t *handles)
   if (r) return -1;
 
   sql = "insert into foo.s1_1 using foo.s1 tags (?) values (?, ?)";
-  r = INSERT_WITH_VALUES(handles, sql, 1, 3,
-    "{\"k1\":\"值1\"}", "2023-05-14 12:13:14.567", "1");
+  r = INSERT_WITH_VALUES(handles, sql, 2, 3,
+    "{\"k1\":\"值1\"}", "{\"k1\":\"值1\"}",
+    "2023-05-14 12:13:14.567", "2023-05-14 12:13:14.568",
+    "1", "2");
   if (r) return -1;
 
   sql = "select * from foo.s1";
-  r = CHECK_WITH_VALUES(handles, 0, sql, 1, 3,
-    "2023-05-14 12:13:14.567", "1", "{\"k1\":\"值1\"}");
+  r = CHECK_WITH_VALUES(handles, 0, sql, 2, 3,
+    "2023-05-14 12:13:14.567", "1", "{\"k1\":\"值1\"}",
+    "2023-05-14 12:13:14.568", "2", "{\"k1\":\"值1\"}");
   if (r) return -1;
 
   return 0;

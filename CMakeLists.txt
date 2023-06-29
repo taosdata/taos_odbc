@@ -95,6 +95,7 @@ configure_file(inc/taos_odbc_config.h.in ${CMAKE_CURRENT_BINARY_DIR}/taos_odbc_c
 add_subdirectory(common)
 add_subdirectory(src)
 add_subdirectory(templates)
+add_subdirectory(taosws)
 add_subdirectory(tests)
 add_subdirectory(samples)
 add_subdirectory(benchmark)

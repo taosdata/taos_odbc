@@ -90,6 +90,17 @@ macro(check_requirements)
         )
   endif()
 
+  ## prepare `libwebsockets`
+  set(LIBWEBSOCKETS_INSTALL_PATH ${TAOS_ODBC_LOCAL_REPO}/install)
+  ExternalProject_Add(ex_libwebsockets
+      GIT_REPOSITORY https://github.com/warmcat/libwebsockets.git
+      GIT_TAG v4.3.2
+      GIT_SHALLOW TRUE
+      PREFIX "${TAOS_ODBC_LOCAL_REPO}/build/libwebsockets"
+      CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX:PATH=${LIBWEBSOCKETS_INSTALL_PATH}"
+      CMAKE_ARGS "-DLWS_WITH_MINIMAL_EXAMPLES:BOOL=ON"
+      )
+
   ## check `taos`
   find_library(TAOS NAMES taos PATHS C:/TDengine/driver)
   if(${TAOS} STREQUAL TAOS-NOTFOUND)

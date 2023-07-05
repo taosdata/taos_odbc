@@ -33,7 +33,7 @@ target_include_directories(taoswsd PRIVATE
 target_link_directories(taoswsd PRIVATE
     ${CJSON_INSTALL_PATH}/lib
     ${LIBWEBSOCKETS_INSTALL_PATH}/lib)
-target_link_libraries(taoswsd cjson libwebsockets.a taos ssl crypto)
+target_link_libraries(taoswsd cjson libwebsockets.a taos ssl crypto uuid)
 
 set_target_properties(taoswsd PROPERTIES VERSION 0.1)
 install(TARGETS taoswsd)

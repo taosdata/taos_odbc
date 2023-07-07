@@ -25,6 +25,7 @@
 #include "taos_helpers.h"
 
 #include "../test_helper.h"
+#include <iconv.h>
 
 #define DUMP(fmt, ...)          printf(fmt "\n", ##__VA_ARGS__)
 
@@ -582,6 +583,10 @@ struct fetch_exp_s {
   size_t                 nr_exps;
 
   size_t                 pos;
+
+  iconv_t                cnv;
+  char                  *buf;
+  size_t                 cap_buf;
 };
 
 static int print_data(int row, int col, int8_t type, const void *data, size_t len, void *user)
@@ -698,11 +703,51 @@ static int print_data(int row, int col, int8_t type, const void *data, size_t le
       }
     } break;
     case TSDB_DATA_TYPE_NCHAR: {
-      const char *v = (const char*)data;
-      snprintf(buf, sizeof(buf), "\"%.*s\"", (int)len, v);
-      fprintf(stderr, "[%d,%d]:%s\n", row+1, col+1, buf);
-      if (strcmp(s_exp->s, buf)) {
-        E("expecting %s at [%zd], but got ==%s== at [%d,%d]", s_exp->s, s_exp->line, buf, row+1, col+1);
+      // const char *v = (const char*)data;
+      // snprintf(buf, sizeof(buf), "\"%.*s\"", (int)len, v);
+      // fprintf(stderr, "[%d,%d]:%s\n", row+1, col+1, buf);
+      // if (strcmp(s_exp->s, buf)) {
+      //   E("expecting %s at [%zd], but got ==%s== at [%d,%d]", s_exp->s, s_exp->line, buf, row+1, col+1);
+      //   return -1;
+      // }
+      char    *inbuf         = (char*)data;
+      size_t   inbytesleft   = len;
+      char    *outbuf        = exp->buf;
+      size_t   outbytesleft  = exp->cap_buf;
+      *outbuf++ = '"';
+      --outbytesleft;
+
+      size_t n = iconv(exp->cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+      iconv(exp->cnv, NULL, NULL, NULL, NULL);
+      if (n == (size_t)-1) {
+        fprintf(stderr, "failed to convert charset:0x");
+        for (size_t i=0; i<len; ++i) {
+          fprintf(stderr, "%02x", ((const unsigned char*)data)[i]);
+        }
+        fprintf(stderr, "\n");
+        return -1;
+      }
+      if (inbytesleft) {
+        fprintf(stderr, "failed to convert all:0x");
+        for (size_t i=0; i<len; ++i) {
+          fprintf(stderr, "%02x", ((const unsigned char*)data)[i]);
+        }
+        fprintf(stderr, "\n");
+        return -1;
+      }
+      if (outbytesleft <= 1) {
+        fprintf(stderr, "output buf too small:0x");
+        for (size_t i=0; i<len; ++i) {
+          fprintf(stderr, "%02x", ((const unsigned char*)data)[i]);
+        }
+        fprintf(stderr, "\n");
+        return -1;
+      }
+      *outbuf++ = '"';
+      *outbuf++ = '\0';
+      fprintf(stderr, "[%d,%d]:%s\n", row+1, col+1, exp->buf);
+      if (strcmp(s_exp->s, exp->buf)) {
+        E("expecting %s at [%zd], but got ==%s== at [%d,%d]", s_exp->s, s_exp->line, exp->buf, row+1, col+1);
         return -1;
       }
     } break;
@@ -781,19 +826,39 @@ static int print_data(int row, int col, int8_t type, const void *data, size_t le
   return 0;
 }
 
-static int _fetch_on_connected(TAOS *taos)
+static int _fetch_on_connected_with_exp(TAOS *taos, fetch_exp_t *exp)
 {
   int r = 0;
+
+  const char *tocode   = "UTF-8";
+  const char *fromcode = "UCS-4LE";
+#ifdef _WIN32                /* { */
+  tocode = "GB18030"; // FIXME: better check according to code page
+#endif                       /* } */
+  exp->cnv = iconv_open(tocode, fromcode);
+  if ((size_t)exp->cnv == (size_t)-1) {
+    E("no conversion from %s to %s", fromcode, tocode);
+    return -1;
+  }
+
+  exp->cap_buf = 1024 * 1024;
+  exp->buf = (char*)malloc(exp->cap_buf);
+  if (exp->buf == NULL) {
+    exp->cap_buf = 0;
+    E("out of memory");
+    return -1;
+  }
+
   const sql_t sqls[] = {
     {"drop database if exists foo", __LINE__},
     {"create database if not exists foo", __LINE__},
     {"use foo", __LINE__},
-    {"create table t (ts timestamp, name varchar(20), age int, sex int)", __LINE__},
-    {"insert into t (ts, name, age, sex) values (1688693481425, 'hello', 2, 305419896)", __LINE__},
-    {"insert into t (ts, name, age, sex) values (1688693481429, 'worl', 3, 2)", __LINE__},
-    {"insert into t (ts, name, age, sex) values (1688693481433, null, 305419896, 8)", __LINE__},
-    {"insert into t (ts, name, age, sex) values (1688693481438, 'foo', null, 8)", __LINE__},
-    {"insert into t (ts, name, age, sex) values (1688693481443, 'bar', 9, null)", __LINE__},
+    {"create table t (ts timestamp, name varchar(20), age int, sex int, mark nchar(20))", __LINE__},
+    {"insert into t (ts, name, age, sex, mark) values (1688693481425, 'hello', 2, 305419896, '人')", __LINE__},
+    {"insert into t (ts, name, age, sex, mark) values (1688693481429, 'worl', 3, 2, null)", __LINE__},
+    {"insert into t (ts, name, age, sex, mark) values (1688693481433, null, 305419896, 8, '们')", __LINE__},
+    {"insert into t (ts, name, age, sex, mark) values (1688693481438, 'foo', null, 8, '测试')", __LINE__},
+    {"insert into t (ts, name, age, sex, mark) values (1688693481443, 'bar', 9, null, null)", __LINE__},
   };
 
   const size_t nr = sizeof(sqls) / sizeof(sqls[0]);
@@ -822,16 +887,19 @@ static int _fetch_on_connected(TAOS *taos)
     RECORD("8"),
     RECORD("8"),
     RECORD("null"),
+    RECORD("\"人\""),
+    RECORD("null"),
+    RECORD("\"们\""),
+    RECORD("\"测试\""),
+    RECORD("null"),
   };
 #undef RECORD
 
-  struct fetch_exp_s exp = {
-    .exps = s_exps,
-    .nr_exps = sizeof(s_exps) / sizeof(s_exps[0]),
-    .pos = 0,
-  };
+  exp->exps = s_exps;
+  exp->nr_exps = sizeof(s_exps) / sizeof(s_exps[0]);
+  exp->pos = 0;
 
-  const char *sql = "select ts, name, age as sex, sex as age from foo.t";
+  const char *sql = "select ts, name, age, sex, mark from foo.t";
   // NOTE: flaw in case union all different resultset, eg.: select name from ta union all select ts from tb
   TAOS_RES *res = CALL_taos_query(taos, sql);
   int e = taos_errno(res);
@@ -861,7 +929,7 @@ static int _fetch_on_connected(TAOS *taos)
       if (fout) {
         fwrite(pData, 1, raw_block.block->blockSize, fout);
       }
-      r = raw_block_visit(&raw_block, &exp, print_data);
+      r = raw_block_visit(&raw_block, exp, print_data);
       if (r) break;
     }
     if (fout) {
@@ -870,6 +938,28 @@ static int _fetch_on_connected(TAOS *taos)
     }
   }
   if (res) CALL_taos_free_result(res);
+  if (r) return -1;
+
+  return 0;
+}
+
+static int _fetch_on_connected(TAOS *taos)
+{
+  fetch_exp_t exp = {0};
+
+  int r = 0;
+
+  r = _fetch_on_connected_with_exp(taos, &exp);
+
+  if ((size_t)exp.cnv != (size_t)-1) {
+    iconv_close(exp.cnv);
+    exp.cnv = (iconv_t)-1;
+  }
+  if (exp.buf) {
+    free(exp.buf);
+    exp.buf = NULL;
+  }
+
   if (r) return -1;
 
   return 0;

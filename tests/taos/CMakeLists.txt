@@ -64,6 +64,7 @@ target_include_directories(taos_regression PRIVATE ${CJSON_INSTALL_PATH}/include
 target_link_directories(taos_regression PRIVATE ${CJSON_INSTALL_PATH}/lib)
 # NOTE: cJSON_xxx exported in `libtaos.so`
 if(TODBC_WINDOWS)
+  set_source_files_properties(taos_regression.c PROPERTIES COMPILE_OPTIONS "/source-charset:utf-8")
   target_link_libraries(taos_regression cjson)
 else()
   target_link_libraries(taos_regression cjson dl pthread)

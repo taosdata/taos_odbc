@@ -2463,5 +2463,18 @@
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17h7fe398d11057dedbE
    fun:ws_connect_with_dsn
 }
-
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:memalign
+   fun:posix_memalign
+   fun:__rdl_alloc
+   fun:_ZN5tokio7runtime4park16CachedParkThread8block_on17haadf7051d8579588E
+   fun:_ZN5tokio7runtime7context7runtime13enter_runtime17h30f4f3e990f72c47E
+   fun:_ZN5tokio7runtime7runtime7Runtime8block_on17hd171ba4bcacdb07dE
+   fun:_ZN10taos_query24block_in_place_or_global17h55a0a0e48742539eE
+   fun:_ZN94_$LT$taos_ws..stmt..Stmt$u20$as$u20$taos_query..stmt..Bindable$LT$taos_ws..query..Taos$GT$$GT$4init17h9679334f922502a8E
+   fun:ws_stmt_init
+}
 

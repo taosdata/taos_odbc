@@ -99,18 +99,20 @@ static int _query(const arg_t *arg, const stage_t stage, TAOS *taos, TAOS_STMT *
 
   if (stage != STAGE_CONNECTED) return 0;
 
+#define RECORD(x,y) {x, __LINE__, y}
   const struct {
     const char          *sql;
     int                  __line__;
     uint8_t              ok:1;
   } _cases[] = {
-    {"drop database if exists foo", __LINE__, 1},
-    {"create database if not exists foo", __LINE__, 1},
-    {"insert into foo.t (ts, name) values (now(), 'a')", __LINE__, 0},
-    {"create table foo.t (ts timestamp, name varchar(20))", __LINE__, 1},
-    {"insert into foo.t (ts, name) values (now(), 'a')", __LINE__, 1},
-    {"insert into foo.t (ts, name) values (now(), ?)", __LINE__, 0},
+    RECORD("drop database if exists foo", 1),
+    RECORD("create database if not exists foo", 1),
+    RECORD("insert into foo.t (ts, name) values (now(), 'a')", 0),
+    RECORD("create table foo.t (ts timestamp, name varchar(20))", 1),
+    RECORD("insert into foo.t (ts, name) values (now(), 'a')", 1),
+    RECORD("insert into foo.t (ts, name) values (now(), ?)", 0),
   };
+#undef RECORD
 
   const size_t nr = sizeof(_cases) / sizeof(_cases[0]);
   for (size_t i=0; i<nr; ++i) {
@@ -550,16 +552,16 @@ static int raw_block_visit(raw_block_t *raw_block, void *user, int (*cb)(int row
         }
       }
     } else {
-      int32_t *offsets = (int32_t*)data_ptr;
+      uint32_t *offsets = (uint32_t*)data_ptr;
       nr_head = sizeof(*offsets) * nr_rows;
       char *data = data_ptr + nr_head;
       size_t len = 0;
       for (int j=0; j<block->rows; ++j) {
-        if (offsets[j] == -1) {
+        if (offsets[j] == (uint32_t)-1) {
           if (cb(j, i, field_type, NULL, 0, user)) return -1;
         } else {
           len = offsets[j];
-          if (cb(j, i, field_type, data + len + 2,  *(int16_t*)(data + len), user)) return -1;
+          if (cb(j, i, field_type, data + len + 2,  *(uint16_t*)(data + len), user)) return -1;
         }
       }
     }
@@ -991,6 +993,8 @@ static struct {
   RECORD(_prepare),
   RECORD(_fetch),
 };
+
+#undef RECORD
 
 static int on_statement(const arg_t *arg, TAOS *taos, TAOS_STMT *stmt)
 {

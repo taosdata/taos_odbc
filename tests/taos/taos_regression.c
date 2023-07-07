@@ -400,6 +400,497 @@ static int _prepare(const arg_t *arg, const stage_t stage, TAOS *taos, TAOS_STMT
   return 0;
 }
 
+#define NBIT                     (3u)
+#define BitPos(_n)               ((_n) & ((1 << NBIT) - 1))
+#define BMCharPos(bm_, r_)       ((bm_)[(r_) >> NBIT])
+#define colDataIsNull_f(bm_, r_) ((BMCharPos(bm_, r_) & (1u << (7u - BitPos(r_)))) == (1u << (7u - BitPos(r_))))
+#define BitmapLen(_n) (((_n) + ((1 << NBIT) - 1)) >> NBIT)
+
+typedef struct block_layout_s {
+  int32_t                 magic;
+  int32_t                 blockSize;
+  int32_t                 rows;
+  int32_t                 cols;
+  int32_t                 unknowns[3];
+} block_layout_t;
+#pragma pack(push, 1)
+typedef struct field_layout_s {
+  int8_t                  type;
+  int32_t                 bytes;
+} field_layout_t;
+typedef struct col_bytes_s {
+  int32_t                 bytes;
+} col_bytes_t;
+#pragma pack(pop)
+
+typedef struct raw_block_s {
+  char           *base;
+  int             nr_rows;
+
+  block_layout_t       *block;
+  field_layout_t       *fields;
+  col_bytes_t          *col_bytes;
+  char                 *data;
+
+  char                 *col_ptr[20];
+} raw_block_t;
+
+static int raw_block_init(raw_block_t *raw_block, int nr_rows, void *pData)
+{
+  raw_block->base            = (char*)pData;
+  raw_block->nr_rows         = nr_rows;
+
+  raw_block->block           = (block_layout_t*)pData;
+  if (raw_block->block->rows != raw_block->nr_rows) {
+    E("# of rows differ: %d <> %d", raw_block->block->rows, raw_block->nr_rows);
+    return -1;
+  }
+  raw_block->fields          = (field_layout_t*)&raw_block->block[1];
+  raw_block->col_bytes       = (col_bytes_t*)&raw_block->fields[raw_block->block->cols];
+  raw_block->data            = (char*)&raw_block->col_bytes[raw_block->block->cols];
+
+  return 0;
+}
+
+static int raw_block_visit(raw_block_t *raw_block, void *user, int (*cb)(int row, int col, int8_t type, const void *data, size_t len, void *user))
+{
+  block_layout_t *block     = raw_block->block;
+  field_layout_t *fields    = raw_block->fields;
+  col_bytes_t    *col_bytes = raw_block->col_bytes;
+  char           *data      = raw_block->data;
+  char           *data_ptr  = data;
+
+  int nr_rows = block->rows;
+  int nr_cols = block->cols;
+
+  for (int i=0; i<nr_cols; ++i) {
+    int8_t field_type = fields[i].type;
+    int is_fix = 0;
+    size_t nr_fix = 0;
+    switch (field_type) {
+      case TSDB_DATA_TYPE_BOOL: {
+        is_fix = 1;
+        nr_fix = sizeof(int8_t);
+      } break;
+      case TSDB_DATA_TYPE_TINYINT: {
+        nr_fix = sizeof(int8_t);
+        is_fix = 1;
+      } break;
+      case TSDB_DATA_TYPE_SMALLINT: {
+        is_fix = 1;
+        nr_fix = sizeof(int16_t);
+      } break;
+      case TSDB_DATA_TYPE_INT: {
+        is_fix = 1;
+        nr_fix = sizeof(int32_t);
+      } break;
+      case TSDB_DATA_TYPE_BIGINT: {
+        is_fix = 1;
+        nr_fix = sizeof(int64_t);
+      } break;
+      case TSDB_DATA_TYPE_FLOAT: {
+        is_fix = 1;
+        nr_fix = sizeof(float);
+      } break;
+      case TSDB_DATA_TYPE_DOUBLE: {
+        is_fix = 1;
+        nr_fix = sizeof(double);
+      } break;
+      case TSDB_DATA_TYPE_VARCHAR: {
+      } break;
+      case TSDB_DATA_TYPE_TIMESTAMP: {
+        is_fix = 1;
+        nr_fix = sizeof(int64_t);
+      } break;
+      case TSDB_DATA_TYPE_NCHAR: {
+      } break;
+      case TSDB_DATA_TYPE_UTINYINT: {
+        is_fix = 1;
+        nr_fix = sizeof(int8_t);
+      } break;
+      case TSDB_DATA_TYPE_USMALLINT: {
+        is_fix = 1;
+        nr_fix = sizeof(int16_t);
+      } break;
+      case TSDB_DATA_TYPE_UINT: {
+        is_fix = 1;
+        nr_fix = sizeof(int32_t);
+      } break;
+      case TSDB_DATA_TYPE_UBIGINT: {
+        is_fix = 1;
+        nr_fix = sizeof(int64_t);
+      } break;
+      case TSDB_DATA_TYPE_JSON: {
+      } break;
+      case TSDB_DATA_TYPE_GEOMETRY: {
+      } break;
+      // case TSDB_DATA_TYPE_VARBINARY: {
+      // } break;
+      // case TSDB_DATA_TYPE_DECIMAL: {
+      // } break;
+      // case TSDB_DATA_TYPE_BLOB: {
+      // } break;
+      // case TSDB_DATA_TYPE_MEDIUMBLOB: {
+      // } break;
+      default:
+        E("`%s` not supported yet", taos_data_type(field_type));
+        return -1;
+    }
+
+    size_t nr_head;
+    if (is_fix) {
+      nr_head = BitmapLen(nr_rows);
+      char *data = data_ptr + nr_head;
+      for (int j=0; j<block->rows; ++j) {
+        if (colDataIsNull_f(data_ptr, j)) {
+          if (cb(j, i, field_type, NULL, 0, user)) return -1;
+        } else {
+          if (cb(j, i, field_type, data + nr_fix*j, nr_fix, user)) return -1;
+        }
+      }
+    } else {
+      int32_t *offsets = (int32_t*)data_ptr;
+      nr_head = sizeof(*offsets) * nr_rows;
+      char *data = data_ptr + nr_head;
+      size_t len = 0;
+      for (int j=0; j<block->rows; ++j) {
+        if (offsets[j] == -1) {
+          if (cb(j, i, field_type, NULL, 0, user)) return -1;
+        } else {
+          len = offsets[j];
+          if (cb(j, i, field_type, data + len + 2,  *(int16_t*)(data + len), user)) return -1;
+        }
+      }
+    }
+
+    data_ptr += nr_head;
+    data_ptr += col_bytes[i].bytes;
+  }
+
+  return 0;
+}
+
+typedef struct fetch_exp_s                  fetch_exp_t;
+typedef struct exp_s                        exp_t;
+struct exp_s {
+  const char            *s;
+  size_t                 line;
+};
+
+struct fetch_exp_s {
+  const exp_t           *exps;
+  size_t                 nr_exps;
+
+  size_t                 pos;
+};
+
+static int print_data(int row, int col, int8_t type, const void *data, size_t len, void *user)
+{
+  char buf[4096]; buf[0] = '\0';
+  fetch_exp_t *exp = (fetch_exp_t*)user;
+
+  if (exp->pos >= exp->nr_exps) {
+    E("expecting %zd cells at most, but got ==%zd== at least", exp->nr_exps, exp->pos + 1);
+    return -1;
+  }
+
+  const exp_t *s_exp = exp->exps + exp->pos;
+
+  if (!data && len == 0) {
+    snprintf(buf, sizeof(buf), "null");
+    fprintf(stderr, "[%d,%d]:%s\n", row+1, col+1, buf);
+    if (strcmp(s_exp->s, buf)) {
+      E("expecting %s at [%zd], but got ==%s== at [%d,%d]", s_exp->s, s_exp->line, buf, row+1, col+1);
+      return -1;
+    }
+    exp->pos += 1;
+    return 0;
+  }
+
+  switch (type) {
+    case TSDB_DATA_TYPE_BOOL: {
+      A(len == sizeof(int8_t), "internal logic error");
+      int8_t v = *(int8_t*)data;
+      snprintf(buf, sizeof(buf), "%s", v ? "true" : "false");
+      fprintf(stderr, "[%d,%d]:%s\n", row+1, col+1, buf);
+      if (strcmp(s_exp->s, buf)) {
+        E("expecting %s at [%zd], but got ==%s== at [%d,%d]", s_exp->s, s_exp->line, buf, row+1, col+1);
+        return -1;
+      }
+    } break;
+    case TSDB_DATA_TYPE_TINYINT: {
+      A(len == sizeof(int8_t), "internal logic error");
+      int8_t v = *(int8_t*)data;
+      snprintf(buf, sizeof(buf), "%d", v);
+      fprintf(stderr, "[%d,%d]:%s\n", row+1, col+1, buf);
+      if (strcmp(s_exp->s, buf)) {
+        E("expecting %s at [%zd], but got ==%s== at [%d,%d]", s_exp->s, s_exp->line, buf, row+1, col+1);
+        return -1;
+      }
+    } break;
+    case TSDB_DATA_TYPE_SMALLINT: {
+      A(len == sizeof(int16_t), "internal logic error");
+      int16_t v = *(int16_t*)data;
+      snprintf(buf, sizeof(buf), "%d", v);
+      fprintf(stderr, "[%d,%d]:%s\n", row+1, col+1, buf);
+      if (strcmp(s_exp->s, buf)) {
+        E("expecting %s at [%zd], but got ==%s== at [%d,%d]", s_exp->s, s_exp->line, buf, row+1, col+1);
+        return -1;
+      }
+    } break;
+    case TSDB_DATA_TYPE_INT: {
+      A(len == sizeof(int32_t), "internal logic error");
+      int32_t v = *(int32_t*)data;
+      snprintf(buf, sizeof(buf), "%d", v);
+      fprintf(stderr, "[%d,%d]:%s\n", row+1, col+1, buf);
+      if (strcmp(s_exp->s, buf)) {
+        E("expecting %s at [%zd], but got ==%s== at [%d,%d]", s_exp->s, s_exp->line, buf, row+1, col+1);
+        return -1;
+      }
+    } break;
+    case TSDB_DATA_TYPE_BIGINT: {
+      A(len == sizeof(int64_t), "internal logic error");
+      int64_t v = *(int64_t*)data;
+      snprintf(buf, sizeof(buf), "%" PRId64 "", v);
+      fprintf(stderr, "[%d,%d]:%s\n", row+1, col+1, buf);
+      if (strcmp(s_exp->s, buf)) {
+        E("expecting %s at [%zd], but got ==%s== at [%d,%d]", s_exp->s, s_exp->line, buf, row+1, col+1);
+        return -1;
+      }
+    } break;
+    case TSDB_DATA_TYPE_FLOAT: {
+      A(len == sizeof(float), "internal logic error");
+      float v = *(float*)data;
+      snprintf(buf, sizeof(buf), "%f", v);
+      fprintf(stderr, "[%d,%d]:%s\n", row+1, col+1, buf);
+      if (strcmp(s_exp->s, buf)) {
+        E("expecting %s at [%zd], but got ==%s== at [%d,%d]", s_exp->s, s_exp->line, buf, row+1, col+1);
+        return -1;
+      }
+    } break;
+    case TSDB_DATA_TYPE_DOUBLE: {
+      A(len == sizeof(double), "internal logic error");
+      double v = *(double*)data;
+      snprintf(buf, sizeof(buf), "%f", v);
+      fprintf(stderr, "[%d,%d]:%s\n", row+1, col+1, buf);
+      if (strcmp(s_exp->s, buf)) {
+        E("expecting %s at [%zd], but got ==%s== at [%d,%d]", s_exp->s, s_exp->line, buf, row+1, col+1);
+        return -1;
+      }
+    } break;
+    case TSDB_DATA_TYPE_VARCHAR: {
+      const char *v = (const char*)data;
+      snprintf(buf, sizeof(buf), "\"%.*s\"", (int)len, v);
+      fprintf(stderr, "[%d,%d]:%s\n", row+1, col+1, buf);
+      if (strcmp(s_exp->s, buf)) {
+        E("expecting %s at [%zd], but got ==%s== at [%d,%d]", s_exp->s, s_exp->line, buf, row+1, col+1);
+        return -1;
+      }
+    } break;
+    case TSDB_DATA_TYPE_TIMESTAMP: {
+      A(len == sizeof(uint64_t), "internal logic error");
+      uint64_t v = *(uint64_t*)data;
+      snprintf(buf, sizeof(buf), "%" PRIu64 "", v);
+      fprintf(stderr, "[%d,%d]:%s\n", row+1, col+1, buf);
+      if (strcmp(s_exp->s, buf)) {
+        E("expecting %s at [%zd], but got ==%s== at [%d,%d]", s_exp->s, s_exp->line, buf, row+1, col+1);
+        return -1;
+      }
+    } break;
+    case TSDB_DATA_TYPE_NCHAR: {
+      const char *v = (const char*)data;
+      snprintf(buf, sizeof(buf), "\"%.*s\"", (int)len, v);
+      fprintf(stderr, "[%d,%d]:%s\n", row+1, col+1, buf);
+      if (strcmp(s_exp->s, buf)) {
+        E("expecting %s at [%zd], but got ==%s== at [%d,%d]", s_exp->s, s_exp->line, buf, row+1, col+1);
+        return -1;
+      }
+    } break;
+    case TSDB_DATA_TYPE_UTINYINT: {
+      A(len == sizeof(uint8_t), "internal logic error");
+      uint8_t v = *(uint8_t*)data;
+      snprintf(buf, sizeof(buf), "%u", v);
+      fprintf(stderr, "[%d,%d]:%s\n", row+1, col+1, buf);
+      if (strcmp(s_exp->s, buf)) {
+        E("expecting %s at [%zd], but got ==%s== at [%d,%d]", s_exp->s, s_exp->line, buf, row+1, col+1);
+        return -1;
+      }
+    } break;
+    case TSDB_DATA_TYPE_USMALLINT: {
+      A(len == sizeof(uint16_t), "internal logic error");
+      uint16_t v = *(uint16_t*)data;
+      snprintf(buf, sizeof(buf), "%u", v);
+      fprintf(stderr, "[%d,%d]:%s\n", row+1, col+1, buf);
+      if (strcmp(s_exp->s, buf)) {
+        E("expecting %s at [%zd], but got ==%s== at [%d,%d]", s_exp->s, s_exp->line, buf, row+1, col+1);
+        return -1;
+      }
+    } break;
+    case TSDB_DATA_TYPE_UINT: {
+      A(len == sizeof(uint32_t), "internal logic error");
+      uint32_t v = *(uint32_t*)data;
+      snprintf(buf, sizeof(buf), "%u", v);
+      fprintf(stderr, "[%d,%d]:%s\n", row+1, col+1, buf);
+      if (strcmp(s_exp->s, buf)) {
+        E("expecting %s at [%zd], but got ==%s== at [%d,%d]", s_exp->s, s_exp->line, buf, row+1, col+1);
+        return -1;
+      }
+    } break;
+    case TSDB_DATA_TYPE_UBIGINT: {
+      A(len == sizeof(uint64_t), "internal logic error");
+      uint64_t v = *(uint64_t*)data;
+      snprintf(buf, sizeof(buf), "%" PRIu64 "", v);
+      fprintf(stderr, "[%d,%d]:%s\n", row+1, col+1, buf);
+      if (strcmp(s_exp->s, buf)) {
+        E("expecting %s at [%zd], but got ==%s== at [%d,%d]", s_exp->s, s_exp->line, buf, row+1, col+1);
+        return -1;
+      }
+    } break;
+    case TSDB_DATA_TYPE_JSON: {
+      const char *v = (const char*)data;
+      snprintf(buf, sizeof(buf), "\"%.*s\"", (int)len, v);
+      fprintf(stderr, "[%d,%d]:%s\n", row+1, col+1, buf);
+      if (strcmp(s_exp->s, buf)) {
+        E("expecting %s at [%zd], but got ==%s== at [%d,%d]", s_exp->s, s_exp->line, buf, row+1, col+1);
+        return -1;
+      }
+    } break;
+    case TSDB_DATA_TYPE_GEOMETRY: {
+      const char *v = (const char*)data;
+      snprintf(buf, sizeof(buf), "\"%.*s\"", (int)len, v);
+      fprintf(stderr, "[%d,%d]:%s\n", row+1, col+1, buf);
+      if (strcmp(s_exp->s, buf)) {
+        E("expecting %s at [%zd], but got ==%s== at [%d,%d]", s_exp->s, s_exp->line, buf, row+1, col+1);
+        return -1;
+      }
+    } break;
+    // case TSDB_DATA_TYPE_VARBINARY: {
+    // } break;
+    // case TSDB_DATA_TYPE_DECIMAL: {
+    // } break;
+    // case TSDB_DATA_TYPE_BLOB: {
+    // } break;
+    // case TSDB_DATA_TYPE_MEDIUMBLOB: {
+    // } break;
+    default:
+      E("`%s` not supported yet", taos_data_type(type));
+      return -1;
+  }
+
+  exp->pos += 1;
+  return 0;
+}
+
+static int _fetch_on_connected(TAOS *taos)
+{
+  int r = 0;
+  const sql_t sqls[] = {
+    {"drop database if exists foo", __LINE__},
+    {"create database if not exists foo", __LINE__},
+    {"use foo", __LINE__},
+    {"create table t (ts timestamp, name varchar(20), age int, sex int)", __LINE__},
+    {"insert into t (ts, name, age, sex) values (1688693481425, 'hello', 2, 305419896)", __LINE__},
+    {"insert into t (ts, name, age, sex) values (1688693481429, 'worl', 3, 2)", __LINE__},
+    {"insert into t (ts, name, age, sex) values (1688693481433, null, 305419896, 8)", __LINE__},
+    {"insert into t (ts, name, age, sex) values (1688693481438, 'foo', null, 8)", __LINE__},
+    {"insert into t (ts, name, age, sex) values (1688693481443, 'bar', 9, null)", __LINE__},
+  };
+
+  const size_t nr = sizeof(sqls) / sizeof(sqls[0]);
+  r = _executes(taos, sqls, nr);
+  if (r) return -1;
+
+#define RECORD(x) {x, __LINE__}
+  const exp_t s_exps[] = {
+    RECORD("1688693481425"),
+    RECORD("1688693481429"),
+    RECORD("1688693481433"),
+    RECORD("1688693481438"),
+    RECORD("1688693481443"),
+    RECORD("\"hello\""),
+    RECORD("\"worl\""),
+    RECORD("null"),
+    RECORD("\"foo\""),
+    RECORD("\"bar\""),
+    RECORD("2"),
+    RECORD("3"),
+    RECORD("305419896"),
+    RECORD("null"),
+    RECORD("9"),
+    RECORD("305419896"),
+    RECORD("2"),
+    RECORD("8"),
+    RECORD("8"),
+    RECORD("null"),
+  };
+#undef RECORD
+
+  struct fetch_exp_s exp = {
+    .exps = s_exps,
+    .nr_exps = sizeof(s_exps) / sizeof(s_exps[0]),
+    .pos = 0,
+  };
+
+  const char *sql = "select ts, name, age as sex, sex as age from foo.t";
+  // NOTE: flaw in case union all different resultset, eg.: select name from ta union all select ts from tb
+  TAOS_RES *res = CALL_taos_query(taos, sql);
+  int e = taos_errno(res);
+  if (e) {
+    E("executing sql:%s\n"
+        "failed:[%d]%s",
+        sql,
+        e, taos_errstr(res));
+    r = -1;
+  }
+  if (r == 0 && res) {
+    const char *tmp_file;
+#ifdef _WIN32                /* { */
+    tmp_file = "C:\\Windows\\Temp\\block.data";
+#else                        /* }{ */
+    tmp_file = "/tmp/block.data";
+#endif                       /* } */
+    FILE *fout = fopen(tmp_file, "w");
+    while (r == 0) {
+      int numOfRows = 0;
+      void *pData = NULL;
+      r = CALL_taos_fetch_raw_block(res, &numOfRows, &pData);
+      if (r) break;
+      if (numOfRows == 0) break;
+      raw_block_t raw_block = {0};
+      if (raw_block_init(&raw_block, numOfRows, pData)) return -1;
+      if (fout) {
+        fwrite(pData, 1, raw_block.block->blockSize, fout);
+      }
+      r = raw_block_visit(&raw_block, &exp, print_data);
+      if (r) break;
+    }
+    if (fout) {
+      fclose(fout);
+      fout = NULL;
+    }
+  }
+  if (res) CALL_taos_free_result(res);
+  if (r) return -1;
+  E("success");
+  if (1) return -1;
+  return 0;
+}
+
+static int _fetch(const arg_t *arg, const stage_t stage, TAOS *taos, TAOS_STMT *stmt)
+{
+  (void)arg;
+  (void)stmt;
+
+  switch (stage) {
+    case STAGE_INITED:    return 0;
+    case STAGE_CONNECTED: return _fetch_on_connected(taos);
+    case STAGE_STATEMENT: return 0;
+    default: return 0;
+  }
+
+  return 0;
+}
+
 #define RECORD(x) {x, #x}
 
 static struct {
@@ -409,6 +900,7 @@ static struct {
   RECORD(_dummy),
   RECORD(_query),
   RECORD(_prepare),
+  RECORD(_fetch),
 };
 
 static int on_statement(const arg_t *arg, TAOS *taos, TAOS_STMT *stmt)

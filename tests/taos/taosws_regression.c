@@ -67,6 +67,7 @@ static int _dummy(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STMT 
 
 static int _query(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STMT *stmt)
 {
+
   (void)arg;
   (void)stmt;
 
@@ -143,6 +144,80 @@ static int _prepare(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STM
   return r;
 }
 
+static int _fetch(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STMT *stmt)
+{
+  (void)arg;
+  (void)stmt;
+
+  int r = 0;
+
+  if (stage != STAGE_CONNECTED) return 0;
+
+  const struct {
+    const char          *sql;
+    int                  __line__;
+    uint8_t              ok:1;
+  } _cases[] = {
+    {"drop database if exists foo", __LINE__, 1},
+    {"create database if not exists foo", __LINE__, 1},
+    {"insert into foo.t (ts, name) values (now(), 'a')", __LINE__, 0},
+    {"create table foo.t (ts timestamp, name varchar(20))", __LINE__, 1},
+    {"insert into foo.t (ts, name) values (now(), null)", __LINE__, 1},
+  };
+
+  const size_t nr = sizeof(_cases) / sizeof(_cases[0]);
+  for (size_t i=0; i<nr; ++i) {
+    const char *sql         = _cases[i].sql;
+    uint8_t     expected_ok = _cases[i].ok;
+    int         __line__    = _cases[i].__line__;
+
+    WS_RES *res = ws_query(taos, sql);
+    int e = ws_errno(res);
+    if ((!!e) ^ (!expected_ok)) {
+      E("executing sql @[%dL]:%s", __line__, sql);
+      if (expected_ok) {
+        E("failed:[%d]%s", e, ws_errstr(res));
+      } else {
+        E("succeed unexpectedly");
+      }
+      r = -1;
+    }
+    if (res) ws_free_result(res);
+    if (r) return -1;
+  }
+
+  // insert into foo.t (ts, name) values (now(), null)
+  WS_RES *res = ws_query(taos, "select name from foo.t");
+  int e = ws_errno(res);
+  if (!!e) {
+    E("failed:[%d]%s", e, ws_errstr(res));
+    r = -1;
+  }
+  if (res) {
+    const void *ptr = NULL;
+    int32_t rows = 0;
+    r = ws_fetch_block(res, &ptr, &rows);
+    E("r:%d;ptr:%p;rows:%d", r, ptr, rows);
+  }
+  if (res) {
+    uint8_t ty = 0;
+    uint32_t len = 0;
+    const void *p = NULL;
+    int row = 0, col = 0;
+
+    ty = 0; len = 0; p = NULL;
+    p = ws_get_value_in_block(res, row, col, &ty, &len);
+    if (p) {
+      E("expected null, but got ==(%d,%d):p:%p;ty:%d;len:%d==", row, col, p, ty, len);
+      r = -1;
+    }
+  }
+  if (res) ws_free_result(res);
+  if (r) return -1;
+
+  return 0;
+}
+
 #define RECORD(x) {x, #x}
 
 static struct {
@@ -152,6 +227,7 @@ static struct {
   RECORD(_dummy),
   RECORD(_query),
   RECORD(_prepare),
+  RECORD(_fetch),
 };
 
 static int on_statement(const arg_t *arg, WS_TAOS *taos, WS_STMT *stmt)

@@ -871,8 +871,7 @@ static int _fetch_on_connected(TAOS *taos)
   }
   if (res) CALL_taos_free_result(res);
   if (r) return -1;
-  E("success");
-  if (1) return -1;
+
   return 0;
 }
 

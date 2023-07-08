@@ -132,6 +132,8 @@ static INT_PTR CALLBACK SetupDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
             CheckDlgButton(hDlg, IDC_CHK_TIMESTAMP_AS_IS, !!atoi(k));
             SQLGetPrivateProfileString(v, "DB", "", k, sizeof(k), "Odbc.ini");
             SetDlgItemText(hDlg, IDC_EDT_DB, (LPCSTR)k);
+            SQLGetPrivateProfileString(v, "URL", "", k, sizeof(k), "Odbc.ini");
+            SetDlgItemText(hDlg, IDC_EDT_URL, (LPCSTR)k);
             break;
           }
         }
@@ -174,6 +176,13 @@ static INT_PTR CALLBACK SetupDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
       trim_string(db, nr, &db_start, &db_end);
       *(char*)db_end = '\0';
 
+      char url[4096];
+      url[0] = '\0';
+      nr = GetDlgItemText(hDlg, IDC_EDT_URL, (LPSTR)url, sizeof(url));
+      const char *url_start, *url_end;
+      trim_string(url, nr, &url_start, &url_end);
+      *(char*)url_end = '\0';
+
       BOOL ok = TRUE;
 
       if (ok) ok = SQLWritePrivateProfileString("ODBC Data Sources", dsn_start, lpszDriver, "Odbc.ini");
@@ -182,6 +191,8 @@ static INT_PTR CALLBACK SetupDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
       if (ok) ok = SQLWritePrivateProfileString(dsn_start, "TIMESTAMP_AS_IS", timestamp_as_is ? "1" : "0", "Odbc.ini");
       if (ok) ok = SQLWritePrivateProfileString(dsn_start, "DB", db_start[0] ? db_start : "", "Odbc.ini");
       if (ok) ok = SQLWritePrivateProfileString(dsn_start, "DB", db_start[0] ? db_start : NULL, "Odbc.ini");
+      if (ok) ok = SQLWritePrivateProfileString(dsn_start, "URL", url_start[0] ? url_start : "", "Odbc.ini");
+      if (ok) ok = SQLWritePrivateProfileString(dsn_start, "URL", url_start[0] ? url_start : NULL, "Odbc.ini");
       if (ok) {
         EndDialog(hDlg, LOWORD(wParam));
         return (INT_PTR)TRUE;

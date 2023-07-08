@@ -391,7 +391,7 @@ static int _ds_block_ws_get_into_tsdb(ds_block_t *ds_block, int i_row, int i_col
 
   const WS_FIELD *field = fields + i_col;
 
-  return helper_get_tsdb_impl(result_precision, field->name, col_type, col_data, col_len, i_row, i_col, tsdb, buf, len);
+  return helper_get_tsdb_ws(result_precision, field->name, col_type, col_data, col_len, i_row, i_col, tsdb, buf, len);
 }
 
 #endif                       /* } */

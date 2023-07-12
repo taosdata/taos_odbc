@@ -294,10 +294,17 @@ static int _conn_setup_iconvs(conn_t *conn)
     return -1;
   }
 
+#ifdef HAVE_TAOSWS           /* { */
+  if (conn->cfg.url) {
+    tsdb_charset = "UTF-8";  // NOTE: as required by taosws.h?
+  }
+#endif                       /* } */
+
 #ifdef FAKE_TAOS            /* { */
   sqlc_charset = "GB18030";
   tsdb_charset = "UTF-8";
 #endif                      /* } */
+
   snprintf(conn->sqlc_charset, sizeof(conn->sqlc_charset), "%s", sqlc_charset);
   snprintf(conn->tsdb_charset, sizeof(conn->tsdb_charset), "%s", tsdb_charset);
 

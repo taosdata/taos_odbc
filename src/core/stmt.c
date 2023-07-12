@@ -1673,6 +1673,10 @@ static SQLRETURN _stmt_get_data_copy_buf_to_char(stmt_t *stmt, stmt_get_data_arg
       tocode = conn_get_sqlc_charset_for_col_bind(stmt->conn);
     }
   }
+
+  if (tsdb->type == TSDB_DATA_TYPE_NCHAR && tsdb->str.encoder) {
+    fromcode = tsdb->str.encoder;
+  }
   charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
   if (!cnv) {
     stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);

@@ -1071,7 +1071,7 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
 
     const WS_FIELD *ws_field = ws_fields + i_col;
 
-    r = helper_get_tsdb_impl(result_precision, ws_field->name, col_type, col_data, col_len, i_row, i_col, tsdb, buf, sizeof(buf));
+    r = helper_get_tsdb_ws(result_precision, ws_field->name, col_type, col_data, col_len, i_row, i_col, tsdb, buf, sizeof(buf));
   } else {
 #endif                       /* } */
     r = helper_get_tsdb(res->res, 1, fields->fields, res->time_precision, rows, i_row, i_col, tsdb, buf, sizeof(buf));

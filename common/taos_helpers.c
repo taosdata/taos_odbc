@@ -52,7 +52,7 @@ void bridge_taos_stmt_reclaim_fields(TAOS_STMT *stmt, TAOS_FIELD_E *fields)
 #endif
 }
 
-int helper_get_tsdb_impl(int time_precision, const char *name, uint8_t col_type, const void *col_data, uint32_t col_len,
+int helper_get_tsdb_ws(int time_precision, const char *name, uint8_t col_type, const void *col_data, uint32_t col_len,
     int i_row, int i_col, tsdb_data_t *tsdb, char *buf, size_t len)
 {
   // FIXME: what to tell the difference between is_null(res[i_row,i_col])? and i_row/i_col out of bound?
@@ -120,8 +120,17 @@ int helper_get_tsdb_impl(int time_precision, const char *name, uint8_t col_type,
         double *col = (double*)col_data;
         tsdb->dbl = *col;
       } break;
-    case TSDB_DATA_TYPE_VARCHAR:
     case TSDB_DATA_TYPE_NCHAR:
+      {
+        char *col = (char*)col_data;
+        // // FIXME:
+        // int16_t length = *(int16_t*)col;
+        // col += sizeof(int16_t);
+        tsdb->str.str = col;
+        tsdb->str.len = col_len;
+        tsdb->str.encoder = "UCS-4LE";
+      } break;
+    case TSDB_DATA_TYPE_VARCHAR:
     case TSDB_DATA_TYPE_JSON:
       {
         char *col = (char*)col_data;
@@ -130,6 +139,7 @@ int helper_get_tsdb_impl(int time_precision, const char *name, uint8_t col_type,
         // col += sizeof(int16_t);
         tsdb->str.str = col;
         tsdb->str.len = strnlen(col, col_len); // FIXME:
+        tsdb->str.encoder = NULL;
       } break;
     case TSDB_DATA_TYPE_TIMESTAMP:
       {

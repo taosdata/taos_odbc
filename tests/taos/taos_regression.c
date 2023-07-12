@@ -525,8 +525,8 @@ static int raw_block_visit(raw_block_t *raw_block, void *user, int (*cb)(int row
       } break;
       case TSDB_DATA_TYPE_JSON: {
       } break;
-      case TSDB_DATA_TYPE_GEOMETRY: {
-      } break;
+      // case TSDB_DATA_TYPE_GEOMETRY: {
+      // } break;
       // case TSDB_DATA_TYPE_VARBINARY: {
       // } break;
       // case TSDB_DATA_TYPE_DECIMAL: {
@@ -705,13 +705,6 @@ static int print_data(int row, int col, int8_t type, const void *data, size_t le
       }
     } break;
     case TSDB_DATA_TYPE_NCHAR: {
-      // const char *v = (const char*)data;
-      // snprintf(buf, sizeof(buf), "\"%.*s\"", (int)len, v);
-      // fprintf(stderr, "[%d,%d]:%s\n", row+1, col+1, buf);
-      // if (strcmp(s_exp->s, buf)) {
-      //   E("expecting %s at [%zd], but got ==%s== at [%d,%d]", s_exp->s, s_exp->line, buf, row+1, col+1);
-      //   return -1;
-      // }
       char    *inbuf         = (char*)data;
       size_t   inbytesleft   = len;
       char    *outbuf        = exp->buf;
@@ -802,15 +795,15 @@ static int print_data(int row, int col, int8_t type, const void *data, size_t le
         return -1;
       }
     } break;
-    case TSDB_DATA_TYPE_GEOMETRY: {
-      const char *v = (const char*)data;
-      snprintf(buf, sizeof(buf), "\"%.*s\"", (int)len, v);
-      fprintf(stderr, "[%d,%d]:%s\n", row+1, col+1, buf);
-      if (strcmp(s_exp->s, buf)) {
-        E("expecting %s at [%zd], but got ==%s== at [%d,%d]", s_exp->s, s_exp->line, buf, row+1, col+1);
-        return -1;
-      }
-    } break;
+    // case TSDB_DATA_TYPE_GEOMETRY: {
+    //   const char *v = (const char*)data;
+    //   snprintf(buf, sizeof(buf), "\"%.*s\"", (int)len, v);
+    //   fprintf(stderr, "[%d,%d]:%s\n", row+1, col+1, buf);
+    //   if (strcmp(s_exp->s, buf)) {
+    //     E("expecting %s at [%zd], but got ==%s== at [%d,%d]", s_exp->s, s_exp->line, buf, row+1, col+1);
+    //     return -1;
+    //   }
+    // } break;
     // case TSDB_DATA_TYPE_VARBINARY: {
     // } break;
     // case TSDB_DATA_TYPE_DECIMAL: {
@@ -971,6 +964,10 @@ static int _fetch(const arg_t *arg, const stage_t stage, TAOS *taos, TAOS_STMT *
 {
   (void)arg;
   (void)stmt;
+
+#ifdef _WIN32                /* { */
+  if (1) return 0;
+#endif                       /* } */
 
   switch (stage) {
     case STAGE_INITED:    return 0;

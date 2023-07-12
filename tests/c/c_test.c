@@ -342,6 +342,7 @@ static int test_case0(handles_t *handles)
          "insert into t (ts, name, mark) values (now(), '测试', '人物n');"
          "select * from t;";
   r = execute_batches_of_statements(connstr, sqls);
+  if (r) return -1;
   sql = "insert into bar.t (ts, name, mark) values (?, ?, ?)";
   r = execute_with_params(connstr, sql, 3, "2023-05-07 10:11:44.215", "测试", "人物y");
   if (r) return -1;

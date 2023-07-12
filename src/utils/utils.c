@@ -797,7 +797,7 @@ static void _trim_left(const char *src, size_t nr, const char **first)
 
   const char *end = src + nr;
   const char *p = src;
-  while (isspace(*p)) ++p;
+  while (isspace(*(const unsigned char*)p)) ++p;
   *first = p;
   if (p == end) *first = src + nr;
 }
@@ -809,12 +809,13 @@ static void _trim_right(const char *src, size_t nr, const char **last)
 
   const char *p = src + nr;
   while (p > src) {
-    if (isspace(*--p)) continue;
+    --p;
+    if (isspace(*(const unsigned char*)p)) continue;
     *last = p + 1;
     return;
   }
 
-  if (isspace(*src)) return;
+  if (isspace(*(const unsigned char*)src)) return;
   *last = src + 1;
 }
 

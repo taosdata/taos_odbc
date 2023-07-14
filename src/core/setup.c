@@ -109,6 +109,334 @@ static int get_driver_dll_path(HWND hwndParent, char *buf, size_t len)
 static const char *gDriver = NULL;
 static const char *gAttributes = NULL;
 
+typedef struct dlg_item_text_s             dlg_item_text_t;
+struct dlg_item_text_s {
+  int              idc;
+  char             text[1024];
+  char             *start;
+  char             *end;
+};
+
+static void GetItemsText(HWND hDlg, dlg_item_text_t *pItems, size_t nItems)
+{
+  for (size_t i=0; i<nItems; ++i) {
+    dlg_item_text_t *pItem = pItems + i;
+    UINT n = GetDlgItemText(hDlg, pItem->idc, pItem->text, sizeof(pItem->text));
+    trim_string(pItem->text, n, &pItem->start, &pItem->end);
+    *(char*)pItem->end = '\0';
+  }
+}
+
+typedef struct config_s              config_t;
+struct config_s {
+  char                           dsn[4096];
+  int8_t                         taos_checked;
+  char                           server[4096];
+  char                           host[4096];
+  uint16_t                       port;
+  char                           database[4096];
+  int8_t                         url_checked;
+  char                           url[4096];
+  char                           encoder_param[64];
+  char                           encoder_col[64];
+  int8_t                         unsigned_promotion;
+  int8_t                         timestamp_as_is;
+  int8_t                         encoder_param_checked;
+  int8_t                         encoder_col_checked;
+
+  char                           user[1024];
+  char                           password[1024];
+};
+
+static void GetItemText(HWND hDlg, int idc, char *buf, size_t sz)
+{
+  char s[4096];
+  UINT n = GetDlgItemText(hDlg, idc, s, sizeof(s));
+  char *start, *end;
+  trim_string(s, n, &start, &end);
+  snprintf(buf, sz, "%.*s", (int)(end - start), start);
+}
+
+static int ParseServer(HWND hDlg, config_t *config)
+{
+  config->host[0] = '\0';
+  config->port = 0;
+  if (!config->taos_checked) return 0;
+  if (!config->server[0]) return 0;
+  const char *s = strchr(config->server, ':');
+  if (s) {
+    int port = 0;
+    int pos = 0;
+    int n = sscanf(s+1, "%d%n", &port, &pos);
+    if (n != 1 || pos != strlen(s+1) || port < 0 || port > UINT16_MAX) {
+      return -1;
+    }
+    snprintf(config->host, sizeof(config->host), "%.*s", (int)(s-config->server), config->server);
+    config->port = (uint16_t)port;
+  } else {
+    snprintf(config->host, sizeof(config->host), "%s", config->server);
+    config->port = 0;
+  }
+  return 0;
+}
+
+static void GetConfig(HWND hDlg, config_t *config)
+{
+  GetItemText(hDlg, IDC_EDT_DSN, config->dsn, sizeof(config->dsn));
+  config->taos_checked = (IsDlgButtonChecked(hDlg, IDC_RAD_TAOS) == BST_CHECKED) ? 1 : 0;
+  GetItemText(hDlg, IDC_EDT_SERVER, config->server, sizeof(config->server));
+  GetItemText(hDlg, IDC_EDT_DB, config->database, sizeof(config->database));
+  config->url_checked = (IsDlgButtonChecked(hDlg, IDC_CHK_UNSIGNED_PROMOTION) == BST_CHECKED) ? 1 : 0;
+  GetItemText(hDlg, IDC_EDT_URL, config->url, sizeof(config->url));
+  config->unsigned_promotion = (IsDlgButtonChecked(hDlg, IDC_CHK_UNSIGNED_PROMOTION) == BST_CHECKED) ? 1 : 0;
+  config->timestamp_as_is= (IsDlgButtonChecked(hDlg, IDC_CHK_TIMESTAMP_AS_IS) == BST_CHECKED) ? 1 : 0;
+  config->encoder_param_checked= (IsDlgButtonChecked(hDlg, IDC_CHK_ENCODER_PARAM) == BST_CHECKED) ? 1 : 0;
+  GetItemText(hDlg, IDC_EDT_ENCODER_PARAM, config->encoder_param, sizeof(config->encoder_param));
+  config->encoder_col_checked= (IsDlgButtonChecked(hDlg, IDC_CHK_ENCODER_COL) == BST_CHECKED) ? 1 : 0;
+  GetItemText(hDlg, IDC_EDT_ENCODER_COL, config->encoder_col, sizeof(config->encoder_col));
+  GetItemText(hDlg, IDC_EDT_USER, config->user, sizeof(config->user));
+  GetDlgItemText(hDlg, IDC_EDT_PASS, config->password, sizeof(config->password));
+}
+
+static void check_taos_connection(HWND hDlg, config_t *config)
+{
+  int r = ParseServer(hDlg, config);
+  if (r) {
+    MessageBox(hDlg, "Server not valid", "Warning!", MB_OK | MB_ICONEXCLAMATION);
+    return;
+  }
+  TAOS *taos = NULL;
+  taos = taos_connect(
+      config->host[0] ? config->host : NULL,
+      config->user[0] ? config->user : NULL,
+      config->password[0] ? config->password : NULL,
+      config->database[0] ? config->database : NULL,
+      config->port);
+  if (!taos) {
+    int e = taos_errno(NULL);
+    char buf[1024];
+    snprintf(buf, sizeof(buf), "connecting failure:[%d/0x%x]%s", e, e, taos_errstr(NULL));
+    MessageBox(hDlg, buf, "Error!", MB_OK | MB_ICONEXCLAMATION);
+  } else {
+    MessageBox(hDlg, "Connecting Success", "Success!", MB_OK);
+  }
+  if (taos) {
+    taos_close(taos);
+  }
+}
+
+static void check_taosws_connection(HWND hDlg, config_t *config)
+{
+  if (config->url[0] == '\0') {
+    MessageBox(hDlg, "URL must be specified", "Warning!", MB_OK | MB_ICONEXCLAMATION);
+    return;
+  }
+  MessageBox(hDlg, "Not Implemented Yet", "Warning!", MB_OK | MB_ICONEXCLAMATION);
+}
+
+static INT_PTR OnTest(HWND hDlg, WPARAM wParam, LPARAM lParam)
+{
+  config_t config = {0};
+  GetConfig(hDlg, &config);
+  if (config.dsn[0] == '\0') {
+    MessageBox(hDlg, "DSN must be specified", "Warning", MB_OK | MB_ICONEXCLAMATION);
+    return FALSE;
+  }
+  if (config.taos_checked) {
+    check_taos_connection(hDlg, &config);
+  } else {
+    check_taosws_connection(hDlg, &config);
+  }
+  return TRUE;
+}
+
+static void SwitchTaos(HWND hDlg, BOOL On)
+{
+  ShowWindow(GetDlgItem(hDlg, IDC_STC_SERVER), On);
+  ShowWindow(GetDlgItem(hDlg, IDC_EDT_SERVER), On);
+  ShowWindow(GetDlgItem(hDlg, IDC_CHK_DB), On);
+  ShowWindow(GetDlgItem(hDlg, IDC_EDT_DB), On);
+  ShowWindow(GetDlgItem(hDlg, IDC_STC_URL), !On);
+  ShowWindow(GetDlgItem(hDlg, IDC_EDT_URL), !On);
+}
+
+static INT_PTR OnClickTaos(HWND hDlg, WPARAM wParam, LPARAM lParam)
+{
+  SwitchTaos(hDlg, TRUE);
+  return TRUE;
+}
+
+static INT_PTR OnClickTaosws(HWND hDlg, WPARAM wParam, LPARAM lParam)
+{
+  SwitchTaos(hDlg, FALSE);
+  return TRUE;
+}
+
+static INT_PTR OnCheckParam(HWND hDlg, WPARAM wParam, LPARAM lParam)
+{
+  if (IsDlgButtonChecked(hDlg, IDC_CHK_ENCODER_PARAM) == BST_CHECKED) {
+    ShowWindow(GetDlgItem(hDlg, IDC_EDT_ENCODER_PARAM), TRUE);
+  } else {
+    ShowWindow(GetDlgItem(hDlg, IDC_EDT_ENCODER_PARAM), FALSE);
+  }
+  return TRUE;
+}
+
+static INT_PTR OnCheckCol(HWND hDlg, WPARAM wParam, LPARAM lParam)
+{
+  if (IsDlgButtonChecked(hDlg, IDC_CHK_ENCODER_COL) == BST_CHECKED) {
+    ShowWindow(GetDlgItem(hDlg, IDC_EDT_ENCODER_COL), TRUE);
+  } else {
+    ShowWindow(GetDlgItem(hDlg, IDC_EDT_ENCODER_COL), FALSE);
+  }
+  return TRUE;
+}
+
+static INT_PTR OnInitDlg(HWND hDlg, WPARAM wParam, LPARAM lParam)
+{
+  LPCSTR lpszAttributes = gAttributes;
+  if (lpszAttributes) {
+    config_t                   config = {0};
+    const char *p = lpszAttributes;
+    char k[4096], v[4096];
+    while (p && *p) {
+      get_kv(p, k, sizeof(k), v, sizeof(v));
+      if (tod_strcasecmp(k, "DSN") == 0) {
+        if (v[0]) {
+          snprintf(config.dsn, sizeof(config.dsn), "%s", v);
+          SetDlgItemText(hDlg, IDC_EDT_DSN, config.dsn);
+
+          k[0] = '\0';
+          SQLGetPrivateProfileString(v, "SERVER", "", k, sizeof(k), "Odbc.ini");
+          snprintf(config.server, sizeof(config.server), "%s", k);
+          SQLGetPrivateProfileString(v, "DB", "", k, sizeof(k), "Odbc.ini");
+          snprintf(config.database, sizeof(config.database), "%s", k);
+
+          SQLGetPrivateProfileString(v, "URL", "", k, sizeof(k), "Odbc.ini");
+          snprintf(config.url, sizeof(config.url), "%s", k);
+
+          CheckRadioButton(hDlg, IDC_RAD_TAOS, IDC_RAD_TAOSWS, config.url[0] ? IDC_RAD_TAOSWS : IDC_RAD_TAOS);
+          SwitchTaos(hDlg, config.url[0] ? FALSE : TRUE);
+
+          SetDlgItemText(hDlg, IDC_EDT_SERVER, (LPCSTR)config.server);
+          SetDlgItemText(hDlg, IDC_EDT_DB, (LPCSTR)config.database);
+          SetDlgItemText(hDlg, IDC_EDT_URL, (LPCSTR)config.url);
+
+          SQLGetPrivateProfileString(v, "UNSIGNED_PROMOTION", "", k, sizeof(k), "Odbc.ini");
+          config.unsigned_promotion = !!atoi(v);
+          CheckDlgButton(hDlg, IDC_CHK_UNSIGNED_PROMOTION, config.unsigned_promotion);
+          SQLGetPrivateProfileString(v, "TIMESTAMP_AS_IS", "", k, sizeof(k), "Odbc.ini");
+          config.timestamp_as_is = !!atoi(v);
+          CheckDlgButton(hDlg, IDC_CHK_TIMESTAMP_AS_IS, config.timestamp_as_is);
+
+          SQLGetPrivateProfileString(v, "CHARSET_ENCODER_FOR_PARAM_BIND", "", k, sizeof(k), "Odbc.ini");
+          SQLGetPrivateProfileString(v, "CHARSET_ENCODER_FOR_COL_BIND", "", k, sizeof(k), "Odbc.ini");
+          break;
+        }
+      }
+      p += strlen(p) + 1;
+    }
+  }
+  return (INT_PTR)TRUE;
+}
+
+static INT_PTR OnOK(HWND hDlg, WPARAM wParam, LPARAM lParam)
+{
+  LPCSTR lpszDriver = gDriver;
+  LPCSTR lpszAttributes = gAttributes;
+
+  char driver_dll[MAX_PATH + 1];
+  int r = get_driver_dll_path(hDlg, driver_dll, sizeof(driver_dll));
+  if (r) {
+    MessageBox(hDlg, "get_driver_dll_path failed", "Warning!", MB_OK|MB_ICONEXCLAMATION);
+    return (INT_PTR)FALSE;
+  }
+
+  if (1) {
+    config_t config = {0};
+    GetConfig(hDlg, &config);
+    if (config.dsn[0] == '\0') {
+      MessageBox(hDlg, "DSN must be specified", "Warning", MB_OK | MB_ICONEXCLAMATION);
+      return FALSE;
+    }
+    if (!config.taos_checked) {
+      MessageBox(hDlg, "Not Implemented Yet", "Warning!", MB_OK | MB_ICONEXCLAMATION);
+      return FALSE;
+    }
+    if (!config.taos_checked && config.url[0] == '\0') {
+      MessageBox(hDlg, "URL must be specified", "Warning!", MB_OK | MB_ICONEXCLAMATION);
+      return FALSE;
+    }
+
+    BOOL ok = TRUE;
+    if (ok) ok = SQLWritePrivateProfileString("ODBC Data Sources", config.dsn, lpszDriver, "Odbc.ini");
+    if (ok) ok = SQLWritePrivateProfileString(config.dsn, "Driver", driver_dll, "Odbc.ini");
+    if (ok) ok = SQLWritePrivateProfileString(config.dsn, "BACKEND", config.taos_checked ? "taos" : "taosws", "Odbc.ini");
+    if (config.taos_checked) {
+      if (ok) ok = SQLWritePrivateProfileString(config.dsn, "SERVER", config.server[0] ? config.server : "", "Odbc.ini");
+      if (ok) ok = SQLWritePrivateProfileString(config.dsn, "URL", NULL, "Odbc.ini");
+    } else {
+      if (ok) ok = SQLWritePrivateProfileString(config.dsn, "SERVER", NULL, "Odbc.ini");
+      if (ok) ok = SQLWritePrivateProfileString(config.dsn, "URL", config.url, "Odbc.ini");
+    }
+    if (ok) ok = SQLWritePrivateProfileString(config.dsn, "UNSIGNED_PROMOTION", config.unsigned_promotion ? "1" : "0", "Odbc.ini");
+    if (ok) ok = SQLWritePrivateProfileString(config.dsn, "TIMESTAMP_AS_IS", config.timestamp_as_is ? "1" : "0", "Odbc.ini");
+    if (ok) ok = SQLWritePrivateProfileString(config.dsn, "CHARSET_ENCODER_FOR_PARAM_BIND", config.encoder_param_checked? "1" : "0", "Odbc.ini");
+    if (ok) ok = SQLWritePrivateProfileString(config.dsn, "CHARSET_ENCODER_FOR_COL_BIND", config.encoder_col_checked? "1" : "0", "Odbc.ini");
+    if (ok) ok = SQLWritePrivateProfileString(config.dsn, "TIMESTAMP_AS_IS", config.timestamp_as_is ? "1" : "0", "Odbc.ini");
+    if (ok) ok = SQLWritePrivateProfileString(config.dsn, "DB", config.database[0] ? config.database : "", "Odbc.ini");
+    if (ok) ok = SQLWritePrivateProfileString(config.dsn, "DB", config.database[0] ? config.database : NULL, "Odbc.ini");
+    if (ok) {
+      EndDialog(hDlg, LOWORD(wParam));
+      return (INT_PTR)TRUE;
+    }
+    return (INT_PTR)FALSE;
+  }
+
+  char dsn[4096];
+  dsn[0] = '\0';
+  UINT nr = GetDlgItemText(hDlg, IDC_EDT_DSN, (LPSTR)dsn, sizeof(dsn));
+  const char *dsn_start, *dsn_end;
+  trim_string(dsn, nr, &dsn_start, &dsn_end);
+  if (dsn_start == dsn_end) {
+    MessageBox(hDlg, "DSN must be specified", "Warning", MB_OK | MB_ICONEXCLAMATION);
+    return (INT_PTR)FALSE;
+  }
+  *(char*)dsn_end = '\0';
+
+  UINT unsigned_promotion = !!IsDlgButtonChecked(hDlg, IDC_CHK_UNSIGNED_PROMOTION);
+  UINT timestamp_as_is = !!IsDlgButtonChecked(hDlg, IDC_CHK_TIMESTAMP_AS_IS);
+  char db[4096];
+  db[0] = '\0';
+  nr = GetDlgItemText(hDlg, IDC_EDT_DB, (LPSTR)db, sizeof(db));
+  const char *db_start, *db_end;
+  trim_string(db, nr, &db_start, &db_end);
+  *(char*)db_end = '\0';
+
+  char url[4096];
+  url[0] = '\0';
+  nr = GetDlgItemText(hDlg, IDC_EDT_URL, (LPSTR)url, sizeof(url));
+  const char *url_start, *url_end;
+  trim_string(url, nr, &url_start, &url_end);
+  *(char*)url_end = '\0';
+
+  BOOL ok = TRUE;
+
+  if (ok) ok = SQLWritePrivateProfileString("ODBC Data Sources", dsn_start, lpszDriver, "Odbc.ini");
+  if (ok) ok = SQLWritePrivateProfileString(dsn_start, "Driver", driver_dll, "Odbc.ini");
+  if (ok) ok = SQLWritePrivateProfileString(dsn_start, "UNSIGNED_PROMOTION", unsigned_promotion ? "1" : "0", "Odbc.ini");
+  if (ok) ok = SQLWritePrivateProfileString(dsn_start, "TIMESTAMP_AS_IS", timestamp_as_is ? "1" : "0", "Odbc.ini");
+  if (ok) ok = SQLWritePrivateProfileString(dsn_start, "DB", db_start[0] ? db_start : "", "Odbc.ini");
+  if (ok) ok = SQLWritePrivateProfileString(dsn_start, "DB", db_start[0] ? db_start : NULL, "Odbc.ini");
+  if (ok) ok = SQLWritePrivateProfileString(dsn_start, "URL", url_start[0] ? url_start : "", "Odbc.ini");
+  if (ok) ok = SQLWritePrivateProfileString(dsn_start, "URL", url_start[0] ? url_start : NULL, "Odbc.ini");
+  if (ok) {
+    EndDialog(hDlg, LOWORD(wParam));
+    return (INT_PTR)TRUE;
+  }
+  return (INT_PTR)FALSE;
+}
+
 static INT_PTR CALLBACK SetupDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
   LPCSTR lpszDriver = gDriver;
@@ -117,31 +445,7 @@ static INT_PTR CALLBACK SetupDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
   UNREFERENCED_PARAMETER(lParam);
   switch (message) {
   case WM_INITDIALOG:
-    if (lpszAttributes) {
-      const char *p = lpszAttributes;
-      char k[4096], v[4096];
-      while (p && *p) {
-        get_kv(p, k, sizeof(k), v, sizeof(v));
-        if (tod_strcasecmp(k, "DSN") == 0) {
-          if (v[0]) {
-            SetDlgItemText(hDlg, IDC_EDT_DSN, (LPCSTR)v);
-            k[0] = '\0';
-            SQLGetPrivateProfileString(v, "UNSIGNED_PROMOTION", "", k, sizeof(k), "Odbc.ini");
-            CheckDlgButton(hDlg, IDC_CHK_UNSIGNED_PROMOTION, !!atoi(k));
-            SQLGetPrivateProfileString(v, "TIMESTAMP_AS_IS", "", k, sizeof(k), "Odbc.ini");
-            CheckDlgButton(hDlg, IDC_CHK_TIMESTAMP_AS_IS, !!atoi(k));
-            SQLGetPrivateProfileString(v, "DB", "", k, sizeof(k), "Odbc.ini");
-            SetDlgItemText(hDlg, IDC_EDT_DB, (LPCSTR)k);
-            SQLGetPrivateProfileString(v, "URL", "", k, sizeof(k), "Odbc.ini");
-            SetDlgItemText(hDlg, IDC_EDT_URL, (LPCSTR)k);
-            break;
-          }
-        }
-        p += strlen(p) + 1;
-      }
-    }
-    return (INT_PTR)TRUE;
-
+    return OnInitDlg(hDlg, wParam, lParam);
   case WM_COMMAND:
     if (LOWORD(wParam) == IDCANCEL) {
       EndDialog(hDlg, LOWORD(wParam));
@@ -149,56 +453,30 @@ static INT_PTR CALLBACK SetupDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
     }
 
     if (LOWORD(wParam) == IDOK) {
-      char driver_dll[MAX_PATH + 1];
-      int r = get_driver_dll_path(hDlg, driver_dll, sizeof(driver_dll));
-      if (r) {
-        MessageBox(hDlg, "get_driver_dll_path failed", "Warning!", MB_OK|MB_ICONEXCLAMATION);
-        return (INT_PTR)FALSE;
-      }
-
-      char dsn[4096];
-      dsn[0] = '\0';
-      UINT nr = GetDlgItemText(hDlg, IDC_EDT_DSN, (LPSTR)dsn, sizeof(dsn));
-      const char *dsn_start, *dsn_end;
-      trim_string(dsn, nr, &dsn_start, &dsn_end);
-      if (dsn_start == dsn_end) {
-        MessageBox(hDlg, "DSN must be specified", "Warning", IDOK);
-        return (INT_PTR)FALSE;
-      }
-      *(char*)dsn_end = '\0';
-
-      UINT unsigned_promotion = !!IsDlgButtonChecked(hDlg, IDC_CHK_UNSIGNED_PROMOTION);
-      UINT timestamp_as_is = !!IsDlgButtonChecked(hDlg, IDC_CHK_TIMESTAMP_AS_IS);
-      char db[4096];
-      db[0] = '\0';
-      nr = GetDlgItemText(hDlg, IDC_EDT_DB, (LPSTR)db, sizeof(db));
-      const char *db_start, *db_end;
-      trim_string(db, nr, &db_start, &db_end);
-      *(char*)db_end = '\0';
-
-      char url[4096];
-      url[0] = '\0';
-      nr = GetDlgItemText(hDlg, IDC_EDT_URL, (LPSTR)url, sizeof(url));
-      const char *url_start, *url_end;
-      trim_string(url, nr, &url_start, &url_end);
-      *(char*)url_end = '\0';
-
-      BOOL ok = TRUE;
-
-      if (ok) ok = SQLWritePrivateProfileString("ODBC Data Sources", dsn_start, lpszDriver, "Odbc.ini");
-      if (ok) ok = SQLWritePrivateProfileString(dsn_start, "Driver", driver_dll, "Odbc.ini");
-      if (ok) ok = SQLWritePrivateProfileString(dsn_start, "UNSIGNED_PROMOTION", unsigned_promotion ? "1" : "0", "Odbc.ini");
-      if (ok) ok = SQLWritePrivateProfileString(dsn_start, "TIMESTAMP_AS_IS", timestamp_as_is ? "1" : "0", "Odbc.ini");
-      if (ok) ok = SQLWritePrivateProfileString(dsn_start, "DB", db_start[0] ? db_start : "", "Odbc.ini");
-      if (ok) ok = SQLWritePrivateProfileString(dsn_start, "DB", db_start[0] ? db_start : NULL, "Odbc.ini");
-      if (ok) ok = SQLWritePrivateProfileString(dsn_start, "URL", url_start[0] ? url_start : "", "Odbc.ini");
-      if (ok) ok = SQLWritePrivateProfileString(dsn_start, "URL", url_start[0] ? url_start : NULL, "Odbc.ini");
-      if (ok) {
-        EndDialog(hDlg, LOWORD(wParam));
-        return (INT_PTR)TRUE;
-      }
-      return (INT_PTR)FALSE;
+      return OnOK(hDlg, wParam, lParam);
     }
+
+    if (LOWORD(wParam) == IDC_BTN_TEST) {
+      return OnTest(hDlg, wParam, lParam);
+    }
+
+    if (LOWORD(wParam) == IDC_RAD_TAOS && HIWORD(wParam) == BN_CLICKED) {
+      return OnClickTaos(hDlg, wParam, lParam);
+    }
+
+    if (LOWORD(wParam) == IDC_RAD_TAOSWS && HIWORD(wParam) == BN_CLICKED) {
+      return OnClickTaosws(hDlg, wParam, lParam);
+    }
+
+    if (LOWORD(wParam) == IDC_CHK_ENCODER_PARAM && HIWORD(wParam) == BN_CLICKED) {
+      return OnCheckParam(hDlg, wParam, lParam);
+    }
+
+    if (LOWORD(wParam) == IDC_CHK_ENCODER_COL && HIWORD(wParam) == BN_CLICKED) {
+      return OnCheckCol(hDlg, wParam, lParam);
+    }
+
+
     break;
   }
   return (INT_PTR)FALSE;

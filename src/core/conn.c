@@ -614,12 +614,12 @@ static void _conn_fill_out_connection_str(
   }
 
   if (conn->cfg.charset_for_col_bind) {
-    fixed_buf_sprintf(n, &buffer, "CHARSET_FOR_COL_BIND=%s;", conn->cfg.charset_for_col_bind);
+    fixed_buf_sprintf(n, &buffer, "CHARSET_ENCODER_FOR_COL_BIND=%s;", conn->cfg.charset_for_col_bind);
   }
   if (n>0) count += n;
 
   if (conn->cfg.charset_for_param_bind) {
-    fixed_buf_sprintf(n, &buffer, "CHARSET_FOR_PARAM_BIND=%s;", conn->cfg.charset_for_param_bind);
+    fixed_buf_sprintf(n, &buffer, "CHARSET_ENCODER_FOR_PARAM_BIND=%s;", conn->cfg.charset_for_param_bind);
   }
   if (n>0) count += n;
 
@@ -709,7 +709,7 @@ static int _conn_cfg_init_by_dsn(conn_cfg_t *cfg, char *ebuf, size_t elen)
   if (r == 1) cfg->timestamp_as_is = !!atoi(buf);
 
   buf[0] = '\0';
-  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "CHARSET_FOR_COL_BIND", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
+  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "CHARSET_ENCODER_FOR_COL_BIND", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
   if (buf[0]) {
     cfg->charset_for_col_bind = strdup(buf);
     if (!cfg->charset_for_col_bind) {
@@ -719,7 +719,7 @@ static int _conn_cfg_init_by_dsn(conn_cfg_t *cfg, char *ebuf, size_t elen)
   }
 
   buf[0] = '\0';
-  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "CHARSET_FOR_PARAM_BIND", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
+  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "CHARSET_ENCODER_FOR_PARAM_BIND", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
   if (buf[0]) {
     cfg->charset_for_param_bind = strdup(buf);
     if (!cfg->charset_for_param_bind) {

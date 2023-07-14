@@ -49,7 +49,7 @@ func test_case0() int {
     log.Fatal("==success==")
   }
 
-  db0, err := sql.Open("odbc", "DSN=TAOS_ODBC_DSN;CHARSET_FOR_COL_BIND=UTF-8")
+  db0, err := sql.Open("odbc", "DSN=TAOS_ODBC_DSN;CHARSET_ENCODER_FOR_COL_BIND=UTF-8")
   // db0, err := sql.Open("odbc", "Driver={TAOS_ODBC_DRIVER}")
   if err != nil {
     log.Fatal(err)
@@ -72,7 +72,7 @@ func test_case0() int {
   // if err != nil { log.Fatal(err) }
   // fmt.Println(nn)
 
-  db, err := sql.Open("odbc", "DSN=TAOS_ODBC_DSN;CHARSET_FOR_COL_BIND=UTF-8")
+  db, err := sql.Open("odbc", "DSN=TAOS_ODBC_DSN;CHARSET_ENCODER_FOR_COL_BIND=UTF-8")
   if err != nil {
     log.Fatal(err)
   }
@@ -194,7 +194,7 @@ func check_with_values(db *sql.DB, sql string, nr_rows int, nr_cols int, values 
 
 func test_charsets() int {
   var db *sql.DB
-  db, err := sql.Open("odbc", "DSN=TAOS_ODBC_DSN;CHARSET_FOR_COL_BIND=UTF-8")
+  db, err := sql.Open("odbc", "DSN=TAOS_ODBC_DSN;CHARSET_ENCODER_FOR_COL_BIND=UTF-8")
   if err != nil {
     log.Fatal(err)
   }

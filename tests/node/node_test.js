@@ -744,8 +744,8 @@ async function do_test_cases() {
   assert.equal(!!await case2('DSN=TAOS_ODBC_DSN'),0);
   assert.equal(!!await case3('DSN=TAOS_ODBC_DSN'),0);
   assert.equal(!!await case4('DSN=TAOS_ODBC_DSN'),0);
-  assert.equal(!!await case5('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION=1;CHARSET_FOR_PARAM_BIND=UTF-8'),0);
-  assert.equal(!!await case6('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION=1;CHARSET_FOR_PARAM_BIND=UTF-8'),0);
+  assert.equal(!!await case5('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION=1;CHARSET_ENCODER_FOR_PARAM_BIND=UTF-8'),0);
+  assert.equal(!!await case6('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION=1;CHARSET_ENCODER_FOR_PARAM_BIND=UTF-8'),0);
 
   assert.equal(!!await case7('DSN=TAOS_ODBC_DSN'),0);
   assert.equal(!!await case8('DSN=TAOS_ODBC_DSN'),0);

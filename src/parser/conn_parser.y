@@ -137,15 +137,6 @@
       }                                                                                         \
       param->conn_cfg->port = strtol(_p.text, NULL, 10);                                        \
     } while (0)
-    #define SET_DATABASE(_v, _loc) do {                                                         \
-      if (!param) break;                                                                        \
-      TOD_SAFE_FREE(param->conn_cfg->db);                                                       \
-      param->conn_cfg->db = strndup(_v.text, _v.leng);                                          \
-      if (!param->conn_cfg->db) {                                                               \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
-      }                                                                                         \
-    } while (0)
     #define SET_CHARSET_FOR_COL_BIND(_v, _loc) do {                                             \
       if (!param) break;                                                                        \
       TOD_SAFE_FREE(param->conn_cfg->charset_for_col_bind);                                     \
@@ -163,10 +154,6 @@
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
         return -1;                                                                              \
       }                                                                                         \
-    } while (0)
-    #define SET_CHARSET(_v, _loc) do {                                                          \
-      SET_CHARSET_FOR_COL_BIND(_v, _loc);                                                       \
-      SET_CHARSET_FOR_PARAM_BIND(_v, _loc);                                                     \
     } while (0)
     #define SET_UNSIGNED_PROMOTION(_s, _n, _loc) do {                                           \
       if (!param) break;                                                                        \
@@ -205,8 +192,8 @@
 %union { parser_token_t token; }
 %union { char c; }
 
-%token DSN UID PWD DRIVER URL SERVER DATABASE UNSIGNED_PROMOTION TIMESTAMP_AS_IS DB
-%token CHARSET CHARSET_FOR_COL_BIND CHARSET_FOR_PARAM_BIND
+%token DSN UID PWD DRIVER URL SERVER UNSIGNED_PROMOTION TIMESTAMP_AS_IS DB
+%token CHARSET_FOR_COL_BIND CHARSET_FOR_PARAM_BIND
 %token TOPIC
 %token <token> ID VALUE FQDN DIGITS
 %token <token> TNAME TKEY TVAL
@@ -292,7 +279,6 @@ odbc_attr:
 | SERVER '=' FQDN                 { SET_FQDN($3, @$); }
 | SERVER '=' FQDN ':'             { SET_FQDN($3, @$); }
 | SERVER '=' FQDN ':' DIGITS      { SET_FQDN_PORT($3, $5, @$); }
-| DATABASE '=' VALUE              { SET_DATABASE($3, @$); }
 ;
 
 url_attr:
@@ -302,7 +288,6 @@ url_attr:
 attribute:
   UNSIGNED_PROMOTION '=' DIGITS   { SET_UNSIGNED_PROMOTION($3.text, $3.leng, @$); }
 | TIMESTAMP_AS_IS '=' DIGITS      { SET_TIMESTAMP_AS_IS($3.text, $3.leng, @$); }
-| CHARSET '=' VALUE               { SET_CHARSET($3, @$); }
 | CHARSET_FOR_COL_BIND '=' VALUE               { SET_CHARSET_FOR_COL_BIND($3, @$); }
 | CHARSET_FOR_PARAM_BIND '=' VALUE             { SET_CHARSET_FOR_PARAM_BIND($3, @$); }
 ;

@@ -350,9 +350,17 @@ struct charset_conv_mgr_s {
   hash_table_t               *convs;
 };
 
+typedef enum backend_e                backend_e;
+enum backend_e {
+  BACKEND_TAOS,
+  BACKEND_TAOSWS,
+};
+
 struct conn_cfg_s {
   char                  *driver;
   char                  *dsn;
+
+  backend_e              backend;
 
   char                  *url;
 
@@ -388,6 +396,21 @@ struct sqls_s {
   size_t                 pos; // 1-based
 
   uint8_t                failed:1;
+};
+
+struct url_s {
+  char                  *scheme;     // NOTE: without tail ':'
+
+  char                  *user;       // NOTE: decoded-form
+  char                  *pass;       // NOTE: decoded-form
+
+  char                  *host;       // NOTE: decoded-form
+  uint16_t               port;
+
+  // NOTE: undecoded yet
+  char                  *path;
+  char                  *query;      // NOTE: without head '?'
+  char                  *fragment;   // NOTE: without head '#'
 };
 
 struct parser_token_s {
@@ -435,6 +458,11 @@ struct sqls_parser_param_s {
   void                  *arg;
 
   parser_ctx_t           ctx;
+};
+
+struct url_parser_param_s {
+  parser_ctx_t           ctx;
+  url_t                  url;
 };
 
 struct charset_convs_s {

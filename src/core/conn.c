@@ -576,42 +576,33 @@ static void _conn_fill_out_connection_str(
   }
   if (n>0) count += n;
 
-  if (conn->cfg.url) {
+  fixed_buf_sprintf(n, &buffer, "BACKEND=%s;", conn->cfg.backend == BACKEND_TAOS ? "taos" : "taosws");
+  if (n>0) count += n;
+
+  if (conn->cfg.backend == BACKEND_TAOSWS) {
+    OA_NIY(conn->cfg.url);
     fixed_buf_sprintf(n, &buffer, "URL={%s};", conn->cfg.url);
     if (n>0) count += n;
-  } else {
-    if (conn->cfg.uid) {
-      fixed_buf_sprintf(n, &buffer, "UID=%s;", conn->cfg.uid);
-    } else {
-      fixed_buf_sprintf(n, &buffer, "UID=;");
-    }
-    if (n>0) count += n;
-
-    if (conn->cfg.pwd) {
-      fixed_buf_sprintf(n, &buffer, "PWD=%s;", conn->cfg.pwd);
-    } else {
-      fixed_buf_sprintf(n, &buffer, "PWD=;");
-    }
-    if (n>0) count += n;
-
-    if (conn->cfg.ip) {
-      if (conn->cfg.port) {
-        fixed_buf_sprintf(n, &buffer, "Server=%s:%d;", conn->cfg.ip, conn->cfg.port);
-      } else {
-        fixed_buf_sprintf(n, &buffer, "Server=%s;", conn->cfg.ip);
-      }
-    } else {
-      fixed_buf_sprintf(n, &buffer, "Server=;");
-    }
-    if (n>0) count += n;
-
-    if (conn->cfg.db) {
-      fixed_buf_sprintf(n, &buffer, "DB=%s;", conn->cfg.db);
-    } else {
-      fixed_buf_sprintf(n, &buffer, "DB=;");
-    }
-    if (n>0) count += n;
   }
+
+  if (conn->cfg.ip) {
+    if (conn->cfg.port) {
+      fixed_buf_sprintf(n, &buffer, "SERVER=%s:%d;", conn->cfg.ip, conn->cfg.port);
+    } else {
+      fixed_buf_sprintf(n, &buffer, "SERVER=%s;", conn->cfg.ip);
+    }
+  } else {
+    OA_NIY(conn->cfg.port == 0);
+    fixed_buf_sprintf(n, &buffer, "SERVER=;");
+  }
+  if (n>0) count += n;
+
+  if (conn->cfg.db) {
+    fixed_buf_sprintf(n, &buffer, "DB=%s;", conn->cfg.db);
+  } else {
+    fixed_buf_sprintf(n, &buffer, "DB=;");
+  }
+  if (n>0) count += n;
 
   if (conn->cfg.charset_for_col_bind) {
     fixed_buf_sprintf(n, &buffer, "CHARSET_ENCODER_FOR_COL_BIND=%s;", conn->cfg.charset_for_col_bind);
@@ -649,53 +640,63 @@ static void _conn_fill_out_connection_str(
 
 static int _conn_cfg_init_by_dsn(conn_cfg_t *cfg, char *ebuf, size_t elen)
 {
-  char buf[1024];
-  buf[0] = '\0';
+  char backend[1024]; backend[0] = '\0';
+  char buf[1024];     buf[0]     = '\0';
 
   int r = 0;
 
   buf[0] = '\0';
+  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "BACKEND", (LPCSTR)"taos", (LPSTR)backend, sizeof(backend), "Odbc.ini");
+  if (tod_strcasecmp(backend, "taos") == 0) {
+    cfg->backend = BACKEND_TAOS;
+  } else if (tod_strcasecmp(backend, "taosws") == 0) {
+    cfg->backend = BACKEND_TAOSWS;
+  } else {
+    snprintf(ebuf, elen, "@%d:%s():`BACKEND=%s` not supported yet, only `taos`/`taosws` is supported now", __LINE__, __func__, backend);
+    return -1;
+  }
+  if (cfg->backend == BACKEND_TAOSWS) {
+#ifndef HAVE_TAOSWS          /* { */
+    snprintf(ebuf, elen, "@%d:%s():`BACKEND=%s`, but the driver not built with websocket functionality", __LINE__, __func__, backend);
+    return -1;
+#endif                       /* } */
+  }
+
+  buf[0] = '\0';
   r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "URL", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
   if (buf[0]) {
-#ifdef HAVE_TAOSWS           /* { */
     cfg->url = strdup(buf);
     if (!cfg->url) {
       snprintf(ebuf, elen, "@%d:%s():out of memory", __LINE__, __func__);
       return -1;
     }
-#else                        /* }{ */
-    snprintf(ebuf, elen, "@%d:%s():websocket not supported yet, but seen URL in `%s`", __LINE__, __func__, cfg->dsn);
+    if (cfg->backend != BACKEND_TAOSWS) {
+      snprintf(ebuf, elen, "@%d:%s():`URL=%s` conflicts with `BACKEND=%s`", __LINE__, __func__, buf, backend);
+      return -1;
+    }
+  }
+
+  buf[0] = '\0';
+  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "SERVER", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
+  if (buf[0]) {
+    // TODO:
+    snprintf(ebuf, elen, "@%d:%s():`SERVER=%s` not supported yet", __LINE__, __func__, buf);
     return -1;
-#endif                       /* } */
-  } else {
-    buf[0] = '\0';
-    r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "PWD", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
-    if (buf[0]) {
-      cfg->pwd = strdup(buf);
-      if (!cfg->pwd) {
-        snprintf(ebuf, elen, "@%d:%s():out of memory", __LINE__, __func__);
-        return -1;
-      }
-    }
+  }
 
-    buf[0] = '\0';
-    r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "UID", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
-    if (buf[0]) {
-      cfg->uid = strdup(buf);
-      if (!cfg->uid) {
-        snprintf(ebuf, elen, "@%d:%s():out of memory", __LINE__, __func__);
-        return -1;
-      }
-    }
-
-    buf[0] = '\0';
-    r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "DB", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
-    if (buf[0]) {
+  buf[0] = '\0';
+  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "DB", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
+  if (buf[0]) {
+    if (cfg->backend == BACKEND_TAOSWS) {
       cfg->db = strdup(buf);
       if (!cfg->db) {
         snprintf(ebuf, elen, "@%d:%s():out of memory", __LINE__, __func__);
         return -1;
       }
+    } else {
+      // TODO:
+      snprintf(ebuf, elen, "@%d:%s():`DB=%s` not supported yet because of `BACKEND=taosws`", __LINE__, __func__, buf);
+      return -1;
     }
   }
 

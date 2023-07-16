@@ -360,7 +360,7 @@ macro(parser_gen _name)
     set(_dst_lex_h       ${_dst_name}.lex.h)
 
     BISON_TARGET(${_parser} ${_y} ${_dst_tab_c}
-        COMPILE_FLAGS "--warnings=error -Dapi.prefix={${_name}_yy}")
+        COMPILE_FLAGS "-Wcounterexamples --warnings=error -Dapi.prefix={${_name}_yy}")
     FLEX_TARGET(${_scanner} ${_l} ${_dst_lex_c}
         COMPILE_FLAGS "--header-file=${_dst_lex_h} --prefix=${_name}_yy")
     ADD_FLEX_BISON_DEPENDENCY(${_scanner} ${_parser})

@@ -22,16 +22,34 @@
  * SOFTWARE.
  */
 
-#include "sqls_parser.h"
+#ifndef _url_parser_h_
+#define _url_parser_h_
 
-#include "../core/internal.h"        // FIXME:
-#include "log.h"
+// https://datatracker.ietf.org/doc/html/rfc3986
 
-#include "sqls_parser.tab.h"
-#include "sqls_parser.lex.c"
+#include "macros.h"
+#include "typedefs.h"
 
-#include "sqls_parser.lex.h"
-#undef yylloc
-#undef yylval
-#include "sqls_parser.tab.c"
+#include <stddef.h>
+
+EXTERN_C_BEGIN
+
+void url_parser_param_reset(url_parser_param_t *param) FA_HIDDEN;
+void url_parser_param_release(url_parser_param_t *param) FA_HIDDEN;
+
+int url_parser_parse(const char *input, size_t len,
+    url_parser_param_t *param) FA_HIDDEN;
+
+void url_release(url_t *url) FA_HIDDEN;
+
+int url_encode(url_t *url, char **out) FA_HIDDEN;
+int url_set_scheme(url_t *url, const char *s, size_t n) FA_HIDDEN;
+int url_set_user(url_t *url, const char *s, size_t n) FA_HIDDEN;
+int url_set_pass(url_t *url, const char *s, size_t n) FA_HIDDEN;
+int url_set_host_port(url_t *url, const char *s, size_t n) FA_HIDDEN;
+
+EXTERN_C_END
+
+#endif // _url_parser_h_
+
 

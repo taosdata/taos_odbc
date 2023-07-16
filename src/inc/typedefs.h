@@ -111,5 +111,8 @@ typedef struct tsdb_rows_block_s        tsdb_rows_block_t;
 
 typedef struct typesinfo_s              typesinfo_t;
 
+typedef struct url_s                    url_t;
+typedef struct url_parser_param_s       url_parser_param_t;
+
 #endif // _typedefs_h_
 

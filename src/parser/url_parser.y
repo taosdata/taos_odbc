@@ -244,6 +244,16 @@
       _v.nr = 0;                                                                                \
       _v.cap = 0;                                                                               \
     } while (0)
+
+    #define SET_QUERY_EMPTY(_loc) do {                                                          \
+      TOD_SAFE_FREE(param->url.query);                                                          \
+      param->url.query = strdup("");                                                            \
+    } while (0)
+
+    #define SET_FRAGMENT_EMPTY(_loc) do {                                                       \
+      TOD_SAFE_FREE(param->url.fragment);                                                       \
+      param->url.fragment = strdup("");                                                         \
+    } while (0)
 }
 
 /* Bison declarations. */
@@ -295,6 +305,7 @@ input:
 url:
   scheme ':' '/' '/' auth
 | scheme ':' '/' '/' auth '/'                            { SET_PATH_BY_ROOT(@6); }
+| scheme ':' '/' '/' auth '/' query_fragment             { SET_PATH_BY_ROOT(@6); }
 | scheme ':' '/' '/' auth slashpath                      { SET_PATH_BY_STRS($6, @6); }
 | scheme ':' '/' '/' auth slashpath query_fragment       { SET_PATH_BY_STRS($6, @6); }
 | scheme ':' '/' '/' auth query_fragment
@@ -353,12 +364,12 @@ query_fragment:
 ;
 
 query:
-  '?'
+  '?'                         { SET_QUERY_EMPTY(@1); }
 | '?' pchars_slash_qm         { SET_QUERY($2, @2); }
 ;
 
 fragment:
-  '#'
+  '#'                         { SET_FRAGMENT_EMPTY(@1); }
 | '#' pchars_slash_qm         { SET_FRAGMENT($2, @2); }
 ;
 

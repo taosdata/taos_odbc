@@ -338,7 +338,7 @@ static int url_encode_path(url_t *url, url_str_t *str)
 static int url_encode_query(url_t *url, url_str_t *str)
 {
   int r = 0;
-  if (!url->query || !*url->query) return 0;
+  if (!url->query) return 0;
   r = url_str_append(str, "?", 1);
   if (r) return -1;
   return url_str_append(str, url->query, strlen(url->query));
@@ -347,7 +347,7 @@ static int url_encode_query(url_t *url, url_str_t *str)
 static int url_encode_fragment(url_t *url, url_str_t *str)
 {
   int r = 0;
-  if (!url->fragment || !*url->fragment) return 0;
+  if (!url->fragment) return 0;
   r = url_str_append(str, "#", 1);
   if (r) return -1;
   return url_str_append(str, url->fragment, strlen(url->fragment));

@@ -230,6 +230,15 @@ static int validate_url(HWND hDlg, const char *url, url_parser_param_t *param)
 {
   int r = 0;
   char buf[4096]; buf[0] = '\0';
+  // FIXME: win-flex seems behave differently in it's own way and treat 0x80 and above as -1/EOF
+  //        thus, we have to preprocess to filter out those cases
+  for (const char *p = url; *p; ++p) {
+    if (*p < 0) {
+      snprintf(buf, sizeof(buf), "MBCS characters are illegal\n\n%s", url);
+      MessageBox(hDlg, buf, "Error!", MB_OK|MB_ICONEXCLAMATION);
+      return -1;
+    }
+  }
   r = url_parser_parse(url, strlen(url), param);
   if (r) {
     snprintf(buf, sizeof(buf), "bad url:@(%d,%d)->(%d,%d):%s",
@@ -275,9 +284,10 @@ static void check_taosws_connection(HWND hDlg, config_t *config, url_parser_para
       return;
     }
   }
-  MessageBox(hDlg, out ? out : config->url, "Warning!", MB_OK | MB_ICONEXCLAMATION);
+  char buf[4096]; buf[0] = '\0';
+  snprintf(buf, sizeof(buf), "About to connect with:\n%s\n\nbut not implemented yet", out ? out : config->url);
+  MessageBox(hDlg, buf, "Warning!", MB_OK | MB_ICONEXCLAMATION);
   TOD_SAFE_FREE(out);
-  MessageBox(hDlg, "Not Implemented Yet", "Warning!", MB_OK | MB_ICONEXCLAMATION);
 }
 
 static INT_PTR OnTest(HWND hDlg, WPARAM wParam, LPARAM lParam, url_parser_param_t *param)

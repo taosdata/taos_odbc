@@ -353,8 +353,9 @@ static INT_PTR OnInitDlg(HWND hDlg, WPARAM wParam, LPARAM lParam)
           SetDlgItemText(hDlg, IDC_EDT_DSN, v);
 
           k[0] = '\0';
-          SQLGetPrivateProfileString(v, "BACKEND", "", k, sizeof(k), "Odbc.ini");
-          if (tod_strcasecmp(k, "taos") == 0) {
+          SQLGetPrivateProfileString(v, "URL", "", k, sizeof(k), "Odbc.ini");
+          SetDlgItemText(hDlg, IDC_EDT_URL, k);
+          if (k[0] == 0) {
             CheckRadioButton(hDlg, IDC_RAD_TAOS, IDC_RAD_TAOSWS, IDC_RAD_TAOS);
             SwitchTaos(hDlg, TRUE);
           } else {
@@ -367,9 +368,6 @@ static INT_PTR OnInitDlg(HWND hDlg, WPARAM wParam, LPARAM lParam)
 
           SQLGetPrivateProfileString(v, "DB", "", k, sizeof(k), "Odbc.ini");
           SetDlgItemText(hDlg, IDC_EDT_DB, k);
-
-          SQLGetPrivateProfileString(v, "URL", "", k, sizeof(k), "Odbc.ini");
-          SetDlgItemText(hDlg, IDC_EDT_URL, k);
 
           SQLGetPrivateProfileString(v, "UNSIGNED_PROMOTION", "", k, sizeof(k), "Odbc.ini");
           if (!!atoi(k)) {
@@ -488,7 +486,6 @@ static INT_PTR OnOK(HWND hDlg, WPARAM wParam, LPARAM lParam, url_parser_param_t 
   BOOL ok = TRUE;
   if (ok) ok = SQLWritePrivateProfileString("ODBC Data Sources", config.dsn, lpszDriver, "Odbc.ini");
   if (ok) ok = SQLWritePrivateProfileString(config.dsn, "Driver", driver_dll, "Odbc.ini");
-  if (ok) ok = SQLWritePrivateProfileString(config.dsn, "BACKEND", config.taos_checked ? "taos" : "taosws", "Odbc.ini");
   if (config.taos_checked) {
     if (ok) ok = SaveKeyVal(hDlg, config.dsn, "SERVER", config.server);
     if (ok) ok = SaveKeyVal(hDlg, config.dsn, "URL", NULL);

@@ -1,7 +1,6 @@
 [TAOS_ODBC_DSN]
 Description=Connection to TAOS 3.0
 Driver=TAOS_ODBC_DRIVER
-BACKEND=taos
 SERVER=
 DB=
 UNSIGNED_PROMOTION=
@@ -12,7 +11,6 @@ CHARSET_ENCODER_FOR_COL_BIND=
 [TAOS_ODBC_WS_DSN]
 Description=Connection to TAOS 3.0
 Driver=TAOS_ODBC_DRIVER
-BACKEND=taosws
 DB=
 URL=http://localhost:6041
 UNSIGNED_PROMOTION=

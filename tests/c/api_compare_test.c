@@ -329,7 +329,7 @@ static int re_connect_db(char* db) {
 	return 0;
 }
 
-static int browseConnect() {
+static int browse_connect() {
 	int r = 0;
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
 		SQLHENV henv = _cases[i].ctx.henv;
@@ -346,7 +346,7 @@ static int browseConnect() {
 	return r;
 }
 
-static int getDriverInfo() {
+static int get_driver_info() {
 	int r = 0;
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
 		SQLHDBC henv = _cases[i].ctx.henv;
@@ -580,14 +580,14 @@ static int config_test() {
 static int run() {
 	int r = 0;
 	CHK0(init_henv, 0);
-	CHK0(browseConnect, 0);
+	CHK0(browse_connect, 0);
 	CHK0(create_hconn, 0);
 	CHK0(set_conn_attr_before, 0);
 	CHK0(connect_all, 0);
 	CHK0(connect_another, 0);
 	CHK0(set_conn_attr, 0);
 	CHK0(creater_stmt, 0);
-	CHK0(getDriverInfo, 0);
+	CHK0(get_driver_info, 0);
 	CHK0(config_test, 0);
 
 	return r;

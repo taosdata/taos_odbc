@@ -667,10 +667,7 @@ static int test_url_parser(void)
     RECORD("http://www.com/?", "http://www.com/?"),
     RECORD("http://www.com#", "http://www.com#"),
     RECORD("http://www.com?", "http://www.com?"),
-#ifndef _WIN32         /* { */
-    // FIXME: win-flex seems behave differently in it's own way and treat 0x80 and above as -1/EOF
     RECORD("(1,20)->(1,21)", "http://example.com/根"),
-#endif                 /* } */
     RECORD("(1,1)->(1,5)", "file:///fasd"),
     RECORD("foo:/abc:def", "foo:/abc:def"),
     RECORD("http://hello%20world.com", "http://hello%20world.com"),

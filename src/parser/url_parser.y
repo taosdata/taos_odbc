@@ -155,6 +155,16 @@
       param->url.path = s;                                                                      \
     } while (0)
 
+    #define SET_PATH_BY_ROOT(_loc) do {                                                         \
+      TOD_SAFE_FREE(param->url.path);                                                           \
+      char *s = strdup("/");                                                                    \
+      if (!s) {                                                                                 \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
+        return -1;                                                                              \
+      }                                                                                         \
+      param->url.path = s;                                                                      \
+    } while (0)
+
     #define STR_SET(_str, _v, _loc) do {                                                        \
       memset(&_str, 0, sizeof(_str));                                                           \
       int r = url_str_set(&_str, _v.text, _v.leng);                                             \
@@ -284,8 +294,10 @@ input:
 
 url:
   scheme ':' '/' '/' auth
+| scheme ':' '/' '/' auth '/'                            { SET_PATH_BY_ROOT(@6); }
 | scheme ':' '/' '/' auth slashpath                      { SET_PATH_BY_STRS($6, @6); }
 | scheme ':' '/' '/' auth slashpath query_fragment       { SET_PATH_BY_STRS($6, @6); }
+| scheme ':' '/' '/' auth query_fragment
 | scheme ':' path
 | scheme ':'
 ;

@@ -34,6 +34,7 @@
 #include "setup.h"
 #include "stmt.h"
 #include "tls.h"
+#include "url_parser.h"
 
 #include "conn_parser.h"
 
@@ -225,27 +226,72 @@ static void check_taos_connection(HWND hDlg, config_t *config)
   }
 }
 
-static void check_taosws_connection(HWND hDlg, config_t *config)
+static int validate_url(HWND hDlg, const char *url, url_parser_param_t *param)
 {
+  int r = 0;
+  char buf[4096]; buf[0] = '\0';
+  r = url_parser_parse(url, strlen(url), param);
+  if (r) {
+    snprintf(buf, sizeof(buf), "bad url:@(%d,%d)->(%d,%d):%s",
+        param->ctx.row0, param->ctx.col0, param->ctx.row1, param->ctx.col1,
+        param->ctx.err_msg);
+    MessageBox(hDlg, buf, "Error!", MB_OK|MB_ICONEXCLAMATION);
+    return -1;
+  }
+  if (!param->url.host || !param->url.host[0]) {
+    const char *s = "`host` must be specified";
+    MessageBox(hDlg, s, "Error!", MB_OK|MB_ICONEXCLAMATION);
+    return -1;
+  }
+  if (param->url.user && param->url.user[0]) {
+    snprintf(buf, sizeof(buf), "userinfo:[%s%s%s] would be removed for the sake of security issue",
+        param->url.user,
+        (param->url.pass && param->url.pass[0]) ? ":" : "",
+        (param->url.pass && param->url.pass[0]) ? param->url.pass : "");
+    MessageBox(hDlg, buf, "Warn!", MB_OK|MB_ICONEXCLAMATION);
+  }
+  return 0;
+}
+
+static void check_taosws_connection(HWND hDlg, config_t *config, url_parser_param_t *param)
+{
+  int r = 0;
   if (config->url[0] == '\0') {
     MessageBox(hDlg, "URL must be specified", "Warning!", MB_OK | MB_ICONEXCLAMATION);
     return;
   }
+  r = validate_url(hDlg, config->url, param);
+  if (r) return;
+  char *out = NULL;
+  if (config->user[0] && config->password[0]) {
+    r = url_set_user_pass(&param->url, config->user, strlen(config->user), config->password, strlen(config->password));
+    if (r) {
+      MessageBox(hDlg, "binding URL with user/pass failed", "Warning!", MB_OK | MB_ICONEXCLAMATION);
+      return;
+    }
+    r = url_encode(&param->url, &out);
+    if (r) {
+      MessageBox(hDlg, "encoding URL with user/pass failed", "Warning!", MB_OK | MB_ICONEXCLAMATION);
+      return;
+    }
+  }
+  MessageBox(hDlg, out ? out : config->url, "Warning!", MB_OK | MB_ICONEXCLAMATION);
+  TOD_SAFE_FREE(out);
   MessageBox(hDlg, "Not Implemented Yet", "Warning!", MB_OK | MB_ICONEXCLAMATION);
 }
 
-static INT_PTR OnTest(HWND hDlg, WPARAM wParam, LPARAM lParam)
+static INT_PTR OnTest(HWND hDlg, WPARAM wParam, LPARAM lParam, url_parser_param_t *param)
 {
   config_t config = {0};
   GetConfig(hDlg, &config);
-  if (config.dsn[0] == '\0') {
-    MessageBox(hDlg, "DSN must be specified", "Warning", MB_OK | MB_ICONEXCLAMATION);
-    return FALSE;
-  }
+  // if (config.dsn[0] == '\0') {
+  //   MessageBox(hDlg, "DSN must be specified", "Warning", MB_OK | MB_ICONEXCLAMATION);
+  //   return FALSE;
+  // }
   if (config.taos_checked) {
     check_taos_connection(hDlg, &config);
   } else {
-    check_taosws_connection(hDlg, &config);
+    check_taosws_connection(hDlg, &config, param);
   }
   return TRUE;
 }
@@ -295,6 +341,8 @@ static INT_PTR OnCheckCol(HWND hDlg, WPARAM wParam, LPARAM lParam)
 static INT_PTR OnInitDlg(HWND hDlg, WPARAM wParam, LPARAM lParam)
 {
   LPCSTR lpszAttributes = gAttributes;
+  CheckRadioButton(hDlg, IDC_RAD_TAOS, IDC_RAD_TAOSWS, IDC_RAD_TAOS);
+  SwitchTaos(hDlg, TRUE);
   if (lpszAttributes) {
     config_t                   config = {0};
     const char *p = lpszAttributes;
@@ -340,13 +388,15 @@ static INT_PTR OnInitDlg(HWND hDlg, WPARAM wParam, LPARAM lParam)
   return (INT_PTR)TRUE;
 }
 
-static INT_PTR OnOK(HWND hDlg, WPARAM wParam, LPARAM lParam)
+static INT_PTR OnOK(HWND hDlg, WPARAM wParam, LPARAM lParam, url_parser_param_t *param)
 {
   LPCSTR lpszDriver = gDriver;
   LPCSTR lpszAttributes = gAttributes;
 
+  int r = 0;
+
   char driver_dll[MAX_PATH + 1];
-  int r = get_driver_dll_path(hDlg, driver_dll, sizeof(driver_dll));
+  r = get_driver_dll_path(hDlg, driver_dll, sizeof(driver_dll));
   if (r) {
     MessageBox(hDlg, "get_driver_dll_path failed", "Warning!", MB_OK|MB_ICONEXCLAMATION);
     return (INT_PTR)FALSE;
@@ -355,16 +405,22 @@ static INT_PTR OnOK(HWND hDlg, WPARAM wParam, LPARAM lParam)
   if (1) {
     config_t config = {0};
     GetConfig(hDlg, &config);
-    if (config.dsn[0] == '\0') {
-      MessageBox(hDlg, "DSN must be specified", "Warning", MB_OK | MB_ICONEXCLAMATION);
+    if (!config.taos_checked && config.url[0] == '\0') {
+      MessageBox(hDlg, "URL must be specified", "Warning!", MB_OK | MB_ICONEXCLAMATION);
       return FALSE;
     }
+    if (!config.taos_checked && config.url[0]) {
+      r = validate_url(hDlg, config.url, param);
+      if (r) return FALSE;
+    }
+
     if (!config.taos_checked) {
       MessageBox(hDlg, "Not Implemented Yet", "Warning!", MB_OK | MB_ICONEXCLAMATION);
       return FALSE;
     }
-    if (!config.taos_checked && config.url[0] == '\0') {
-      MessageBox(hDlg, "URL must be specified", "Warning!", MB_OK | MB_ICONEXCLAMATION);
+
+    if (config.dsn[0] == '\0') {
+      MessageBox(hDlg, "DSN must be specified", "Warning", MB_OK | MB_ICONEXCLAMATION);
       return FALSE;
     }
 
@@ -453,11 +509,17 @@ static INT_PTR CALLBACK SetupDlg(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
     }
 
     if (LOWORD(wParam) == IDOK) {
-      return OnOK(hDlg, wParam, lParam);
+      url_parser_param_t param = {0};
+      INT_PTR r = OnOK(hDlg, wParam, lParam, &param);
+      url_parser_param_release(&param);
+      return r;
     }
 
     if (LOWORD(wParam) == IDC_BTN_TEST) {
-      return OnTest(hDlg, wParam, lParam);
+      url_parser_param_t param = {0};
+      INT_PTR r = OnTest(hDlg, wParam, lParam, &param);
+      url_parser_param_release(&param);
+      return r;
     }
 
     if (LOWORD(wParam) == IDC_RAD_TAOS && HIWORD(wParam) == BN_CLICKED) {

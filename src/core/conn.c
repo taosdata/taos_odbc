@@ -583,19 +583,19 @@ static void _conn_fill_out_connection_str(
     OA_NIY(conn->cfg.url);
     fixed_buf_sprintf(n, &buffer, "URL={%s};", conn->cfg.url);
     if (n>0) count += n;
-  }
-
-  if (conn->cfg.ip) {
-    if (conn->cfg.port) {
-      fixed_buf_sprintf(n, &buffer, "SERVER=%s:%d;", conn->cfg.ip, conn->cfg.port);
-    } else {
-      fixed_buf_sprintf(n, &buffer, "SERVER=%s;", conn->cfg.ip);
-    }
   } else {
-    OA_NIY(conn->cfg.port == 0);
-    fixed_buf_sprintf(n, &buffer, "SERVER=;");
+    if (conn->cfg.ip) {
+      if (conn->cfg.port) {
+        fixed_buf_sprintf(n, &buffer, "SERVER=%s:%d;", conn->cfg.ip, conn->cfg.port);
+      } else {
+        fixed_buf_sprintf(n, &buffer, "SERVER=%s;", conn->cfg.ip);
+      }
+    } else {
+      OA_NIY(conn->cfg.port == 0);
+      fixed_buf_sprintf(n, &buffer, "SERVER=;");
+    }
+    if (n>0) count += n;
   }
-  if (n>0) count += n;
 
   if (conn->cfg.db) {
     fixed_buf_sprintf(n, &buffer, "DB=%s;", conn->cfg.db);

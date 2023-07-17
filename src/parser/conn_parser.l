@@ -126,26 +126,26 @@ DIGITS        [[:digit:]]+
 {TIMESTAMP_AS_IS}          { R(); C(); return MKT(TIMESTAMP_AS_IS); }
 {DIGITS}      { R(); SET_STR(); C(); return MKT(DIGITS); }
 {ID}          { R(); SET_STR(); C(); return MKT(ID); }
-"="           { R(); PUSH(EQ); C(); return *yytext; }
-"{"           { R(); PUSH(CURLY); C(); return *yytext; }       /* "}" */
+"="           { R(); PUSH(EQ); C(); return (unsigned char)*yytext; }
+"{"           { R(); PUSH(CURLY); C(); return (unsigned char)*yytext; }       /* "}" */
 {SP}          { R(); C(); } /* eat */
 {LN}          { R(); L(); } /* eat */
-.             { R(); C(); return *yytext; } /* let bison to handle */
+.             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 
 <SERVER>{
-"="       { R(); CHG(SERVER_EQ); C(); return *yytext; }
+"="       { R(); CHG(SERVER_EQ); C(); return (unsigned char)*yytext; }
 {SP}      { R(); C(); } /* eat */
 {LN}      { R(); L(); } /* eat */
-";"       { R(); POP(); C(); return *yytext; }
-.         { R(); C(); return *yytext; } /* let bison to handle */
+";"       { R(); POP(); C(); return (unsigned char)*yytext; }
+.         { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <SERVER_EQ>{
 {SP}      { R(); C(); } /* eat */
 {LN}      { R(); L(); } /* eat */
 {FQDN}    { R(); SET_STR(); CHG(FQDN); C(); return MKT(FQDN); }
-";"       { R(); POP(); C(); return *yytext; }
-.         { R(); C(); return *yytext; } /* let bison to handle */
+";"       { R(); POP(); C(); return (unsigned char)*yytext; }
+.         { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <FQDN>{
@@ -153,7 +153,7 @@ DIGITS        [[:digit:]]+
 ";"       { R(); POP(); C(); return ';'; }
 {SP}      { R(); POP(); C(); }
 {LN}      { R(); POP(); L(); }
-.         { R(); C(); return *yytext; } /* let bison to handle */
+.         { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <COLON>{
@@ -161,26 +161,26 @@ DIGITS        [[:digit:]]+
 ";"       { R(); POP(); C(); return ';'; }
 {SP}      { R(); POP(); C(); }
 {LN}      { R(); POP(); L(); }
-.         { R(); C(); return *yytext; } /* let bison to handle */
+.         { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <EQ>{
 {SP}      { R(); C(); } /* eat */
 {LN}      { R(); L(); } /* eat */
-"{"       { R(); CHG(CURLY); C(); return *yytext; }       /* "}" */
+"{"       { R(); CHG(CURLY); C(); return (unsigned char)*yytext; }       /* "}" */
 {DIGITS}  { R(); POP(); SET_STR(); C(); return MKT(DIGITS); }
 {VALUE}   { R(); POP(); SET_STR(); C(); return MKT(VALUE); }
-";"       { R(); POP(); C(); return *yytext; }
-.         { R(); C(); return *yytext; } /* let bison to handle */
+";"       { R(); POP(); C(); return (unsigned char)*yytext; }
+.         { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <CURLY>{
 {SP}      { R(); C(); } /* eat */
 {LN}      { R(); L(); } /* eat */
   /* "{" */
-"}"       { R(); POP(); C(); return *yytext; }
+"}"       { R(); POP(); C(); return (unsigned char)*yytext; }
 {VALUEX}  { R(); SET_STR(); C(); return MKT(VALUE); }
-.         { R(); C(); return *yytext; } /* let bison to handle */
+.         { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 %%

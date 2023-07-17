@@ -102,41 +102,41 @@ DIGITS        [[:digit:]]+
 
 <<EOF>> { if (0) { int state; TOP_STATE(state); if (state != INITIAL) return -1; }
           yyterminate(); }
-"!"           { R(); PUSH(TAOS_ODBC_EXT); C(); return *yytext; }
+"!"           { R(); PUSH(TAOS_ODBC_EXT); C(); return (unsigned char)*yytext; }
 {DIGITS}      { R(); SET_STR(); C(); return MKT(DIGITS); }
 {SP}          { R(); C(); } /* eat */
 {LN}          { R(); L(); } /* eat */
-.             { R(); C(); return *yytext; } /* let bison to handle */
+.             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 
 <TAOS_ODBC_EXT>{
 {TOPIC}       { R(); CHG(TAOS_ODBC_EXT_TOPIC); C(); return MKT(TOPIC); }
 {SP}          { R(); C(); } /* eat */
 {LN}          { R(); L(); } /* eat */
-.             { R(); C(); return *yytext; } /* let bison to handle */
+.             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <TAOS_ODBC_EXT_TOPIC>{
 {TNAME}       { R(); SET_STR(); C(); return MKT(TNAME); }
-{LP}          { R(); PUSH(TAOS_ODBC_EXT_TOPIC_LP); C(); return *yytext; }
+{LP}          { R(); PUSH(TAOS_ODBC_EXT_TOPIC_LP); C(); return (unsigned char)*yytext; }
 {SP}          { R(); C(); } /* eat */
 {LN}          { R(); L(); } /* eat */
-.             { R(); C(); return *yytext; } /* let bison to handle */
+.             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <TAOS_ODBC_EXT_TOPIC_LP>{
-{RP}          { R(); POP(); C(); return *yytext; }
+{RP}          { R(); POP(); C(); return (unsigned char)*yytext; }
 {TKEY}        { R(); SET_STR(); C(); return MKT(TKEY); }
-"="           { R(); PUSH(TAOS_ODBC_EXT_TOPIC_EQ); C(); return *yytext; }
+"="           { R(); PUSH(TAOS_ODBC_EXT_TOPIC_EQ); C(); return (unsigned char)*yytext; }
 {SP}          { R(); C(); } /* eat */
 {LN}          { R(); L(); } /* eat */
-.             { R(); C(); return *yytext; } /* let bison to handle */
+.             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <TAOS_ODBC_EXT_TOPIC_EQ>{
 {TVAL}        { R(); SET_STR(); POP(); C(); return MKT(TVAL); }
 {SP}          { R(); C(); } /* eat */
 {LN}          { R(); L(); } /* eat */
-.             { R(); C(); return *yytext; } /* let bison to handle */
+.             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 %%

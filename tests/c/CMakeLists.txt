@@ -213,3 +213,24 @@ if(HAVE_VALGRIND)
   add_test(NAME Vtest_threads
       COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/test_threads)
 endif()
+
+
+add_executable(api_compare_test
+    $<TARGET_OBJECTS:common_obj>
+    $<TARGET_OBJECTS:os_port_obj>
+    api_compare_test.c)
+
+if(NOT TODBC_WINDOWS)
+    target_link_libraries(api_compare_test odbc dl pthread)
+else()
+    set_source_files_properties(api_compare_test.c PROPERTIES COMPILE_OPTIONS "/source-charset:utf-8")
+    target_link_libraries(api_compare_test odbc32)
+endif()
+
+add_test(NAME api_compare_test
+    COMMAND api_compare_test)
+
+if(HAVE_VALGRIND)
+add_test(NAME Vapi_compare_test
+    COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/api_compare_test)
+endif()

@@ -243,13 +243,6 @@ static int validate_url(HWND hDlg, const char *url, url_parser_param_t *param)
     MessageBox(hDlg, s, "Error!", MB_OK|MB_ICONEXCLAMATION);
     return -1;
   }
-  if (param->url.user && param->url.user[0]) {
-    snprintf(buf, sizeof(buf), "userinfo:[%s%s%s] would be removed for the sake of security issue",
-        param->url.user,
-        (param->url.pass && param->url.pass[0]) ? ":" : "",
-        (param->url.pass && param->url.pass[0]) ? param->url.pass : "");
-    MessageBox(hDlg, buf, "Warn!", MB_OK|MB_ICONEXCLAMATION);
-  }
   return 0;
 }
 
@@ -263,7 +256,7 @@ static void check_taosws_connection(HWND hDlg, config_t *config, url_parser_para
   r = validate_url(hDlg, config->url, param);
   if (r) return;
   char *out = NULL;
-  if (config->user[0] && config->password[0]) {
+  if (config->user[0]) {
     r = url_set_user_pass(&param->url, config->user, strlen(config->user), config->password, strlen(config->password));
     if (r) {
       MessageBox(hDlg, "binding URL with user/pass failed", "Warning!", MB_OK | MB_ICONEXCLAMATION);
@@ -443,6 +436,7 @@ static INT_PTR OnOK(HWND hDlg, WPARAM wParam, LPARAM lParam, url_parser_param_t 
 
   int r = 0;
 
+  char buf[4096]; buf[0] = '\0';
   char driver_dll[MAX_PATH + 1];
   r = get_driver_dll_path(hDlg, driver_dll, sizeof(driver_dll));
   if (r) {
@@ -459,6 +453,13 @@ static INT_PTR OnOK(HWND hDlg, WPARAM wParam, LPARAM lParam, url_parser_param_t 
   if (!config.taos_checked && config.url[0]) {
     r = validate_url(hDlg, config.url, param);
     if (r) return FALSE;
+    if (param->url.user && param->url.user[0]) {
+      snprintf(buf, sizeof(buf), "userinfo:[%s%s%s] would be removed for the sake of security issue",
+          param->url.user,
+          (param->url.pass && param->url.pass[0]) ? ":" : "",
+          (param->url.pass && param->url.pass[0]) ? param->url.pass : "");
+      MessageBox(hDlg, buf, "Warn!", MB_OK|MB_ICONEXCLAMATION);
+    }
     if (param->url.user) param->url.user[0] = '\0';
     if (param->url.pass) param->url.pass[0] = '\0';
     r = url_encode(&param->url, url_out);

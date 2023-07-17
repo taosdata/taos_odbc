@@ -656,7 +656,7 @@ static int _conn_cfg_init_by_dsn(conn_cfg_t *cfg, char *ebuf, size_t elen)
 
   if (cfg->backend == BACKEND_TAOSWS) {
 #ifndef HAVE_TAOSWS          /* { */
-    snprintf(ebuf, elen, "@%d:%s():`BACKEND=%s`, but the driver not built with websocket functionality", __LINE__, __func__, backend);
+    snprintf(ebuf, elen, "@%d:%s():`URL=%s`, but the driver not built with websocket functionality", __LINE__, __func__, cfg->url);
     return -1;
 #endif                       /* } */
   }

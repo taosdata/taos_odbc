@@ -303,11 +303,12 @@ static int url_encode_user_pass(url_t *url, url_str_t *str)
   r = url_str_encode_component(str, url->user);
   if (r) return -1;
 
-  if (!url->pass || !*url->pass) return 0;
-  r = url_str_append(str, ":", 1);
-  if (r) return -1;
-  r = url_str_encode_component(str, url->pass);
-  if (r) return -1;
+  if (url->pass && *url->pass) {
+    r = url_str_append(str, ":", 1);
+    if (r) return -1;
+    r = url_str_encode_component(str, url->pass);
+    if (r) return -1;
+  }
 
   return url_str_append(str, "@", 1);
 }

@@ -38,6 +38,8 @@
 
 #include "conn_parser.h"
 
+#include "taosws.h"
+
 #include <string.h>
 
 #include <sql.h>
@@ -262,15 +264,36 @@ static void check_taosws_connection(HWND hDlg, config_t *config, url_parser_para
       MessageBox(hDlg, "binding URL with user/pass failed", "Warning!", MB_OK | MB_ICONEXCLAMATION);
       return;
     }
-    r = url_encode(&param->url, &out);
-    if (r) {
-      MessageBox(hDlg, "encoding URL with user/pass failed", "Warning!", MB_OK | MB_ICONEXCLAMATION);
-      return;
-    }
   }
+  r = url_encode(&param->url, &out);
+  if (r) {
+    MessageBox(hDlg, "encoding URL with user/pass failed", "Warning!", MB_OK | MB_ICONEXCLAMATION);
+    return;
+  }
+
   char buf[4096]; buf[0] = '\0';
-  snprintf(buf, sizeof(buf), "About to connect with:\n%s\n\nbut not implemented yet", out ? out : config->url);
-  MessageBox(hDlg, buf, "Warning!", MB_OK | MB_ICONEXCLAMATION);
+  WS_TAOS *taosws = ws_connect_with_dsn(out);
+  if (!taosws) {
+    int e = ws_errno(NULL);
+    const char *errstr = ws_errstr(NULL);
+    iconv_t cnv = iconv_open("GB18030", "UTF-8");
+    char gb18030[2048];
+    char   *inbuf        = (char*)errstr;
+    char   *outbuf       = gb18030;
+    size_t  inbytesleft  = strlen(errstr);
+    size_t  outbytesleft = sizeof(gb18030);
+    iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+    *outbuf = '\0';
+    iconv_close(cnv);
+    snprintf(buf, sizeof(buf), "Connect failure:[%d]%s\n%s", e, gb18030, out);
+    MessageBox(hDlg, buf, "Warning!", MB_OK | MB_ICONEXCLAMATION);
+  } else {
+    ws_close(taosws);
+    snprintf(buf, sizeof(buf), "Connect success:\n%s", out);
+    MessageBox(hDlg, buf, "Success!", MB_OK | MB_ICONEXCLAMATION);
+  }
+  // snprintf(buf, sizeof(buf), "About to connect with:\n%s\n\nbut not implemented yet", out ? out : config->url);
+  // MessageBox(hDlg, buf, "Warning!", MB_OK | MB_ICONEXCLAMATION);
   TOD_SAFE_FREE(out);
 }
 

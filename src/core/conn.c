@@ -670,7 +670,7 @@ static int _conn_cfg_init_by_dsn(conn_cfg_t *cfg, char *ebuf, size_t elen)
     if (p) {
       int len = 0;
       int n = sscanf(p+1, "%d%n", &port, &len);
-      if (n != 1 || port < 0 || port > UINT16_MAX || len != strlen(p+1)) {
+      if (n != 1 || port < 0 || port > UINT16_MAX || len < 0 || (size_t)len != strlen(p+1)) {
         snprintf(ebuf, elen, "@%d:%s():`SERVER=%s` not valid", __LINE__, __func__, buf);
         return -1;
       }

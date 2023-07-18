@@ -130,43 +130,43 @@ PPCHAR_PCT    ({PPCHAR}+)|({PCT}+)
 {SP}                  { R(); C(); } /* eat */
 "file"/[:]            { R(); C(); return MKT(FILE_SCHEME_NOT_SUPPORTED_YET); }
 {SCHEME}/[:]          { R(); C(); SET_STR(); PUSH(SCHEME); return MKT(SCHEME); }
-{LN}                  { R(); L(); return *yytext; } /* let bison to handle */
-.                     { R(); C(); return *yytext; } /* let bison to handle */
+{LN}                  { R(); L(); return (unsigned char)*yytext; } /* let bison to handle */
+.                     { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 
 <SCHEME>{
-":"                   { R(); C(); CHG(SCHEME_COLON); return *yytext; }
-{LN}                  { R(); L(); return *yytext; } /* let bison to handle */
-.                     { R(); C(); return *yytext; } /* let bison to handle */
+":"                   { R(); C(); CHG(SCHEME_COLON); return (unsigned char)*yytext; }
+{LN}                  { R(); L(); return (unsigned char)*yytext; } /* let bison to handle */
+.                     { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <SCHEME_COLON>{
-[/]/[/]               { R(); C(); CHG(AUTH); return *yytext; }
-"/"                   { R(); C(); CHG(SLASH); return *yytext; }
+[/]/[/]               { R(); C(); CHG(AUTH); return (unsigned char)*yytext; }
+"/"                   { R(); C(); CHG(SLASH); return (unsigned char)*yytext; }
 {PPCHAR_PCT}+         { R(); C(); SET_STR(); CHG(PATH); return MKT(PCHAR); }
-{LN}                  { R(); L(); return *yytext; } /* let bison to handle */
-.                     { R(); C(); return *yytext; } /* let bison to handle */
+{LN}                  { R(); L(); return (unsigned char)*yytext; } /* let bison to handle */
+.                     { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <AUTH>{
 {USERINFO}/[@]        { R(); C(); SET_STR(); CHG(USERINFO); return MKT(USERINFO); }
-"["                   { R(); C(); CHG(IPV6); return *yytext; }  // "]"
+"["                   { R(); C(); CHG(IPV6); return (unsigned char)*yytext; }  // "]"
 {IPV4}                { R(); C(); SET_STR(); CHG(HOST); return MKT(IPV4); }
 {REG_NAME}            { R(); C(); SET_STR(); CHG(HOST); return MKT(REG_NAME); }
-{LN}                  { R(); L(); return *yytext; } /* let bison to handle */
-.                     { R(); C(); return *yytext; } /* let bison to handle */
+{LN}                  { R(); L(); return (unsigned char)*yytext; } /* let bison to handle */
+.                     { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <USERINFO>{
-"@"                   { R(); C(); return *yytext; }
-"["                   { R(); C(); CHG(IPV6); return *yytext; } // "]"
+"@"                   { R(); C(); return (unsigned char)*yytext; }
+"["                   { R(); C(); CHG(IPV6); return (unsigned char)*yytext; } // "]"
 {IPV4}                { R(); C(); SET_STR(); CHG(HOST); return MKT(IPV4); }
 {REG_NAME}            { R(); C(); SET_STR(); CHG(HOST); return MKT(REG_NAME); }
-{LN}                  { R(); L(); return *yytext; } /* let bison to handle */
-.                     { R(); C(); return *yytext; } /* let bison to handle */
+{LN}                  { R(); L(); return (unsigned char)*yytext; } /* let bison to handle */
+.                     { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <IPV6>{
-"]"                   { R(); C(); CHG(HOST); return *yytext; }
+"]"                   { R(); C(); CHG(HOST); return (unsigned char)*yytext; }
 {IPVFUTURE}           { R(); C(); SET_STR(); CHG(HOST); return MKT(IPVFUTURE); }
 {IPV6_1}              { R(); C(); SET_STR(); return MKT(IPV6); }
 {IPV6_2}              { R(); C(); SET_STR(); return MKT(IPV6); }
@@ -177,46 +177,46 @@ PPCHAR_PCT    ({PPCHAR}+)|({PCT}+)
 {IPV6_7}              { R(); C(); SET_STR(); return MKT(IPV6); }
 {IPV6_8}              { R(); C(); SET_STR(); return MKT(IPV6); }
 {IPV6_9}              { R(); C(); SET_STR(); return MKT(IPV6); }
-{LN}                  { R(); L(); return *yytext; } /* let bison to handle */
-.                     { R(); C(); return *yytext; } /* let bison to handle */
+{LN}                  { R(); L(); return (unsigned char)*yytext; } /* let bison to handle */
+.                     { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <HOST>{
-":"                   { R(); C(); return *yytext; }
-"/"                   { R(); C(); CHG(SLASH); return *yytext; }
+":"                   { R(); C(); return (unsigned char)*yytext; }
+"/"                   { R(); C(); CHG(SLASH); return (unsigned char)*yytext; }
 {DIGIT}+              { R(); C(); SET_STR(); return MKT(PORT); }
-{LN}                  { R(); L(); return *yytext; } /* let bison to handle */
-.                     { R(); C(); return *yytext; } /* let bison to handle */
+{LN}                  { R(); L(); return (unsigned char)*yytext; } /* let bison to handle */
+.                     { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <SLASH>{
-"?"                   { R(); C(); CHG(QUERY); return *yytext; }
-"#"                   { R(); C(); CHG(FRAGMENT); return *yytext; }
+"?"                   { R(); C(); CHG(QUERY); return (unsigned char)*yytext; }
+"#"                   { R(); C(); CHG(FRAGMENT); return (unsigned char)*yytext; }
 {PPCHAR_PCT}+         { R(); C(); SET_STR(); CHG(PATH); return MKT(PCHAR); }
-{LN}                  { R(); L(); return *yytext; } /* let bison to handle */
-.                     { R(); C(); return *yytext; } /* let bison to handle */
+{LN}                  { R(); L(); return (unsigned char)*yytext; } /* let bison to handle */
+.                     { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <PATH>{
-"/"                   { R(); C(); CHG(SLASH); return *yytext; }
-"?"                   { R(); C(); CHG(QUERY); return *yytext; }
-"#"                   { R(); C(); CHG(FRAGMENT); return *yytext; }
+"/"                   { R(); C(); CHG(SLASH); return (unsigned char)*yytext; }
+"?"                   { R(); C(); CHG(QUERY); return (unsigned char)*yytext; }
+"#"                   { R(); C(); CHG(FRAGMENT); return (unsigned char)*yytext; }
 {PPCHAR_PCT}+         { R(); C(); SET_STR(); CHG(PATH); return MKT(PCHAR); }
-{LN}                  { R(); L(); return *yytext; } /* let bison to handle */
-.                     { R(); C(); return *yytext; } /* let bison to handle */
+{LN}                  { R(); L(); return (unsigned char)*yytext; } /* let bison to handle */
+.                     { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <QUERY>{
-"#"                   { R(); C(); CHG(FRAGMENT); return *yytext; }
+"#"                   { R(); C(); CHG(FRAGMENT); return (unsigned char)*yytext; }
 ({PPCHAR_PCT}|[/?]+)+ { R(); C(); SET_STR(); return MKT(PCHAR); }
-{LN}                  { R(); L(); return *yytext; } /* let bison to handle */
-.                     { R(); C(); return *yytext; } /* let bison to handle */
+{LN}                  { R(); L(); return (unsigned char)*yytext; } /* let bison to handle */
+.                     { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <FRAGMENT>{
 ({PPCHAR_PCT}|[/?]+)+ { R(); C(); SET_STR(); return MKT(PCHAR); }
-{LN}                  { R(); L(); return *yytext; } /* let bison to handle */
-.                     { R(); C(); return *yytext; } /* let bison to handle */
+{LN}                  { R(); L(); return (unsigned char)*yytext; } /* let bison to handle */
+.                     { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 %%

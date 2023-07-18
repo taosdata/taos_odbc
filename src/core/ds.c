@@ -117,7 +117,7 @@ static int _ds_stmt_ws_prepare(ds_stmt_t *ds_stmt, const char *sql)
 
   WS_STMT *ws_stmt = (WS_STMT*)ds_stmt->stmt;
 
-  int r = ws_stmt_prepare(ws_stmt, sql, strlen(sql));
+  int r = ws_stmt_prepare(ws_stmt, sql, (unsigned long)strlen(sql));
   if (r) return -1;
 
   return 0;

@@ -576,9 +576,6 @@ static void _conn_fill_out_connection_str(
   }
   if (n>0) count += n;
 
-  fixed_buf_sprintf(n, &buffer, "BACKEND=%s;", conn->cfg.backend == BACKEND_TAOS ? "taos" : "taosws");
-  if (n>0) count += n;
-
   if (conn->cfg.backend == BACKEND_TAOSWS) {
     OA_NIY(conn->cfg.url);
     fixed_buf_sprintf(n, &buffer, "URL={%s};", conn->cfg.url);
@@ -640,27 +637,9 @@ static void _conn_fill_out_connection_str(
 
 static int _conn_cfg_init_by_dsn(conn_cfg_t *cfg, char *ebuf, size_t elen)
 {
-  char backend[1024]; backend[0] = '\0';
   char buf[1024];     buf[0]     = '\0';
 
   int r = 0;
-
-  buf[0] = '\0';
-  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "BACKEND", (LPCSTR)"taos", (LPSTR)backend, sizeof(backend), "Odbc.ini");
-  if (tod_strcasecmp(backend, "taos") == 0) {
-    cfg->backend = BACKEND_TAOS;
-  } else if (tod_strcasecmp(backend, "taosws") == 0) {
-    cfg->backend = BACKEND_TAOSWS;
-  } else {
-    snprintf(ebuf, elen, "@%d:%s():`BACKEND=%s` not supported yet, only `taos`/`taosws` is supported now", __LINE__, __func__, backend);
-    return -1;
-  }
-  if (cfg->backend == BACKEND_TAOSWS) {
-#ifndef HAVE_TAOSWS          /* { */
-    snprintf(ebuf, elen, "@%d:%s():`BACKEND=%s`, but the driver not built with websocket functionality", __LINE__, __func__, backend);
-    return -1;
-#endif                       /* } */
-  }
 
   buf[0] = '\0';
   r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "URL", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
@@ -670,10 +649,16 @@ static int _conn_cfg_init_by_dsn(conn_cfg_t *cfg, char *ebuf, size_t elen)
       snprintf(ebuf, elen, "@%d:%s():out of memory", __LINE__, __func__);
       return -1;
     }
-    if (cfg->backend != BACKEND_TAOSWS) {
-      snprintf(ebuf, elen, "@%d:%s():`URL=%s` conflicts with `BACKEND=%s`", __LINE__, __func__, buf, backend);
-      return -1;
-    }
+    cfg->backend = BACKEND_TAOSWS;
+  } else {
+    cfg->backend = BACKEND_TAOS;
+  }
+
+  if (cfg->backend == BACKEND_TAOSWS) {
+#ifndef HAVE_TAOSWS          /* { */
+    snprintf(ebuf, elen, "@%d:%s():`URL=%s`, but the driver not built with websocket functionality", __LINE__, __func__, cfg->url);
+    return -1;
+#endif                       /* } */
   }
 
   buf[0] = '\0';
@@ -687,15 +672,9 @@ static int _conn_cfg_init_by_dsn(conn_cfg_t *cfg, char *ebuf, size_t elen)
   buf[0] = '\0';
   r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "DB", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
   if (buf[0]) {
-    if (cfg->backend == BACKEND_TAOSWS) {
-      cfg->db = strdup(buf);
-      if (!cfg->db) {
-        snprintf(ebuf, elen, "@%d:%s():out of memory", __LINE__, __func__);
-        return -1;
-      }
-    } else {
-      // TODO:
-      snprintf(ebuf, elen, "@%d:%s():`DB=%s` not supported yet because of `BACKEND=taosws`", __LINE__, __func__, buf);
+    cfg->db = strdup(buf);
+    if (!cfg->db) {
+      snprintf(ebuf, elen, "@%d:%s():out of memory", __LINE__, __func__);
       return -1;
     }
   }

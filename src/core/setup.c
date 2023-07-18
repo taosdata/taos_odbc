@@ -265,7 +265,7 @@ static void check_taosws_connection(HWND hDlg, config_t *config, url_parser_para
       return;
     }
   }
-  r = url_encode(&param->url, &out);
+  r = url_encode_with_database(&param->url, config->database, &out);
   if (r) {
     MessageBox(hDlg, "encoding URL with user/pass failed", "Warning!", MB_OK | MB_ICONEXCLAMATION);
     return;
@@ -517,11 +517,11 @@ static INT_PTR OnOK(HWND hDlg, WPARAM wParam, LPARAM lParam, url_parser_param_t 
     if (ok) ok = SaveKeyVal(hDlg, config.dsn, "SERVER", NULL);
     if (ok) ok = SaveKeyVal(hDlg, config.dsn, "URL", *url_out);
   }
+  if (ok) ok = SaveKeyVal(hDlg, config.dsn, "DB", config.database[0] ? config.database : "");
   if (ok) ok = SaveKeyVal(hDlg, config.dsn, "UNSIGNED_PROMOTION", config.unsigned_promotion ? "1" : "0");
   if (ok) ok = SaveKeyVal(hDlg, config.dsn, "TIMESTAMP_AS_IS", config.timestamp_as_is ? "1" : "0");
   if (ok) ok = SaveKeyVal(hDlg, config.dsn, "CHARSET_ENCODER_FOR_PARAM_BIND", config.encoder_param_checked ? config.encoder_param : "");
   if (ok) ok = SaveKeyVal(hDlg, config.dsn, "CHARSET_ENCODER_FOR_COL_BIND", config.encoder_col_checked ? config.encoder_col : "");
-  if (ok) ok = SaveKeyVal(hDlg, config.dsn, "DB", config.database[0] ? config.database : "");
   if (ok) {
     EndDialog(hDlg, LOWORD(wParam));
     return (INT_PTR)TRUE;

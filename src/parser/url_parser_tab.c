@@ -354,7 +354,7 @@ static int url_encode_fragment(url_t *url, url_str_t *str)
   return url_str_append(str, url->fragment, strlen(url->fragment));
 }
 
-static int url_encode_str(url_t *url, url_str_t *str)
+static int url_encode_str(url_t *url, const char *db, url_str_t *str)
 {
   int r = 0;
   r = url_encode_scheme(url, str);
@@ -365,23 +365,46 @@ static int url_encode_str(url_t *url, url_str_t *str)
   if (r) return -1;
   r = url_encode_path(url, str);
   if (r) return -1;
+
+  if (db && *db) {
+    // FIXME: better be aware of sql-injection!!!
+    size_t len = url->path ? strlen(url->path) : 0;
+    if (len == 0 || url->path[len - 1] != '/') {
+      const char c = '/';
+      r = url_str_append(str, &c, 1);
+      if (r) return -1;
+    }
+    r = url_str_encode_component(str, db);
+    if (r) return -1;
+  }
+
   r = url_encode_query(url, str);
   if (r) return -1;
   r = url_encode_fragment(url, str);
   return r ? -1 : 0;
 }
 
-int url_encode(url_t *url, char **out)
+static int url_encode_with_db(url_t *url, const char *db, char **out)
 {
   int r = 0;
   url_str_t str = {0};
-  r = url_encode_str(url, &str);
+  r = url_encode_str(url, db, &str);
   if (r) {
     url_str_release(&str);
     return -1;
   }
   *out = str.str;
   return 0;
+}
+
+int url_encode(url_t *url, char **out)
+{
+  return url_encode_with_db(url, NULL, out);
+}
+
+int url_encode_with_database(url_t *url, const char *db, char **out)
+{
+  return url_encode_with_db(url, db, out);
 }
 
 int url_set_scheme(url_t *url, const char *s, size_t n)

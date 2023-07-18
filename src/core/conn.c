@@ -665,8 +665,25 @@ static int _conn_cfg_init_by_dsn(conn_cfg_t *cfg, char *ebuf, size_t elen)
   r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "SERVER", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
   if (buf[0]) {
     // TODO:
-    snprintf(ebuf, elen, "@%d:%s():`SERVER=%s` not supported yet", __LINE__, __func__, buf);
-    return -1;
+    const char *p = strchr(buf, ':'); // FIXME: trim or not?
+    int port = 0;
+    if (p) {
+      int len = 0;
+      int n = sscanf(p+1, "%d%n", &port, &len);
+      if (n != 1 || port < 0 || port > UINT16_MAX || len < 0 || (size_t)len != strlen(p+1)) {
+        snprintf(ebuf, elen, "@%d:%s():`SERVER=%s` not valid", __LINE__, __func__, buf);
+        return -1;
+      }
+    }
+
+    char *ip = p ? strndup(buf, p-buf) : strdup(buf);
+    if (!ip) {
+      snprintf(ebuf, elen, "out of memory");
+      return -1;
+    }
+    TOD_SAFE_FREE(cfg->ip);
+    cfg->ip = ip;
+    cfg->port = port;
   }
 
   buf[0] = '\0';

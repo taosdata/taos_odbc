@@ -34,7 +34,7 @@
 #define IDC_STC_DSN                     1021
 #define IDC_STC_BACKEND                 1022
 #define IDC_STC_SERVER_INFO             1023
-#define IDC_STC_DATABASE                1024
+#define IDC_STC_DB                      1024
 #define IDC_STC_ATTR                    1025
 #define IDC_STC_TEST                    1026
 #define IDC_STC_UID                     1027

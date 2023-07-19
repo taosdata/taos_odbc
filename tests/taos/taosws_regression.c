@@ -58,7 +58,7 @@ struct sql_s {
   int                    __line__;
 };
 
-static char          _charset[4096] = "UTF-8";
+static char          _c_charset[4096] = "UTF-8";
 
 static void _init_charset(void)
 {
@@ -66,13 +66,13 @@ static void _init_charset(void)
   UINT acp = GetACP();
   switch (acp) {
     case 936:
-      snprintf(_charset, sizeof(_charset), "GB18030");
+      snprintf(_c_charset, sizeof(_c_charset), "GB18030");
       break;
     case 65001:
-      snprintf(_charset, sizeof(_charset), "UTF-8");
+      snprintf(_c_charset, sizeof(_c_charset), "UTF-8");
       break;
     default:
-      snprintf(_charset, sizeof(_charset), "CP%d", acp);
+      snprintf(_c_charset, sizeof(_c_charset), "CP%d", acp);
       break;
   }
 #else
@@ -81,11 +81,11 @@ static void _init_charset(void)
 
   const char *p = strchr(locale, '.');
   p = p ? p + 1 : locale;
-  snprintf(_charset, sizeof(_charset), "%s", p);
+  snprintf(_c_charset, sizeof(_c_charset), "%s", p);
 #endif
 }
 
-static int _charset_conv(const char *src, char *dst, size_t len, const char *fromcode, const char *tocode)
+static int _charset_conv(const char *src, size_t slen, char *dst, size_t dlen, const char *fromcode, const char *tocode)
 {
   iconv_t cnv = iconv_open(tocode, fromcode);
   if (cnv == (iconv_t)-1) {
@@ -95,10 +95,10 @@ static int _charset_conv(const char *src, char *dst, size_t len, const char *fro
 
   char       *inbuf        = (char*)src;
   char       *outbuf       = dst;
-  size_t      inbytesleft  = strlen(src);
-  size_t      outbytesleft = len - 1;
+  size_t      inbytesleft  = slen;
+  size_t      outbytesleft = dlen - 1;
 
-  int n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+  size_t n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
   if (n || inbytesleft) {
     E("conversion from `%s` to `%s` failed", fromcode, tocode);
     return -1;
@@ -150,7 +150,7 @@ static int _query(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STMT 
     int         __line__    = _cases[i].__line__;
 
     char utf8[4096]; utf8[0] = '\0';
-    r = _charset_conv(sql, utf8, sizeof(utf8), _charset, "UTF-8");
+    r = _charset_conv(sql, strlen(sql), utf8, sizeof(utf8), _c_charset, "UTF-8");
     if (r) return -1;
 
     WS_RES *res = CALL_ws_query(taos, utf8);
@@ -198,7 +198,7 @@ static int _prepare(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STM
     const char *sql = "show databases";
 
     char utf8[4096]; utf8[0] = '\0';
-    r = _charset_conv(sql, utf8, sizeof(utf8), _charset, "UTF-8");
+    r = _charset_conv(sql, strlen(sql), utf8, sizeof(utf8), _c_charset, "UTF-8");
     if (r) return -1;
 
     r = CALL_ws_stmt_prepare(stmt, utf8, (unsigned long)strlen(utf8));
@@ -235,7 +235,7 @@ static int _fetch(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STMT 
     int         __line__    = _cases[i].__line__;
 
     char utf8[4096]; utf8[0] = '\0';
-    r = _charset_conv(sql, utf8, sizeof(utf8), _charset, "UTF-8");
+    r = _charset_conv(sql, strlen(sql), utf8, sizeof(utf8), _c_charset, "UTF-8");
     if (r) return -1;
 
     WS_RES *res = CALL_ws_query(taos, sql);
@@ -256,7 +256,7 @@ static int _fetch(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STMT 
   // insert into foo.t (ts, name) values (now(), null)
   const char *sql = "select name from foo.t";
   char utf8[4096]; utf8[0] = '\0';
-  r = _charset_conv(sql, utf8, sizeof(utf8), _charset, "UTF-8");
+  r = _charset_conv(sql, strlen(sql), utf8, sizeof(utf8), _c_charset, "UTF-8");
   if (r) return -1;
 
   WS_RES *res = CALL_ws_query(taos, utf8);
@@ -290,6 +290,98 @@ static int _fetch(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STMT 
   return 0;
 }
 
+static int _charset(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STMT *stmt)
+{
+  (void)arg;
+  (void)stmt;
+
+  int r = 0;
+
+  if (stage != STAGE_CONNECTED) return 0;
+
+  const struct {
+    const char          *sql;
+    int                  __line__;
+    uint8_t              ok:1;
+  } _cases[] = {
+    {"drop database if exists foo", __LINE__, 1},
+    {"create database if not exists foo", __LINE__, 1},
+    {"insert into foo.t (ts, name) values (now(), 'a')", __LINE__, 0},
+    {"create table foo.t (ts timestamp, name varchar(20), mark nchar(20))", __LINE__, 1},
+    {"insert into foo.t (ts, name, mark) values (now(), null, null)", __LINE__, 1},
+  };
+
+  const size_t nr = sizeof(_cases) / sizeof(_cases[0]);
+  for (size_t i=0; i<nr; ++i) {
+    const char *sql         = _cases[i].sql;
+    uint8_t     expected_ok = _cases[i].ok;
+    int         __line__    = _cases[i].__line__;
+
+    char utf8[4096]; utf8[0] = '\0';
+    r = _charset_conv(sql, strlen(sql), utf8, sizeof(utf8), _c_charset, "UTF-8");
+    if (r) return -1;
+
+    WS_RES *res = CALL_ws_query(taos, sql);
+    int e = ws_errno(res);
+    if ((!!e) ^ (!expected_ok)) {
+      E("executing sql @[%dL]:%s", __line__, sql);
+      if (expected_ok) {
+        E("failed:[%d]%s", e, ws_errstr(res));
+      } else {
+        E("succeed unexpectedly");
+      }
+      r = -1;
+    }
+    if (res) CALL_ws_free_result(res);
+    if (r) return -1;
+  }
+
+  const char *sql = "select name, mark from foo.t";
+  char utf8[4096]; utf8[0] = '\0';
+  r = _charset_conv(sql, strlen(sql), utf8, sizeof(utf8), _c_charset, "UTF-8");
+  if (r) return -1;
+
+  WS_RES *res = CALL_ws_query(taos, utf8);
+  int e = ws_errno(res);
+  if (!!e) {
+    E("failed:[%d]%s", e, ws_errstr(res));
+    r = -1;
+  }
+  if (res) {
+    const void *ptr = NULL;
+    int32_t rows = 0;
+    r = CALL_ws_fetch_block(res, &ptr, &rows);
+    E("r:%d;ptr:%p;rows:%d", r, ptr, rows);
+  }
+  if (res) {
+    char buf[4096]; buf[0] = '\0';
+    uint8_t ty = 0;
+    uint32_t len = 0;
+    const void *p = NULL;
+    int row = 0, col = 0;
+
+    r = 0;
+    if (r == 0) {
+      row = 0, col = 0, ty = 0; len = 0; p = NULL;
+      if (p) {
+        E("expected null, but got ==(%d,%d):p:%p;ty:%d;len:%d==", row, col, p, ty, len);
+        r = -1;
+      }
+    }
+    if (r == 0) {
+      row = 0, col = 1, ty = 0; len = 0; p = NULL;
+      if (p) {
+        E("expected null, but got ==(%d,%d):p:%p;ty:%d;len:%d==", row, col, p, ty, len);
+        r = -1;
+      }
+    }
+  }
+  if (res) CALL_ws_free_result(res);
+  if (r) return -1;
+
+  return 0;
+}
+
 #define RECORD(x) {x, #x}
 
 static struct {
@@ -300,6 +392,7 @@ static struct {
   RECORD(_query),
   RECORD(_prepare),
   RECORD(_fetch),
+  RECORD(_charset),
 };
 
 static int on_statement(const arg_t *arg, WS_TAOS *taos, WS_STMT *stmt)

@@ -37,6 +37,9 @@
 #include "stmt.h"
 #include "tables.h"
 #include "taos_helpers.h"
+#ifdef HAVE_TAOSWS           /* { */
+#include "taosws_helpers.h"
+#endif                       /* } */
 #include "tls.h"
 #include "topic.h"
 #include "tsdb.h"
@@ -6782,7 +6785,7 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
         TAOS_MULTI_BIND *mbs = stmt->tsdb_binds.mbs + (!!stmt->tsdb_stmt.params.subtbl_required);
 #ifdef HAVE_TAOSWS           /* { */
         if (stmt->conn->cfg.url) {
-          r = ws_stmt_set_tags((WS_STMT*)stmt->tsdb_stmt.stmt, (WS_MULTI_BIND*)mbs, tsdb_params->nr_tag_fields);
+          r = CALL_ws_stmt_set_tags((WS_STMT*)stmt->tsdb_stmt.stmt, (WS_MULTI_BIND*)mbs, tsdb_params->nr_tag_fields);
           if (r) {
             stmt_append_err_format(stmt, "HY000", r, "General error:[taosws]%s", ws_stmt_errstr((WS_STMT*)stmt->tsdb_stmt.stmt));
             return SQL_ERROR;
@@ -6803,7 +6806,7 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
     TAOS_MULTI_BIND *mb = stmt->tsdb_binds.mbs + (!!stmt->tsdb_stmt.params.subtbl_required) + stmt->tsdb_stmt.params.nr_tag_fields;
 #ifdef HAVE_TAOSWS           /* { */
     if (stmt->conn->cfg.url) {
-      r = ws_stmt_bind_param_batch((WS_STMT*)stmt->tsdb_stmt.stmt, (WS_MULTI_BIND*)mb, tsdb_params->nr_tag_fields);
+      r = CALL_ws_stmt_bind_param_batch((WS_STMT*)stmt->tsdb_stmt.stmt, (WS_MULTI_BIND*)mb, tsdb_params->nr_tag_fields);
       if (r) {
         stmt_append_err_format(stmt, "HY000", r, "General error:[taosws]%s", ws_stmt_errstr((WS_STMT*)stmt->tsdb_stmt.stmt));
         return SQL_ERROR;
@@ -6821,7 +6824,7 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
 
 #ifdef HAVE_TAOSWS           /* { */
     if (stmt->conn->cfg.url) {
-      r = ws_stmt_add_batch((WS_STMT*)stmt->tsdb_stmt.stmt);
+      r = CALL_ws_stmt_add_batch((WS_STMT*)stmt->tsdb_stmt.stmt);
       if (r) {
         stmt_append_err_format(stmt, "HY000", r, "General error:[taosws]%s", ws_stmt_errstr((WS_STMT*)stmt->tsdb_stmt.stmt));
         return SQL_ERROR;

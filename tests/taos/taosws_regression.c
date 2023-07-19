@@ -22,9 +22,9 @@
  * SOFTWARE.
  */
 
-#include <taosws.h>
+#include "taosws_helpers.h"
 
-#include "helpers.h"
+#include "../test_helper.h"
 
 #include <stdio.h>
 
@@ -94,7 +94,7 @@ static int _query(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STMT 
     uint8_t     expected_ok = _cases[i].ok;
     int         __line__    = _cases[i].__line__;
 
-    WS_RES *res = ws_query(taos, sql);
+    WS_RES *res = CALL_ws_query(taos, sql);
     int e = ws_errno(res);
     if ((!!e) ^ (!expected_ok)) {
       E("executing sql @[%dL]:%s", __line__, sql);
@@ -105,7 +105,7 @@ static int _query(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STMT 
       }
       r = -1;
     }
-    if (res) ws_free_result(res);
+    if (res) CALL_ws_free_result(res);
     if (r) return -1;
   }
 
@@ -138,7 +138,7 @@ static int _prepare(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STM
   } else if (stage == STAGE_STATEMENT) {
     const char *sql = "show databases";
     size_t      nr  = strlen(sql);
-    r = ws_stmt_prepare(stmt, sql, (unsigned long)nr);
+    r = CALL_ws_stmt_prepare(stmt, sql, (unsigned long)nr);
   }
 
   return r;
@@ -171,7 +171,7 @@ static int _fetch(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STMT 
     uint8_t     expected_ok = _cases[i].ok;
     int         __line__    = _cases[i].__line__;
 
-    WS_RES *res = ws_query(taos, sql);
+    WS_RES *res = CALL_ws_query(taos, sql);
     int e = ws_errno(res);
     if ((!!e) ^ (!expected_ok)) {
       E("executing sql @[%dL]:%s", __line__, sql);
@@ -182,12 +182,12 @@ static int _fetch(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STMT 
       }
       r = -1;
     }
-    if (res) ws_free_result(res);
+    if (res) CALL_ws_free_result(res);
     if (r) return -1;
   }
 
   // insert into foo.t (ts, name) values (now(), null)
-  WS_RES *res = ws_query(taos, "select name from foo.t");
+  WS_RES *res = CALL_ws_query(taos, "select name from foo.t");
   int e = ws_errno(res);
   if (!!e) {
     E("failed:[%d]%s", e, ws_errstr(res));
@@ -196,7 +196,7 @@ static int _fetch(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STMT 
   if (res) {
     const void *ptr = NULL;
     int32_t rows = 0;
-    r = ws_fetch_block(res, &ptr, &rows);
+    r = CALL_ws_fetch_block(res, &ptr, &rows);
     E("r:%d;ptr:%p;rows:%d", r, ptr, rows);
   }
   if (res) {
@@ -206,13 +206,13 @@ static int _fetch(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STMT 
     int row = 0, col = 0;
 
     ty = 0; len = 0; p = NULL;
-    p = ws_get_value_in_block(res, row, col, &ty, &len);
+    p = CALL_ws_get_value_in_block(res, row, col, &ty, &len);
     if (p) {
       E("expected null, but got ==(%d,%d):p:%p;ty:%d;len:%d==", row, col, p, ty, len);
       r = -1;
     }
   }
-  if (res) ws_free_result(res);
+  if (res) CALL_ws_free_result(res);
   if (r) return -1;
 
   return 0;
@@ -247,13 +247,13 @@ static int on_connected(const arg_t *arg, WS_TAOS *taos)
   r = arg->regress(arg, STAGE_CONNECTED, taos, NULL);
   if (r) return -1;
 
-  WS_STMT *stmt = ws_stmt_init(taos);
+  WS_STMT *stmt = CALL_ws_stmt_init(taos);
   if (!stmt) E("%d:%s", ws_errno(NULL), ws_errstr(NULL));
   if (!stmt) return -1;
 
   r = on_statement(arg, taos, stmt);
 
-  ws_stmt_close(stmt);
+  CALL_ws_stmt_close(stmt);
 
   return r ? -1 : 0;
 }
@@ -265,13 +265,13 @@ static int on_init(const arg_t *arg)
   r = arg->regress(arg, STAGE_INITED, NULL, NULL);
   if (r) return -1;
 
-  WS_TAOS *taos = ws_connect_with_dsn(arg->url);
+  WS_TAOS *taos = CALL_ws_connect_with_dsn(arg->url);
   if (!taos) E("%d:%s", ws_errno(NULL), ws_errstr(NULL));
   if (!taos) return -1;
 
   r = on_connected(arg, taos);
 
-  ws_close(taos);
+  CALL_ws_close(taos);
 
   return r ? -1 : 0;
 }

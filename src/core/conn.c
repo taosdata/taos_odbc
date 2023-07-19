@@ -34,6 +34,9 @@
 #include "conn_parser.h"
 #include "stmt.h"
 #include "taos_helpers.h"
+#ifdef HAVE_TAOSWS           /* { */
+#include "taosws_helpers.h"
+#endif                       /* } */
 #include "tls.h"
 
 #include <odbcinst.h>
@@ -495,7 +498,7 @@ static SQLRETURN _do_conn_connect(conn_t *conn)
   const char *db = cfg->db;
   if (conn->cfg.url) {
 #ifdef HAVE_TAOSWS           /* { */
-    conn->ds_conn.taos = ws_connect_with_dsn(conn->cfg.url);
+    conn->ds_conn.taos = CALL_ws_connect_with_dsn(conn->cfg.url);
     if (!conn->ds_conn.taos) {
       conn_append_err_format(conn, "08001", ws_errno(NULL), "Client unable to establish connection:[%s][%s]", conn->cfg.url, ws_errstr(NULL));
       return SQL_ERROR;

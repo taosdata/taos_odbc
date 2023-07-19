@@ -36,10 +36,8 @@
 #include "typedefs.h"
 
 #include "taos_helpers.h"
-
-#include <taos.h>
 #ifdef HAVE_TAOSWS           /* { */
-#include <taosws.h>
+#include "taosws_helpers.h"
 #endif                       /* } */
 
 EXTERN_C_BEGIN

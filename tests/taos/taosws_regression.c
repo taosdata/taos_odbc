@@ -238,7 +238,7 @@ static int _fetch(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STMT 
     r = _charset_conv(sql, strlen(sql), utf8, sizeof(utf8), _c_charset, "UTF-8");
     if (r) return -1;
 
-    WS_RES *res = CALL_ws_query(taos, sql);
+    WS_RES *res = CALL_ws_query(taos, utf8);
     int e = ws_errno(res);
     if ((!!e) ^ (!expected_ok)) {
       E("executing sql @[%dL]:%s", __line__, sql);
@@ -308,7 +308,7 @@ static int _charset(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STM
     {"create database if not exists foo", __LINE__, 1},
     {"insert into foo.t (ts, name) values (now(), 'a')", __LINE__, 0},
     {"create table foo.t (ts timestamp, name varchar(20), mark nchar(20))", __LINE__, 1},
-    {"insert into foo.t (ts, name, mark) values (now(), null, null)", __LINE__, 1},
+    {"insert into foo.t (ts, name, mark) values (now(), '你好', '世界')", __LINE__, 1},
   };
 
   const size_t nr = sizeof(_cases) / sizeof(_cases[0]);
@@ -321,7 +321,7 @@ static int _charset(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STM
     r = _charset_conv(sql, strlen(sql), utf8, sizeof(utf8), _c_charset, "UTF-8");
     if (r) return -1;
 
-    WS_RES *res = CALL_ws_query(taos, sql);
+    WS_RES *res = CALL_ws_query(taos, utf8);
     int e = ws_errno(res);
     if ((!!e) ^ (!expected_ok)) {
       E("executing sql @[%dL]:%s", __line__, sql);
@@ -362,16 +362,33 @@ static int _charset(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STM
 
     r = 0;
     if (r == 0) {
+      char buf[4096]; buf[0] = '\0';
       row = 0, col = 0, ty = 0; len = 0; p = NULL;
-      if (p) {
-        E("expected null, but got ==(%d,%d):p:%p;ty:%d;len:%d==", row, col, p, ty, len);
+      p = CALL_ws_get_value_in_block(res, row, col, &ty, &len);
+      r = -1;
+      if (p && ty == TSDB_DATA_TYPE_VARCHAR) r = _charset_conv(p, len, buf, sizeof(buf), "UTF-8", _c_charset);
+      if (r == 0) r = strcmp("你好", buf);
+      if (r) {
+        E("expected 'varchar:你好', but got ==(%d,%d):p:%p;ty:%d;len:%d==", row, col, p, ty, len);
         r = -1;
       }
     }
     if (r == 0) {
+      char buf[4096]; buf[0] = '\0';
       row = 0, col = 1, ty = 0; len = 0; p = NULL;
-      if (p) {
-        E("expected null, but got ==(%d,%d):p:%p;ty:%d;len:%d==", row, col, p, ty, len);
+      p = CALL_ws_get_value_in_block(res, row, col, &ty, &len);
+      r = -1;
+      if (p && ty == TSDB_DATA_TYPE_NCHAR) r = _charset_conv(p, len, buf, sizeof(buf), "UCS-4LE", _c_charset);
+      if (r == 0) r = strcmp("世界", buf);
+      if (r) {
+        fprintf(stderr, "\n=======================\n");
+        fprintf(stderr, "0x");
+        for (size_t i=0; i<len; ++i) {
+          const unsigned char c = ((const unsigned char*)p)[i];
+          fprintf(stderr, "%02x", c);
+        }
+        fprintf(stderr, "\n=======================\n");
+        E("expected 'nchar:世界', but got ==(%d,%d):p:%p;ty:%d;len:%d==", row, col, p, ty, len);
         r = -1;
       }
     }

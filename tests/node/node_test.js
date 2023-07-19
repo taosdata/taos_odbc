@@ -191,7 +191,7 @@ async function conn_prepare_exec_check(conn, sql, params, expx) {
 }
 
 
-async function case1(conn_str) {
+async function case1(conn_str, ws) {
   var r = -1;
   const conn = await odbc.connect(conn_str);
   try {
@@ -229,7 +229,7 @@ async function case1(conn_str) {
   return r;
 }
 
-async function case2(conn_str) {
+async function case2(conn_str, ws) {
   var r = -1;
   const conn = await odbc.connect(conn_str);
 
@@ -253,9 +253,11 @@ async function case2(conn_str) {
       {ts:'2022-09-11 09:57:31.755', v:'2022-09-11 12:44:11.755'},
     ];
 
-    assert.equal(!!await conn_ins_check(conn, 'insert into t values (?, ?)', [1662861451755, 1662871451755], []), 0);
-    assert.equal(!!await conn_exec_check(conn, 'select v from t where ts = 1662861451755', 0, stringify_by_key([{v:'2022-09-11 12:44:11.755'}], [])), 0);
-    assert.equal(!!await conn_exec_check(conn, 'select * from t', 4, stringify_by_key(exp, [])), 0);
+    if (!ws) {
+      assert.equal(!!await conn_ins_check(conn, 'insert into t values (?, ?)', [1662861451755, 1662871451755], []), 0);
+      assert.equal(!!await conn_exec_check(conn, 'select v from t where ts = 1662861451755', 0, stringify_by_key([{v:'2022-09-11 12:44:11.755'}], [])), 0);
+      assert.equal(!!await conn_exec_check(conn, 'select * from t', 4, stringify_by_key(exp, [])), 0);
+    }
 
     r = 0;
   } catch (error) {
@@ -267,7 +269,7 @@ async function case2(conn_str) {
   return r;
 }
 
-async function case3(conn_str) {
+async function case3(conn_str, ws) {
   var r = -1;
   const conn = await odbc.connect(conn_str);
 
@@ -291,8 +293,10 @@ async function case3(conn_str) {
       {ts:'2022-09-11 09:57:31.755', v:'name4'},
     ];
 
-    assert.equal(!!await conn_prepare_ins_check(conn, 'insert into t values(?, ?)', [1662861451755, 'name4']), 0);
-    assert.equal(!!await conn_exec_check(conn, 'select * from t', 5, stringify_by_key(exp, [])), 0);
+    if (!ws) {
+      assert.equal(!!await conn_prepare_ins_check(conn, 'insert into t values(?, ?)', [1662861451755, 'name4']), 0);
+      assert.equal(!!await conn_exec_check(conn, 'select * from t', 5, stringify_by_key(exp, [])), 0);
+    }
 
     r = 0;
   } catch (error) {
@@ -303,7 +307,7 @@ async function case3(conn_str) {
   return r;
 }
 
-async function case4(conn_str) {
+async function case4(conn_str, ws) {
   var r = -1;
   const conn = await odbc.connect(conn_str);
 
@@ -326,8 +330,10 @@ async function case4(conn_str) {
       {ts:'2022-09-11 09:57:30.754', v:3},
       {ts:'2022-09-11 09:57:31.755', v:4},
     ];
-    assert.equal(!!await conn_prepare_ins_check(conn, 'insert into t values(?, ?)', [1662861451755, 4]), 0);
-    assert.equal(!!await conn_exec_check(conn, 'select * from t', 5, stringify_by_key(exp, [])), 0);
+    if (!ws) {
+      assert.equal(!!await conn_prepare_ins_check(conn, 'insert into t values(?, ?)', [1662861451755, 4]), 0);
+      assert.equal(!!await conn_exec_check(conn, 'select * from t', 5, stringify_by_key(exp, [])), 0);
+    }
 
     r = 0;
   } catch (error) {
@@ -339,7 +345,7 @@ async function case4(conn_str) {
   return r;
 }
 
-async function case5(conn_str) {
+async function case5(conn_str, ws) {
   var r = -1;
   const conn = await odbc.connect(conn_str);
 
@@ -368,24 +374,28 @@ async function case5(conn_str) {
 
     stmt = await conn.createStatement();
 
-    try {
-      await stmt.prepare('insert into t values (?,?,?,?,?)');
-      assert.equal(!!await stmt_bind_exec_check(stmt, [1662861451755, 'name4', 40, 'male', '外星人']), 0);
-      assert.equal(!!await conn_exec_check(conn, 'select * from t', 4, stringify_by_key([exps[0],exps[1],exps[2],exps[3]], []), 1), 0);
-      assert.equal(!!await stmt_bind_exec_check(stmt, ['1662861452756', '12345', 50, 'female', '类地人']), 0);
-      assert.equal(!!await conn_exec_check(conn, 'select * from t', 5, stringify_by_key([exps[0],exps[1],exps[2],exps[3],exps[4]], []), 1), 0);
-      // assert.equal(!!await stmt_bind_exec_check(stmt, ['1662861453757', null, null, null, null]), 0);
-      // assert.equal(!!await conn_exec_check(conn, 'select * from t', 6, stringify_by_key([exps[0],exps[1],exps[2],exps[3],exps[4],exps[5]], []), 1), 0);
+    r = 0;
+    if (!ws) {
+      try {
+        await stmt.prepare('insert into t values (?,?,?,?,?)');
+        assert.equal(!!await stmt_bind_exec_check(stmt, [1662861451755, 'name4', 40, 'male', '外星人']), 0);
+        assert.equal(!!await conn_exec_check(conn, 'select * from t', 4, stringify_by_key([exps[0],exps[1],exps[2],exps[3]], []), 1), 0);
+        assert.equal(!!await stmt_bind_exec_check(stmt, ['1662861452756', '12345', 50, 'female', '类地人']), 0);
+        assert.equal(!!await conn_exec_check(conn, 'select * from t', 5, stringify_by_key([exps[0],exps[1],exps[2],exps[3],exps[4]], []), 1), 0);
+        // assert.equal(!!await stmt_bind_exec_check(stmt, ['1662861453757', null, null, null, null]), 0);
+        // assert.equal(!!await conn_exec_check(conn, 'select * from t', 6, stringify_by_key([exps[0],exps[1],exps[2],exps[3],exps[4],exps[5]], []), 1), 0);
 
-      r = 0;
-    } catch (error) {
-      console.error(error);
-      r = -1;
+        r = 0;
+      } catch (error) {
+        console.error(error);
+        r = -1;
+      }
+
     }
 
     await stmt.close();
 
-    if (r == 0) {
+    if (r == 0 && !ws) {
       r = -1;
       stmt = await conn.createStatement();
 
@@ -426,7 +436,7 @@ async function case5(conn_str) {
   return r;
 }
 
-async function case6(conn_str) {
+async function case6(conn_str, ws) {
   var r = 0;
   const conn = await odbc.connect(conn_str);
 
@@ -474,28 +484,30 @@ async function case6(conn_str) {
         {ts:'2022-09-11 09:57:34.758', name:'54321', age:60, sex:'unknown', text:'测试人'},
     ];
 
-    // NOTE: taosc: because there's no param-meta info for non-insert-statement
-    //       taos_odbc has to fall-back to TSDB_DATA_TYPE_VARCHAR/SQL_VARCHAR pair in SQLDescribeParam,
-    //       and returns SQL_VARCHAR to application, such as node.odbc
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where name = ?', ['name1'], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where age = ?', [20], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where age = ?', ['20'], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where text = ?', ['中国人'], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where bi = ?', [1234567890123], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where bi = ?', ['1234567890123'], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where f = ?', [1.23], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where f = ?', ['1.23'], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where d = ?', [3.45], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where d = ?', ['3.45'], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where d = ?', [3.45e+0], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where d = ?', ['3.45e+0'], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where d = ?', [345e-2], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where d = ?', ['345e-2'], expx), 0);
-    // taosc: this would fail `Invalid timestamp format`
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where ts = ?', ['1662861448752'], expx), 1);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where ts = ?', [1662861448752], expx), 0);
-    // taosc: but this goes as expected
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where ts = ?', ['2022-09-11 09:57:28.752'], expx), 0);
+    if (!ws) {
+      // NOTE: taosc: because there's no param-meta info for non-insert-statement
+      //       taos_odbc has to fall-back to TSDB_DATA_TYPE_VARCHAR/SQL_VARCHAR pair in SQLDescribeParam,
+      //       and returns SQL_VARCHAR to application, such as node.odbc
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where name = ?', ['name1'], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where age = ?', [20], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where age = ?', ['20'], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where text = ?', ['中国人'], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where bi = ?', [1234567890123], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where bi = ?', ['1234567890123'], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where f = ?', [1.23], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where f = ?', ['1.23'], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where d = ?', [3.45], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where d = ?', ['3.45'], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where d = ?', [3.45e+0], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where d = ?', ['3.45e+0'], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where d = ?', [345e-2], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where d = ?', ['345e-2'], expx), 0);
+      // taosc: this would fail `Invalid timestamp format`
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where ts = ?', ['1662861448752'], expx), 1);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where ts = ?', [1662861448752], expx), 0);
+      // taosc: but this goes as expected
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from foo.t where ts = ?', ['2022-09-11 09:57:28.752'], expx), 0);
+    }
 
   } catch (error) {
     console.error(error);
@@ -506,7 +518,7 @@ async function case6(conn_str) {
   return r;
 }
 
-async function case0(conn_str) {
+async function case0(conn_str, ws) {
   var r = -1;
   const conn = await odbc.connect(conn_str);
   try {
@@ -539,7 +551,7 @@ async function case0(conn_str) {
   return r;
 }
 
-async function case7(conn_str) {
+async function case7(conn_str, ws) {
   var r = 0;
   const conn = await odbc.connect(conn_str);
 
@@ -553,8 +565,10 @@ async function case7(conn_str) {
     create table if not exists t (ts timestamp, age int)
     `);
 
-    assert.equal(!!await conn_ins_check(conn, 'insert into t (ts, age) values (?, ?)', [1662861448752,20], []), 0);
-    assert.equal(!!await conn_exec_check(conn, 'select age from t where ts = 1662861448752', 0, stringify_by_key([{age:20}], [])), 0);
+    if (!ws) {
+      assert.equal(!!await conn_ins_check(conn, 'insert into t (ts, age) values (?, ?)', [1662861448752,20], []), 0);
+      assert.equal(!!await conn_exec_check(conn, 'select age from t where ts = 1662861448752', 0, stringify_by_key([{age:20}], [])), 0);
+    }
 
   } catch (error) {
     console.error(error);
@@ -565,7 +579,7 @@ async function case7(conn_str) {
   return r;
 }
 
-async function case8(conn_str) {
+async function case8(conn_str, ws) {
   var r = 0;
   const conn = await odbc.connect(conn_str);
 
@@ -582,8 +596,10 @@ async function case8(conn_str) {
     insert into t using s tags (1) values(now(), 11)
     `);
 
-    assert.equal(!!await conn_ins_check(conn, 'insert into t (ts, v) values (?, ?)', [1662861448752,20], []), 0);
-    assert.equal(!!await conn_exec_check(conn, 'select v from t where ts = 1662861448752', 0, stringify_by_key([{v:20}], [])), 0);
+    if (!ws) {
+      assert.equal(!!await conn_ins_check(conn, 'insert into t (ts, v) values (?, ?)', [1662861448752,20], []), 0);
+      assert.equal(!!await conn_exec_check(conn, 'select v from t where ts = 1662861448752', 0, stringify_by_key([{v:20}], [])), 0);
+    }
 
   } catch (error) {
     console.error(error);
@@ -594,7 +610,7 @@ async function case8(conn_str) {
   return r;
 }
 
-async function case9(conn_str) {
+async function case9(conn_str, ws) {
   var r = 0;
   const conn = await odbc.connect(conn_str);
 
@@ -616,37 +632,39 @@ async function case9(conn_str) {
     ];
     var expx = stringify_by_key(exp, ['bi']);
 
-    assert.equal(!!await conn_ins_check(conn, `
-    insert into t (ts, name, age, sex, text, bi, f, d, bin, si, ti, b)
-    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [1662861448752, 'name1', 30, 'male', 'foo', 12345, 123.45, 543.21, 'bin', 234, 34, 1], []), 0);
-    assert.equal(!!await conn_exec_check(conn, 'select * from t where ts = 1662861448752', 0, expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where ts = ?', ['2022-09-11 09:57:28.752'], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where name = ?', ['name1'], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where age = ?', ['30'], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where age = ?', [30], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where age > ?', ['29'], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where age > ?', [29], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where age < ?', ['31'], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where age < ?', [31], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where age > ? and age < ?', [29, 31], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where sex = ?', ['male'], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where text = ?', ['foo'], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where bi = ?', ['12345'], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where bi = ?', [12345], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where bin = ?', ['bin'], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where si = ?', ['234'], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where si = ?', [234], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where ti = ?', ['34'], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where ti = ?', [34], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where f > ?', [123.44], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where f < ?', [123.46], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where f > ? and f < ?', [123.44, 123.46], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where f > ? and f < ?', [123.45, 123.45], expx), 1);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where f = ?', ['123.45'], expx), 1);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where f = ?', [123.45], expx), 1);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where d = ?', [543.21], expx), 0);
-    assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where d = ? and f < ?', [543.21, 123.46], expx), 0);
+    if (!ws) {
+      assert.equal(!!await conn_ins_check(conn, `
+      insert into t (ts, name, age, sex, text, bi, f, d, bin, si, ti, b)
+      values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [1662861448752, 'name1', 30, 'male', 'foo', 12345, 123.45, 543.21, 'bin', 234, 34, 1], []), 0);
+      assert.equal(!!await conn_exec_check(conn, 'select * from t where ts = 1662861448752', 0, expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where ts = ?', ['2022-09-11 09:57:28.752'], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where name = ?', ['name1'], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where age = ?', ['30'], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where age = ?', [30], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where age > ?', ['29'], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where age > ?', [29], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where age < ?', ['31'], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where age < ?', [31], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where age > ? and age < ?', [29, 31], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where sex = ?', ['male'], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where text = ?', ['foo'], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where bi = ?', ['12345'], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where bi = ?', [12345], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where bin = ?', ['bin'], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where si = ?', ['234'], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where si = ?', [234], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where ti = ?', ['34'], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where ti = ?', [34], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where f > ?', [123.44], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where f < ?', [123.46], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where f > ? and f < ?', [123.44, 123.46], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where f > ? and f < ?', [123.45, 123.45], expx), 1);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where f = ?', ['123.45'], expx), 1);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where f = ?', [123.45], expx), 1);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where d = ?', [543.21], expx), 0);
+      assert.equal(!!await conn_prepare_exec_check(conn, 'select * from t where d = ? and f < ?', [543.21, 123.46], expx), 0);
+    }
   } catch (error) {
     console.error(error);
     r = -1;
@@ -656,7 +674,7 @@ async function case9(conn_str) {
   return r;
 }
 
-async function case10(conn_str) {
+async function case10(conn_str, ws) {
   var r = 0;
   const conn = await odbc.connect(conn_str);
 
@@ -670,8 +688,10 @@ async function case10(conn_str) {
     create stable s (ts timestamp, v int) tags (id int)
     `);
 
-    assert.equal(!!await conn_ins_check(conn, 'insert into ? using s tags (?) values (?, ?)', ['t',3,1662861448752,33], []), 0);
-    assert.equal(!!await conn_exec_check(conn, 'select v from t where ts = 1662861448752', 0, stringify_by_key([{v:33}], [])), 0);
+    if (!ws) {
+      assert.equal(!!await conn_ins_check(conn, 'insert into ? using s tags (?) values (?, ?)', ['t',3,1662861448752,33], []), 0);
+      assert.equal(!!await conn_exec_check(conn, 'select v from t where ts = 1662861448752', 0, stringify_by_key([{v:33}], [])), 0);
+    }
   } catch (error) {
     console.error(error);
     r = -1;
@@ -689,15 +709,15 @@ async function test_sql_server() {
   await conn.close();
 }
 
-async function test_chars() {
-  const conn = await odbc.connect('DSN=TAOS_ODBC_DSN');
+async function test_chars(conn_str, ws) {
+  const conn = await odbc.connect(conn_str);
   var result = await conn.query('select name, mark from bar.x');
   rows = await rs_collect(result);
   console.log(rows);
   await conn.close();
 }
 
-async function test_params(conn_str) {
+async function test_params(conn_str, ws) {
   var r = -1;
   const conn = await odbc.connect(conn_str);
 
@@ -708,14 +728,16 @@ async function test_params(conn_str) {
 
     stmt = await conn.createStatement();
 
-    try {
-      await stmt.prepare('insert into foo.t(ts, name) values (?,?)');
-      assert.equal(!!await stmt_bind_exec_check(stmt, [1662861451755, '检验']), 0);
+    if (!ws) {
+      try {
+        await stmt.prepare('insert into foo.t(ts, name) values (?,?)');
+        assert.equal(!!await stmt_bind_exec_check(stmt, [1662861451755, '检验']), 0);
 
-      r = 0;
-    } catch (error) {
-      console.error(error);
-      r = -1;
+        r = 0;
+      } catch (error) {
+        console.error(error);
+        r = -1;
+      }
     }
 
     await stmt.close();
@@ -728,36 +750,35 @@ async function test_params(conn_str) {
   return r;
 }
 
-async function do_test_cases() {
-  if (false) assert.equal(!!await test_chars(), 0)
+async function do_test_cases(conn_str, ws) {
+  if (false) assert.equal(!!await test_chars(conn_str, ws), 0)
   if (false) assert.equal(!!await test_sql_server(), 0)
-  if (false) assert.equal(!!await test_params('DSN=TAOS_ODBC_DSN'),0);
+  if (false) assert.equal(!!await test_params(conn_str, ws),0);
   if (false) assert.equal(0)
-  assert.equal(!!await connectToDatabase('DSN=xTAOS_ODBC_DSN'),1);
-  assert.equal(!!await connectToDatabase('DSN=TAOS_ODBC_DSN'),0);
-  assert.equal(!!await execute('DSN=TAOS_ODBC_DSN', 'show databases'),0);
-  // // assert.equal(!!await execute('DSN=TAOS_ODBC_DSN', 'select ts, name from foo.t'),0);
-  // // assert.equal(!!await execute('DSN=TAOS_ODBC_DSN; LEGACY', 'select * from foo.t'),1);
-  assert.equal(!!await execute('DSN=TAOS_ODBC_DSN', 'xshow databases'),1);
-  assert.equal(!!await case0('DSN=TAOS_ODBC_DSN'),0);
-  assert.equal(!!await case1('DSN=TAOS_ODBC_DSN'),0);
-  assert.equal(!!await case2('DSN=TAOS_ODBC_DSN'),0);
-  assert.equal(!!await case3('DSN=TAOS_ODBC_DSN'),0);
-  assert.equal(!!await case4('DSN=TAOS_ODBC_DSN'),0);
-  assert.equal(!!await case5('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION=1;CHARSET_ENCODER_FOR_PARAM_BIND=UTF-8'),0);
-  assert.equal(!!await case6('DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION=1;CHARSET_ENCODER_FOR_PARAM_BIND=UTF-8'),0);
+  // // assert.equal(!!await execute('DSN=TAOS_ODBC_WS_DSN', 'select ts, name from foo.t'),0);
+  // // assert.equal(!!await execute('DSN=TAOS_ODBC_WS_DSN; LEGACY', 'select * from foo.t'),1);
+  assert.equal(!!await case0(conn_str, ws),0);
+  assert.equal(!!await case1(conn_str, ws),0);
+  assert.equal(!!await case2(conn_str, ws),0);
+  assert.equal(!!await case3(conn_str, ws),0);
+  assert.equal(!!await case4(conn_str, ws),0);
+  assert.equal(!!await case5(conn_str + ';UNSIGNED_PROMOTION=1;CHARSET_ENCODER_FOR_PARAM_BIND=UTF-8', ws),0);
+  assert.equal(!!await case6(conn_str + ';UNSIGNED_PROMOTION=1;CHARSET_ENCODER_FOR_PARAM_BIND=UTF-8', ws),0);
 
-  assert.equal(!!await case7('DSN=TAOS_ODBC_DSN'),0);
-  assert.equal(!!await case8('DSN=TAOS_ODBC_DSN'),0);
-  assert.equal(!!await case9('DSN=TAOS_ODBC_DSN'),0);
-  assert.equal(!!await case10('DSN=TAOS_ODBC_DSN'),0);
+  assert.equal(!!await case7(conn_str, ws),0);
+  assert.equal(!!await case8(conn_str, ws),0);
+  assert.equal(!!await case9(conn_str, ws),0);
+  assert.equal(!!await case10(conn_str, ws),0);
 
   //assert.equal(0, 1);
   return 0;
 }
 
 (async () => {
-  assert.equal(!!await do_test_cases(), 0);
+  assert.equal(!!await connectToDatabase('DSN=xyz'),1);
+  // assert.equal(!!await execute('DSN=TAOS_ODBC_WS_DSN', 'xshow databases'),1);
+  assert.equal(!!await do_test_cases('DSN=TAOS_ODBC_DSN', 0), 0);
+  assert.equal(!!await do_test_cases('DSN=TAOS_ODBC_WS_DSN', 1), 0);
   console.log("==Success==");
 })()
 

@@ -290,15 +290,19 @@ fn do_test_cases_in_conn(conn: &Connection<'_, AutocommitOn>)
   assert_eq!(_test_case1(&conn), true);
   assert_eq!(_test_exec_direct(&conn, r#"select * from t where name = ?"#), false);
   assert_eq!(_test_exec_direct(&conn, r#"insert into t (ts, name) values (now, ?)"#), false);
-  _test_case2(&conn);
-  _test_case3(&conn);
 }
 
 fn _do_test_cases_in_env(env: &Environment<Odbc3>) {
   assert_eq!(_test_connect(env, "DSN=xTAOS_ODBC_DSN"), false);
   assert_eq!(_test_connect(env, "DSN=TAOS_ODBC_DSN"), true);
+  assert_eq!(_test_connect(env, "DSN=TAOS_ODBC_WS_DSN"), true);
 
   let conn = env.connect_with_connection_string("DSN=TAOS_ODBC_DSN").unwrap();
+  do_test_cases_in_conn(&conn);
+  _test_case2(&conn);
+  _test_case3(&conn);
+
+  let conn = env.connect_with_connection_string("DSN=TAOS_ODBC_WS_DSN").unwrap();
   do_test_cases_in_conn(&conn);
 
   // assert_eq!(0, 1);

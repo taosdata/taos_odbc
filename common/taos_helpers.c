@@ -121,6 +121,7 @@ int helper_get_tsdb_ws(int time_precision, const char *name, uint8_t col_type, c
         tsdb->dbl = *col;
       } break;
     case TSDB_DATA_TYPE_NCHAR:
+    case TSDB_DATA_TYPE_JSON:
       {
         char *col = (char*)col_data;
         // // FIXME:
@@ -131,7 +132,6 @@ int helper_get_tsdb_ws(int time_precision, const char *name, uint8_t col_type, c
         tsdb->str.encoder = "UCS-4LE";
       } break;
     case TSDB_DATA_TYPE_VARCHAR:
-    case TSDB_DATA_TYPE_JSON:
       {
         char *col = (char*)col_data;
         // // FIXME:

@@ -2324,6 +2324,7 @@ static int test_cases_get_data(SQLHANDLE henv)
     {"Driver={SQLite3}",  SQLITE3_ODBC, __LINE__},
 #endif                         /* } */
     {"DSN=TAOS_ODBC_DSN", TAOS_ODBC, __LINE__},
+    {"DSN=TAOS_ODBC_WS_DSN", TAOS_ODBC, __LINE__},
   };
 
   for (size_t i=0; i<sizeof(cases)/sizeof(cases[0]); ++i) {
@@ -2439,6 +2440,7 @@ static int test_cases_prepare(SQLHANDLE henv)
     // {"DSN=MYSQL_ODBC_DSN",  MYSQL_ODBC, __LINE__},
 #endif                         /* } */
     {"DSN=TAOS_ODBC_DSN", TAOS_ODBC, __LINE__},
+    {"DSN=TAOS_ODBC_WS_DSN", TAOS_ODBC, __LINE__},
   };
 
   for (size_t i=0; i<sizeof(cases)/sizeof(cases[0]); ++i) {
@@ -2470,6 +2472,9 @@ static int test_hard_coded_cases(SQLHANDLE henv)
 #endif                           /* } */
 
   r = test_hard_coded(henv, "TAOS_ODBC_DSN", NULL, NULL, NULL, 0);
+  if (r) return -1;
+
+  r = test_hard_coded(henv, "TAOS_ODBC_WS_DSN", NULL, NULL, NULL, 0);
   if (r) return -1;
 
   return 0;
@@ -2537,7 +2542,7 @@ static int test_chars_with_handles(SQLHANDLE *env, SQLHANDLE *dbc, SQLHANDLE *st
   return 0;
 }
 
-static int test_chars(void)
+static int test_chars(const char *conn_str)
 {
   SQLRETURN sr = SQL_SUCCESS;
 
@@ -2545,7 +2550,7 @@ static int test_chars(void)
   SQLHANDLE hdbc  = SQL_NULL_HANDLE;
   SQLHANDLE hstmt = SQL_NULL_HANDLE;
 
-  sr = test_chars_with_handles(&henv, &hdbc, &hstmt, "DSN=TAOS_ODBC_DSN", "select name from bar.x", SQL_C_CHAR);
+  sr = test_chars_with_handles(&henv, &hdbc, &hstmt, conn_str, "select name from bar.x", SQL_C_CHAR);
 
   if (hstmt != SQL_NULL_HANDLE) {
     CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
@@ -2570,11 +2575,10 @@ static int run(int argc, char *argv[])
   int r = 0;
 
   if (0) {
-    r = test_chars();
+    r = test_chars("DSN=TAOS_ODBC_DSN");
     if (r) return -1;
-    // r = test_sql_server();
+    r = test_chars("DSN=TAOS_ODBC_WS_DSN");
     if (r) return -1;
-    if (1) return -1;
     return 0;
   }
 

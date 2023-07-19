@@ -284,6 +284,7 @@ void tsdb_res_reset(tsdb_res_t *res)
   }
   res->affected_row_count = 0;
   res->time_precision     = 0;
+  res->eof                = 0;
 }
 
 void tsdb_res_release(tsdb_res_t *res)
@@ -863,6 +864,7 @@ static SQLRETURN _tsdb_stmt_fetch_rows_block(tsdb_stmt_t *stmt)
     int32_t r = CALL_ws_fetch_block((WS_RES*)res->res, &ptr, &rows);
     OA_NIY(r == 0); // TODO:
     if (rows == 0) return SQL_NO_DATA;
+
     rows_block->ws_ptr = ptr;
     rows_block->nr     = rows;
     rows_block->pos    = 0;
@@ -888,11 +890,16 @@ static SQLRETURN _fetch_row(stmt_base_t *base)
   tsdb_res_t           *res          = &stmt->res;
   tsdb_rows_block_t    *rows_block   = &res->rows_block;
 
+  if (res->eof) return SQL_NO_DATA;
+
 again:
   // TODO: before and after
   if (rows_block->pos >= rows_block->nr) {
     sr = _tsdb_stmt_fetch_rows_block(stmt);
-    if (sr == SQL_NO_DATA) return SQL_NO_DATA;
+    if (sr == SQL_NO_DATA) {
+      res->eof = 1;
+      return SQL_NO_DATA;
+    }
     if (sr != SQL_SUCCESS) return SQL_ERROR;
     goto again;
   }

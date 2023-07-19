@@ -2996,4 +2996,26 @@
    fun:_ZN94_$LT$taos_ws..stmt..Stmt$u20$as$u20$taos_query..stmt..Bindable$LT$taos_ws..query..Taos$GT$$GT$4init17h43a4be9ee7700decE
    fun:ws_stmt_init
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:_ZN9hashbrown3raw21RawTable$LT$T$C$A$GT$14reserve_rehash17h3d7a7f73a23027e6E.llvm.14002903261173767182
+   fun:_ZN9hashbrown3map28HashMap$LT$K$C$V$C$S$C$A$GT$6insert17h8225b9dee36aa8b3E
+   fun:_ZN5tokio7runtime8blocking4pool7Spawner10spawn_task17h50a27d4a7d0fd77dE
+   fun:_ZN5tokio7runtime8blocking4pool7Spawner14spawn_blocking17heeb34b897ec2664dE
+   fun:_ZN5tokio7runtime8blocking4pool14spawn_blocking17he31a8384c5ba5e3dE
+   fun:_ZN5tokio3net4addr77_$LT$impl$u20$tokio..net..addr..sealed..ToSocketAddrsPriv$u20$for$u20$str$GT$15to_socket_addrs17hd8d031c47bbc59ccE
+   fun:_ZN5tokio3net4addr95_$LT$impl$u20$tokio..net..addr..sealed..ToSocketAddrsPriv$u20$for$u20$alloc..string..String$GT$15to_socket_addrs17h8a5c4dc8cc1559deE
+   fun:_ZN17tokio_tungstenite7connect25connect_async_with_config28_$u7b$$u7b$closure$u7d$$u7d$17ha5e734db0879bed3E
+   fun:_ZN7taos_ws5query4asyn6WsTaos11from_wsinfo28_$u7b$$u7b$closure$u7d$$u7d$17h3f4fad1a47f8a924E
+   fun:_ZN83_$LT$taos_ws..query..Taos$u20$as$u20$taos_query..prelude..async..AsyncQueryable$GT$5query28_$u7b$$u7b$closure$u7d$$u7d$17hec2dc6f47b45370dE.llvm.4248933734375712460
+   fun:_ZN5tokio7runtime4park16CachedParkThread8block_on17h318697fa4e29eb5eE
+   fun:_ZN5tokio7runtime7context7runtime13enter_runtime17hf9c5bdd07ac879b6E
+   fun:_ZN5tokio7runtime7runtime7Runtime8block_on17h9ab971a5eacb6c42E
+   fun:_ZN10taos_query24block_in_place_or_global17hdd1454c98ef2c3c4E
+   fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17heac97dbd655377f1E
+   fun:ws_connect_with_dsn
+}
 

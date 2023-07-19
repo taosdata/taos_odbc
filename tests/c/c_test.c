@@ -298,9 +298,10 @@ static int execute_with_int(const char *connstr, const char *sql, int v, size_t 
   return r ? -1 : 0;
 }
 
-static int test_case0(handles_t *handles)
+static int test_case0(handles_t *handles, const char *conn_str, int ws)
 {
   (void)handles;
+  (void)ws;
 
   int r = 0;
   const char *connstr = NULL;
@@ -318,20 +319,22 @@ static int test_case0(handles_t *handles)
          "select * from t;";
   r = execute_batches_of_statements(connstr, sqls);
   if (r) return -1;
-  sql = "insert into t (name, mark) values (?, ?)";
-  r = execute_with_params(connstr, sql, 2, "测试x", "人物y");
-  if (r) return -1;
-  sqls = "select * from t;";
-  r = execute_batches_of_statements(connstr, sqls);
-  if (r) return -1;
-  sql = "select * from t where name like ?";
-  r = execute_with_params(connstr, sql, 1, "测试");
-  if (r) return -1;
-  sql = "insert into t (i16) values (?)";
-  r = execute_with_int(connstr, sql, 32767, 5);
-  if (r) return -1;
+  if (!ws) {
+    sql = "insert into t (name, mark) values (?, ?)";
+    r = execute_with_params(connstr, sql, 2, "测试x", "人物y");
+    if (r) return -1;
+    sqls = "select * from t;";
+    r = execute_batches_of_statements(connstr, sqls);
+    if (r) return -1;
+    sql = "select * from t where name like ?";
+    r = execute_with_params(connstr, sql, 1, "测试");
+    if (r) return -1;
+    sql = "insert into t (i16) values (?)";
+    r = execute_with_int(connstr, sql, 32767, 5);
+    if (r) return -1;
+  }
 #endif                     /* } */
-  connstr = "DSN=TAOS_ODBC_DSN";
+  connstr = conn_str;
   sqls = "drop database if exists bar;"
          "create database if not exists bar;"
          "use bar;"
@@ -343,22 +346,24 @@ static int test_case0(handles_t *handles)
          "select * from t;";
   r = execute_batches_of_statements(connstr, sqls);
   if (r) return -1;
-  sql = "insert into bar.t (ts, name, mark) values (?, ?, ?)";
-  r = execute_with_params(connstr, sql, 3, "2023-05-07 10:11:44.215", "测试", "人物y");
-  if (r) return -1;
-  tod_get_format_current_local_timestamp_ms(tmbuf, sizeof(tmbuf));
-  DUMP("current:%s", tmbuf);
-  r = execute_with_params(connstr, sql, 3, tmbuf, "测试", "人物z");
-  if (r) return -1;
-  sqls = "select * from bar.t;";
-  r = execute_batches_of_statements(connstr, sqls);
-  if (r) return -1;
-  sql = "select * from bar.t where name like ?";
-  r = execute_with_params(connstr, sql, 1, "测试");
-  if (r) return -1;
-  sql = "insert into t (i16) values (?)";
-  if (0) r = execute_with_int(connstr, sql, 32767, 5);
-  if (r) return -1;
+  if (!ws) {
+    sql = "insert into bar.t (ts, name, mark) values (?, ?, ?)";
+    r = execute_with_params(connstr, sql, 3, "2023-05-07 10:11:44.215", "测试", "人物y");
+    if (r) return -1;
+    tod_get_format_current_local_timestamp_ms(tmbuf, sizeof(tmbuf));
+    DUMP("current:%s", tmbuf);
+    r = execute_with_params(connstr, sql, 3, tmbuf, "测试", "人物z");
+    if (r) return -1;
+    sqls = "select * from bar.t;";
+    r = execute_batches_of_statements(connstr, sqls);
+    if (r) return -1;
+    sql = "select * from bar.t where name like ?";
+    r = execute_with_params(connstr, sql, 1, "测试");
+    if (r) return -1;
+    sql = "insert into t (i16) values (?)";
+    if (0) r = execute_with_int(connstr, sql, 32767, 5);
+    if (r) return -1;
+  }
 
   return 0;
 }
@@ -526,8 +531,10 @@ static int _check_with_values(int line, const char *func, handles_t *handles, in
 
 #define CHECK_WITH_VALUES(...)       _check_with_values(__LINE__, __func__, ##__VA_ARGS__)
 
-static int test_charsets(handles_t *handles)
+static int test_charsets(handles_t *handles, const char *connstr, int ws)
 {
+  (void)ws;
+
   int r = 0;
 
   const char *conn_str = NULL;
@@ -536,7 +543,7 @@ static int test_charsets(handles_t *handles)
 
   handles_disconnect(handles);
 
-  conn_str = "DSN=TAOS_ODBC_DSN";
+  conn_str = connstr;
   r = handles_init(handles, conn_str);
 
   sqls =
@@ -548,27 +555,29 @@ static int test_charsets(handles_t *handles)
   r = _execute_batches_of_statements(handles, sqls);
   if (r) return -1;
 
-  sql = "select name from foo.t where name='name'",
+  sql = "select name from foo.t where name='name'";
   r = CHECK_WITH_VALUES(handles, 0, sql, 1, 1, "name");
   if (r) return -1;
 
-  sql = "select mark from foo.t where mark='mark'",
+  sql = "select mark from foo.t where mark='mark'";
   r = CHECK_WITH_VALUES(handles, 0, sql, 1, 1, "mark");
   if (r) return -1;
 
-  sql = "select name from foo.t where name='测试'",
+  sql = "select name from foo.t where name='测试'";
   r = CHECK_WITH_VALUES(handles, 0, sql, 1, 1, "测试");
   if (r) return -1;
 
-  sql = "select mark from foo.t where mark='检验'",
+  sql = "select mark from foo.t where mark='检验'";
   r = CHECK_WITH_VALUES(handles, 0, sql, 1, 1, "检验");
   if (r) return -1;
 
   return 0;
 }
 
-static int test_charsets_with_col_bind(handles_t *handles)
+static int test_charsets_with_col_bind(handles_t *handles, const char *connstr, int ws)
 {
+  (void)ws;
+
   int r = 0;
 
   const char *conn_str = NULL;
@@ -577,7 +586,7 @@ static int test_charsets_with_col_bind(handles_t *handles)
 
   handles_disconnect(handles);
 
-  conn_str = "DSN=TAOS_ODBC_DSN";
+  conn_str = connstr;
   r = handles_init(handles, conn_str);
 
   sqls =
@@ -589,19 +598,19 @@ static int test_charsets_with_col_bind(handles_t *handles)
   r = _execute_batches_of_statements(handles, sqls);
   if (r) return -1;
 
-  sql = "select name from foo.t where name='name'",
+  sql = "select name from foo.t where name='name'";
   r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, "name");
   if (r) return -1;
 
-  sql = "select mark from foo.t where mark='mark'",
+  sql = "select mark from foo.t where mark='mark'";
   r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, "mark");
   if (r) return -1;
 
-  sql = "select name from foo.t where name='测试'",
+  sql = "select name from foo.t where name='测试'";
   r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, "测试");
   if (r) return -1;
 
-  sql = "select mark from foo.t where mark='检验'",
+  sql = "select mark from foo.t where mark='检验'";
   r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, "检验");
   if (r) return -1;
 
@@ -688,8 +697,10 @@ static int _insert_with_values(int line, const char *func, handles_t *handles, c
 
 #define INSERT_WITH_VALUES(...)       _insert_with_values(__LINE__, __func__, ##__VA_ARGS__)
 
-static int test_charsets_with_param_bind(handles_t *handles)
+static int test_charsets_with_param_bind(handles_t *handles, const char *connstr, int ws)
 {
+  (void)ws;
+
   int r = 0;
 
   const char *conn_str = NULL;
@@ -698,7 +709,7 @@ static int test_charsets_with_param_bind(handles_t *handles)
 
   handles_disconnect(handles);
 
-  conn_str = "DSN=TAOS_ODBC_DSN";
+  conn_str = connstr;
   r = handles_init(handles, conn_str);
 
   sqls =
@@ -708,25 +719,27 @@ static int test_charsets_with_param_bind(handles_t *handles)
   r = _execute_batches_of_statements(handles, sqls);
   if (r) return -1;
 
-  sql = "insert into foo.t (ts, name, mark) values (?, ?, ?)";
-  r = INSERT_WITH_VALUES(handles, sql, 2, 3, "2023-05-14 12:13:14.567", "2023-05-14 12:13:15.678", "name", "测试", "mark", "检验");
-  if (r) return -1;
+  if (!ws) {
+    sql = "insert into foo.t (ts, name, mark) values (?, ?, ?)";
+    r = INSERT_WITH_VALUES(handles, sql, 2, 3, "2023-05-14 12:13:14.567", "2023-05-14 12:13:15.678", "name", "测试", "mark", "检验");
+    if (r) return -1;
 
-  sql = "select name from foo.t where name='name'",
-  r = CHECK_WITH_VALUES(handles, 0, sql, 1, 1, "name");
-  if (r) return -1;
+    sql = "select name from foo.t where name='name'";
+    r = CHECK_WITH_VALUES(handles, 0, sql, 1, 1, "name");
+    if (r) return -1;
 
-  sql = "select mark from foo.t where mark='mark'",
-  r = CHECK_WITH_VALUES(handles, 0, sql, 1, 1, "mark");
-  if (r) return -1;
+    sql = "select mark from foo.t where mark='mark'";
+    r = CHECK_WITH_VALUES(handles, 0, sql, 1, 1, "mark");
+    if (r) return -1;
 
-  sql = "select name from foo.t where name='测试'",
-  r = CHECK_WITH_VALUES(handles, 0, sql, 1, 1, "测试");
-  if (r) return -1;
+    sql = "select name from foo.t where name='测试'";
+    r = CHECK_WITH_VALUES(handles, 0, sql, 1, 1, "测试");
+    if (r) return -1;
 
-  sql = "select mark from foo.t where mark='检验'",
-  r = CHECK_WITH_VALUES(handles, 0, sql, 1, 1, "检验");
-  if (r) return -1;
+    sql = "select mark from foo.t where mark='检验'";
+    r = CHECK_WITH_VALUES(handles, 0, sql, 1, 1, "检验");
+    if (r) return -1;
+  }
 
   return 0;
 }
@@ -933,8 +946,12 @@ fetch:
   goto fetch;
 }
 
-static int test_topic(handles_t *handles)
+static int test_topic(handles_t *handles, const char *connstr, int ws)
 {
+  (void)ws;
+
+  if (ws) return 0;
+
   int r = 0;
 
   const char *conn_str = NULL;
@@ -942,7 +959,7 @@ static int test_topic(handles_t *handles)
 
   handles_disconnect(handles);
 
-  conn_str = "DSN=TAOS_ODBC_DSN";
+  conn_str = connstr;
   r = handles_init(handles, conn_str);
 
   r = _remove_topics(handles, "foobar");
@@ -999,8 +1016,10 @@ static int test_topic(handles_t *handles)
   return r ? -1 : 0;
 }
 
-static int test_params_with_all_chars(handles_t *handles)
+static int test_params_with_all_chars(handles_t *handles, const char *connstr, int ws)
 {
+  (void)ws;
+
   int r = 0;
 
   const char *conn_str = NULL;
@@ -1009,7 +1028,7 @@ static int test_params_with_all_chars(handles_t *handles)
 
   handles_disconnect(handles);
 
-  conn_str = "DSN=TAOS_ODBC_DSN";
+  conn_str = connstr;
   r = handles_init(handles, conn_str);
 
   sqls =
@@ -1021,21 +1040,25 @@ static int test_params_with_all_chars(handles_t *handles)
   r = _execute_batches_of_statements(handles, sqls);
   if (r) return -1;
 
-  sql = "insert into foo.t (ts, b, i8, u8, i16, u16, i32, u32, i64, u64, flt, dbl, name, mark) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-  r = INSERT_WITH_VALUES(handles, sql, 1, 14, "2023-05-14 12:13:14.567", "1", "127", "255", "32767", "65535",
-      "2147483647", "4294967295", "9223372036854775807", "18446744073709551615", "1.23", "2.34", "测试", "检验");
-  if (r) return -1;
+  if (!ws) {
+    sql = "insert into foo.t (ts, b, i8, u8, i16, u16, i32, u32, i64, u64, flt, dbl, name, mark) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    r = INSERT_WITH_VALUES(handles, sql, 1, 14, "2023-05-14 12:13:14.567", "1", "127", "255", "32767", "65535",
+        "2147483647", "4294967295", "9223372036854775807", "18446744073709551615", "1.23", "2.34", "测试", "检验");
+    if (r) return -1;
 
-  sql = "select * from foo.t where name='测试'",
-  r = CHECK_WITH_VALUES(handles, 0, sql, 1, 14, "2023-05-14 12:13:14.567", "true", "127", "255", "32767", "65535",
-      "2147483647", "4294967295", "9223372036854775807", "18446744073709551615", "1.23", "2.34", "测试", "检验");
-  if (r) return -1;
+    sql = "select * from foo.t where name='测试'";
+    r = CHECK_WITH_VALUES(handles, 0, sql, 1, 14, "2023-05-14 12:13:14.567", "true", "127", "255", "32767", "65535",
+        "2147483647", "4294967295", "9223372036854775807", "18446744073709551615", "1.23", "2.34", "测试", "检验");
+    if (r) return -1;
+  }
 
   return 0;
 }
 
-static int test_json_tag(handles_t *handles)
+static int test_json_tag(handles_t *handles, const char *connstr, int ws)
 {
+  (void)ws;
+
   int r = 0;
 
   const char *conn_str = NULL;
@@ -1044,7 +1067,7 @@ static int test_json_tag(handles_t *handles)
 
   handles_disconnect(handles);
 
-  conn_str = "DSN=TAOS_ODBC_DSN";
+  conn_str = connstr;
   r = handles_init(handles, conn_str);
 
   sqls =
@@ -1054,36 +1077,38 @@ static int test_json_tag(handles_t *handles)
   r = _execute_batches_of_statements(handles, sqls);
   if (r) return -1;
 
-  sql = "insert into foo.s1_1 using foo.s1 tags (?) values (?, ?)";
-  r = INSERT_WITH_VALUES(handles, sql, 2, 3,
-    "{\"k1\":\"值1\"}", "{\"k1\":\"值1\"}",
-    "2023-05-14 12:13:14.567", "2023-05-14 12:13:14.568",
-    "1", "2");
-  if (r) return -1;
+  if (!ws) {
+    sql = "insert into foo.s1_1 using foo.s1 tags (?) values (?, ?)";
+    r = INSERT_WITH_VALUES(handles, sql, 2, 3,
+      "{\"k1\":\"值1\"}", "{\"k1\":\"值1\"}",
+      "2023-05-14 12:13:14.567", "2023-05-14 12:13:14.568",
+      "1", "2");
+    if (r) return -1;
 
-  sql = "select * from foo.s1";
-  r = CHECK_WITH_VALUES(handles, 0, sql, 2, 3,
-    "2023-05-14 12:13:14.567", "1", "{\"k1\":\"值1\"}",
-    "2023-05-14 12:13:14.568", "2", "{\"k1\":\"值1\"}");
-  if (r) return -1;
+    sql = "select * from foo.s1";
+    r = CHECK_WITH_VALUES(handles, 0, sql, 2, 3,
+      "2023-05-14 12:13:14.567", "1", "{\"k1\":\"值1\"}",
+      "2023-05-14 12:13:14.568", "2", "{\"k1\":\"值1\"}");
+    if (r) return -1;
 
-  sql = "select info->'k1' from foo.s1";
-  r = CHECK_WITH_VALUES(handles, 0, sql, 2, 1,
-    "\"值1\"",
-    "\"值1\"");
-  if (r) return -1;
+    sql = "select info->'k1' from foo.s1";
+    r = CHECK_WITH_VALUES(handles, 0, sql, 2, 1,
+      "\"值1\"",
+      "\"值1\"");
+    if (r) return -1;
 
-  sql = "select v1 from foo.s1 where info contains 'k1'";
-  r = CHECK_WITH_VALUES(handles, 0, sql, 2, 1,
-    "1",
-    "2");
-  if (r) return -1;
+    sql = "select v1 from foo.s1 where info contains 'k1'";
+    r = CHECK_WITH_VALUES(handles, 0, sql, 2, 1,
+      "1",
+      "2");
+    if (r) return -1;
 
-  sql = "select v1 from foo.s1 where info->'k1' match '值1'";
-  r = CHECK_WITH_VALUES(handles, 0, sql, 2, 1,
-    "1",
-    "2");
-  if (r) return -1;
+    sql = "select v1 from foo.s1 where info->'k1' match '值1'";
+    r = CHECK_WITH_VALUES(handles, 0, sql, 2, 1,
+      "1",
+      "2");
+    if (r) return -1;
+  }
 
   return 0;
 }
@@ -1100,15 +1125,15 @@ static int test_pool_stmt(handles_t *handles)
 }
 
 #ifdef HAVE_TAOSWS               /* { */
-static int test_taosws_conn(handles_t *handles)
+static int test_taosws_conn(handles_t *handles, const char *conn_str, int ws)
 {
   (void)handles;
+  (void)ws;
 
   int r = 0;
-  const char *connstr = NULL;
+  const char *connstr = conn_str; // "DSN=TAOS_ODBC_DSN;URL={taos://127.0.0.1:6041}";
   const char *sqls = NULL;
 
-  connstr = "DSN=TAOS_ODBC_DSN;URL={taos://127.0.0.1:6041}";
   sqls = NULL;
   r = execute_batches_of_statements(connstr, sqls);
   if (r) return -1;
@@ -1117,8 +1142,10 @@ static int test_taosws_conn(handles_t *handles)
 }
 #endif                           /* }*/
 
-static int test_pool(handles_t *handles)
+static int test_pool(handles_t *handles, const char *connstr, int ws)
 {
+  (void)ws;
+
   int r = 0;
   SQLRETURN sr = SQL_SUCCESS;
 
@@ -1129,7 +1156,7 @@ static int test_pool(handles_t *handles)
 
   handles_disconnect(handles);
 
-  conn_str = "DSN=TAOS_ODBC_DSN";
+  conn_str = connstr;
   r = handles_init(handles, conn_str);
   if (r) return -1;
 
@@ -1152,7 +1179,7 @@ static int test_pool(handles_t *handles)
 typedef struct case_s              case_t;
 struct case_s {
   const char               *name;
-  int (*routine)(handles_t *handles);
+  int (*routine)(handles_t *handles, const char *conn_str, int ws);
 };
 
 static case_t* find_case(case_t *cases, size_t nr_cases, const char *name)
@@ -1167,7 +1194,10 @@ static case_t* find_case(case_t *cases, size_t nr_cases, const char *name)
 static int running_case(handles_t *handles, case_t *_case)
 {
   int r = 0;
-  r = _case->routine(handles);
+  r = _case->routine(handles, "DSN=TAOS_ODBC_DSN", 0);
+  handles_disconnect(handles);
+  if (r) return -1;
+  r = _case->routine(handles, "DSN=TAOS_ODBC_WS_DSN", 1);
   handles_disconnect(handles);
   return r;
 }

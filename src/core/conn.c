@@ -1461,8 +1461,8 @@ SQLRETURN conn_get_attr(
     SQLINTEGER   *StringLengthPtr)
 {
   if (conn->cfg.url) {
-    conn_append_err(conn, "HY000", 0, "General error:websocket backend not implemented yet");
-    return SQL_ERROR;
+    // conn_append_err(conn, "HY000", 0, "General error:websocket backend not implemented yet");
+    // return SQL_ERROR;
   }
 
   switch (Attribute) {

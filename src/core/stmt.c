@@ -1680,6 +1680,7 @@ static SQLRETURN _stmt_get_data_copy_buf_to_char(stmt_t *stmt, stmt_get_data_arg
   if (tsdb->type == TSDB_DATA_TYPE_NCHAR && tsdb->str.encoder) {
     fromcode = tsdb->str.encoder;
   }
+
   charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
   if (!cnv) {
     stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
@@ -1744,6 +1745,11 @@ static SQLRETURN _stmt_get_data_copy_buf_to_wchar(stmt_t *stmt, stmt_get_data_ar
 
   const char *fromcode = conn_get_tsdb_charset(stmt->conn);
   const char *tocode   = "UCS-2LE";
+
+  if (tsdb->type == TSDB_DATA_TYPE_NCHAR && tsdb->str.encoder) {
+    fromcode = tsdb->str.encoder;
+  }
+
   charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
   if (!cnv) {
     stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
@@ -1759,6 +1765,7 @@ static SQLRETURN _stmt_get_data_copy_buf_to_wchar(stmt_t *stmt, stmt_get_data_ar
   size_t           outbytesleft        = outbytes;
 
   size_t n = CALL_iconv(cnv->cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+  if (0) _dump_iconv(fromcode, tocode, (char*)ctx->pos, inbytes, inbytesleft, (char*)args->TargetValuePtr, outbytes, outbytesleft);
   int e = errno;
   iconv(cnv->cnv, NULL, NULL, NULL, NULL);
   if (n == (size_t)-1) {
@@ -1825,23 +1832,33 @@ static SQLRETURN _stmt_get_data_copy_buf_to_binary(stmt_t *stmt, stmt_get_data_a
   return SQL_SUCCESS;
 }
 
-static SQLRETURN _stmt_varchar_to_int64(stmt_t *stmt, const char *s, size_t nr, int64_t *v, stmt_get_data_args_t *args)
+static const char* _stmt_varchar_cache(stmt_t *stmt, const char *s, size_t nr)
 {
   int r = 0;
 
   get_data_ctx_t *ctx = &stmt->get_data_ctx;
-  tsdb_data_t *tsdb = &ctx->tsdb;
   mem_t *tsdb_cache = &ctx->mem;
 
+  r = mem_keep(tsdb_cache, nr + 1);
+  if (r) return NULL;
+
+  memcpy(tsdb_cache->base, s, nr);
+  tsdb_cache->base[nr] = '\0';
+
+  return (const char*)tsdb_cache->base;
+}
+
+static SQLRETURN _stmt_varchar_to_int64(stmt_t *stmt, const char *s, size_t nr, int64_t *v, stmt_get_data_args_t *args)
+{
+  get_data_ctx_t *ctx = &stmt->get_data_ctx;
+  tsdb_data_t *tsdb = &ctx->tsdb;
+
   if (s[nr]) {
-    r = mem_keep(tsdb_cache, nr + 1);
-    if (r) {
+    s = _stmt_varchar_cache(stmt, s, nr);
+    if (!s) {
       stmt_oom(stmt);
       return SQL_ERROR;
     }
-    memcpy(tsdb_cache->base, s, nr);
-    tsdb_cache->base[nr] = '\0';
-    s = (const char*)tsdb_cache->base;
   }
 
   char *end = NULL;
@@ -1892,21 +1909,15 @@ static SQLRETURN _stmt_varchar_to_uint64(stmt_t *stmt, const char *s, size_t nr,
 
 static SQLRETURN _stmt_varchar_to_float(stmt_t *stmt, const char *s, size_t nr, float *v, stmt_get_data_args_t *args)
 {
-  int r = 0;
-
   get_data_ctx_t *ctx = &stmt->get_data_ctx;
   tsdb_data_t *tsdb = &ctx->tsdb;
-  mem_t *tsdb_cache = &ctx->mem;
 
   if (s[nr]) {
-    r = mem_keep(tsdb_cache, nr + 1);
-    if (r) {
+    s = _stmt_varchar_cache(stmt, s, nr);
+    if (!s) {
       stmt_oom(stmt);
       return SQL_ERROR;
     }
-    memcpy(tsdb_cache->base, s, nr);
-    tsdb_cache->base[nr] = '\0';
-    s = (const char*)tsdb_cache->base;
   }
 
   char *end = NULL;
@@ -1945,21 +1956,15 @@ static SQLRETURN _stmt_varchar_to_float(stmt_t *stmt, const char *s, size_t nr, 
 
 static SQLRETURN _stmt_varchar_to_double(stmt_t *stmt, const char *s, size_t nr, double *v, stmt_get_data_args_t *args)
 {
-  int r = 0;
-
   get_data_ctx_t *ctx = &stmt->get_data_ctx;
   tsdb_data_t *tsdb = &ctx->tsdb;
-  mem_t *tsdb_cache = &ctx->mem;
 
   if (s[nr]) {
-    r = mem_keep(tsdb_cache, nr + 1);
-    if (r) {
+    s = _stmt_varchar_cache(stmt, s, nr);
+    if (!s) {
       stmt_oom(stmt);
       return SQL_ERROR;
     }
-    memcpy(tsdb_cache->base, s, nr);
-    tsdb_cache->base[nr] = '\0';
-    s = (const char*)tsdb_cache->base;
   }
 
   char *end = NULL;

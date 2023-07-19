@@ -253,6 +253,7 @@ url:
   url_attr
 | url ';'
 | url ';' url_attr
+| url ';' odbc_attr
 | url ';' attribute
 ;
 

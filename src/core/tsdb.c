@@ -856,6 +856,8 @@ static SQLRETURN _tsdb_stmt_fetch_rows_block(tsdb_stmt_t *stmt)
   int nr_rows = 0;
 #ifdef HAVE_TAOSWS           /* { */
   if (stmt->owner->conn->cfg.url) {
+    tsdb_fields_t       *fields      = &res->fields;
+    if (fields->nr == 0) return SQL_NO_DATA;
     const void *ptr = NULL;
     int32_t rows = 0;
     int32_t r = CALL_ws_fetch_block((WS_RES*)res->res, &ptr, &rows);

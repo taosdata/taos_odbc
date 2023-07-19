@@ -31,6 +31,7 @@
 #include "typedefs.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 EXTERN_C_BEGIN
 
@@ -44,10 +45,11 @@ void url_release(url_t *url) FA_HIDDEN;
 
 int url_encode(url_t *url, char **out) FA_HIDDEN;
 int url_encode_with_database(url_t *url, const char *db, char **out) FA_HIDDEN;
+int url_parse_and_encode(const char *url, const char *ip, uint16_t port, const char *db, char **out) FA_HIDDEN;
 
 int url_set_scheme(url_t *url, const char *s, size_t n) FA_HIDDEN;
 int url_set_user_pass(url_t *url, const char *u, size_t un, const char *p, size_t pn) FA_HIDDEN;
-int url_set_host_port(url_t *url, const char *s, size_t n) FA_HIDDEN;
+int url_set_host_port(url_t *url, const char *host, uint16_t port) FA_HIDDEN;
 
 EXTERN_C_END
 

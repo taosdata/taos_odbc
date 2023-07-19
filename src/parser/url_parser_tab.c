@@ -470,8 +470,6 @@ int url_set_user_pass(url_t *url, const char *u, size_t un, const char *p, size_
 
 int url_set_host_port(url_t *url, const char *host, uint16_t port)
 {
-  int r = 0;
-
   char *s= strdup(host);
   if (!s) return -1;
 

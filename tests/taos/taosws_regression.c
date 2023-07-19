@@ -26,6 +26,8 @@
 
 #include "../test_helper.h"
 
+#include <iconv.h>
+#include <locale.h>
 #include <stdio.h>
 
 #define DUMP(fmt, ...)          printf(fmt "\n", ##__VA_ARGS__)
@@ -55,6 +57,59 @@ struct sql_s {
   const char            *sql;
   int                    __line__;
 };
+
+static char          _charset[4096] = "UTF-8";
+
+static void _init_charset(void)
+{
+#ifdef _WIN32
+  UINT acp = GetACP();
+  switch (acp) {
+    case 936:
+      snprintf(_charset, sizeof(_charset), "GB18030");
+      break;
+    case 65001:
+      snprintf(_charset, sizeof(_charset), "UTF-8");
+      break;
+    default:
+      snprintf(_charset, sizeof(_charset), "CP%d", acp);
+      break;
+  }
+#else
+  const char *locale = setlocale(LC_CTYPE, "");
+  if (!locale) return;
+
+  const char *p = strchr(locale, '.');
+  p = p ? p + 1 : locale;
+  snprintf(_charset, sizeof(_charset), "%s", p);
+#endif
+}
+
+static int _charset_conv(const char *src, char *dst, size_t len, const char *fromcode, const char *tocode)
+{
+  iconv_t cnv = iconv_open(tocode, fromcode);
+  if (cnv == (iconv_t)-1) {
+    E("no conversion from `%s` to `%s`", fromcode, tocode);
+    return -1;
+  }
+
+  char       *inbuf        = (char*)src;
+  char       *outbuf       = dst;
+  size_t      inbytesleft  = strlen(src);
+  size_t      outbytesleft = len - 1;
+
+  int n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+  if (n || inbytesleft) {
+    E("conversion from `%s` to `%s` failed", fromcode, tocode);
+    return -1;
+  }
+
+  *outbuf = '\0';
+
+  iconv_close(cnv);
+
+  return 0;
+}
 
 static int _dummy(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STMT *stmt)
 {
@@ -94,7 +149,11 @@ static int _query(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STMT 
     uint8_t     expected_ok = _cases[i].ok;
     int         __line__    = _cases[i].__line__;
 
-    WS_RES *res = CALL_ws_query(taos, sql);
+    char utf8[4096]; utf8[0] = '\0';
+    r = _charset_conv(sql, utf8, sizeof(utf8), _charset, "UTF-8");
+    if (r) return -1;
+
+    WS_RES *res = CALL_ws_query(taos, utf8);
     int e = ws_errno(res);
     if ((!!e) ^ (!expected_ok)) {
       E("executing sql @[%dL]:%s", __line__, sql);
@@ -137,8 +196,12 @@ static int _prepare(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STM
     r = _query(arg, stage, taos, stmt);
   } else if (stage == STAGE_STATEMENT) {
     const char *sql = "show databases";
-    size_t      nr  = strlen(sql);
-    r = CALL_ws_stmt_prepare(stmt, sql, (unsigned long)nr);
+
+    char utf8[4096]; utf8[0] = '\0';
+    r = _charset_conv(sql, utf8, sizeof(utf8), _charset, "UTF-8");
+    if (r) return -1;
+
+    r = CALL_ws_stmt_prepare(stmt, utf8, (unsigned long)strlen(utf8));
   }
 
   return r;
@@ -171,6 +234,10 @@ static int _fetch(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STMT 
     uint8_t     expected_ok = _cases[i].ok;
     int         __line__    = _cases[i].__line__;
 
+    char utf8[4096]; utf8[0] = '\0';
+    r = _charset_conv(sql, utf8, sizeof(utf8), _charset, "UTF-8");
+    if (r) return -1;
+
     WS_RES *res = CALL_ws_query(taos, sql);
     int e = ws_errno(res);
     if ((!!e) ^ (!expected_ok)) {
@@ -187,7 +254,12 @@ static int _fetch(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STMT 
   }
 
   // insert into foo.t (ts, name) values (now(), null)
-  WS_RES *res = CALL_ws_query(taos, "select name from foo.t");
+  const char *sql = "select name from foo.t";
+  char utf8[4096]; utf8[0] = '\0';
+  r = _charset_conv(sql, utf8, sizeof(utf8), _charset, "UTF-8");
+  if (r) return -1;
+
+  WS_RES *res = CALL_ws_query(taos, utf8);
   int e = ws_errno(res);
   if (!!e) {
     E("failed:[%d]%s", e, ws_errstr(res));
@@ -346,6 +418,8 @@ static int start(int argc, char *argv[])
 int main(int argc, char *argv[])
 {
   int r;
+
+  _init_charset();
 
   r = start(argc, argv);
 

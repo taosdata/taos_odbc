@@ -362,7 +362,6 @@ static int _charset(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STM
 
     r = 0;
     if (r == 0) {
-      char buf[4096]; buf[0] = '\0';
       row = 0, col = 0, ty = 0; len = 0; p = NULL;
       p = CALL_ws_get_value_in_block(res, row, col, &ty, &len);
       r = -1;
@@ -374,7 +373,6 @@ static int _charset(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STM
       }
     }
     if (r == 0) {
-      char buf[4096]; buf[0] = '\0';
       row = 0, col = 1, ty = 0; len = 0; p = NULL;
       p = CALL_ws_get_value_in_block(res, row, col, &ty, &len);
       r = -1;

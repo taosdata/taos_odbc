@@ -461,11 +461,17 @@ static int _prepare_insert(const arg_t *arg, const stage_t stage, WS_TAOS *taos,
   const int32_t         v_len         = (int32_t)sizeof(v);
   const char            v_is_null     = (char)0;
 
-  const char           *name          = "中国";
+
+  const char           *s_name        = "中国";
+  char name[4096]; name[0] = '\0';
+  tod_conv(_c_charset, "UTF-8", s_name, strlen(s_name), name, sizeof(name));
   const int32_t         name_len      = (int32_t)strlen(name);
   const char            name_is_null  = (char)0;
+  A(name_len == 6, "");
 
-  const char           *mark          = "苏州";
+  const char           *s_mark        = "苏州";
+  char mark[4096]; mark[0] = '\0';
+  tod_conv(_c_charset, "UTF-8", s_mark, strlen(s_mark), mark, sizeof(mark));
   const int32_t         mark_len      = (int32_t)strlen(mark);
   A(mark_len == 6, "");
   const char            mark_is_null  = (char)0;

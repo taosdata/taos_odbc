@@ -1047,7 +1047,7 @@ static int _prepare_insert(const arg_t *arg, const stage_t stage, TAOS *taos, TA
   const char            name_is_null  = (char)0;
 
   const char           *mark          = "苏州";
-  const int32_t         mark_len      = strlen(mark);
+  const int32_t         mark_len      = (int32_t)strlen(mark);
   const char            mark_is_null  = (char)0;
 
   TAOS_MULTI_BIND mbs[4] = {0};

@@ -397,6 +397,123 @@ static int _charset(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STM
   return 0;
 }
 
+static int _prepare_insert(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STMT *stmt)
+{
+  (void)arg;
+  (void)stmt;
+
+  int r = 0;
+
+  if (stage == STAGE_CONNECTED) return 0;
+  if (stage != STAGE_STATEMENT) return 0;
+
+  const struct {
+    const char          *sql;
+    int                  __line__;
+    uint8_t              ok:1;
+  } _cases[] = {
+    {"drop database if exists foo", __LINE__, 1},
+    {"create database if not exists foo", __LINE__, 1},
+    {"create table foo.t (ts timestamp, v int, name varchar(20), mark nchar(20))", __LINE__, 1},
+  };
+
+  const size_t nr = sizeof(_cases) / sizeof(_cases[0]);
+  for (size_t i=0; i<nr; ++i) {
+    const char *sql         = _cases[i].sql;
+    uint8_t     expected_ok = _cases[i].ok;
+    int         __line__    = _cases[i].__line__;
+
+    char utf8[4096]; utf8[0] = '\0';
+    r = _charset_conv(sql, strlen(sql), utf8, sizeof(utf8), _c_charset, "UTF-8");
+    if (r) return -1;
+
+    WS_RES *res = CALL_ws_query(taos, utf8);
+    int e = ws_errno(res);
+    if ((!!e) ^ (!expected_ok)) {
+      E("executing sql @[%dL]:%s", __line__, sql);
+      if (expected_ok) {
+        E("failed:[%d]%s", e, ws_errstr(res));
+      } else {
+        E("succeed unexpectedly");
+      }
+      r = -1;
+    }
+    if (res) CALL_ws_free_result(res);
+    if (r) return -1;
+  }
+
+  // NOTE: create table foo.t (ts timestamp, v int, name varchar(20), mark nchar(20))
+  // const char *sql = "insert into foo.t (ts, v, name, mark) values (?, ?, ?, ?)";
+  const char *sql = "insert into foo.t (ts, v, name) values (?, ?, ?)";
+  r = CALL_ws_stmt_prepare(stmt, sql, (unsigned long)strlen(sql));
+  if (r) return -1;
+
+  int insert = 0;
+  r = CALL_ws_stmt_is_insert(stmt, &insert);
+  if (r) return -1;
+  A(insert == 1, "");
+
+  int64_t               ts            = 1665025866843L;
+  const int32_t         ts_len        = (int32_t)sizeof(ts);
+  const char            ts_is_null    = (char)0;
+
+  int                   v             = 223;
+  const int32_t         v_len         = (int32_t)sizeof(v);
+  const char            v_is_null     = (char)0;
+
+  const char           *name          = "中国";
+  const int32_t         name_len      = (int32_t)strlen(name);
+  const char            name_is_null  = (char)0;
+
+  const char           *mark          = "苏州";
+  const int32_t         mark_len      = (int32_t)strlen(mark);
+  A(mark_len == 6, "");
+  const char            mark_is_null  = (char)0;
+
+  WS_MULTI_BIND mbs[4] = {0};
+  mbs[0].buffer_type        = TSDB_DATA_TYPE_TIMESTAMP;
+  mbs[0].buffer             = &ts;
+  mbs[0].buffer_length      = (uintptr_t)sizeof(ts);
+  mbs[0].length             = &ts_len;
+  mbs[0].is_null            = &ts_is_null;
+  mbs[0].num = 1;
+
+  mbs[1].buffer_type        = TSDB_DATA_TYPE_INT;
+  mbs[1].buffer             = &v;
+  mbs[1].buffer_length      = (uintptr_t)sizeof(v);
+  mbs[1].length             = &v_len;
+  mbs[1].is_null            = &v_is_null;
+  mbs[1].num = 1;
+
+  mbs[2].buffer_type        = TSDB_DATA_TYPE_VARCHAR;
+  mbs[2].buffer             = name;
+  mbs[2].buffer_length      = (uintptr_t)strlen(name);
+  mbs[2].length             = &name_len;
+  mbs[2].is_null            = &name_is_null;
+  mbs[2].num = 1;
+
+  mbs[3].buffer_type        = TSDB_DATA_TYPE_NCHAR;
+  mbs[3].buffer             = (void*)mark;
+  mbs[3].buffer_length      = (uintptr_t)mark_len;
+  mbs[3].length             = (int32_t*)&mark_len;
+  mbs[3].is_null            = (char*)&mark_is_null;
+  mbs[3].num = 1;
+
+  // r = CALL_ws_stmt_bind_param_batch(stmt, &mbs[0], sizeof(mbs)/sizeof(mbs[0]));
+  r = CALL_ws_stmt_bind_param_batch(stmt, &mbs[0], 3);
+  if (r) return -1;
+
+  r = CALL_ws_stmt_add_batch(stmt);
+  if (r) return -1;
+
+  int32_t affected_rows = 0;
+  r = CALL_ws_stmt_execute(stmt, &affected_rows);
+  if (r) return -1;
+  A(affected_rows == 1, "");
+
+  return 0;
+}
+
 #define RECORD(x) {x, #x}
 
 static struct {
@@ -408,6 +525,7 @@ static struct {
   RECORD(_prepare),
   RECORD(_fetch),
   RECORD(_charset),
+  RECORD(_prepare_insert),
 };
 
 static int on_statement(const arg_t *arg, WS_TAOS *taos, WS_STMT *stmt)

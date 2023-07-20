@@ -48,17 +48,17 @@
 #define diag_ws_res_impl(file, line, func, res) do {                 \
   WS_RES *__res  = res;                                              \
   int _e         = ws_errno(__res);                                  \
-  if (!_e) break;                                                    \
   const char *_s = ws_errstr(__res);                                 \
+  if (!_s || !*_s) break;                                            \
   LOGE_TAOSWS(file, line, func, "ws_errno/str(res:%p) => [%d/0x%x]%s%s%s", __res, _e, _e, color_red(), _s, color_reset());     \
 } while (0)
 
 #define diag_ws_stmt_impl(file, line, func, stmt) do {                                    \
   WS_STMT *__stmt = stmt;                                                                 \
   int _e          = ws_errno(NULL);                                                       \
-  if (!_e) break;                                                                         \
   const char *_s1 = ws_errstr(NULL);                                                      \
   const char *_s2 = ws_stmt_errstr(__stmt);                                               \
+  if (!_s2 || !*_s2) break;                                                               \
   LOGE_TAOSWS(file, line, func,                                                           \
       "ws_errno/str(stmt:%p) => [%d/0x%x]%s%s%s;ws_stmt_errstr:%s%s%s",                   \
       __stmt, _e, _e, color_red(), _s1, color_reset(), color_red(), _s2, color_reset());  \
@@ -214,7 +214,7 @@ static inline int call_ws_stmt_prepare(const char *file, int line, const char *f
 {
   LOGD_TAOSWS(file, line, func, "ws_stmt_prepare(stmt:%p,sql:%.*s,len:%d) ...", stmt, (int)len, sql, (int)len);
   int r = ws_stmt_prepare(stmt, sql, len);
-  diag_ws_stmt(stmt);
+  if (r) diag_ws_stmt(stmt);
   LOGD_TAOSWS(file, line, func, "ws_stmt_prepare(stmt:%p) => %d", stmt, r);
   return r;
 }
@@ -223,7 +223,7 @@ static inline int call_ws_stmt_set_tbname(const char *file, int line, const char
 {
   LOGD_TAOSWS(file, line, func, "ws_stmt_set_tbname(stmt:%p,name:%s) ...", stmt, name);
   int r = ws_stmt_set_tbname(stmt, name);
-  diag_ws_stmt(stmt);
+  if (r) diag_ws_stmt(stmt);
   LOGD_TAOSWS(file, line, func, "ws_stmt_set_tbname(stmt:%p,name:%s) => %d", stmt, name, r);
   return r;
 }
@@ -232,7 +232,7 @@ static inline int call_ws_stmt_set_tbname_tags(const char *file, int line, const
 {
   LOGD_TAOSWS(file, line, func, "ws_stmt_set_tbname_tags(stmt:%p,name:%s,bind:%p,len:%u) ...", stmt, name, bind, len);
   int r = ws_stmt_set_tbname_tags(stmt, name, bind, len);
-  diag_ws_stmt(stmt);
+  if (r) diag_ws_stmt(stmt);
   LOGD_TAOSWS(file, line, func, "ws_stmt_set_tbname_tags(stmt:%p,name:%s,bind:%p,len:%u) => %d", stmt, name, bind, len, r);
   return r;
 }
@@ -241,7 +241,7 @@ static inline int call_ws_stmt_is_insert(const char *file, int line, const char 
 {
   LOGD_TAOSWS(file, line, func, "ws_stmt_is_insert(stmt:%p,insert:%p) ...", stmt, insert);
   int r = ws_stmt_is_insert(stmt, insert);
-  diag_ws_stmt(stmt);
+  if (r) diag_ws_stmt(stmt);
   LOGD_TAOSWS(file, line, func, "ws_stmt_is_insert(stmt:%p,insert:%p(%d)) => %d", stmt, insert, insert ? *insert : -1, r);
   return r;
 }
@@ -250,7 +250,7 @@ static inline int call_ws_stmt_set_tags(const char *file, int line, const char *
 {
   LOGD_TAOSWS(file, line, func, "ws_stmt_set_tags(stmt:%p,bind:%p,len:%u) ...", stmt, bind, len);
   int r = ws_stmt_set_tags(stmt, bind, len);
-  diag_ws_stmt(stmt);
+  if (r) diag_ws_stmt(stmt);
   LOGD_TAOSWS(file, line, func, "ws_stmt_set_tags(stmt:%p,bind:%p,len:%u) => %d", stmt, bind, len, r);
   return r;
 }
@@ -259,7 +259,7 @@ static inline int call_ws_stmt_bind_param_batch(const char *file, int line, cons
 {
   LOGD_TAOSWS(file, line, func, "ws_stmt_bind_param_batch(stmt:%p,bind:%p,len:%u) ...", stmt, bind, len);
   int r = ws_stmt_bind_param_batch(stmt, bind, len);
-  diag_ws_stmt(stmt);
+  if (r) diag_ws_stmt(stmt);
   LOGD_TAOSWS(file, line, func, "ws_stmt_bind_param_batch(stmt:%p,bind:%p,len:%u) => %d", stmt, bind, len, r);
   return r;
 }
@@ -268,7 +268,7 @@ static inline int call_ws_stmt_add_batch(const char *file, int line, const char 
 {
   LOGD_TAOSWS(file, line, func, "ws_stmt_add_batch(stmt:%p) ...", stmt);
   int r = ws_stmt_add_batch(stmt);
-  diag_ws_stmt(stmt);
+  if (r) diag_ws_stmt(stmt);
   LOGD_TAOSWS(file, line, func, "ws_stmt_add_batch(stmt:%p) => %d", stmt, r);
   return r;
 }
@@ -277,7 +277,7 @@ static inline int call_ws_stmt_execute(const char *file, int line, const char *f
 {
   LOGD_TAOSWS(file, line, func, "ws_stmt_execute(stmt:%p, affected_rows:%p) ...", stmt, affected_rows);
   int r = ws_stmt_execute(stmt, affected_rows);
-  diag_ws_stmt(stmt);
+  if (r) diag_ws_stmt(stmt);
   LOGD_TAOSWS(file, line, func, "ws_stmt_execute(stmt:%p, affected_rows:%p(%d)) => %d", stmt, affected_rows, affected_rows ? *affected_rows : -1, r);
   return r;
 }
@@ -286,7 +286,7 @@ static inline int call_ws_stmt_affected_rows(const char *file, int line, const c
 {
   LOGD_TAOSWS(file, line, func, "ws_stmt_affected_rows(stmt:%p) ...", stmt);
   int r = ws_stmt_affected_rows(stmt);
-  diag_ws_stmt(stmt);
+  if (r) diag_ws_stmt(stmt);
   LOGD_TAOSWS(file, line, func, "ws_stmt_affected_rows(stmt:%p) => %d", stmt, r);
   return r;
 }
@@ -303,7 +303,6 @@ static inline void call_ws_stmt_close(const char *file, int line, const char *fu
 {
   LOGD_TAOSWS(file, line, func, "ws_stmt_close(stmt:%p) ...", stmt);
   ws_stmt_close(stmt);
-  diag_ws_stmt(stmt);
   LOGD_TAOSWS(file, line, func, "ws_stmt_close(stmt:%p) => void", stmt);
 }
 

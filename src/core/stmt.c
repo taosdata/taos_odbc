@@ -4439,7 +4439,7 @@ static SQLRETURN _stmt_param_get_sqlc_tinyint(stmt_t* stmt, param_state_t *param
   return SQL_SUCCESS;
 }
 
-static sqlc_sql_map_t          _sqlc_sql_map[] = {
+static const sqlc_sql_map_t          _sqlc_sql_map[] = {
   {SQL_C_CHAR, SQL_VARCHAR,
     _stmt_param_bind_set_APD_record_sqlc_char,
     _stmt_param_bind_set_IPD_record_sql_varchar,
@@ -4669,7 +4669,7 @@ static SQLRETURN _stmt_bind_param(
   desc_record_t *IPD_record = IPD->records + ParameterNumber - 1;
 
   for (size_t i=0; i<sizeof(_sqlc_sql_map)/sizeof(_sqlc_sql_map[0]); ++i) {
-    sqlc_sql_map_t *map = _sqlc_sql_map + i;
+    const sqlc_sql_map_t *map = _sqlc_sql_map + i;
     if (map->ValueType     != ValueType) continue;
     if (map->ParameterType != ParameterType) continue;
 
@@ -5437,8 +5437,10 @@ static SQLRETURN _stmt_param_adjust_tsdb_nchar(stmt_t *stmt, param_state_t *para
   tsdb_bind->length = (int32_t*)param_column->mem_length.base;
 
   if (stmt->tsdb_stmt.is_insert_stmt) {
+    // NOTE: tsdb_field->bytes: nchar(20): => 82 == 20 * 4 + 2;
     tsdb_bind->buffer_length = tsdb_field->bytes - 2 /*+ cnv->nr_to_terminator*/;
   } else {
+    OA(0, "tsdb_field->bytes:%d", tsdb_field->bytes);
     tsdb_bind->buffer_length = tsdb_field->bytes + 8;
   }
 
@@ -6191,11 +6193,14 @@ static SQLRETURN _stmt_param_conv_sqlc_char_to_tsdb_double(stmt_t *stmt, param_s
   return SQL_SUCCESS;
 }
 
-static param_bind_map_t _param_bind_map[] = {
+static const param_bind_map_t _param_bind_map[] = {
   {SQL_C_SBIGINT, SQL_VARCHAR, TSDB_DATA_TYPE_BIGINT,
     _stmt_param_adjust_reuse_sqlc_sbigint,
     _stmt_param_conv_dummy},
   {SQL_C_SBIGINT, SQL_TYPE_TIMESTAMP, TSDB_DATA_TYPE_TIMESTAMP,
+    _stmt_param_adjust_reuse_sqlc_sbigint,
+    _stmt_param_conv_dummy},
+  {SQL_C_SBIGINT, SQL_TYPE_TIMESTAMP, TSDB_DATA_TYPE_BIGINT,
     _stmt_param_adjust_reuse_sqlc_sbigint,
     _stmt_param_conv_dummy},
   {SQL_C_SBIGINT, SQL_BIGINT, TSDB_DATA_TYPE_TIMESTAMP,
@@ -6336,7 +6341,7 @@ static SQLRETURN _stmt_param_tsdb_init(stmt_t *stmt, param_state_t *param_state)
   int8_t      tsdb_type     = tsdb_field->type;
 
   for (size_t i=0; i<sizeof(_param_bind_map)/sizeof(_param_bind_map[0]); ++i) {
-    param_bind_map_t *map = _param_bind_map + i;
+    const param_bind_map_t *map = _param_bind_map + i;
     if (map->tsdb_type != tsdb_type) continue;
     if (map->ValueType != ValueType) continue;
     if (map->ParameterType != ParameterType) continue;
@@ -6652,8 +6657,19 @@ static SQLRETURN _stmt_prepare_col(stmt_t *stmt, param_state_t *param_state)
       sr = _stmt_param_guess(stmt, param_state);
       if (sr != SQL_SUCCESS) return SQL_ERROR;
     }
-    sr = _stmt_param_tsdb_init(stmt, param_state);
-    if (sr != SQL_SUCCESS) return SQL_ERROR;
+#ifdef HAVE_TAOSWS           /* { */
+    if (stmt->conn->cfg.url) {
+      sr = _stmt_param_guess(stmt, param_state);
+      if (sr != SQL_SUCCESS) return SQL_ERROR;
+      sr = _stmt_param_tsdb_init(stmt, param_state);
+      if (sr != SQL_SUCCESS) return SQL_ERROR;
+    } else {
+#endif                       /* } */
+      sr = _stmt_param_tsdb_init(stmt, param_state);
+      if (sr != SQL_SUCCESS) return SQL_ERROR;
+#ifdef HAVE_TAOSWS           /* { */
+    }
+#endif                       /* } */
   }
 
   param_state->param_column = stmt->tsdb_paramset.params + param_state->i_param;

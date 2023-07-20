@@ -979,6 +979,118 @@ static int _fetch(const arg_t *arg, const stage_t stage, TAOS *taos, TAOS_STMT *
   return 0;
 }
 
+static int _prepare_insert(const arg_t *arg, const stage_t stage, TAOS *taos, TAOS_STMT *stmt)
+{
+  (void)arg;
+  (void)stmt;
+
+  int r = 0;
+
+  if (stage == STAGE_CONNECTED) return 0;
+  if (stage != STAGE_STATEMENT) return 0;
+
+  const struct {
+    const char          *sql;
+    int                  __line__;
+    uint8_t              ok:1;
+  } _cases[] = {
+    {"drop database if exists foo", __LINE__, 1},
+    {"create database if not exists foo", __LINE__, 1},
+    {"create table foo.t (ts timestamp, v int, name varchar(20), mark nchar(20))", __LINE__, 1},
+  };
+
+  const size_t nr = sizeof(_cases) / sizeof(_cases[0]);
+  for (size_t i=0; i<nr; ++i) {
+    const char *sql         = _cases[i].sql;
+    uint8_t     expected_ok = _cases[i].ok;
+    int         __line__    = _cases[i].__line__;
+
+    TAOS_RES *res = CALL_taos_query(taos, sql);
+    int e = taos_errno(res);
+    if ((!!e) ^ (!expected_ok)) {
+      E("executing sql @[%dL]:%s", __line__, sql);
+      if (expected_ok) {
+        E("failed:[%d]%s", e, taos_errstr(res));
+      } else {
+        E("succeed unexpectedly");
+      }
+      r = -1;
+    }
+    if (res) CALL_taos_free_result(res);
+    if (r) return -1;
+  }
+
+#ifdef _WIN32         /* { */
+  E("TODO: for the sake of source-code-charset, need to implement later");
+  if (1) return 0;
+#endif                /* } */
+
+  const char *sql = "insert into foo.t (ts, v, name, mark) values (?, ?, ?, ?)";
+  r = CALL_taos_stmt_prepare(stmt, sql, (unsigned long)strlen(sql));
+  if (r) return -1;
+
+  int insert = 0;
+  r = CALL_taos_stmt_is_insert(stmt, &insert);
+  if (r) return -1;
+  A(insert == 1, "");
+
+  int64_t               ts            = 1665025866843L;
+  const int32_t         ts_len        = (int32_t)sizeof(ts);
+  const char            ts_is_null    = (char)0;
+
+  int                   v             = 223;
+  const int32_t         v_len         = (int32_t)sizeof(v);
+  const char            v_is_null     = (char)0;
+
+  const char           *name          = "中国";
+  const int32_t         name_len      = (int32_t)strlen(name);
+  const char            name_is_null  = (char)0;
+
+  const char           *mark          = "苏州";
+  const int32_t         mark_len      = strlen(mark);
+  const char            mark_is_null  = (char)0;
+
+  TAOS_MULTI_BIND mbs[4] = {0};
+  mbs[0].buffer_type        = TSDB_DATA_TYPE_TIMESTAMP;
+  mbs[0].buffer             = (void*)&ts;
+  mbs[0].buffer_length      = (uintptr_t)sizeof(ts);
+  mbs[0].length             = (int32_t*)&ts_len;
+  mbs[0].is_null            = (char*)&ts_is_null;
+  mbs[0].num = 1;
+
+  mbs[1].buffer_type        = TSDB_DATA_TYPE_INT;
+  mbs[1].buffer             = (void*)&v;
+  mbs[1].buffer_length      = (uintptr_t)sizeof(v);
+  mbs[1].length             = (int32_t*)&v_len;
+  mbs[1].is_null            = (char*)&v_is_null;
+  mbs[1].num = 1;
+
+  mbs[2].buffer_type        = TSDB_DATA_TYPE_VARCHAR;
+  mbs[2].buffer             = (void*)name;
+  mbs[2].buffer_length      = (uintptr_t)name_len;
+  mbs[2].length             = (int32_t*)&name_len;
+  mbs[2].is_null            = (char*)&name_is_null;
+  mbs[2].num = 1;
+
+  mbs[3].buffer_type        = TSDB_DATA_TYPE_NCHAR;
+  mbs[3].buffer             = (void*)mark;
+  mbs[3].buffer_length      = (uintptr_t)mark_len;
+  mbs[3].length             = (int32_t*)&mark_len;
+  mbs[3].is_null            = (char*)&mark_is_null;
+  mbs[3].num = 1;
+
+  r = CALL_taos_stmt_bind_param_batch(stmt, &mbs[0]);
+  if (r) return -1;
+
+  r = CALL_taos_stmt_add_batch(stmt);
+  if (r) return -1;
+
+  r = CALL_taos_stmt_execute(stmt);
+  if (r) return -1;
+
+  return 0;
+}
+
 #define RECORD(x) {x, #x}
 
 static struct {
@@ -989,6 +1101,7 @@ static struct {
   RECORD(_query),
   RECORD(_prepare),
   RECORD(_fetch),
+  RECORD(_prepare_insert),
 };
 
 #undef RECORD

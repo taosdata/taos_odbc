@@ -38,16 +38,16 @@ static int _ds_ws_query(ds_conn_t *ds_conn, const char *sql, ds_res_t *ds_res)
   OA_NIY(ds_conn->conn);
 
   WS_TAOS *ws_taos = (WS_TAOS*)ds_conn->taos;
-  WS_RES  *res     = ws_query(ws_taos, sql);
+  WS_RES  *res     = CALL_ws_query(ws_taos, sql);
 
   ds_res->res = res;
   if (ws_errno(res)) return -1;
   if (!res) return 0;
-  ds_res->result_precision = ws_result_precision(res);
+  ds_res->result_precision = CALL_ws_result_precision(res);
   if (ws_errno(res)) return -1;
-  ds_res->fields.nr_fields = ws_field_count(res);
+  ds_res->fields.nr_fields = CALL_ws_field_count(res);
   if (ws_errno(res)) return -1;
-  ds_res->fields.fields = ws_fetch_fields(res);
+  ds_res->fields.fields = CALL_ws_fetch_fields(res);
 
   return 0;
 }
@@ -56,7 +56,7 @@ static const char* _ds_ws_get_server_info(ds_conn_t *ds_conn)
 {
   OA_NIY(ds_conn->conn);
 
-  return ws_get_server_info((WS_TAOS*)ds_conn->taos);
+  return CALL_ws_get_server_info((WS_TAOS*)ds_conn->taos);
 }
 
 static const char* _ds_ws_get_client_info(ds_conn_t *ds_conn)
@@ -83,7 +83,7 @@ static void _ds_ws_close(ds_conn_t *ds_conn)
 {
   if (!ds_conn->conn || !ds_conn->taos) return;
 
-  ws_close((WS_RES*)ds_conn->taos);
+  CALL_ws_close((WS_RES*)ds_conn->taos);
   ds_conn->taos = NULL;
 }
 
@@ -92,7 +92,7 @@ static int _ds_ws_stmt_init(ds_conn_t *ds_conn, ds_stmt_t *ds_stmt)
   OA_NIY(ds_conn->conn);
 
   WS_TAOS *ws_taos = (WS_TAOS*)ds_conn->taos;
-  WS_STMT *ws_stmt = ws_stmt_init(ws_taos);
+  WS_STMT *ws_stmt = CALL_ws_stmt_init(ws_taos);
   if (!ws_stmt) return -1;
 
   ds_stmt->stmt = ws_stmt;
@@ -106,7 +106,7 @@ static void _ds_stmt_ws_close(ds_stmt_t *ds_stmt)
   WS_STMT *ws_stmt = (WS_STMT*)ds_stmt->stmt;
   if (!ws_stmt) return;
 
-  ws_stmt_close(ws_stmt);
+  CALL_ws_stmt_close(ws_stmt);
   ds_stmt->stmt = NULL;
 }
 
@@ -117,7 +117,7 @@ static int _ds_stmt_ws_prepare(ds_stmt_t *ds_stmt, const char *sql)
 
   WS_STMT *ws_stmt = (WS_STMT*)ds_stmt->stmt;
 
-  int r = ws_stmt_prepare(ws_stmt, sql, (unsigned long)strlen(sql));
+  int r = CALL_ws_stmt_prepare(ws_stmt, sql, (unsigned long)strlen(sql));
   if (r) return -1;
 
   return 0;
@@ -335,7 +335,7 @@ static void _ds_res_ws_close(ds_res_t *ds_res)
 {
   WS_RES *res = (WS_RES*)ds_res->res;
 
-  ws_free_result(res);
+  CALL_ws_free_result(res);
   ds_res->res = NULL;
 }
 
@@ -359,7 +359,7 @@ static int _ds_res_ws_fetch_block(ds_res_t *ds_res)
 
   const void *block = NULL;
   int32_t rows_in_block = 0;
-  r = ws_fetch_block(res, &block, &rows_in_block);
+  r = CALL_ws_fetch_block(res, &block, &rows_in_block);
   if (r == 0) {
     ds_block_t *ds_block = &ds_res->block;
     ds_block->nr_rows_in_block = rows_in_block;
@@ -387,7 +387,7 @@ static int _ds_block_ws_get_into_tsdb(ds_block_t *ds_block, int i_row, int i_col
   const void *col_data = NULL;
   uint32_t    col_len  = 0;
 
-  col_data = ws_get_value_in_block(res, i_row, i_col, &col_type, &col_len);
+  col_data = CALL_ws_get_value_in_block(res, i_row, i_col, &col_type, &col_len);
 
   const WS_FIELD *field = fields + i_col;
 

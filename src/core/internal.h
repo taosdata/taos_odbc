@@ -36,10 +36,8 @@
 #include "typedefs.h"
 
 #include "taos_helpers.h"
-
-#include <taos.h>
 #ifdef HAVE_TAOSWS           /* { */
-#include <taosws.h>
+#include "taosws_helpers.h"
 #endif                       /* } */
 
 EXTERN_C_BEGIN
@@ -622,6 +620,7 @@ struct tsdb_res_s {
   tsdb_rows_block_t          rows_block;
 
   unsigned int               res_is_from_taos_query:1;
+  unsigned int               eof:1;
 };
 
 struct tsdb_params_s {

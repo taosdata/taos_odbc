@@ -32,6 +32,9 @@
 #include "conn_parser.h"
 #include "stmt.h"
 #include "taos_helpers.h"
+#ifdef HAVE_TAOSWS           /* { */
+#include "taosws_helpers.h"
+#endif                       /* } */
 
 #include <errno.h>
 
@@ -96,7 +99,7 @@ static void _topic_reset_res(topic_t *topic, SQLRETURN *psr)
   if (topic->res) {
 #ifdef HAVE_TAOSWS           /* { */
     if (topic->owner->conn->cfg.url) {
-      ws_free_result((WS_RES*)topic->res);
+      CALL_ws_free_result((WS_RES*)topic->res);
     } else {
 #endif                       /* } */
       CALL_taos_free_result(topic->res);
@@ -219,7 +222,7 @@ static SQLRETURN _topic_desc_tripple(topic_t *topic)
             ws_errno(topic->res), ws_errstr(topic->res));
         return SQL_ERROR;
       }
-      nr = ws_field_count(topic->res);
+      nr = CALL_ws_field_count(topic->res);
     } else {
 #endif                       /* } */
       fields = CALL_taos_fetch_fields(topic->res);
@@ -538,7 +541,7 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
       tsdb->ts.ts = *(int64_t*)col;
 #ifdef HAVE_TAOSWS           /* { */
       if (topic->owner->conn->cfg.url) {
-        tsdb->ts.precision = ws_result_precision((WS_RES*)topic->res);
+        tsdb->ts.precision = CALL_ws_result_precision((WS_RES*)topic->res);
       } else {
 #endif                       /* } */
         tsdb->ts.precision = CALL_taos_result_precision(topic->res);

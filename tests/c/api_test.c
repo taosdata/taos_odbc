@@ -424,6 +424,25 @@ static int do_sql_driver_conns(SQLHANDLE connh)
   CHK2(test_sql_driver_conn, connh, "DSN=TAOS_ODBC_DSN;Server=127.0.0.1:6666", -1);
   CHK2(test_sql_driver_conn, connh, "Driver={TAOS_ODBC_DRIVER};Server=192.0.0.3:6030", -1);
 
+#ifdef HAVE_TAOSWS
+  CHK4(test_sql_conn, connh, "TAOS_ODBC_WS_DSN", NULL, NULL, 0);
+  CHK4(test_sql_conn, connh, "TAOS_ODBC_WS_DSN", "root", "taosdata", 0);
+  CHK4(test_sql_conn, connh, "TAOS_ODBC_WS_DSN", "root", NULL, 0);
+  CHK4(test_sql_conn, connh, "TAOS_ODBC_WS_DSN", NULL, "taosdata", 0);
+  // CHK4(test_sql_conn, connh, "TAOS_ODBC_WS_DSN", "root", "", -1);
+  // CHK4(test_sql_conn, connh, "TAOS_ODBC_WS_DSN", "", "taosdata", -1);
+  // CHK4(test_sql_conn, connh, "TAOS_ODBC_WS_DSN", "", "", -1);
+  // CHK4(test_sql_conn, connh, "TAOS_ODBC_WS_DSN", "", NULL, -1);
+  // CHK4(test_sql_conn, connh, "TAOS_ODBC_WS_DSN", NULL, "", -1);
+  CHK2(test_sql_driver_conn, connh, "bad", -1);
+  CHK2(test_sql_driver_conn, connh, "DSN=NOT_EXIST", -1);
+  CHK2(test_sql_driver_conn, connh, "Driver={TAOS_ODBC_DRIVER};URL={http://www.examples.com};Server=127.0.0.1:6041", 0);
+  CHK2(test_sql_driver_conn, connh, "DSN=TAOS_ODBC_WS_DSN", 0);
+  CHK2(test_sql_driver_conn, connh, "Driver={TAOS_ODBC_DRIVER};URL={http://localhost:6041};DB=what", -1);
+  CHK2(test_sql_driver_conn, connh, "DSN=TAOS_ODBC_WS_DSN;URL={http://www.examples.com};Server=127.0.0.1:6041", 0);
+  CHK2(test_sql_driver_conn, connh, "DSN=TAOS_ODBC_WS_DSN;URL={http://www.examples.com};Server=127.0.0.1:6666", -1);
+#endif
+
   return 0;
 }
 

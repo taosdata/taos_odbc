@@ -37,6 +37,9 @@
 #include "stmt.h"
 #include "tables.h"
 #include "taos_helpers.h"
+#ifdef HAVE_TAOSWS           /* { */
+#include "taosws_helpers.h"
+#endif                       /* } */
 #include "tls.h"
 #include "topic.h"
 #include "tsdb.h"
@@ -1677,6 +1680,7 @@ static SQLRETURN _stmt_get_data_copy_buf_to_char(stmt_t *stmt, stmt_get_data_arg
   if (tsdb->type == TSDB_DATA_TYPE_NCHAR && tsdb->str.encoder) {
     fromcode = tsdb->str.encoder;
   }
+
   charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
   if (!cnv) {
     stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
@@ -1741,6 +1745,11 @@ static SQLRETURN _stmt_get_data_copy_buf_to_wchar(stmt_t *stmt, stmt_get_data_ar
 
   const char *fromcode = conn_get_tsdb_charset(stmt->conn);
   const char *tocode   = "UCS-2LE";
+
+  if (tsdb->type == TSDB_DATA_TYPE_NCHAR && tsdb->str.encoder) {
+    fromcode = tsdb->str.encoder;
+  }
+
   charset_conv_t *cnv  = tls_get_charset_conv(fromcode, tocode);
   if (!cnv) {
     stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
@@ -1756,6 +1765,7 @@ static SQLRETURN _stmt_get_data_copy_buf_to_wchar(stmt_t *stmt, stmt_get_data_ar
   size_t           outbytesleft        = outbytes;
 
   size_t n = CALL_iconv(cnv->cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+  if (0) _dump_iconv(fromcode, tocode, (char*)ctx->pos, inbytes, inbytesleft, (char*)args->TargetValuePtr, outbytes, outbytesleft);
   int e = errno;
   iconv(cnv->cnv, NULL, NULL, NULL, NULL);
   if (n == (size_t)-1) {
@@ -1822,23 +1832,33 @@ static SQLRETURN _stmt_get_data_copy_buf_to_binary(stmt_t *stmt, stmt_get_data_a
   return SQL_SUCCESS;
 }
 
-static SQLRETURN _stmt_varchar_to_int64(stmt_t *stmt, const char *s, size_t nr, int64_t *v, stmt_get_data_args_t *args)
+static const char* _stmt_varchar_cache(stmt_t *stmt, const char *s, size_t nr)
 {
   int r = 0;
 
   get_data_ctx_t *ctx = &stmt->get_data_ctx;
-  tsdb_data_t *tsdb = &ctx->tsdb;
   mem_t *tsdb_cache = &ctx->mem;
 
+  r = mem_keep(tsdb_cache, nr + 1);
+  if (r) return NULL;
+
+  memcpy(tsdb_cache->base, s, nr);
+  tsdb_cache->base[nr] = '\0';
+
+  return (const char*)tsdb_cache->base;
+}
+
+static SQLRETURN _stmt_varchar_to_int64(stmt_t *stmt, const char *s, size_t nr, int64_t *v, stmt_get_data_args_t *args)
+{
+  get_data_ctx_t *ctx = &stmt->get_data_ctx;
+  tsdb_data_t *tsdb = &ctx->tsdb;
+
   if (s[nr]) {
-    r = mem_keep(tsdb_cache, nr + 1);
-    if (r) {
+    s = _stmt_varchar_cache(stmt, s, nr);
+    if (!s) {
       stmt_oom(stmt);
       return SQL_ERROR;
     }
-    memcpy(tsdb_cache->base, s, nr);
-    tsdb_cache->base[nr] = '\0';
-    s = (const char*)tsdb_cache->base;
   }
 
   char *end = NULL;
@@ -1889,21 +1909,15 @@ static SQLRETURN _stmt_varchar_to_uint64(stmt_t *stmt, const char *s, size_t nr,
 
 static SQLRETURN _stmt_varchar_to_float(stmt_t *stmt, const char *s, size_t nr, float *v, stmt_get_data_args_t *args)
 {
-  int r = 0;
-
   get_data_ctx_t *ctx = &stmt->get_data_ctx;
   tsdb_data_t *tsdb = &ctx->tsdb;
-  mem_t *tsdb_cache = &ctx->mem;
 
   if (s[nr]) {
-    r = mem_keep(tsdb_cache, nr + 1);
-    if (r) {
+    s = _stmt_varchar_cache(stmt, s, nr);
+    if (!s) {
       stmt_oom(stmt);
       return SQL_ERROR;
     }
-    memcpy(tsdb_cache->base, s, nr);
-    tsdb_cache->base[nr] = '\0';
-    s = (const char*)tsdb_cache->base;
   }
 
   char *end = NULL;
@@ -1942,21 +1956,15 @@ static SQLRETURN _stmt_varchar_to_float(stmt_t *stmt, const char *s, size_t nr, 
 
 static SQLRETURN _stmt_varchar_to_double(stmt_t *stmt, const char *s, size_t nr, double *v, stmt_get_data_args_t *args)
 {
-  int r = 0;
-
   get_data_ctx_t *ctx = &stmt->get_data_ctx;
   tsdb_data_t *tsdb = &ctx->tsdb;
-  mem_t *tsdb_cache = &ctx->mem;
 
   if (s[nr]) {
-    r = mem_keep(tsdb_cache, nr + 1);
-    if (r) {
+    s = _stmt_varchar_cache(stmt, s, nr);
+    if (!s) {
       stmt_oom(stmt);
       return SQL_ERROR;
     }
-    memcpy(tsdb_cache->base, s, nr);
-    tsdb_cache->base[nr] = '\0';
-    s = (const char*)tsdb_cache->base;
   }
 
   char *end = NULL;
@@ -6782,7 +6790,7 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
         TAOS_MULTI_BIND *mbs = stmt->tsdb_binds.mbs + (!!stmt->tsdb_stmt.params.subtbl_required);
 #ifdef HAVE_TAOSWS           /* { */
         if (stmt->conn->cfg.url) {
-          r = ws_stmt_set_tags((WS_STMT*)stmt->tsdb_stmt.stmt, (WS_MULTI_BIND*)mbs, tsdb_params->nr_tag_fields);
+          r = CALL_ws_stmt_set_tags((WS_STMT*)stmt->tsdb_stmt.stmt, (WS_MULTI_BIND*)mbs, tsdb_params->nr_tag_fields);
           if (r) {
             stmt_append_err_format(stmt, "HY000", r, "General error:[taosws]%s", ws_stmt_errstr((WS_STMT*)stmt->tsdb_stmt.stmt));
             return SQL_ERROR;
@@ -6803,7 +6811,7 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
     TAOS_MULTI_BIND *mb = stmt->tsdb_binds.mbs + (!!stmt->tsdb_stmt.params.subtbl_required) + stmt->tsdb_stmt.params.nr_tag_fields;
 #ifdef HAVE_TAOSWS           /* { */
     if (stmt->conn->cfg.url) {
-      r = ws_stmt_bind_param_batch((WS_STMT*)stmt->tsdb_stmt.stmt, (WS_MULTI_BIND*)mb, tsdb_params->nr_tag_fields);
+      r = CALL_ws_stmt_bind_param_batch((WS_STMT*)stmt->tsdb_stmt.stmt, (WS_MULTI_BIND*)mb, tsdb_params->nr_tag_fields);
       if (r) {
         stmt_append_err_format(stmt, "HY000", r, "General error:[taosws]%s", ws_stmt_errstr((WS_STMT*)stmt->tsdb_stmt.stmt));
         return SQL_ERROR;
@@ -6821,7 +6829,7 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
 
 #ifdef HAVE_TAOSWS           /* { */
     if (stmt->conn->cfg.url) {
-      r = ws_stmt_add_batch((WS_STMT*)stmt->tsdb_stmt.stmt);
+      r = CALL_ws_stmt_add_batch((WS_STMT*)stmt->tsdb_stmt.stmt);
       if (r) {
         stmt_append_err_format(stmt, "HY000", r, "General error:[taosws]%s", ws_stmt_errstr((WS_STMT*)stmt->tsdb_stmt.stmt));
         return SQL_ERROR;

@@ -38,7 +38,7 @@
 
 #include "conn_parser.h"
 
-#include "taosws.h"
+#include <taosws.h>
 
 #include <string.h>
 
@@ -272,7 +272,7 @@ static void check_taosws_connection(HWND hDlg, config_t *config, url_parser_para
   }
 
   char buf[4096]; buf[0] = '\0';
-  WS_TAOS *taosws = ws_connect_with_dsn(out);
+  WS_TAOS *taosws = CALL_ws_connect_with_dsn(out);
   if (!taosws) {
     int e = ws_errno(NULL);
     const char *errstr = ws_errstr(NULL);
@@ -288,7 +288,7 @@ static void check_taosws_connection(HWND hDlg, config_t *config, url_parser_para
     snprintf(buf, sizeof(buf), "Connect failure:[%d]%s\n%s", e, gb18030, out);
     MessageBox(hDlg, buf, "Warning!", MB_OK | MB_ICONEXCLAMATION);
   } else {
-    ws_close(taosws);
+    CALL_ws_close(taosws);
     snprintf(buf, sizeof(buf), "Connect success:\n%s", out);
     MessageBox(hDlg, buf, "Success!", MB_OK | MB_ICONEXCLAMATION);
   }

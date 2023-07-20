@@ -186,6 +186,8 @@ static int test_conn_parser(void)
     const char *s = _cases[i].conn_str;
     const int line = _cases[i].line;
     param.conn_cfg = &parsed;
+    param.ctx.debug_flex = 1;
+    // param.ctx.debug_bison = 1;
     int r = conn_parser_parse(s, strlen(s), &param);
     do {
       if (r) {

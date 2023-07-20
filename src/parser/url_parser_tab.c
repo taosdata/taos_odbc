@@ -407,6 +407,19 @@ int url_encode_with_database(url_t *url, const char *db, char **out)
   return url_encode_with_db(url, db, out);
 }
 
+int url_parse_and_encode(const char *url, const char *ip, uint16_t port, const char *db, char **out)
+{
+  int r = 0;
+  url_parser_param_t param = {0};
+
+  r = url_parser_parse(url, strlen(url), &param);
+  if (r == 0 && ip && *ip) r = url_set_host_port(&param.url, ip, port);
+  if (r == 0) r = url_encode_with_db(&param.url, db, out);
+  url_parser_param_release(&param);
+
+  return r ? -1 : 0;
+}
+
 int url_set_scheme(url_t *url, const char *s, size_t n)
 {
   int r = 0;
@@ -455,29 +468,16 @@ int url_set_user_pass(url_t *url, const char *u, size_t un, const char *p, size_
   return 0;
 }
 
-int url_set_host_port(url_t *url, const char *s, size_t n)
+int url_set_host_port(url_t *url, const char *host, uint16_t port)
 {
-  int r = 0;
+  char *s= strdup(host);
+  if (!s) return -1;
 
-  char buf[4096]; buf[0] = '\0'; // NOTE: big enough?
-  url_parser_param_t param = {0};
+  TOD_SAFE_FREE(url->host);
+  url->host = s;
+  url->port = port;
 
-  n = strnlen(s, n);
-  r = snprintf(buf, sizeof(buf), "http://%.*s", (int)n, s);
-  if (r <= 0 || (size_t)r >= sizeof(buf)) return -1;
-
-  r = url_parser_parse(buf, strlen(buf), &param);
-  if (r == 0) {
-    if (param.url.host && *param.url.host) {
-      TOD_SAFE_FREE(url->host);
-      url->host = param.url.host; param.url.host = NULL;
-      url->port = param.url.port; param.url.port = 0;
-    } else {
-      r = -1;
-    }
-  }
-  url_parser_param_release(&param);
-  return r ? -1 : 0;
+  return 0;
 }
 
 #include "url_parser.tab.h"

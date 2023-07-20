@@ -68,8 +68,10 @@ static int _encode(
   return 0;
 }
 
-static int test_case1(void)
+static int test_case1(const char *conn_str, int ws)
 {
+  (void)ws;
+
   SQLHENV henv = 0;
   SQLHDBC hdbc = 0;
   SQLHSTMT hstmt = 0;
@@ -93,7 +95,7 @@ static int test_case1(void)
 
       // Connect to data source
       rc = CALL_SQLDriverConnect(hdbc, NULL,
-            (SQLCHAR*) "DSN=TAOS_ODBC_DSN", SQL_NTS,
+            (SQLCHAR*)conn_str, SQL_NTS,
             NULL, 0, NULL,
             SQL_DRIVER_NOPROMPT);
       A(SUCCEEDED(rc), "");
@@ -232,8 +234,10 @@ static int test_case1(void)
   return r ? 1 : 0;
 }
 
-static int test_case2(void)
+static int test_case2(const char *conn_str, int ws)
 {
+  (void)ws;
+
   SQLHENV henv = 0;
   SQLHDBC hdbc = 0;
   SQLHSTMT hstmt = 0;
@@ -257,7 +261,7 @@ static int test_case2(void)
 
       // Connect to data source
       rc = CALL_SQLDriverConnect(hdbc, NULL,
-            (SQLCHAR*) "DSN=TAOS_ODBC_DSN", SQL_NTS,
+            (SQLCHAR*)conn_str, SQL_NTS,
             NULL, 0, NULL,
             SQL_DRIVER_NOPROMPT);
       A(SUCCEEDED(rc), "");
@@ -352,8 +356,10 @@ static int test_case2(void)
   return r ? 1 : 0;
 }
 
-static int test_case3(void)
+static int test_case3(const char *conn_str, int ws)
 {
+  (void)ws;
+
   SQLHENV henv = 0;
   SQLHDBC hdbc = 0;
   SQLHSTMT hstmt = 0;
@@ -377,7 +383,7 @@ static int test_case3(void)
 
       // Connect to data source
       rc = CALL_SQLDriverConnect(hdbc, NULL,
-            (SQLCHAR*) "DSN=TAOS_ODBC_DSN", SQL_NTS,
+            (SQLCHAR*)conn_str, SQL_NTS,
             NULL, 0, NULL,
             SQL_DRIVER_NOPROMPT);
       A(SUCCEEDED(rc), "");
@@ -474,8 +480,10 @@ static int test_case3(void)
   return r ? 1 : 0;
 }
 
-static int test_case4(const char *conn_str)
+static int test_case4(const char *conn_str, int ws)
 {
+  (void)ws;
+
   // TODO: remove this restriction
   if (1) return 0;
   SQLHENV henv = 0;
@@ -677,8 +685,10 @@ static int test_case4(const char *conn_str)
   return r ? 1 : 0;
 }
 
-static int test_case5(const char *conn_str)
+static int test_case5(const char *conn_str, int ws)
 {
+  (void)ws;
+
   // TODO: remove this restriction
   if (1) return 0;
 
@@ -1644,16 +1654,16 @@ static int test_mysql_case3(void)
 }
 #endif                           /* } */
 
-static int test(void)
+static int test(const char *conn_str, int ws)
 {
-  if (test_case1()) return 1;
-  if (test_case2()) return 1;
-  if (test_case3()) return 1;
-  if (test_case4("DSN=TAOS_ODBC_DSN")) return 1;
+  if (test_case1(conn_str, ws)) return 1;
+  if (test_case2(conn_str, ws)) return 1;
+  if (test_case3(conn_str, ws)) return 1;
+  if (test_case4(conn_str, ws)) return 1;
 #ifdef ENABLE_MYSQL_TEST         /* { */
-  if (test_case5("Driver={MySQL ODBC 8.0}; UID=root; PWD=taosdata;")) return 1;
+  if (test_case5("Driver={MySQL ODBC 8.0}; UID=root; PWD=taosdata;", 0)) return 1;
 #endif                           /* } */
-  if (test_case5("DSN=TAOS_ODBC_DSN")) return 1;
+  if (test_case5(conn_str, ws)) return 1;
 #ifdef ENABLE_MYSQL_TEST         /* { */
   if (test_mysql_case1()) return 1;
   if (test_mysql_case2()) return 1;
@@ -1665,7 +1675,9 @@ static int test(void)
 int main(void)
 {
   int r = 0;
-  r = test();
+
+  if (r == 0) r = test("DSN=TAOS_ODBC_DSN", 0);
+  if (r == 0) r = test("DSN=TAOS_ODBC_WS_DSN", 1);
 
   fprintf(stderr, "==%s==\n", r ? "failure" : "success");
 

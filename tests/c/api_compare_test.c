@@ -45,6 +45,9 @@ struct test_context {
 	SQLHANDLE henv;
 	SQLHANDLE hconn;
 	SQLHANDLE hstmt;
+
+	char buf[1024];
+	simple_str_t sql_str;
 };
 
 struct test_case {
@@ -69,7 +72,7 @@ struct test_case {
 	},
 	{
 	  "taos-odbc",
-	  "DSN=TAOS_ODBC_DSN",
+	  "DSN=TAOS_ODBC_DSN;SERVER=127.0.0.1:6030",
 	  "TAOS_ODBC_DSN",
 	  NULL,
 	  NULL,
@@ -83,6 +86,7 @@ struct test_case {
 
 #define MAX_TABLE_NAME_LEN 128
 #define test_db "power"
+#define ARRAY_SIZE 10
 
 
 field_t fields[] = {
@@ -150,9 +154,9 @@ static int init_henv() {
 		SQLHANDLE henv = _cases[i].ctx.henv;
 		r = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &_cases[i].ctx.henv);
 
-		if (FAILED(r)) return -1;
+		if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
 		r = SQLSetEnvAttr(_cases[i].ctx.henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, 0);
-		if (FAILED(r)) return -1;
+		if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
 
 		SQLINTEGER odbcVersion;
 		r = SQLGetEnvAttr(_cases[i].ctx.henv, SQL_ATTR_ODBC_VERSION, &odbcVersion, 0, NULL);
@@ -170,7 +174,7 @@ static int init_henv() {
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
 		SQLHANDLE henv = _cases[i].ctx.henv;
 		r = SQLSetEnvAttr(_cases[i].ctx.henv, SQL_ATTR_CONNECTION_POOLING, (SQLPOINTER)SQL_CP_ONE_PER_HENV, 0);
-		if (FAILED(r)) return -1;
+		if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
 
 		SQLINTEGER connpoll;
 		r = SQLGetEnvAttr(_cases[i].ctx.henv, SQL_ATTR_CONNECTION_POOLING, &connpoll, 0, NULL);
@@ -181,7 +185,7 @@ static int init_henv() {
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
 		SQLHANDLE henv = _cases[i].ctx.henv;
 		r = SQLSetEnvAttr(_cases[i].ctx.henv, SQL_ATTR_CONNECTION_POOLING, (SQLPOINTER)SQL_CP_ONE_PER_DRIVER, 0);
-		if (FAILED(r)) return -1;
+		if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
 
 		SQLINTEGER connpoll;
 		r = SQLGetEnvAttr(_cases[i].ctx.henv, SQL_ATTR_CONNECTION_POOLING, &connpoll, 0, NULL);
@@ -270,14 +274,41 @@ static int connect_all() {
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
 		XX("dsn:%s user:%s pwd:%s",  _cases[i].dsn, _cases[i].user, _cases[i].pwd);
 		r = SQLConnect(_cases[i].ctx.hconn, (SQLCHAR*)_cases[i].dsn, SQL_NTS, (SQLCHAR*)_cases[i].user, SQL_NTS, (SQLCHAR*)_cases[i].pwd, SQL_NTS);
-		if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
 		XX("dsn:%s result:%d", _cases[i].dsn, r);
+		if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
+	}
+	return 0;
+}
 
+static int disconnect_all() {
+	int r = 0;
+	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
+		r = SQLDisconnect(_cases[i].ctx.hconn);
+		XX("SQLDisconnect result:%d", r);
+		if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
+	}
+	return 0;
+}
+
+static int connect_repeat() {
+	int r = 0;
+	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
 		XX("connect second time dsn:%s user:%s pwd:%s", _cases[i].dsn, _cases[i].user, _cases[i].pwd);
 		r = SQLConnect(_cases[i].ctx.hconn, (SQLCHAR*)_cases[i].dsn, SQL_NTS, (SQLCHAR*)_cases[i].user, SQL_NTS, (SQLCHAR*)_cases[i].pwd, SQL_NTS);
 		XX("connect second time dsn:%s result:%d", _cases[i].dsn, r);
 		if (r == SQL_SUCCESS || r == SQL_SUCCESS_WITH_INFO) return -1;
 	}
+	return 0;
+}
+
+static int connect_after_disconnect() {
+	int r = 0;
+	CHK0(connect_all, 0);
+	CHK0(disconnect_all, 0);
+	CHK0(create_hconn, 0);
+	CHK0(connect_all, 0);
+	CHK0(connect_repeat, 0);
+	CHK0(disconnect_all, 0);
 	return 0;
 }
 
@@ -431,14 +462,14 @@ static int init_database(char* db) {
 		strcat(sql, db);
 		r = SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
 		XX(" %s SQLExecDirect result:%d", sql, r);
-		if (FAILED(r)) return -1;
+		if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
 
 		memset(sql, 0, sizeof(sql));
 		strcat(sql, "create database ");
 		strcat(sql, db);
 		r = SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
 		XX("%s SQLExecDirect result:%d", sql, r);
-		if (FAILED(r)) return -1;
+		if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
 	}
 
 	return 0;
@@ -529,17 +560,79 @@ static int clear_test() {
 	return 0;
 }
 
+static int get_records_count(SQLHANDLE hstmt, const char* table)
+{
+	if (table == NULL) return -1;
+	int r = 0;
+	char sql[1024] = "select * from ";
+	strcat(sql, table);
+
+	r = SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
+	X("get record data, exec(%s) direct result:%d", sql, r);
+	CHKSTMTR(hstmt, r);
+	if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
+
+	int count = 0;
+	while (1) {
+		r = SQLFetch(hstmt);
+		if (r == SQL_ERROR) return -1;
+		if (r == SQL_NO_DATA) {
+			X("get record, no data.");
+			break;
+		}
+		X("get record data.");
+		count += 1;
+	}
+
+	return count;
+}
+
 static int convert_test() {
 	int r = 0;
-
+	const char* tb_test = "tx1";
 	CHK1(init_database, test_db, 0);
 	CHK1(re_connect_db, test_db, 0);
 	CHK0(show_database, 0);
 	CHK0(creater_stmt, 0);
 	CHK0(show_tables, 0);
-	CHK1(create_table, "tx1", 0);
+	CHK1(create_table, tb_test, 0);
 	CHK0(show_tables, 0);
-	return 0;
+
+	time_t currentTime = time(NULL) * 1000;
+
+	int64_t ts_arr[ARRAY_SIZE] = { 0 };
+	SQLLEN  ts_ind[ARRAY_SIZE] = { 0 };
+	char    varchar_arr[ARRAY_SIZE][100];
+	SQLLEN  varchar_ind[ARRAY_SIZE] = { 0 };
+	char    nchar_arr[ARRAY_SIZE][100];
+	SQLLEN  nchar_ind[ARRAY_SIZE] = { 0 };
+	int64_t i64_arr[ARRAY_SIZE] = { 0 };
+	SQLLEN  i64_ind[ARRAY_SIZE] = { 0 };
+
+	int param_len[] = { 3, 4 };
+	const param_t params[2][4] = {
+		{
+			{SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_VARCHAR,         99,       0,          varchar_arr,      100, varchar_ind},
+			{SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_WVARCHAR,        99,       0,          nchar_arr,        100, nchar_ind},
+			{SQL_PARAM_INPUT,  SQL_C_SBIGINT,  SQL_BIGINT,          99,       0,          i64_arr,          100, i64_ind},
+		},{
+			{SQL_PARAM_INPUT,  SQL_C_SBIGINT,  SQL_TYPE_TIMESTAMP,  23,       3,          ts_arr,           0,   ts_ind},
+			{SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_VARCHAR,         99,       0,          varchar_arr,      100, varchar_ind},
+			{SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_WVARCHAR,        99,       0,          nchar_arr,        100, nchar_ind},
+			{SQL_PARAM_INPUT,  SQL_C_SBIGINT,  SQL_BIGINT,          99,       0,          i64_arr,          100, i64_ind},
+		},
+	};
+
+	for (int i = 0; i < ARRAY_SIZE; ++i) {
+		ts_arr[i] = currentTime + i;
+		snprintf(varchar_arr[i], 100, "abcd%d", i + 9);
+		varchar_ind[i] = SQL_NTS;
+		snprintf(nchar_arr[i], 100, "b民%d", i);
+		nchar_ind[i] = SQL_NTS;
+		i64_arr[i] = 54321 + i;
+	}
+
+
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
 		SQLHANDLE henv = _cases[i].ctx.henv;
 		SQLHANDLE hconn = _cases[i].ctx.hconn;
@@ -549,25 +642,76 @@ static int convert_test() {
 		r = SQLGetInfo(hconn, SQL_CONVERT_BIGINT, &convert_bigint,
 			sizeof(convert_bigint), NULL);
 		if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) {
-			XX("Failed to retrieve SQL_CONVERT_BIGINT information.");
+			XX("Failed to SQLGetInfo SQL_CONVERT_BIGINT information.");
+		}
+
+		SQLULEN nr_paramset_size = ARRAY_SIZE;
+		SQLUSMALLINT param_status_arr[ARRAY_SIZE] = { 0 };
+		SQLULEN nr_params_processed = 0;
+		memset(param_status_arr, 0, ARRAY_SIZE * sizeof(SQLUSMALLINT));
+
+		char* buf = _cases[i].ctx.buf;
+		simple_str_t str = _cases[i].ctx.sql_str;
+		if (strcmp(_cases[i].test_name, "sqlserver-odbc") == 0) {
+			snprintf(buf, 1024, "insert into tx1 (vname,wname,bi) values (?,?,?)");
+		}
+		else {
+			r = _gen_table_param_insert(&str, tb_test, fields, sizeof(fields) / sizeof(fields[0]));
+		}
+		XX("SQL:%s", buf);
+
+		r = SQLPrepare(hstmt, (SQLCHAR*)buf, SQL_NTS);
+		XX("SQLPrepare result:%d", r);
+		CHKSTMTR(hstmt, r);
+		if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
+
+		r = SQLSetStmtAttr(hstmt, SQL_ATTR_PARAM_BIND_TYPE, SQL_PARAM_BIND_BY_COLUMN, 0);
+		XX("SQLSetStmtAttr SQL_ATTR_PARAM_BIND_TYPE result:%d", r);
+
+		r = SQLSetStmtAttr(hstmt, SQL_ATTR_PARAMSET_SIZE, (SQLPOINTER)(uintptr_t)nr_paramset_size, 0);
+		XX("SQLSetStmtAttr SQL_ATTR_PARAMSET_SIZE result:%d", r);
+
+		r = SQLSetStmtAttr(hstmt, SQL_ATTR_PARAM_STATUS_PTR, param_status_arr, 0);
+		XX("SQLSetStmtAttr SQL_ATTR_PARAM_STATUS_PTR result:%d", r);
+
+		r = SQLSetStmtAttr(hstmt, SQL_ATTR_PARAMS_PROCESSED_PTR, &nr_params_processed, 0);
+		XX("SQLSetStmtAttr SQL_ATTR_PARAMS_PROCESSED_PTR result:%d", r);
+
+		for (size_t j = 0; j < param_len[i]; ++j) {
+			const param_t* param = params[i] + j;
+			r = SQLBindParameter(hstmt, (SQLUSMALLINT)j + 1,
+				param->InputOutputType,
+				param->ValueType,
+				param->ParameterType,
+				param->ColumnSize,
+				param->DecimalDigits,
+				param->ParameterValuePtr,
+				param->BufferLength,
+				param->StrLen_or_IndPtr);
+			XX("SQLBindParameter %dth column result:%d",(int)j, r);
+			CHKSTMTR(hstmt, r);
+		}
+
+		r = SQLExecute(hstmt);
+		X("SQLExecute result:%d.", r);
+		CHKSTMTR(hstmt, r);
+		if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
+
+
+		XX("before get_records_count tabl:%s.", tb_test);
+
+		// r = SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
+		// if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
+
+		int count = get_records_count(hstmt, tb_test);
+		XX("get_records_count %d.", count);
+		if (count != ARRAY_SIZE) {
+			XX("get_records_count error, %d expected, but got %d.", ARRAY_SIZE, count);
 			return -1;
 		}
-
-		SQLLEN param_value;
-		SQLINTEGER int_value = 12345;
-		XX("Config SQL_CONVERT_BIGINT:%d.", convert_bigint);
-		if (convert_bigint != 0) {
-			r = SQLBindParameter(hstmt, 1, SQL_PARAM_INPUT, SQL_C_LONG, SQL_BIGINT,
-				0, 0, &int_value, 0, &param_value);
-			if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) {
-				XX("Failed to bind parameter.");
-				return -1;
-			}
-		}
-		XX("SQL_CONVERT_BIGINT test finish.");
 	}
 
-	return 0;
+	return -1;
 }
 
 static int config_test() {
@@ -576,13 +720,26 @@ static int config_test() {
 	return 0;
 }
 
+static void init_sql_str() {
+	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
+		_cases[i].ctx.sql_str.base = _cases[i].ctx.buf;
+		_cases[i].ctx.sql_str.cap = sizeof(_cases[i].ctx.buf);
+		_cases[i].ctx.sql_str.nr = 0;
+	}
+}
+
+static void init_test() {
+	init_sql_str();
+}
 
 static int run() {
 	int r = 0;
+	init_test();
 	CHK0(init_henv, 0);
 	CHK0(browse_connect, 0);
 	CHK0(create_hconn, 0);
 	CHK0(set_conn_attr_before, 0);
+	CHK0(connect_after_disconnect, 0);
 	CHK0(connect_all, 0);
 	CHK0(connect_another, 0);
 	CHK0(set_conn_attr, 0);

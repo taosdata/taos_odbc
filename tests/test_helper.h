@@ -146,6 +146,18 @@ struct simple_str_s {
     char* base;
 };
 
+typedef struct param_s                   param_t;
+struct param_s {
+    SQLSMALLINT     InputOutputType;
+    SQLSMALLINT     ValueType;
+    SQLSMALLINT     ParameterType;
+    SQLULEN         ColumnSize;
+    SQLSMALLINT     DecimalDigits;
+    SQLPOINTER      ParameterValuePtr;
+    SQLLEN          BufferLength;
+    SQLLEN* StrLen_or_IndPtr;
+};
+
 static int _simple_str_fmt_impl(simple_str_t* str, const char* fmt, ...)
 {
     va_list ap;
@@ -199,6 +211,46 @@ static int _gen_table_create_sql(simple_str_t* str, const char* table, const fie
     }
     if (nr_fields > 0) {
         r = _simple_str_fmt(str, ");");
+        if (r) return -1;
+    }
+
+    return 0;
+}
+
+static int _gen_table_param_insert(simple_str_t* str, const char* table, const field_t* fields, size_t nr_fields)
+{
+    int r = 0;
+    r = _simple_str_fmt(str, "insert into %s", table);
+    if (r) return -1;
+
+    for (size_t i = 0; i < nr_fields; ++i) {
+        const field_t* field = fields + i;
+        if (i == 0) {
+            r = _simple_str_fmt(str, " (");
+        }
+        else {
+            r = _simple_str_fmt(str, ",");
+        }
+        if (r) return -1;
+        r = _simple_str_fmt(str, "%s", field->name);
+
+        if (i + 1 < nr_fields) continue;
+        r = _simple_str_fmt(str, ")");
+        if (r) return -1;
+    }
+
+    for (size_t i = 0; i < nr_fields; ++i) {
+        if (i == 0) {
+            r = _simple_str_fmt(str, " values (");
+        }
+        else {
+            r = _simple_str_fmt(str, ",");
+        }
+        if (r) return -1;
+        r = _simple_str_fmt(str, "?");
+
+        if (i + 1 < nr_fields) continue;
+        r = _simple_str_fmt(str, ")");
         if (r) return -1;
     }
 

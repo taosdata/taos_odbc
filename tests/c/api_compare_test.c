@@ -50,6 +50,7 @@ struct test_context {
 	simple_str_t sql_str;
 };
 
+#define DB_SOURCE_NUM  3
 struct test_case {
 	const char* test_name;
 	const char* connstr;
@@ -70,6 +71,18 @@ struct test_case {
 		.hstmt = SQL_NULL_HANDLE,
 	  },
 	},
+	{
+	   "mysql-odbc",
+	   "DSN=MYSQL-ODBC",
+	   "MYSQL-ODBC",
+	   NULL,
+	   NULL,
+	   {
+	  .henv = SQL_NULL_HANDLE,
+	  .hconn = SQL_NULL_HANDLE,
+	  .hstmt = SQL_NULL_HANDLE,
+	  },
+	 },
 	{
 	  "taos-odbc",
 	  "DSN=TAOS_ODBC_DSN;SERVER=127.0.0.1:6030",
@@ -236,7 +249,7 @@ static int connect_another() {
 	return 0;
 }
 
-static int create_hconn(){
+static int create_hconn() {
 	int r = 0;
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
 		r = SQLAllocHandle(SQL_HANDLE_DBC, _cases[i].ctx.henv, &_cases[i].ctx.hconn);
@@ -272,7 +285,7 @@ static int set_conn_attr_before() {
 static int connect_all() {
 	int r = 0;
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
-		XX("dsn:%s user:%s pwd:%s",  _cases[i].dsn, _cases[i].user, _cases[i].pwd);
+		XX("dsn:%s user:%s pwd:%s", _cases[i].dsn, _cases[i].user, _cases[i].pwd);
 		r = SQLConnect(_cases[i].ctx.hconn, (SQLCHAR*)_cases[i].dsn, SQL_NTS, (SQLCHAR*)_cases[i].user, SQL_NTS, (SQLCHAR*)_cases[i].pwd, SQL_NTS);
 		XX("dsn:%s result:%d", _cases[i].dsn, r);
 		if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
@@ -340,12 +353,12 @@ static int re_connect_db(char* db) {
 			XX("SQLDisconnect result:%d", r);
 		}
 
-		char dsn[100] = {0};
+		char dsn[100] = { 0 };
 		strcat(dsn, "DSN=");
 		strcat(dsn, _cases[i].dsn);
 		if (strcmp(_cases[i].test_name, "sqlserver-odbc") == 0) {
-			
-				strcat(dsn, ";DATABASE=");
+
+			strcat(dsn, ";DATABASE=");
 		}
 		else {
 			strcat(dsn, ";DB=");
@@ -394,7 +407,7 @@ static int get_driver_info() {
 		XX("SQL_DRIVER_HSTMT result:%d info: %s", r, driverInfo);
 		r = SQLGetInfo(hstmt, SQL_DRIVER_HDESC, driverInfo, sizeof(driverInfo), NULL);
 		XX("SQL_DRIVER_HDESC result:%d info: %s", r, driverInfo);
-		
+
 	}
 
 	int notSupported[200];
@@ -403,7 +416,7 @@ static int get_driver_info() {
 	for (int ty = SQL_INFO_FIRST; ty <= SQL_CONVERT_GUID; ty++) {
 		if (ty == SQL_DRIVER_HSTMT || ty == SQL_DRIVER_HDESC) continue;
 
-		int r[2];
+		int r[DB_SOURCE_NUM];
 		for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
 			SQLHDBC henv = _cases[i].ctx.henv;
 			SQLHDBC hdbc = _cases[i].ctx.hconn;
@@ -417,7 +430,7 @@ static int get_driver_info() {
 		}
 	}
 
-	char str[1024] = {0};
+	char str[1024] = { 0 };
 	for (int i = 0; i < notSupportedCount; i++) {
 		snprintf(str + strlen(str), 1024 - strlen(str), " %d", notSupported[i]);
 	}
@@ -479,7 +492,7 @@ static int show_database() {
 	int r = 0;
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
 		SQLHANDLE hconn = _cases[i].ctx.hconn;
-		
+
 		SQLCHAR dbName[256];
 		SQLGetInfo(hconn, SQL_DATABASE_NAME, dbName, sizeof(dbName), NULL);
 
@@ -492,8 +505,8 @@ static int show_database() {
 static int show_tables() {
 	int r = 0;
 
-	SQLCHAR table_names[2][100][MAX_TABLE_NAME_LEN];
-	int table_count[2] = {0, 0};
+	SQLCHAR table_names[DB_SOURCE_NUM][100][MAX_TABLE_NAME_LEN];
+	int table_count[DB_SOURCE_NUM] = {0};
 
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
 		SQLHANDLE hstmt = _cases[i].ctx.hstmt;
@@ -521,7 +534,7 @@ static int show_tables() {
 	return 0;
 }
 
-static int create_table(const char* tb){
+static int create_table(const char* tb) {
 	int r = 0;
 	char buf[1024];
 	simple_str_t str = {
@@ -598,9 +611,10 @@ static int convert_test() {
 	CHK1(create_table, tb_test, 0);
 	CHK0(show_tables, 0);
 
-	time_t currentTime = time(NULL) * 1000;
+	time_t currentTime = time(NULL);
 
 	int64_t ts_arr[ARRAY_SIZE] = { 0 };
+	char ts_str_arr[ARRAY_SIZE][100];
 	SQLLEN  ts_ind[ARRAY_SIZE] = { 0 };
 	char    varchar_arr[ARRAY_SIZE][100];
 	SQLLEN  varchar_ind[ARRAY_SIZE] = { 0 };
@@ -609,13 +623,19 @@ static int convert_test() {
 	int64_t i64_arr[ARRAY_SIZE] = { 0 };
 	SQLLEN  i64_ind[ARRAY_SIZE] = { 0 };
 
-	int param_len[] = { 3, 4 };
-	const param_t params[2][4] = {
+	int param_len[] = { 3, 4, 4 };
+	const param_t params[DB_SOURCE_NUM][4] = {
 		{
 			{SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_VARCHAR,         99,       0,          varchar_arr,      100, varchar_ind},
 			{SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_WVARCHAR,        99,       0,          nchar_arr,        100, nchar_ind},
 			{SQL_PARAM_INPUT,  SQL_C_SBIGINT,  SQL_BIGINT,          99,       0,          i64_arr,          100, i64_ind},
 		},{
+			{SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_TYPE_TIMESTAMP,  99,       0,          ts_str_arr,       100, nchar_ind},
+			{SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_VARCHAR,         99,       0,          varchar_arr,      100, varchar_ind},
+			{SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_WVARCHAR,        99,       0,          nchar_arr,        100, nchar_ind},
+			{SQL_PARAM_INPUT,  SQL_C_SBIGINT,  SQL_BIGINT,          99,       0,          i64_arr,          100, i64_ind},
+		},
+		{
 			{SQL_PARAM_INPUT,  SQL_C_SBIGINT,  SQL_TYPE_TIMESTAMP,  23,       3,          ts_arr,           0,   ts_ind},
 			{SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_VARCHAR,         99,       0,          varchar_arr,      100, varchar_ind},
 			{SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_WVARCHAR,        99,       0,          nchar_arr,        100, nchar_ind},
@@ -624,10 +644,16 @@ static int convert_test() {
 	};
 
 	for (int i = 0; i < ARRAY_SIZE; ++i) {
-		ts_arr[i] = currentTime + i;
+		time_t tempt = currentTime + i;
+		char buffer[100];
+		struct tm* timeinfo = localtime(&tempt);
+		strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", timeinfo);
+
+		ts_arr[i] = tempt * 1000;
+		snprintf(ts_str_arr[i], sizeof(buffer), buffer);
 		snprintf(varchar_arr[i], 100, "abcd%d", i + 9);
 		varchar_ind[i] = SQL_NTS;
-		snprintf(nchar_arr[i], 100, "b民%d", i);
+		snprintf(nchar_arr[i], 100, "bt%d", i);
 		nchar_ind[i] = SQL_NTS;
 		i64_arr[i] = 54321 + i;
 	}
@@ -688,7 +714,7 @@ static int convert_test() {
 				param->ParameterValuePtr,
 				param->BufferLength,
 				param->StrLen_or_IndPtr);
-			XX("SQLBindParameter %dth column result:%d",(int)j, r);
+			XX("SQLBindParameter %dth column result:%d", (int)j, r);
 			CHKSTMTR(hstmt, r);
 		}
 
@@ -700,18 +726,18 @@ static int convert_test() {
 
 		XX("before get_records_count tabl:%s.", tb_test);
 
-		// r = SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
-		// if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
+		r = SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
+		if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
 
 		int count = get_records_count(hstmt, tb_test);
 		XX("get_records_count %d.", count);
 		if (count != ARRAY_SIZE) {
-			XX("get_records_count error, %d expected, but got %d.", ARRAY_SIZE, count);
+			XX("get_records_count error, expect %d got %d.", ARRAY_SIZE, count);
 			return -1;
 		}
 	}
 
-	return -1;
+	return 0;
 }
 
 static int config_test() {

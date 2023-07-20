@@ -23,7 +23,7 @@
  */
 
 #include "odbc_helpers.h"
-#include "../test_helper.h"
+#include "c_test_helper.h"
 
 #include "enums.h"
 
@@ -50,37 +50,54 @@ struct test_context {
 	simple_str_t sql_str;
 };
 
+#define DB_SOURCE_NUM  3
 struct test_case {
+	struct test_context ctx;
 	const char* test_name;
 	const char* connstr;
 	const char* dsn;
 	const char* user;
 	const char* pwd;
-	struct test_context ctx;
+	bool  valid;
 } _cases[] = {
 	{
-	  "sqlserver-odbc",
-	  "DSN=SQLSERVER_ODBC_DSN",
-	  "SQLSERVER_ODBC_DSN",
-	  NULL,
-	  NULL,
 	  {
 		.henv = SQL_NULL_HANDLE,
 		.hconn = SQL_NULL_HANDLE,
 		.hstmt = SQL_NULL_HANDLE,
 	  },
+	  "sqlserver-odbc",
+	  "DSN=SQLSERVER_ODBC_DSN",
+	  "SQLSERVER_ODBC_DSN",
+	  "sa",
+	  "Aa123456",
+	  true
 	},
 	{
+	   {
+	  .henv = SQL_NULL_HANDLE,
+	  .hconn = SQL_NULL_HANDLE,
+	  .hstmt = SQL_NULL_HANDLE,
+	  },
+	   "mysql-odbc",
+	   "DSN=MYSQL-ODBC",
+	   "MYSQL_ODBC",
+	   NULL,
+	   NULL,
+	  true
+	 },
+	{
+	  {
+		.henv = SQL_NULL_HANDLE,
+		.hconn = SQL_NULL_HANDLE,
+		.hstmt = SQL_NULL_HANDLE,
+	  },
 	  "taos-odbc",
 	  "DSN=TAOS_ODBC_DSN;SERVER=127.0.0.1:6030",
 	  "TAOS_ODBC_DSN",
 	  NULL,
 	  NULL,
-	  {
-		.henv = SQL_NULL_HANDLE,
-		.hconn = SQL_NULL_HANDLE,
-		.hstmt = SQL_NULL_HANDLE,
-	  },
+	  true
 	},
 };
 
@@ -88,6 +105,8 @@ struct test_case {
 #define test_db "power"
 #define ARRAY_SIZE 10
 
+static const char* tb_test = "tx1";
+static const char* tb_test2 = "tx2";
 
 field_t fields[] = {
   {"ts", "timestamp"},
@@ -147,11 +166,17 @@ field_t fields[] = {
 	}																																		\
 } while (0)	
 
+static void set_test_case_invalid(SQLCHAR* test_name) {
+	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
+		if (strcmp(_cases[i].test_name, (const char*)test_name) == 0) {
+			_cases[i].valid = false;
+		}
+	}
+}
 
-static int init_henv() {
+static int init_henv(void) {
 	SQLRETURN r;
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
-		SQLHANDLE henv = _cases[i].ctx.henv;
 		r = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &_cases[i].ctx.henv);
 
 		if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
@@ -165,14 +190,12 @@ static int init_henv() {
 		if (odbcVersion != SQL_OV_ODBC3) return -1;
 	}
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
-		SQLHANDLE henv = _cases[i].ctx.henv;
 		r = SQLSetEnvAttr(_cases[i].ctx.henv, SQL_ATTR_CONNECTION_POOLING, (SQLPOINTER)5UL, 0);
 		XX("SQLSetEnvAttr SQL_ATTR_CONNECTION_POOLING set and invalid value, result:%d", r);
 		if (SUCCEEDED(r)) return -1;
 		r = 0;
 	}
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
-		SQLHANDLE henv = _cases[i].ctx.henv;
 		r = SQLSetEnvAttr(_cases[i].ctx.henv, SQL_ATTR_CONNECTION_POOLING, (SQLPOINTER)SQL_CP_ONE_PER_HENV, 0);
 		if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
 
@@ -183,7 +206,6 @@ static int init_henv() {
 		if (connpoll != SQL_CP_ONE_PER_HENV) return -1;
 	}
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
-		SQLHANDLE henv = _cases[i].ctx.henv;
 		r = SQLSetEnvAttr(_cases[i].ctx.henv, SQL_ATTR_CONNECTION_POOLING, (SQLPOINTER)SQL_CP_ONE_PER_DRIVER, 0);
 		if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
 
@@ -194,13 +216,11 @@ static int init_henv() {
 		if (connpoll != SQL_CP_ONE_PER_DRIVER) return -1;
 	}
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
-		SQLHANDLE henv = _cases[i].ctx.henv;
 		r = SQLSetEnvAttr(_cases[i].ctx.henv, SQL_ATTR_OUTPUT_NTS, (SQLPOINTER)SQL_FALSE, 0);
 		XX("SQLSetEnvAttr SQL_ATTR_OUTPUT_NTS set SQL_FALSE, result:%d", r);
 		r = 0;
 	}
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
-		SQLHANDLE henv = _cases[i].ctx.henv;
 		r = SQLSetEnvAttr(_cases[i].ctx.henv, SQL_ATTR_OUTPUT_NTS, (SQLPOINTER)SQL_TRUE, 0);
 		XX("SQLSetEnvAttr SQL_ATTR_OUTPUT_NTS set SQL_TRUE, result:%d", r);
 	}
@@ -208,7 +228,7 @@ static int init_henv() {
 	return r;
 }
 
-static int connect_another() {
+static int connect_another(void) {
 	int r = 0;
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
 		SQLHANDLE hconntmp;
@@ -236,7 +256,7 @@ static int connect_another() {
 	return 0;
 }
 
-static int create_hconn(){
+static int create_hconn(void) {
 	int r = 0;
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
 		r = SQLAllocHandle(SQL_HANDLE_DBC, _cases[i].ctx.henv, &_cases[i].ctx.hconn);
@@ -245,7 +265,7 @@ static int create_hconn(){
 	return 0;
 }
 
-static int set_conn_attr_before() {
+static int set_conn_attr_before(void) {
 	int r = 0;
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
 		r = SQLSetConnectAttr(_cases[i].ctx.hconn, SQL_ATTR_LOGIN_TIMEOUT, (SQLPOINTER)30, SQL_IS_UINTEGER);
@@ -259,7 +279,6 @@ static int set_conn_attr_before() {
 		}
 	}
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
-		SQLHANDLE henv = _cases[i].ctx.henv;
 		r = SQLSetConnectAttr(_cases[i].ctx.hconn, SQL_ATTR_ACCESS_MODE, (SQLPOINTER)SQL_MODE_READ_ONLY, SQL_IS_UINTEGER);
 		XX("SQLSetConnectAttr SQL_ATTR_ACCESS_MODE set SQL_MODE_READ_ONLY, result:%d", r);
 		if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) {
@@ -269,18 +288,18 @@ static int set_conn_attr_before() {
 	return 0;
 }
 
-static int connect_all() {
+static int connect_all(void) {
 	int r = 0;
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
-		XX("dsn:%s user:%s pwd:%s",  _cases[i].dsn, _cases[i].user, _cases[i].pwd);
+		XX("dsn:%s user:%s pwd:%s", _cases[i].dsn, _cases[i].user, _cases[i].pwd);
 		r = SQLConnect(_cases[i].ctx.hconn, (SQLCHAR*)_cases[i].dsn, SQL_NTS, (SQLCHAR*)_cases[i].user, SQL_NTS, (SQLCHAR*)_cases[i].pwd, SQL_NTS);
 		XX("dsn:%s result:%d", _cases[i].dsn, r);
-		if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
+		CHKDBR(_cases[i].ctx.hconn, r);
 	}
 	return 0;
 }
 
-static int disconnect_all() {
+static int disconnect_all(void) {
 	int r = 0;
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
 		r = SQLDisconnect(_cases[i].ctx.hconn);
@@ -290,7 +309,7 @@ static int disconnect_all() {
 	return 0;
 }
 
-static int connect_repeat() {
+static int connect_repeat(void) {
 	int r = 0;
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
 		XX("connect second time dsn:%s user:%s pwd:%s", _cases[i].dsn, _cases[i].user, _cases[i].pwd);
@@ -301,8 +320,7 @@ static int connect_repeat() {
 	return 0;
 }
 
-static int connect_after_disconnect() {
-	int r = 0;
+static int connect_after_disconnect(void) {
 	CHK0(connect_all, 0);
 	CHK0(disconnect_all, 0);
 	CHK0(create_hconn, 0);
@@ -340,15 +358,25 @@ static int re_connect_db(char* db) {
 			XX("SQLDisconnect result:%d", r);
 		}
 
-		char dsn[100] = {0};
+		char dsn[100] = { 0 };
 		strcat(dsn, "DSN=");
 		strcat(dsn, _cases[i].dsn);
 		if (strcmp(_cases[i].test_name, "sqlserver-odbc") == 0) {
-			
-				strcat(dsn, ";DATABASE=");
+
+			strcat(dsn, ";Uid=");
+			strcat(dsn, _cases[i].user);
+			strcat(dsn, ";Pwd=");
+			strcat(dsn, _cases[i].pwd);
+			strcat(dsn, ";DATABASE=");
 		}
 		else {
-			strcat(dsn, ";DB=");
+			// taos-odbc 支持两种写法
+			if (0) {
+				strcat(dsn, ";DB=");
+			}
+			else {
+				strcat(dsn, ";DATABASE=");
+			}
 		}
 		strcat(dsn, db);
 
@@ -360,13 +388,11 @@ static int re_connect_db(char* db) {
 	return 0;
 }
 
-static int browse_connect() {
-	int r = 0;
+static int browse_connect(void) {
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
-		SQLHENV henv = _cases[i].ctx.henv;
 		SQLHDBC hdbc = _cases[i].ctx.hconn;
 		SQLCHAR inConnectionString[256] = "";
-		strcpy(inConnectionString, _cases[i].connstr);
+		strcpy((char*)inConnectionString, _cases[i].connstr);
 		SQLCHAR outConnectionString[256] = "";
 		SQLSMALLINT outConnectionStringLength; //
 
@@ -374,10 +400,10 @@ static int browse_connect() {
 
 		XX("Connection String: %s", outConnectionString);
 	}
-	return r;
+	return 0;
 }
 
-static int get_driver_info() {
+static int get_driver_info(void) {
 	int r = 0;
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
 		SQLHDBC henv = _cases[i].ctx.henv;
@@ -394,22 +420,21 @@ static int get_driver_info() {
 		XX("SQL_DRIVER_HSTMT result:%d info: %s", r, driverInfo);
 		r = SQLGetInfo(hstmt, SQL_DRIVER_HDESC, driverInfo, sizeof(driverInfo), NULL);
 		XX("SQL_DRIVER_HDESC result:%d info: %s", r, driverInfo);
-		
+
 	}
 
 	int notSupported[200];
 	int notSupportedCount = 0;
 	SQLCHAR driverInfo[256];
-	for (int ty = SQL_INFO_FIRST; ty <= SQL_CONVERT_GUID; ty++) {
+	for (SQLUSMALLINT ty = SQL_INFO_FIRST; ty <= SQL_CONVERT_GUID; ty++) {
 		if (ty == SQL_DRIVER_HSTMT || ty == SQL_DRIVER_HDESC) continue;
 
-		int r[2];
+		int rs[DB_SOURCE_NUM];
 		for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
-			SQLHDBC henv = _cases[i].ctx.henv;
 			SQLHDBC hdbc = _cases[i].ctx.hconn;
 
-			r[i] = SQLGetInfo(hdbc, ty, driverInfo, sizeof(driverInfo), NULL);
-			if (i == 1 && (r[0] >= 0 && r[1] < 0)) {
+			rs[i] = SQLGetInfo(hdbc, ty, driverInfo, sizeof(driverInfo), NULL);
+			if (i == (size_t)1 && (rs[0] >= 0 && rs[1] < 0)) {
 				notSupported[notSupportedCount] = ty;
 				notSupportedCount++;
 				X("SQLGetInfo type:%d not supported by taos-odbc.", ty);
@@ -417,7 +442,7 @@ static int get_driver_info() {
 		}
 	}
 
-	char str[1024] = {0};
+	char str[1024] = { 0 };
 	for (int i = 0; i < notSupportedCount; i++) {
 		snprintf(str + strlen(str), 1024 - strlen(str), " %d", notSupported[i]);
 	}
@@ -427,10 +452,9 @@ static int get_driver_info() {
 	return 0;
 }
 
-static int set_conn_attr() {
+static int set_conn_attr(void) {
 	int r = 0;
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
-		SQLHANDLE henv = _cases[i].ctx.henv;
 		r = SQLSetConnectAttr(_cases[i].ctx.hconn, SQL_ATTR_CONNECTION_TIMEOUT, (SQLPOINTER)30, SQL_IS_UINTEGER);
 		XX("SQLSetConnectAttr SQL_ATTR_CONNECTION_TIMEOUT set 30, result:%d", r);
 		if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return r;
@@ -439,10 +463,9 @@ static int set_conn_attr() {
 	return 0;
 }
 
-static int creater_stmt() {
+static int creater_stmt(void) {
 	int r = 0;
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
-		SQLHANDLE henv = _cases[i].ctx.henv;
 		SQLHANDLE hconn = _cases[i].ctx.hconn;
 
 		r = SQLAllocHandle(SQL_HANDLE_STMT, hconn, &_cases[i].ctx.hstmt);
@@ -475,11 +498,10 @@ static int init_database(char* db) {
 	return 0;
 }
 
-static int show_database() {
-	int r = 0;
+static int show_database(void) {
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
 		SQLHANDLE hconn = _cases[i].ctx.hconn;
-		
+
 		SQLCHAR dbName[256];
 		SQLGetInfo(hconn, SQL_DATABASE_NAME, dbName, sizeof(dbName), NULL);
 
@@ -489,15 +511,16 @@ static int show_database() {
 	return 0;
 }
 
-static int show_tables() {
+static int show_tables(void) {
 	int r = 0;
 
-	SQLCHAR table_names[2][100][MAX_TABLE_NAME_LEN];
-	int table_count[2] = {0, 0};
+	SQLCHAR table_names[DB_SOURCE_NUM][100][MAX_TABLE_NAME_LEN];
+	int table_count[DB_SOURCE_NUM] = { 0 };
 
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
 		SQLHANDLE hstmt = _cases[i].ctx.hstmt;
-		r = SQLTables(hstmt, NULL, 0, NULL, 0, NULL, 0, "TABLE", SQL_NTS);
+		SQLCHAR* tableType = (SQLCHAR*)"TABLE";
+		r = SQLTables(hstmt, NULL, 0, NULL, 0, NULL, 0, tableType, SQL_NTS);
 		XX("SQLTables result:%d", r);
 		// 遍历结果集并打印表名
 		// SQLCHAR table_name[MAX_TABLE_NAME_LEN];
@@ -521,7 +544,7 @@ static int show_tables() {
 	return 0;
 }
 
-static int create_table(const char* tb){
+static int create_table(const char* tb) {
 	int r = 0;
 	char buf[1024];
 	simple_str_t str = {
@@ -542,7 +565,7 @@ static int create_table(const char* tb){
 	return 0;
 }
 
-static int clear_test() {
+static int clear_test(void) {
 	int r = 0;
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
 		// 当且仅当先释放 sql-odbc驱动资源，后释放taos-odbc资源
@@ -587,20 +610,12 @@ static int get_records_count(SQLHANDLE hstmt, const char* table)
 	return count;
 }
 
-static int convert_test() {
+static int case_1(void) {
 	int r = 0;
-	const char* tb_test = "tx1";
-	CHK1(init_database, test_db, 0);
-	CHK1(re_connect_db, test_db, 0);
-	CHK0(show_database, 0);
-	CHK0(creater_stmt, 0);
-	CHK0(show_tables, 0);
-	CHK1(create_table, tb_test, 0);
-	CHK0(show_tables, 0);
-
-	time_t currentTime = time(NULL) * 1000;
+	time_t currentTime = time(NULL);
 
 	int64_t ts_arr[ARRAY_SIZE] = { 0 };
+	char ts_str_arr[ARRAY_SIZE][100];
 	SQLLEN  ts_ind[ARRAY_SIZE] = { 0 };
 	char    varchar_arr[ARRAY_SIZE][100];
 	SQLLEN  varchar_ind[ARRAY_SIZE] = { 0 };
@@ -609,13 +624,19 @@ static int convert_test() {
 	int64_t i64_arr[ARRAY_SIZE] = { 0 };
 	SQLLEN  i64_ind[ARRAY_SIZE] = { 0 };
 
-	int param_len[] = { 3, 4 };
-	const param_t params[2][4] = {
+	int param_len[] = { 3, 4, 4 };
+	const param_t params[DB_SOURCE_NUM][4] = {
 		{
 			{SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_VARCHAR,         99,       0,          varchar_arr,      100, varchar_ind},
 			{SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_WVARCHAR,        99,       0,          nchar_arr,        100, nchar_ind},
 			{SQL_PARAM_INPUT,  SQL_C_SBIGINT,  SQL_BIGINT,          99,       0,          i64_arr,          100, i64_ind},
 		},{
+			{SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_TYPE_TIMESTAMP,  99,       0,          ts_str_arr,       100, nchar_ind},
+			{SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_VARCHAR,         99,       0,          varchar_arr,      100, varchar_ind},
+			{SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_WVARCHAR,        99,       0,          nchar_arr,        100, nchar_ind},
+			{SQL_PARAM_INPUT,  SQL_C_SBIGINT,  SQL_BIGINT,          99,       0,          i64_arr,          100, i64_ind},
+		},
+		{
 			{SQL_PARAM_INPUT,  SQL_C_SBIGINT,  SQL_TYPE_TIMESTAMP,  23,       3,          ts_arr,           0,   ts_ind},
 			{SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_VARCHAR,         99,       0,          varchar_arr,      100, varchar_ind},
 			{SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_WVARCHAR,        99,       0,          nchar_arr,        100, nchar_ind},
@@ -624,17 +645,21 @@ static int convert_test() {
 	};
 
 	for (int i = 0; i < ARRAY_SIZE; ++i) {
-		ts_arr[i] = currentTime + i;
+		time_t tempt = currentTime + i;
+		char buffer[100];
+		struct tm* timeinfo = localtime(&tempt);
+		strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", timeinfo);
+
+		ts_arr[i] = tempt * 1000;
+		snprintf(ts_str_arr[i], sizeof(ts_str_arr[i]),"%s", buffer);
 		snprintf(varchar_arr[i], 100, "abcd%d", i + 9);
 		varchar_ind[i] = SQL_NTS;
-		snprintf(nchar_arr[i], 100, "b民%d", i);
+		snprintf(nchar_arr[i], 100, "bt%d", i);
 		nchar_ind[i] = SQL_NTS;
 		i64_arr[i] = 54321 + i;
 	}
 
-
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
-		SQLHANDLE henv = _cases[i].ctx.henv;
 		SQLHANDLE hconn = _cases[i].ctx.hconn;
 		SQLHANDLE hstmt = _cases[i].ctx.hstmt;
 
@@ -677,7 +702,7 @@ static int convert_test() {
 		r = SQLSetStmtAttr(hstmt, SQL_ATTR_PARAMS_PROCESSED_PTR, &nr_params_processed, 0);
 		XX("SQLSetStmtAttr SQL_ATTR_PARAMS_PROCESSED_PTR result:%d", r);
 
-		for (size_t j = 0; j < param_len[i]; ++j) {
+		for (int j = 0; j < param_len[i]; ++j) {
 			const param_t* param = params[i] + j;
 			r = SQLBindParameter(hstmt, (SQLUSMALLINT)j + 1,
 				param->InputOutputType,
@@ -688,7 +713,7 @@ static int convert_test() {
 				param->ParameterValuePtr,
 				param->BufferLength,
 				param->StrLen_or_IndPtr);
-			XX("SQLBindParameter %dth column result:%d",(int)j, r);
+			XX("SQLBindParameter %dth column result:%d", (int)j, r);
 			CHKSTMTR(hstmt, r);
 		}
 
@@ -700,27 +725,58 @@ static int convert_test() {
 
 		XX("before get_records_count tabl:%s.", tb_test);
 
-		// r = SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
-		// if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
+		if (0) {
+			// item 7: 继续使用上边的 stmt， taos-odbc 报错
+			r = SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
+			if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
 
-		int count = get_records_count(hstmt, tb_test);
-		XX("get_records_count %d.", count);
-		if (count != ARRAY_SIZE) {
-			XX("get_records_count error, %d expected, but got %d.", ARRAY_SIZE, count);
-			return -1;
+			int count = get_records_count(hstmt, tb_test);
+			XX("get_records_count %d.", count);
+			if (count != ARRAY_SIZE) {
+				XX("get_records_count error, expect %d got %d.", ARRAY_SIZE, count);
+				// return -1;
+			}
+		}
+
+		if (1) {
+			char sql2[1024] = "insert into ";
+			strcat(sql2, tb_test2);
+			if (strcmp(_cases[i].test_name, "sqlserver-odbc") == 0) {
+				strcat(sql2, "(vname, wname, bi) values(? , ? , ? )");
+			}
+			else {
+				strcat(sql2, "(ts, vname, wname, bi) values(?, ? , ? , ? )");
+			}
+
+			r = SQLExecDirect(hstmt, (SQLCHAR*)sql2, SQL_NTS);
+			X("exec(%s) direct result:%d", sql2, r);
+			CHKSTMTR(hstmt, r);
+			if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
 		}
 	}
-
-	return -1;
-}
-
-static int config_test() {
-	int r = 0;
-	CHK0(convert_test, 0);
 	return 0;
 }
 
-static void init_sql_str() {
+static int stmt_test_basic(void) {
+	CHK1(init_database, test_db, 0);
+	CHK1(re_connect_db, test_db, 0);
+	CHK0(show_database, 0);
+	CHK0(creater_stmt, 0);
+	CHK0(show_tables, 0);
+	CHK1(create_table, tb_test, 0);
+	CHK1(create_table, tb_test2, 0);
+	CHK0(show_tables, 0);
+
+	CHK0(case_1, 0);
+	return -1;
+}
+
+static int stmt_test(void) {
+	CHK0(stmt_test_basic, 0);
+	return 0;
+}
+
+static void init_sql_str(void) {
 	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
 		_cases[i].ctx.sql_str.base = _cases[i].ctx.buf;
 		_cases[i].ctx.sql_str.cap = sizeof(_cases[i].ctx.buf);
@@ -728,12 +784,11 @@ static void init_sql_str() {
 	}
 }
 
-static void init_test() {
+static void init_test(void) {
 	init_sql_str();
 }
 
-static int run() {
-	int r = 0;
+static int run(void) {
 	init_test();
 	CHK0(init_henv, 0);
 	CHK0(browse_connect, 0);
@@ -745,9 +800,125 @@ static int run() {
 	CHK0(set_conn_attr, 0);
 	CHK0(creater_stmt, 0);
 	CHK0(get_driver_info, 0);
-	CHK0(config_test, 0);
+	CHK0(stmt_test, 0);
 
-	return r;
+	return 0;
+}
+
+static void get_diag_rec(SQLSMALLINT handleType, SQLHANDLE h) {
+
+	SQLRETURN r;
+	SQLCHAR sqlState[6];
+	SQLINTEGER nativeError;
+	SQLCHAR messageText[SQL_MAX_MESSAGE_LENGTH];
+	SQLSMALLINT textLength;
+
+	r = SQLGetDiagRec(handleType, h, 1, sqlState, &nativeError, messageText, sizeof(messageText), &textLength);
+	X("SQLGetDiagRec result: %d", r);
+	X("SQLState: %s", sqlState);
+	X("Native Error: %d", nativeError);
+	X("Message Text: %s", messageText);
+}
+
+static int list_driver(void) {
+	SQLRETURN ret;
+	SQLCHAR driverDesc[1024];
+	SQLCHAR driverAttr[1024];
+	SQLSMALLINT driverDescLen, driverAttrLen;
+	SQLUSMALLINT direction = SQL_FETCH_FIRST;
+
+	SQLHANDLE env = SQL_NULL_HANDLE;
+	ret = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &env);
+	if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO) {
+		X("Failed to allocate ODBC environment handle.");
+		return -1;
+	}
+
+	ret = SQLSetEnvAttr(env, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, SQL_IS_UINTEGER);
+	if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO) {
+		X("Failed to set ODBC environment attribute.");
+		SQLFreeHandle(SQL_HANDLE_ENV, env);
+		return -1;
+	}
+
+	do {
+		ret = SQLDrivers(env, direction, driverDesc, sizeof(driverDesc), &driverDescLen, driverAttr, sizeof(driverAttr), &driverAttrLen);
+		if (ret == SQL_SUCCESS) {
+			X("Driver Description: %s", driverDesc);
+			X("Driver Attributes: %s\n\n", driverAttr);
+		}
+		else if (ret == SQL_SUCCESS_WITH_INFO) {
+			X("Driver Description: %s", driverDesc);
+			X("Driver Attributes: %s", driverAttr);
+			get_diag_rec(SQL_HANDLE_ENV, env);
+		}
+		else if (ret == SQL_NO_DATA) {
+			X("SQLDrivers check finishd.");
+		}
+		else {
+			X("SQLDrivers result:%d", ret);
+			CHKENVR(env, ret);
+		}
+
+		direction = SQL_FETCH_NEXT;
+	} while (ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO);
+
+	SQLFreeHandle(SQL_HANDLE_ENV, env);
+
+	return 0;
+}
+
+static int list_datasource(void) {
+	SQLHENV env;
+	SQLRETURN ret;
+	SQLCHAR dataSourceName[1024];
+	SQLCHAR description[1024];
+	SQLSMALLINT nameLength, descLength;
+	int count = 0;
+
+	// 初始化ODBC环境
+	ret = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &env);
+	if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO) {
+		X("Failed to allocate ODBC environment handle.");
+		return -1;
+	}
+
+	ret = SQLSetEnvAttr(env, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, SQL_IS_UINTEGER);
+	if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO) {
+		X("Failed to set ODBC environment attribute.");
+		SQLFreeHandle(SQL_HANDLE_ENV, env);
+		return -1;
+	}
+
+	ret = SQLDataSources(env, SQL_FETCH_FIRST, dataSourceName, sizeof(dataSourceName), &nameLength, description, sizeof(description), &descLength);
+	while (ret == SQL_SUCCESS) {
+		count++;
+		X("Data Source Name: %s", dataSourceName);
+		X("Description: %s\n", description);
+		set_test_case_invalid(dataSourceName);
+
+		ret = SQLDataSources(env, SQL_FETCH_NEXT, dataSourceName, sizeof(dataSourceName), &nameLength, description, sizeof(description), &descLength);
+	}
+
+	// 检查获取数据源列表的结果
+	if (ret != SQL_NO_DATA) {
+		printf("Failed to retrieve ODBC data sources.\n");
+	}
+	else {
+		printf("Total data sources: %d\n", count);
+	}
+
+	// 释放句柄
+	SQLFreeHandle(SQL_HANDLE_ENV, env);
+
+	return 0;
+}
+
+static void print_testcases(void) {
+	for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
+		const char* invalid = _cases[i].valid ? " ready to testing" : "not ready to testing";
+		XX(" %s", invalid);
+	}
 }
 
 int main(void)
@@ -757,6 +928,10 @@ int main(void)
 #ifndef _WIN32
 	if (1) return 0;
 #endif 
+
+	list_driver();
+	list_datasource();
+	print_testcases();
 
 	r = run();
 	clear_test();

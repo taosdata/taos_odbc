@@ -25,6 +25,7 @@
 #include "odbc_helpers.h"
 
 #include "../test_helper.h"
+#include "c_test_helper.h"
 
 #include <errno.h>
 #include <stdarg.h>
@@ -57,6 +58,7 @@ static int _connect(SQLHANDLE hconn, const char *dsn, const char *uid, const cha
     E("connect [dsn:%s,uid:%s,pwd:%s] failed", dsn, uid, pwd);
     return -1;
   }
+  
   return 0;
 }
 

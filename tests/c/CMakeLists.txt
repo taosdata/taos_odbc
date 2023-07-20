@@ -25,6 +25,7 @@
 add_executable(conformance_test
     $<TARGET_OBJECTS:common_obj>
     $<TARGET_OBJECTS:os_port_obj>
+    c_test_helper.c
     conformance_test.c)
 add_dependencies(conformance_test ex_cjson)
 
@@ -229,6 +230,7 @@ endif()
 add_executable(api_compare_test
     $<TARGET_OBJECTS:common_obj>
     $<TARGET_OBJECTS:os_port_obj>
+    c_test_helper.c
     api_compare_test.c)
 
 if(NOT TODBC_WINDOWS)

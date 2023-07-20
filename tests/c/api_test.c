@@ -23,7 +23,7 @@
  */
 
 #include "odbc_helpers.h"
-#include "../test_helper.h"
+#include "c_test_helper.h"
 #include "enums.h"
 
 #include <assert.h>

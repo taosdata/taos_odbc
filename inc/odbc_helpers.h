@@ -711,6 +711,7 @@ struct odbc_conn_arg_s {
   const char      *uid;
   const char      *pwd;
   const char      *connstr;
+  int              is_tdengine;  // NOTE: caller specifies
 };
 
 int run_odbc_cases(const char *name, const odbc_conn_arg_t *conn_arg, odbc_case_t *cases, size_t cases_nr) FA_HIDDEN;

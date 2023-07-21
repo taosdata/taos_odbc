@@ -314,12 +314,23 @@ static int _dump_col(SQLHANDLE hstmt, SQLUSMALLINT ColumnNumber)
   SQLLEN         BufferLength     = sizeof(buf);
   SQLLEN         StrLen_or_Ind;
 
+  char col_name[4096]; col_name[0] = '\0'; {
+    SQLSMALLINT    NameLength;
+    SQLSMALLINT    DataType;
+    SQLULEN        ColumnSize;
+    SQLSMALLINT    DecimalDigits;
+    SQLSMALLINT    Nullable;
+
+    sr = CALL_SQLDescribeCol(hstmt, Col_or_Param_Num, (SQLCHAR*)col_name, sizeof(col_name), &NameLength, &DataType, &ColumnSize, &DecimalDigits, &Nullable);
+    if (sr != SQL_SUCCESS) return -1;
+  }
+
   sr = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, &StrLen_or_Ind);
   if (sr != SQL_SUCCESS) return -1;
   if (StrLen_or_Ind == SQL_NULL_DATA) {
-    DUMP("Column%d:[null]", Col_or_Param_Num);
+    DUMP("Column%d:%s:[null]", Col_or_Param_Num, col_name);
   } else {
-    DUMP("Column%d:%.*s", Col_or_Param_Num, (int)StrLen_or_Ind, buf);
+    DUMP("Column%d:%s:%.*s", Col_or_Param_Num, col_name, (int)StrLen_or_Ind, buf);
   }
 
   return 0;

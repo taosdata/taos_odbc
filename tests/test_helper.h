@@ -25,6 +25,8 @@
 #ifndef _test_helper_h_
 #define _test_helper_h_
 
+#include <errno.h>
+#include <stdarg.h>
 #include "os_port.h"
 #include "cjson/cJSON.h"
 #include "ejson_parser.h"
@@ -158,31 +160,7 @@ struct param_s {
     SQLLEN* StrLen_or_IndPtr;
 };
 
-static int _simple_str_fmt_impl(simple_str_t* str, const char* fmt, ...)
-{
-    va_list ap;
-    va_start(ap, fmt);
-    char* base = str->base ? str->base + str->nr : NULL;
-    size_t sz = str->cap - str->nr;
-    int n = vsnprintf(base, sz, fmt, ap);
-    va_end(ap);
-
-    if (n < 0) {
-        int e = errno;
-        E("vsnprintf failed:[%d]%s", e, strerror(e));
-        return -1;
-    }
-
-    if (str->base) {
-        if ((size_t)n >= sz) {
-            W("buffer too small");
-            return -1;
-        }
-        str->nr += n;
-    }
-
-    return 0;
-}
+int _simple_str_fmt_impl(simple_str_t* str, const char* fmt, ...);
 
 #define _simple_str_fmt(str, fmt, ...) (0 ? printf(fmt, ##__VA_ARGS__) : _simple_str_fmt_impl(str, fmt, ##__VA_ARGS__))
 
@@ -192,70 +170,9 @@ struct field_s {
     const char* field;
 };
 
-static int _gen_table_create_sql(simple_str_t* str, const char* table, const field_t* fields, size_t nr_fields)
-{
-    int r = 0;
-    r = _simple_str_fmt(str, "create table %s", table);
-    if (r) return -1;
+int _gen_table_create_sql(simple_str_t* str, const char* table, const field_t* fields, size_t nr_fields);
 
-    for (size_t i = 0; i < nr_fields; ++i) {
-        const field_t* field = fields + i;
-        if (i == 0) {
-            r = _simple_str_fmt(str, " (");
-        }
-        else {
-            r = _simple_str_fmt(str, ",");
-        }
-        if (r) return -1;
-        r = _simple_str_fmt(str, "%s %s", field->name, field->field);
-    }
-    if (nr_fields > 0) {
-        r = _simple_str_fmt(str, ");");
-        if (r) return -1;
-    }
-
-    return 0;
-}
-
-static int _gen_table_param_insert(simple_str_t* str, const char* table, const field_t* fields, size_t nr_fields)
-{
-    int r = 0;
-    r = _simple_str_fmt(str, "insert into %s", table);
-    if (r) return -1;
-
-    for (size_t i = 0; i < nr_fields; ++i) {
-        const field_t* field = fields + i;
-        if (i == 0) {
-            r = _simple_str_fmt(str, " (");
-        }
-        else {
-            r = _simple_str_fmt(str, ",");
-        }
-        if (r) return -1;
-        r = _simple_str_fmt(str, "%s", field->name);
-
-        if (i + 1 < nr_fields) continue;
-        r = _simple_str_fmt(str, ")");
-        if (r) return -1;
-    }
-
-    for (size_t i = 0; i < nr_fields; ++i) {
-        if (i == 0) {
-            r = _simple_str_fmt(str, " values (");
-        }
-        else {
-            r = _simple_str_fmt(str, ",");
-        }
-        if (r) return -1;
-        r = _simple_str_fmt(str, "?");
-
-        if (i + 1 < nr_fields) continue;
-        r = _simple_str_fmt(str, ")");
-        if (r) return -1;
-    }
-
-    return 0;
-}
+int _gen_table_param_insert(simple_str_t* str, const char* table, const field_t* fields, size_t nr_fields);
 /**************     from conformance_test.c  end    *************/
 
 EXTERN_C_END

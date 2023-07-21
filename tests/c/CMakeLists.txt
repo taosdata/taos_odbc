@@ -23,6 +23,7 @@
 ###############################################################################
 
 add_executable(conformance_test
+    $<TARGET_OBJECTS:test_helper_obj>
     $<TARGET_OBJECTS:common_obj>
     $<TARGET_OBJECTS:os_port_obj>
     conformance_test.c)
@@ -85,6 +86,9 @@ add_executable(api_test
     $<TARGET_OBJECTS:common_obj>
     $<TARGET_OBJECTS:os_port_obj>
     api_test.c)
+
+target_include_directories(api_test PRIVATE ${CJSON_INSTALL_PATH}/include)
+target_link_directories(api_test PRIVATE ${CJSON_INSTALL_PATH}/lib)
 
 if(NOT TODBC_WINDOWS)
     target_link_libraries(api_test odbc dl pthread)

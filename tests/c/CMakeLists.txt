@@ -233,6 +233,8 @@ endif()
 
 add_executable(api_compare_test
     $<TARGET_OBJECTS:common_obj>
+    $<TARGET_OBJECTS:test_helper_obj>
+    $<TARGET_OBJECTS:ejson_parser_obj>
     $<TARGET_OBJECTS:os_port_obj>
     api_compare_test.c)
 

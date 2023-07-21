@@ -337,11 +337,7 @@ static int _charset(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STM
   }
 
   const char *sql = "select name, mark from foo.t";
-  char utf8[4096]; utf8[0] = '\0';
-  r = _charset_conv(sql, strlen(sql), utf8, sizeof(utf8), _c_charset, "UTF-8");
-  if (r) return -1;
-
-  WS_RES *res = CALL_ws_query(taos, utf8);
+  WS_RES *res = CALL_ws_query(taos, sql);
   int e = ws_errno(res);
   if (!!e) {
     E("failed:[%d]%s", e, ws_errstr(res));
@@ -366,6 +362,7 @@ static int _charset(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STM
       p = CALL_ws_get_value_in_block(res, row, col, &ty, &len);
       r = -1;
       if (p && ty == TSDB_DATA_TYPE_VARCHAR) r = _charset_conv(p, len, buf, sizeof(buf), "UTF-8", _c_charset);
+      E("buf:[%s]", buf);
       if (r == 0) r = strcmp("你好", buf);
       if (r) {
         E("expected 'varchar:你好', but got ==(%d,%d):p:%p;ty:%d;len:%d==", row, col, p, ty, len);
@@ -376,7 +373,8 @@ static int _charset(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STM
       row = 0, col = 1, ty = 0; len = 0; p = NULL;
       p = CALL_ws_get_value_in_block(res, row, col, &ty, &len);
       r = -1;
-      if (p && ty == TSDB_DATA_TYPE_NCHAR) r = _charset_conv(p, len, buf, sizeof(buf), "UCS-4LE", _c_charset);
+      if (p && ty == TSDB_DATA_TYPE_NCHAR) r = _charset_conv(p, len, buf, sizeof(buf), "UTF-8", _c_charset);
+      E("buf:[%s]", buf);
       if (r == 0) r = strcmp("世界", buf);
       if (r) {
         fprintf(stderr, "\n=======================\n");
@@ -443,8 +441,8 @@ static int _prepare_insert(const arg_t *arg, const stage_t stage, WS_TAOS *taos,
   }
 
   // NOTE: create table foo.t (ts timestamp, v int, name varchar(20), mark nchar(20))
-  // const char *sql = "insert into foo.t (ts, v, name, mark) values (?, ?, ?, ?)";
-  const char *sql = "insert into foo.t (ts, v, name) values (?, ?, ?)";
+  const char *sql = "insert into foo.t (ts, v, name, mark) values (?, ?, ?, ?)";
+  // const char *sql = "insert into foo.t (ts, v, name) values (?, ?, ?)";
   r = CALL_ws_stmt_prepare(stmt, sql, (unsigned long)strlen(sql));
   if (r) return -1;
 
@@ -505,8 +503,8 @@ static int _prepare_insert(const arg_t *arg, const stage_t stage, WS_TAOS *taos,
   mbs[3].is_null            = (char*)&mark_is_null;
   mbs[3].num = 1;
 
-  // r = CALL_ws_stmt_bind_param_batch(stmt, &mbs[0], sizeof(mbs)/sizeof(mbs[0]));
-  r = CALL_ws_stmt_bind_param_batch(stmt, &mbs[0], 3);
+  r = CALL_ws_stmt_bind_param_batch(stmt, &mbs[0], sizeof(mbs)/sizeof(mbs[0]));
+  // r = CALL_ws_stmt_bind_param_batch(stmt, &mbs[0], 3);
   if (r) return -1;
 
   r = CALL_ws_stmt_add_batch(stmt);

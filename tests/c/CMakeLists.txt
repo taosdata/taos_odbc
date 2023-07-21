@@ -24,6 +24,7 @@
 
 add_executable(conformance_test
     $<TARGET_OBJECTS:test_helper_obj>
+    $<TARGET_OBJECTS:ejson_parser_obj>
     $<TARGET_OBJECTS:common_obj>
     $<TARGET_OBJECTS:os_port_obj>
     conformance_test.c)

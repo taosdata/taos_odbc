@@ -170,21 +170,31 @@ again:
 
   if (tables->tables_type != TABLES_FOR_GENERIC) return SQL_SUCCESS;
 
-  if (tables->tables_args.catalog_pattern) {
-    sr = tables->stmt.base.get_data(&tables->stmt.base, 1, tsdb);
-    if (sr != SQL_SUCCESS) return SQL_ERROR;
+  sr = tables->stmt.base.get_data(&tables->stmt.base, 1, tsdb);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-    str_t str = {
-      .charset              = fromcode,
-      .str                  = tsdb->str.str,
-      .bytes                = tsdb->str.len,
-    };
+  str_t str = {
+    .charset              = fromcode,
+    .str                  = tsdb->str.str,
+    .bytes                = tsdb->str.len,
+  };
+
+  if (tables->tables_args.catalog_pattern) {
     int matched = 0;
     r = wildexec(tables->tables_args.catalog_pattern, &str, &matched);
     if (r) {
       stmt_append_err(tables->owner, "HY000", 0, "General error:wild matching failed");
       return SQL_ERROR;
     }
+    if (!matched) goto again;
+  } else if (tables->tables_args.select_current_db) {
+    const char info[] = "information_schema";
+    const char perf[] = "performance_schema";
+    const char *db = tables->tables_args.db;
+    int matched = 0;
+    if (!matched) matched = (str.bytes == sizeof(info)-1 && strncmp(str.str, info, str.bytes) == 0);
+    if (!matched) matched = (str.bytes == sizeof(perf)-1 && strncmp(str.str, perf, str.bytes) == 0);
+    if (!matched) matched = (str.bytes == strlen(db) && strncmp(str.str, db, str.bytes) == 0);
     if (!matched) goto again;
   }
 
@@ -635,6 +645,15 @@ SQLRETURN tables_open(
           "General error:wild compile failed for CatalogName[%.*s]", (int)NameLength1, (const char*)CatalogName);
       return SQL_ERROR;
     }
+    tables->tables_args.select_current_db = 0;
+  } else {
+    int required = 0;
+    r = CALL_taos_get_current_db(tables->owner->conn->ds_conn.taos, tables->tables_args.db, (int)sizeof(tables->tables_args.db), &required);
+    if (r) {
+      stmt_append_err(tables->owner, "HY000", 0, "General error:failed getting current db");
+      return SQL_ERROR;
+    }
+    tables->tables_args.select_current_db = 1;
   }
   if (SchemaName) {
     if (mem_conv(&tables->schema_cache, cnv->cnv, (const char*)SchemaName, NameLength2)) {

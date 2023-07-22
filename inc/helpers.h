@@ -49,6 +49,8 @@ uintptr_t tod_get_current_process_id(void) FA_HIDDEN;
 const char* tod_get_format_current_local_timestamp_ms(char *s, size_t n) FA_HIDDEN;
 const char* tod_get_format_current_local_timestamp_us(char *s, size_t n) FA_HIDDEN;
 
+int tod_conv(const char *fromcode, const char *tocode, const char *src, size_t slen, char *dst, size_t dlen) FA_HIDDEN;
+
 #ifdef _WIN32
 #define tod_strcasecmp      _stricmp
 #define tod_strncasecmp     _strnicmp

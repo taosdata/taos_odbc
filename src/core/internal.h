@@ -694,6 +694,8 @@ struct tables_args_s {
   wildex_t        *schema_pattern;
   wildex_t        *table_pattern;
   wildex_t        *type_pattern;
+  char             db[1024];  // FIXME: big enough? check [taosc]
+  uint8_t          select_current_db:1;
 };
 
 enum tables_type_e {

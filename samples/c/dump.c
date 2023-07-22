@@ -39,11 +39,17 @@ struct arg_s {
   const char      *name;
 };
 
+static void _bypass_mysql_flaw(odbc_handles_t *handles)
+{
+  // NOTE: for the sake of mysql-`Conditional jump or move depends on uninitialised value(s)`-error-returned-by-valgrind!!!
+  CALL_SQLExecDirect(handles->hstmt, (SQLCHAR*)"select 1", SQL_NTS);
+}
+
 static int _dummy(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles_t *handles)
 {
   (void)odbc_case;
   (void)stage;
-  (void)handles;
+  _bypass_mysql_flaw(handles);
   return 0;
 }
 
@@ -161,7 +167,8 @@ static int _dump_col_info(SQLHANDLE hstmt, SQLUSMALLINT ColumnNumber)
   CharacterAttributePtr       = buf;
   BufferLength                = sizeof(buf);
   sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, &StringLength, &NumericAttribute);
-  if (sr != SQL_SUCCESS) return -1;
+  // NOTE: for the sake of mysql-returning-false!!!
+  // if (sr != SQL_SUCCESS) return -1;
   DUMP("Column%d.%s=%s",ColumnNumber, sql_col_attribute(FieldIdentifier), buf);
 
   FieldIdentifier             = SQL_DESC_NULLABLE;
@@ -275,6 +282,7 @@ static int _dump_stmt_col_info(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_
   const char *sql = getenv(env);
   if (!sql) {
     DUMP("env `%s` not set yet", env);
+    _bypass_mysql_flaw(handles);
     return 0;
   }
   DUMP("env`%s`:%s", env, sql);
@@ -306,12 +314,23 @@ static int _dump_col(SQLHANDLE hstmt, SQLUSMALLINT ColumnNumber)
   SQLLEN         BufferLength     = sizeof(buf);
   SQLLEN         StrLen_or_Ind;
 
+  char col_name[4096]; col_name[0] = '\0'; {
+    SQLSMALLINT    NameLength;
+    SQLSMALLINT    DataType;
+    SQLULEN        ColumnSize;
+    SQLSMALLINT    DecimalDigits;
+    SQLSMALLINT    Nullable;
+
+    sr = CALL_SQLDescribeCol(hstmt, Col_or_Param_Num, (SQLCHAR*)col_name, sizeof(col_name), &NameLength, &DataType, &ColumnSize, &DecimalDigits, &Nullable);
+    if (sr != SQL_SUCCESS) return -1;
+  }
+
   sr = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, &StrLen_or_Ind);
   if (sr != SQL_SUCCESS) return -1;
   if (StrLen_or_Ind == SQL_NULL_DATA) {
-    DUMP("Column%d:[null]", Col_or_Param_Num);
+    DUMP("Column%d:%s:[null]", Col_or_Param_Num, col_name);
   } else {
-    DUMP("Column%d:%.*s", Col_or_Param_Num, (int)StrLen_or_Ind, buf);
+    DUMP("Column%d:%s:%.*s", Col_or_Param_Num, col_name, (int)StrLen_or_Ind, buf);
   }
 
   return 0;
@@ -401,6 +420,7 @@ static int _dump_stmt_describe_col(odbc_case_t *odbc_case, odbc_stage_t stage, o
   const char *sql = getenv(env);
   if (!sql) {
     DUMP("env `%s` not set yet", env);
+    _bypass_mysql_flaw(handles);
     return 0;
   }
   DUMP("env`%s`:%s", env, sql);
@@ -468,6 +488,7 @@ static int _dump_stmt_desc_bind_desc_col(odbc_case_t *odbc_case, odbc_stage_t st
   const char *sql = getenv(env);
   if (!sql) {
     DUMP("env `%s` not set yet", env);
+    _bypass_mysql_flaw(handles);
     return 0;
   }
   DUMP("env`%s`:%s", env, sql);
@@ -583,6 +604,7 @@ static int _dump_stmt_describe_param(odbc_case_t *odbc_case, odbc_stage_t stage,
   const char *sql = getenv(env);
   if (!sql) {
     DUMP("env `%s` not set yet", env);
+    _bypass_mysql_flaw(handles);
     return 0;
   }
   DUMP("env`%s`:%s", env, sql);
@@ -653,6 +675,7 @@ static int _dump_stmt_desc_bind_desc_param(odbc_case_t *odbc_case, odbc_stage_t 
   const char *sql = getenv(env);
   if (!sql) {
     DUMP("env `%s` not set yet", env);
+    _bypass_mysql_flaw(handles);
     return 0;
   }
   DUMP("env`%s`:%s", env, sql);
@@ -721,8 +744,14 @@ static int _prepare_bind_param_execute(odbc_case_t *odbc_case, odbc_stage_t stag
 
   DUMP("%s:", __func__);
 
-  const char *sql = "insert into x (i8) values (?)";
-  DUMP("sql:%s", sql);
+  const char *env = "SAMPLE_PREPARE_BIND_PARAM_EXECUTE_SQL";
+  const char *sql = getenv(env);
+  if (!sql) {
+    DUMP("env `%s` not set yet", env);
+    _bypass_mysql_flaw(handles);
+    return 0;
+  }
+  DUMP("env`%s`:%s", env, sql);
 
   sr = CALL_SQLPrepare(hstmt, (SQLCHAR*)sql, SQL_NTS);
   if (sr != SQL_SUCCESS) return -1;
@@ -816,6 +845,7 @@ static int _exec_direct(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles
   const char *sql = getenv(env);
   if (!sql) {
     DUMP("env `%s` not set yet", env);
+    _bypass_mysql_flaw(handles);
     return 0;
   }
   DUMP("env`%s`:%s", env, sql);
@@ -842,6 +872,7 @@ static int _bind_exec_direct(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_ha
   const char *sql = getenv(env);
   if (!sql) {
     DUMP("env `%s` not set yet", env);
+    _bypass_mysql_flaw(handles);
     return 0;
   }
   DUMP("env`%s`:%s", env, sql);
@@ -993,7 +1024,8 @@ static int _execute_file(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handle
   const char *fn = getenv(env);
   if (!fn) {
     DUMP("env `%s` not set yet", env);
-    return -1;
+    _bypass_mysql_flaw(handles);
+    return 0;
   }
   DUMP("env`%s`:%s", env, fn);
 
@@ -1077,6 +1109,12 @@ static int dumping(int argc, char *argv[])
       ++i;
       if (i>=argc) break;
       arg.conn_arg.connstr = argv[i];
+      continue;
+    }
+    if (strcmp(argv[i], "--tdengine") == 0) {
+      ++i;
+      if (i>=argc) break;
+      arg.conn_arg.is_tdengine = 1;
       continue;
     }
 

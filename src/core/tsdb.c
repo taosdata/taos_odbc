@@ -400,6 +400,12 @@ static TAOS_FIELD_E* _tsdb_stmt_get_tsdb_field_by_tsdb_params(tsdb_stmt_t *stmt,
 
   if (!stmt->is_insert_stmt) return (TAOS_FIELD_E*)&_default_param_field;
 
+#ifdef HAVE_TAOSWS           /* { */
+  if (stmt->owner->conn->cfg.url) {
+    return (TAOS_FIELD_E*)&_default_param_field;
+  }
+#endif                       /* } */
+
   if (i_param == 0 && params->subtbl_required) {
     return (TAOS_FIELD_E*)&_default_param_field;
   }
@@ -482,9 +488,13 @@ static SQLRETURN _tsdb_stmt_get_taos_params_for_non_insert(tsdb_stmt_t *stmt)
   int nr_params = 0;
 #ifdef HAVE_TAOSWS           /* { */
   if (stmt->owner->conn->cfg.url) {
-    stmt_append_err(stmt->owner, "HY000", r, "General error:not implemented yet");
-    tsdb_stmt_reset(stmt);
-    return SQL_ERROR;
+    // stmt_append_err(stmt->owner, "HY000", r, "General error:not implemented yet");
+    // tsdb_stmt_reset(stmt);
+    // return SQL_ERROR;
+    int nr_params = stmt->params.qms;
+
+    sr = _tsdb_stmt_generate_default_param_fields(stmt, nr_params);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
   } else {
 #endif                       /* } */
     r = CALL_taos_stmt_num_params(stmt->stmt, &nr_params);
@@ -629,8 +639,18 @@ static SQLRETURN _tsdb_stmt_get_taos_tags_cols_for_insert(tsdb_stmt_t *stmt)
   TAOS_FIELD_E *tag_fields = NULL;
 #ifdef HAVE_TAOSWS           /* { */
   if (stmt->owner->conn->cfg.url) {
-    stmt_append_err(stmt->owner, "HY000", r, "General error:not implemented yet");
-    sr = SQL_ERROR;
+    // stmt_append_err(stmt->owner, "HY000", r, "General error:not implemented yet");
+    // sr = SQL_ERROR;
+
+    // TODO: tags not supported yet
+    stmt->params.subtbl_required = 0;
+    stmt->params.nr_tag_fields = 0;
+
+    stmt->params.nr_col_fields = stmt->params.qms;
+    int nr_params = stmt->params.qms;
+
+    sr = _tsdb_stmt_generate_default_param_fields(stmt, nr_params);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
   } else {
 #endif                       /* } */
     r = CALL_taos_stmt_get_tag_fields(stmt->stmt, &tagNum, &tag_fields);

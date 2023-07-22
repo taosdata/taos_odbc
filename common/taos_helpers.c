@@ -129,7 +129,7 @@ int helper_get_tsdb_ws(int time_precision, const char *name, uint8_t col_type, c
         // col += sizeof(int16_t);
         tsdb->str.str = col;
         tsdb->str.len = col_len;
-        tsdb->str.encoder = "UCS-4LE";
+        tsdb->str.encoder = "UTF-8";
       } break;
     case TSDB_DATA_TYPE_VARCHAR:
       {

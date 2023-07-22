@@ -1279,6 +1279,7 @@ int main(int argc, char *argv[])
 #ifdef HAVE_TAOSWS               /* { */
     RECORD(test_taosws_conn),
 #endif                           /* } */
+    // ref: https://www.unixodbc.org/doc/conn_pool.html
     RECORD(test_pool),  // NOTE: for the test purpose, this must keep in the last!!!
   };
 #undef RECORD

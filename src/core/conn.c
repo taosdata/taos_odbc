@@ -1023,6 +1023,19 @@ static SQLRETURN _conn_get_info_driver_name(
   }
 }
 
+static SQLRETURN _conn_get_current_db(conn_t *conn, char *db, size_t len)
+{
+  int r = 0;
+  ds_err_t ds_err; ds_err.err = 0; ds_err.str[0] = '\0';
+  r = ds_conn_get_current_db(&conn->ds_conn, db, len, &ds_err);
+  if (r) {
+    conn_append_err_format(conn, "HY000", ds_err.err, "General error:%s", ds_err.str);
+    return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _conn_get_info_database_name(
     conn_t         *conn,
     SQLUSMALLINT    InfoType,
@@ -1033,15 +1046,10 @@ static SQLRETURN _conn_get_info_database_name(
   // FIXME: `database` or current database selected?
   int r = 0;
 
-  ds_err_t ds_err; ds_err.err = 0; ds_err.str[0] = '\0';
-  char db[1024]; db[0] = '\0';
-  r = ds_conn_get_current_db(&conn->ds_conn, db, sizeof(db), &ds_err);
-  if (r) {
-    conn_append_err_format(conn, "HY000", ds_err.err, "General error:%s", ds_err.str);
-    return SQL_ERROR;
-  }
+  r = _conn_get_current_db(conn, (char*)InfoValuePtr, BufferLength);
+  if (r) return SQL_ERROR;
 
-  int n = snprintf((char*)InfoValuePtr, BufferLength, "%s", db);
+  int n = (int)strlen((const char*)InfoValuePtr);
   if (StringLengthPtr) *StringLengthPtr = n;
 
   if (n >= BufferLength) {
@@ -1403,15 +1411,10 @@ static SQLRETURN _conn_get_attr_current_qualifier(
 {
   int r = 0;
 
-  ds_err_t ds_err; ds_err.err = 0; ds_err.str[0] = '\0';
-  char db[1024]; db[0] = '\0';
-  r = ds_conn_get_current_db(&conn->ds_conn, db, sizeof(db), &ds_err);
-  if (r) {
-    conn_append_err_format(conn, "HY000", ds_err.err, "General error:%s", ds_err.str);
-    return SQL_ERROR;
-  }
+  r = _conn_get_current_db(conn, (char*)Value, BufferLength);
+  if (r) return SQL_ERROR;
 
-  int n = snprintf((char*)Value, BufferLength, "%s", db);
+  int n = (int)strlen((const char*)Value);
   if (StringLengthPtr) *StringLengthPtr = n;
 
   if (n >= BufferLength) {

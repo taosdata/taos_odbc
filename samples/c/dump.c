@@ -1043,6 +1043,33 @@ static int _execute_file(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handle
   return r ? -1 : 0;
 }
 
+static int _dump_current_db(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles_t *handles)
+{
+  (void)odbc_case;
+
+  SQLHANDLE hconn = handles->hconn;
+
+  SQLRETURN sr = SQL_SUCCESS;
+
+  if (stage != ODBC_DBC) return 0;
+
+  DUMP("%s:", __func__);
+
+  char db[1024]; db[0] = '\0';
+  SQLSMALLINT db_len = 0;
+  sr = CALL_SQLGetInfo(hconn, SQL_DATABASE_NAME, db, sizeof(db), &db_len);
+  if (sr != SQL_SUCCESS) return -1;
+  DUMP("DATABASE_NAME:[%s]", db);
+
+
+  SQLINTEGER db_n = 0;
+  sr = CALL_SQLGetConnectAttr(hconn, SQL_ATTR_CURRENT_CATALOG, db, sizeof(db), &db_n);
+  if (sr != SQL_SUCCESS) return -1;
+  DUMP("CURRENT_CATALOG:[%s]", db);
+
+  return 0;
+}
+
 static odbc_case_t odbc_cases[] = {
   ODBC_CASE(_dummy),
   ODBC_CASE(_dump_stmt_col_info),
@@ -1055,6 +1082,7 @@ static odbc_case_t odbc_cases[] = {
   ODBC_CASE(_exec_direct),
   ODBC_CASE(_bind_exec_direct),
   ODBC_CASE(_execute_file),
+  ODBC_CASE(_dump_current_db),
 };
 
 static int _dumping(arg_t *arg)

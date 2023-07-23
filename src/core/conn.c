@@ -1025,6 +1025,8 @@ static SQLRETURN _conn_get_info_driver_name(
 
 static SQLRETURN _conn_get_current_db(conn_t *conn, char *db, size_t len)
 {
+  // ref: https://dev.mysql.com/doc/connector-odbc/en/connector-odbc-usagenotes-functionality-catalog-schema.html
+  // TODO:
   int r = 0;
   ds_err_t ds_err; ds_err.err = 0; ds_err.str[0] = '\0';
   r = ds_conn_get_current_db(&conn->ds_conn, db, len, &ds_err);

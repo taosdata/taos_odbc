@@ -1244,6 +1244,7 @@ static int running_with_args(int argc, char *argv[], handles_t *handles, case_t 
       return 0;
     }
     if (strcmp(arg, "--pooling")==0) {
+      // ref: https://www.unixodbc.org/doc/conn_pool.html
       SQLRETURN sr = SQL_SUCCESS;
       sr = CALL_SQLSetEnvAttr(SQL_NULL_HANDLE, SQL_ATTR_CONNECTION_POOLING, (SQLPOINTER)SQL_CP_ONE_PER_DRIVER, 0);
       if (FAILED(sr)) return -1;

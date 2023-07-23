@@ -752,6 +752,15 @@ static int _prepare_bind_param_execute(odbc_case_t *odbc_case, odbc_stage_t stag
     return 0;
   }
   DUMP("env`%s`:%s", env, sql);
+  env = "SAMPLE_PREPARE_BIND_PARAM_EXECUTE_PARAMSET_SIZE";
+  const char *s_paramset_size = getenv(env);
+  if (!s_paramset_size) {
+    DUMP("env `%s` not set yet", env);
+    _bypass_mysql_flaw(handles);
+    return 0;
+  }
+  DUMP("env`%s`:%s", env, s_paramset_size);
+  int n_paramset_size = atoi(s_paramset_size);
 
   sr = CALL_SQLPrepare(hstmt, (SQLCHAR*)sql, SQL_NTS);
   if (sr != SQL_SUCCESS) return -1;
@@ -782,7 +791,7 @@ static int _prepare_bind_param_execute(odbc_case_t *odbc_case, odbc_stage_t stag
   SQLUSMALLINT ParamStatusArray[sizeof(v)/sizeof(v[0])];
   memset(ParamStatusArray, 0, sizeof(ParamStatusArray));
   SQLULEN paramset_size = sizeof(v)/sizeof(v[0]);
-  paramset_size = 1;
+  if (n_paramset_size>=0 && (SQLULEN)n_paramset_size < paramset_size) paramset_size = n_paramset_size;
 
   CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAM_BIND_TYPE, SQL_PARAM_BIND_BY_COLUMN, 0);
   CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAMSET_SIZE, (SQLPOINTER)paramset_size, 0);
@@ -826,7 +835,28 @@ static int _prepare_bind_param_execute(odbc_case_t *odbc_case, odbc_stage_t stag
     DUMP("%zd:[%d]%s", i+1, ParamStatusArray[i], sql_param_status(ParamStatusArray[i]));
   }
 
-  return 0;
+  SQLSMALLINT cols = 0;
+
+again:
+
+  sr = CALL_SQLNumResultCols(hstmt, &cols);
+  if (sr != SQL_SUCCESS) return -1;
+  DUMP("Columns:%d", cols);
+
+  if (cols > 0) {
+    while (1) {
+      sr = CALL_SQLFetch(hstmt);
+      if (sr == SQL_NO_DATA) break;
+      if (sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO) continue;
+      return -1;
+    }
+  }
+
+  sr = CALL_SQLMoreResults(hstmt);
+  if (sr == SQL_NO_DATA) return 0;
+  if (sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO) goto again;
+
+  return -1;
 }
 
 static int _exec_direct(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles_t *handles)

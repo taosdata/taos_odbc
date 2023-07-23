@@ -28,6 +28,7 @@
 
 #include "charset.h"
 #include "conn.h"
+#include "ds.h"
 #include "errs.h"
 #include "log.h"
 #include "taos_helpers.h"
@@ -647,10 +648,20 @@ SQLRETURN tables_open(
     }
     tables->tables_args.select_current_db = 0;
   } else {
-    int required = 0;
-    r = CALL_taos_get_current_db(tables->owner->conn->ds_conn.taos, tables->tables_args.db, (int)sizeof(tables->tables_args.db), &required);
+    // int required = 0;
+    // if (0) r = CALL_taos_get_current_db(tables->owner->conn->ds_conn.taos, tables->tables_args.db, (int)sizeof(tables->tables_args.db), &required);
+    // if (r) {
+    //   stmt_append_err(tables->owner, "HY000", 0, "General error:failed getting current db");
+    //   return SQL_ERROR;
+    // }
+    ds_conn_t *ds_conn = &tables->owner->conn->ds_conn;
+    char      *db      = tables->tables_args.db;
+    size_t     len     = sizeof(tables->tables_args.db);
+    ds_err_t   ds_err;
+    ds_err.err = 0; ds_err.str[0] = '\0';
+    r = ds_conn_get_current_db(ds_conn, db, len, &ds_err);
     if (r) {
-      stmt_append_err(tables->owner, "HY000", 0, "General error:failed getting current db");
+      stmt_append_err_format(tables->owner, "HY000", 0, "General error:failed getting current db:[%d]%s", ds_err.err, ds_err.str);
       return SQL_ERROR;
     }
     tables->tables_args.select_current_db = 1;

@@ -35,7 +35,7 @@ void ds_conn_setup(ds_conn_t *ds_conn) FA_HIDDEN;
 int ds_conn_query(ds_conn_t *ds_conn, const char *sql, ds_res_t *ds_res) FA_HIDDEN;
 const char* ds_conn_get_server_info(ds_conn_t *ds_conn) FA_HIDDEN;
 const char* ds_conn_get_client_info(ds_conn_t *ds_conn) FA_HIDDEN;
-int ds_conn_get_current_db(ds_conn_t *ds_conn, char *db, size_t len, int *e, const char **errstr) FA_HIDDEN;
+int ds_conn_get_current_db(ds_conn_t *ds_conn, char *db, size_t len, ds_err_t *ds_err) FA_HIDDEN;
 void ds_conn_close(ds_conn_t *ds_conn) FA_HIDDEN;
 
 int ds_conn_stmt_init(ds_conn_t *ds_conn, ds_stmt_t *ds_stmt) FA_HIDDEN;
@@ -50,7 +50,7 @@ int ds_res_fetch_block(ds_res_t *ds_res) FA_HIDDEN;
 
 int8_t ds_fields_field_type(ds_fields_t *ds_fields, int i_col) FA_HIDDEN;
 
-int ds_block_get_into_tsdb(ds_block_t *ds_block, int i_row, int i_col, tsdb_data_t *tsdb, char *buf, size_t len) FA_HIDDEN;
+int ds_block_get_into_tsdb(ds_block_t *ds_block, int i_row, int i_col, tsdb_data_t *tsdb, ds_err_t *ds_err) FA_HIDDEN;
 
 EXTERN_C_END
 

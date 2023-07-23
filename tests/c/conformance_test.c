@@ -2255,8 +2255,7 @@ static int test_cases(SQLHANDLE hconn, conn_arg_t *conn_arg)
     if (r) return r;
   }
 
-  if (conn_arg->ws) W("SQLTables is not fully implemented yet under Websocket-backend");
-  if (!conn_arg->ws) r = test_case5(hconn);
+  r = test_case5(hconn);
   if (r) return r;
 
   r = test_case6(hconn);
@@ -2265,11 +2264,10 @@ static int test_cases(SQLHANDLE hconn, conn_arg_t *conn_arg)
   r = test_case7(hconn);
   if (r) return r;
 
-  if (conn_arg->ws) W("SQL_CURRENT_QUALIFIER not supported yet under Websocket-backend");
-  if (!conn_arg->ws) r = test_case8(hconn);
+  r = test_case8(hconn);
+  if (r) return r;
 
-  if (conn_arg->ws) W("SQLTables is not fully implemented yet under Websocket-backend");
-  if (!conn_arg->ws) r = test_case9(hconn);
+  r = test_case9(hconn);
   if (r) return r;
 
   return r;

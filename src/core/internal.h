@@ -471,13 +471,18 @@ struct charset_convs_s {
   charset_conv_t            *cnv_from_wchar_to_tsdb;
 };
 
+struct ds_err_s {
+  int                err;
+  char               str[1024];
+};
+
 struct ds_conn_s {
   conn_t                *conn;
   void                  *taos;
   int         (*query)           (ds_conn_t *ds_conn, const char *sql, ds_res_t *ds_res);
   const char* (*get_server_info) (ds_conn_t *ds_conn);
   const char* (*get_client_info) (ds_conn_t *ds_conn);
-  int         (*get_current_db)  (ds_conn_t *ds_conn, char *db, size_t len, int *e, const char **errstr);
+  int         (*get_current_db)  (ds_conn_t *ds_conn, char *db, size_t len, ds_err_t *ds_err);
   void        (*close)           (ds_conn_t *ds_conn);
 
   int         (*stmt_init)       (ds_conn_t *ds_conn, ds_stmt_t *ds_stmt);
@@ -495,7 +500,7 @@ struct ds_fields_s {
 struct ds_block_s {
   ds_res_t              *ds_res;
 
-  int  (*get_into_tsdb)(ds_block_t *ds_block, int i_row, int i_col, tsdb_data_t *tsdb, char *buf, size_t len);
+  int  (*get_into_tsdb)(ds_block_t *ds_block, int i_row, int i_col, tsdb_data_t *tsdb, ds_err_t *ds_err);
 
   int                    nr_rows_in_block;
   const void            *block;

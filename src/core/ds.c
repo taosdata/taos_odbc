@@ -67,16 +67,55 @@ static const char* _ds_ws_get_client_info(ds_conn_t *ds_conn)
   return "client_info-undefined-under-taosws-for-the-moment";
 }
 
-static int _ds_ws_get_current_db(ds_conn_t *ds_conn, char *db, size_t len, int *e, const char **errstr)
+static int _ds_ws_get_current_db_with_ds_res(ds_conn_t *ds_conn, char *db, size_t len, ds_res_t *ds_res, ds_err_t *ds_err)
 {
-  (void)db;
-  (void)len;
+  int r = 0;
+
+  const char *sql = "select database()";
+  r = ds_conn_query(ds_conn, sql, ds_res);
+  if (r) {
+    ds_err->err        = ds_res_errno(ds_res);
+    snprintf(ds_err->str, sizeof(ds_err->str), "[taosws]:%s", ds_res_errstr(ds_res));
+    return -1;
+  }
+
+  r = ds_res_fetch_block(ds_res);
+  if (r) {
+    ds_err->err        = ds_res_errno(ds_res);
+    snprintf(ds_err->str, sizeof(ds_err->str), "[taosws]:%s", ds_res_errstr(ds_res));
+    return -1;
+  }
+
+  tsdb_data_t tsdb_data = {0};
+  r = ds_block_get_into_tsdb(&ds_res->block, 0, 0, &tsdb_data, ds_err);
+  if (r) return -1;
+
+  if (tsdb_data.is_null) {
+    db[0] = '\0';
+    return 0;
+  }
+
+  if (tsdb_data.type != TSDB_DATA_TYPE_VARCHAR) {
+    ds_err->err        = 0;
+    snprintf(ds_err->str, sizeof(ds_err->str), "expecting TSDB_DATA_TYPE_VARCHAR, but got ==%s==", taos_data_type(tsdb_data.type));
+    return -1;
+  }
+
+  snprintf(db, len, "%.*s", (int)tsdb_data.str.len, tsdb_data.str.str);
+  return 0;
+}
+
+static int _ds_ws_get_current_db(ds_conn_t *ds_conn, char *db, size_t len, ds_err_t *ds_err)
+{
+  int r = 0;
 
   OA_NIY(ds_conn->conn);
 
-  *e = 0;
-  *errstr = "websocket backend not implemented yet";
-  return -1;
+  ds_res_t ds_res = {0};
+  r = _ds_ws_get_current_db_with_ds_res(ds_conn, db, len, &ds_res, ds_err);
+  ds_res_close(&ds_res);
+
+  return r ? -1 : 0;
 }
 
 static void _ds_ws_close(ds_conn_t *ds_conn)
@@ -157,7 +196,7 @@ static const char* _ds_tsdb_get_client_info(ds_conn_t *ds_conn)
   return CALL_taos_get_client_info();
 }
 
-static int _ds_tsdb_get_current_db(ds_conn_t *ds_conn, char *db, size_t len, int *e, const char **errstr)
+static int _ds_tsdb_get_current_db(ds_conn_t *ds_conn, char *db, size_t len, ds_err_t *ds_err)
 {
   int r = 0;
 
@@ -166,8 +205,8 @@ static int _ds_tsdb_get_current_db(ds_conn_t *ds_conn, char *db, size_t len, int
   int required = 0; // FIXME: what usage?
   r = CALL_taos_get_current_db((TAOS*)ds_conn->taos, db, (int)len, &required);
   if (r) {
-    *e = taos_errno(NULL);
-    *errstr = taos_errstr(NULL);
+    ds_err->err = taos_errno(NULL);
+    snprintf(ds_err->str, sizeof(ds_err->str), "%s", taos_errstr(NULL));
     return -1;
   }
 
@@ -271,12 +310,12 @@ const char* ds_conn_get_client_info(ds_conn_t *ds_conn)
   return ds_conn->get_client_info(ds_conn);
 }
 
-int ds_conn_get_current_db(ds_conn_t *ds_conn, char *db, size_t len, int *e, const char **errstr)
+int ds_conn_get_current_db(ds_conn_t *ds_conn, char *db, size_t len, ds_err_t *ds_err)
 {
   OA_NIY(ds_conn->conn);
   OA_NIY(ds_conn->get_current_db);
 
-  return ds_conn->get_current_db(ds_conn, db, len, e, errstr);
+  return ds_conn->get_current_db(ds_conn, db, len, ds_err);
 }
 
 void ds_conn_close(ds_conn_t *ds_conn)
@@ -375,7 +414,7 @@ static int8_t _ds_fields_ws_field_type(ds_fields_t *ds_fields, int i_col)
   return (int8_t)fields[i_col].type;
 }
 
-static int _ds_block_ws_get_into_tsdb(ds_block_t *ds_block, int i_row, int i_col, tsdb_data_t *tsdb, char *buf, size_t len)
+static int _ds_block_ws_get_into_tsdb(ds_block_t *ds_block, int i_row, int i_col, tsdb_data_t *tsdb, ds_err_t *ds_err)
 {
   ds_res_t *ds_res = ds_block->ds_res;
 
@@ -391,7 +430,7 @@ static int _ds_block_ws_get_into_tsdb(ds_block_t *ds_block, int i_row, int i_col
 
   const WS_FIELD *field = fields + i_col;
 
-  return helper_get_tsdb_ws(result_precision, field->name, col_type, col_data, col_len, i_row, i_col, tsdb, buf, len);
+  return helper_get_tsdb_ws(result_precision, field->name, col_type, col_data, col_len, i_row, i_col, tsdb, ds_err->str, sizeof(ds_err->str));
 }
 
 #endif                       /* } */
@@ -439,7 +478,7 @@ static int8_t _ds_fields_tsdb_field_type(ds_fields_t *ds_fields, int i_col)
   return fields[i_col].type;
 }
 
-static int _ds_block_tsdb_get_into_tsdb(ds_block_t *ds_block, int i_row, int i_col, tsdb_data_t *tsdb, char *buf, size_t len)
+static int _ds_block_tsdb_get_into_tsdb(ds_block_t *ds_block, int i_row, int i_col, tsdb_data_t *tsdb, ds_err_t *ds_err)
 {
   ds_res_t *ds_res = ds_block->ds_res;
 
@@ -449,7 +488,7 @@ static int _ds_block_tsdb_get_into_tsdb(ds_block_t *ds_block, int i_row, int i_c
   TAOS_ROW      block  = (TAOS_ROW)ds_block->block;
   int result_precision = ds_res->result_precision;
 
-  return helper_get_tsdb(res, block_mode, fields, result_precision, block, i_row, i_col, tsdb, buf, len);
+  return helper_get_tsdb(res, block_mode, fields, result_precision, block, i_row, i_col, tsdb, ds_err->str, sizeof(ds_err->str));
 }
 
 static void _ds_res_setup(ds_res_t *ds_res)
@@ -561,9 +600,9 @@ static void _ds_block_setup(ds_block_t *ds_block)
   return;
 }
 
-int ds_block_get_into_tsdb(ds_block_t *ds_block, int i_row, int i_col, tsdb_data_t *tsdb, char *buf, size_t len)
+int ds_block_get_into_tsdb(ds_block_t *ds_block, int i_row, int i_col, tsdb_data_t *tsdb, ds_err_t *ds_err)
 {
   OA_NIY(ds_block->get_into_tsdb);
-  return ds_block->get_into_tsdb(ds_block, i_row, i_col, tsdb, buf, len);
+  return ds_block->get_into_tsdb(ds_block, i_row, i_col, tsdb, ds_err);
 }
 

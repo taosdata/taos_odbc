@@ -2032,7 +2032,7 @@ static int test_case7(SQLHANDLE hconn)
   return (r || FAILED(sr)) ? -1 : 0;
 }
 
-static int test_hard_coded(SQLHANDLE henv, const char *dsn, const char *uid, const char *pwd, const char *connstr, int non_taos, int ws)
+static int test_hard_coded(SQLHANDLE henv, const char *dsn, const char *uid, const char *pwd, const char *connstr, int non_taos)
 {
   (void)non_taos;
 
@@ -2073,8 +2073,7 @@ static int test_hard_coded(SQLHANDLE henv, const char *dsn, const char *uid, con
         if (r) break;
       }
 
-      if (ws) W("SQLTables is not fully implemented yet under Websocket-backend");
-      if (!ws) r = test_case5(hconn);
+      r = test_case5(hconn);
       if (r) break;
 
       r = test_case6(hconn);
@@ -2463,19 +2462,19 @@ static int test_hard_coded_cases(SQLHANDLE henv)
   int r = 0;
 
 #ifdef ENABLE_MYSQL_TEST         /* { */
-  r = test_hard_coded(henv, "MYSQL_ODBC_DSN", "root", "taosdata", NULL, 1, 0);
+  r = test_hard_coded(henv, "MYSQL_ODBC_DSN", "root", "taosdata", NULL, 1);
   if (r) return -1;
 #endif                           /* } */
 
 #ifdef ENABLE_SQLITE3_TEST       /* { */
-  r = test_hard_coded(henv, NULL, NULL, NULL, "Driver={SQLite3};Database=/tmp/foo.sqlite3", 1, 0);
+  r = test_hard_coded(henv, NULL, NULL, NULL, "Driver={SQLite3};Database=/tmp/foo.sqlite3", 1);
   if (r) return -1;
 #endif                           /* } */
 
-  r = test_hard_coded(henv, "TAOS_ODBC_DSN", NULL, NULL, NULL, 0, 0);
+  r = test_hard_coded(henv, "TAOS_ODBC_DSN", NULL, NULL, NULL, 0);
   if (r) return -1;
 
-  r = test_hard_coded(henv, "TAOS_ODBC_WS_DSN", NULL, NULL, NULL, 0, 1);
+  r = test_hard_coded(henv, "TAOS_ODBC_WS_DSN", NULL, NULL, NULL, 0);
   if (r) return -1;
 
   return 0;

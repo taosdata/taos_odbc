@@ -227,13 +227,13 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs_with_res(
         "General error:failed to fetch block from `information_schema.ins_configs`:[%d]%s", err, s);
     return SQL_ERROR;
   }
-  char buf[4096]; buf[0] = '\0';
+  ds_err_t ds_err; ds_err.err = 0; ds_err.str[0] = '\0';
   for (int i=0; i<ds_res->block.nr_rows_in_block; ++i) {
 
     tsdb_data_t name = {0};
-    r = ds_block_get_into_tsdb(&ds_res->block, i, 0, &name, buf, sizeof(buf));
+    r = ds_block_get_into_tsdb(&ds_res->block, i, 0, &name, &ds_err);
     if (r) {
-      conn_append_err_format(conn, "HY000", 0, "General error:%.*s", (int)strlen(buf), buf);
+      conn_append_err_format(conn, "HY000", 0, "General error:%.*s", (int)strlen(ds_err.str), ds_err.str);
       return SQL_ERROR;
     }
     if (name.type != TSDB_DATA_TYPE_VARCHAR || name.is_null) {
@@ -242,9 +242,9 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs_with_res(
     }
 
     tsdb_data_t value = {0};
-    r = ds_block_get_into_tsdb(&ds_res->block, i, 1, &value, buf, sizeof(buf));
+    r = ds_block_get_into_tsdb(&ds_res->block, i, 1, &value, &ds_err);
     if (r) {
-      conn_append_err_format(conn, "HY000", 0, "General error:%.*s", (int)strlen(buf), buf);
+      conn_append_err_format(conn, "HY000", 0, "General error:%.*s", (int)strlen(ds_err.str), ds_err.str);
       return SQL_ERROR;
     }
     if (value.type != TSDB_DATA_TYPE_VARCHAR || value.is_null) {
@@ -384,12 +384,12 @@ static int _conn_get_timezone_from_res(conn_t *conn, const char *sql, ds_res_t *
     return -1;
   }
 
-  char buf[4096]; buf[0] = '\0';
+  ds_err_t ds_err; ds_err.err = 0; ds_err.str[0] = '\0';
 
   tsdb_data_t ts = {0};
-  r = ds_block_get_into_tsdb(&ds_res->block, 0, 0, &ts, buf, sizeof(buf));
+  r = ds_block_get_into_tsdb(&ds_res->block, 0, 0, &ts, &ds_err);
   if (r) {
-    conn_append_err_format(conn, "HY000", 0, "General error:%.*s", (int)strlen(buf), buf);
+    conn_append_err_format(conn, "HY000", 0, "General error:%.*s", (int)strlen(ds_err.str), ds_err.str);
     return -1;
   }
 
@@ -1033,12 +1033,11 @@ static SQLRETURN _conn_get_info_database_name(
   // FIXME: `database` or current database selected?
   int r = 0;
 
-  int e = 0;
-  const char *errstr = NULL;
+  ds_err_t ds_err; ds_err.err = 0; ds_err.str[0] = '\0';
   char db[1024]; db[0] = '\0';
-  r = ds_conn_get_current_db(&conn->ds_conn, db, sizeof(db), &e, &errstr);
+  r = ds_conn_get_current_db(&conn->ds_conn, db, sizeof(db), &ds_err);
   if (r) {
-    conn_append_err_format(conn, "HY000", e, "General error:%s", errstr);
+    conn_append_err_format(conn, "HY000", ds_err.err, "General error:%s", ds_err.str);
     return SQL_ERROR;
   }
 
@@ -1404,12 +1403,11 @@ static SQLRETURN _conn_get_attr_current_qualifier(
 {
   int r = 0;
 
-  int e = 0;
-  const char *errstr = NULL;
+  ds_err_t ds_err; ds_err.err = 0; ds_err.str[0] = '\0';
   char db[1024]; db[0] = '\0';
-  r = ds_conn_get_current_db(&conn->ds_conn, db, sizeof(db), &e, &errstr);
+  r = ds_conn_get_current_db(&conn->ds_conn, db, sizeof(db), &ds_err);
   if (r) {
-    conn_append_err_format(conn, "HY000", e, "General error:%s", errstr);
+    conn_append_err_format(conn, "HY000", ds_err.err, "General error:%s", ds_err.str);
     return SQL_ERROR;
   }
 

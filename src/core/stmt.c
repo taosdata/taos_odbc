@@ -1273,16 +1273,17 @@ static SQLRETURN _stmt_set_paramset_size(stmt_t *stmt, SQLULEN paramset_size)
     return SQL_SUCCESS_WITH_INFO;
   }
 
+  descriptor_t *APD = stmt_APD(stmt);
+  desc_header_t *APD_header = &APD->header;
+  APD_header->DESC_ARRAY_SIZE = paramset_size;
+
   if (paramset_size != 1) {
     if (stmt->tsdb_stmt.prepared && !stmt->tsdb_stmt.is_insert_stmt) {
+      // NOTE: we still keep it in APD_header->DESC_ARRAY_SIZE, in case the caller does not check return code
       stmt_append_err(stmt, "HY000", 0, "General error:taosc currently does not support batch execution for non-insert-statement");
       return SQL_ERROR;
     }
   }
-
-  descriptor_t *APD = stmt_APD(stmt);
-  desc_header_t *APD_header = &APD->header;
-  APD_header->DESC_ARRAY_SIZE = paramset_size;
 
   return SQL_SUCCESS;
 }
@@ -3299,6 +3300,44 @@ static SQLRETURN _stmt_param_check_sqlc_sbigint_sql_varchar(stmt_t *stmt, param_
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_param_check_sqlc_tinyint_sql_varchar(stmt_t *stmt, param_state_t *param_state)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  sqlc_data_t   *sqlc_data  = &param_state->sqlc_data;
+  sql_data_t    *data       = &param_state->sql_data;
+
+  int8_t v = sqlc_data->i8;
+  char buf[64];
+  snprintf(buf, sizeof(buf), "%d", v);
+
+  sr = _stmt_param_copy_sqlc_char_sql_varchar(stmt, buf, strlen(buf), param_state);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  data->type = SQL_VARCHAR;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_param_check_sqlc_slong_sql_varchar(stmt_t *stmt, param_state_t *param_state)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  sqlc_data_t   *sqlc_data  = &param_state->sqlc_data;
+  sql_data_t    *data       = &param_state->sql_data;
+
+  int8_t v = sqlc_data->i32;
+  char buf[64];
+  snprintf(buf, sizeof(buf), "%d", v);
+
+  sr = _stmt_param_copy_sqlc_char_sql_varchar(stmt, buf, strlen(buf), param_state);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  data->type = SQL_VARCHAR;
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_param_check_sqlc_char_sql_varchar(stmt_t *stmt, param_state_t *param_state)
 {
   SQLRETURN sr = SQL_SUCCESS;
@@ -4570,6 +4609,12 @@ static const sqlc_sql_map_t          _sqlc_sql_map[] = {
     _stmt_param_get_sqlc_long,
     _stmt_param_check_dummy,
     _stmt_param_guess_sqlc_long},
+  {SQL_C_SLONG, SQL_VARCHAR,
+    _stmt_param_bind_set_APD_record_sqlc_slong,
+    _stmt_param_bind_set_IPD_record_sql_varchar,
+    _stmt_param_get_sqlc_slong,
+    _stmt_param_check_sqlc_slong_sql_varchar,
+    _stmt_param_guess_sqlc_slong},
 
   {SQL_C_SHORT, SQL_SMALLINT,
     _stmt_param_bind_set_APD_record_sqlc_short,
@@ -4583,6 +4628,12 @@ static const sqlc_sql_map_t          _sqlc_sql_map[] = {
     _stmt_param_bind_set_IPD_record_sql_tinyint,
     _stmt_param_get_sqlc_tinyint,
     _stmt_param_check_dummy,
+    _stmt_param_guess_sqlc_tinyint},
+  {SQL_C_STINYINT, SQL_VARCHAR,
+    _stmt_param_bind_set_APD_record_sqlc_tinyint,
+    _stmt_param_bind_set_IPD_record_sql_varchar,
+    _stmt_param_get_sqlc_tinyint,
+    _stmt_param_check_sqlc_tinyint_sql_varchar,
     _stmt_param_guess_sqlc_tinyint},
 
   {SQL_C_DOUBLE, SQL_TYPE_TIMESTAMP,
@@ -6317,12 +6368,18 @@ static const param_bind_map_t _param_bind_map[] = {
   {SQL_C_LONG, SQL_INTEGER, TSDB_DATA_TYPE_INT,
     _stmt_param_adjust_reuse_sqlc_long,
     _stmt_param_conv_dummy},
+  {SQL_C_SLONG, SQL_VARCHAR, TSDB_DATA_TYPE_INT,
+    _stmt_param_adjust_reuse_sqlc_long,
+    _stmt_param_conv_dummy},
 
   {SQL_C_SHORT, SQL_SMALLINT, TSDB_DATA_TYPE_SMALLINT,
     _stmt_param_adjust_reuse_sqlc_short,
     _stmt_param_conv_dummy},
 
   {SQL_C_STINYINT, SQL_TINYINT, TSDB_DATA_TYPE_TINYINT,
+    _stmt_param_adjust_reuse_sqlc_tinyint,
+    _stmt_param_conv_dummy},
+  {SQL_C_STINYINT, SQL_VARCHAR, TSDB_DATA_TYPE_SMALLINT,
     _stmt_param_adjust_reuse_sqlc_tinyint,
     _stmt_param_conv_dummy},
 };
@@ -6765,6 +6822,13 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
   if (params_processed_ptr) *params_processed_ptr = 0;
   SQLULEN nr_params_processed = 0;
 
+  if (nr_paramset_size != 1) {
+    if (stmt->tsdb_stmt.prepared && !stmt->tsdb_stmt.is_insert_stmt) {
+      stmt_append_err(stmt, "HY000", 0, "General error:taosc currently does not support batch execution for non-insert-statement");
+      return SQL_ERROR;
+    }
+  }
+
   for (size_t i_row = 0; i_row < nr_paramset_size; /* i_row += param_state->nr_batch_size */) {
     param_state->i_batch_offset = i_row;
     param_state->nr_batch_size = (int)(nr_paramset_size - i_row);
@@ -6876,11 +6940,26 @@ static SQLRETURN _stmt_execute_with_params(stmt_t *stmt)
 {
   SQLRETURN sr = SQL_SUCCESS;
 
+  descriptor_t *APD = stmt_APD(stmt);
+  desc_header_t *APD_header = &APD->header;
+
   SQLSMALLINT n = 0;
   sr = _stmt_get_num_params(stmt, &n);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   if (n <= 0) {
+    stmt_niy(stmt);
+    return SQL_ERROR;
+  }
+
+  if (APD_header->DESC_COUNT < n) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:The number of parameters[%d] specified in SQLBindParameter was less than the number of parameters[%d] in the SQL statement",
+        APD_header->DESC_COUNT, n);
+    return SQL_ERROR;
+  }
+
+  if (APD_header->DESC_COUNT > n) {
     stmt_niy(stmt);
     return SQL_ERROR;
   }

@@ -782,7 +782,7 @@ static int _prepare_bind_param_execute(odbc_case_t *odbc_case, odbc_stage_t stag
   SQLUSMALLINT ParamStatusArray[sizeof(v)/sizeof(v[0])];
   memset(ParamStatusArray, 0, sizeof(ParamStatusArray));
   SQLULEN paramset_size = sizeof(v)/sizeof(v[0]);
-  paramset_size = 2;
+  paramset_size = 1;
 
   CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAM_BIND_TYPE, SQL_PARAM_BIND_BY_COLUMN, 0);
   CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAMSET_SIZE, (SQLPOINTER)paramset_size, 0);
@@ -791,7 +791,7 @@ static int _prepare_bind_param_execute(odbc_case_t *odbc_case, odbc_stage_t stag
 
   {
     SQLSMALLINT     InputOutputType               = SQL_PARAM_INPUT;
-    SQLSMALLINT     ValueType                     = SQL_C_TINYINT;
+    SQLSMALLINT     ValueType                     = SQL_C_STINYINT;
     SQLSMALLINT     ParameterType                 = SQL_VARCHAR;
     SQLULEN         ColumnSize                    = 2;
     SQLSMALLINT     DecimalDigits                 = 0;
@@ -823,7 +823,7 @@ static int _prepare_bind_param_execute(odbc_case_t *odbc_case, odbc_stage_t stag
   if (sr != SQL_SUCCESS) return -1;
 
   for (SQLULEN i = 0; i<ParamsProcessed; ++i) {
-    DUMP("%zd:%d", i+1, ParamStatusArray[i]);
+    DUMP("%zd:[%d]%s", i+1, ParamStatusArray[i], sql_param_status(ParamStatusArray[i]));
   }
 
   return 0;

@@ -6960,7 +6960,15 @@ static SQLRETURN _stmt_execute_with_params(stmt_t *stmt)
   }
 
   if (APD_header->DESC_COUNT > n) {
-    stmt_niy(stmt);
+    // NOTE: just ignore them
+    // stmt_niy(stmt);
+    // return SQL_ERROR;
+  }
+
+  sqls_t *sqls = &stmt->sqls;
+  if (sqls->nr > 1) {
+    // ref: https://learn.microsoft.com/en-us/sql/odbc/reference/develop-app/batches-of-sql-statements?view=sql-server-ver16
+    stmt_append_err_format(stmt, "HY000", 0, "General error:batch statements with arrays of parameters not supported yet");
     return SQL_ERROR;
   }
 
@@ -7113,11 +7121,11 @@ SQLRETURN stmt_prepare(stmt_t *stmt,
   sqls_parser_param_release(&param);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-  sqls_t *sqls = &stmt->sqls;
-  if (sqls->nr > 1) {
-    stmt_append_err_format(stmt, "HY000", 0, "General error:multiple statements in a single SQLPrepare not supported yet");
-    return SQL_ERROR;
-  }
+  // sqls_t *sqls = &stmt->sqls;
+  // if (sqls->nr > 1) {
+  //   stmt_append_err_format(stmt, "HY000", 0, "General error:multiple statements in a single SQLPrepare not supported yet");
+  //   return SQL_ERROR;
+  // }
 
   sr = _stmt_get_next_sql(stmt);
   if (sr == SQL_NO_DATA) {

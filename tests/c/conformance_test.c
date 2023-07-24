@@ -2147,10 +2147,8 @@ static int test_cases(SQLHANDLE hconn, conn_arg_t *conn_arg)
   r = test_case7(hconn);
   if (r) return r;
 
-  if (!conn_arg->ws) {
-    r = test_case8(hconn);
-    if (r) return r;
-  }
+  r = test_case8(hconn);
+  if (r) return r;
 
   r = test_case9(hconn);
   if (r) return r;

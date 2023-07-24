@@ -2073,7 +2073,7 @@ static int test_hard_coded(SQLHANDLE henv, const char *dsn, const char *uid, con
         if (r) break;
       }
 
-      if (1) r = test_case5(hconn);
+      r = test_case5(hconn);
       if (r) break;
 
       r = test_case6(hconn);

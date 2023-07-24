@@ -332,6 +332,9 @@ static int test_case0(handles_t *handles, const char *conn_str, int ws)
     sql = "insert into t (i16) values (?)";
     r = execute_with_int(connstr, sql, 32767, 5);
     if (r) return -1;
+    sql = "select * from t where i16 = ?";
+    r = execute_with_params(connstr, sql, 1, "32767");
+    if (r) return -1;
   }
 #endif                     /* } */
   connstr = conn_str;
@@ -339,7 +342,7 @@ static int test_case0(handles_t *handles, const char *conn_str, int ws)
          "create database if not exists bar;"
          "use bar;"
          "drop table if exists t;"
-         "create table t(ts timestamp, name varchar(20), mark nchar(20));"
+         "create table t(ts timestamp, name varchar(20), mark nchar(20), i32 int);"
          "insert into t (ts, name, mark) values (now(), '测试', '人物');"
          "insert into t (ts, name, mark) values (now(), '测试', '人物m');"
          "insert into t (ts, name, mark) values (now(), '测试', '人物n');"
@@ -360,8 +363,11 @@ static int test_case0(handles_t *handles, const char *conn_str, int ws)
     sql = "select * from bar.t where name like ?";
     r = execute_with_params(connstr, sql, 1, "测试");
     if (r) return -1;
-    sql = "insert into t (i16) values (?)";
-    if (0) r = execute_with_int(connstr, sql, 32767, 5);
+    sql = "insert into bar.t (ts, i32) values (?, ?)";
+    r = execute_with_params(connstr, sql, 2, "2023-05-07 10:11:45.216", "32767");
+    if (r) return -1;
+    sql = "select * from bar.t where i32 = ?";
+    r = execute_with_int(connstr, sql, 32767, 5);
     if (r) return -1;
   }
 
@@ -1238,6 +1244,7 @@ static int running_with_args(int argc, char *argv[], handles_t *handles, case_t 
       return 0;
     }
     if (strcmp(arg, "--pooling")==0) {
+      // ref: https://www.unixodbc.org/doc/conn_pool.html
       SQLRETURN sr = SQL_SUCCESS;
       sr = CALL_SQLSetEnvAttr(SQL_NULL_HANDLE, SQL_ATTR_CONNECTION_POOLING, (SQLPOINTER)SQL_CP_ONE_PER_DRIVER, 0);
       if (FAILED(sr)) return -1;

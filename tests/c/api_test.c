@@ -23,7 +23,7 @@
  */
 
 #include "odbc_helpers.h"
-
+#include "c_test_helper.h"
 #include "enums.h"
 
 #include <assert.h>
@@ -39,86 +39,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <taos.h>
-
-#define TEST_CASE_BEG(_func)                                \
-  D("test case: %s...", _func)
-
-#define TEST_CASE_END(_func, _exp)                          \
-  if (MATCH(r, _exp)) {                                     \
-    D("test case: %s --> %s%s%s",                           \
-                    _func,                                  \
-                    color_green(),                          \
-                    "succeeded",                            \
-                    color_reset());                         \
-  } else if (r) {                                           \
-    D("test case: %s --> %s%s%s",                           \
-                    _func,                                  \
-                    color_red(),                            \
-                    "failed",                               \
-                    color_reset());                         \
-    return -1;                                              \
-  } else {                                                  \
-    D("test case: %s --> %s%s%s",                           \
-                    _func,                                  \
-                    color_red(),                            \
-                    "failure expected but succeeded",       \
-                    color_reset());                         \
-    return -1;                                              \
-  }
-
-#define CHK0(_func, _exp)                                                                          \
-  {                                                                                                \
-    int r;                                                                                         \
-    TEST_CASE_BEG(#_func "(" #_exp ")");                                                           \
-    r = _func();                                                                                   \
-    TEST_CASE_END(#_func "(" #_exp ")", _exp);                                                     \
-  }
-
-#define CHK1(_func, _arg1, _exp)                                                                   \
-  {                                                                                                \
-    int r;                                                                                         \
-    TEST_CASE_BEG(#_func "(" #_arg1 "," #_exp ")");                                                \
-    r = _func(_arg1);                                                                              \
-    TEST_CASE_END(#_func "(" #_arg1 "," #_exp ")", _exp);                                          \
-  }
-
-#define CHK2(_func, _v1, _v2, _exp)                                                                \
-  {                                                                                                \
-    int r;                                                                                         \
-    TEST_CASE_BEG(#_func "(" #_v1 "," #_v2 "," #_exp ")");                                         \
-    r = _func(_v1, _v2);                                                                           \
-    TEST_CASE_END(#_func "(" #_v1 "," #_v2 "," #_exp ")", _exp);                                   \
-  }
-
-#define CHK3(_func, _v1, _v2, _v3, _exp)                                                           \
-  {                                                                                                \
-    int r;                                                                                         \
-    TEST_CASE_BEG(#_func "(" #_v1 "," #_v2 "," #_v3 "," #_exp ")");                                \
-    r = _func(_v1, _v2, _v3);                                                                      \
-    TEST_CASE_END(#_func "(" #_v1 "," #_v2 "," #_v3 "," #_exp ")", _exp);                          \
-  }
-
-#define CHK4(_func, _v1, _v2, _v3, _v4, _exp)                                                      \
-  {                                                                                                \
-    int r;                                                                                         \
-    TEST_CASE_BEG(#_func "(" #_v1 "," #_v2 "," #_v3 "," #_v4 "," #_exp ")");                       \
-    r = _func(_v1, _v2, _v3, _v4);                                                                 \
-    TEST_CASE_END(#_func "(" #_v1 "," #_v2 "," #_v3 "," #_v4 "," #_exp ")", _exp);                 \
-  }
-
-#define MATCH(a, b)  (!!(a) == !!(b))
-
-__attribute__((unused))
-static int test_ok(void)
-{
-  return 0;
-}
-
-__attribute__((unused))
-static int test_failure(void)
-{
-  return -1;
-}
 
 __attribute__((unused))
 static int test_so(const char *so)
@@ -489,6 +409,8 @@ static int do_sql_driver_conns(SQLHANDLE connh)
   CHK4(test_sql_conn, connh, "TAOS_ODBC_DSN", "root", NULL, 0);
   CHK4(test_sql_conn, connh, "TAOS_ODBC_DSN", NULL, "taosdata", 0);
   CHK4(test_sql_conn, connh, "TAOS_ODBC_DSN", "root", "", -1);
+  CHK4(test_sql_conn, connh, "TAOS_ODBC_DSN", "root", "wrongpassword", -1);
+  CHK4(test_sql_conn, connh, "TAOS_ODBC_DSN", "错误用户**", "&$错误密码", -1);
   CHK4(test_sql_conn, connh, "TAOS_ODBC_DSN", "", "taosdata", -1);
   CHK4(test_sql_conn, connh, "TAOS_ODBC_DSN", "", "", -1);
   CHK4(test_sql_conn, connh, "TAOS_ODBC_DSN", "", NULL, -1);
@@ -500,6 +422,7 @@ static int do_sql_driver_conns(SQLHANDLE connh)
   CHK2(test_sql_driver_conn, connh, "Driver={TAOS_ODBC_DRIVER};DB=what", -1);
   CHK2(test_sql_driver_conn, connh, "DSN=TAOS_ODBC_DSN;Server=127.0.0.1:6030", 0);
   CHK2(test_sql_driver_conn, connh, "DSN=TAOS_ODBC_DSN;Server=127.0.0.1:6666", -1);
+  CHK2(test_sql_driver_conn, connh, "Driver={TAOS_ODBC_DRIVER};Server=192.0.0.3:6030", -1);
 
 #ifdef HAVE_TAOSWS
   CHK4(test_sql_conn, connh, "TAOS_ODBC_WS_DSN", NULL, NULL, 0);

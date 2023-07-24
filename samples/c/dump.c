@@ -781,17 +781,20 @@ static int _prepare_bind_param_execute(odbc_case_t *odbc_case, odbc_stage_t stag
         i+1, sql_data_type(DataType), (uint64_t)ParameterSize, DecimalDigits, sql_nullable(Nullable));
   }
 
-  int8_t v[20];
-  SQLLEN v_ind[20];
+#define ARRAY_SIZE              20
+  int32_t param1[ARRAY_SIZE],     param2[ARRAY_SIZE];
+  SQLLEN  param1_ind[ARRAY_SIZE], param2_ind[ARRAY_SIZE];
 
-  memset(v, 0, sizeof(v));
-  memset(v_ind, 0, sizeof(v_ind));
+  memset(param1, 0, sizeof(param1));
+  memset(param1_ind, 0, sizeof(param1_ind));
+  memset(param2, 0, sizeof(param2));
+  memset(param2_ind, 0, sizeof(param2_ind));
 
   SQLULEN ParamsProcessed = 0;
-  SQLUSMALLINT ParamStatusArray[sizeof(v)/sizeof(v[0])];
+  SQLUSMALLINT ParamStatusArray[ARRAY_SIZE];
   memset(ParamStatusArray, 0, sizeof(ParamStatusArray));
-  SQLULEN paramset_size = sizeof(v)/sizeof(v[0]);
-  if (n_paramset_size>=0 && (SQLULEN)n_paramset_size < paramset_size) paramset_size = n_paramset_size;
+  SQLULEN paramset_size = ARRAY_SIZE;
+  if (n_paramset_size>=0 && n_paramset_size < ARRAY_SIZE) paramset_size = n_paramset_size;
 
   CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAM_BIND_TYPE, SQL_PARAM_BIND_BY_COLUMN, 0);
   CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAMSET_SIZE, (SQLPOINTER)paramset_size, 0);
@@ -800,14 +803,26 @@ static int _prepare_bind_param_execute(odbc_case_t *odbc_case, odbc_stage_t stag
 
   {
     SQLSMALLINT     InputOutputType               = SQL_PARAM_INPUT;
-    SQLSMALLINT     ValueType                     = SQL_C_STINYINT;
+    SQLSMALLINT     ValueType                     = SQL_C_SLONG;
     SQLSMALLINT     ParameterType                 = SQL_VARCHAR;
-    SQLULEN         ColumnSize                    = 2;
+    SQLULEN         ColumnSize                    = sizeof(param1[0]);
     SQLSMALLINT     DecimalDigits                 = 0;
-    SQLPOINTER      ParameterValuePtr             = v;
-    SQLLEN          BufferLength                  = sizeof(v[0]);
+    SQLPOINTER      ParameterValuePtr             = param1;
+    SQLLEN          BufferLength                  = sizeof(param1[0]);
 
-    sr = CALL_SQLBindParameter(hstmt, 1, InputOutputType, ValueType, ParameterType, ColumnSize, DecimalDigits, ParameterValuePtr, BufferLength, v_ind);
+    sr = CALL_SQLBindParameter(hstmt, 1, InputOutputType, ValueType, ParameterType, ColumnSize, DecimalDigits, ParameterValuePtr, BufferLength, param1_ind);
+    if (sr != SQL_SUCCESS) return -1;
+  }
+  {
+    SQLSMALLINT     InputOutputType               = SQL_PARAM_INPUT;
+    SQLSMALLINT     ValueType                     = SQL_C_SLONG;
+    SQLSMALLINT     ParameterType                 = SQL_VARCHAR;
+    SQLULEN         ColumnSize                    = sizeof(param2[0]);
+    SQLSMALLINT     DecimalDigits                 = 0;
+    SQLPOINTER      ParameterValuePtr             = param2;
+    SQLLEN          BufferLength                  = sizeof(param2[0]);
+
+    sr = CALL_SQLBindParameter(hstmt, 2, InputOutputType, ValueType, ParameterType, ColumnSize, DecimalDigits, ParameterValuePtr, BufferLength, param2_ind);
     if (sr != SQL_SUCCESS) return -1;
   }
 
@@ -825,8 +840,10 @@ static int _prepare_bind_param_execute(odbc_case_t *odbc_case, odbc_stage_t stag
         i+1, sql_data_type(DataType), (uint64_t)ParameterSize, DecimalDigits, sql_nullable(Nullable));
   }
 
-  v[0] = 1;
-  v[1] = 123;
+  for (SQLULEN i=0; i<paramset_size; ++i) {
+    param1[i] = (int32_t)i;
+    param2[i] = (int32_t)i+1;
+  }
 
   sr = CALL_SQLExecute(hstmt);
   if (sr != SQL_SUCCESS) return -1;
@@ -844,12 +861,20 @@ again:
   DUMP("Columns:%d", cols);
 
   if (cols > 0) {
-    while (1) {
+    size_t rows = 0;
+    for (;;++rows) {
       sr = CALL_SQLFetch(hstmt);
       if (sr == SQL_NO_DATA) break;
-      if (sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO) continue;
+      if (sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO) {
+        for (SQLSMALLINT i = 0; i<cols; ++i) {
+          int r = _dump_col(hstmt, (SQLUSMALLINT)i+1);
+          if (r) return -1;
+        }
+        continue;
+      }
       return -1;
     }
+    DUMP("Rows:%zd", rows);
   }
 
   sr = CALL_SQLMoreResults(hstmt);

@@ -3585,4 +3585,288 @@
    fun:_ZN94_$LT$taos_ws..stmt..Stmt$u20$as$u20$taos_query..stmt..Bindable$LT$taos_ws..query..Taos$GT$$GT$4init17hf67721507cff7671E
    fun:ws_stmt_init
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:_ZN9hashbrown3raw21RawTable$LT$T$C$A$GT$14reserve_rehash17hec1ea800d1cbd777E.llvm.12950611029450162324
+   fun:_ZN9hashbrown3map28HashMap$LT$K$C$V$C$S$C$A$GT$6insert17h8ed85679f8ebf1c7E
+   fun:_ZN14regex_automata6hybrid3dfa4Lazy10init_cache17h70fcbd8b3a895c29E.llvm.10372092949164276051
+   fun:_ZN14regex_automata6hybrid3dfa5Cache3new17h136283208289c3bcE
+   fun:_ZN105_$LT$regex_automata..meta..strategy..ReverseInner$u20$as$u20$regex_automata..meta..strategy..Strategy$GT$12create_cache17he2241d85dfcff3bbE
+   fun:_ZN14regex_automata4meta5regex7Builder19build_many_from_hir28_$u7b$$u7b$closure$u7d$$u7d$17h3a9408ec1af73acfE
+   fun:_ZN14regex_automata4util4pool5inner17Pool$LT$T$C$F$GT$8get_slow17h1079bef1fa4631ccE.llvm.17134328922713445774
+   fun:_ZN4mdsn3Dsn10from_regex17hbe40071246580681E
+   fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h3f85b9510ecb3fe6E
+   fun:_ZN7taos_ws11TaosBuilder8from_dsn17hc3c702cc03923415E
+   fun:ws_connect_with_dsn
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:_ZN9hashbrown3raw21RawTable$LT$T$C$A$GT$14reserve_rehash17hec1ea800d1cbd777E.llvm.12950611029450162324
+   fun:_ZN9hashbrown3map28HashMap$LT$K$C$V$C$S$C$A$GT$6insert17h8ed85679f8ebf1c7E
+   fun:_ZN14regex_automata6hybrid3dfa4Lazy16cache_next_state17h81aed5ff3c93ac8dE
+   fun:_ZN14regex_automata4meta7limited26hybrid_try_search_half_rev17hd9bf3be7d40b9a1dE
+   fun:_ZN105_$LT$regex_automata..meta..strategy..ReverseInner$u20$as$u20$regex_automata..meta..strategy..Strategy$GT$12search_slots17h6b53c0af4e96a794E
+   fun:_ZN4mdsn3Dsn10from_regex17hbe40071246580681E
+   fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h3f85b9510ecb3fe6E
+   fun:_ZN7taos_ws11TaosBuilder8from_dsn17hc3c702cc03923415E
+   fun:ws_connect_with_dsn
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:_ZN9hashbrown3raw21RawTable$LT$T$C$A$GT$14reserve_rehash17h69c62cc8d4881784E.llvm.17954681757508865002
+   fun:_ZN9hashbrown3map28HashMap$LT$K$C$V$C$S$C$A$GT$6insert17h9298f61d8f8be7e5E
+   fun:_ZN5tokio7runtime8blocking4pool7Spawner10spawn_task17h7000df2e1fcacb49E
+   fun:_ZN5tokio7runtime8blocking4pool7Spawner14spawn_blocking17h1592434f01e9e628E
+   fun:_ZN5tokio7runtime9scheduler12multi_thread6worker6Launch6launch17h1dd0b0db95c36dcaE
+   fun:_ZN5tokio7runtime7builder7Builder5build17h9b9b384aa2264899E
+   fun:_ZN3std10sys_common4once5futex4Once4call17h31080c6de82e7203E
+   fun:_ZN10taos_query20global_tokio_runtime17h71b0e4c7bac7ae35E
+   fun:_ZN10taos_query24block_in_place_or_global17ha13b1ab4881501caE
+   fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17h4cce565747da5193E
+   fun:ws_connect_with_dsn
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:_ZN9hashbrown3raw21RawTable$LT$T$C$A$GT$14reserve_rehash17hd7f749730a29c5acE.llvm.12950611029450162324
+   fun:_ZN9hashbrown3map28HashMap$LT$K$C$V$C$S$C$A$GT$6insert17h7b9cd6847f1f7e16E
+   fun:_ZN14regex_automata4util8captures9GroupInfo3new17h70de2762123ab745E
+   fun:_ZN14regex_automata3nfa8thompson7builder7Builder5build17hca5fb6470f1b2e37E
+   fun:_ZN14regex_automata3nfa8thompson8compiler8Compiler7compile17hef909b5f003ebebbE
+   fun:_ZN14regex_automata4meta8strategy3new17h6758ce356ffff54fE
+   fun:_ZN14regex_automata4meta5regex7Builder5build17h645e19fba159ad90E
+   fun:_ZN5regex8builders7Builder16build_one_string17hd25771c63f109b5cE
+   fun:_ZN5regex5regex6string5Regex3new17hb0f61924e3571e55E
+   fun:_ZN3std10sys_common4once5futex4Once4call17h6e872ac8d427aff5E
+   fun:_ZN4mdsn3Dsn10from_regex17hbe40071246580681E
+   fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h3f85b9510ecb3fe6E
+   fun:_ZN7taos_ws11TaosBuilder8from_dsn17hc3c702cc03923415E
+   fun:ws_connect_with_dsn
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:_ZN9hashbrown3raw21RawTable$LT$T$C$A$GT$14reserve_rehash17hec1ea800d1cbd777E.llvm.12950611029450162324
+   fun:_ZN9hashbrown3map28HashMap$LT$K$C$V$C$S$C$A$GT$6insert17h8ed85679f8ebf1c7E
+   fun:_ZN14regex_automata6hybrid3dfa4Lazy16cache_next_state17h81aed5ff3c93ac8dE
+   fun:_ZN14regex_automata4meta6stopat26hybrid_try_search_half_fwd17hd60e0aa7fec610e9E
+   fun:_ZN105_$LT$regex_automata..meta..strategy..ReverseInner$u20$as$u20$regex_automata..meta..strategy..Strategy$GT$12search_slots17h6b53c0af4e96a794E
+   fun:_ZN4mdsn3Dsn10from_regex17hbe40071246580681E
+   fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h3f85b9510ecb3fe6E
+   fun:_ZN7taos_ws11TaosBuilder8from_dsn17hc3c702cc03923415E
+   fun:ws_connect_with_dsn
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:malloc
+   fun:allocate_dtv_entry
+   fun:allocate_and_init
+   fun:tls_get_addr_tail
+   fun:__tls_get_addr
+   fun:_ZN3std10sys_common11thread_info3set17h1055960fbd7822ceE
+   fun:_ZN4core3ops8function6FnOnce40call_once$u7b$$u7b$vtable.shim$u7d$$u7d$17h1a41d584bf818de7E
+   fun:_ZN3std3sys4unix6thread6Thread3new12thread_start17h726c141aa23b2e83E
+   fun:start_thread
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:_ZN9hashbrown3raw21RawTable$LT$T$C$A$GT$14reserve_rehash17h480faa41a1af8248E.llvm.11484188929482658943
+   fun:_ZN9hashbrown3map28HashMap$LT$K$C$V$C$S$C$A$GT$6insert17hefcd85b213775f59E
+   fun:_ZN7dashmap24DashMap$LT$K$C$V$C$S$GT$6insert17h2d14ae5008c0dc26E
+   fun:_ZN7taos_ws5query4asyn13WsQuerySender9send_recv28_$u7b$$u7b$closure$u7d$$u7d$17h3e179f07d3cebbdfE
+   fun:_ZN7taos_ws5query4asyn6WsTaos7s_query28_$u7b$$u7b$closure$u7d$$u7d$17h5c9fcaff57cb01b7E
+   fun:_ZN83_$LT$taos_ws..query..Taos$u20$as$u20$taos_query..prelude..async..AsyncQueryable$GT$5query28_$u7b$$u7b$closure$u7d$$u7d$17h24156ff6d1c996efE.llvm.16857860147600304999
+   fun:_ZN5tokio7runtime4park16CachedParkThread8block_on17h62c02de1693973a9E
+   fun:_ZN5tokio7runtime7context7runtime13enter_runtime17h5a588c9432ef6f6fE
+   fun:_ZN5tokio7runtime7runtime7Runtime8block_on17hf554c111d4c6ab3eE
+   fun:_ZN10taos_query24block_in_place_or_global17ha13b1ab4881501caE
+   fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17h4cce565747da5193E
+   fun:ws_connect_with_dsn
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:_ZN9hashbrown3raw21RawTable$LT$T$C$A$GT$14reserve_rehash17h480faa41a1af8248E.llvm.11484188929482658943
+   fun:_ZN9hashbrown3map28HashMap$LT$K$C$V$C$S$C$A$GT$6insert17hefcd85b213775f59E
+   fun:_ZN7dashmap24DashMap$LT$K$C$V$C$S$GT$6insert17h2d14ae5008c0dc26E
+   fun:_ZN7taos_ws5query4asyn13WsQuerySender9send_recv28_$u7b$$u7b$closure$u7d$$u7d$17h3e179f07d3cebbdfE
+   fun:_ZN7taos_ws5query4asyn6WsTaos7s_query28_$u7b$$u7b$closure$u7d$$u7d$17h5c9fcaff57cb01b7E
+   fun:_ZN83_$LT$taos_ws..query..Taos$u20$as$u20$taos_query..prelude..async..AsyncQueryable$GT$5query28_$u7b$$u7b$closure$u7d$$u7d$17h24156ff6d1c996efE.llvm.16857860147600304999
+   fun:_ZN5tokio7runtime4park16CachedParkThread8block_on17h62c02de1693973a9E
+   fun:_ZN5tokio7runtime7context7runtime13enter_runtime17h5a588c9432ef6f6fE
+   fun:_ZN5tokio7runtime7runtime7Runtime8block_on17hf554c111d4c6ab3eE
+   fun:_ZN10taos_query24block_in_place_or_global17ha13b1ab4881501caE
+   fun:_ZN10taos_query7prelude4sync9Queryable9query_one17hbc527afbbbff429eE
+   fun:_ZN94_$LT$taos_ws..stmt..Stmt$u20$as$u20$taos_query..stmt..Bindable$LT$taos_ws..query..Taos$GT$$GT$4init17hdc18e9d8d673942eE
+   fun:ws_stmt_init
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:_ZN9hashbrown3raw21RawTable$LT$T$C$A$GT$14reserve_rehash17h480faa41a1af8248E.llvm.11484188929482658943
+   fun:_ZN9hashbrown3map28HashMap$LT$K$C$V$C$S$C$A$GT$6insert17hefcd85b213775f59E
+   fun:_ZN7dashmap24DashMap$LT$K$C$V$C$S$GT$6insert17h2d14ae5008c0dc26E
+   fun:_ZN7taos_ws5query4asyn13WsQuerySender9send_recv28_$u7b$$u7b$closure$u7d$$u7d$17h3e179f07d3cebbdfE
+   fun:_ZN5tokio7runtime4park16CachedParkThread8block_on17ha85e5173075657aeE
+   fun:_ZN5tokio7runtime7context7runtime13enter_runtime17h383e1ef2cba8f01bE
+   fun:_ZN5tokio7runtime7runtime7Runtime8block_on17h668ab37821e1ec08E
+   fun:_ZN10taos_query24block_in_place_or_global17h62fd671b7a9a6d8bE
+   fun:_ZN10taos_query7prelude4sync18IRowsIter$LT$T$GT$5fetch17hf85cfc9c326e158fE.llvm.17412049425967316234
+   fun:_ZN10taos_query7prelude4sync9Queryable9query_one17hbc527afbbbff429eE
+   fun:_ZN94_$LT$taos_ws..stmt..Stmt$u20$as$u20$taos_query..stmt..Bindable$LT$taos_ws..query..Taos$GT$$GT$4init17hdc18e9d8d673942eE
+   fun:ws_stmt_init
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:_ZN9hashbrown3raw21RawTable$LT$T$C$A$GT$14reserve_rehash17h480faa41a1af8248E.llvm.11484188929482658943
+   fun:_ZN9hashbrown3map28HashMap$LT$K$C$V$C$S$C$A$GT$6insert17hd18d71361d6cd676E
+   fun:_ZN7dashmap24DashMap$LT$K$C$V$C$S$GT$6insert17hacd4bf553e32994eE
+   fun:_ZN7taos_ws5query4asyn13WsQuerySender9send_recv28_$u7b$$u7b$closure$u7d$$u7d$17h3e179f07d3cebbdfE
+   fun:_ZN5tokio7runtime4park16CachedParkThread8block_on17ha85e5173075657aeE
+   fun:_ZN5tokio7runtime7context7runtime13enter_runtime17h383e1ef2cba8f01bE
+   fun:_ZN5tokio7runtime7runtime7Runtime8block_on17h668ab37821e1ec08E
+   fun:_ZN10taos_query24block_in_place_or_global17h62fd671b7a9a6d8bE
+   fun:_ZN10taos_query7prelude4sync18IRowsIter$LT$T$GT$5fetch17hf85cfc9c326e158fE.llvm.17412049425967316234
+   fun:_ZN10taos_query7prelude4sync9Queryable9query_one17hbc527afbbbff429eE
+   fun:_ZN94_$LT$taos_ws..stmt..Stmt$u20$as$u20$taos_query..stmt..Bindable$LT$taos_ws..query..Taos$GT$$GT$4init17hdc18e9d8d673942eE
+   fun:ws_stmt_init
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:_ZN9hashbrown3raw21RawTable$LT$T$C$A$GT$14reserve_rehash17h762e1f81da639b6cE.llvm.13729715778781813952
+   fun:_ZN9hashbrown3map28HashMap$LT$K$C$V$C$S$C$A$GT$6insert17hc0a6754b4e7f7387E
+   fun:_ZN7dashmap24DashMap$LT$K$C$V$C$S$GT$6insert17h84f807ead6e69492E
+   fun:_ZN7taos_ws5query4asyn6WsTaos7s_query28_$u7b$$u7b$closure$u7d$$u7d$17h3401f8bbbda502d4E
+   fun:_ZN83_$LT$taos_ws..query..Taos$u20$as$u20$taos_query..prelude..async..AsyncQueryable$GT$5query28_$u7b$$u7b$closure$u7d$$u7d$17hd33a0c7ec4ca798bE.llvm.7835879225854168073
+   fun:_ZN5tokio7runtime4park16CachedParkThread8block_on17hf50e99e0a5074240E
+   fun:_ZN5tokio7runtime7context7runtime13enter_runtime17h73ab14d7045e2cadE
+   fun:_ZN5tokio7runtime7runtime7Runtime8block_on17h67605395380f52a3E
+   fun:_ZN10taos_query24block_in_place_or_global17h644069206558a665E
+   fun:ws_query
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:_ZN9hashbrown3raw21RawTable$LT$T$C$A$GT$14reserve_rehash17h480faa41a1af8248E.llvm.11484188929482658943
+   fun:_ZN9hashbrown3map28HashMap$LT$K$C$V$C$S$C$A$GT$6insert17h50f6814dd112efeaE
+   fun:_ZN7dashmap24DashMap$LT$K$C$V$C$S$GT$6insert17h6980813f6157d913E
+   fun:_ZN5tokio7runtime4park16CachedParkThread8block_on17ha7302ce2dfde143cE
+   fun:_ZN5tokio7runtime7context7runtime13enter_runtime17he16a0fdfb69d3b16E
+   fun:_ZN5tokio7runtime7runtime7Runtime8block_on17h68ac1595d71ce077E
+   fun:_ZN10taos_query24block_in_place_or_global17hc0bbe039ee8b3594E
+   fun:_ZN94_$LT$taos_ws..stmt..Stmt$u20$as$u20$taos_query..stmt..Bindable$LT$taos_ws..query..Taos$GT$$GT$4init17hdc18e9d8d673942eE
+   fun:ws_stmt_init
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:_ZN9hashbrown3raw21RawTable$LT$T$C$A$GT$14reserve_rehash17h69c62cc8d4881784E.llvm.17954681757508865002
+   fun:_ZN9hashbrown3map28HashMap$LT$K$C$V$C$S$C$A$GT$6insert17h9298f61d8f8be7e5E
+   fun:_ZN5tokio7runtime8blocking4pool7Spawner10spawn_task17h7000df2e1fcacb49E
+   fun:_ZN5tokio7runtime8blocking4pool7Spawner14spawn_blocking17h35627369bf5f9bf8E
+   fun:_ZN5tokio7runtime8blocking4pool14spawn_blocking17hf394798356a68eb6E
+   fun:_ZN5tokio3net4addr77_$LT$impl$u20$tokio..net..addr..sealed..ToSocketAddrsPriv$u20$for$u20$str$GT$15to_socket_addrs17he9933f11ef9528c9E
+   fun:_ZN5tokio3net4addr95_$LT$impl$u20$tokio..net..addr..sealed..ToSocketAddrsPriv$u20$for$u20$alloc..string..String$GT$15to_socket_addrs17hc3a667708972145aE
+   fun:_ZN17tokio_tungstenite7connect25connect_async_with_config28_$u7b$$u7b$closure$u7d$$u7d$17h89688015dbec391aE
+   fun:_ZN7taos_ws5query4asyn6WsTaos11from_wsinfo28_$u7b$$u7b$closure$u7d$$u7d$17h91247ed2b505a69fE
+   fun:_ZN83_$LT$taos_ws..query..Taos$u20$as$u20$taos_query..prelude..async..AsyncQueryable$GT$5query28_$u7b$$u7b$closure$u7d$$u7d$17h24156ff6d1c996efE.llvm.16857860147600304999
+   fun:_ZN5tokio7runtime4park16CachedParkThread8block_on17h62c02de1693973a9E
+   fun:_ZN5tokio7runtime7context7runtime13enter_runtime17h5a588c9432ef6f6fE
+   fun:_ZN5tokio7runtime7runtime7Runtime8block_on17hf554c111d4c6ab3eE
+   fun:_ZN10taos_query24block_in_place_or_global17ha13b1ab4881501caE
+   fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17h4cce565747da5193E
+   fun:ws_connect_with_dsn
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:_ZN5alloc7raw_vec11finish_grow17h8f0360269cbd1f32E.llvm.10703907684146946114
+   fun:_ZN5alloc7raw_vec19RawVec$LT$T$C$A$GT$16reserve_for_push17h7308872e177dda61E
+   fun:_ZN3std4sync4mpmc7context7Context4with28_$u7b$$u7b$closure$u7d$$u7d$17h92462dfa4b8697c1E
+   fun:_ZN3std4sync4mpmc5array16Channel$LT$T$GT$4recv17ha0c4feeb7611db4bE
+   fun:_ZN3std4sync4mpsc17Receiver$LT$T$GT$12recv_timeout17h45d18a205883ba48E
+   fun:_ZN7taos_ws4stmt4Stmt12stmt_prepare28_$u7b$$u7b$closure$u7d$$u7d$17h5cd6193c47d2f86bE.llvm.4020212229532198548
+   fun:_ZN5tokio7runtime4park16CachedParkThread8block_on17h47c4ad56d78fd360E
+   fun:_ZN5tokio7runtime7context7runtime13enter_runtime17h2835c43b8086e391E
+   fun:_ZN5tokio7runtime7runtime7Runtime8block_on17hef1f6183b2767907E
+   fun:_ZN10taos_query24block_in_place_or_global17h34100fd711b4b7d8E
+   fun:ws_stmt_prepare
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:_ZN9hashbrown3raw21RawTable$LT$T$C$A$GT$14reserve_rehash17h70cec3b74938daa3E.llvm.11484188929482658943
+   fun:_ZN9hashbrown3map28HashMap$LT$K$C$V$C$S$C$A$GT$6insert17hd908eda496e3e9f9E
+   fun:_ZN7dashmap24DashMap$LT$K$C$V$C$S$GT$6insert17h9d108812d8e1e61aE
+   fun:_ZN5tokio7runtime4park16CachedParkThread8block_on17ha7302ce2dfde143cE
+   fun:_ZN5tokio7runtime7context7runtime13enter_runtime17he16a0fdfb69d3b16E
+   fun:_ZN5tokio7runtime7runtime7Runtime8block_on17h68ac1595d71ce077E
+   fun:_ZN10taos_query24block_in_place_or_global17hc0bbe039ee8b3594E
+   fun:_ZN94_$LT$taos_ws..stmt..Stmt$u20$as$u20$taos_query..stmt..Bindable$LT$taos_ws..query..Taos$GT$$GT$4init17hdc18e9d8d673942eE
+   fun:ws_stmt_init
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:_ZN3std4sync4mpmc5array16Channel$LT$T$GT$13with_capacity17h4957d06edd83bc2eE
+   fun:_ZN5tokio7runtime4park16CachedParkThread8block_on17ha7302ce2dfde143cE
+   fun:_ZN5tokio7runtime7context7runtime13enter_runtime17he16a0fdfb69d3b16E
+   fun:_ZN5tokio7runtime7runtime7Runtime8block_on17h68ac1595d71ce077E
+   fun:_ZN10taos_query24block_in_place_or_global17hc0bbe039ee8b3594E
+   fun:_ZN94_$LT$taos_ws..stmt..Stmt$u20$as$u20$taos_query..stmt..Bindable$LT$taos_ws..query..Taos$GT$$GT$4init17hdc18e9d8d673942eE
+   fun:ws_stmt_init
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:memalign
+   fun:posix_memalign
+   fun:__rdl_alloc
+   fun:_ZN5tokio7runtime4park16CachedParkThread8block_on17ha7302ce2dfde143cE
+   fun:_ZN5tokio7runtime7context7runtime13enter_runtime17he16a0fdfb69d3b16E
+   fun:_ZN5tokio7runtime7runtime7Runtime8block_on17h68ac1595d71ce077E
+   fun:_ZN10taos_query24block_in_place_or_global17hc0bbe039ee8b3594E
+   fun:_ZN94_$LT$taos_ws..stmt..Stmt$u20$as$u20$taos_query..stmt..Bindable$LT$taos_ws..query..Taos$GT$$GT$4init17hdc18e9d8d673942eE
+   fun:ws_stmt_init
+}
 

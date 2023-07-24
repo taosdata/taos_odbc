@@ -809,7 +809,7 @@ static SQLRETURN _execute(stmt_base_t *base)
     OW("bind more parameters (#%d) than required (#%d) by sql-statement", APD_header->DESC_COUNT, n);
   }
 
-  if (APD_header->DESC_COUNT == 0) {
+  if (APD_header->DESC_COUNT == 0 || stmt->params.qms == 0) {
     return _query(base, stmt->current_sql);
   }
 

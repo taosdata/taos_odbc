@@ -189,12 +189,8 @@ again:
     }
     if (!matched) goto again;
   } else if (tables->tables_args.select_current_db) {
-    const char info[] = "information_schema";
-    const char perf[] = "performance_schema";
     const char *db = tables->tables_args.db;
     int matched = 0;
-    if (!matched) matched = (str.bytes == sizeof(info)-1 && strncmp(str.str, info, str.bytes) == 0);
-    if (!matched) matched = (str.bytes == sizeof(perf)-1 && strncmp(str.str, perf, str.bytes) == 0);
     if (!matched) matched = (str.bytes == strlen(db) && strncmp(str.str, db, str.bytes) == 0);
     if (!matched) goto again;
   }

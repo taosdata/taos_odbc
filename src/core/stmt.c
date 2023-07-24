@@ -2920,6 +2920,13 @@ static SQLRETURN _stmt_get_next_sql(stmt_t *stmt)
   sqlc_tsdb->sqlc_bytes  = nterms->end - nterms->start;
   sqlc_tsdb->qms         = nterms->qms;
 
+  if (sqls->nr > 1) {
+    if (sqlc_tsdb->qms > 0) {
+      stmt_append_err(stmt, "HY000", 0, "General error:parameterized-statement in batch-statements not supported yet");
+      return SQL_ERROR;
+    }
+  }
+
   const char *fromcode = conn_get_sqlc_charset(stmt->conn);
   const char *tocode   = conn_get_tsdb_charset(stmt->conn);
   str_t src = {
@@ -7121,17 +7128,12 @@ SQLRETURN stmt_prepare(stmt_t *stmt,
   sqls_parser_param_release(&param);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-  // sqls_t *sqls = &stmt->sqls;
-  // if (sqls->nr > 1) {
-  //   stmt_append_err_format(stmt, "HY000", 0, "General error:multiple statements in a single SQLPrepare not supported yet");
-  //   return SQL_ERROR;
-  // }
-
   sr = _stmt_get_next_sql(stmt);
   if (sr == SQL_NO_DATA) {
     stmt_append_err_format(stmt, "HY000", 0, "General error:empty sql statement");
     return SQL_ERROR;
   }
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   if (stmt->tsdb_stmt.is_topic) {
     return _stmt_prepare_topic(stmt);
@@ -7168,6 +7170,7 @@ SQLRETURN stmt_exec_direct(stmt_t *stmt, SQLCHAR *StatementText, SQLINTEGER Text
     stmt_append_err_format(stmt, "HY000", 0, "General error:empty sql statement");
     return SQL_ERROR;
   }
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   if (stmt->tsdb_stmt.is_topic) {
     sr = _stmt_prepare_topic(stmt);
@@ -7600,6 +7603,7 @@ SQLRETURN stmt_more_results(
   if (stmt->base == &stmt->tsdb_stmt.base) {
     sr = _stmt_get_next_sql(stmt);
     if (sr == SQL_NO_DATA) return SQL_NO_DATA;
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
 
     return _stmt_exec_direct_with_simple_sql(stmt);
   }

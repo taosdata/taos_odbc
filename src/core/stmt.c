@@ -6947,7 +6947,7 @@ static SQLRETURN _stmt_execute_with_params(stmt_t *stmt)
   sr = _stmt_get_num_params(stmt, &n);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-  if (n <= 0) {
+  if (n < 0) {
     stmt_niy(stmt);
     return SQL_ERROR;
   }

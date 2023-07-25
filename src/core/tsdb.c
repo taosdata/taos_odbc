@@ -1035,6 +1035,9 @@ static SQLRETURN _get_num_params(stmt_base_t *base, SQLSMALLINT *ParameterCountP
 {
   tsdb_stmt_t *stmt = (tsdb_stmt_t*)base;
   SQLSMALLINT n = stmt->params.nr_params;
+  // NOTE: always return qms
+  OA_NIY(stmt->params.qms == stmt->owner->current_sql.qms);
+  n = stmt->params.qms;
   if (ParameterCountPtr) *ParameterCountPtr = n;
   return SQL_SUCCESS;
 }

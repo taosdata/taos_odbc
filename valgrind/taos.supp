@@ -654,4 +654,26 @@
    fun:taosProcessSchedQueue
    fun:start_thread
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:rpcMallocCont
+   fun:asyncSendMsgToServerExt
+   fun:schAsyncSendMsg
+   fun:schBuildAndSendMsg
+   fun:schDropTaskOnExecNode
+   fun:schDropTaskInHashList
+   fun:schDropJobAllTasks
+   fun:schFreeJobImpl
+   fun:taosDecRefCount
+   fun:taosReleaseRef
+   fun:schReleaseJob
+   fun:schLaunchTaskImpl
+   fun:execHelper
+   fun:taosProcessSchedQueue
+   fun:start_thread
+}
 

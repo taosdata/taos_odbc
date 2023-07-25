@@ -62,9 +62,9 @@ struct test_case {
 } _cases[] = {
   {
     {
-    .henv = SQL_NULL_HANDLE,
-    .hconn = SQL_NULL_HANDLE,
-    .hstmt = SQL_NULL_HANDLE,
+      .henv = SQL_NULL_HANDLE,
+      .hconn = SQL_NULL_HANDLE,
+      .hstmt = SQL_NULL_HANDLE,
     },
     "sqlserver-odbc",
     "DSN=SQLSERVER_ODBC_DSN",
@@ -74,23 +74,23 @@ struct test_case {
     true
   },
   {
-     {
-    .henv = SQL_NULL_HANDLE,
-    .hconn = SQL_NULL_HANDLE,
-    .hstmt = SQL_NULL_HANDLE,
+    {
+      .henv = SQL_NULL_HANDLE,
+      .hconn = SQL_NULL_HANDLE,
+      .hstmt = SQL_NULL_HANDLE,
     },
-     "mysql-odbc",
-     "DSN=MYSQL-ODBC",
-     "MYSQL_ODBC",
-     NULL,
-     NULL,
+    "mysql-odbc",
+    "DSN=MYSQL-ODBC",
+    "MYSQL_ODBC",
+    NULL,
+    NULL,
     true
    },
   {
     {
-    .henv = SQL_NULL_HANDLE,
-    .hconn = SQL_NULL_HANDLE,
-    .hstmt = SQL_NULL_HANDLE,
+      .henv = SQL_NULL_HANDLE,
+      .hconn = SQL_NULL_HANDLE,
+      .hstmt = SQL_NULL_HANDLE,
     },
     "taos-odbc",
     "DSN=TAOS_ODBC_DSN;SERVER=127.0.0.1:6030",

@@ -7045,7 +7045,8 @@ static SQLRETURN _stmt_execute(stmt_t *stmt)
     return SQL_ERROR;
   }
 
-  if (APD_header->DESC_COUNT > 0) {
+  sqlc_tsdb_t *sqlc_tsdb = &stmt->current_sql;
+  if (sqlc_tsdb->qms > 0) {
     return _stmt_execute_with_params(stmt);
   }
 

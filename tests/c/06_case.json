@@ -7,7 +7,7 @@
       "create table foo.t (ts timestamp, name varchar(20), age int, mark nchar(20))",
       "insert into foo.t (ts, name, age, mark) values (1662961548651, 'hello', 651, 'world')",
       {
-        comments:"non-parameterized-statement with param-bound not supported yet",
+        comments:"non-parameterized-statement with param_bound is ambiguous, thus not supported yet",
         sql:"select age from foo.t",
         executes: [
           {
@@ -59,7 +59,7 @@
       "create database if not exists foo",
       "create table foo.t (ts timestamp, name varchar(20), age int, mark nchar(20))",
       {
-        comments:"non-parameterized-statement with param-bound not supported yet",
+        comments:"non-parameterized-statement with param_bound is ambiguous, thus not supported yet",
         sql:"insert into foo.t (ts, name, age, mark) values (now(), 'hello', 651, 'world')",
         executes: [
           {

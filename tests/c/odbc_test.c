@@ -625,7 +625,7 @@ static int executes_ctx_prepare_stmt(executes_ctx_t *ctx)
   sr = CALL_SQLNumParams(ctx->hstmt, &ParameterCount);
   if (FAILED(sr)) return -1;
 
-  for (int i=0; i<ParameterCount; ++i) {
+  for (int i=0; 0 && i<ParameterCount; ++i) {
     SQLSMALLINT DataType          = 0;
     SQLULEN     ParameterSize     = 0;
     SQLSMALLINT DecimalDigits     = 0;
@@ -867,7 +867,7 @@ static int _run_execute_params_rs(executes_ctx_t *ctx, ejson_t *params, ejson_t 
     SQLULEN     ParameterSize     = 0;
     SQLSMALLINT DecimalDigits     = 0;
     SQLSMALLINT Nullable          = 0;
-    sr = CALL_SQLDescribeParam(ctx->hstmt, (SQLUSMALLINT)(i+1), &DataType, &ParameterSize, &DecimalDigits, &Nullable);
+    if (0) sr = CALL_SQLDescribeParam(ctx->hstmt, (SQLUSMALLINT)(i+1), &DataType, &ParameterSize, &DecimalDigits, &Nullable);
     if (FAILED(sr)) return -1;
 
     SQLSMALLINT ValueType = SQL_C_DEFAULT;
@@ -934,11 +934,17 @@ static int _run_execute_params_rs(executes_ctx_t *ctx, ejson_t *params, ejson_t 
 
     switch (ValueType) {
       case SQL_C_CHAR:
+        DataType = SQL_VARCHAR;
+        ParameterSize = buffer_length;
+        DecimalDigits = 0;
         sr = CALL_SQLBindParameter(ctx->hstmt, (SQLUSMALLINT)i+1, SQL_PARAM_INPUT, ValueType,
             DataType, ParameterSize, DecimalDigits, ctx->params.arrays[i], buffer_length, ctx->params.strlen_or_inds[i]);
         if (FAILED(sr)) return -1;
         break;
       case SQL_C_DOUBLE:
+        DataType = SQL_DOUBLE;
+        ParameterSize = buffer_length;
+        DecimalDigits = 0;
         sr = CALL_SQLBindParameter(ctx->hstmt, (SQLUSMALLINT)i+1, SQL_PARAM_INPUT, ValueType,
             DataType, ParameterSize, DecimalDigits, ctx->params.arrays[i], buffer_length, ctx->params.strlen_or_inds[i]);
         if (FAILED(sr)) return -1;

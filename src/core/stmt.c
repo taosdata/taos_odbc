@@ -5707,6 +5707,30 @@ static SQLRETURN _stmt_param_conv_sql_timestamp_to_tsdb_timestamp(stmt_t *stmt, 
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_param_conv_sql_double_to_tsdb_timestamp(stmt_t *stmt, param_state_t *param_state)
+{
+  int                   i_row             = param_state->i_row;
+  sql_data_t           *data              = &param_state->sql_data;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+
+  int64_t v = 0;
+  switch (tsdb_field->precision) {
+    case 0: v = (int64_t)(data->dbl * 1000);       break;
+    case 1: v = (int64_t)(data->dbl * 1000000);    break;
+    case 2: v = (int64_t)(data->dbl * 1000000000); break;
+    default: {
+      stmt_append_err(stmt, "HY000", 0, "General error:internal logic error");
+      return SQL_ERROR;
+    }
+  }
+
+  int64_t *tsdb_timestamp = (int64_t*)tsdb_bind->buffer;
+  tsdb_timestamp[i_row - param_state->i_batch_offset] = v;
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_param_conv_sql_real_to_tsdb_float(stmt_t *stmt, param_state_t *param_state)
 {
   (void)stmt;
@@ -6298,6 +6322,9 @@ static const param_bind_map_t _param_bind_map[] = {
   {SQL_C_DOUBLE,  SQL_TYPE_TIMESTAMP, TSDB_DATA_TYPE_TIMESTAMP,
     _stmt_param_adjust_tsdb_timestamp,
     _stmt_param_conv_sql_timestamp_to_tsdb_timestamp},
+  {SQL_C_DOUBLE,  SQL_DOUBLE, TSDB_DATA_TYPE_TIMESTAMP,
+    _stmt_param_adjust_reuse_sqlc_double,
+    _stmt_param_conv_sql_double_to_tsdb_timestamp},
   {SQL_C_DOUBLE,  SQL_DOUBLE, TSDB_DATA_TYPE_DOUBLE,
     _stmt_param_adjust_reuse_sqlc_double,
     _stmt_param_conv_dummy},

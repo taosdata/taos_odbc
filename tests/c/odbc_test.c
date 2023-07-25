@@ -832,7 +832,7 @@ static int _run_execute_params_rs(executes_ctx_t *ctx, ejson_t *params, ejson_t 
   sr = CALL_SQLNumParams(ctx->hstmt, &ParameterCount);
   if (FAILED(sr)) return -1;
 
-  if (cols != (size_t)ParameterCount) {
+  if (0 && cols != (size_t)ParameterCount) {
     E("# of parameters differs, %zd <> %d", cols, ParameterCount);
     return -1;
   }

@@ -2710,8 +2710,23 @@ SQLRETURN stmt_describe_param(
     SQLSMALLINT    *DecimalDigitsPtr,
     SQLSMALLINT    *NullablePtr)
 {
+  SQLRETURN sr = SQL_SUCCESS;
+
   if (ParameterNumber == 0) {
     stmt_append_err(stmt, "HY000", 0, "General error:bookmark column not supported yet");
+    return SQL_ERROR;
+  }
+
+  SQLSMALLINT    nr_params;
+  sr = _stmt_get_num_params(stmt, &nr_params);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  int nr = nr_params;
+  if (ParameterNumber > nr) {
+    stmt_append_err_format(stmt, "07009", 0,
+        "Invalid descriptor index:"
+        "The value specified for the argument ParameterNumber[%d] was greater than the number of parameters[%d] in the associated SQL statement",
+        ParameterNumber, nr);
     return SQL_ERROR;
   }
 
@@ -7104,6 +7119,41 @@ static SQLRETURN _stmt_prepare_topic(stmt_t *stmt)
   return SQL_SUCCESS;
 }
 
+static int _stmt_sql_parse(stmt_t *stmt, const char *sql, size_t len)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  sqls_parser_param_t param = {0};
+  // param.ctx.debug_flex = 1;
+  // param.ctx.debug_bison = 1;
+  param.sql_found = _stmt_sql_found;
+  param.arg       = stmt;
+
+  sr = _stmt_cache_and_parse(stmt, &param, sql, len);
+  sqls_parser_param_release(&param);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  sqls_t *sqls = &stmt->sqls;
+  if (sqls->nr > 1) {
+    for (size_t i=0; i<sqls->nr; ++i) {
+      parser_nterm_t *nterms = sqls->sqls + i;
+      if (nterms->qms) {
+        stmt_append_err(stmt, "HY000", 0, "General error:parameterized-statement in batch-statements not supported yet");
+        return SQL_ERROR;
+      }
+    }
+  }
+
+  sr = _stmt_get_next_sql(stmt);
+  if (sr == SQL_NO_DATA) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:empty sql statement");
+    return SQL_ERROR;
+  }
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  return SQL_SUCCESS;
+}
+
 SQLRETURN stmt_prepare(stmt_t *stmt,
     SQLCHAR      *StatementText,
     SQLINTEGER    TextLength)
@@ -7118,21 +7168,7 @@ SQLRETURN stmt_prepare(stmt_t *stmt,
   if (TextLength == SQL_NTS) len = strlen(sql);
   else                       len = strnlen(sql, TextLength);
 
-  sqls_parser_param_t param = {0};
-  // param.ctx.debug_flex = 1;
-  // param.ctx.debug_bison = 1;
-  param.sql_found = _stmt_sql_found;
-  param.arg       = stmt;
-
-  sr = _stmt_cache_and_parse(stmt, &param, sql, len);
-  sqls_parser_param_release(&param);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
-
-  sr = _stmt_get_next_sql(stmt);
-  if (sr == SQL_NO_DATA) {
-    stmt_append_err_format(stmt, "HY000", 0, "General error:empty sql statement");
-    return SQL_ERROR;
-  }
+  sr = _stmt_sql_parse(stmt, sql, len);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   if (stmt->tsdb_stmt.is_topic) {
@@ -7155,21 +7191,7 @@ SQLRETURN stmt_exec_direct(stmt_t *stmt, SQLCHAR *StatementText, SQLINTEGER Text
   if (TextLength == SQL_NTS) len = strlen(sql);
   else                       len = strnlen(sql, TextLength);
 
-  sqls_parser_param_t param = {0};
-  // param.ctx.debug_flex = 1;
-  // param.ctx.debug_bison = 1;
-  param.sql_found = _stmt_sql_found;
-  param.arg       = stmt;
-
-  sr = _stmt_cache_and_parse(stmt, &param, sql, len);
-  sqls_parser_param_release(&param);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
-
-  sr = _stmt_get_next_sql(stmt);
-  if (sr == SQL_NO_DATA) {
-    stmt_append_err_format(stmt, "HY000", 0, "General error:empty sql statement");
-    return SQL_ERROR;
-  }
+  sr = _stmt_sql_parse(stmt, sql, len);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   if (stmt->tsdb_stmt.is_topic) {

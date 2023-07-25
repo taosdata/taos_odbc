@@ -117,61 +117,75 @@ field_t fields[] = {
 
 #define XX(_fmt, ...) do {                           \
   X("COMPARETEST %s " _fmt "",                       \
-      _cases[i].test_name, ##__VA_ARGS__);           \
+    _cases[i].test_name, ##__VA_ARGS__);             \
 } while (0)
 
 #define CHKENVR(henv, r)  do {                                                                                                   \
-    if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO)                                                                          \
-    {                                                                                                                            \
-        SQLCHAR sqlState[6];                                                                                                     \
-        SQLCHAR message[SQL_MAX_MESSAGE_LENGTH];                                                                                 \
-        SQLSMALLINT messageLength;                                                                                               \
-        SQLINTEGER nativeError;                                                                                                  \
-        if(SQLGetDiagRec(SQL_HANDLE_ENV, henv, 1, sqlState, &nativeError, message, sizeof(message), &messageLength)  != 100)     \
-        {                                                                                                                        \
-            E("SQLGetEnvAttr failed with error: %s", message);                                                                   \
-        }                                                                                                                        \
-        return -1;                                                                                                               \
-    }                                                                                                                            \
+   if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO)                                                                           \
+   {                                                                                                                             \
+     SQLCHAR sqlState[6];                                                                                                        \
+     SQLCHAR message[SQL_MAX_MESSAGE_LENGTH];                                                                                    \
+     SQLSMALLINT messageLength;                                                                                                  \
+     SQLINTEGER nativeError;                                                                                                     \
+     if(SQLGetDiagRec(SQL_HANDLE_ENV, henv, 1, sqlState, &nativeError, message, sizeof(message), &messageLength)  != 100)        \
+     {                                                                                                                           \
+       E("SQLGetEnvAttr failed with error: %s", message);                                                                        \
+     }                                                                                                                           \
+     return -1;                                                                                                                  \
+   }                                                                                                                             \
 } while (0)                                                                                                                      \
 
-
 #define CHKDBR(hconn, r)  do {                                                                                                   \
-    if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO)                                                                          \
+  if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO)                                                                            \
+  {                                                                                                                              \
+    SQLCHAR sqlState[6];                                                                                                         \
+    SQLCHAR message[SQL_MAX_MESSAGE_LENGTH];                                                                                     \
+    SQLSMALLINT messageLength;                                                                                                   \
+    SQLINTEGER nativeError;                                                                                                      \
+    if(SQLGetDiagRec(SQL_HANDLE_DBC, hconn, 1, sqlState, &nativeError, message, sizeof(message), &messageLength)  != 100)        \
     {                                                                                                                            \
-        SQLCHAR sqlState[6];                                                                                                     \
-        SQLCHAR message[SQL_MAX_MESSAGE_LENGTH];                                                                                 \
-        SQLSMALLINT messageLength;                                                                                               \
-        SQLINTEGER nativeError;                                                                                                  \
-        if(SQLGetDiagRec(SQL_HANDLE_DBC, hconn, 1, sqlState, &nativeError, message, sizeof(message), &messageLength)  != 100)    \
-        {                                                                                                                        \
-E("error: %s", message);                                                                                                         \
-        }                                                                                                                        \
-  return -1;                                                                                                                     \
+      E("error: %s", message);                                                                                                   \
     }                                                                                                                            \
+    return -1;                                                                                                                   \
+  }                                                                                                                              \
 } while (0)
 
 #define CHKSTMTR(hstmt, r)  do {                                                                                                 \
-    if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO)                                                                          \
-    {                                                                                                                            \
-        SQLCHAR sqlState[6];                                                                                                     \
-        SQLCHAR message[SQL_MAX_MESSAGE_LENGTH]={0};                                                                             \
-        SQLSMALLINT messageLength;                                                                                               \
-        SQLINTEGER nativeError;                                                                                                  \
-        if(SQLGetDiagRec(SQL_HANDLE_STMT, hstmt, 1, sqlState, &nativeError, message, sizeof(message), &messageLength)  != 100)   \
-        {                                                                                                                        \
-            E("error: %s", message);                                                                                             \
-        }                                                                                                                        \
-        return -1;                                                                                                               \
-    }                                                                                                                            \
+   if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO)                                                                           \
+   {                                                                                                                             \
+     SQLCHAR sqlState[6];                                                                                                        \
+     SQLCHAR message[SQL_MAX_MESSAGE_LENGTH]={0};                                                                                \
+     SQLSMALLINT messageLength;                                                                                                  \
+     SQLINTEGER nativeError;                                                                                                     \
+     if(SQLGetDiagRec(SQL_HANDLE_STMT, hstmt, 1, sqlState, &nativeError, message, sizeof(message), &messageLength)  != 100)      \
+     {                                                                                                                           \
+       E("error: %s", message);                                                                                                  \
+     }                                                                                                                           \
+     return -1;                                                                                                                  \
+   }                                                                                                                             \
 } while (0)  
 
-static void set_test_case_invalid(SQLCHAR * test_name) {
+static void set_test_case_invalid(SQLCHAR* test_name) {
   for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
     if (strcmp(_cases[i].test_name, (const char*)test_name) == 0) {
       _cases[i].valid = false;
     }
   }
+}
+
+static void get_diag_rec(SQLSMALLINT handleType, SQLHANDLE h) {
+
+  SQLRETURN r;
+  SQLCHAR sqlState[6];
+  SQLINTEGER nativeError;
+  SQLCHAR messageText[SQL_MAX_MESSAGE_LENGTH];
+  SQLSMALLINT textLength;
+
+  r = SQLGetDiagRec(handleType, h, 1, sqlState, &nativeError, messageText, sizeof(messageText), &textLength);
+  X("SQLGetDiagRec result: %d", r);
+  X("SQLState: %s", sqlState);
+  X("Native Error: %d", nativeError);
+  X("Message Text: %s", messageText);
 }
 
 static int init_henv(void) {
@@ -228,7 +242,7 @@ static int init_henv(void) {
   return r;
 }
 
-static int connect_another(void) {
+static int connect_test(void) {
   int r = 0;
   for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
     SQLHANDLE hconntmp;
@@ -288,7 +302,7 @@ static int set_conn_attr_before(void) {
   return 0;
 }
 
-static int connect_all(void) {
+static int connect_default(void) {
   int r = 0;
   for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
     XX("dsn:%s user:%s pwd:%s", _cases[i].dsn, _cases[i].user, _cases[i].pwd);
@@ -320,16 +334,6 @@ static int connect_repeat(void) {
   return 0;
 }
 
-static int connect_after_disconnect(void) {
-  CHK0(connect_all, 0);
-  CHK0(disconnect_all, 0);
-  CHK0(create_hconn, 0);
-  CHK0(connect_all, 0);
-  CHK0(connect_repeat, 0);
-  CHK0(disconnect_all, 0);
-  return 0;
-}
-
 static int test_sql_driver_conn(SQLHANDLE connh, const char* conn_str)
 {
   SQLRETURN r;
@@ -348,21 +352,24 @@ static int test_sql_driver_conn(SQLHANDLE connh, const char* conn_str)
   return 0;
 }
 
-static int re_connect_db(char* db) {
+static int dis_connect() {
   int r = 0;
   for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
     if (_cases[i].ctx.hconn != NULL) {
-      r = CALL_SQLFreeHandle(SQL_HANDLE_STMT, _cases[i].ctx.hstmt);
-      XX("CALL_SQLFreeHandle stmt;%p result:%d", _cases[i].ctx.hstmt, r);
       r = CALL_SQLDisconnect(_cases[i].ctx.hconn);
       XX("CALL_SQLDisconnect result:%d", r);
     }
+  }
+  return r;
+}
 
+static int connect_select_db(char* db) {
+  int r = 0;
+  for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
     char dsn[100] = { 0 };
     strcat(dsn, "DSN=");
     strcat(dsn, _cases[i].dsn);
     if (strcmp(_cases[i].test_name, "sqlserver-odbc") == 0) {
-
       strcat(dsn, ";Uid=");
       strcat(dsn, _cases[i].user);
       strcat(dsn, ";Pwd=");
@@ -380,7 +387,7 @@ static int re_connect_db(char* db) {
     }
     strcat(dsn, db);
 
-    XX("dsn:%s user:%s pwd:%s", dsn, _cases[i].user, _cases[i].pwd);
+    XX("connect string:%s", dsn);
     r = test_sql_driver_conn(_cases[i].ctx.hconn, dsn);
     if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
     XX("dsn:%s result:%d", dsn, r);
@@ -463,7 +470,7 @@ static int set_conn_attr(void) {
   return 0;
 }
 
-static int creater_stmt(void) {
+static int create_stmt(void) {
   int r = 0;
   for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
     SQLHANDLE hconn = _cases[i].ctx.hconn;
@@ -474,19 +481,55 @@ static int creater_stmt(void) {
   return 0;
 }
 
-static int init_database(char* db) {
+static int free_stmt(void) {
+  int r = 0;
+  for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
+    if (_cases[i].ctx.hstmt != NULL) {
+      r = CALL_SQLFreeHandle(SQL_HANDLE_STMT, _cases[i].ctx.hstmt);
+      XX("CALL_SQLFreeHandle stmt;%p result:%d", _cases[i].ctx.hstmt, r);
+      _cases[i].ctx.hstmt = NULL;
+    }
+  }
+  return 0;
+}
+
+static int drop_database(char* db) {
   int r = 0;
 
+  CHK0(create_stmt, 0);
   char sql[128];
   for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
     SQLHANDLE hstmt = _cases[i].ctx.hstmt;
-    memset(sql, 0, sizeof(sql));
-    strcat(sql, "drop database if exists ");
-    strcat(sql, db);
+    if (strcmp(_cases[i].test_name, "sqlserver-odbc") == 0) {
+      memset(sql, 0, sizeof(sql));
+      strcat(sql, "use master;ALTER DATABASE ");
+      strcat(sql, db);
+      strcat(sql, " SET SINGLE_USER with ROLLBACK IMMEDIATE;drop database if exists ");
+      strcat(sql, db);
+      strcat(sql, ";");
+    }
+    else {
+      memset(sql, 0, sizeof(sql));
+      strcat(sql, "drop database if exists ");
+      strcat(sql, db);
+    }
     r = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
     XX(" %s CALL_SQLExecDirect result:%d", sql, r);
+    if (r == SQL_SUCCESS_WITH_INFO) {
+      get_diag_rec(SQL_HANDLE_STMT, hstmt);
+    }
     if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
+  }
+  CHK0(free_stmt, 0);
+  return 0;
+}
 
+static int create_database(char* db) {
+  int r = 0;
+  CHK0(create_stmt, 0);
+  char sql[128];
+  for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
+    SQLHANDLE hstmt = _cases[i].ctx.hstmt;
     memset(sql, 0, sizeof(sql));
     strcat(sql, "create database ");
     strcat(sql, db);
@@ -494,7 +537,7 @@ static int init_database(char* db) {
     XX("%s CALL_SQLExecDirect result:%d", sql, r);
     if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
   }
-
+  CHK0(free_stmt, 0);
   return 0;
 }
 
@@ -513,6 +556,7 @@ static int show_database(void) {
 
 static int show_tables(void) {
   int r = 0;
+  CHK0(create_stmt, 0);
 
   SQLCHAR table_names[DB_SOURCE_NUM][100][MAX_TABLE_NAME_LEN];
   int table_count[DB_SOURCE_NUM] = { 0 };
@@ -529,10 +573,10 @@ static int show_tables(void) {
       // XX("table name: %s", table_names[i][table_count[i]]);
       table_count[i]++;
     }
-    r = SQLCloseCursor(_cases[i].ctx.hstmt);
-    XX("SQLCloseCursor result:%d", r);
-    r = SQLCloseCursor(_cases[i].ctx.hstmt);
-    XX("SQLCloseCursor Second result:%d", r);
+    r = CALL_SQLCloseCursor(_cases[i].ctx.hstmt);
+    XX("CALL_SQLCloseCursor result:%d", r);
+    r = CALL_SQLCloseCursor(_cases[i].ctx.hstmt);
+    XX("CALL_SQLCloseCursor Second result:%d", r);
 
   }
   for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
@@ -541,11 +585,13 @@ static int show_tables(void) {
     }
   }
 
+  CHK0(free_stmt, 0);
   return 0;
 }
 
 static int create_table(const char* tb) {
   int r = 0;
+  CHK0(create_stmt, 0);
   char buf[1024];
   simple_str_t str = {
     .base = buf,
@@ -561,18 +607,38 @@ static int create_table(const char* tb) {
     XX("%s | result:%d", buf, r);
     CHKSTMTR(hstmt, r);
   }
+  CHK0(free_stmt, 0);
+  return 0;
+}
 
+static int drop_table(const char* tb) {
+  int r = 0;
+  CHK0(create_stmt, 0);
+  char sql[1024];
+  memset(sql, 0, sizeof(sql));
+  strcat(sql, "drop table ");
+  strcat(sql, tb);
+  strcat(sql, ";");
+
+  for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
+    SQLHANDLE hstmt = _cases[i].ctx.hstmt;
+    r = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, (SQLINTEGER)strlen(sql));
+    XX("%s | result:%d", sql, r);
+    CHKSTMTR(hstmt, r);
+  }
+  CHK0(free_stmt, 0);
   return 0;
 }
 
 static int clear_test(void) {
   int r = 0;
+  free_stmt();
   for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
     // 当且仅当先释放 sql-odbc驱动资源，后释放taos-odbc资源
     // 且先CALL_SQLDisconnect断开连接，后释放hstmt时，taos-odbc 释放stmt会引起程序异常
     // 很奇怪，不确定原因，暂时记录
-    r = CALL_SQLFreeHandle(SQL_HANDLE_STMT, _cases[i].ctx.hstmt);
-    XX("CALL_SQLFreeHandle stmt;%p result:%d", _cases[i].ctx.hstmt, r);
+    // r = CALL_SQLFreeHandle(SQL_HANDLE_STMT, _cases[i].ctx.hstmt);
+    // XX("CALL_SQLFreeHandle stmt;%p result:%d", _cases[i].ctx.hstmt, r);
     r = CALL_SQLDisconnect(_cases[i].ctx.hconn);
     XX("CALL_SQLDisconnect result:%d", r);
     r = CALL_SQLFreeHandle(SQL_HANDLE_DBC, _cases[i].ctx.hconn);
@@ -610,8 +676,28 @@ static int get_records_count(SQLHANDLE hstmt, const char* table)
   return count;
 }
 
+static int case_2(void) {
+  int r = 0;
+  for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
+    SQLHANDLE hconn = _cases[i].ctx.hconn;
+    SQLHANDLE hstmt = _cases[i].ctx.hstmt;
+
+    SQLUINTEGER convert_bigint;
+    r = CALL_SQLGetInfo(hconn, SQL_CONVERT_BIGINT, &convert_bigint,
+      sizeof(convert_bigint), NULL);
+    if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) {
+      XX("Failed to CALL_SQLGetInfo SQL_CONVERT_BIGINT information.");
+    }
+  }
+  return 0;
+}
+
 static int case_1(void) {
   int r = 0;
+  CHK1(create_table, tb_test, 0);
+  CHK1(create_table, tb_test2, 0);
+
+  CHK0(create_stmt, 0);
   time_t currentTime = time(NULL);
 
   int64_t ts_arr[ARRAY_SIZE] = { 0 };
@@ -725,7 +811,7 @@ static int case_1(void) {
 
     XX("before get_records_count tabl:%s.", tb_test);
 
-    if (0) {
+    if (1) {
       // item 7: 继续使用上边的 stmt， taos-odbc 报错
       // r = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
       // if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
@@ -754,25 +840,19 @@ static int case_1(void) {
       if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
     }
   }
+
+  CHK0(free_stmt, 0);
   return 0;
 }
 
-static int stmt_test_basic(void) {
-  CHK1(init_database, test_db, 0);
-  CHK1(re_connect_db, test_db, 0);
-  CHK0(show_database, 0);
-  CHK0(creater_stmt, 0);
+static int sql_tables_test(void) {
   CHK0(show_tables, 0);
   CHK1(create_table, tb_test, 0);
   CHK1(create_table, tb_test2, 0);
   CHK0(show_tables, 0);
-
-  CHK0(case_1, 0);
-  return 0;
-}
-
-static int stmt_test(void) {
-  CHK0(stmt_test_basic, 0);
+  CHK1(drop_table, tb_test, 0);
+  CHK1(drop_table, tb_test2, 0);
+  CHK0(show_tables, 0);
   return 0;
 }
 
@@ -784,40 +864,22 @@ static void init_sql_str(void) {
   }
 }
 
-static void init_test(void) {
-  init_sql_str();
-}
-
-static int run(void) {
-  init_test();
-  CHK0(init_henv, 0);
+static int basic(void) {
   CHK0(browse_connect, 0);
-  CHK0(create_hconn, 0);
-  CHK0(set_conn_attr_before, 0);
-  CHK0(connect_after_disconnect, 0);
-  CHK0(connect_all, 0);
-  CHK0(connect_another, 0);
+  CHK0(connect_repeat, 0);
+  CHK0(connect_test, 0);
   CHK0(set_conn_attr, 0);
-  CHK0(creater_stmt, 0);
   CHK0(get_driver_info, 0);
-  CHK0(stmt_test, 0);
-
+  CHK0(show_database, 0);
   return 0;
 }
 
-static void get_diag_rec(SQLSMALLINT handleType, SQLHANDLE h) {
+static int run(void) {
+  // CHK0(basic, 0);
+  // CHK0(sql_tables_test, 0);
+  CHK0(case_1, 0);
 
-  SQLRETURN r;
-  SQLCHAR sqlState[6];
-  SQLINTEGER nativeError;
-  SQLCHAR messageText[SQL_MAX_MESSAGE_LENGTH];
-  SQLSMALLINT textLength;
-
-  r = SQLGetDiagRec(handleType, h, 1, sqlState, &nativeError, messageText, sizeof(messageText), &textLength);
-  X("SQLGetDiagRec result: %d", r);
-  X("SQLState: %s", sqlState);
-  X("Native Error: %d", nativeError);
-  X("Message Text: %s", messageText);
+  return 0;
 }
 
 static int list_driver(void) {
@@ -921,17 +983,31 @@ static void print_testcases(void) {
   }
 }
 
-int main(void)
-{
-  int r = 0;
-
-#ifndef _WIN32
-  if (1) return 0;
-#endif 
-
+static int init_test(void) {
   list_driver();
   list_datasource();
   print_testcases();
+
+  init_sql_str();
+  CHK0(init_henv, 0);
+  CHK0(create_hconn, 0);
+  CHK0(connect_default, 0);
+  CHK1(drop_database, test_db, 0);
+  CHK1(create_database, test_db, 0);
+  CHK0(dis_connect, 0);
+  CHK0(set_conn_attr_before, 0);
+  CHK1(connect_select_db, test_db, 0);
+
+  return 0;
+}
+
+int main(void)
+{
+  int r = 0;
+  CHK0(init_test, 0);
+#ifndef _WIN32
+  if (1) return 0;
+#endif 
 
   r = run();
   clear_test();
@@ -939,4 +1015,3 @@ int main(void)
 
   return !!r;
 }
-

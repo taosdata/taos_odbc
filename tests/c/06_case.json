@@ -38,6 +38,18 @@
             rs:[[651]]
           }
         ]
+      },{
+        comments:"taosc currently does not support batch execution for non-insert-statement",
+        sql:"select age from foo.t where age = ?",
+        executes: [
+          {
+            params: [
+              [651],
+              [651]
+            ],
+            positive:false
+          }
+        ]
       }
     ]
   },{
@@ -72,7 +84,8 @@
         executes: [
           {
             params: [
-              [{timestamp:1662961548.653}, 'hello', 'world']
+              [{timestamp:1662961548.653}, 'hello', 'world'],
+              [{timestamp:1662961548.654}, 'hello', 'world']
             ]
           }
         ]

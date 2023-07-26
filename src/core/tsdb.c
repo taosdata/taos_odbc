@@ -532,8 +532,15 @@ static SQLRETURN _tsdb_stmt_describe_tags(tsdb_stmt_t *stmt)
   TAOS_FIELD_E *tags = NULL;
 #ifdef HAVE_TAOSWS           /* { */
   if (stmt->owner->conn->cfg.url) {
-    stmt_append_err(stmt->owner, "HY000", r, "General error:not implemented yet");
-    return SQL_ERROR;
+    // stmt_append_err(stmt->owner, "HY000", r, "General error:not implemented yet");
+    // return SQL_ERROR;
+    r = CALL_ws_stmt_get_tag_fields(stmt->stmt, (struct StmtField**)&tags, &tagNum);
+    if (r) {
+      stmt_append_err_format(stmt->owner, "HY000", r, "General error:[taosc]%s", CALL_ws_errstr(NULL));
+      if (r != TSDB_CODE_APP_ERROR) return SQL_ERROR;
+
+      return SQL_ERROR;
+    }
   } else {
 #endif                       /* } */
     r = CALL_taos_stmt_get_tag_fields(stmt->stmt, &tagNum, &tags);
@@ -560,8 +567,14 @@ static SQLRETURN _tsdb_stmt_describe_cols(tsdb_stmt_t *stmt)
   TAOS_FIELD_E *cols = NULL;
 #ifdef HAVE_TAOSWS           /* { */
   if (stmt->owner->conn->cfg.url) {
-    stmt_append_err(stmt->owner, "HY000", r, "General error:not implemented yet");
-    return SQL_ERROR;
+    // stmt_append_err(stmt->owner, "HY000", r, "General error:not implemented yet");
+    // return SQL_ERROR;
+    r = CALL_ws_stmt_get_col_fields(stmt->stmt, (struct StmtField**)&cols, &colNum);
+    if (r) {
+      stmt_append_err_format(stmt->owner, "HY000", r, "General error:[taosc]%s", CALL_ws_errstr(NULL));
+      if (r != TSDB_CODE_APP_ERROR) return SQL_ERROR;
+      return SQL_ERROR;
+    }
   } else {
 #endif                       /* } */
     r = CALL_taos_stmt_get_col_fields(stmt->stmt, &colNum, &cols);
@@ -639,18 +652,42 @@ static SQLRETURN _tsdb_stmt_get_taos_tags_cols_for_insert(tsdb_stmt_t *stmt)
   TAOS_FIELD_E *tag_fields = NULL;
 #ifdef HAVE_TAOSWS           /* { */
   if (stmt->owner->conn->cfg.url) {
-    // stmt_append_err(stmt->owner, "HY000", r, "General error:not implemented yet");
-    // sr = SQL_ERROR;
+    // // stmt_append_err(stmt->owner, "HY000", r, "General error:not implemented yet");
+    // // sr = SQL_ERROR;
 
-    // TODO: tags not supported yet
-    stmt->params.subtbl_required = 0;
-    stmt->params.nr_tag_fields = 0;
+    // // TODO: tags not supported yet
+    // stmt->params.subtbl_required = 0;
+    // stmt->params.nr_tag_fields = 0;
 
-    stmt->params.nr_col_fields = stmt->params.qms;
-    int nr_params = stmt->params.qms;
+    // stmt->params.nr_col_fields = stmt->params.qms;
+    // int nr_params = stmt->params.qms;
 
-    sr = _tsdb_stmt_generate_default_param_fields(stmt, nr_params);
-    if (sr != SQL_SUCCESS) return SQL_ERROR;
+    // sr = _tsdb_stmt_generate_default_param_fields(stmt, nr_params);
+    // if (sr != SQL_SUCCESS) return SQL_ERROR;
+    r = CALL_ws_stmt_get_tag_fields(stmt->stmt, (struct StmtField**)&tag_fields, &tagNum);
+    if (r) {
+      int e = CALL_ws_errno(NULL);
+      if (e == TSDB_CODE_TSC_STMT_TBNAME_ERROR) {
+        sr = _tsdb_stmt_get_taos_tags_cols_for_subtbled_insert(stmt, r);
+      } else if (e == TSDB_CODE_TSC_STMT_API_ERROR) {
+        sr = _tsdb_stmt_get_taos_tags_cols_for_normal_insert(stmt, r);
+      } else {
+        stmt_append_err_format(stmt->owner, "HY000", r, "General error:[taosc]%s", CALL_ws_stmt_errstr(stmt->stmt));
+        sr = SQL_ERROR;
+      }
+      if (tag_fields) {
+        // CALL_taos_stmt_reclaim_fields(stmt->stmt, tag_fields);
+        tag_fields = NULL;
+      }
+    } else {
+      // OA_NIY(tagNum == 0);
+      // OA_NIY(tag_fields == NULL);
+      OA_NIY(stmt->params.tag_fields == NULL);
+      OA_NIY(stmt->params.nr_tag_fields == 0);
+      stmt->params.tag_fields = tag_fields;
+      stmt->params.nr_tag_fields = tagNum;
+      sr = _tsdb_stmt_describe_cols(stmt);
+    }
   } else {
 #endif                       /* } */
     r = CALL_taos_stmt_get_tag_fields(stmt->stmt, &tagNum, &tag_fields);

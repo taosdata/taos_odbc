@@ -644,12 +644,6 @@ SQLRETURN tables_open(
     }
     tables->tables_args.select_current_db = 0;
   } else {
-    // int required = 0;
-    // if (0) r = CALL_taos_get_current_db(tables->owner->conn->ds_conn.taos, tables->tables_args.db, (int)sizeof(tables->tables_args.db), &required);
-    // if (r) {
-    //   stmt_append_err(tables->owner, "HY000", 0, "General error:failed getting current db");
-    //   return SQL_ERROR;
-    // }
     ds_conn_t *ds_conn = &tables->owner->conn->ds_conn;
     char      *db      = tables->tables_args.db;
     size_t     len     = sizeof(tables->tables_args.db);

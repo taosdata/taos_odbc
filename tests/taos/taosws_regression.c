@@ -509,7 +509,6 @@ static int _prepare_insert(const arg_t *arg, const stage_t stage, WS_TAOS *taos,
   mbs[3].num = 1;
 
   r = CALL_ws_stmt_bind_param_batch(stmt, &mbs[0], sizeof(mbs)/sizeof(mbs[0]));
-  // r = CALL_ws_stmt_bind_param_batch(stmt, &mbs[0], 3);
   if (r) return -1;
 
   r = CALL_ws_stmt_add_batch(stmt);
@@ -519,6 +518,635 @@ static int _prepare_insert(const arg_t *arg, const stage_t stage, WS_TAOS *taos,
   r = CALL_ws_stmt_execute(stmt, &affected_rows);
   if (r) return -1;
   A(affected_rows == 1, "");
+
+  return 0;
+}
+
+static int _prepare_insert_many(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STMT *stmt)
+{
+  (void)arg;
+  (void)stmt;
+
+  int r = 0;
+
+  if (stage == STAGE_CONNECTED) return 0;
+  if (stage != STAGE_STATEMENT) return 0;
+
+  const struct {
+    const char          *sql;
+    int                  __line__;
+    uint8_t              ok:1;
+  } _cases[] = {
+    {"drop database if exists foo", __LINE__, 1},
+    {"create database if not exists foo", __LINE__, 1},
+    {"create table foo.t (ts timestamp, v int, name varchar(21), mark nchar(20))", __LINE__, 1},
+  };
+
+  const size_t nr = sizeof(_cases) / sizeof(_cases[0]);
+  for (size_t i=0; i<nr; ++i) {
+    const char *sql         = _cases[i].sql;
+    uint8_t     expected_ok = _cases[i].ok;
+    int         __line__    = _cases[i].__line__;
+
+    WS_RES *res = CALL_ws_query(taos, sql);
+    int e = ws_errno(res);
+    if ((!!e) ^ (!expected_ok)) {
+      E("executing sql @[%dL]:%s", __line__, sql);
+      if (expected_ok) {
+        E("failed:[%d]%s", e, ws_errstr(res));
+      } else {
+        E("succeed unexpectedly");
+      }
+      r = -1;
+    }
+    if (res) CALL_ws_free_result(res);
+    if (r) return -1;
+  }
+
+#ifdef _WIN32         /* { */
+  E("TODO: for the sake of source-code-charset, need to implement later");
+  if (1) return 0;
+#endif                /* } */
+
+  const char *sql = "insert into foo.t (ts, v, name, mark) values (?, ?, ?, ?)";
+  r = CALL_ws_stmt_prepare(stmt, sql, (unsigned long)strlen(sql));
+  if (r) return -1;
+
+  int insert = 0;
+  r = CALL_ws_stmt_is_insert(stmt, &insert);
+  if (r) return -1;
+  A(insert == 1, "");
+
+  int64_t               ts[2]                 = {1665025866843L, 1665025866844L};
+  const int32_t         ts_len[2]             = {(int32_t)sizeof(ts[0]), (int32_t)sizeof(ts[1])};
+  uintptr_t             ts_buf_len            = (uintptr_t)sizeof(ts[0]);
+  A(ts_buf_len == 8, "");
+  const char            ts_is_null[2]         = {(char)0, (char)0};
+
+  int                   v[2]                  = {223, 224};
+  const int32_t         v_len[2]              = {(int32_t)sizeof(v[0]), (int32_t)sizeof(v[1])};
+  uintptr_t             v_buf_len             = (uintptr_t)sizeof(v[0]);
+  const char            v_is_null[2]          = {(char)0, (char)0};
+
+  const char            name[2][40]           = {"中国","中华人民共和国"};
+  const int32_t         name_len[2]           = {(int32_t)strlen(name[0]), (int32_t)strlen(name[1])};
+  uintptr_t             name_buf_len          = (int32_t)(sizeof(name[0])/sizeof(name[0][0]));
+  A(name_buf_len == 40, "");
+  const char            name_is_null[2]       = {(char)0, (char)0};
+
+  const char            mark[2][40]           = {"苏州","无锡"};
+  const int32_t         mark_len[2]           = {(int32_t)strlen(mark[0]), (int32_t)strlen(mark[1])};
+  uintptr_t             mark_buf_len          = (int32_t)(sizeof(mark[0])/sizeof(mark[0][0]));
+  A(mark_buf_len == 40, "");
+  const char            mark_is_null[2]       = {(char)0, (char)0};
+
+  WS_MULTI_BIND mbs[4] = {0};
+  mbs[0].buffer_type        = TSDB_DATA_TYPE_TIMESTAMP;
+  mbs[0].buffer             = (void*)&ts[0];
+  mbs[0].buffer_length      = ts_buf_len;
+  mbs[0].length             = (int32_t*)&ts_len[0];
+  mbs[0].is_null            = (char*)&ts_is_null[0];
+  mbs[0].num = 2;
+
+  mbs[1].buffer_type        = TSDB_DATA_TYPE_INT;
+  mbs[1].buffer             = (void*)&v[0];
+  mbs[1].buffer_length      = v_buf_len;
+  mbs[1].length             = (int32_t*)&v_len[0];
+  mbs[1].is_null            = (char*)&v_is_null[0];
+  mbs[1].num = 2;
+
+  mbs[2].buffer_type        = TSDB_DATA_TYPE_VARCHAR;
+  mbs[2].buffer             = (void*)&name[0];
+  A((void*)&name[0] == (void*)&name[0][0], "");
+  mbs[2].buffer_length      = name_buf_len;
+  mbs[2].length             = (int32_t*)&name_len[0];
+  mbs[2].is_null            = (char*)&name_is_null[0];
+  mbs[2].num = 2;
+
+  mbs[3].buffer_type        = TSDB_DATA_TYPE_NCHAR;
+  mbs[3].buffer             = (void*)&mark[0];
+  mbs[3].buffer_length      = mark_buf_len;
+  mbs[3].length             = (int32_t*)&mark_len[0];
+  mbs[3].is_null            = (char*)&mark_is_null[0];
+  mbs[3].num = 2;
+
+  r = CALL_ws_stmt_bind_param_batch(stmt, &mbs[0], sizeof(mbs)/sizeof(mbs[0]));
+  if (r) return -1;
+
+  r = CALL_ws_stmt_add_batch(stmt);
+  if (r) return -1;
+
+  int32_t affected_rows = 0;
+  r = CALL_ws_stmt_execute(stmt, &affected_rows);
+  if (r) return -1;
+  A(affected_rows == 2, "");
+
+  return 0;
+}
+
+static int _prepare_insert_normal_dynamic(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STMT *stmt)
+{
+  (void)arg;
+  (void)stmt;
+
+  int r = 0;
+
+  if (stage == STAGE_CONNECTED) return 0;
+  if (stage != STAGE_STATEMENT) return 0;
+
+  const struct {
+    const char          *sql;
+    int                  __line__;
+    uint8_t              ok:1;
+  } _cases[] = {
+    {"drop database if exists foo", __LINE__, 1},
+    {"create database if not exists foo", __LINE__, 1},
+    {"create table foo.t (ts timestamp, v int, name varchar(20), mark nchar(20))", __LINE__, 1},
+    {"use foo", __LINE__, 1},
+  };
+
+  const size_t nr = sizeof(_cases) / sizeof(_cases[0]);
+  for (size_t i=0; i<nr; ++i) {
+    const char *sql         = _cases[i].sql;
+    uint8_t     expected_ok = _cases[i].ok;
+    int         __line__    = _cases[i].__line__;
+
+    WS_RES *res = CALL_ws_query(taos, sql);
+    int e = ws_errno(res);
+    if ((!!e) ^ (!expected_ok)) {
+      E("executing sql @[%dL]:%s", __line__, sql);
+      if (expected_ok) {
+        E("failed:[%d]%s", e, ws_errstr(res));
+      } else {
+        E("succeed unexpectedly");
+      }
+      r = -1;
+    }
+    if (res) CALL_ws_free_result(res);
+    if (r) return -1;
+  }
+
+#ifdef _WIN32         /* { */
+  E("TODO: for the sake of source-code-charset, need to implement later");
+  if (1) return 0;
+#endif                /* } */
+
+  const char *sql = "insert into ? (ts, v, name, mark) values (?, ?, ?, ?)";
+  r = CALL_ws_stmt_prepare(stmt, sql, (unsigned long)strlen(sql));
+  if (r) return -1;
+
+  int insert = 0;
+  r = CALL_ws_stmt_is_insert(stmt, &insert);
+  if (r) return -1;
+  A(insert == 1, "");
+
+  int64_t               ts            = 1665025866843L;
+  const int32_t         ts_len        = (int32_t)sizeof(ts);
+  const char            ts_is_null    = (char)0;
+
+  int                   v             = 223;
+  const int32_t         v_len         = (int32_t)sizeof(v);
+  const char            v_is_null     = (char)0;
+
+  const char           *name          = "中国";
+  const int32_t         name_len      = (int32_t)strlen(name);
+  const char            name_is_null  = (char)0;
+
+  const char           *mark          = "苏州";
+  const int32_t         mark_len      = (int32_t)strlen(mark);
+  const char            mark_is_null  = (char)0;
+
+  WS_MULTI_BIND mbs[4] = {0};
+  mbs[0].buffer_type        = TSDB_DATA_TYPE_TIMESTAMP;
+  mbs[0].buffer             = (void*)&ts;
+  mbs[0].buffer_length      = (uintptr_t)sizeof(ts);
+  mbs[0].length             = (int32_t*)&ts_len;
+  mbs[0].is_null            = (char*)&ts_is_null;
+  mbs[0].num = 1;
+
+  mbs[1].buffer_type        = TSDB_DATA_TYPE_INT;
+  mbs[1].buffer             = (void*)&v;
+  mbs[1].buffer_length      = (uintptr_t)sizeof(v);
+  mbs[1].length             = (int32_t*)&v_len;
+  mbs[1].is_null            = (char*)&v_is_null;
+  mbs[1].num = 1;
+
+  mbs[2].buffer_type        = TSDB_DATA_TYPE_VARCHAR;
+  mbs[2].buffer             = (void*)name;
+  mbs[2].buffer_length      = (uintptr_t)name_len;
+  mbs[2].length             = (int32_t*)&name_len;
+  mbs[2].is_null            = (char*)&name_is_null;
+  mbs[2].num = 1;
+
+  mbs[3].buffer_type        = TSDB_DATA_TYPE_NCHAR;
+  mbs[3].buffer             = (void*)mark;
+  mbs[3].buffer_length      = (uintptr_t)mark_len;
+  mbs[3].length             = (int32_t*)&mark_len;
+  mbs[3].is_null            = (char*)&mark_is_null;
+  mbs[3].num = 1;
+
+  const char *tbl = "foo.t"; // NOTE: must specify db, why?
+  r = CALL_ws_stmt_set_tbname(stmt, tbl);
+  if (r) return -1;
+
+  r = CALL_ws_stmt_bind_param_batch(stmt, &mbs[0], sizeof(mbs)/sizeof(mbs[0]));
+  if (r) return -1;
+
+  r = CALL_ws_stmt_add_batch(stmt);
+  if (r) return -1;
+
+  int32_t affected_rows = 0;
+  r = CALL_ws_stmt_execute(stmt, &affected_rows);
+  if (r) return -1;
+  A(affected_rows == 1, "");
+
+  return 0;
+}
+
+static int _prepare_insert_normals_dynamic(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STMT *stmt)
+{
+  (void)arg;
+  (void)stmt;
+
+  int r = 0;
+
+  if (stage == STAGE_CONNECTED) return 0;
+  if (stage != STAGE_STATEMENT) return 0;
+
+  const struct {
+    const char          *sql;
+    int                  __line__;
+    uint8_t              ok:1;
+  } _cases[] = {
+    {"drop database if exists foo", __LINE__, 1},
+    {"create database if not exists foo", __LINE__, 1},
+    {"create table foo.t (ts timestamp, v int, name varchar(20), mark nchar(20))", __LINE__, 1},
+    {"create table foo.m (ts timestamp, v int, name varchar(20), mark nchar(20))", __LINE__, 1},
+    {"use foo", __LINE__, 1},
+  };
+
+  const size_t nr = sizeof(_cases) / sizeof(_cases[0]);
+  for (size_t i=0; i<nr; ++i) {
+    const char *sql         = _cases[i].sql;
+    uint8_t     expected_ok = _cases[i].ok;
+    int         __line__    = _cases[i].__line__;
+
+    WS_RES *res = CALL_ws_query(taos, sql);
+    int e = ws_errno(res);
+    if ((!!e) ^ (!expected_ok)) {
+      E("executing sql @[%dL]:%s", __line__, sql);
+      if (expected_ok) {
+        E("failed:[%d]%s", e, ws_errstr(res));
+      } else {
+        E("succeed unexpectedly");
+      }
+      r = -1;
+    }
+    if (res) CALL_ws_free_result(res);
+    if (r) return -1;
+  }
+
+#ifdef _WIN32         /* { */
+  E("TODO: for the sake of source-code-charset, need to implement later");
+  if (1) return 0;
+#endif                /* } */
+
+  const char *sql = "insert into ? (ts, v, name, mark) values (?, ?, ?, ?)";
+  r = CALL_ws_stmt_prepare(stmt, sql, (unsigned long)strlen(sql));
+  if (r) return -1;
+
+  int insert = 0;
+  r = CALL_ws_stmt_is_insert(stmt, &insert);
+  if (r) return -1;
+  A(insert == 1, "");
+
+  {
+    int64_t               ts            = 1665025866843L;
+    const int32_t         ts_len        = (int32_t)sizeof(ts);
+    const char            ts_is_null    = (char)0;
+
+    int                   v             = 223;
+    const int32_t         v_len         = (int32_t)sizeof(v);
+    const char            v_is_null     = (char)0;
+
+    char                  name[]        = "中国";
+    const int32_t         name_len      = (int32_t)strlen(name);
+    const char            name_is_null  = (char)0;
+
+    char                  mark[]        = "苏州";
+    const int32_t         mark_len      = (int32_t)strlen(mark);
+    const char            mark_is_null  = (char)0;
+
+    WS_MULTI_BIND mbs[4] = {0};
+    mbs[0].buffer_type        = TSDB_DATA_TYPE_TIMESTAMP;
+    mbs[0].buffer             = (void*)&ts;
+    mbs[0].buffer_length      = (uintptr_t)sizeof(ts);
+    mbs[0].length             = (int32_t*)&ts_len;
+    mbs[0].is_null            = (char*)&ts_is_null;
+    mbs[0].num = 1;
+
+    mbs[1].buffer_type        = TSDB_DATA_TYPE_INT;
+    mbs[1].buffer             = (void*)&v;
+    mbs[1].buffer_length      = (uintptr_t)sizeof(v);
+    mbs[1].length             = (int32_t*)&v_len;
+    mbs[1].is_null            = (char*)&v_is_null;
+    mbs[1].num = 1;
+
+    mbs[2].buffer_type        = TSDB_DATA_TYPE_VARCHAR;
+    mbs[2].buffer             = (void*)name;
+    mbs[2].buffer_length      = (uintptr_t)name_len;
+    mbs[2].length             = (int32_t*)&name_len;
+    mbs[2].is_null            = (char*)&name_is_null;
+    mbs[2].num = 1;
+
+    mbs[3].buffer_type        = TSDB_DATA_TYPE_NCHAR;
+    mbs[3].buffer             = (void*)mark;
+    mbs[3].buffer_length      = (uintptr_t)mark_len;
+    mbs[3].length             = (int32_t*)&mark_len;
+    mbs[3].is_null            = (char*)&mark_is_null;
+    mbs[3].num = 1;
+
+    const char *tbl = "foo.t"; // NOTE: must specify db, why?
+    r = CALL_ws_stmt_set_tbname(stmt, tbl);
+    if (r) return -1;
+
+    r = CALL_ws_stmt_bind_param_batch(stmt, &mbs[0], sizeof(mbs)/sizeof(mbs[0]));
+    if (r) return -1;
+
+    r = CALL_ws_stmt_add_batch(stmt);
+    if (r) return -1;
+
+    memset(mbs, 0, sizeof(mbs));
+    memset(name, 0, sizeof(name));
+    memset(mark, 0, sizeof(mark));
+  }
+  {
+    int64_t               ts            = 1665025866844L;
+    const int32_t         ts_len        = (int32_t)sizeof(ts);
+    const char            ts_is_null    = (char)0;
+
+    int                   v             = 224;
+    const int32_t         v_len         = (int32_t)sizeof(v);
+    const char            v_is_null     = (char)0;
+
+    const char           *name          = "中国x";
+    const int32_t         name_len      = (int32_t)strlen(name);
+    const char            name_is_null  = (char)0;
+
+    const char           *mark          = "苏州x";
+    const int32_t         mark_len      = (int32_t)strlen(mark);
+    const char            mark_is_null  = (char)0;
+
+    WS_MULTI_BIND mbs[4] = {0};
+    mbs[0].buffer_type        = TSDB_DATA_TYPE_TIMESTAMP;
+    mbs[0].buffer             = (void*)&ts;
+    mbs[0].buffer_length      = (uintptr_t)sizeof(ts);
+    mbs[0].length             = (int32_t*)&ts_len;
+    mbs[0].is_null            = (char*)&ts_is_null;
+    mbs[0].num = 1;
+
+    mbs[1].buffer_type        = TSDB_DATA_TYPE_INT;
+    mbs[1].buffer             = (void*)&v;
+    mbs[1].buffer_length      = (uintptr_t)sizeof(v);
+    mbs[1].length             = (int32_t*)&v_len;
+    mbs[1].is_null            = (char*)&v_is_null;
+    mbs[1].num = 1;
+
+    mbs[2].buffer_type        = TSDB_DATA_TYPE_VARCHAR;
+    mbs[2].buffer             = (void*)name;
+    mbs[2].buffer_length      = (uintptr_t)name_len;
+    mbs[2].length             = (int32_t*)&name_len;
+    mbs[2].is_null            = (char*)&name_is_null;
+    mbs[2].num = 1;
+
+    mbs[3].buffer_type        = TSDB_DATA_TYPE_NCHAR;
+    mbs[3].buffer             = (void*)mark;
+    mbs[3].buffer_length      = (uintptr_t)mark_len;
+    mbs[3].length             = (int32_t*)&mark_len;
+    mbs[3].is_null            = (char*)&mark_is_null;
+    mbs[3].num = 1;
+
+    const char *tbl = "foo.m";
+    r = CALL_ws_stmt_set_tbname(stmt, tbl);
+    if (r) return -1;
+
+    r = CALL_ws_stmt_bind_param_batch(stmt, &mbs[0], sizeof(mbs)/sizeof(mbs[0]));
+    if (r) return -1;
+
+    r = CALL_ws_stmt_add_batch(stmt);
+    if (r) return -1;
+  }
+
+  int32_t affected_rows = 0;
+  r = CALL_ws_stmt_execute(stmt, &affected_rows);
+  if (r) return -1;
+  A(affected_rows == 1, "affected_rows:%d", affected_rows);
+
+  return 0;
+}
+
+static int _prepare_normal_get_col_fields(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STMT *stmt)
+{
+  (void)arg;
+  (void)stmt;
+
+  int r = 0;
+
+  if (stage == STAGE_CONNECTED) return 0;
+  if (stage != STAGE_STATEMENT) return 0;
+
+  const struct {
+    const char          *sql;
+    int                  __line__;
+    uint8_t              ok:1;
+  } _cases[] = {
+    {"drop database if exists foo", __LINE__, 1},
+    {"create database if not exists foo", __LINE__, 1},
+    {"create table foo.t (ts timestamp, v int, name varchar(21), mark nchar(20))", __LINE__, 1},
+    {"use foo", __LINE__, 1},
+  };
+
+  const size_t nr = sizeof(_cases) / sizeof(_cases[0]);
+  for (size_t i=0; i<nr; ++i) {
+    const char *sql         = _cases[i].sql;
+    uint8_t     expected_ok = _cases[i].ok;
+    int         __line__    = _cases[i].__line__;
+
+    WS_RES *res = CALL_ws_query(taos, sql);
+    int e = ws_errno(res);
+    if ((!!e) ^ (!expected_ok)) {
+      E("executing sql @[%dL]:%s", __line__, sql);
+      if (expected_ok) {
+        E("failed:[%d]%s", e, ws_errstr(res));
+      } else {
+        E("succeed unexpectedly");
+      }
+      r = -1;
+    }
+    if (res) CALL_ws_free_result(res);
+    if (r) return -1;
+  }
+
+#ifdef _WIN32         /* { */
+  E("TODO: for the sake of source-code-charset, need to implement later");
+  if (1) return 0;
+#endif                /* } */
+
+#define RECORD(...)       {__LINE__, ##__VA_ARGS__}
+  struct {
+    int                line;
+    const char        *sql;
+    int                nr_cols;
+  } _inserts[] = {
+    // NOTE: must specify db, why?
+    RECORD("insert into foo.t (ts, v, name, mark) values (?, ?, ?, ?)", 4),
+    RECORD("insert into foo.t values (?, ?, ?, ?)", 4),
+    RECORD("insert into foo.t (ts, v, mark) values (?, ?, ?)", 3),
+  };
+  size_t _nr_inserts = sizeof(_inserts)/sizeof(_inserts[0]);
+#undef RECORD
+
+  for (size_t i=0; i<_nr_inserts; ++i) {
+    int          line             = _inserts[i].line;
+    const char  *sql              = _inserts[i].sql;
+    int          nr_cols          = _inserts[i].nr_cols;
+
+    r = CALL_ws_stmt_prepare(stmt, sql, (unsigned long)strlen(sql));
+    if (r) return -1;
+
+    int insert = 0;
+    r = CALL_ws_stmt_is_insert(stmt, &insert);
+    if (r) return -1;
+    if (!insert) return -1;
+
+    int colNum = 0;
+    struct StmtField *cols = NULL;
+    r = CALL_ws_stmt_get_col_fields(stmt, &cols, &colNum);
+    if (cols) {
+      CALL_ws_stmt_reclaim_fields(&cols, colNum); cols = NULL;
+    }
+    if (r) return -1;
+    if (colNum != nr_cols) {
+      E("@%dL:cols expected %d, but got ==%d==", line, nr_cols, colNum);
+      return -1;
+    }
+  }
+
+  return 0;
+}
+
+static int _prepare_get_tag_col_fields(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STMT *stmt)
+{
+  (void)arg;
+  (void)stmt;
+
+  int r = 0;
+
+  if (stage == STAGE_CONNECTED) return 0;
+  if (stage != STAGE_STATEMENT) return 0;
+
+  const struct {
+    const char          *sql;
+    int                  __line__;
+    uint8_t              ok:1;
+  } _cases[] = {
+    {"drop database if exists foo", __LINE__, 1},
+    {"create database if not exists foo", __LINE__, 1},
+    {"create table foo.st (ts timestamp, v int, name varchar(21), mark nchar(20)) tags (val int, feat varchar(20))", __LINE__, 1},
+    {"insert into foo.t using foo.st (val, feat) tags (3, 'f3') (ts, v, name, mark) values (1665025866843, 4, 'n4', 'm4')", __LINE__, 1},
+    {"use foo", __LINE__, 1},
+  };
+
+  const size_t nr = sizeof(_cases) / sizeof(_cases[0]);
+  for (size_t i=0; i<nr; ++i) {
+    const char *sql         = _cases[i].sql;
+    uint8_t     expected_ok = _cases[i].ok;
+    int         __line__    = _cases[i].__line__;
+
+    WS_RES *res = CALL_ws_query(taos, sql);
+    int e = ws_errno(res);
+    if ((!!e) ^ (!expected_ok)) {
+      E("executing sql @[%dL]:%s", __line__, sql);
+      if (expected_ok) {
+        E("failed:[%d]%s", e, ws_errstr(res));
+      } else {
+        E("succeed unexpectedly");
+      }
+      r = -1;
+    }
+    if (res) CALL_ws_free_result(res);
+    if (r) return -1;
+  }
+
+#ifdef _WIN32         /* { */
+  E("TODO: for the sake of source-code-charset, need to implement later");
+  if (1) return 0;
+#endif                /* } */
+
+#define RECORD(...)       {__LINE__, ##__VA_ARGS__}
+  struct {
+    int                line;
+    const char        *sql;
+    int                nr_tags;
+    int                nr_cols;
+  } _inserts[] = {
+    // NOTE: get_tag_fields seems trigger abortion in taosadapter->taosc if the statement is not subtble-related!!!!!!!
+    // RECORD("insert into foo.t (ts, v, name, mark) values (?, ?, ?, ?)", 0, 4),
+    // RECORD("insert into foo.t values (?, ?, ?, ?)", 0, 4),
+    // RECORD("insert into foo.t (ts, v, mark) values (?, ?, ?)", 0, 3),
+    // RECORD("insert into foo.t (ts) values (?)", 0, 1),
+    // RECORD("insert into foo.t (ts) values (1665025866843)", 0, 1), // NOTE: weird!!!, literal col value, but get_col_fields still reports!!!
+    // RECORD("insert into foo.t (ts, v) values (now(), 3)", 0, 2), // NOTE: weird!!!, literal col value, but get_col_fields still reports!!!
+    // RECORD("insert into foo.t (ts, v) values (1665025866843, 3)", 0, 2), // NOTE: weird!!!, mixing literal and parameter-markers!!!
+    // RECORD("insert into foo.t (ts, v) values (now(), ?)", 0, 2), // NOTE: weird!!!, mixing function and parameter-markers!!!
+    // RECORD("insert into foo.t (ts, v) values (1665025866843, ?)", 0, 2), // NOTE: weird!!!, mixing literal and parameter-markers!!!
+    // RECORD("insert into foo.t (ts, v, mark) values (1665025866843, ?, ?)", 0, 3), // NOTE: weird!!!, mixing literal and parameter-markers!!!
+    // RECORD("insert into foo.t values (1665025866843, ?, ?, ?)", 0, 4), // NOTE: weird!!!, mixing literal and parameter-markers!!!
+    RECORD("insert into foo.t using foo.st (val, feat) tags (?, ?) (ts, v, mark) values (?, ?, ?)", 2, 3),
+    RECORD("insert into foo.t using foo.st (val) tags (?) (ts, v, mark) values (?, ?, ?)", 1, 3),
+    RECORD("insert into foo.t using foo.st (val) tags (4) (ts, v, mark) values (?, ?, ?)", 1, 3),  // NOTE: weird!!!, literal tag value, but get_tag_fields still reports!!!
+  };
+  size_t _nr_inserts = sizeof(_inserts)/sizeof(_inserts[0]);
+#undef RECORD
+
+  for (size_t i=0; i<1 && i<_nr_inserts; ++i) {
+    int          line             = _inserts[i].line;
+    const char  *sql              = _inserts[i].sql;
+    int          nr_tags          = _inserts[i].nr_tags;
+    int          nr_cols          = _inserts[i].nr_cols;
+
+    r = CALL_ws_stmt_prepare(stmt, sql, (unsigned long)strlen(sql));
+    if (r) return -1;
+
+    int insert = 0;
+    r = CALL_ws_stmt_is_insert(stmt, &insert);
+    if (r) return -1;
+    if (!insert) return -1;
+
+    int tagNum = 0;
+    struct StmtField *tags = NULL;
+    r = CALL_ws_stmt_get_tag_fields(stmt, &tags, &tagNum);
+    if (tags) {
+      CALL_ws_stmt_reclaim_fields(&tags, tagNum); tags = NULL;
+    }
+    if (r) return -1;
+    if (tagNum != nr_tags) {
+      E("@%dL:tags expected %d, but got ==%d==", line, nr_tags, tagNum);
+      return -1;
+    }
+
+    int colNum = 0;
+    struct StmtField *cols = NULL;
+    r = CALL_ws_stmt_get_col_fields(stmt, &cols, &colNum);
+    if (cols) {
+      CALL_ws_stmt_reclaim_fields(&cols, colNum); cols = NULL;
+    }
+    if (r) return -1;
+    if (colNum != nr_cols) {
+      E("@%dL:cols expected %d, but got ==%d==", line, nr_cols, colNum);
+      return -1;
+    }
+  }
 
   return 0;
 }
@@ -535,6 +1163,11 @@ static struct {
   RECORD(_fetch),
   RECORD(_charset),
   RECORD(_prepare_insert),
+  RECORD(_prepare_insert_many),
+  RECORD(_prepare_insert_normal_dynamic),
+  RECORD(_prepare_insert_normals_dynamic),
+  RECORD(_prepare_normal_get_col_fields),
+  RECORD(_prepare_get_tag_col_fields),
 };
 
 static int on_statement(const arg_t *arg, WS_TAOS *taos, WS_STMT *stmt)

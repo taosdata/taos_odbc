@@ -263,6 +263,13 @@ static inline int call_ws_stmt_get_col_fields(const char *file, int line, const 
   return r;
 }
 
+static inline void call_ws_stmt_reclaim_fields(const char *file, int line, const char *func, struct StmtField **fields, int fieldNum)
+{
+  LOGD_TAOSWS(file, line, func, "ws_stmt_reclaim_fields(fields:%p,fieldNum:%d) ...", fields, fieldNum);
+  ws_stmt_reclaim_fields(fields, fieldNum);
+  LOGD_TAOSWS(file, line, func, "ws_stmt_reclaim_fields(fields:%p,fieldNum:(%d)) => void", fields, fieldNum);
+}
+
 static inline int call_ws_stmt_is_insert(const char *file, int line, const char *func, WS_STMT *stmt, int *insert)
 {
   LOGD_TAOSWS(file, line, func, "ws_stmt_is_insert(stmt:%p,insert:%p) ...", stmt, insert);
@@ -360,6 +367,7 @@ static inline void call_ws_stmt_close(const char *file, int line, const char *fu
 #define CALL_ws_stmt_set_tbname_tags(...)                call_ws_stmt_set_tbname_tags(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_ws_stmt_get_tag_fields(...)                 call_ws_stmt_get_tag_fields(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_ws_stmt_get_col_fields(...)                 call_ws_stmt_get_col_fields(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
+#define CALL_ws_stmt_reclaim_fields(...)                 call_ws_stmt_reclaim_fields(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_ws_stmt_is_insert(...)                      call_ws_stmt_is_insert(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_ws_stmt_set_tags(...)                       call_ws_stmt_set_tags(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_ws_stmt_bind_param_batch(...)               call_ws_stmt_bind_param_batch(__FILE__, __LINE__, __func__, ##__VA_ARGS__)

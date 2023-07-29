@@ -1125,6 +1125,76 @@ static int _dump_current_db(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_han
   return 0;
 }
 
+static int _two_stmts_current_db(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles_t *handles)
+{
+  (void)odbc_case;
+
+  int r = 0;
+
+  SQLHANDLE hconn = handles->hconn;
+
+  SQLRETURN sr = SQL_SUCCESS;
+
+  if (stage != ODBC_DBC) return 0;
+
+  DUMP("%s:", __func__);
+
+  char db[1024]; db[0] = '\0';
+  SQLSMALLINT db_len = 0;
+  sr = CALL_SQLGetInfo(hconn, SQL_DATABASE_NAME, db, sizeof(db), &db_len);
+  if (sr != SQL_SUCCESS) return -1;
+  DUMP("DATABASE_NAME:[%s]", db);
+
+
+  SQLINTEGER db_n = 0;
+  sr = CALL_SQLGetConnectAttr(hconn, SQL_ATTR_CURRENT_CATALOG, db, sizeof(db), &db_n);
+  if (sr != SQL_SUCCESS) return -1;
+  DUMP("CURRENT_CATALOG:[%s]", db);
+
+  SQLHANDLE hstmt1 = SQL_NULL_HANDLE, hstmt2 = SQL_NULL_HANDLE;
+
+  sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, handles->hconn, &hstmt1);
+  if (FAILED(sr)) goto end;
+
+  sr = CALL_SQLExecDirect(hstmt1, (SQLCHAR*)"select database()", SQL_NTS);
+  if (FAILED(sr)) goto end;
+  sr = CALL_SQLFetch(hstmt1);
+  if (FAILED(sr)) goto end;
+  r = _dump_col(hstmt1, 1);
+  if (r) goto end;
+
+  sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, handles->hconn, &hstmt2);
+  if (FAILED(sr)) goto end;
+
+  DUMP("trying to change database to `foo`");
+  sr = CALL_SQLExecDirect(hstmt2, (SQLCHAR*)"use foo", SQL_NTS);
+  if (FAILED(sr)) goto end;
+
+  CALL_SQLCloseCursor(hstmt1);
+
+  sr = CALL_SQLExecDirect(hstmt1, (SQLCHAR*)"select database()", SQL_NTS);
+  if (FAILED(sr)) goto end;
+  sr = CALL_SQLFetch(hstmt1);
+  if (FAILED(sr)) goto end;
+  r = _dump_col(hstmt1, 1);
+  if (r) goto end;
+
+  sr = CALL_SQLGetInfo(hconn, SQL_DATABASE_NAME, db, sizeof(db), &db_len);
+  if (sr != SQL_SUCCESS) return -1;
+  DUMP("DATABASE_NAME:[%s]", db);
+
+  sr = CALL_SQLGetConnectAttr(hconn, SQL_ATTR_CURRENT_CATALOG, db, sizeof(db), &db_n);
+  if (sr != SQL_SUCCESS) return -1;
+  DUMP("CURRENT_CATALOG:[%s]", db);
+
+end:
+
+  if (hstmt1 != SQL_NULL_HANDLE) CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt1);
+  if (hstmt2 != SQL_NULL_HANDLE) CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt2);
+
+  return (r || FAILED(sr)) ? -1 : 0;
+}
+
 static odbc_case_t odbc_cases[] = {
   ODBC_CASE(_dummy),
   ODBC_CASE(_dump_stmt_col_info),
@@ -1138,6 +1208,7 @@ static odbc_case_t odbc_cases[] = {
   ODBC_CASE(_bind_exec_direct),
   ODBC_CASE(_execute_file),
   ODBC_CASE(_dump_current_db),
+  ODBC_CASE(_two_stmts_current_db),
 };
 
 static int _dumping(arg_t *arg)

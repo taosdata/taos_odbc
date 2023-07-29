@@ -940,7 +940,7 @@ static int _prepare_insert_normals_dynamic(const arg_t *arg, const stage_t stage
   int32_t affected_rows = 0;
   r = CALL_ws_stmt_execute(stmt, &affected_rows);
   if (r) return -1;
-  A(affected_rows == 1, "affected_rows:%d", affected_rows);
+  A(affected_rows == 2, "affected_rows:%d", affected_rows);
 
   return 0;
 }

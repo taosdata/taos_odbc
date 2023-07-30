@@ -328,4 +328,38 @@
    fun:_ZN67_$LT$taos_ws..stmt..Stmt$u20$as$u20$taos_ws..stmt..WsFieldsable$GT$14get_tag_fields17h81cdf2c1e2da4af4E
    fun:ws_stmt_get_tag_fields
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:malloc
+   fun:allocate_dtv_entry
+   fun:allocate_and_init
+   fun:tls_get_addr_tail
+   fun:__tls_get_addr
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:_ZN9hashbrown3raw21RawTable$LT$T$C$A$GT$14reserve_rehash17h444c27e4f23e184bE
+   fun:_ZN9hashbrown3raw21RawTable$LT$T$C$A$GT$6insert17h9a3bf298aac9c4b3E
+   fun:_ZN9hashbrown3map28HashMap$LT$K$C$V$C$S$C$A$GT$6insert17h9a2236c82b143ce1E
+   fun:_ZN5tokio7runtime8blocking4pool7Spawner10spawn_task17h31148ba9aad56e05E
+   fun:_ZN5tokio7runtime8blocking4pool14spawn_blocking17h6353b39ef50a8d82E
+   fun:_ZN5tokio3net4addr95_$LT$impl$u20$tokio..net..addr..sealed..ToSocketAddrsPriv$u20$for$u20$alloc..string..String$GT$15to_socket_addrs17h7c087d4566b35db1E
+   fun:_ZN5tokio3net3tcp6stream9TcpStream7connect28_$u7b$$u7b$closure$u7d$$u7d$17hfe5240badc73c049E
+   fun:_ZN17tokio_tungstenite7connect25connect_async_with_config28_$u7b$$u7b$closure$u7d$$u7d$17hdf6b72075f9bf480E
+   fun:_ZN7taos_ws5query4asyn6WsTaos11from_wsinfo28_$u7b$$u7b$closure$u7d$$u7d$17hc5f81355d1e9c87bE
+   fun:_ZN83_$LT$taos_ws..query..Taos$u20$as$u20$taos_query..prelude..async..AsyncQueryable$GT$5query28_$u7b$$u7b$closure$u7d$$u7d$17h4eedbd18961e5538E.llvm.7066506233103261151
+   fun:_ZN5tokio7runtime4park16CachedParkThread8block_on17hf85ec98cddeb2d6fE
+   fun:_ZN5tokio7runtime7context7runtime13enter_runtime17hf055f5bc7c92a375E
+   fun:_ZN5tokio7runtime7runtime7Runtime8block_on17hcbf36499704cf35eE
+   fun:_ZN10taos_query24block_in_place_or_global17h5de66b8af3b7a08aE
+   fun:_ZN10taos_query7prelude4sync9Queryable4exec17he2ed796ccf942327E
+   fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17h1d3d30a382c21c2fE
+   fun:ws_connect_with_dsn
+}
 

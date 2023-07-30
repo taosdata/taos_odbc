@@ -36,10 +36,8 @@
 #include "typedefs.h"
 
 #include "taos_helpers.h"
-
-#include <taos.h>
 #ifdef HAVE_TAOSWS           /* { */
-#include <taosws.h>
+#include "taosws_helpers.h"
 #endif                       /* } */
 
 EXTERN_C_BEGIN
@@ -350,9 +348,17 @@ struct charset_conv_mgr_s {
   hash_table_t               *convs;
 };
 
+typedef enum backend_e                backend_e;
+enum backend_e {
+  BACKEND_TAOS,
+  BACKEND_TAOSWS,
+};
+
 struct conn_cfg_s {
   char                  *driver;
   char                  *dsn;
+
+  backend_e              backend;
 
   char                  *url;
 
@@ -388,6 +394,21 @@ struct sqls_s {
   size_t                 pos; // 1-based
 
   uint8_t                failed:1;
+};
+
+struct url_s {
+  char                  *scheme;     // NOTE: without tail ':'
+
+  char                  *user;       // NOTE: decoded-form
+  char                  *pass;       // NOTE: decoded-form
+
+  char                  *host;       // NOTE: decoded-form
+  uint16_t               port;
+
+  // NOTE: undecoded yet
+  char                  *path;
+  char                  *query;      // NOTE: without head '?'
+  char                  *fragment;   // NOTE: without head '#'
 };
 
 struct parser_token_s {
@@ -437,6 +458,11 @@ struct sqls_parser_param_s {
   parser_ctx_t           ctx;
 };
 
+struct url_parser_param_s {
+  parser_ctx_t           ctx;
+  url_t                  url;
+};
+
 struct charset_convs_s {
   charset_conv_t            *cnv_from_sqlc_charset_for_param_bind_to_wchar;
   charset_conv_t            *cnv_from_wchar_to_wchar;
@@ -445,13 +471,18 @@ struct charset_convs_s {
   charset_conv_t            *cnv_from_wchar_to_tsdb;
 };
 
+struct ds_err_s {
+  int                err;
+  char               str[1024];
+};
+
 struct ds_conn_s {
   conn_t                *conn;
   void                  *taos;
   int         (*query)           (ds_conn_t *ds_conn, const char *sql, ds_res_t *ds_res);
   const char* (*get_server_info) (ds_conn_t *ds_conn);
   const char* (*get_client_info) (ds_conn_t *ds_conn);
-  int         (*get_current_db)  (ds_conn_t *ds_conn, char *db, size_t len, int *e, const char **errstr);
+  int         (*get_current_db)  (ds_conn_t *ds_conn, char *db, size_t len, ds_err_t *ds_err);
   void        (*close)           (ds_conn_t *ds_conn);
 
   int         (*stmt_init)       (ds_conn_t *ds_conn, ds_stmt_t *ds_stmt);
@@ -469,7 +500,7 @@ struct ds_fields_s {
 struct ds_block_s {
   ds_res_t              *ds_res;
 
-  int  (*get_into_tsdb)(ds_block_t *ds_block, int i_row, int i_col, tsdb_data_t *tsdb, char *buf, size_t len);
+  int  (*get_into_tsdb)(ds_block_t *ds_block, int i_row, int i_col, tsdb_data_t *tsdb, ds_err_t *ds_err);
 
   int                    nr_rows_in_block;
   const void            *block;
@@ -594,6 +625,7 @@ struct tsdb_res_s {
   tsdb_rows_block_t          rows_block;
 
   unsigned int               res_is_from_taos_query:1;
+  unsigned int               eof:1;
 };
 
 struct tsdb_params_s {
@@ -667,6 +699,8 @@ struct tables_args_s {
   wildex_t        *schema_pattern;
   wildex_t        *table_pattern;
   wildex_t        *type_pattern;
+  char             db[1024];  // FIXME: big enough? check [taosc]
+  uint8_t          select_current_db:1;
 };
 
 enum tables_type_e {

@@ -34,7 +34,11 @@
 #include "conn_parser.h"
 #include "stmt.h"
 #include "taos_helpers.h"
+#ifdef HAVE_TAOSWS           /* { */
+#include "taosws_helpers.h"
+#endif                       /* } */
 #include "tls.h"
+#include "url_parser.h"
 
 #include <odbcinst.h>
 #include <string.h>
@@ -223,13 +227,13 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs_with_res(
         "General error:failed to fetch block from `information_schema.ins_configs`:[%d]%s", err, s);
     return SQL_ERROR;
   }
-  char buf[4096]; buf[0] = '\0';
+  ds_err_t ds_err; ds_err.err = 0; ds_err.str[0] = '\0';
   for (int i=0; i<ds_res->block.nr_rows_in_block; ++i) {
 
     tsdb_data_t name = {0};
-    r = ds_block_get_into_tsdb(&ds_res->block, i, 0, &name, buf, sizeof(buf));
+    r = ds_block_get_into_tsdb(&ds_res->block, i, 0, &name, &ds_err);
     if (r) {
-      conn_append_err_format(conn, "HY000", 0, "General error:%.*s", (int)strlen(buf), buf);
+      conn_append_err_format(conn, "HY000", 0, "General error:%.*s", (int)strlen(ds_err.str), ds_err.str);
       return SQL_ERROR;
     }
     if (name.type != TSDB_DATA_TYPE_VARCHAR || name.is_null) {
@@ -238,9 +242,9 @@ static SQLRETURN _conn_get_configs_from_information_schema_ins_configs_with_res(
     }
 
     tsdb_data_t value = {0};
-    r = ds_block_get_into_tsdb(&ds_res->block, i, 1, &value, buf, sizeof(buf));
+    r = ds_block_get_into_tsdb(&ds_res->block, i, 1, &value, &ds_err);
     if (r) {
-      conn_append_err_format(conn, "HY000", 0, "General error:%.*s", (int)strlen(buf), buf);
+      conn_append_err_format(conn, "HY000", 0, "General error:%.*s", (int)strlen(ds_err.str), ds_err.str);
       return SQL_ERROR;
     }
     if (value.type != TSDB_DATA_TYPE_VARCHAR || value.is_null) {
@@ -380,12 +384,12 @@ static int _conn_get_timezone_from_res(conn_t *conn, const char *sql, ds_res_t *
     return -1;
   }
 
-  char buf[4096]; buf[0] = '\0';
+  ds_err_t ds_err; ds_err.err = 0; ds_err.str[0] = '\0';
 
   tsdb_data_t ts = {0};
-  r = ds_block_get_into_tsdb(&ds_res->block, 0, 0, &ts, buf, sizeof(buf));
+  r = ds_block_get_into_tsdb(&ds_res->block, 0, 0, &ts, &ds_err);
   if (r) {
-    conn_append_err_format(conn, "HY000", 0, "General error:%.*s", (int)strlen(buf), buf);
+    conn_append_err_format(conn, "HY000", 0, "General error:%.*s", (int)strlen(ds_err.str), ds_err.str);
     return -1;
   }
 
@@ -495,11 +499,19 @@ static SQLRETURN _do_conn_connect(conn_t *conn)
   const char *db = cfg->db;
   if (conn->cfg.url) {
 #ifdef HAVE_TAOSWS           /* { */
-    conn->ds_conn.taos = ws_connect_with_dsn(conn->cfg.url);
-    if (!conn->ds_conn.taos) {
-      conn_append_err_format(conn, "08001", ws_errno(NULL), "Client unable to establish connection:[%s][%s]", conn->cfg.url, ws_errstr(NULL));
+    char *url = NULL;
+    int r = url_parse_and_encode(conn->cfg.url, conn->cfg.ip, conn->cfg.port, conn->cfg.db, &url);
+    if (r) {
+      conn_append_err_format(conn, "HY000", 0, "General error:assembling url failed:[%s]/[%s:%d]/[%s]", conn->cfg.url, conn->cfg.ip, conn->cfg.port, conn->cfg.db);
       return SQL_ERROR;
     }
+    conn->ds_conn.taos = CALL_ws_connect_with_dsn(url);
+    if (!conn->ds_conn.taos) {
+      conn_append_err_format(conn, "08001", ws_errno(NULL), "Client unable to establish connection:[%s][%s]", url, ws_errstr(NULL));
+      TOD_SAFE_FREE(url);
+      return SQL_ERROR;
+    }
+    TOD_SAFE_FREE(url);
 #else                        /* }{ */
     conn_append_err_format(conn, "08001", 0, "Client unable to establish connection:websocket backend not supported yet");
     return SQL_ERROR;
@@ -576,50 +588,38 @@ static void _conn_fill_out_connection_str(
   }
   if (n>0) count += n;
 
-  if (conn->cfg.url) {
+  if (conn->cfg.backend == BACKEND_TAOSWS) {
+    OA_NIY(conn->cfg.url);
     fixed_buf_sprintf(n, &buffer, "URL={%s};", conn->cfg.url);
-    if (n>0) count += n;
-  } else {
-    if (conn->cfg.uid) {
-      fixed_buf_sprintf(n, &buffer, "UID=%s;", conn->cfg.uid);
-    } else {
-      fixed_buf_sprintf(n, &buffer, "UID=;");
-    }
-    if (n>0) count += n;
-
-    if (conn->cfg.pwd) {
-      fixed_buf_sprintf(n, &buffer, "PWD=%s;", conn->cfg.pwd);
-    } else {
-      fixed_buf_sprintf(n, &buffer, "PWD=;");
-    }
-    if (n>0) count += n;
-
-    if (conn->cfg.ip) {
-      if (conn->cfg.port) {
-        fixed_buf_sprintf(n, &buffer, "Server=%s:%d;", conn->cfg.ip, conn->cfg.port);
-      } else {
-        fixed_buf_sprintf(n, &buffer, "Server=%s;", conn->cfg.ip);
-      }
-    } else {
-      fixed_buf_sprintf(n, &buffer, "Server=;");
-    }
-    if (n>0) count += n;
-
-    if (conn->cfg.db) {
-      fixed_buf_sprintf(n, &buffer, "DB=%s;", conn->cfg.db);
-    } else {
-      fixed_buf_sprintf(n, &buffer, "DB=;");
-    }
     if (n>0) count += n;
   }
 
+  if (conn->cfg.ip) {
+    if (conn->cfg.port) {
+      fixed_buf_sprintf(n, &buffer, "SERVER=%s:%d;", conn->cfg.ip, conn->cfg.port);
+    } else {
+      fixed_buf_sprintf(n, &buffer, "SERVER=%s;", conn->cfg.ip);
+    }
+  } else {
+    OA_NIY(conn->cfg.port == 0);
+    fixed_buf_sprintf(n, &buffer, "SERVER=;");
+  }
+  if (n>0) count += n;
+
+  if (conn->cfg.db) {
+    fixed_buf_sprintf(n, &buffer, "DB=%s;", conn->cfg.db);
+  } else {
+    fixed_buf_sprintf(n, &buffer, "DB=;");
+  }
+  if (n>0) count += n;
+
   if (conn->cfg.charset_for_col_bind) {
-    fixed_buf_sprintf(n, &buffer, "CHARSET_FOR_COL_BIND=%s;", conn->cfg.charset_for_col_bind);
+    fixed_buf_sprintf(n, &buffer, "CHARSET_ENCODER_FOR_COL_BIND=%s;", conn->cfg.charset_for_col_bind);
   }
   if (n>0) count += n;
 
   if (conn->cfg.charset_for_param_bind) {
-    fixed_buf_sprintf(n, &buffer, "CHARSET_FOR_PARAM_BIND=%s;", conn->cfg.charset_for_param_bind);
+    fixed_buf_sprintf(n, &buffer, "CHARSET_ENCODER_FOR_PARAM_BIND=%s;", conn->cfg.charset_for_param_bind);
   }
   if (n>0) count += n;
 
@@ -649,53 +649,62 @@ static void _conn_fill_out_connection_str(
 
 static int _conn_cfg_init_by_dsn(conn_cfg_t *cfg, char *ebuf, size_t elen)
 {
-  char buf[1024];
-  buf[0] = '\0';
+  char buf[1024];     buf[0]     = '\0';
 
   int r = 0;
 
   buf[0] = '\0';
   r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "URL", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
   if (buf[0]) {
-#ifdef HAVE_TAOSWS           /* { */
     cfg->url = strdup(buf);
     if (!cfg->url) {
       snprintf(ebuf, elen, "@%d:%s():out of memory", __LINE__, __func__);
       return -1;
     }
-#else                        /* }{ */
-    snprintf(ebuf, elen, "@%d:%s():websocket not supported yet, but seen URL in `%s`", __LINE__, __func__, cfg->dsn);
+    cfg->backend = BACKEND_TAOSWS;
+  } else {
+    cfg->backend = BACKEND_TAOS;
+  }
+
+  if (cfg->backend == BACKEND_TAOSWS) {
+#ifndef HAVE_TAOSWS          /* { */
+    snprintf(ebuf, elen, "@%d:%s():`URL=%s`, but the driver not built with websocket functionality", __LINE__, __func__, cfg->url);
     return -1;
 #endif                       /* } */
-  } else {
-    buf[0] = '\0';
-    r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "PWD", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
-    if (buf[0]) {
-      cfg->pwd = strdup(buf);
-      if (!cfg->pwd) {
-        snprintf(ebuf, elen, "@%d:%s():out of memory", __LINE__, __func__);
+  }
+
+  buf[0] = '\0';
+  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "SERVER", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
+  if (buf[0]) {
+    // TODO:
+    const char *p = strchr(buf, ':'); // FIXME: trim or not?
+    int port = 0;
+    if (p) {
+      int len = 0;
+      int n = sscanf(p+1, "%d%n", &port, &len);
+      if (n != 1 || port < 0 || port > UINT16_MAX || len < 0 || (size_t)len != strlen(p+1)) {
+        snprintf(ebuf, elen, "@%d:%s():`SERVER=%s` not valid", __LINE__, __func__, buf);
         return -1;
       }
     }
 
-    buf[0] = '\0';
-    r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "UID", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
-    if (buf[0]) {
-      cfg->uid = strdup(buf);
-      if (!cfg->uid) {
-        snprintf(ebuf, elen, "@%d:%s():out of memory", __LINE__, __func__);
-        return -1;
-      }
+    char *ip = p ? strndup(buf, p-buf) : strdup(buf);
+    if (!ip) {
+      snprintf(ebuf, elen, "out of memory");
+      return -1;
     }
+    TOD_SAFE_FREE(cfg->ip);
+    cfg->ip = ip;
+    cfg->port = port;
+  }
 
-    buf[0] = '\0';
-    r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "DB", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
-    if (buf[0]) {
-      cfg->db = strdup(buf);
-      if (!cfg->db) {
-        snprintf(ebuf, elen, "@%d:%s():out of memory", __LINE__, __func__);
-        return -1;
-      }
+  buf[0] = '\0';
+  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "DB", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
+  if (buf[0]) {
+    cfg->db = strdup(buf);
+    if (!cfg->db) {
+      snprintf(ebuf, elen, "@%d:%s():out of memory", __LINE__, __func__);
+      return -1;
     }
   }
 
@@ -709,7 +718,7 @@ static int _conn_cfg_init_by_dsn(conn_cfg_t *cfg, char *ebuf, size_t elen)
   if (r == 1) cfg->timestamp_as_is = !!atoi(buf);
 
   buf[0] = '\0';
-  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "CHARSET_FOR_COL_BIND", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
+  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "CHARSET_ENCODER_FOR_COL_BIND", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
   if (buf[0]) {
     cfg->charset_for_col_bind = strdup(buf);
     if (!cfg->charset_for_col_bind) {
@@ -719,7 +728,7 @@ static int _conn_cfg_init_by_dsn(conn_cfg_t *cfg, char *ebuf, size_t elen)
   }
 
   buf[0] = '\0';
-  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "CHARSET_FOR_PARAM_BIND", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
+  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "CHARSET_ENCODER_FOR_PARAM_BIND", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
   if (buf[0]) {
     cfg->charset_for_param_bind = strdup(buf);
     if (!cfg->charset_for_param_bind) {
@@ -1014,6 +1023,21 @@ static SQLRETURN _conn_get_info_driver_name(
   }
 }
 
+static SQLRETURN _conn_get_current_db(conn_t *conn, char *db, size_t len)
+{
+  // ref: https://dev.mysql.com/doc/connector-odbc/en/connector-odbc-usagenotes-functionality-catalog-schema.html
+  // TODO:
+  int r = 0;
+  ds_err_t ds_err; ds_err.err = 0; ds_err.str[0] = '\0';
+  r = ds_conn_get_current_db(&conn->ds_conn, db, len, &ds_err);
+  if (r) {
+    conn_append_err_format(conn, "HY000", ds_err.err, "General error:%s", ds_err.str);
+    return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _conn_get_info_database_name(
     conn_t         *conn,
     SQLUSMALLINT    InfoType,
@@ -1024,16 +1048,10 @@ static SQLRETURN _conn_get_info_database_name(
   // FIXME: `database` or current database selected?
   int r = 0;
 
-  int e = 0;
-  const char *errstr = NULL;
-  char db[1024]; db[0] = '\0';
-  r = ds_conn_get_current_db(&conn->ds_conn, db, sizeof(db), &e, &errstr);
-  if (r) {
-    conn_append_err_format(conn, "HY000", e, "General error:%s", errstr);
-    return SQL_ERROR;
-  }
+  r = _conn_get_current_db(conn, (char*)InfoValuePtr, BufferLength);
+  if (r) return SQL_ERROR;
 
-  int n = snprintf((char*)InfoValuePtr, BufferLength, "%s", db);
+  int n = (int)strlen((const char*)InfoValuePtr);
   if (StringLengthPtr) *StringLengthPtr = n;
 
   if (n >= BufferLength) {
@@ -1395,16 +1413,10 @@ static SQLRETURN _conn_get_attr_current_qualifier(
 {
   int r = 0;
 
-  int e = 0;
-  const char *errstr = NULL;
-  char db[1024]; db[0] = '\0';
-  r = ds_conn_get_current_db(&conn->ds_conn, db, sizeof(db), &e, &errstr);
-  if (r) {
-    conn_append_err_format(conn, "HY000", e, "General error:%s", errstr);
-    return SQL_ERROR;
-  }
+  r = _conn_get_current_db(conn, (char*)Value, BufferLength);
+  if (r) return SQL_ERROR;
 
-  int n = snprintf((char*)Value, BufferLength, "%s", db);
+  int n = (int)strlen((const char*)Value);
   if (StringLengthPtr) *StringLengthPtr = n;
 
   if (n >= BufferLength) {
@@ -1452,8 +1464,8 @@ SQLRETURN conn_get_attr(
     SQLINTEGER   *StringLengthPtr)
 {
   if (conn->cfg.url) {
-    conn_append_err(conn, "HY000", 0, "General error:websocket backend not implemented yet");
-    return SQL_ERROR;
+    // conn_append_err(conn, "HY000", 0, "General error:websocket backend not implemented yet");
+    // return SQL_ERROR;
   }
 
   switch (Attribute) {

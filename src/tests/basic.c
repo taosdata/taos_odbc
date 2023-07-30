@@ -33,6 +33,7 @@
 #include "ext_parser.h"
 #include "sqls_parser.h"
 #include "ejson_parser.h"
+#include "url_parser.h"
 #include "tls.h"
 #include "utils.h"
 
@@ -169,7 +170,7 @@ static int test_conn_parser(void)
       },
     },{
       __LINE__,
-      "DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION=1;CHARSET_FOR_PARAM_BIND=UTF-8",
+      "DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION=1;CHARSET_ENCODER_FOR_PARAM_BIND=UTF-8",
       {
         .dsn                    = "TAOS_ODBC_DSN",
         .unsigned_promotion     = 1,
@@ -185,6 +186,8 @@ static int test_conn_parser(void)
     const char *s = _cases[i].conn_str;
     const int line = _cases[i].line;
     param.conn_cfg = &parsed;
+    param.ctx.debug_flex = 1;
+    // param.ctx.debug_bison = 1;
     int r = conn_parser_parse(s, strlen(s), &param);
     do {
       if (r) {
@@ -633,14 +636,78 @@ static int test_sqls_parser(void)
       E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
       E("failed:%s", param.ctx.err_msg);
     } else if (check.failed) {
-      return -1;
+      r = -1;
     } else if (expects[check.idx].sql) {
       E("expected:[%s]", expects[check.idx].sql);
       E("but  got:<null>");
-      return -1;
+      r = -1;
     }
 
     sqls_parser_param_release(&param);
+    if (r) return -1;
+  }
+  return 0;
+}
+
+static int test_url_parser(void)
+{
+#define RECORD(x,y) {__LINE__, x, y}
+  struct {
+    int             line;
+    const char     *ok_or_failure;
+    const char     *url;
+  } _cases[] = {
+    RECORD("http://example.com/h/g?fasd?fsd=fsd#fasd", "http://example.com/h/g?fasd?fsd=fsd#fasd"),
+    RECORD("foo://example.com:8042/over/there?name=ferret#nose", "foo://example.com:8042/over/there?name=ferret#nose"),
+    RECORD("http://192.168.0.1", "http://192.168.0.1"),
+    RECORD("http://foo:bar@255.255.255.255/root?name=foo?age=3?path=/fad#first?what", "http://foo:bar@255.255.255.255/root?name=foo?age=3?path=/fad#first?what"),
+    RECORD("http://example.com/~/h/g?fda%5e~", "http://example.com/~/h/g?fda%5e~"),
+    RECORD("http://example.com/~/%5eh/g%5e?fda%5e~", "http://example.com/~/%5eh/g%5e?fda%5e~"),
+    RECORD("http://f%5eoo:b%5eh@192.168.0.1", "http://f%5eoo:b%5eh@192.168.0.1"),
+    RECORD("urn:example:animal:ferret:nose", "urn:example:animal:ferret:nose"),
+    RECORD("http://www.com/#", "http://www.com/#"),
+    RECORD("http://www.com/?", "http://www.com/?"),
+    RECORD("http://www.com#", "http://www.com#"),
+    RECORD("http://www.com?", "http://www.com?"),
+    RECORD("(1,20)->(1,21)", "http://example.com/根"),
+    RECORD("(1,1)->(1,5)", "file:///fasd"),
+    RECORD("foo:/abc:def", "foo:/abc:def"),
+    RECORD("http://hello%20world.com", "http://hello%20world.com"),
+  };
+#undef RECORD
+  const size_t _cases_nr = sizeof(_cases)/sizeof(_cases[0]);
+  for (size_t i=0; i<_cases_nr; ++i) {
+    int line = _cases[i].line;
+    const char *url = _cases[i].url;
+    const char *ok_or_failure = _cases[i].ok_or_failure;
+    url_parser_param_t param = {0};
+    param.ctx.debug_flex = 1;
+    // param.ctx.debug_bison = 1;
+
+    int r = url_parser_parse(url, strlen(url), &param);
+    if (r) {
+      char buf[4096];
+      snprintf(buf, sizeof(buf), "(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+      if (strcmp(buf, ok_or_failure) == 0) {
+        r = 0;
+      } else {
+        E("parsing @[%dL]:%s", line, url);
+        E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+        E("failed:%s", param.ctx.err_msg);
+      }
+    } else {
+      char *out = NULL;
+      url_encode(&param.url, &out);
+      if (strcmp(ok_or_failure, out)) {
+        E("parsing success @[%dL]:%s", line, url);
+        E("expecting:         %s", ok_or_failure);
+        E("but does not match:%s", out);
+        r = -1;
+      }
+      TOD_SAFE_FREE(out);
+    }
+
+    url_parser_param_release(&param);
     if (r) return -1;
   }
   return 0;
@@ -1035,10 +1102,12 @@ static struct {
   test_case_f           func;
   const char           *name;
 } _cases[] = {
+  RECORD(test_url_parser),
   RECORD(test_conn_parser),
   RECORD(test_ext_parser),
   RECORD(test_sqls_parser),
   RECORD(test_ejson_parser),
+  RECORD(test_url_parser),
   RECORD(test_wildmatch),
   RECORD(test_basename_dirname),
   RECORD(test_pthread_once),

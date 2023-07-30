@@ -45,6 +45,17 @@ if(HAVE_VALGRIND)
       COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/conformance_test)
 endif()
 
+if(HAVE_TAOSWS)
+  add_test(NAME ws_conformance_test
+      COMMAND conformance_test --dsn TAOS_ODBC_WS_DSN --ws)
+
+  if(HAVE_VALGRIND)
+    add_test(NAME Vws_conformance_test
+        COMMAND ${CMAKE_SOURCE_DIR}/sh/valgrind.sh ${CMAKE_CURRENT_BINARY_DIR}/conformance_test --dsn TAOS_ODBC_WS_DSN --ws)
+  endif()
+endif()
+
+
 if(ENABLE_MYSQL_TEST)
   add_test(NAME mysql_conformance_test
       COMMAND conformance_test --dsn MYSQL_ODBC_DSN --mysql)

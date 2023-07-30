@@ -721,3 +721,17 @@ const char *sql_searchable(SQLLEN v)
       return "SQL_PRED_unknown";
   }
 }
+
+const char *sql_param_status(SQLLEN v)
+{
+  switch (v) {
+    CASE(SQL_PARAM_SUCCESS);
+    CASE(SQL_PARAM_SUCCESS_WITH_INFO);
+    CASE(SQL_PARAM_ERROR);
+    CASE(SQL_PARAM_UNUSED);
+    CASE(SQL_PARAM_DIAG_UNAVAILABLE);
+    default:
+      return "SQL_PARAM_unknown";
+  }
+}
+

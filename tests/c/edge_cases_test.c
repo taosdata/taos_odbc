@@ -526,6 +526,38 @@ static int test_bind_array_of_params(SQLHANDLE hdbc)
   return (r || FAILED(sr)) ? -1 : 0;
 }
 
+static int test_with_conn_str(const char *conn_str, int ws)
+{
+  SQLRETURN sr;
+  SQLHANDLE henv, hdbc;
+  int r = 0;
+
+  const char *dsn = NULL;
+  const char *uid = NULL;
+  const char *pwd = NULL;
+  r = create_connection(&henv, &hdbc, conn_str, dsn, uid, pwd);
+  if (r) return 1;
+
+  do {
+    r = test_queries(hdbc);
+    if (r) break;
+
+    if (!ws) r = test_bind_array_of_params(hdbc);
+    if (r) break;
+
+    if (!ws) r = test_large_dataset(hdbc);
+  } while (0);
+
+
+  sr = CALL_SQLDisconnect(hdbc);
+  if (FAILED(sr)) r = 1;
+
+  SQLFreeHandle(SQL_HANDLE_DBC, hdbc);
+  SQLFreeHandle(SQL_HANDLE_ENV, henv);
+
+  return r;
+}
+
 static int test(void)
 {
   srand((unsigned int)time(0));
@@ -579,35 +611,11 @@ static int test(void)
   CHECK(!test_connect("Driver={TAOS_ODBC_DRIVER};UID=root;PWD=taosdata;Server=localhost:6030;DB=information_schema;UNSIGNED_PROMOTION=1;", NULL, NULL, NULL));
 #endif               /* } */
 
-  SQLRETURN sr;
-  SQLHANDLE henv, hdbc;
   int r = 0;
-
-  const char *conn_str = "DSN=TAOS_ODBC_DSN";
-  const char *dsn = NULL;
-  const char *uid = NULL;
-  const char *pwd = NULL;
-  r = create_connection(&henv, &hdbc, conn_str, dsn, uid, pwd);
-  if (r) return 1;
-
-  do {
-    r = test_queries(hdbc);
-    if (r) break;
-
-    r = test_bind_array_of_params(hdbc);
-    if (r) break;
-
-    r = test_large_dataset(hdbc);
-  } while (0);
-
-
-  sr = CALL_SQLDisconnect(hdbc);
-  if (FAILED(sr)) r = 1;
-
-  SQLFreeHandle(SQL_HANDLE_DBC, hdbc);
-  SQLFreeHandle(SQL_HANDLE_ENV, henv);
-
-  return r;
+  r = test_with_conn_str("DSN=TAOS_ODBC_DSN", 0);
+  if (r) return -1;
+  r = test_with_conn_str("DSN=TAOS_ODBC_WS_DSN", 1);
+  return r ? -1 : 0;
 }
 
 int main(int argc, char *argv[])

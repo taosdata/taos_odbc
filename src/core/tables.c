@@ -28,6 +28,7 @@
 
 #include "charset.h"
 #include "conn.h"
+#include "ds.h"
 #include "errs.h"
 #include "log.h"
 #include "taos_helpers.h"
@@ -170,21 +171,27 @@ again:
 
   if (tables->tables_type != TABLES_FOR_GENERIC) return SQL_SUCCESS;
 
-  if (tables->tables_args.catalog_pattern) {
-    sr = tables->stmt.base.get_data(&tables->stmt.base, 1, tsdb);
-    if (sr != SQL_SUCCESS) return SQL_ERROR;
+  sr = tables->stmt.base.get_data(&tables->stmt.base, 1, tsdb);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-    str_t str = {
-      .charset              = fromcode,
-      .str                  = tsdb->str.str,
-      .bytes                = tsdb->str.len,
-    };
+  str_t str = {
+    .charset              = fromcode,
+    .str                  = tsdb->str.str,
+    .bytes                = tsdb->str.len,
+  };
+
+  if (tables->tables_args.catalog_pattern) {
     int matched = 0;
     r = wildexec(tables->tables_args.catalog_pattern, &str, &matched);
     if (r) {
       stmt_append_err(tables->owner, "HY000", 0, "General error:wild matching failed");
       return SQL_ERROR;
     }
+    if (!matched) goto again;
+  } else if (tables->tables_args.select_current_db) {
+    const char *db = tables->tables_args.db;
+    int matched = 0;
+    if (!matched) matched = (str.bytes == strlen(db) && strncmp(str.str, db, str.bytes) == 0);
     if (!matched) goto again;
   }
 
@@ -635,6 +642,19 @@ SQLRETURN tables_open(
           "General error:wild compile failed for CatalogName[%.*s]", (int)NameLength1, (const char*)CatalogName);
       return SQL_ERROR;
     }
+    tables->tables_args.select_current_db = 0;
+  } else {
+    ds_conn_t *ds_conn = &tables->owner->conn->ds_conn;
+    char      *db      = tables->tables_args.db;
+    size_t     len     = sizeof(tables->tables_args.db);
+    ds_err_t   ds_err;
+    ds_err.err = 0; ds_err.str[0] = '\0';
+    r = ds_conn_get_current_db(ds_conn, db, len, &ds_err);
+    if (r) {
+      stmt_append_err_format(tables->owner, "HY000", 0, "General error:failed getting current db:[%d]%s", ds_err.err, ds_err.str);
+      return SQL_ERROR;
+    }
+    tables->tables_args.select_current_db = 1;
   }
   if (SchemaName) {
     if (mem_conv(&tables->schema_cache, cnv->cnv, (const char*)SchemaName, NameLength2)) {

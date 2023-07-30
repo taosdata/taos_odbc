@@ -22,37 +22,37 @@
  * SOFTWARE.
  */
 
-#ifndef _ds_h_
-#define _ds_h_
+#ifndef _url_parser_h_
+#define _url_parser_h_
+
+// https://datatracker.ietf.org/doc/html/rfc3986
 
 #include "macros.h"
 #include "typedefs.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 EXTERN_C_BEGIN
 
-void ds_conn_setup(ds_conn_t *ds_conn) FA_HIDDEN;
+void url_parser_param_reset(url_parser_param_t *param) FA_HIDDEN;
+void url_parser_param_release(url_parser_param_t *param) FA_HIDDEN;
 
-int ds_conn_query(ds_conn_t *ds_conn, const char *sql, ds_res_t *ds_res) FA_HIDDEN;
-const char* ds_conn_get_server_info(ds_conn_t *ds_conn) FA_HIDDEN;
-const char* ds_conn_get_client_info(ds_conn_t *ds_conn) FA_HIDDEN;
-int ds_conn_get_current_db(ds_conn_t *ds_conn, char *db, size_t len, ds_err_t *ds_err) FA_HIDDEN;
-void ds_conn_close(ds_conn_t *ds_conn) FA_HIDDEN;
+int url_parser_parse(const char *input, size_t len,
+    url_parser_param_t *param) FA_HIDDEN;
 
-int ds_conn_stmt_init(ds_conn_t *ds_conn, ds_stmt_t *ds_stmt) FA_HIDDEN;
+void url_release(url_t *url) FA_HIDDEN;
 
-void ds_stmt_close(ds_stmt_t *ds_stmt) FA_HIDDEN;
-int ds_stmt_prepare(ds_stmt_t *ds_stmt, const char *sql) FA_HIDDEN;
+int url_encode(url_t *url, char **out) FA_HIDDEN;
+int url_encode_with_database(url_t *url, const char *db, char **out) FA_HIDDEN;
+int url_parse_and_encode(const char *url, const char *ip, uint16_t port, const char *db, char **out) FA_HIDDEN;
 
-void ds_res_close(ds_res_t *ds_res) FA_HIDDEN;
-int ds_res_errno(ds_res_t *ds_res) FA_HIDDEN;
-const char* ds_res_errstr(ds_res_t *ds_res) FA_HIDDEN;
-int ds_res_fetch_block(ds_res_t *ds_res) FA_HIDDEN;
-
-int8_t ds_fields_field_type(ds_fields_t *ds_fields, int i_col) FA_HIDDEN;
-
-int ds_block_get_into_tsdb(ds_block_t *ds_block, int i_row, int i_col, tsdb_data_t *tsdb, ds_err_t *ds_err) FA_HIDDEN;
+int url_set_scheme(url_t *url, const char *s, size_t n) FA_HIDDEN;
+int url_set_user_pass(url_t *url, const char *u, size_t un, const char *p, size_t pn) FA_HIDDEN;
+int url_set_host_port(url_t *url, const char *host, uint16_t port) FA_HIDDEN;
 
 EXTERN_C_END
 
-#endif // _ds_h_
+#endif // _url_parser_h_
+
 

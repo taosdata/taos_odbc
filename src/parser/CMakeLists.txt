@@ -67,3 +67,17 @@ target_include_directories(sqls_parser_obj PRIVATE
     ${INTERNAL_INC_PATH})
 set_property(TARGET sqls_parser_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
 
+
+parser_gen(url_parser)
+
+set(url_parser_SOURCES
+    url_parser_tab.c)
+
+add_library(url_parser_obj OBJECT ${url_parser_SOURCES})
+if(TODBC_WINDOWS)
+    add_dependencies(url_parser_obj ex_iconv)
+endif()
+target_include_directories(url_parser_obj PRIVATE
+    ${INTERNAL_INC_PATH})
+set_property(TARGET url_parser_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
+

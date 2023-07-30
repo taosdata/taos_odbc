@@ -487,11 +487,11 @@ static void usage(const char *arg0)
   }
 }
 
-static int _run(int argc, char *argv[])
+static int _run(int argc, char *argv[], const char *dsn)
 {
   int r = 0;
   arg_t arg = {0};
-  arg.dsn = "TAOS_ODBC_DSN";
+  arg.dsn = dsn;
   arg.main = 1;
   arg.threads = 8;
   arg.executes = 2;
@@ -593,7 +593,8 @@ int main(int argc, char *argv[])
 {
   int r = 0;
 
-  r = _run(argc, argv);
+  if (r == 0) r = _run(argc, argv, "TAOS_ODBC_DSN");
+  if (r == 0) r = _run(argc, argv, "TAOS_ODBC_WS_DSN");
 
   fprintf(stderr, "==%s==\n", r ? "failure" : "success");
 

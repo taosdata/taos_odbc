@@ -49,6 +49,7 @@ typedef struct ds_conn_base_s           ds_conn_base_t;
 typedef struct ds_tsdb_conn_s           ds_tsdb_conn_t;
 typedef struct ds_ws_conn_s             ds_ws_conn_t;
 
+typedef struct ds_err_s                 ds_err_t;
 typedef struct ds_conn_s                ds_conn_t;
 typedef struct ds_res_s                 ds_res_t;
 typedef struct ds_fields_s              ds_fields_t;
@@ -110,6 +111,9 @@ typedef struct tsdb_fields_s            tsdb_fields_t;
 typedef struct tsdb_rows_block_s        tsdb_rows_block_t;
 
 typedef struct typesinfo_s              typesinfo_t;
+
+typedef struct url_s                    url_t;
+typedef struct url_parser_param_s       url_parser_param_t;
 
 #endif // _typedefs_h_
 

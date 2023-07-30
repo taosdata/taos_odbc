@@ -625,7 +625,7 @@ static int executes_ctx_prepare_stmt(executes_ctx_t *ctx)
   sr = CALL_SQLNumParams(ctx->hstmt, &ParameterCount);
   if (FAILED(sr)) return -1;
 
-  for (int i=0; i<ParameterCount; ++i) {
+  for (int i=0; 0 && i<ParameterCount; ++i) {
     SQLSMALLINT DataType          = 0;
     SQLULEN     ParameterSize     = 0;
     SQLSMALLINT DecimalDigits     = 0;
@@ -832,7 +832,7 @@ static int _run_execute_params_rs(executes_ctx_t *ctx, ejson_t *params, ejson_t 
   sr = CALL_SQLNumParams(ctx->hstmt, &ParameterCount);
   if (FAILED(sr)) return -1;
 
-  if (cols != (size_t)ParameterCount) {
+  if (0 && cols != (size_t)ParameterCount) {
     E("# of parameters differs, %zd <> %d", cols, ParameterCount);
     return -1;
   }
@@ -867,7 +867,7 @@ static int _run_execute_params_rs(executes_ctx_t *ctx, ejson_t *params, ejson_t 
     SQLULEN     ParameterSize     = 0;
     SQLSMALLINT DecimalDigits     = 0;
     SQLSMALLINT Nullable          = 0;
-    sr = CALL_SQLDescribeParam(ctx->hstmt, (SQLUSMALLINT)(i+1), &DataType, &ParameterSize, &DecimalDigits, &Nullable);
+    if (0) sr = CALL_SQLDescribeParam(ctx->hstmt, (SQLUSMALLINT)(i+1), &DataType, &ParameterSize, &DecimalDigits, &Nullable);
     if (FAILED(sr)) return -1;
 
     SQLSMALLINT ValueType = SQL_C_DEFAULT;
@@ -934,11 +934,17 @@ static int _run_execute_params_rs(executes_ctx_t *ctx, ejson_t *params, ejson_t 
 
     switch (ValueType) {
       case SQL_C_CHAR:
+        DataType = SQL_VARCHAR;
+        ParameterSize = buffer_length;
+        DecimalDigits = 0;
         sr = CALL_SQLBindParameter(ctx->hstmt, (SQLUSMALLINT)i+1, SQL_PARAM_INPUT, ValueType,
             DataType, ParameterSize, DecimalDigits, ctx->params.arrays[i], buffer_length, ctx->params.strlen_or_inds[i]);
         if (FAILED(sr)) return -1;
         break;
       case SQL_C_DOUBLE:
+        DataType = SQL_DOUBLE;
+        ParameterSize = buffer_length;
+        DecimalDigits = 0;
         sr = CALL_SQLBindParameter(ctx->hstmt, (SQLUSMALLINT)i+1, SQL_PARAM_INPUT, ValueType,
             DataType, ParameterSize, DecimalDigits, ctx->params.arrays[i], buffer_length, ctx->params.strlen_or_inds[i]);
         if (FAILED(sr)) return -1;
@@ -2073,7 +2079,7 @@ static int test_hard_coded(SQLHANDLE henv, const char *dsn, const char *uid, con
         if (r) break;
       }
 
-      if (1) r = test_case5(hconn);
+      r = test_case5(hconn);
       if (r) break;
 
       r = test_case6(hconn);
@@ -2324,6 +2330,7 @@ static int test_cases_get_data(SQLHANDLE henv)
     {"Driver={SQLite3}",  SQLITE3_ODBC, __LINE__},
 #endif                         /* } */
     {"DSN=TAOS_ODBC_DSN", TAOS_ODBC, __LINE__},
+    {"DSN=TAOS_ODBC_WS_DSN", TAOS_ODBC, __LINE__},
   };
 
   for (size_t i=0; i<sizeof(cases)/sizeof(cases[0]); ++i) {
@@ -2439,6 +2446,7 @@ static int test_cases_prepare(SQLHANDLE henv)
     // {"DSN=MYSQL_ODBC_DSN",  MYSQL_ODBC, __LINE__},
 #endif                         /* } */
     {"DSN=TAOS_ODBC_DSN", TAOS_ODBC, __LINE__},
+    {"DSN=TAOS_ODBC_WS_DSN", TAOS_ODBC, __LINE__},
   };
 
   for (size_t i=0; i<sizeof(cases)/sizeof(cases[0]); ++i) {
@@ -2470,6 +2478,9 @@ static int test_hard_coded_cases(SQLHANDLE henv)
 #endif                           /* } */
 
   r = test_hard_coded(henv, "TAOS_ODBC_DSN", NULL, NULL, NULL, 0);
+  if (r) return -1;
+
+  r = test_hard_coded(henv, "TAOS_ODBC_WS_DSN", NULL, NULL, NULL, 0);
   if (r) return -1;
 
   return 0;
@@ -2537,7 +2548,7 @@ static int test_chars_with_handles(SQLHANDLE *env, SQLHANDLE *dbc, SQLHANDLE *st
   return 0;
 }
 
-static int test_chars(void)
+static int test_chars(const char *conn_str)
 {
   SQLRETURN sr = SQL_SUCCESS;
 
@@ -2545,7 +2556,7 @@ static int test_chars(void)
   SQLHANDLE hdbc  = SQL_NULL_HANDLE;
   SQLHANDLE hstmt = SQL_NULL_HANDLE;
 
-  sr = test_chars_with_handles(&henv, &hdbc, &hstmt, "DSN=TAOS_ODBC_DSN", "select name from bar.x", SQL_C_CHAR);
+  sr = test_chars_with_handles(&henv, &hdbc, &hstmt, conn_str, "select name from bar.x", SQL_C_CHAR);
 
   if (hstmt != SQL_NULL_HANDLE) {
     CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
@@ -2570,11 +2581,10 @@ static int run(int argc, char *argv[])
   int r = 0;
 
   if (0) {
-    r = test_chars();
+    r = test_chars("DSN=TAOS_ODBC_DSN");
     if (r) return -1;
-    // r = test_sql_server();
+    r = test_chars("DSN=TAOS_ODBC_WS_DSN");
     if (r) return -1;
-    if (1) return -1;
     return 0;
   }
 

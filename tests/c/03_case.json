@@ -232,7 +232,7 @@
             params: [
               [{timestamp:1662961548.650},"江苏苏州"],
               [{timestamp:1662961468.651},{str:null}],
-              [{timestamp:1662961468.652},"abcde"]
+              [{timestamp:1662961468.652},"abcd"]
             ],
             positive:true
           }
@@ -240,7 +240,7 @@
       },{
         sql:"select count(*) from t",
         rs:[[3]],
-        positive:false
+        positive:true
       }
     ]
   },{

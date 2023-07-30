@@ -587,4 +587,93 @@
    fun:taosThreadOnce
    fun:taos_init
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:malloc
+   fun:allocate_dtv_entry
+   fun:allocate_and_init
+   fun:tls_get_addr_tail
+   fun:__tls_get_addr
+   fun:_ZN3std10sys_common11thread_info3set17h1055960fbd7822ceE
+   fun:_ZN4core3ops8function6FnOnce40call_once$u7b$$u7b$vtable.shim$u7d$$u7d$17h6c93a047e1163cffE
+   fun:_ZN3std3sys4unix6thread6Thread3new12thread_start17h726c141aa23b2e83E
+   fun:start_thread
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:rpcMallocCont
+   fun:asyncSendMsgToServerExt
+   fun:schAsyncSendMsg
+   fun:schBuildAndSendMsg
+   fun:schDropTaskOnExecNode
+   fun:schDropTaskInHashList
+   fun:schDropJobAllTasks
+   fun:schFreeJobImpl
+   fun:taosDecRefCount
+   fun:taosReleaseRef
+   fun:schReleaseJob
+   fun:schHandleOpEndEvent
+   fun:schedulerExecJob
+   fun:asyncExecSchQuery
+   fun:launchAsyncQuery
+   fun:handleQueryAnslyseRes
+   fun:doAsyncQueryFromAnalyse
+   fun:ctgCallUserCb
+   fun:execHelper
+   fun:taosProcessSchedQueue
+   fun:start_thread
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:rpcMallocCont
+   fun:asyncSendMsgToServerExt
+   fun:schAsyncSendMsg
+   fun:schBuildAndSendMsg
+   fun:schDropTaskOnExecNode
+   fun:schDropTaskInHashList
+   fun:schDropJobAllTasks
+   fun:schFreeJobImpl
+   fun:taosDecRefCount
+   fun:taosReleaseRef
+   fun:schReleaseJob
+   fun:schProcessOnCbEnd
+   fun:schHandleCallback
+   fun:doProcessMsgFromServer
+   fun:execHelper
+   fun:taosProcessSchedQueue
+   fun:start_thread
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:calloc
+   fun:taosMemoryCalloc
+   fun:rpcMallocCont
+   fun:asyncSendMsgToServerExt
+   fun:schAsyncSendMsg
+   fun:schBuildAndSendMsg
+   fun:schDropTaskOnExecNode
+   fun:schDropTaskInHashList
+   fun:schDropJobAllTasks
+   fun:schFreeJobImpl
+   fun:taosDecRefCount
+   fun:taosReleaseRef
+   fun:schReleaseJob
+   fun:schLaunchTaskImpl
+   fun:execHelper
+   fun:taosProcessSchedQueue
+   fun:start_thread
+}
 

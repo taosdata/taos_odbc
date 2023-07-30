@@ -26,6 +26,8 @@
 
 #include "helpers.h"
 
+#include <iconv.h>
+
 #include <errno.h>
 #ifndef _WIN32
 #include <libgen.h>
@@ -258,3 +260,29 @@ char* tod_dirname(const char *path, char *buf, size_t sz)
   return buf;
 }
 #endif
+
+int tod_conv(const char *fromcode, const char *tocode, const char *src, size_t slen, char *dst, size_t dlen)
+{
+  iconv_t cnv = iconv_open(tocode, fromcode);
+  if (cnv == (iconv_t)-1) return -1;
+
+  char         *inbuf                   = (char*)src;
+  char         *outbuf                  = dst;
+  size_t        inbytesleft             = slen;
+  size_t        outbytesleft            = dlen;
+
+  size_t n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+  iconv_close(cnv);
+
+  if (n == (size_t)-1) return -1;
+  if (n > 0) return -1;
+
+  n = dlen - outbytesleft;
+
+  for (size_t i=0; i<outbytesleft && i<4; ++i) {
+    outbuf[i] = '\0';
+  }
+
+  return (int)n;
+}
+

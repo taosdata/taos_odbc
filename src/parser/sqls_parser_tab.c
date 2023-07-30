@@ -22,12 +22,6 @@
  * SOFTWARE.
  */
 
-struct sqls_parser_yyltype_s {
-    int first_line, first_column;
-    int last_line, last_column;
-};
-typedef struct sqls_parser_yyltype_s sqls_parser_yyltype_t;
-
 #include "sqls_parser.h"
 
 #include "../core/internal.h"        // FIXME:

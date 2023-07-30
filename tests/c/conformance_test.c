@@ -45,6 +45,7 @@ struct conn_arg_s {
   const char      *pwd;
   const char      *connstr;
   unsigned int     odbc_type;
+  unsigned int     ws;
 };
 
 static int _connect(SQLHANDLE hconn, const char *dsn, const char *uid, const char *pwd)
@@ -2217,21 +2218,23 @@ static int test_bind_exec_direct(SQLHANDLE hconn)
   return (r || FAILED(sr)) ? -1 : 0;
 }
 
-static int test_cases(SQLHANDLE hconn)
+static int test_cases(SQLHANDLE hconn, conn_arg_t *conn_arg)
 {
   int r = 0;
 
   _exec_direct(hconn, "create database if not exists foo");
   _exec_direct(hconn, "use foo");
 
-  r = test_bind_exec_direct(hconn);
-  if (r) return r;
+  if (!conn_arg->ws) {
+    r = test_bind_exec_direct(hconn);
+    if (r) return r;
 
-  r = test_prepare(hconn);
-  if (r) return r;
+    if (r) r = test_prepare(hconn);
+    if (r) return r;
 
-  r = test_bind_params(hconn);
-  if (r) return r;
+    if (r) r = test_bind_params(hconn);
+    if (r) return r;
+  }
 
   r = test_case1(hconn);
   if (r) return r;
@@ -2309,7 +2312,7 @@ static int test_connected_conn(SQLHANDLE hconn, conn_arg_t *conn_arg)
   }
 
   if (conn_arg->odbc_type & TAOS_ODBC) {
-    r = test_cases(hconn);
+    r = test_cases(hconn, conn_arg);
     if (r) return -1;
   }
 
@@ -2849,6 +2852,9 @@ static int test_conn(int argc, char *argv[], SQLHANDLE hconn)
     if (strcmp(argv[i], "--sqlserver") == 0) {
       conn_arg.odbc_type = SQLSERVER_ODBC;
       continue;
+    }
+    if (strcmp(argv[i], "--ws") == 0) {
+      conn_arg.ws = 1;
     }
   }
 

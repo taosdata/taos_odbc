@@ -58,6 +58,7 @@ const char *sql_index(SQLULEN v) FA_HIDDEN;
 const char *sql_statistics_reserved(SQLULEN v) FA_HIDDEN;
 const char *sql_updatable(SQLLEN v) FA_HIDDEN;
 const char *sql_searchable(SQLLEN v) FA_HIDDEN;
+const char *sql_param_status(SQLLEN v) FA_HIDDEN;
 
 EXTERN_C_END
 

@@ -31,6 +31,9 @@
 #include "log.h"
 #include "stmt.h"
 #include "taos_helpers.h"
+#ifdef HAVE_TAOSWS           /* { */
+#include "taosws_helpers.h"
+#endif                       /* } */
 
 #include <errno.h>
 
@@ -268,7 +271,7 @@ void tsdb_res_reset(tsdb_res_t *res)
     if (res->res_is_from_taos_query) {
 #ifdef HAVE_TAOSWS           /* { */
       if (res->owner->owner->conn->cfg.url) {
-        ws_free_result((WS_RES*)res->res);
+        CALL_ws_free_result((WS_RES*)res->res);
       } else {
 #endif                       /* } */
         CALL_taos_free_result(res->res);
@@ -281,6 +284,7 @@ void tsdb_res_reset(tsdb_res_t *res)
   }
   res->affected_row_count = 0;
   res->time_precision     = 0;
+  res->eof                = 0;
 }
 
 void tsdb_res_release(tsdb_res_t *res)
@@ -315,18 +319,18 @@ static SQLRETURN _stmt_post_query(tsdb_stmt_t *stmt)
 #ifdef HAVE_TAOSWS           /* { */
   if (stmt->owner->conn->cfg.url) {
     if (res->res) {
-      res->time_precision = ws_result_precision((WS_RES*)res->res);
+      res->time_precision = CALL_ws_result_precision((WS_RES*)res->res);
       if (res->time_precision < 0 || res->time_precision > 2) {
         stmt_append_err_format(stmt->owner, "HY000", 0, "General error:time_precision [%d] out of range", res->time_precision);
         return SQL_ERROR;
       }
-      res->affected_row_count = ws_affected_rows((WS_RES*)res->res);
-      fields->nr = ws_field_count((WS_RES*)res->res);
+      res->affected_row_count = CALL_ws_affected_rows((WS_RES*)res->res);
+      fields->nr = CALL_ws_field_count((WS_RES*)res->res);
       if (fields->nr > 0) {
         fields->fields = (TAOS_FIELD*)ws_fetch_fields((WS_RES*)res->res);
       }
     } else {
-      res->affected_row_count = ws_stmt_affected_rows((WS_RES*)stmt->stmt);
+      res->affected_row_count = CALL_ws_stmt_affected_rows((WS_RES*)stmt->stmt);
     }
   } else {
 #endif                       /* } */
@@ -358,7 +362,7 @@ static SQLRETURN _query(stmt_base_t *base, const sqlc_tsdb_t *sqlc_tsdb)
   tsdb_res_reset(res);
 #ifdef HAVE_TAOSWS           /* { */
   if (stmt->owner->conn->cfg.url) {
-    res->res = ws_query((WS_TAOS*)stmt->owner->conn->ds_conn.taos, sqlc_tsdb->tsdb);
+    res->res = CALL_ws_query((WS_TAOS*)stmt->owner->conn->ds_conn.taos, sqlc_tsdb->tsdb);
   } else {
 #endif                       /* } */
     res->res = CALL_taos_query(stmt->owner->conn->ds_conn.taos, sqlc_tsdb->tsdb);
@@ -395,6 +399,12 @@ static TAOS_FIELD_E* _tsdb_stmt_get_tsdb_field_by_tsdb_params(tsdb_stmt_t *stmt,
   tsdb_params_t *params = &stmt->params;
 
   if (!stmt->is_insert_stmt) return (TAOS_FIELD_E*)&_default_param_field;
+
+#ifdef HAVE_TAOSWS           /* { */
+  if (stmt->owner->conn->cfg.url) {
+    return (TAOS_FIELD_E*)&_default_param_field;
+  }
+#endif                       /* } */
 
   if (i_param == 0 && params->subtbl_required) {
     return (TAOS_FIELD_E*)&_default_param_field;
@@ -478,9 +488,13 @@ static SQLRETURN _tsdb_stmt_get_taos_params_for_non_insert(tsdb_stmt_t *stmt)
   int nr_params = 0;
 #ifdef HAVE_TAOSWS           /* { */
   if (stmt->owner->conn->cfg.url) {
-    stmt_append_err(stmt->owner, "HY000", r, "General error:not implemented yet");
-    tsdb_stmt_reset(stmt);
-    return SQL_ERROR;
+    // stmt_append_err(stmt->owner, "HY000", r, "General error:not implemented yet");
+    // tsdb_stmt_reset(stmt);
+    // return SQL_ERROR;
+    int nr_params = stmt->params.qms;
+
+    sr = _tsdb_stmt_generate_default_param_fields(stmt, nr_params);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
   } else {
 #endif                       /* } */
     r = CALL_taos_stmt_num_params(stmt->stmt, &nr_params);
@@ -518,8 +532,15 @@ static SQLRETURN _tsdb_stmt_describe_tags(tsdb_stmt_t *stmt)
   TAOS_FIELD_E *tags = NULL;
 #ifdef HAVE_TAOSWS           /* { */
   if (stmt->owner->conn->cfg.url) {
-    stmt_append_err(stmt->owner, "HY000", r, "General error:not implemented yet");
-    return SQL_ERROR;
+    // stmt_append_err(stmt->owner, "HY000", r, "General error:not implemented yet");
+    // return SQL_ERROR;
+    r = CALL_ws_stmt_get_tag_fields(stmt->stmt, (struct StmtField**)&tags, &tagNum);
+    if (r) {
+      stmt_append_err_format(stmt->owner, "HY000", r, "General error:[taosc]%s", CALL_ws_errstr(NULL));
+      if (r != TSDB_CODE_APP_ERROR) return SQL_ERROR;
+
+      return SQL_ERROR;
+    }
   } else {
 #endif                       /* } */
     r = CALL_taos_stmt_get_tag_fields(stmt->stmt, &tagNum, &tags);
@@ -546,8 +567,14 @@ static SQLRETURN _tsdb_stmt_describe_cols(tsdb_stmt_t *stmt)
   TAOS_FIELD_E *cols = NULL;
 #ifdef HAVE_TAOSWS           /* { */
   if (stmt->owner->conn->cfg.url) {
-    stmt_append_err(stmt->owner, "HY000", r, "General error:not implemented yet");
-    return SQL_ERROR;
+    // stmt_append_err(stmt->owner, "HY000", r, "General error:not implemented yet");
+    // return SQL_ERROR;
+    r = CALL_ws_stmt_get_col_fields(stmt->stmt, (struct StmtField**)&cols, &colNum);
+    if (r) {
+      stmt_append_err_format(stmt->owner, "HY000", r, "General error:[taosc]%s", CALL_ws_errstr(NULL));
+      if (r != TSDB_CODE_APP_ERROR) return SQL_ERROR;
+      return SQL_ERROR;
+    }
   } else {
 #endif                       /* } */
     r = CALL_taos_stmt_get_col_fields(stmt->stmt, &colNum, &cols);
@@ -575,7 +602,7 @@ static SQLRETURN _tsdb_stmt_get_taos_tags_cols_for_subtbled_insert(tsdb_stmt_t *
   if (!subtbl) subtbl = "__hard_coded_fake_name__";
 #ifdef HAVE_TAOSWS           /* { */
   if (stmt->owner->conn->cfg.url) {
-    r = ws_stmt_set_tbname((WS_STMT*)stmt->stmt, subtbl);
+    r = CALL_ws_stmt_set_tbname((WS_STMT*)stmt->stmt, subtbl);
     if (r) {
       stmt_append_err_format(stmt->owner, "HY000", e, "General error:[taosws]%s", ws_stmt_errstr((WS_STMT*)stmt->stmt));
       if (r != TSDB_CODE_APP_ERROR) return SQL_ERROR;
@@ -625,8 +652,42 @@ static SQLRETURN _tsdb_stmt_get_taos_tags_cols_for_insert(tsdb_stmt_t *stmt)
   TAOS_FIELD_E *tag_fields = NULL;
 #ifdef HAVE_TAOSWS           /* { */
   if (stmt->owner->conn->cfg.url) {
-    stmt_append_err(stmt->owner, "HY000", r, "General error:not implemented yet");
-    sr = SQL_ERROR;
+    // // stmt_append_err(stmt->owner, "HY000", r, "General error:not implemented yet");
+    // // sr = SQL_ERROR;
+
+    // // TODO: tags not supported yet
+    // stmt->params.subtbl_required = 0;
+    // stmt->params.nr_tag_fields = 0;
+
+    // stmt->params.nr_col_fields = stmt->params.qms;
+    // int nr_params = stmt->params.qms;
+
+    // sr = _tsdb_stmt_generate_default_param_fields(stmt, nr_params);
+    // if (sr != SQL_SUCCESS) return SQL_ERROR;
+    r = CALL_ws_stmt_get_tag_fields(stmt->stmt, (struct StmtField**)&tag_fields, &tagNum);
+    if (r) {
+      int e = CALL_ws_errno(NULL);
+      if (e == TSDB_CODE_TSC_STMT_TBNAME_ERROR) {
+        sr = _tsdb_stmt_get_taos_tags_cols_for_subtbled_insert(stmt, r);
+      } else if (e == TSDB_CODE_TSC_STMT_API_ERROR) {
+        sr = _tsdb_stmt_get_taos_tags_cols_for_normal_insert(stmt, r);
+      } else {
+        stmt_append_err_format(stmt->owner, "HY000", r, "General error:[taosc]%s", CALL_ws_stmt_errstr(stmt->stmt));
+        sr = SQL_ERROR;
+      }
+      if (tag_fields) {
+        // CALL_taos_stmt_reclaim_fields(stmt->stmt, tag_fields);
+        tag_fields = NULL;
+      }
+    } else {
+      // OA_NIY(tagNum == 0);
+      // OA_NIY(tag_fields == NULL);
+      OA_NIY(stmt->params.tag_fields == NULL);
+      OA_NIY(stmt->params.nr_tag_fields == 0);
+      stmt->params.tag_fields = tag_fields;
+      stmt->params.nr_tag_fields = tagNum;
+      sr = _tsdb_stmt_describe_cols(stmt);
+    }
   } else {
 #endif                       /* } */
     r = CALL_taos_stmt_get_tag_fields(stmt->stmt, &tagNum, &tag_fields);
@@ -670,13 +731,13 @@ static SQLRETURN _tsdb_stmt_prepare(tsdb_stmt_t *stmt, const sqlc_tsdb_t *sqlc_t
 
 #ifdef HAVE_TAOSWS           /* { */
   if (stmt->owner->conn->cfg.url) {
-    stmt->stmt = ws_stmt_init((WS_TAOS*)stmt->owner->conn->ds_conn.taos);
+    stmt->stmt = CALL_ws_stmt_init((WS_TAOS*)stmt->owner->conn->ds_conn.taos);
     if (!stmt->stmt) {
       stmt_append_err_format(stmt->owner, "HY000", CALL_taos_errno(NULL), "General error:[taosws]%s", ws_errstr(NULL));
       return SQL_ERROR;
     }
 
-    r = ws_stmt_prepare((WS_STMT*)stmt->stmt, sqlc_tsdb->tsdb, (unsigned long)sqlc_tsdb->tsdb_bytes);
+    r = CALL_ws_stmt_prepare((WS_STMT*)stmt->stmt, sqlc_tsdb->tsdb, (unsigned long)sqlc_tsdb->tsdb_bytes);
     if (r) {
       stmt_append_err_format(stmt->owner, "HY000", r, "General error:[taosws]%s", ws_errstr(NULL));
       return SQL_ERROR;
@@ -785,14 +846,19 @@ static SQLRETURN _execute(stmt_base_t *base)
     OW("bind more parameters (#%d) than required (#%d) by sql-statement", APD_header->DESC_COUNT, n);
   }
 
-  if (APD_header->DESC_COUNT == 0) {
+  if (stmt->params.qms == 0) {
+    if (APD_header->DESC_COUNT > 0) {
+      stmt_append_err(stmt->owner, "HY000", 0,
+        "General error:[taos-odbc]non-parameterized-statement with param_bound is ambiguous, thus not supported yet");
+      return SQL_ERROR;
+    }
     return _query(base, stmt->current_sql);
   }
 
 #ifdef HAVE_TAOSWS           /* { */
   if (stmt->owner->conn->cfg.url) {
     int32_t affected_rows = 0;
-    r = ws_stmt_execute((WS_STMT*)stmt->stmt, &affected_rows);
+    r = CALL_ws_stmt_execute((WS_STMT*)stmt->stmt, &affected_rows);
     if (r) {
       stmt_append_err_format(stmt->owner, "HY000", r, "General error:[taosws]%s", ws_stmt_errstr((WS_STMT*)stmt->stmt));
       return SQL_ERROR;
@@ -853,11 +919,14 @@ static SQLRETURN _tsdb_stmt_fetch_rows_block(tsdb_stmt_t *stmt)
   int nr_rows = 0;
 #ifdef HAVE_TAOSWS           /* { */
   if (stmt->owner->conn->cfg.url) {
+    tsdb_fields_t       *fields      = &res->fields;
+    if (fields->nr == 0) return SQL_NO_DATA;
     const void *ptr = NULL;
     int32_t rows = 0;
-    int32_t r = ws_fetch_block((WS_RES*)res->res, &ptr, &rows);
+    int32_t r = CALL_ws_fetch_block((WS_RES*)res->res, &ptr, &rows);
     OA_NIY(r == 0); // TODO:
     if (rows == 0) return SQL_NO_DATA;
+
     rows_block->ws_ptr = ptr;
     rows_block->nr     = rows;
     rows_block->pos    = 0;
@@ -883,11 +952,16 @@ static SQLRETURN _fetch_row(stmt_base_t *base)
   tsdb_res_t           *res          = &stmt->res;
   tsdb_rows_block_t    *rows_block   = &res->rows_block;
 
+  if (res->eof) return SQL_NO_DATA;
+
 again:
   // TODO: before and after
   if (rows_block->pos >= rows_block->nr) {
     sr = _tsdb_stmt_fetch_rows_block(stmt);
-    if (sr == SQL_NO_DATA) return SQL_NO_DATA;
+    if (sr == SQL_NO_DATA) {
+      res->eof = 1;
+      return SQL_NO_DATA;
+    }
     if (sr != SQL_SUCCESS) return SQL_ERROR;
     goto again;
   }
@@ -1003,6 +1077,9 @@ static SQLRETURN _get_num_params(stmt_base_t *base, SQLSMALLINT *ParameterCountP
 {
   tsdb_stmt_t *stmt = (tsdb_stmt_t*)base;
   SQLSMALLINT n = stmt->params.nr_params;
+  // NOTE: always return qms
+  OA_NIY(stmt->params.qms == stmt->owner->current_sql.qms);
+  n = stmt->params.qms;
   if (ParameterCountPtr) *ParameterCountPtr = n;
   return SQL_SUCCESS;
 }
@@ -1067,7 +1144,7 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
     const void *col_data = NULL;
     uint32_t    col_len  = 0;
 
-    col_data = ws_get_value_in_block(ws_res, i_row, i_col, &col_type, &col_len);
+    col_data = CALL_ws_get_value_in_block(ws_res, i_row, i_col, &col_type, &col_len);
 
     const WS_FIELD *ws_field = ws_fields + i_col;
 
@@ -1131,7 +1208,7 @@ void tsdb_stmt_reset(tsdb_stmt_t *stmt)
     int r = 0;
 #ifdef HAVE_TAOSWS           /* { */
     if (stmt->owner->conn->cfg.url) {
-      ws_stmt_close((WS_STMT*)stmt->stmt);
+      CALL_ws_stmt_close((WS_STMT*)stmt->stmt);
     } else {
 #endif                       /* } */
       r = CALL_taos_stmt_close(stmt->stmt);
@@ -1181,7 +1258,7 @@ SQLRETURN tsdb_stmt_rebind_subtbl(tsdb_stmt_t *stmt)
   int r = 0;
 #ifdef HAVE_TAOSWS           /* { */
   if (stmt->owner->conn->cfg.url) {
-    r = ws_stmt_set_tbname((WS_STMT*)stmt->stmt, subtbl);
+    r = CALL_ws_stmt_set_tbname((WS_STMT*)stmt->stmt, subtbl);
     if (r) {
       stmt_append_err_format(stmt->owner, "HY000", e, "General error:[taosws]%s", ws_stmt_errstr((WS_STMT*)stmt->stmt));
       if (r != TSDB_CODE_APP_ERROR) return SQL_ERROR;

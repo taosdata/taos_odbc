@@ -39,11 +39,17 @@ struct arg_s {
   const char      *name;
 };
 
+static void _bypass_mysql_flaw(odbc_handles_t *handles)
+{
+  // NOTE: for the sake of mysql-`Conditional jump or move depends on uninitialised value(s)`-error-returned-by-valgrind!!!
+  CALL_SQLExecDirect(handles->hstmt, (SQLCHAR*)"select 1", SQL_NTS);
+}
+
 static int _dummy(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles_t *handles)
 {
   (void)odbc_case;
   (void)stage;
-  (void)handles;
+  _bypass_mysql_flaw(handles);
   return 0;
 }
 
@@ -161,7 +167,8 @@ static int _dump_col_info(SQLHANDLE hstmt, SQLUSMALLINT ColumnNumber)
   CharacterAttributePtr       = buf;
   BufferLength                = sizeof(buf);
   sr = CALL_SQLColAttribute(hstmt, ColumnNumber, FieldIdentifier, CharacterAttributePtr, BufferLength, &StringLength, &NumericAttribute);
-  if (sr != SQL_SUCCESS) return -1;
+  // NOTE: for the sake of mysql-returning-false!!!
+  // if (sr != SQL_SUCCESS) return -1;
   DUMP("Column%d.%s=%s",ColumnNumber, sql_col_attribute(FieldIdentifier), buf);
 
   FieldIdentifier             = SQL_DESC_NULLABLE;
@@ -275,6 +282,7 @@ static int _dump_stmt_col_info(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_
   const char *sql = getenv(env);
   if (!sql) {
     DUMP("env `%s` not set yet", env);
+    _bypass_mysql_flaw(handles);
     return 0;
   }
   DUMP("env`%s`:%s", env, sql);
@@ -306,12 +314,23 @@ static int _dump_col(SQLHANDLE hstmt, SQLUSMALLINT ColumnNumber)
   SQLLEN         BufferLength     = sizeof(buf);
   SQLLEN         StrLen_or_Ind;
 
+  char col_name[4096]; col_name[0] = '\0'; {
+    SQLSMALLINT    NameLength;
+    SQLSMALLINT    DataType;
+    SQLULEN        ColumnSize;
+    SQLSMALLINT    DecimalDigits;
+    SQLSMALLINT    Nullable;
+
+    sr = CALL_SQLDescribeCol(hstmt, Col_or_Param_Num, (SQLCHAR*)col_name, sizeof(col_name), &NameLength, &DataType, &ColumnSize, &DecimalDigits, &Nullable);
+    if (sr != SQL_SUCCESS) return -1;
+  }
+
   sr = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, &StrLen_or_Ind);
   if (sr != SQL_SUCCESS) return -1;
   if (StrLen_or_Ind == SQL_NULL_DATA) {
-    DUMP("Column%d:[null]", Col_or_Param_Num);
+    DUMP("Column%d:%s:[null]", Col_or_Param_Num, col_name);
   } else {
-    DUMP("Column%d:%.*s", Col_or_Param_Num, (int)StrLen_or_Ind, buf);
+    DUMP("Column%d:%s:%.*s", Col_or_Param_Num, col_name, (int)StrLen_or_Ind, buf);
   }
 
   return 0;
@@ -401,6 +420,7 @@ static int _dump_stmt_describe_col(odbc_case_t *odbc_case, odbc_stage_t stage, o
   const char *sql = getenv(env);
   if (!sql) {
     DUMP("env `%s` not set yet", env);
+    _bypass_mysql_flaw(handles);
     return 0;
   }
   DUMP("env`%s`:%s", env, sql);
@@ -468,6 +488,7 @@ static int _dump_stmt_desc_bind_desc_col(odbc_case_t *odbc_case, odbc_stage_t st
   const char *sql = getenv(env);
   if (!sql) {
     DUMP("env `%s` not set yet", env);
+    _bypass_mysql_flaw(handles);
     return 0;
   }
   DUMP("env`%s`:%s", env, sql);
@@ -583,6 +604,7 @@ static int _dump_stmt_describe_param(odbc_case_t *odbc_case, odbc_stage_t stage,
   const char *sql = getenv(env);
   if (!sql) {
     DUMP("env `%s` not set yet", env);
+    _bypass_mysql_flaw(handles);
     return 0;
   }
   DUMP("env`%s`:%s", env, sql);
@@ -653,6 +675,7 @@ static int _dump_stmt_desc_bind_desc_param(odbc_case_t *odbc_case, odbc_stage_t 
   const char *sql = getenv(env);
   if (!sql) {
     DUMP("env `%s` not set yet", env);
+    _bypass_mysql_flaw(handles);
     return 0;
   }
   DUMP("env`%s`:%s", env, sql);
@@ -721,8 +744,23 @@ static int _prepare_bind_param_execute(odbc_case_t *odbc_case, odbc_stage_t stag
 
   DUMP("%s:", __func__);
 
-  const char *sql = "insert into x (i8) values (?)";
-  DUMP("sql:%s", sql);
+  const char *env = "SAMPLE_PREPARE_BIND_PARAM_EXECUTE_SQL";
+  const char *sql = getenv(env);
+  if (!sql) {
+    DUMP("env `%s` not set yet", env);
+    _bypass_mysql_flaw(handles);
+    return 0;
+  }
+  DUMP("env`%s`:%s", env, sql);
+  env = "SAMPLE_PREPARE_BIND_PARAM_EXECUTE_PARAMSET_SIZE";
+  const char *s_paramset_size = getenv(env);
+  if (!s_paramset_size) {
+    DUMP("env `%s` not set yet", env);
+    _bypass_mysql_flaw(handles);
+    return 0;
+  }
+  DUMP("env`%s`:%s", env, s_paramset_size);
+  int n_paramset_size = atoi(s_paramset_size);
 
   sr = CALL_SQLPrepare(hstmt, (SQLCHAR*)sql, SQL_NTS);
   if (sr != SQL_SUCCESS) return -1;
@@ -743,17 +781,20 @@ static int _prepare_bind_param_execute(odbc_case_t *odbc_case, odbc_stage_t stag
         i+1, sql_data_type(DataType), (uint64_t)ParameterSize, DecimalDigits, sql_nullable(Nullable));
   }
 
-  int8_t v[20];
-  SQLLEN v_ind[20];
+#define ARRAY_SIZE              20
+  int32_t param1[ARRAY_SIZE],     param2[ARRAY_SIZE];
+  SQLLEN  param1_ind[ARRAY_SIZE], param2_ind[ARRAY_SIZE];
 
-  memset(v, 0, sizeof(v));
-  memset(v_ind, 0, sizeof(v_ind));
+  memset(param1, 0, sizeof(param1));
+  memset(param1_ind, 0, sizeof(param1_ind));
+  memset(param2, 0, sizeof(param2));
+  memset(param2_ind, 0, sizeof(param2_ind));
 
   SQLULEN ParamsProcessed = 0;
-  SQLUSMALLINT ParamStatusArray[sizeof(v)/sizeof(v[0])];
+  SQLUSMALLINT ParamStatusArray[ARRAY_SIZE];
   memset(ParamStatusArray, 0, sizeof(ParamStatusArray));
-  SQLULEN paramset_size = sizeof(v)/sizeof(v[0]);
-  paramset_size = 2;
+  SQLULEN paramset_size = ARRAY_SIZE;
+  if (n_paramset_size>=0 && n_paramset_size < ARRAY_SIZE) paramset_size = n_paramset_size;
 
   CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAM_BIND_TYPE, SQL_PARAM_BIND_BY_COLUMN, 0);
   CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAMSET_SIZE, (SQLPOINTER)paramset_size, 0);
@@ -762,14 +803,26 @@ static int _prepare_bind_param_execute(odbc_case_t *odbc_case, odbc_stage_t stag
 
   {
     SQLSMALLINT     InputOutputType               = SQL_PARAM_INPUT;
-    SQLSMALLINT     ValueType                     = SQL_C_TINYINT;
+    SQLSMALLINT     ValueType                     = SQL_C_SLONG;
     SQLSMALLINT     ParameterType                 = SQL_VARCHAR;
-    SQLULEN         ColumnSize                    = 2;
+    SQLULEN         ColumnSize                    = sizeof(param1[0]);
     SQLSMALLINT     DecimalDigits                 = 0;
-    SQLPOINTER      ParameterValuePtr             = v;
-    SQLLEN          BufferLength                  = sizeof(v[0]);
+    SQLPOINTER      ParameterValuePtr             = param1;
+    SQLLEN          BufferLength                  = sizeof(param1[0]);
 
-    sr = CALL_SQLBindParameter(hstmt, 1, InputOutputType, ValueType, ParameterType, ColumnSize, DecimalDigits, ParameterValuePtr, BufferLength, v_ind);
+    sr = CALL_SQLBindParameter(hstmt, 1, InputOutputType, ValueType, ParameterType, ColumnSize, DecimalDigits, ParameterValuePtr, BufferLength, param1_ind);
+    if (sr != SQL_SUCCESS) return -1;
+  }
+  {
+    SQLSMALLINT     InputOutputType               = SQL_PARAM_INPUT;
+    SQLSMALLINT     ValueType                     = SQL_C_SLONG;
+    SQLSMALLINT     ParameterType                 = SQL_VARCHAR;
+    SQLULEN         ColumnSize                    = sizeof(param2[0]);
+    SQLSMALLINT     DecimalDigits                 = 0;
+    SQLPOINTER      ParameterValuePtr             = param2;
+    SQLLEN          BufferLength                  = sizeof(param2[0]);
+
+    sr = CALL_SQLBindParameter(hstmt, 2, InputOutputType, ValueType, ParameterType, ColumnSize, DecimalDigits, ParameterValuePtr, BufferLength, param2_ind);
     if (sr != SQL_SUCCESS) return -1;
   }
 
@@ -787,17 +840,48 @@ static int _prepare_bind_param_execute(odbc_case_t *odbc_case, odbc_stage_t stag
         i+1, sql_data_type(DataType), (uint64_t)ParameterSize, DecimalDigits, sql_nullable(Nullable));
   }
 
-  v[0] = 1;
-  v[1] = 123;
+  for (SQLULEN i=0; i<paramset_size; ++i) {
+    param1[i] = (int32_t)i;
+    param2[i] = (int32_t)i+1;
+  }
 
   sr = CALL_SQLExecute(hstmt);
   if (sr != SQL_SUCCESS) return -1;
 
   for (SQLULEN i = 0; i<ParamsProcessed; ++i) {
-    DUMP("%zd:%d", i+1, ParamStatusArray[i]);
+    DUMP("%zd:[%d]%s", i+1, ParamStatusArray[i], sql_param_status(ParamStatusArray[i]));
   }
 
-  return 0;
+  SQLSMALLINT cols = 0;
+
+again:
+
+  sr = CALL_SQLNumResultCols(hstmt, &cols);
+  if (sr != SQL_SUCCESS) return -1;
+  DUMP("Columns:%d", cols);
+
+  if (cols > 0) {
+    size_t rows = 0;
+    for (;;++rows) {
+      sr = CALL_SQLFetch(hstmt);
+      if (sr == SQL_NO_DATA) break;
+      if (sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO) {
+        for (SQLSMALLINT i = 0; i<cols; ++i) {
+          int r = _dump_col(hstmt, (SQLUSMALLINT)i+1);
+          if (r) return -1;
+        }
+        continue;
+      }
+      return -1;
+    }
+    DUMP("Rows:%zd", rows);
+  }
+
+  sr = CALL_SQLMoreResults(hstmt);
+  if (sr == SQL_NO_DATA) return 0;
+  if (sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO) goto again;
+
+  return -1;
 }
 
 static int _exec_direct(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles_t *handles)
@@ -816,6 +900,7 @@ static int _exec_direct(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles
   const char *sql = getenv(env);
   if (!sql) {
     DUMP("env `%s` not set yet", env);
+    _bypass_mysql_flaw(handles);
     return 0;
   }
   DUMP("env`%s`:%s", env, sql);
@@ -842,6 +927,7 @@ static int _bind_exec_direct(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_ha
   const char *sql = getenv(env);
   if (!sql) {
     DUMP("env `%s` not set yet", env);
+    _bypass_mysql_flaw(handles);
     return 0;
   }
   DUMP("env`%s`:%s", env, sql);
@@ -993,7 +1079,8 @@ static int _execute_file(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handle
   const char *fn = getenv(env);
   if (!fn) {
     DUMP("env `%s` not set yet", env);
-    return -1;
+    _bypass_mysql_flaw(handles);
+    return 0;
   }
   DUMP("env`%s`:%s", env, fn);
 
@@ -1011,6 +1098,103 @@ static int _execute_file(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handle
   return r ? -1 : 0;
 }
 
+static int _dump_current_db(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles_t *handles)
+{
+  (void)odbc_case;
+
+  SQLHANDLE hconn = handles->hconn;
+
+  SQLRETURN sr = SQL_SUCCESS;
+
+  if (stage != ODBC_DBC) return 0;
+
+  DUMP("%s:", __func__);
+
+  char db[1024]; db[0] = '\0';
+  SQLSMALLINT db_len = 0;
+  sr = CALL_SQLGetInfo(hconn, SQL_DATABASE_NAME, db, sizeof(db), &db_len);
+  if (sr != SQL_SUCCESS) return -1;
+  DUMP("DATABASE_NAME:[%s]", db);
+
+
+  SQLINTEGER db_n = 0;
+  sr = CALL_SQLGetConnectAttr(hconn, SQL_ATTR_CURRENT_CATALOG, db, sizeof(db), &db_n);
+  if (sr != SQL_SUCCESS) return -1;
+  DUMP("CURRENT_CATALOG:[%s]", db);
+
+  return 0;
+}
+
+static int _two_stmts_current_db(odbc_case_t *odbc_case, odbc_stage_t stage, odbc_handles_t *handles)
+{
+  (void)odbc_case;
+
+  int r = 0;
+
+  SQLHANDLE hconn = handles->hconn;
+
+  SQLRETURN sr = SQL_SUCCESS;
+
+  if (stage != ODBC_DBC) return 0;
+
+  DUMP("%s:", __func__);
+
+  char db[1024]; db[0] = '\0';
+  SQLSMALLINT db_len = 0;
+  sr = CALL_SQLGetInfo(hconn, SQL_DATABASE_NAME, db, sizeof(db), &db_len);
+  if (sr != SQL_SUCCESS) return -1;
+  DUMP("DATABASE_NAME:[%s]", db);
+
+
+  SQLINTEGER db_n = 0;
+  sr = CALL_SQLGetConnectAttr(hconn, SQL_ATTR_CURRENT_CATALOG, db, sizeof(db), &db_n);
+  if (sr != SQL_SUCCESS) return -1;
+  DUMP("CURRENT_CATALOG:[%s]", db);
+
+  SQLHANDLE hstmt1 = SQL_NULL_HANDLE, hstmt2 = SQL_NULL_HANDLE;
+
+  sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, handles->hconn, &hstmt1);
+  if (FAILED(sr)) goto end;
+
+  sr = CALL_SQLExecDirect(hstmt1, (SQLCHAR*)"select database()", SQL_NTS);
+  if (FAILED(sr)) goto end;
+  sr = CALL_SQLFetch(hstmt1);
+  if (FAILED(sr)) goto end;
+  r = _dump_col(hstmt1, 1);
+  if (r) goto end;
+
+  sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, handles->hconn, &hstmt2);
+  if (FAILED(sr)) goto end;
+
+  DUMP("trying to change database to `foo`");
+  sr = CALL_SQLExecDirect(hstmt2, (SQLCHAR*)"use foo", SQL_NTS);
+  if (FAILED(sr)) goto end;
+
+  CALL_SQLCloseCursor(hstmt1);
+
+  sr = CALL_SQLExecDirect(hstmt1, (SQLCHAR*)"select database()", SQL_NTS);
+  if (FAILED(sr)) goto end;
+  sr = CALL_SQLFetch(hstmt1);
+  if (FAILED(sr)) goto end;
+  r = _dump_col(hstmt1, 1);
+  if (r) goto end;
+
+  sr = CALL_SQLGetInfo(hconn, SQL_DATABASE_NAME, db, sizeof(db), &db_len);
+  if (sr != SQL_SUCCESS) return -1;
+  DUMP("DATABASE_NAME:[%s]", db);
+
+  sr = CALL_SQLGetConnectAttr(hconn, SQL_ATTR_CURRENT_CATALOG, db, sizeof(db), &db_n);
+  if (sr != SQL_SUCCESS) return -1;
+  DUMP("CURRENT_CATALOG:[%s]", db);
+
+end:
+
+  if (hstmt1 != SQL_NULL_HANDLE) CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt1);
+  if (hstmt2 != SQL_NULL_HANDLE) CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt2);
+
+  return (r || FAILED(sr)) ? -1 : 0;
+}
+
 static odbc_case_t odbc_cases[] = {
   ODBC_CASE(_dummy),
   ODBC_CASE(_dump_stmt_col_info),
@@ -1023,6 +1207,8 @@ static odbc_case_t odbc_cases[] = {
   ODBC_CASE(_exec_direct),
   ODBC_CASE(_bind_exec_direct),
   ODBC_CASE(_execute_file),
+  ODBC_CASE(_dump_current_db),
+  ODBC_CASE(_two_stmts_current_db),
 };
 
 static int _dumping(arg_t *arg)
@@ -1077,6 +1263,12 @@ static int dumping(int argc, char *argv[])
       ++i;
       if (i>=argc) break;
       arg.conn_arg.connstr = argv[i];
+      continue;
+    }
+    if (strcmp(argv[i], "--tdengine") == 0) {
+      ++i;
+      if (i>=argc) break;
+      arg.conn_arg.is_tdengine = 1;
       continue;
     }
 

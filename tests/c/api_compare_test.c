@@ -313,16 +313,6 @@ static int connect_default(void) {
   return 0;
 }
 
-static int disconnect_all(void) {
-  int r = 0;
-  for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
-    r = CALL_SQLDisconnect(_cases[i].ctx.hconn);
-    XX("CALL_SQLDisconnect result:%d", r);
-    if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
-  }
-  return 0;
-}
-
 static int connect_repeat(void) {
   int r = 0;
   for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
@@ -680,7 +670,6 @@ static int case_2(void) {
   int r = 0;
   for (size_t i = 0; i < sizeof(_cases) / sizeof(_cases[0]); ++i) {
     SQLHANDLE hconn = _cases[i].ctx.hconn;
-    SQLHANDLE hstmt = _cases[i].ctx.hstmt;
 
     SQLUINTEGER convert_bigint;
     r = CALL_SQLGetInfo(hconn, SQL_CONVERT_BIGINT, &convert_bigint,
@@ -875,9 +864,12 @@ static int basic(void) {
 }
 
 static int run(void) {
-  // CHK0(basic, 0);
-  // CHK0(sql_tables_test, 0);
+  CHK0(basic, 0);
+  CHK0(sql_tables_test, 0);
   CHK0(case_1, 0);
+  if(0) {
+    CHK0(case_2, 0);
+  }
 
   return 0;
 }

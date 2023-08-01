@@ -327,18 +327,12 @@ static int connect_select_db(char* db) {
       strcat(dsn, _cases[i].user);
       strcat(dsn, ";Pwd=");
       strcat(dsn, _cases[i].pwd);
+      strcat(dsn, ";");
+    }
+    if (strlen(db) > 0) {
       strcat(dsn, ";DATABASE=");
+      strcat(dsn, db);
     }
-    else {
-      // taos-odbc 支持两种写法
-      if (0) {
-        strcat(dsn, ";DB=");
-      }
-      else {
-        strcat(dsn, ";DATABASE=");
-      }
-    }
-    strcat(dsn, db);
 
     XX("connect string:%s", dsn);
     r = test_sql_driver_conn(_cases[i].ctx.hconn, dsn);
@@ -1160,6 +1154,42 @@ static int basic(void) {
   return 0;
 }
 
+static int sqlconnect(void) {
+  CHK0(connect_test, 0);
+  return 0;
+}
+
+static int connect_driver(void) {
+  int r = 0;
+  for (int i = 0; i < db_source_ready_num; ++i) {
+    SQLHANDLE hconntmp;
+    r = CALL_SQLAllocHandle(SQL_HANDLE_DBC, _cases[i].ctx.henv, &hconntmp);
+    if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
+
+    char dsn[100] = { 0 };
+    strcat(dsn, "DSN=");
+    strcat(dsn, _cases[i].dsn);
+    if (strcmp(_cases[i].test_name, TN_SQLSERVER) == 0) {
+      strcat(dsn, ";Uid=");
+      strcat(dsn, _cases[i].user);
+      strcat(dsn, ";Pwd=");
+      strcat(dsn, _cases[i].pwd);
+      strcat(dsn, ";");
+    }
+
+    XX("connect_driver connect string:%s", dsn);
+    r = test_sql_driver_conn(hconntmp, dsn);
+    if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
+    XX("connect_driver dsn:%s result:%d", dsn, r);
+
+    r = CALL_SQLDisconnect(hconntmp);
+    if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
+
+    r = CALL_SQLFreeHandle(SQL_HANDLE_DBC, hconntmp);
+    if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
+  }
+  return 0;
+}
 
 static const int default_supported = 1;
 static const int default_unsupported = 2;
@@ -1173,6 +1203,8 @@ static bool isTestCase(int argc, char* argv[], const char* test_case, const int 
 }
 
 static int run(int argc, char* argv[]) {
+  if (isTestCase(argc, argv, "sqlconnect", default_supported)) CHK0(sqlconnect, 0);
+  if (isTestCase(argc, argv, "connect_driver", default_supported)) CHK0(connect_driver, 0);
   if (isTestCase(argc, argv, "basic", default_supported)) CHK0(basic, 0);
   if (isTestCase(argc, argv, "sql_tables_test", default_supported)) CHK0(sql_tables_test, 0);
   
@@ -1315,7 +1347,8 @@ static int init_test(void) {
   init_sql_str();
   CHK0(init_henv, 0);
   CHK0(create_hconn, 0);
-  CHK0(connect_default, 0);
+  CHK1(connect_select_db, "", 0);
+  // CHK0(connect_default, 0);
   CHK1(drop_database, test_db, 0);
   CHK1(drop_database, test_db2, 0);
   CHK1(create_database, test_db, 0);

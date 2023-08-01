@@ -188,7 +188,7 @@ again:
   return 0;
 }
 
-int mem_conv_ex(mem_t *mem, const str_t *src, const char *dst_charset)
+int mem_conv_ex(mem_t *mem, const string_t *src, const char *dst_charset)
 {
   charset_conv_t *cnv = tls_get_charset_conv(src->charset, dst_charset);
   if (!cnv) return -1;
@@ -496,7 +496,7 @@ static int _wild_comp(wildex_t *wild)
   return 0;
 }
 
-int wildcomp(wildex_t **pwild, const str_t *wildex)
+int wildcomp(wildex_t **pwild, const string_t *wildex)
 {
   int r = 0;
 
@@ -545,7 +545,7 @@ static void _wild_exec(wildex_t *wild, const int32_t *s, size_t nr, size_t inode
   match(wild, s, nr, inode, matched);
 }
 
-int wildexec(wildex_t *wild, const str_t *str, int *matched)
+int wildexec(wildex_t *wild, const string_t *str, int *matched)
 {
   int r = 0;
 

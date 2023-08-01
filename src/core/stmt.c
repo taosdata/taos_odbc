@@ -2944,7 +2944,7 @@ static SQLRETURN _stmt_get_next_sql(stmt_t *stmt)
 
   const char *fromcode = conn_get_sqlc_charset(stmt->conn);
   const char *tocode   = conn_get_tsdb_charset(stmt->conn);
-  str_t src = {
+  string_t src = {
     .charset             = fromcode,
     .str                 = sqlc_tsdb->sqlc,
     .bytes               = sqlc_tsdb->sqlc_bytes,
@@ -6802,19 +6802,19 @@ static SQLRETURN _stmt_prepare_col(stmt_t *stmt, param_state_t *param_state)
       sr = _stmt_param_guess(stmt, param_state);
       if (sr != SQL_SUCCESS) return SQL_ERROR;
     }
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
     if (stmt->conn->cfg.url) {
       sr = _stmt_param_guess(stmt, param_state);
       if (sr != SQL_SUCCESS) return SQL_ERROR;
       sr = _stmt_param_tsdb_init(stmt, param_state);
       if (sr != SQL_SUCCESS) return SQL_ERROR;
     } else {
-#endif                       /* } */
+#endif                       /* ] */
       sr = _stmt_param_tsdb_init(stmt, param_state);
       if (sr != SQL_SUCCESS) return SQL_ERROR;
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
     }
-#endif                       /* } */
+#endif                       /* ] */
   }
 
   param_state->param_column = stmt->tsdb_paramset.params + param_state->i_param;
@@ -6956,7 +6956,7 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
     if (stmt->tsdb_stmt.is_insert_stmt) {
       if (tsdb_params->nr_tag_fields) {
         TAOS_MULTI_BIND *mbs = stmt->tsdb_binds.mbs + (!!stmt->tsdb_stmt.params.subtbl_required);
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
         if (stmt->conn->cfg.url) {
           r = CALL_ws_stmt_set_tags((WS_STMT*)stmt->tsdb_stmt.stmt, (WS_MULTI_BIND*)mbs, tsdb_params->nr_tag_fields);
           if (r) {
@@ -6964,20 +6964,20 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
             return SQL_ERROR;
           }
         } else {
-#endif                       /* } */
+#endif                       /* ] */
           r = CALL_taos_stmt_set_tags(stmt->tsdb_stmt.stmt, mbs);
           if (r) {
             stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->tsdb_stmt.stmt));
             return SQL_ERROR;
           }
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
         }
-#endif                       /* } */
+#endif                       /* ] */
       }
     }
 
     TAOS_MULTI_BIND *mb = stmt->tsdb_binds.mbs + (!!stmt->tsdb_stmt.params.subtbl_required) + stmt->tsdb_stmt.params.nr_tag_fields;
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
     if (stmt->conn->cfg.url) {
       r = CALL_ws_stmt_bind_param_batch((WS_STMT*)stmt->tsdb_stmt.stmt, (WS_MULTI_BIND*)mb, tsdb_params->nr_tag_fields);
       if (r) {
@@ -6985,17 +6985,17 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
         return SQL_ERROR;
       }
     } else {
-#endif                       /* } */
+#endif                       /* ] */
       r = CALL_taos_stmt_bind_param_batch(stmt->tsdb_stmt.stmt, mb);
       if (r) {
         stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->tsdb_stmt.stmt));
         return SQL_ERROR;
       }
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
     }
-#endif                       /* } */
+#endif                       /* ] */
 
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
     if (stmt->conn->cfg.url) {
       r = CALL_ws_stmt_add_batch((WS_STMT*)stmt->tsdb_stmt.stmt);
       if (r) {
@@ -7003,15 +7003,15 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
         return SQL_ERROR;
       }
     } else {
-#endif                       /* } */
+#endif                       /* ] */
       r = CALL_taos_stmt_add_batch(stmt->tsdb_stmt.stmt);
       if (r) {
         stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->tsdb_stmt.stmt));
         return SQL_ERROR;
       }
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
     }
-#endif                       /* } */
+#endif                       /* ] */
 
     sr = stmt->base->execute(stmt->base);
     if (sr != SQL_SUCCESS) return SQL_ERROR;

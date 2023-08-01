@@ -85,6 +85,9 @@ do {                                              \
 %x TAOS_ODBC_EXT_TOPIC
 %x TAOS_ODBC_EXT_TOPIC_LP
 %x TAOS_ODBC_EXT_TOPIC_EQ
+%x TAOS_ODBC_EXT_INSERT_INTO
+%x TAOS_ODBC_EXT_INSERT_INTO_LR
+%x QSTR SSTR TSTR ESC
 
 SP            [ \t]
 LN            "\r\n"|"\n\r"|[\f\r\n]
@@ -92,10 +95,21 @@ LN            "\r\n"|"\n\r"|[\f\r\n]
 
 LP            [{]
 RP            [}]
+LR            [(]
+RR            [)]
 TOPIC         (?i:topic)
+INSERT        (?i:insert)
+INTO          (?i:into)
+USING         (?i:using)
+WITH          (?i:with)
+TAGS          (?i:tags)
+VALUES        (?i:values)
 TNAME         [_[:alpha:]][_[:alnum:]]*
 TKEY          [_[:alpha:]][_.[:alnum:]]*
 TVAL          [-_.\[\](),?*!@[:alnum:]]+
+ID            [_[:alpha:]][_[:alnum:]]*
+INTEGRAL      [[:digit:]]+
+NUMBER        ("0."|[1-9][[:digit:]]*[.])[[:digit:]]*([eE][-+][[:digit:]]+)?
 
 DIGITS        [[:digit:]]+
 %%
@@ -110,10 +124,72 @@ DIGITS        [[:digit:]]+
 
 <TAOS_ODBC_EXT>{
 {TOPIC}       { R(); CHG(TAOS_ODBC_EXT_TOPIC); C(); return MKT(TOPIC); }
+{INSERT}      { R(); C(); return MKT(INSERT); }
+{INTO}        { R(); CHG(TAOS_ODBC_EXT_INSERT_INTO); C(); return MKT(INTO); }
 {SP}          { R(); C(); } /* eat */
 {LN}          { R(); L(); } /* eat */
-[^[:space:]]+ { R(); C(); return MKT(UNEXP); }
+{ID}          { R(); C(); return MKT(ID); }
 .             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
+}
+
+<TAOS_ODBC_EXT_INSERT_INTO>{
+"?"           { R(); C(); return *yytext; }
+"."           { R(); C(); return *yytext; }
+{LR}          { R(); PUSH(TAOS_ODBC_EXT_INSERT_INTO_LR); C(); return (unsigned char)*yytext; }
+{USING}       { R(); C(); return MKT(USING); }
+{WITH}        { R(); C(); return MKT(WITH); }
+{TAGS}        { R(); C(); return MKT(TAGS); }
+{VALUES}      { R(); C(); return MKT(VALUES); }
+{ID}          { R(); C(); return MKT(ID); }
+["]           { R(); PUSH(QSTR); return *yytext; }
+[']           { R(); PUSH(SSTR); return *yytext; }
+[`]           { R(); PUSH(TSTR); return *yytext; }
+{SP}          { R(); C(); } /* eat */
+{LN}          { R(); L(); } /* eat */
+.             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
+}
+
+<TAOS_ODBC_EXT_INSERT_INTO_LR>{
+{RR}          { R(); POP(); C(); return (unsigned char)*yytext; }
+{LR}          { R(); PUSH(TAOS_ODBC_EXT_INSERT_INTO_LR); C(); return (unsigned char)*yytext; }
+{ID}          { R(); C(); return MKT(ID); }
+{INTEGRAL}    { R(); C(); return MKT(INTEGRAL); }
+{NUMBER}      { R(); C(); return MKT(NUMBER); }
+["]           { R(); PUSH(QSTR); return *yytext; }
+[']           { R(); PUSH(SSTR); return *yytext; }
+[`]           { R(); PUSH(TSTR); return *yytext; }
+{SP}          { R(); C(); } /* eat */
+{LN}          { R(); L(); } /* eat */
+.             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
+}
+
+<QSTR>{
+["]           { R(); POP(); return *yytext; }
+"\\"          { R(); PUSH(ESC); return *yytext; }
+[^"\\\r\n]+   { R(); C(); return MKT(QSTR); }
+{LN}          { R(); L(); } /* eat */
+.             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
+}
+
+<SSTR>{
+[']           { R(); POP(); return *yytext; }
+"\\"          { R(); PUSH(ESC); return *yytext; }
+[^'\\\r\n]+   { R(); C(); return MKT(SSTR); }
+{LN}          { R(); L(); } /* eat */
+.             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
+}
+
+<TSTR>{
+[`]           { R(); POP(); return *yytext; }
+"\\"          { R(); PUSH(ESC); return *yytext; }
+[^`\\\r\n]+   { R(); C(); return MKT(TSTR); }
+{LN}          { R(); L(); } /* eat */
+.             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
+}
+
+<ESC>{
+{LN}          { R(); L(); } /* let bison to handle */
+.             { R(); POP(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <TAOS_ODBC_EXT_TOPIC>{

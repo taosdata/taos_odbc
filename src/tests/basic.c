@@ -256,7 +256,7 @@ static int test_conn_parser(void)
 static int test_ext_parser(void)
 {
   ext_parser_param_t param = {0};
-  // param.ctx.debug_flex = 1;
+  param.ctx.debug_flex = 1;
   // param.ctx.debug_bison = 1;
 
   const char *text[] = {
@@ -277,6 +277,20 @@ static int test_ext_parser(void)
     " auto.offset.reset=earliest;"
     " experimental.snapshot.enable=false"
     "}",
+    "!insert into t (ts, v) values (1234,5)",
+    "!insert into t (ts, v) values (?, ?)",
+    "!insert into ? (ts, v) values (1234,5)",
+    "!insert into t.x (ts, v) values (1234,5)",
+    "!insert into ? using st (ts, v) values (123,4)",
+    "!insert into ? using st with (x,y) tags (4,5) (ts, v) values (123,4)",
+    "!insert into ? using st with (x,y) tags (4,5) (ts, v) values (123, xyz(4))",
+    "!insert into \"t\" (ts, v) values (1234,5)",
+    "!insert into `t` (ts, v) values (1234,5)",
+    "!insert into 't' (ts, v) values (1234,5)",
+    "!insert into \"t\\\"t\" (ts, v) values (1234,5)",
+    "!insert into 't\\'t' (ts, v) values (1234,5)",
+    "!insert into `t\\`t` (ts, v) values (1234,5)",
+    "!insert into t (ts, v) values (-1234,5)",
   };
   for (size_t i=0; i<sizeof(text)/sizeof(text[0]); ++i) {
     const char *s = text[i];
@@ -713,7 +727,7 @@ static int test_url_parser(void)
   return 0;
 }
 
-static int _wildcard_match(const str_t *ex, const str_t *str, const int match)
+static int _wildcard_match(const string_t *ex, const string_t *str, const int match)
 {
   int r;
   wildex_t *wild = NULL;
@@ -777,19 +791,19 @@ static int test_wildmatch(void)
     {"你%_%_%",          "你好啊",             1},
     {"你%%_%%_%%",       "你好啊",             1},
     {"你___",            "你好啊",             0},
-    {"你\\_",            "你h",               0},
-    {"你\\_",            "你_",               1},
-    {"你\\_",            "你.",               0},
+    {"你\\_",            "你h",                0},
+    {"你\\_",            "你_",                1},
+    {"你\\_",            "你.",                0},
     {"",                 "",                   1},
   };
 
   for (size_t i=0; i<sizeof(cases)/sizeof(cases[0]); ++i) {
-    str_t pattern = {
+    string_t pattern = {
       .charset              = charset,
       .str                  = cases[i].pattern,
       .bytes                = strlen(cases[i].pattern),
     };
-    str_t content = {
+    string_t content = {
       .charset              = charset,
       .str                  = cases[i].content,
       .bytes                = strlen(cases[i].content),

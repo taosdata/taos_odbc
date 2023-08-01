@@ -115,6 +115,12 @@
 %token <token> DIGITS
 %token <token> TNAME TKEY TVAL
 
+%token INSERT INTO USING WITH TAGS VALUES
+%token ID INTEGRAL NUMBER QSTR SSTR TSTR
+%left '+' '-'
+%left '*' '/'
+%left UMINUS
+
  /* %nterm <str>   args */ // non-terminal `input` use `str` to store
                            // token value as well
  /* %destructor { free($$); } <str> */
@@ -123,12 +129,114 @@
 
 input:
   %empty
-| topic                     { (void)yynerrs; }
+| '!' topic                     { (void)yynerrs; }
+| '!' insert                    { (void)yynerrs; }
 ;
 
+insert:
+  INSERT INTO table_name values_clause
+| INSERT INTO table_name using_clause values_clause
+;
+
+table_name:
+  '?'
+| id
+| id '.' id
+;
+
+id:
+  ID
+| str
+;
+
+using_clause:
+  USING table_name
+| USING table_name WITH tags_clause
+;
+
+tags_clause:
+  '(' ids ')' TAGS '(' exps ')'
+| TAGS '(' exps ')'
+;
+
+values_clause:
+  '(' ids ')' VALUES '(' exps ')'
+| VALUES '(' exps ')'
+;
+
+ids:
+  ID
+| ids ',' ID
+;
+
+exps:
+  exp
+| exps ',' exp
+;
+
+exp:
+  term
+| exp '+' exp
+| exp '-' exp
+| exp '/' exp
+| exp '*' exp
+| '-' exp           %prec UMINUS
+| '(' exp ')'
+| func '(' exps ')'
+;
+
+term:
+  '?'
+| ID
+| INTEGRAL
+| NUMBER
+| str
+;
+
+str:
+  '"' qstrs '"'
+| '\'' sstrs '\''
+| '`' tstrs '`'
+;
+
+qstrs:
+  qstr
+| qstrs qstr
+;
+
+qstr:
+  QSTR
+| '\\' '"'
+;
+
+sstrs:
+  sstr
+| sstrs sstr
+;
+
+sstr:
+  SSTR
+| '\\' '\''
+;
+
+tstrs:
+  tstr
+| tstrs tstr
+;
+
+tstr:
+  TSTR
+| '\\' '`'
+;
+
+func:
+  ID
+;
+
+
 topic:
-  '!' TOPIC names
-| '!' TOPIC names '{' tconfs '}'
+  TOPIC names
+| TOPIC names '{' tconfs '}'
 ;
 
 names:

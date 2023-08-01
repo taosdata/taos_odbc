@@ -174,7 +174,7 @@ again:
   sr = tables->stmt.base.get_data(&tables->stmt.base, 1, tsdb);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-  str_t str = {
+  string_t str = {
     .charset              = fromcode,
     .str                  = tsdb->str.str,
     .bytes                = tsdb->str.len,
@@ -199,7 +199,7 @@ again:
     sr = tables->stmt.base.get_data(&tables->stmt.base, 2, tsdb);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-    str_t str = {
+    string_t str = {
       .charset              = fromcode,
       .str                  = tsdb->str.str,
       .bytes                = tsdb->str.len,
@@ -217,7 +217,7 @@ again:
     sr = tables->stmt.base.get_data(&tables->stmt.base, 3, tsdb);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-    str_t str = {
+    string_t str = {
       .charset              = fromcode,
       .str                  = tsdb->str.str,
       .bytes                = tsdb->str.len,
@@ -632,7 +632,7 @@ SQLRETURN tables_open(
       return SQL_ERROR;
     }
     tables->catalog = tables->catalog_cache.base;
-    str_t str = {
+    string_t str = {
       .charset              = cnv->from,
       .str                  = (const char*)CatalogName,
       .bytes                = NameLength1,
@@ -662,7 +662,7 @@ SQLRETURN tables_open(
       return SQL_ERROR;
     }
     tables->schema = tables->schema_cache.base;
-    str_t str = {
+    string_t str = {
       .charset              = cnv->from,
       .str                  = (const char*)SchemaName,
       .bytes                = NameLength2,
@@ -679,7 +679,7 @@ SQLRETURN tables_open(
       return SQL_ERROR;
     }
     tables->table = tables->table_cache.base;
-    str_t str = {
+    string_t str = {
       .charset              = cnv->from,
       .str                  = (const char*)TableName,
       .bytes                = NameLength3,
@@ -696,7 +696,7 @@ SQLRETURN tables_open(
       return SQL_ERROR;
     }
     tables->type = tables->type_cache.base;
-    str_t str = {
+    string_t str = {
       .charset              = cnv->from,
       .str                  = (const char*)TableType,
       .bytes                = NameLength4,

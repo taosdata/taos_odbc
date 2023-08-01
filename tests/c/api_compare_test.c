@@ -63,6 +63,9 @@ typedef struct {
   bool  valid;
 } data_source_case;
 
+#define TN_SQLSERVER "sqlserver-odbc"
+#define TN_MYSQL "mysql-odbc"
+#define TN_TAOS "taos-odbc"
 data_source_case _cases_all[] = {
   {
     {
@@ -70,7 +73,7 @@ data_source_case _cases_all[] = {
       .hconn = SQL_NULL_HANDLE,
       .hstmt = SQL_NULL_HANDLE,
     },
-    "sqlserver-odbc",
+    TN_SQLSERVER,
     "DSN=SQLSERVER_ODBC_DSN",
     "SQLSERVER_ODBC_DSN",
     "",
@@ -83,7 +86,7 @@ data_source_case _cases_all[] = {
       .hconn = SQL_NULL_HANDLE,
       .hstmt = SQL_NULL_HANDLE,
     },
-    "mysql-odbc",
+    TN_MYSQL,
     "DSN=MYSQL-ODBC",
     "MYSQL_ODBC",
     NULL,
@@ -96,7 +99,7 @@ data_source_case _cases_all[] = {
       .hconn = SQL_NULL_HANDLE,
       .hstmt = SQL_NULL_HANDLE,
     },
-    "taos-odbc",
+    TN_TAOS,
     "DSN=TAOS_ODBC_DSN;SERVER=127.0.0.1:6030",
     "TAOS_ODBC_DSN",
     NULL,
@@ -257,7 +260,7 @@ static int init_henv(void) {
     XX("SQLSetEnvAttr SQL_ATTR_OUTPUT_NTS set SQL_TRUE, result:%d", r);
   }
 
-  return r;
+  return 0;
 }
 
 static int connect_test(void) {
@@ -319,7 +322,7 @@ static int connect_select_db(char* db) {
     char dsn[100] = { 0 };
     strcat(dsn, "DSN=");
     strcat(dsn, _cases[i].dsn);
-    if (strcmp(_cases[i].test_name, "sqlserver-odbc") == 0) {
+    if (strcmp(_cases[i].test_name, TN_SQLSERVER) == 0) {
       strcat(dsn, ";Uid=");
       strcat(dsn, _cases[i].user);
       strcat(dsn, ";Pwd=");
@@ -382,7 +385,7 @@ static int drop_database(char* db) {
   char sql[128];
   for (int i = 0; i < db_source_ready_num; ++i) {
     SQLHANDLE hstmt = _cases[i].ctx.hstmt;
-    if (strcmp(_cases[i].test_name, "sqlserver-odbc") == 0) {
+    if (strcmp(_cases[i].test_name, TN_SQLSERVER) == 0) {
       memset(sql, 0, sizeof(sql));
       strcat(sql, "use master; ");
       strcat(sql, "drop database if exists ");
@@ -442,7 +445,7 @@ static int free_stmt_test(void) {
     char dsn[100] = { 0 };
     strcat(dsn, "DSN=");
     strcat(dsn, _cases[i].dsn);
-    if (strcmp(_cases[i].test_name, "sqlserver-odbc") == 0) {
+    if (strcmp(_cases[i].test_name, TN_SQLSERVER) == 0) {
       strcat(dsn, ";Uid=");
       strcat(dsn, _cases[i].user);
       strcat(dsn, ";Pwd=");
@@ -800,7 +803,7 @@ static int case1_repeat_insert(void) {
     if (1) {
       char sql2[1024] = "insert into ";
       strcat(sql2, tb_test2);
-      if (strcmp(_cases[i].test_name, "sqlserver-odbc") == 0) {
+      if (strcmp(_cases[i].test_name, TN_SQLSERVER) == 0) {
         strcat(sql2, "(vname, wname, bi) values(? , ? , ? )");
       }
       else {
@@ -816,7 +819,7 @@ static int case1_repeat_insert(void) {
     if (1) {
       char sql2[1024] = "insert into ";
       strcat(sql2, tb_test1);
-      if (strcmp(_cases[i].test_name, "sqlserver-odbc") == 0) {
+      if (strcmp(_cases[i].test_name, TN_SQLSERVER) == 0) {
         strcat(sql2, "(vname, wname, bi) values(? , ? , ? )");
       }
       else {
@@ -832,7 +835,7 @@ static int case1_repeat_insert(void) {
     if (1) {
       char sql2[1024] = "insert into ";
       strcat(sql2, tb_test2);
-      if (strcmp(_cases[i].test_name, "sqlserver-odbc") == 0) {
+      if (strcmp(_cases[i].test_name, TN_SQLSERVER) == 0) {
         strcat(sql2, "(vname, wname) values(? , ? )");
       }
       else {
@@ -846,6 +849,21 @@ static int case1_repeat_insert(void) {
     }
   }
   return 0;
+}
+
+static int get_param_pos(const char* dsn) {
+  if (strcmp(dsn, TN_SQLSERVER) == 0) {
+    return 0;
+  }
+  else if (strcmp(dsn, TN_MYSQL) == 0) {
+    return 1;
+  }
+  else if (strcmp(dsn, TN_TAOS) == 0) {
+    return 2;
+  }
+  else {
+    return -1;
+  }
 }
 
 static int case_1(int action) {
@@ -863,18 +881,23 @@ static int case_1(int action) {
   int64_t i64_arr[ARRAY_SIZE] = { 0 };
   SQLLEN  i64_ind[ARRAY_SIZE] = { 0 };
 
+  // hard code for position of each data source
   int param_len[] = { 3, 4, 4 };
+
   const param_t params[DB_SOURCE_ALL_NUM][4] = {
     {
+      // sqlserver
       {SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_VARCHAR,         99,       0,          varchar_arr,      100, varchar_ind},
       {SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_WVARCHAR,        99,       0,          nchar_arr,        100, nchar_ind},
       {SQL_PARAM_INPUT,  SQL_C_SBIGINT,  SQL_BIGINT,          99,       0,          i64_arr,          100, i64_ind},
     },{
+      // mysql
       {SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_TYPE_TIMESTAMP,  99,       0,          ts_str_arr,       100, nchar_ind},
       {SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_VARCHAR,         99,       0,          varchar_arr,      100, varchar_ind},
       {SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_WVARCHAR,        99,       0,          nchar_arr,        100, nchar_ind},
       {SQL_PARAM_INPUT,  SQL_C_SBIGINT,  SQL_BIGINT,          99,       0,          i64_arr,          100, i64_ind},
     },
+    // taos-odbc
     {
       {SQL_PARAM_INPUT,  SQL_C_SBIGINT,  SQL_TYPE_TIMESTAMP,  23,       3,          ts_arr,           0,   ts_ind},
       {SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_VARCHAR,         99,       0,          varchar_arr,      100, varchar_ind},
@@ -916,7 +939,7 @@ static int case_1(int action) {
 
     char* buf = _cases[i].ctx.buf;
     simple_str_t str = _cases[i].ctx.sql_str;
-    if (strcmp(_cases[i].test_name, "sqlserver-odbc") == 0) {
+    if (strcmp(_cases[i].test_name, TN_SQLSERVER) == 0) {
       snprintf(buf, 1024, "insert into tx1 (vname,wname,bi) values (?,?,?)");
     }
     else {
@@ -941,8 +964,9 @@ static int case_1(int action) {
     r = CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAMS_PROCESSED_PTR, &nr_params_processed, 0);
     XX("CALL_SQLSetStmtAttr SQL_ATTR_PARAMS_PROCESSED_PTR result:%d", r);
 
-    for (int j = 0; j < param_len[i]; ++j) {
-      const param_t* param = params[i] + j;
+    int pos = get_param_pos(_cases[i].test_name);
+    for (int j = 0; j < param_len[pos]; ++j) {
+      const param_t* param = params[pos] + j;
       r = SQLBindParameter(hstmt, (SQLUSMALLINT)j + 1,
         param->InputOutputType,
         param->ValueType,
@@ -998,6 +1022,7 @@ static int case1_select3_after_exec(void) {
   for (int i = 0; i < db_source_ready_num; ++i) {
     SQLHANDLE hstmt = _cases[i].ctx.hstmt;
 
+    CALL_SQLCloseCursor(hstmt);
     // item 7: 继续使用之前的 stmt， taos-odbc 报错
     // r = CALL_SQLAllocHandle(SQL_HANDLE_STMT, hconn, &hstmt);
     // if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
@@ -1066,7 +1091,7 @@ static int case_multi_line_sql(void) {
     SQLHANDLE hstmt = _cases[i].ctx.hstmt;
 
     char* buf = _cases[i].ctx.buf;
-    if (strcmp(_cases[i].test_name, "sqlserver-odbc") == 0) {
+    if (strcmp(_cases[i].test_name, TN_SQLSERVER) == 0) {
       snprintf(buf, 1024, "insert into tmp_tb (vname, wname, bi) values  ('vname1', 'wname1', '10001');");
       //strcat(buf, "insert into tmp_tb (vname, wname, bi) values  ('vname2', 'wname2', '10002');");
     }
@@ -1135,8 +1160,12 @@ static int basic(void) {
   return 0;
 }
 
-static bool isTestCase(int argc, char* argv[], const char* test_case) {
-  if (argc <= 1) return true;
+
+static const int default_supported = 1;
+static const int default_unsupported = 2;
+static bool isTestCase(int argc, char* argv[], const char* test_case, const int support) {
+  if (argc <= 1 && support == default_supported) return true;
+  if (argc <= 1 && support == default_unsupported) return false;
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], test_case) == 0) return true;
   }
@@ -1144,20 +1173,21 @@ static bool isTestCase(int argc, char* argv[], const char* test_case) {
 }
 
 static int run(int argc, char* argv[]) {
-  if (isTestCase(argc, argv, "basic")) CHK0(basic, 0);
-  if (isTestCase(argc, argv, "sql_tables_test")) CHK0(sql_tables_test, 0);
+  if (isTestCase(argc, argv, "basic", default_supported)) CHK0(basic, 0);
+  if (isTestCase(argc, argv, "sql_tables_test", default_supported)) CHK0(sql_tables_test, 0);
   
-  if (isTestCase(argc, argv, "free_stmt_test")) CHK0(free_stmt_test, 0);
+  if (isTestCase(argc, argv, "free_stmt_test", default_supported)) CHK0(free_stmt_test, 0);
+    
+  if (isTestCase(argc, argv, "case1_insert1_after_exec", default_supported)) CHK0(case1_insert1_after_exec, 0);
+  if (isTestCase(argc, argv, "case_multi_line_sql", default_supported)) CHK0(case_multi_line_sql, 0);
 
-  if (isTestCase(argc, argv, "case1_select1_after_exec")) CHK0(case1_select1_after_exec, 0);
-  if (isTestCase(argc, argv, "case1_select2_after_exec")) CHK0(case1_select2_after_exec, 0);
-  if (0 && isTestCase(argc, argv, "case1_select3_after_exec")) CHK0(case1_select3_after_exec, 0);
-  
-  if (isTestCase(argc, argv, "case1_insert1_after_exec")) CHK0(case1_insert1_after_exec, 0);
-  if (0 && isTestCase(argc, argv, "case1_insert2_after_exec")) CHK0(case1_insert2_after_exec, 0);
-
-
-  if (isTestCase(argc, argv, "case_multi_line_sql")) CHK0(case_multi_line_sql, 0);
+  {
+    // unsupported cases;
+    if (isTestCase(argc, argv, "case1_select1_after_exec", default_unsupported)) CHK0(case1_select1_after_exec, 0);
+    if (isTestCase(argc, argv, "case1_select2_after_exec", default_unsupported)) CHK0(case1_select2_after_exec, 0);
+    if (isTestCase(argc, argv, "case1_select3_after_exec", default_unsupported)) CHK0(case1_select3_after_exec, 0);
+    if (isTestCase(argc, argv, "case1_insert2_after_exec", default_unsupported)) CHK0(case1_insert2_after_exec, 0);
+  }
 
   X("The test finished successfully.");
   return 0;
@@ -1263,12 +1293,12 @@ static void list_test_data_source(void) {
   int j = 0;
   for (size_t i = 0; i < sizeof(_cases_all) / sizeof(_cases_all[0]); ++i) {
     if (_cases_all[i].valid) {
-      _cases[j] = _cases_all[i];
+      memcpy(&_cases[j], &_cases_all[i], sizeof(data_source_case));
       j++;
     }
   }
   for (int i = 0; i < db_source_ready_num; ++i) {
-    const char* invalid = _cases[i].valid ? " ready to testing" : "not ready to testing";
+    const char* invalid = (_cases[i]).valid ? " ready to testing" : "not ready to testing";
     XX(" %s", invalid);
     XX("test_name: %s", _cases[i].test_name);
     XX("connstr: %s", _cases[i].connstr);

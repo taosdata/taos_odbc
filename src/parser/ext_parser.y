@@ -62,15 +62,16 @@
 
     #define SET_TOPIC(_v, _loc) do {                                                            \
       if (!param) break;                                                                        \
-      if (ext_parser_param_append_topic_name(param, _v.text, _v.leng)) {                               \
+      if (ext_parser_param_append_topic_name(param, _v.text, _v.leng)) {                        \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
         return -1;                                                                              \
       }                                                                                         \
+      param->is_topic = 1;                                                                      \
     } while (0)
 
     #define SET_TOPIC_KEY(_k, _loc) do {                                                        \
       if (!param) break;                                                                        \
-      if (ext_parser_param_append_topic_conf(param, _k.text, _k.leng, NULL, 0)) {                   \
+      if (ext_parser_param_append_topic_conf(param, _k.text, _k.leng, NULL, 0)) {               \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
         return -1;                                                                              \
       }                                                                                         \
@@ -78,7 +79,7 @@
 
     #define SET_TOPIC_KEY_VAL(_k, _v, _loc) do {                                                \
       if (!param) break;                                                                        \
-      if (ext_parser_param_append_topic_conf(param, _k.text, _k.leng, _v.text, _v.leng)) {          \
+      if (ext_parser_param_append_topic_conf(param, _k.text, _k.leng, _v.text, _v.leng)) {      \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
         return -1;                                                                              \
       }                                                                                         \
@@ -90,7 +91,206 @@
       topic_cfg_release(&param->topic_cfg);
       param->ctx.err_msg[0] = '\0';
       param->ctx.row0 = 0;
+      insert_eval_release(&param->insert_eval);
     }
+
+    #define SET_INSERT_TBL_QM(_loc) do {                                       \
+      int r = insert_eval_set_table_qm(&param->insert_eval);                   \
+      if (!r) {                                                                \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
+        return -1;                                                             \
+      }                                                                        \
+    } while (0)
+
+    #define SET_INSERT_TBL(_tbl, _loc) do {                                    \
+      param->insert_eval.table_tbl = _tbl;                                     \
+    } while (0)
+
+    #define SET_INSERT_DB_TBL(_db, _tbl, _loc) do {                            \
+      param->insert_eval.table_db  = _db;                                      \
+      param->insert_eval.table_tbl = _tbl;                                     \
+    } while (0)
+
+    #define CREATE_ID(_r, _ID, _loc) do {                                      \
+      _r = _create_id(_ID.text, _ID.leng);                                     \
+      if (!_r) {                                                               \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
+        return -1;                                                             \
+      }
+    } while (0)
+
+    #define SET_INSERT_SUPER_TBL(_tbl, _loc) do {                              \
+      param->insert_eval.super_tbl = _tbl;                                     \
+    } while (0)
+
+    #define SET_INSERT_SUPER_DB_TBL(_db, _tbl, _loc) do {                      \
+      param->insert_eval.super_db  = _db;                                      \
+      param->insert_eval.super_tbl = _tbl;                                     \
+    } while (0)
+
+    #define SET_INSERT_TAGS(_names, _vals, _loc) do {                          \
+      param->insert_eval.tag_names = _names;                                   \
+      param->insert_eval.tag_vals  = _vals;                                    \
+    } while (0)
+
+    #define SET_INSERT_COLS(_names, _vals, _loc) do {                          \
+      param->insert_eval.col_names = _names;                                   \
+      param->insert_eval.col_vals  = _vals;                                    \
+    } while (0)
+
+    static inline variant_t* _create_ids(const char *s, size_t n, YYLTYPE *yylloc, yyscan_t arg, ext_parser_param_t *param)
+    {
+      variant_t *ids = (variant_t*)calloc(1, sizeof(*v));
+      if (ids) {
+        int r = strs_append(&v->ids, s, n);
+        if (r == 0) return v;
+      }
+
+      _yyerror_impl(yylloc, arg, param, "runtime error:out of memory");
+      variant_release(v);
+      TOD_SAFE_FREE(v);
+      return NULL;
+    }
+
+    #define CREATE_IDS(_r, _ID, _loc) do {                                     \
+      _r = _create_ids(_ID.text, _ID.leng);                                    \
+      if (!_r) {                                                               \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
+        return -1;                                                             \
+      }
+    } while (0)
+
+    #define IDS_APPEND(_r, _ids, _ID, _loc) do {                               \
+      int r = _create_ids(_ids, _ID.text, _ID.leng);                           \
+      if (r) {                                                                 \
+        variant_release(_ids);                                                 \
+        TOD_SAFE_FREE(_ids);                                                   \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
+        return -1;                                                             \
+      }
+      _r = _ids;
+    } while (0)
+
+    #define CREATE_EXPS(_r, _exp, _loc) do {                                   \
+      _r = _create_exps(_exp);                                                 \
+      variant_release(_exp);                                                   \
+      TOD_SAFE_FREE(_exp);                                                     \
+      if (!_r) {                                                               \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
+        return -1;                                                             \
+      }
+    } while (0)
+
+    #define EXPS_APPEND(_r, _ids, _exp, _loc) do {                             \
+      int r = _create_ids(_ids, _exp);                                         \
+      variant_release(_exp);                                                   \
+      TOD_SAFE_FREE(_exp);                                                     \
+      if (r) {                                                                 \
+        variant_release(_ids);                                                 \
+        TOD_SAFE_FREE(_ids);                                                   \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
+        return -1;                                                             \
+      }
+      _r = _ids;
+    } while (0)
+
+    #define CREATE_EXP(_r, _f, _e1, _e2, _loc) do {                            \
+      _r = _create_exp(_f, _e1, _e2);                                          \
+      if (!_r) {                                                               \
+        variant_release(_e1);                                                  \
+        TOD_SAFE_FREE(_e1);                                                    \
+        variant_release(_e2);                                                  \
+        TOD_SAFE_FREE(_e2);                                                    \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
+        return -1;                                                             \
+      }
+    } while (0)
+
+    #define CREATE_EXP_BY_NAME(_r, _f, _e, _loc) do {
+      _r = _create_exp_by_name(_f, _e);                                        \
+      if (!_r) {                                                               \
+        variant_release(_e);                                                   \
+        TOD_SAFE_FREE(_e);                                                     \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
+        return -1;                                                             \
+      }
+    } while (0)
+
+    #define CREATE_EXP_QM(_r, _loc) do {                                       \
+      _r = _create_exp_qm();                                                   \
+      if (!_r) {                                                               \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
+        return -1;                                                             \
+      }
+    } while (0)
+
+    #define CREATE_EXP_ID(_r, _ID, _loc) do {                                  \
+      _r = _create_exp_id(_ID.text, _ID.leng);                                 \
+      if (!_r) {                                                               \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
+        return -1;                                                             \
+      }
+    } while (0)
+
+    #define CREATE_EXP_INTEGRAL(_r, _I, _loc) do {                             \
+      _r = _create_exp_integral(_I.text, _I.leng);                             \
+      if (!_r) {                                                               \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
+        return -1;                                                             \
+      }
+    } while (0)
+
+    #define CREATE_EXP_NUMBER(_r, _N, _loc) do {                               \
+      _r = _create_exp_number(_N.text, _N.leng);                               \
+      if (!_r) {                                                               \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
+        return -1;                                                             \
+      }
+    } while (0)
+
+    #define STRS_FLAT(_r, _ss, _loc) do {                                      \
+      _r = _strs_flat(_ss);                                                    \
+      _variant_release(_ss);                                                   \
+      TOD_SAFE_FREE(_ss);                                                      \
+      if (!_r) {                                                               \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
+        return -1;                                                             \
+      }                                                                        \
+    } while (0)
+
+    #define CREATE_STRS(_r, _s, _loc) do {                                     \
+      _r = _create_strs(_s);                                                   \
+      if (!_r) {                                                               \
+        _variant_release(_s);                                                  \
+        TOD_SAFE_FREE(_s);                                                     \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
+        return -1;                                                             \
+      }                                                                        \
+    } while (0)
+
+    #define STRS_APPEND(_r, _ss, _s, _loc) do {                                \
+      int r = _strs_append(_ss, _s);                                           \
+      if (r) {                                                                 \
+        _variant_release(_ss);                                                 \
+        TOD_SAFE_FREE(_ss);                                                    \
+        _variant_release(_s);                                                  \
+        TOD_SAFE_FREE(_s);                                                     \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
+        return -1;                                                             \
+      }                                                                        \
+      _r = _ss;                                                                \
+    } while (0)
+
+    #define CREATE_STR(_r, _s, _n, _loc) do {                                  \
+      _r = _create_str(_s, _n);                                                \
+      if (!_r) {                                                               \
+        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
+        return -1;                                                             \
+      }                                                                        \
+    } while (0)
+
+    #define STR_APPEND(_r, _s, _a, _loc) do {
+    } while (0)
 }
 
 /* Bison declarations. */
@@ -110,10 +310,15 @@
 // union members
 %union { parser_token_t token; }
 %union { char c; }
+%union { variant_t *v; }
+
+%destructor { variant_release($$); free($$); } <v>
 
 %token TOPIC UNEXP
 %token <token> DIGITS
 %token <token> TNAME TKEY TVAL
+
+%token <v> id str ids exps exp term func str qstr sstr tstr
 
 %token INSERT INTO USING WITH TAGS VALUES
 %token ID INTEGRAL NUMBER QSTR SSTR TSTR
@@ -139,98 +344,103 @@ insert:
 ;
 
 table_name:
-  '?'
-| id
-| id '.' id
+  '?'                           { SET_INSERT_TBL_QM(@$); }
+| id                            { SET_INSERT_TBL($1, @$); }
+| id '.' id                     { SET_INSERT_DB_TBL($1, $3, @$); }
 ;
 
 id:
-  ID
-| str
+  ID                            { CREATE_ID($$, $1, @$); }
+| str                           { $$ = $1; }
 ;
 
 using_clause:
-  USING table_name
-| USING table_name WITH tags_clause
+  USING super_table_name
+| USING super_table_name WITH tags_clause
+;
+
+super_table_name:
+  id                            { SET_INSERT_SUPER_TBL($1, @$); }
+| id '.' id                     { SET_INSERT_SUPER_DB_TBL($1, $3, @$); }
 ;
 
 tags_clause:
-  '(' ids ')' TAGS '(' exps ')'
-| TAGS '(' exps ')'
+  '(' ids ')' TAGS '(' exps ')' { SET_INSERT_TAGS($2,   $6, @$); }
+| TAGS '(' exps ')'             { SET_INSERT_TAGS(NULL, $3, @$); }
 ;
 
 values_clause:
-  '(' ids ')' VALUES '(' exps ')'
-| VALUES '(' exps ')'
+  '(' ids ')' COLUES '(' exps ')'  { SET_INSERT_COLS($2,   $6, @$); }
+| COLUES '(' exps ')'              { SET_INSERT_COLS(NULL, $6, @$); }
 ;
 
 ids:
-  ID
-| ids ',' ID
+  ID                               { CREATE_IDS($$, $1, @$); }
+| ids ',' ID                       { IDS_APPEND($$, $1, $3, @$); }
 ;
 
 exps:
-  exp
-| exps ',' exp
+  exp                              { CREATE_EXPS($$, $1, @$); }
+| exps ',' exp                     { EXPS_APPEND($$, $1, $3, @$); }
 ;
 
 exp:
-  term
-| exp '+' exp
-| exp '-' exp
-| exp '/' exp
-| exp '*' exp
-| '-' exp           %prec UMINUS
-| '(' exp ')'
-| func '(' exps ')'
+  term                             { $$ = $1; }
+| exp '+' exp                      { CREATE_EXP($$, _add, $1, $3, @$); }
+| exp '-' exp                      { CREATE_EXP($$, _sub, $1, $3, @$); }
+| exp '*' exp                      { CREATE_EXP($$, _mul, $1, $3, @$); }
+| exp '/' exp                      { CREATE_EXP($$, _div, $1, $3, @$); }
+| '-' exp           %prec UMINUS   { CREATE_EXP($$, _neg, $2, @$); }
+| '(' exp ')'                      { $$ = $2; }
+| func '(' exps ')'                { CREATE_EXP_BY_NAME($$, $1, $3, @$); }
 ;
 
 term:
-  '?'
-| ID
-| INTEGRAL
-| NUMBER
-| str
+  '?'                              { CREATE_EXP_QM($$, @$); }
+| ID                               { CREATE_EXP_ID($$, $1, @$); }
+| INTEGRAL                         { CREATE_EXP_INTEGRAL($$, $1, @$); }
+| NUMBER                           { CREATE_EXP_NUMBER($$, $1, @$); }
+| str                              { $$ = $1; }
 ;
 
 str:
-  '"' qstrs '"'
-| '\'' sstrs '\''
-| '`' tstrs '`'
+  '"' qstrs '"'                    { STRS_FLAT($$, $2, @$); }
+| '\'' sstrs '\''                  { STRS_FLAT($$, $2, @$); }
+| '`' tstrs '`'                    { STRS_FLAT($$, $2, @$); }
 ;
 
 qstrs:
-  qstr
-| qstrs qstr
+  qstr                             { CREATE_STRS($$, $1, @$); }
+| qstrs qstr                       { STRS_APPEND($$, $1, $2, @$); }
 ;
 
 qstr:
-  QSTR
-| '\\' '"'
+  QSTR                             { CREATE_STR($$, $1.text, $1.leng, @$); }
+| '\\' '"'                         { CREATE_STR($$, "\"", 1, @$); }
 ;
 
 sstrs:
-  sstr
-| sstrs sstr
+  sstr                             { CREATE_STRS($$, $1, @$); }
+| sstrs sstr                       { STRS_APPEND($$, $1, $2, @$); }
 ;
 
 sstr:
-  SSTR
-| '\\' '\''
+  SSTR                             { CREATE_STR($$, $1.text, $1.leng, @$); }
+| '\\' '\''                        { CREATE_STR($$, "'", 1, @$); }
 ;
 
 tstrs:
-  tstr
-| tstrs tstr
+  tstr                             { CREATE_STRS($$, $1, @$); }
+| tstrs tstr                       { STRS_APPEND($$, $1, $2, @$); }
 ;
 
 tstr:
-  TSTR
-| '\\' '`'
+  TSTR                             { CREATE_STR($$, $1.text, $1.leng, @$); }
+| '\\' '`'                         { CREATE_STR($$, "`", 1, @$); }
 ;
 
 func:
-  ID
+  ID                               { CREATE_FUNC($$, $1, @$); }
 ;
 
 

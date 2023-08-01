@@ -201,6 +201,31 @@ void hash_table_release(hash_table_t *hash_table) FA_HIDDEN;
 int hash_table_set(hash_table_t *hash_table, const char *key, void *val) FA_HIDDEN;
 void hash_table_get(hash_table_t *hash_table, const char *key, void **val) FA_HIDDEN;
 
+
+typedef struct str_s                    str_t;
+typedef struct strs_s                   strs_t;
+
+struct str_s {
+  char               *str;
+  size_t              cap;
+  size_t              nr;
+};
+
+struct strs_s {
+  str_t              *strs;
+  size_t              cap;
+  size_t              nr;
+};
+
+void str_reset(str_t *str) FA_HIDDEN;
+void str_release(str_t *str) FA_HIDDEN;
+int str_append(str_t *str, const char *s, size_t n) FA_HIDDEN;
+
+void strs_reset(strs_t *strs) FA_HIDDEN;
+void strs_release(strs_t *strs) FA_HIDDEN;
+int strs_keep(strs_t *strs, size_t cap) FA_HIDDEN;
+
+
 EXTERN_C_END
 
 #endif // _utils_h_

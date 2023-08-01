@@ -1145,3 +1145,80 @@ void hash_table_get(hash_table_t *hash_table, const char *key, void **val)
 
   *val = node ? node->val : NULL;
 }
+
+void str_reset(str_t *str)
+{
+  if (!str) return;
+  if (str->str) str->str[0] = '\0';
+  str->nr = 0;
+}
+
+void str_release(str_t *str)
+{
+  if (!str) return;
+  TOD_SAFE_FREE(str->str);
+  str->cap = 0;
+  str->nr  = 0;
+}
+
+int str_append(str_t *str, const char *s, size_t n)
+{
+  n = strnlen(s, n);
+
+  if (n == 0) return 0;
+
+  if (str->nr + n >= str->cap) {
+    size_t cap = (str->nr + n + 1 + 15) / 16 * 16;
+    char *p = (char*)realloc(str->str, cap);
+    if (!p) return -1;
+    str->str = p;
+    str->cap = cap;
+  }
+
+  strncpy(str->str + str->nr, s, n);
+  str->nr += n;
+  str->str[str->nr] = '\0';
+
+  return 0;
+}
+
+void strs_reset(strs_t *strs)
+{
+  if (!strs) return;
+
+  for (size_t i=0; i<strs->nr; ++i) {
+    str_reset(strs->strs + i);
+  }
+
+  strs->nr = 0;
+}
+
+void strs_release(strs_t *strs)
+{
+  if (!strs) return;
+
+  for (size_t i=0; i<strs->nr; ++i) {
+    str_release(strs->strs + i);
+  }
+
+  TOD_SAFE_FREE(strs->strs);
+  strs->cap = 0;
+  strs->nr  = 0;
+}
+
+int strs_keep(strs_t *strs, size_t cap)
+{
+  if (cap <= strs->cap) return 0;
+  cap = (cap + 15) / 16 * 16;
+
+  if (cap == 0) return 0;
+
+  str_t *p = (str_t*)realloc(strs->strs, cap * sizeof(*p));
+  if (!p) return -1;
+
+  strs->strs = p;
+  strs->cap  = cap;
+
+  return 0;
+}
+

@@ -36,6 +36,7 @@ list(APPEND core_SOURCES tls.c)
 list(APPEND core_SOURCES topic.c)
 list(APPEND core_SOURCES tsdb.c)
 list(APPEND core_SOURCES typesinfo.c)
+list(APPEND core_SOURCES variant.c)
 
 if(TODBC_WINDOWS)
   list(APPEND core_SOURCES setup.c)

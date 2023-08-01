@@ -65,6 +65,8 @@ typedef struct ext_parser_param_s       ext_parser_param_t;
 
 typedef struct get_data_ctx_s           get_data_ctx_t;
 
+typedef struct insert_eval_s            insert_eval_t;
+
 typedef struct param_bind_map_s         param_bind_map_t;
 
 typedef struct param_bind_meta_s        param_bind_meta_t;
@@ -114,6 +116,9 @@ typedef struct typesinfo_s              typesinfo_t;
 
 typedef struct url_s                    url_t;
 typedef struct url_parser_param_s       url_parser_param_t;
+
+typedef enum   variant_e                variant_e;
+typedef struct variant_s                variant_t;
 
 #endif // _typedefs_h_
 

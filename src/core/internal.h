@@ -121,6 +121,59 @@ static inline int sql_succeeded(SQLRETURN sr)
   return sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO;
 }
 
+enum variant_e {
+  VARIANT_NULL,
+  VARIANT_BOOL,
+  VARIANT_INT8,
+  VARIANT_INT16,
+  VARIANT_INT32,
+  VARIANT_INT64,
+  VARIANT_UINT8,
+  VARIANT_UINT16,
+  VARIANT_UINT32,
+  VARIANT_UINT64,
+  VARIANT_FLOAT,
+  VARIANT_DOUBLE,
+  VARIANT_ID,
+  VARIANT_STRING,
+  VARIANT_UNBIND,
+  VARIANT_ARR,
+  VARIANT_EVAL,
+};
+
+struct variant_s {
+  variant_e             type;
+  union {
+    bool                b;
+    int8_t              i8;
+    int16_t             i16;
+    int32_t             i32;
+    int64_t             i64;
+    uint8_t             u8;
+    uint16_t            u16;
+    uint32_t            u32;
+    uint64_t            u64;
+    struct {
+      float             flt;
+      str_t             s_flt;
+    };
+    struct {
+      double            dbl;
+      str_t             s_dbl;
+    };
+    str_t               str;
+    struct {
+      variant_t       **args;
+      size_t            cap;
+      size_t            nr;
+    } arr;
+    struct {
+      variant_t* (*eval)(variant_t *args);
+      variant_t        *args;
+    } exp;
+  };
+};
+
 struct sqlc_tsdb_s {
   const char           *sqlc;              // NOTE: no ownership
   size_t                sqlc_bytes;
@@ -445,10 +498,25 @@ struct conn_parser_param_s {
   parser_ctx_t           ctx;
 };
 
+struct insert_eval_s {
+  variant_t             *table_db;
+  variant_t             *table_tbl;
+  variant_t             *super_db;
+  variant_t             *super_tbl;
+  variant_t             *tag_names;
+  variant_t             *tag_vals;
+  variant_t             *col_names;
+  variant_t             *col_vals;
+};
+
 struct ext_parser_param_s {
-  topic_cfg_t            topic_cfg;
+  union {
+    topic_cfg_t          topic_cfg;
+    insert_eval_t        insert_eval;
+  };
 
   parser_ctx_t           ctx;
+  uint8_t                is_topic:1;
 };
 
 struct sqls_parser_param_s {
@@ -659,7 +727,7 @@ struct tsdb_stmt_s {
   tsdb_res_t                 res;
 
   unsigned int               prepared:1;
-  unsigned int               is_topic:1;
+  unsigned int               is_ext:1;
   unsigned int               is_insert_stmt:1;
 };
 

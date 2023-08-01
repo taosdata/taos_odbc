@@ -2967,9 +2967,9 @@ static SQLRETURN _stmt_get_next_sql(stmt_t *stmt)
   const char *start = sqlc_tsdb->tsdb;
   const char *end   = sqlc_tsdb->tsdb + sqlc_tsdb->tsdb_bytes;
   if (end > start && start[0] == '!') {
-    stmt->tsdb_stmt.is_topic = 1;
+    stmt->tsdb_stmt.is_ext = 1;
   } else {
-    stmt->tsdb_stmt.is_topic = 0;
+    stmt->tsdb_stmt.is_ext = 0;
   }
 
   return SQL_SUCCESS;
@@ -7150,7 +7150,7 @@ static SQLRETURN _stmt_exec_direct_with_simple_sql(stmt_t *stmt)
   return _stmt_exec_direct_sql(stmt);
 }
 
-static SQLRETURN _stmt_prepare_topic(stmt_t *stmt)
+static SQLRETURN _stmt_prepare_ext(stmt_t *stmt)
 {
   SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
@@ -7172,18 +7172,28 @@ static SQLRETURN _stmt_prepare_topic(stmt_t *stmt)
     stmt_append_err_format(stmt, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
     stmt_append_err_format(stmt, "HY000", 0, "General error:failed:%.*s", (int)strlen(param.ctx.err_msg), param.ctx.err_msg);
     stmt_append_err(stmt, "HY000", 0, "General error:taos_odbc_extended syntax for `topic`: !topic [name]+ [{[key[=val];]*}]?");
+    stmt_append_err(stmt, "HY000", 0, "General error:taos_odbc_extended syntax for `insert`: !insert into ...");
 
     ext_parser_param_release(&param);
     return SQL_ERROR;
   }
 
-  sr = topic_open(&stmt->topic, sqlc_tsdb, &param.topic_cfg);
+  if (param.is_topic) {
+    sr = topic_open(&stmt->topic, sqlc_tsdb, &param.topic_cfg);
+    ext_parser_param_release(&param);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    stmt->base = &stmt->topic.base;
+
+    return SQL_SUCCESS;
+  }
+
+  stmt_append_err_format(stmt, "HY000", 0, "General error:parsing:%.*s", (int)(end-start), start);
+  stmt_append_err(stmt, "HY000", 0, "General error:taos_odbc_extended syntax for `insert`: !insert into ...");
+
   ext_parser_param_release(&param);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-  stmt->base = &stmt->topic.base;
-
-  return SQL_SUCCESS;
+  return SQL_ERROR;
 }
 
 static int _stmt_sql_parse(stmt_t *stmt, const char *sql, size_t len)
@@ -7238,8 +7248,8 @@ SQLRETURN stmt_prepare(stmt_t *stmt,
   sr = _stmt_sql_parse(stmt, sql, len);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-  if (stmt->tsdb_stmt.is_topic) {
-    return _stmt_prepare_topic(stmt);
+  if (stmt->tsdb_stmt.is_ext) {
+    return _stmt_prepare_ext(stmt);
   }
 
   return _stmt_prepare(stmt);
@@ -7261,8 +7271,8 @@ SQLRETURN stmt_exec_direct(stmt_t *stmt, SQLCHAR *StatementText, SQLINTEGER Text
   sr = _stmt_sql_parse(stmt, sql, len);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-  if (stmt->tsdb_stmt.is_topic) {
-    sr = _stmt_prepare_topic(stmt);
+  if (stmt->tsdb_stmt.is_ext) {
+    sr = _stmt_prepare_ext(stmt);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
     sr = _stmt_execute(stmt);
     if (sr == SQL_ERROR) return SQL_ERROR;

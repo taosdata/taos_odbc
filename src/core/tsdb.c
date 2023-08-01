@@ -1190,7 +1190,7 @@ void tsdb_stmt_unprepare(tsdb_stmt_t *stmt)
   stmt->current_sql = NULL;
   _tsdb_params_reset(&stmt->params);
   stmt->prepared = 0;
-  stmt->is_topic = 0;
+  stmt->is_ext   = 0;
   stmt->is_insert_stmt = 0;
   _tsdb_binds_reset(&stmt->owner->tsdb_binds);
 }

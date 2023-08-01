@@ -103,7 +103,7 @@ DIGITS        [[:digit:]]+
 <<EOF>> { if (0) { int state; TOP_STATE(state); if (state != INITIAL) return -1; }
           yyterminate(); }
 "!"           { R(); PUSH(TAOS_ODBC_EXT); C(); return (unsigned char)*yytext; }
-{DIGITS}      { R(); SET_STR(); C(); return MKT(DIGITS); }
+  /* {DIGITS}      { R(); SET_STR(); C(); return MKT(DIGITS); } */
 {SP}          { R(); C(); } /* eat */
 {LN}          { R(); L(); } /* eat */
 .             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
@@ -112,6 +112,7 @@ DIGITS        [[:digit:]]+
 {TOPIC}       { R(); CHG(TAOS_ODBC_EXT_TOPIC); C(); return MKT(TOPIC); }
 {SP}          { R(); C(); } /* eat */
 {LN}          { R(); L(); } /* eat */
+[^[:space:]]+ { R(); C(); return MKT(UNEXP); }
 .             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 

@@ -111,7 +111,7 @@
 %union { parser_token_t token; }
 %union { char c; }
 
-%token TOPIC
+%token TOPIC UNEXP
 %token <token> DIGITS
 %token <token> TNAME TKEY TVAL
 

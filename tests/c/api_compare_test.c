@@ -78,7 +78,7 @@ data_source_case _cases_all[] = {
     "SQLSERVER_ODBC_DSN",
     "",
     "",
-    true
+    false
   },
   {
     {
@@ -91,8 +91,8 @@ data_source_case _cases_all[] = {
     "MYSQL_ODBC",
     NULL,
     NULL,
-    true
-   },
+    false
+  },
   {
     {
       .henv = SQL_NULL_HANDLE,
@@ -104,7 +104,7 @@ data_source_case _cases_all[] = {
     "TAOS_ODBC_DSN",
     NULL,
     NULL,
-    true
+    false
   },
 };
 
@@ -176,10 +176,10 @@ field_t fields[] = {
    }                                                                                                                             \
 } while (0)  
 
-static void set_test_case_invalid(SQLCHAR* test_name) {
+static void set_test_case_valid(SQLCHAR* test_name) {
   for (size_t i = 0; i < sizeof(_cases_all) / sizeof(_cases_all[0]); ++i) {
-    if (strcmp(_cases_all[i].test_name, (const char*)test_name) == 0) {
-      _cases_all[i].valid = false;
+    if (strcmp(_cases_all[i].dsn, (const char*)test_name) == 0) {
+      _cases_all[i].valid = true;
     }
   }
 }
@@ -1268,7 +1268,7 @@ static int list_datasource(void) {
     count++;
     X("Data Source Name: %s", dataSourceName);
     X("Description: %s\n", description);
-    set_test_case_invalid(dataSourceName);
+    set_test_case_valid(dataSourceName);
 
     ret = SQLDataSources(env, SQL_FETCH_NEXT, dataSourceName, sizeof(dataSourceName), &nameLength, description, sizeof(description), &descLength);
   }

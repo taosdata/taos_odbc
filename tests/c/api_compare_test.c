@@ -87,7 +87,7 @@ data_source_case _cases_all[] = {
       .hstmt = SQL_NULL_HANDLE,
     },
     TN_MYSQL,
-    "DSN=MYSQL-ODBC",
+    "DSN=MYSQL_ODBC",
     "MYSQL_ODBC",
     NULL,
     NULL,
@@ -100,7 +100,7 @@ data_source_case _cases_all[] = {
       .hstmt = SQL_NULL_HANDLE,
     },
     TN_TAOS,
-    "DSN=TAOS_ODBC_DSN;SERVER=127.0.0.1:6030",
+    "DSN=TAOS_ODBC_DSN",
     "TAOS_ODBC_DSN",
     NULL,
     NULL,
@@ -320,8 +320,7 @@ static int connect_select_db(char* db) {
   int r = 0;
   for (int i = 0; i < db_source_ready_num; ++i) {
     char dsn[100] = { 0 };
-    strcat(dsn, "DSN=");
-    strcat(dsn, _cases[i].dsn);
+    strcat(dsn, _cases[i].connstr);
     if (strcmp(_cases[i].test_name, TN_SQLSERVER) == 0) {
       strcat(dsn, ";Uid=");
       strcat(dsn, _cases[i].user);
@@ -1341,14 +1340,15 @@ static void list_test_data_source(void) {
 }
 
 static int init_test(void) {
+  bool sql_connect_modd = false;
   list_driver();
   list_datasource();
   list_test_data_source();
   init_sql_str();
   CHK0(init_henv, 0);
   CHK0(create_hconn, 0);
-  CHK1(connect_select_db, "", 0);
-  // CHK0(connect_default, 0);
+  if(!sql_connect_modd) CHK1(connect_select_db, "", 0);
+  if(sql_connect_modd) CHK0(connect_default, 0);
   CHK1(drop_database, test_db, 0);
   CHK1(drop_database, test_db2, 0);
   CHK1(create_database, test_db, 0);
@@ -1365,9 +1365,6 @@ int main(int argc, char* argv[])
 {
   int r = 0;
   CHK0(init_test, 0);
-#ifndef _WIN32
-  if (1) return 0;
-#endif 
 
   r = run(argc, argv);
   clear_test();

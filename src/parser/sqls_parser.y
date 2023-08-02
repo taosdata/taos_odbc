@@ -66,7 +66,7 @@
     #define FOUND(_start, _end, _qms) do {                                    \
       if (param->sql_found) {                                                 \
         int r = param->sql_found(param, _start, _end, _qms, param->arg);      \
-        if (r) return -1;                                                     \
+        if (r) YYABORT;                                                       \
       }                                                                       \
     } while (0)
 

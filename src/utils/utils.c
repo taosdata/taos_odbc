@@ -1161,19 +1161,27 @@ void str_release(str_t *str)
   str->nr  = 0;
 }
 
+int str_keep(str_t *str, size_t cap)
+{
+  if (cap <= str->cap) return 0;
+  cap = (cap + 15) / 16 * 16;
+  char *p = (char*)realloc(str->str, cap+1);
+  if (!p) return -1;
+
+  str->str = p;
+  str->cap = cap;
+
+  return 0;
+}
+
 int str_append(str_t *str, const char *s, size_t n)
 {
   n = strnlen(s, n);
 
   if (n == 0) return 0;
 
-  if (str->nr + n >= str->cap) {
-    size_t cap = (str->nr + n + 1 + 15) / 16 * 16;
-    char *p = (char*)realloc(str->str, cap);
-    if (!p) return -1;
-    str->str = p;
-    str->cap = cap;
-  }
+  int r = str_keep(str, str->nr + n);
+  if (r) return -1;
 
   strncpy(str->str + str->nr, s, n);
   str->nr += n;

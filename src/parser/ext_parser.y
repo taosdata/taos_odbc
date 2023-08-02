@@ -45,6 +45,7 @@
     // generated header from flex
     // introduce yylex decl for later use
     static void _yyerror_impl(
+        const char *file, int line, const char *func,
         YYLTYPE *yylloc,                   // match %define locations
         yyscan_t arg,                      // match %param
         ext_parser_param_t *param,         // match %parse-param
@@ -57,66 +58,136 @@
         const char *errsg
     );
 
+    #define LOG_ARGS const char *file, int line, const char *func, yyscan_t arg, ext_parser_param_t *param, YYLTYPE *yylloc
+    #define LOG_VALS file, line, func, arg, param, yylloc
+    #define LOG_MALS __FILE__, __LINE__, __func__, arg, param
+    #define LOG_FLF __FILE__, __LINE__, __func__
+
+    static void _yyerr_log_impl(const char *file, int line, const char *func,
+        yyscan_t arg,                      // match %param
+        ext_parser_param_t *param,         // match %parse-param
+        YYLTYPE *yylloc,                   // match %define locations
+        const char *fmt,
+        ...) __attribute__ ((format (printf, 7, 8)));
+
+    #ifdef _WIN32               /* { */
+    #define _yyerr_log(file, line, func, arg, param, yylloc, fmt, ...) \
+      (0 ? fprintf(stderr, fmt, ##__VA_ARGS__) : _yyerr_log_impl(file, line, func, arg, param, yylloc, fmt, ##__VA_ARGS__))
+    #else                       /* }{ */
+    #define _yyerr_log _yyerr_log_impl
+    #endif                      /* } */
+
     static int ext_parser_param_append_topic_name(ext_parser_param_t *param, const char *name, size_t len);
     static int ext_parser_param_append_topic_conf(ext_parser_param_t *param, const char *k, size_t kn, const char *v, size_t vn);
 
-    #define SET_TOPIC(_v, _loc) do {                                                            \
-      if (!param) break;                                                                        \
-      if (ext_parser_param_append_topic_name(param, _v.text, _v.leng)) {                        \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
-      }                                                                                         \
-      param->is_topic = 1;                                                                      \
+    #define SET_TOPIC(_v, _loc) do {                                           \
+      if (!param) break;                                                       \
+      if (ext_parser_param_append_topic_name(param, _v.text, _v.leng)) {       \
+        _yyerr_log(LOG_MALS, &_loc, "runtime error:out of memory");            \
+        YYABORT;                                                               \
+      }                                                                        \
+      param->is_topic = 1;                                                     \
     } while (0)
 
     #define SET_TOPIC_KEY(_k, _loc) do {                                                        \
       if (!param) break;                                                                        \
       if (ext_parser_param_append_topic_conf(param, _k.text, _k.leng, NULL, 0)) {               \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
+        _yyerr_log(LOG_MALS, &_loc, "runtime error:out of memory");                             \
+        YYABORT;                                                                                \
       }                                                                                         \
     } while (0)
 
     #define SET_TOPIC_KEY_VAL(_k, _v, _loc) do {                                                \
       if (!param) break;                                                                        \
       if (ext_parser_param_append_topic_conf(param, _k.text, _k.leng, _v.text, _v.leng)) {      \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
+        _yyerr_log(LOG_MALS, &_loc, "runtime error:out of memory");                             \
+        YYABORT;                                                                                \
       }                                                                                         \
     } while (0)
+
+    static inline void _variant_destroy(variant_t *v)
+    {
+      variant_release(v);
+      TOD_SAFE_FREE(v);
+    }
+
+    void insert_eval_release(insert_eval_t *eval)
+    {
+      if (!eval) return;
+      _variant_destroy(eval->table_db);      eval->table_db       = NULL;
+      _variant_destroy(eval->table_tbl);     eval->table_tbl      = NULL;
+      _variant_destroy(eval->super_db);      eval->super_db       = NULL;
+      _variant_destroy(eval->super_tbl);     eval->super_tbl      = NULL;
+      _variant_destroy(eval->tag_names);     eval->tag_names      = NULL;
+      _variant_destroy(eval->tag_vals);      eval->tag_vals       = NULL;
+      _variant_destroy(eval->col_names);     eval->col_names      = NULL;
+      _variant_destroy(eval->col_vals);      eval->col_vals       = NULL;
+    }
 
     void ext_parser_param_release(ext_parser_param_t *param)
     {
       if (!param) return;
-      topic_cfg_release(&param->topic_cfg);
+      if (param->is_topic) topic_cfg_release(&param->topic_cfg);
+      else                 insert_eval_release(&param->insert_eval);
       param->ctx.err_msg[0] = '\0';
       param->ctx.row0 = 0;
-      insert_eval_release(&param->insert_eval);
+    }
+
+    static inline variant_t* _create_variant(variant_e type, LOG_ARGS)
+    {
+      variant_t *v = (variant_t*)calloc(1, sizeof(*v));
+      if (v) {
+        v->type = type;
+        return v;
+      }
+      _yyerr_log(LOG_VALS, "runtime error:out of memory");
+      return NULL;
+    }
+
+    static inline int _insert_eval_set_table_qm(insert_eval_t *insert_eval, LOG_ARGS)
+    {
+      variant_t *v = _create_variant(VARIANT_PARAM, LOG_VALS);
+      if (!v) return -1;
+      insert_eval->table_tbl = v;
+      return 0;
     }
 
     #define SET_INSERT_TBL_QM(_loc) do {                                       \
-      int r = insert_eval_set_table_qm(&param->insert_eval);                   \
-      if (!r) {                                                                \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
-        return -1;                                                             \
+      int r = 0;                                                               \
+      r = _insert_eval_set_table_qm(&param->insert_eval, LOG_MALS, &_loc);     \
+      if (r) {                                                                 \
+        _yyerr_log(LOG_MALS, &_loc, "runtime error:out of memory");            \
+        YYABORT;                                                               \
       }                                                                        \
+      param->is_topic  = 0;                                                    \
     } while (0)
 
     #define SET_INSERT_TBL(_tbl, _loc) do {                                    \
       param->insert_eval.table_tbl = _tbl;                                     \
+      param->is_topic  = 0;                                                    \
     } while (0)
 
     #define SET_INSERT_DB_TBL(_db, _tbl, _loc) do {                            \
       param->insert_eval.table_db  = _db;                                      \
       param->insert_eval.table_tbl = _tbl;                                     \
+      param->is_topic  = 0;                                                    \
     } while (0)
 
-    #define CREATE_ID(_r, _ID, _loc) do {                                      \
-      _r = _create_id(_ID.text, _ID.leng);                                     \
-      if (!_r) {                                                               \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
-        return -1;                                                             \
+    static inline variant_t* _create_id(const char *s, size_t n, LOG_ARGS)
+    {
+      variant_t *v = _create_variant(VARIANT_ID, LOG_VALS);
+      if (!v) return NULL;
+      int r = str_append(&v->str, s, n);
+      if (r) {
+        _yyerr_log(LOG_VALS, "runtime error:out of memory");
+        return NULL;
       }
+      return v;
+    }
+
+    #define CREATE_ID(_r, _ID, _loc) do {                                      \
+      _r = _create_id(_ID.text, _ID.leng, LOG_MALS, &_loc);                    \
+      if (!_r) YYABORT;                                                        \
     } while (0)
 
     #define SET_INSERT_SUPER_TBL(_tbl, _loc) do {                              \
@@ -138,158 +209,403 @@
       param->insert_eval.col_vals  = _vals;                                    \
     } while (0)
 
-    static inline variant_t* _create_ids(const char *s, size_t n, YYLTYPE *yylloc, yyscan_t arg, ext_parser_param_t *param)
+    static inline int _arr_append_v(variant_t *arr, variant_t *v, LOG_ARGS)
     {
-      variant_t *ids = (variant_t*)calloc(1, sizeof(*v));
-      if (ids) {
-        int r = strs_append(&v->ids, s, n);
-        if (r == 0) return v;
+      OA_NIY(arr->type == VARIANT_ARR);
+      if (arr->arr.nr + 1 > arr->arr.cap) {
+        size_t cap = (arr->arr.nr + 1 + 15) / 16 * 16;
+        variant_t **p = (variant_t**)realloc(arr->arr.vals, cap * sizeof(*p));
+        if (!p) {
+          _yyerr_log(LOG_VALS, "runtime error:out of memory");
+          return -1;
+        }
+        arr->arr.vals      = p;
+        arr->arr.cap       = cap;
       }
+      arr->arr.vals[arr->arr.nr] = v;
+      arr->arr.nr += 1;
+      return 0;
+    }
 
-      _yyerror_impl(yylloc, arg, param, "runtime error:out of memory");
-      variant_release(v);
-      TOD_SAFE_FREE(v);
+    static inline int _ids_append(variant_t *ids, const char *s, size_t n, LOG_ARGS)
+    {
+      variant_t *id = _create_variant(VARIANT_ID, LOG_VALS);
+      if (!id) return -1;
+      int r = str_append(&id->str, s, n);
+      if (r == 0) r = _arr_append_v(ids, id, LOG_VALS);
+      if (r == 0) return 0;
+      _yyerr_log(LOG_VALS, "runtime error:out of memory");
+      _variant_destroy(id);
+      return -1;
+    }
+
+    static inline variant_t* _create_ids(const char *s, size_t n, LOG_ARGS)
+    {
+      variant_t *ids = _create_variant(VARIANT_ARR, LOG_VALS);
+      if (!ids) return NULL;
+
+      int r = _ids_append(ids, s, n, LOG_VALS);
+      if (r == 0) return ids;
+
+      _yyerr_log(LOG_VALS, "runtime error:out of memory");
+      _variant_destroy(ids);
       return NULL;
     }
 
     #define CREATE_IDS(_r, _ID, _loc) do {                                     \
-      _r = _create_ids(_ID.text, _ID.leng);                                    \
-      if (!_r) {                                                               \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
-        return -1;                                                             \
-      }
+      _r = _create_ids(_ID.text, _ID.leng, LOG_MALS, &_loc);                   \
+      if (!_r) YYABORT;                                                        \
     } while (0)
 
     #define IDS_APPEND(_r, _ids, _ID, _loc) do {                               \
-      int r = _create_ids(_ids, _ID.text, _ID.leng);                           \
+      int r = _ids_append(_ids, _ID.text, _ID.leng, LOG_MALS, &_loc);          \
       if (r) {                                                                 \
-        variant_release(_ids);                                                 \
-        TOD_SAFE_FREE(_ids);                                                   \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
-        return -1;                                                             \
-      }
-      _r = _ids;
+        _variant_destroy(_ids);                                                \
+        YYABORT;                                                               \
+      }                                                                        \
+      _r = _ids;                                                               \
     } while (0)
+
+    static inline variant_t* _create_exps(variant_t *exp, LOG_ARGS)
+    {
+      variant_t *exps = _create_variant(VARIANT_ARR, LOG_VALS);
+      if (!exps) return NULL;
+
+      int r = _arr_append_v(exps, exp, LOG_VALS);
+      if (r == 0) return exps;
+
+      _yyerr_log(LOG_VALS, "runtime error:out of memory");
+      _variant_destroy(exps);
+      return NULL;
+    }
 
     #define CREATE_EXPS(_r, _exp, _loc) do {                                   \
-      _r = _create_exps(_exp);                                                 \
-      variant_release(_exp);                                                   \
-      TOD_SAFE_FREE(_exp);                                                     \
+      _r = _create_exps(_exp, LOG_MALS, &_loc);                                \
       if (!_r) {                                                               \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
-        return -1;                                                             \
-      }
+        _variant_destroy(_exp);                                                \
+        _yyerr_log(LOG_MALS, &_loc, "runtime error:out of memory");            \
+        YYABORT;                                                               \
+      }                                                                        \
     } while (0)
 
-    #define EXPS_APPEND(_r, _ids, _exp, _loc) do {                             \
-      int r = _create_ids(_ids, _exp);                                         \
-      variant_release(_exp);                                                   \
-      TOD_SAFE_FREE(_exp);                                                     \
+    #define EXPS_APPEND(_r, _exps, _exp, _loc) do {                            \
+      int r = _arr_append_v(_exps, _exp, LOG_MALS, &_loc);                     \
       if (r) {                                                                 \
-        variant_release(_ids);                                                 \
-        TOD_SAFE_FREE(_ids);                                                   \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
-        return -1;                                                             \
-      }
-      _r = _ids;
+        _variant_destroy(_exps);                                               \
+        _variant_destroy(_exp);                                                \
+        YYABORT;                                                               \
+      }                                                                        \
+      _r = _exps;                                                              \
     } while (0)
+
+    static inline variant_t* _create_exp(variant_eval_f eval, variant_t *e1, variant_t *e2, LOG_ARGS)
+    {
+      variant_t *exp = _create_variant(VARIANT_EVAL, LOG_VALS);
+      if (!exp) {
+        _yyerr_log(LOG_VALS, "runtime error:out of memory");
+        return NULL;
+      }
+      exp->exp.eval = eval;
+      int r = 0;
+      exp->exp.args = _create_variant(VARIANT_ARR, LOG_VALS);
+      if (!exp->exp.args) {
+        _yyerr_log(LOG_VALS, "runtime error:out of memory");
+        r = -1;
+      }
+      if (r == 0) r = _arr_append_v(exp->exp.args, e1, LOG_VALS);
+      if (r == 0) r = _arr_append_v(exp->exp.args, e2, LOG_VALS);
+      if (r == 0) return exp;
+      _variant_destroy(exp);
+      return NULL;
+    }
 
     #define CREATE_EXP(_r, _f, _e1, _e2, _loc) do {                            \
-      _r = _create_exp(_f, _e1, _e2);                                          \
+      _r = _create_exp(_f, _e1, _e2, LOG_MALS, &_loc);                         \
       if (!_r) {                                                               \
-        variant_release(_e1);                                                  \
-        TOD_SAFE_FREE(_e1);                                                    \
-        variant_release(_e2);                                                  \
-        TOD_SAFE_FREE(_e2);                                                    \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
-        return -1;                                                             \
-      }
+        _variant_destroy(_e1);                                                 \
+        _variant_destroy(_e2);                                                 \
+        _yyerr_log(LOG_MALS, &_loc, "runtime error:out of memory");            \
+        YYABORT;                                                               \
+      }                                                                        \
     } while (0)
 
-    #define CREATE_EXP_BY_NAME(_r, _f, _e, _loc) do {
-      _r = _create_exp_by_name(_f, _e);                                        \
-      if (!_r) {                                                               \
-        variant_release(_e);                                                   \
-        TOD_SAFE_FREE(_e);                                                     \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
-        return -1;                                                             \
+    static inline variant_t* _create_exp_neg(variant_eval_f eval, variant_t *e, LOG_ARGS)
+    {
+      variant_t *exp = _create_variant(VARIANT_EVAL, LOG_VALS);
+      if (!exp) {
+        _yyerr_log(LOG_VALS, "runtime error:out of memory");
+        return NULL;
       }
+      exp->exp.eval = eval;
+      int r = 0;
+      exp->exp.args = _create_variant(VARIANT_ARR, LOG_VALS);
+      if (!exp->exp.args) {
+        _yyerr_log(LOG_VALS, "runtime error:out of memory");
+        r = -1;
+      }
+      if (r == 0) r = _arr_append_v(exp->exp.args, e, LOG_VALS);
+      if (r == 0) return exp;
+      _variant_destroy(exp);
+      return NULL;
+    }
+
+    #define CREATE_EXP_NEG(_r, _f, _e, _loc) do {                              \
+      _r = _create_exp_neg(_f, _e, LOG_MALS, &_loc);                           \
+      if (!_r) {                                                               \
+        _variant_destroy(_e);                                                  \
+        YYABORT;                                                               \
+      }                                                                        \
     } while (0)
+
+    static inline variant_t* _create_exp_by_name(variant_eval_f eval, variant_t *args, LOG_ARGS)
+    {
+      variant_t *exp = _create_variant(VARIANT_EVAL, LOG_VALS);
+      if (!exp) return NULL;
+      exp->exp.eval = eval;
+      exp->exp.args = args;
+      return exp;
+    }
+
+    #define CREATE_EXP_BY_NAME(_r, _f, _args, _loc) do {                       \
+      _r = _create_exp_by_name(_f, _args, LOG_MALS, &_loc);                    \
+      if (!_r) {                                                               \
+        _variant_destroy(_args);                                               \
+        YYABORT;                                                               \
+      }                                                                        \
+    } while (0)
+
+    static inline variant_t* _create_exp_qm(LOG_ARGS)
+    {
+      variant_t *exp = _create_variant(VARIANT_PARAM, LOG_VALS);
+      if (!exp) return NULL;
+      return exp;
+    }
 
     #define CREATE_EXP_QM(_r, _loc) do {                                       \
-      _r = _create_exp_qm();                                                   \
-      if (!_r) {                                                               \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
-        return -1;                                                             \
-      }
+      _r = _create_exp_qm(LOG_MALS, &_loc);                                    \
+      if (!_r) YYABORT;                                                        \
     } while (0)
+
+    static inline variant_t* _create_exp_id(const char *s, size_t n, LOG_ARGS)
+    {
+      variant_t *exp = _create_variant(VARIANT_ID, LOG_VALS);
+      if (!exp) return NULL;
+      int r = str_append(&exp->str, s, n);
+      if (r == 0) return exp;
+      _yyerr_log(LOG_VALS, "runtime error:out of memory");
+      _variant_destroy(exp);
+      return NULL;
+    }
 
     #define CREATE_EXP_ID(_r, _ID, _loc) do {                                  \
-      _r = _create_exp_id(_ID.text, _ID.leng);                                 \
-      if (!_r) {                                                               \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
-        return -1;                                                             \
-      }
+      _r = _create_exp_id(_ID.text, _ID.leng, LOG_MALS, &_loc);                \
+      if (!_r) YYABORT;                                                        \
     } while (0)
+
+    static inline int _variant_set_integral(variant_t *exp, const char *s, size_t n, LOG_ARGS)
+    {
+      n = strnlen(s, n);
+      char buf[1024]; buf[0] = '\0';
+      int r = snprintf(buf, sizeof(buf), "%.*s", (int)n, s);
+      if (r < 0 || (size_t)r >= sizeof(buf)) {
+        _yyerr_log(LOG_VALS, "runtime error:buffer too small or internal logic error");
+        return -1;
+      }
+
+      char *end = NULL;
+      long long ll = strtoll(buf, &end, 0);
+      int e = errno;
+      if (*end) {
+        _yyerr_log(LOG_VALS, "runtime error:conversion failure");
+        return -1;
+      }
+      if (e == ERANGE) {
+        end = NULL;
+        unsigned long long ull = strtoull(buf, &end, 0);
+        e = errno;
+        if (*end || e == ERANGE) {
+          _yyerr_log(LOG_VALS, "runtime error:conversion failure");
+          return -1;
+        }
+        variant_release(exp);
+        exp->type = VARIANT_UINT64;
+        exp->u64  = ull;
+        return 0;
+      }
+      variant_release(exp);
+      exp->type = VARIANT_INT64;
+      exp->u64  = ll;
+      return 0;
+    }
+
+    static inline variant_t* _create_exp_integral(const char *s, size_t n, LOG_ARGS)
+    {
+      variant_t *exp = _create_variant(VARIANT_NULL, LOG_VALS);
+      if (!exp) {
+        _yyerr_log(LOG_VALS, "runtime error:out of memory");
+        return NULL;
+      }
+      int r = _variant_set_integral(exp, s, n, LOG_VALS);
+      if (r == 0) return exp;
+      _variant_destroy(exp);
+      return NULL;
+    }
 
     #define CREATE_EXP_INTEGRAL(_r, _I, _loc) do {                             \
-      _r = _create_exp_integral(_I.text, _I.leng);                             \
-      if (!_r) {                                                               \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
-        return -1;                                                             \
-      }
+      _r = _create_exp_integral(_I.text, _I.leng, LOG_MALS, &_loc);            \
+      if (!_r) YYABORT;                                                        \
     } while (0)
+
+    static inline int _variant_set_number(variant_t *exp, const char *s, size_t n, LOG_ARGS)
+    {
+      n = strnlen(s, n);
+      char buf[1024]; buf[0] = '\0';
+      int r = snprintf(buf, sizeof(buf), "%.*s", (int)n, s);
+      if (r < 0 || (size_t)r >= sizeof(buf)) {
+        _yyerr_log(LOG_VALS, "runtime error:buffer too small or internal logic error");
+        return -1;
+      }
+
+      double dbl = 0.;
+      int    end = 0;
+      r = sscanf(buf, "%lg%n", &dbl, &end);
+      if (r != 1 || (size_t)end != n) {
+        _yyerr_log(LOG_VALS, "runtime error:conversion failure");
+        return -1;
+      }
+      variant_release(exp);
+      exp->type   = VARIANT_DOUBLE;
+      exp->dbl.v  = dbl;
+      return 0;
+    }
+
+    static inline variant_t* _create_exp_number(const char *s, size_t n, LOG_ARGS)
+    {
+      variant_t *exp = _create_variant(VARIANT_NULL, LOG_VALS);
+      if (!exp) {
+        _yyerr_log(LOG_VALS, "runtime error:out of memory");
+        return NULL;
+      }
+      int r = _variant_set_number(exp, s, n, LOG_VALS);
+      if (r == 0) return exp;
+      _yyerr_log(LOG_VALS, "runtime error:out of memory");
+      _variant_destroy(exp);
+      return NULL;
+    }
 
     #define CREATE_EXP_NUMBER(_r, _N, _loc) do {                               \
-      _r = _create_exp_number(_N.text, _N.leng);                               \
+      _r = _create_exp_number(_N.text, _N.leng, LOG_MALS, &_loc);              \
       if (!_r) {                                                               \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
-        return -1;                                                             \
-      }
+        _yyerr_log(LOG_MALS, &_loc, "runtime error:out of memory");            \
+        YYABORT;                                                               \
+      }                                                                        \
     } while (0)
+
+    static inline variant_t* _strs_flat(variant_t *ss, LOG_ARGS)
+    {
+      variant_t *v = _create_variant(VARIANT_STRING, LOG_VALS);
+      if (!v) return NULL;
+      size_t n = 0;
+      for (size_t i=0; i<ss->arr.nr; ++i) {
+        str_t *str = &ss->arr.vals[i]->str;
+        n += str->nr;
+      }
+      int r = str_keep(&v->str, n + 1);
+
+      if (r == 0) {
+        for (size_t i=0; i<ss->arr.nr; ++i) {
+          str_t *str = &ss->arr.vals[i]->str;
+          r = str_append(&v->str, str->str, str->nr);
+          if (r) break;
+        }
+      }
+
+      if (r == 0) return v;
+
+      variant_release(v);
+      TOD_SAFE_FREE(v);
+
+      _yyerr_log(LOG_VALS, "runtime error:out of memory");
+      return NULL;
+    }
 
     #define STRS_FLAT(_r, _ss, _loc) do {                                      \
-      _r = _strs_flat(_ss);                                                    \
-      _variant_release(_ss);                                                   \
+      _r = _strs_flat(_ss, LOG_MALS, &_loc);                                   \
+      variant_release(_ss);                                                    \
       TOD_SAFE_FREE(_ss);                                                      \
-      if (!_r) {                                                               \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
-        return -1;                                                             \
-      }                                                                        \
+      if (!_r) YYABORT;                                                        \
     } while (0)
 
+    static inline int _strs_append(variant_t *ss, variant_t *s, LOG_ARGS)
+    {
+      if (ss->arr.nr + 1 > ss->arr.cap) {
+        size_t cap = (ss->arr.nr + 1 + 15) / 16 * 16;
+        variant_t **p = (variant_t**)realloc(ss->arr.vals, cap * sizeof(*p));
+        if (!p) {
+          _yyerr_log(LOG_VALS, "runtime error:out of memory");
+          return -1;
+        }
+        ss->arr.vals    = p;
+        ss->arr.cap     = cap;
+      }
+
+      ss->arr.vals[ss->arr.nr]   = s;
+      ss->arr.nr                += 1;
+
+      return 0;
+    }
+
     #define CREATE_STRS(_r, _s, _loc) do {                                     \
-      _r = _create_strs(_s);                                                   \
-      if (!_r) {                                                               \
-        _variant_release(_s);                                                  \
-        TOD_SAFE_FREE(_s);                                                     \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
-        return -1;                                                             \
+      _r = _create_variant(VARIANT_ARR, LOG_MALS, &_loc);                      \
+      if (_r) {                                                                \
+        int r = _strs_append(_r, _s, LOG_MALS, &_loc);                         \
+        if (r == 0) break;                                                     \
       }                                                                        \
+      variant_release(_s);                                                     \
+      TOD_SAFE_FREE(_s);                                                       \
+      variant_release(_r);                                                     \
+      TOD_SAFE_FREE(_r);                                                       \
+      YYABORT;                                                                 \
     } while (0)
 
     #define STRS_APPEND(_r, _ss, _s, _loc) do {                                \
-      int r = _strs_append(_ss, _s);                                           \
+      int r = _strs_append(_ss, _s, LOG_MALS, &_loc);                          \
       if (r) {                                                                 \
-        _variant_release(_ss);                                                 \
+        variant_release(_ss);                                                  \
         TOD_SAFE_FREE(_ss);                                                    \
-        _variant_release(_s);                                                  \
+        variant_release(_s);                                                   \
         TOD_SAFE_FREE(_s);                                                     \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
-        return -1;                                                             \
+        YYABORT;                                                               \
       }                                                                        \
       _r = _ss;                                                                \
     } while (0)
 
+    static inline variant_t* _create_str(const char *s, size_t n, LOG_ARGS)
+    {
+      variant_t *v = _create_variant(VARIANT_STRING, LOG_VALS);
+      if (!v) return NULL;
+      int r = str_append(&v->str, s, n);
+      if (r) {
+        _yyerr_log(LOG_VALS, "runtime error:out of memory");
+        return NULL;
+      }
+      return v;
+    }
+
     #define CREATE_STR(_r, _s, _n, _loc) do {                                  \
-      _r = _create_str(_s, _n);                                                \
+      _r = _create_str(_s, _n, LOG_MALS, &_loc);                               \
       if (!_r) {                                                               \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");       \
-        return -1;                                                             \
+        _yyerr_log(LOG_MALS, &_loc, "runtime error:out of memory");            \
+        YYABORT;                                                               \
       }                                                                        \
     } while (0)
 
-    #define STR_APPEND(_r, _s, _a, _loc) do {
+    #define CREATE_FUNC(_r, _n, _loc) do {                                     \
+      _r = variant_get_eval(_n.text, _n.leng);                                 \
+      if (!_r) {                                                               \
+        _yyerr_log(LOG_MALS, &_loc, "runtime error:unknown func");             \
+        YYABORT;                                                               \
+      }                                                                        \
     } while (0)
 }
 
@@ -310,18 +626,19 @@
 // union members
 %union { parser_token_t token; }
 %union { char c; }
-%union { variant_t *v; }
+%union { variant_t *var; }
+%union { variant_eval_f f; }
 
-%destructor { variant_release($$); free($$); } <v>
+%destructor { variant_release($$); free($$); } <var>
 
 %token TOPIC UNEXP
-%token <token> DIGITS
+%token <token> DIGITS ID INTEGRAL NUMBER QSTR SSTR TSTR
 %token <token> TNAME TKEY TVAL
 
-%token <v> id str ids exps exp term func str qstr sstr tstr
+%nterm <var> id str ids exps exp term qstrs sstrs tstrs qstr sstr tstr
+%nterm <f> func
 
 %token INSERT INTO USING WITH TAGS VALUES
-%token ID INTEGRAL NUMBER QSTR SSTR TSTR
 %left '+' '-'
 %left '*' '/'
 %left UMINUS
@@ -370,8 +687,8 @@ tags_clause:
 ;
 
 values_clause:
-  '(' ids ')' COLUES '(' exps ')'  { SET_INSERT_COLS($2,   $6, @$); }
-| COLUES '(' exps ')'              { SET_INSERT_COLS(NULL, $6, @$); }
+  '(' ids ')' VALUES '(' exps ')'  { SET_INSERT_COLS($2,   $6, @$); }
+| VALUES '(' exps ')'              { SET_INSERT_COLS(NULL, $3, @$); }
 ;
 
 ids:
@@ -386,11 +703,11 @@ exps:
 
 exp:
   term                             { $$ = $1; }
-| exp '+' exp                      { CREATE_EXP($$, _add, $1, $3, @$); }
-| exp '-' exp                      { CREATE_EXP($$, _sub, $1, $3, @$); }
-| exp '*' exp                      { CREATE_EXP($$, _mul, $1, $3, @$); }
-| exp '/' exp                      { CREATE_EXP($$, _div, $1, $3, @$); }
-| '-' exp           %prec UMINUS   { CREATE_EXP($$, _neg, $2, @$); }
+| exp '+' exp                      { CREATE_EXP($$, variant_add, $1, $3, @$); }
+| exp '-' exp                      { CREATE_EXP($$, variant_sub, $1, $3, @$); }
+| exp '*' exp                      { CREATE_EXP($$, variant_mul, $1, $3, @$); }
+| exp '/' exp                      { CREATE_EXP($$, variant_div, $1, $3, @$); }
+| '-' exp           %prec UMINUS   { CREATE_EXP_NEG($$, variant_neg, $2, @$); }
 | '(' exp ')'                      { $$ = $2; }
 | func '(' exps ')'                { CREATE_EXP_BY_NAME($$, $1, $3, @$); }
 ;
@@ -473,6 +790,7 @@ delimits:
 %%
 
 static void _yyerror_impl(
+    const char *file, int line, const char *func,
     YYLTYPE *yylloc,                   // match %define locations
     yyscan_t arg,                      // match %param
     ext_parser_param_t *param,         // match %parse-param
@@ -485,8 +803,11 @@ static void _yyerror_impl(
   (void)param;
   (void)errmsg;
 
+  char bn[512]; bn[0] = '\0';
+  tod_basename(file, bn, sizeof(bn));
   if (!param) {
-    fprintf(stderr, "(%d,%d)->(%d,%d):%s\n",
+    fprintf(stderr, "%s[%d]:%s():(%d,%d)->(%d,%d):%s\n",
+        bn, line, func,
         yylloc->first_line, yylloc->first_column,
         yylloc->last_line, yylloc->last_column,
         errmsg);
@@ -499,7 +820,9 @@ static void _yyerror_impl(
   param->ctx.row1 = yylloc->last_line;
   param->ctx.col1 = yylloc->last_column;
   param->ctx.err_msg[0] = '\0';
-  snprintf(param->ctx.err_msg, sizeof(param->ctx.err_msg), "%s", errmsg);
+  snprintf(param->ctx.err_msg, sizeof(param->ctx.err_msg), "%s[%d]:%s():%s",
+      bn, line, func,
+      errmsg);
 }
 
 /* Called by yyparse on error. */
@@ -510,7 +833,23 @@ static void yyerror(
     const char *errmsg
 )
 {
-  _yyerror_impl(yylloc, arg, param, errmsg);
+  _yyerror_impl(__FILE__, __LINE__, __func__, yylloc, arg, param, errmsg);
+}
+
+static void _yyerr_log_impl(const char *file, int line, const char *func,
+    yyscan_t arg,                      // match %param
+    ext_parser_param_t *param,         // match %parse-param
+    YYLTYPE *yylloc,                   // match %define locations
+    const char *fmt,
+    ...)
+{
+  char buf[4096]; buf[0] = '\0';
+  va_list ap;
+  va_start(ap, fmt);
+  vsnprintf(buf, sizeof(buf), fmt, ap);
+  va_end(ap);
+
+  _yyerror_impl(file, line, func, yylloc, arg, param, buf);
 }
 
 static int ext_parser_param_append_topic_name(ext_parser_param_t *param, const char *name, size_t len)

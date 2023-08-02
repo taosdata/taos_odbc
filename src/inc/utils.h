@@ -207,7 +207,7 @@ typedef struct strs_s                   strs_t;
 
 struct str_s {
   char               *str;
-  size_t              cap;
+  size_t              cap; // NOTE: null-terminator-exclusive
   size_t              nr;
 };
 
@@ -219,11 +219,13 @@ struct strs_s {
 
 void str_reset(str_t *str) FA_HIDDEN;
 void str_release(str_t *str) FA_HIDDEN;
+int str_keep(str_t *str, size_t cap) FA_HIDDEN;
 int str_append(str_t *str, const char *s, size_t n) FA_HIDDEN;
 
 void strs_reset(strs_t *strs) FA_HIDDEN;
 void strs_release(strs_t *strs) FA_HIDDEN;
 int strs_keep(strs_t *strs, size_t cap) FA_HIDDEN;
+int strs_flat(strs_t *strs, str_t *str) FA_HIDDEN;
 
 
 EXTERN_C_END

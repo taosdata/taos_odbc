@@ -61,7 +61,7 @@
       char *s = strndup(_v.text, _v.leng);                                                      \
       if (!s) {                                                                                 \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
       param->url.scheme = s;                                                                    \
     } while (0)
@@ -75,7 +75,7 @@
           param->url.pass = url_decode(_v.text + i + 1,  _v.leng - i - 1);                      \
           if (!param->url.user || !param->url.pass) {                                           \
             _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                    \
-            return -1;                                                                          \
+            YYABORT;                                                                            \
           }                                                                                     \
           break;                                                                                \
         }                                                                                       \
@@ -87,18 +87,18 @@
       int n = snprintf(buf, sizeof(buf), "%.*s", (int)_v.leng, _v.text);                        \
       if (n <= 0) {                                                                             \
         _yyerror_impl(&_loc, arg, param, "runtime error:snprintf failed");                      \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
       if ((size_t)n >= sizeof(buf)) {                                                           \
         _yyerror_impl(&_loc, arg, param, "runtime error:buffer too small");                     \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
       int nn = 0;                                                                               \
       int port = 0;                                                                             \
       n = sscanf(buf, "%d%n", &port, &nn);                                                      \
       if (n != 1 || (size_t)nn != strlen(buf) || port < 0 || port >UINT16_MAX) {                \
         _yyerror_impl(&_loc, arg, param, "runtime error:not valid port");                       \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
       param->url.port = (uint16_t)port;                                                         \
     } while (0)
@@ -108,7 +108,7 @@
       param->url.host = strndup(_v.text, _v.leng);                                              \
       if (!param->url.host) {                                                                   \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
     } while (0)
 
@@ -117,7 +117,7 @@
       param->url.host = url_decode(_v.text, _v.leng);                                           \
       if (!param->url.host) {                                                                   \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
     } while (0)
 
@@ -127,7 +127,7 @@
       url_strs_release(&_strs);                                                                 \
       if (!s) {                                                                                 \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
       param->url.path = s;                                                                      \
     } while (0)
@@ -138,7 +138,7 @@
       url_str_release(&_str);                                                                   \
       if (!s) {                                                                                 \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
       param->url.path = s;                                                                      \
     } while (0)
@@ -150,7 +150,7 @@
       url_strs_release(&_strs);                                                                 \
       if (!s) {                                                                                 \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
       param->url.path = s;                                                                      \
     } while (0)
@@ -160,7 +160,7 @@
       char *s = strdup("/");                                                                    \
       if (!s) {                                                                                 \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
       param->url.path = s;                                                                      \
     } while (0)
@@ -170,7 +170,7 @@
       int r = url_str_set(&_str, _v.text, _v.leng);                                             \
       if (r) {                                                                                  \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
     } while (0)
 
@@ -179,7 +179,7 @@
       int r = url_str_set_by_pct(&_str, _v.text, _v.leng);                                      \
       if (r) {                                                                                  \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
     } while (0)
 
@@ -188,7 +188,7 @@
       if (r) {                                                                                  \
         url_str_release(&_str);                                                                 \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
       _r = _str;                                                                                \
     } while (0)
@@ -198,7 +198,7 @@
       if (r) {                                                                                  \
         url_str_release(&_str);                                                                 \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
       _r = _str;                                                                                \
     } while (0)
@@ -209,7 +209,7 @@
       if (r) {                                                                                  \
         url_strs_release(&_v);                                                                  \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
       _r = _v;                                                                                  \
     } while (0)
@@ -225,7 +225,7 @@
       if (r) {                                                                                  \
         url_strs_release(&_r);                                                                  \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
     } while (0)
 

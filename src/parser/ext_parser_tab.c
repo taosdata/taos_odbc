@@ -25,8 +25,10 @@
 #include "ext_parser.h"
 
 #include "../core/internal.h"        // FIXME:
-#include "topic.h"
+#include "insert_eval.h"
 #include "log.h"
+#include "topic.h"
+#include "variant.h"
 
 #include "ext_parser.tab.h"
 #include "ext_parser.lex.c"

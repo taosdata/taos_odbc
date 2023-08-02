@@ -283,7 +283,7 @@ static int test_ext_parser(void)
     "!insert into t.x (ts, v) values (1234,5)",
     "!insert into ? using st (ts, v) values (123,4)",
     "!insert into ? using st with (x,y) tags (4,5) (ts, v) values (123,4)",
-    "!insert into ? using st with (x,y) tags (4,5) (ts, v) values (123, xyz(4))",
+    "!insert into ? using st with (x,y) tags (4,5) (ts, v) values (123, add(4,5))",
     "!insert into \"t\" (ts, v) values (1234,5)",
     "!insert into `t` (ts, v) values (1234,5)",
     "!insert into 't' (ts, v) values (1234,5)",

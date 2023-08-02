@@ -136,10 +136,12 @@ enum variant_e {
   VARIANT_DOUBLE,
   VARIANT_ID,
   VARIANT_STRING,
-  VARIANT_UNBIND,
+  VARIANT_PARAM,
   VARIANT_ARR,
   VARIANT_EVAL,
 };
+
+typedef variant_t* (*variant_eval_f)(variant_t *args);
 
 struct variant_s {
   variant_e             type;
@@ -154,21 +156,21 @@ struct variant_s {
     uint32_t            u32;
     uint64_t            u64;
     struct {
-      float             flt;
-      str_t             s_flt;
-    };
+      float             v;
+      str_t             s;
+    } flt;
     struct {
-      double            dbl;
-      str_t             s_dbl;
-    };
+      double            v;
+      str_t             s;
+    } dbl;
     str_t               str;
     struct {
-      variant_t       **args;
+      variant_t       **vals;
       size_t            cap;
       size_t            nr;
     } arr;
     struct {
-      variant_t* (*eval)(variant_t *args);
+      variant_eval_f    eval;
       variant_t        *args;
     } exp;
   };

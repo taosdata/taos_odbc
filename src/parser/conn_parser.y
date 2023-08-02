@@ -63,13 +63,13 @@
       param->conn_cfg->dsn = strndup(_v.text, _v.leng);                                         \
       if (!param->conn_cfg->dsn) {                                                              \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
       if (!param->init) break;                                                                  \
       char buf[1024]; buf[0] = '\0';                                                            \
       if (param->init(param->conn_cfg, buf, sizeof(buf))) {                                     \
         _yyerror_impl(&_loc, arg, param, buf);                                                  \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
     } while (0)
     #define SET_UID(_v, _loc) do {                                                              \
@@ -78,7 +78,7 @@
       param->conn_cfg->uid = strndup(_v.text, _v.leng);                                         \
       if (!param->conn_cfg->uid) {                                                              \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
     } while (0)
     #define SET_DB(_v, _loc) do {                                                               \
@@ -87,7 +87,7 @@
       param->conn_cfg->db = strndup(_v.text, _v.leng);                                          \
       if (!param->conn_cfg->db) {                                                               \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
     } while (0)
     #define SET_PWD(_v, _loc) do {                                                              \
@@ -96,7 +96,7 @@
       param->conn_cfg->pwd = strndup(_v.text, _v.leng);                                         \
       if (!param->conn_cfg->pwd) {                                                              \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
     } while (0)
     #define SET_DRIVER(_v, _loc) do {                                                           \
@@ -105,7 +105,7 @@
       param->conn_cfg->driver = strndup(_v.text, _v.leng);                                      \
       if (!param->conn_cfg->driver) {                                                           \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
     } while (0)
     #define SET_URL(_v, _loc) do {                                                              \
@@ -114,7 +114,7 @@
       param->conn_cfg->url = strndup(_v.text, _v.leng);                                         \
       if (!param->conn_cfg->url) {                                                              \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
     } while (0)
     #define SET_FQDN(_v, _loc) do {                                                             \
@@ -123,7 +123,7 @@
       param->conn_cfg->ip = strndup(_v.text, _v.leng);                                          \
       if (!param->conn_cfg->ip) {                                                               \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
       param->conn_cfg->port = 0;                                                                \
     } while (0)
@@ -133,7 +133,7 @@
       param->conn_cfg->ip = strndup(_v.text, _v.leng);                                          \
       if (!param->conn_cfg->ip) {                                                               \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
       param->conn_cfg->port = strtol(_p.text, NULL, 10);                                        \
     } while (0)
@@ -143,7 +143,7 @@
       param->conn_cfg->charset_for_col_bind = strndup(_v.text, _v.leng);                        \
       if (!param->conn_cfg->charset_for_col_bind) {                                             \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
     } while (0)
     #define SET_CHARSET_FOR_PARAM_BIND(_v, _loc) do {                                           \
@@ -152,7 +152,7 @@
       param->conn_cfg->charset_for_param_bind = strndup(_v.text, _v.leng);                      \
       if (!param->conn_cfg->charset_for_param_bind) {                                           \
         _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
-        return -1;                                                                              \
+        YYABORT;                                                                                \
       }                                                                                         \
     } while (0)
     #define SET_UNSIGNED_PROMOTION(_s, _n, _loc) do {                                           \

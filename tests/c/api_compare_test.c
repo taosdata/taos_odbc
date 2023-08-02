@@ -76,8 +76,8 @@ data_source_case _cases_all[] = {
     TN_SQLSERVER,
     "DSN=SQLSERVER_ODBC_DSN",
     "SQLSERVER_ODBC_DSN",
-    "",
-    "",
+    "sa",
+    "Aa123456",
     false
   },
   {
@@ -100,7 +100,7 @@ data_source_case _cases_all[] = {
       .hstmt = SQL_NULL_HANDLE,
     },
     TN_TAOS,
-    "DSN=TAOS_ODBC_DSN",
+    "DSN=TAOS_ODBC_DSN;Server=192.168.1.93",
     "TAOS_ODBC_DSN",
     NULL,
     NULL,

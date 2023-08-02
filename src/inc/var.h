@@ -22,25 +22,25 @@
  * SOFTWARE.
  */
 
-#ifndef _variant_h_
-#define _variant_h_
+#ifndef _var_h_
+#define _var_h_
 
 #include "macros.h"
 #include "typedefs.h"
 
 EXTERN_C_BEGIN
 
-void variant_release(variant_t *v) FA_HIDDEN;
+void var_release(var_t *v) FA_HIDDEN;
 
-variant_t* variant_add(variant_t *args) FA_HIDDEN;
-variant_t* variant_sub(variant_t *args) FA_HIDDEN;
-variant_t* variant_mul(variant_t *args) FA_HIDDEN;
-variant_t* variant_div(variant_t *args) FA_HIDDEN;
-variant_t* variant_neg(variant_t *args) FA_HIDDEN;
+var_t* var_add(var_t *args) FA_HIDDEN;
+var_t* var_sub(var_t *args) FA_HIDDEN;
+var_t* var_mul(var_t *args) FA_HIDDEN;
+var_t* var_div(var_t *args) FA_HIDDEN;
+var_t* var_neg(var_t *args) FA_HIDDEN;
 
-variant_eval_f variant_get_eval(const char *name, size_t nr) FA_HIDDEN;
+var_eval_f var_get_eval(const char *name, size_t nr) FA_HIDDEN;
 
 EXTERN_C_END
 
-#endif // _variant_h_
+#endif // _var_h_
 

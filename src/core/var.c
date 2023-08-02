@@ -24,23 +24,23 @@
 
 #include "internal.h"
 
-#include "variant.h"
+#include "var.h"
 
 #include "log.h"
 
 
-static variant_t* _variant__add(variant_t *args)
+static var_t* _var__add(var_t *args)
 {
   (void)args;
   return NULL;
 }
 
-variant_eval_f variant_get_eval(const char *name, size_t nr)
+var_eval_f var_get_eval(const char *name, size_t nr)
 {
-#define RECORD(x) {#x, _variant__##x}
+#define RECORD(x) {#x, _var__##x}
   static const struct {
     const char        *name;
-    variant_eval_f     eval;
+    var_eval_f         eval;
   } _evals [] = {
     RECORD(add),
   };
@@ -49,7 +49,7 @@ variant_eval_f variant_get_eval(const char *name, size_t nr)
 
   for (size_t i=0; i<_nr_evals; ++i) {
     const char       *_name   = _evals[i].name;
-    variant_eval_f    _eval   = _evals[i].eval;
+    var_eval_f        _eval   = _evals[i].eval;
     if (nr == strlen(_name) && 0 == tod_strncasecmp(_name, name, nr)) {
       return _eval;
     }
@@ -58,11 +58,11 @@ variant_eval_f variant_get_eval(const char *name, size_t nr)
   return NULL;
 }
 
-static void _variant_release_arr(variant_t *v)
+static void _var_release_arr(var_t *v)
 {
   for (size_t i=0; i<v->arr.nr; ++i) {
-    variant_t *val = v->arr.vals[i];
-    variant_release(val);
+    var_t *val = v->arr.vals[i];
+    var_release(val);
     TOD_SAFE_FREE(v->arr.vals[i]);
   }
   TOD_SAFE_FREE(v->arr.vals);
@@ -70,77 +70,77 @@ static void _variant_release_arr(variant_t *v)
   v->arr.nr  = 0;
 }
 
-static void _variant_release_eval(variant_t *v)
+static void _var_release_eval(var_t *v)
 {
-  variant_release(v->exp.args);
+  var_release(v->exp.args);
   TOD_SAFE_FREE(v->exp.args);
   v->exp.eval = NULL;
 }
 
-void variant_release(variant_t *v)
+void var_release(var_t *v)
 {
   if (!v) return;
   switch (v->type) {
-    case VARIANT_NULL:
-    case VARIANT_BOOL:
-    case VARIANT_INT8:
-    case VARIANT_INT16:
-    case VARIANT_INT32:
-    case VARIANT_INT64:
-    case VARIANT_UINT8:
-    case VARIANT_UINT16:
-    case VARIANT_UINT32:
-    case VARIANT_UINT64:
+    case VAR_NULL:
+    case VAR_BOOL:
+    case VAR_INT8:
+    case VAR_INT16:
+    case VAR_INT32:
+    case VAR_INT64:
+    case VAR_UINT8:
+    case VAR_UINT16:
+    case VAR_UINT32:
+    case VAR_UINT64:
       break;
-    case VARIANT_FLOAT:
+    case VAR_FLOAT:
       str_release(&v->flt.s);
       break;
-    case VARIANT_DOUBLE:
+    case VAR_DOUBLE:
       str_release(&v->dbl.s);
       break;
-    case VARIANT_ID:
-    case VARIANT_STRING:
+    case VAR_ID:
+    case VAR_STRING:
       str_release(&v->str);
       break;
-    case VARIANT_PARAM:
-    case VARIANT_ARR:
-      _variant_release_arr(v);
+    case VAR_PARAM:
+    case VAR_ARR:
+      _var_release_arr(v);
       break;
-    case VARIANT_EVAL:
-      _variant_release_eval(v);
+    case VAR_EVAL:
+      _var_release_eval(v);
       break;
     default:
       OA_NIY(0);
       break;
   }
-  v->type = VARIANT_NULL;
+  v->type = VAR_NULL;
 }
 
-variant_t* variant_add(variant_t *args)
+var_t* var_add(var_t *args)
 {
   (void)args;
   return NULL;
 }
 
-variant_t* variant_sub(variant_t *args)
+var_t* var_sub(var_t *args)
 {
   (void)args;
   return NULL;
 }
 
-variant_t* variant_mul(variant_t *args)
+var_t* var_mul(var_t *args)
 {
   (void)args;
   return NULL;
 }
 
-variant_t* variant_div(variant_t *args)
+var_t* var_div(var_t *args)
 {
   (void)args;
   return NULL;
 }
 
-variant_t* variant_neg(variant_t *args)
+var_t* var_neg(var_t *args)
 {
   (void)args;
   return NULL;

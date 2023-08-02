@@ -117,8 +117,8 @@ typedef struct typesinfo_s              typesinfo_t;
 typedef struct url_s                    url_t;
 typedef struct url_parser_param_s       url_parser_param_t;
 
-typedef enum   variant_e                variant_e;
-typedef struct variant_s                variant_t;
+typedef enum   var_e                    var_e;
+typedef struct var_s                    var_t;
 
 #endif // _typedefs_h_
 

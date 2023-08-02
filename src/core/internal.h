@@ -121,30 +121,30 @@ static inline int sql_succeeded(SQLRETURN sr)
   return sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO;
 }
 
-enum variant_e {
-  VARIANT_NULL,
-  VARIANT_BOOL,
-  VARIANT_INT8,
-  VARIANT_INT16,
-  VARIANT_INT32,
-  VARIANT_INT64,
-  VARIANT_UINT8,
-  VARIANT_UINT16,
-  VARIANT_UINT32,
-  VARIANT_UINT64,
-  VARIANT_FLOAT,
-  VARIANT_DOUBLE,
-  VARIANT_ID,
-  VARIANT_STRING,
-  VARIANT_PARAM,
-  VARIANT_ARR,
-  VARIANT_EVAL,
+enum var_e {
+  VAR_NULL,
+  VAR_BOOL,
+  VAR_INT8,
+  VAR_INT16,
+  VAR_INT32,
+  VAR_INT64,
+  VAR_UINT8,
+  VAR_UINT16,
+  VAR_UINT32,
+  VAR_UINT64,
+  VAR_FLOAT,
+  VAR_DOUBLE,
+  VAR_ID,
+  VAR_STRING,
+  VAR_PARAM,
+  VAR_ARR,
+  VAR_EVAL,
 };
 
-typedef variant_t* (*variant_eval_f)(variant_t *args);
+typedef var_t* (*var_eval_f)(var_t *args);
 
-struct variant_s {
-  variant_e             type;
+struct var_s {
+  var_e                 type;
   union {
     bool                b;
     int8_t              i8;
@@ -165,13 +165,13 @@ struct variant_s {
     } dbl;
     str_t               str;
     struct {
-      variant_t       **vals;
+      var_t           **vals;
       size_t            cap;
       size_t            nr;
     } arr;
     struct {
-      variant_eval_f    eval;
-      variant_t        *args;
+      var_eval_f        eval;
+      var_t            *args;
     } exp;
   };
 };
@@ -501,14 +501,14 @@ struct conn_parser_param_s {
 };
 
 struct insert_eval_s {
-  variant_t             *table_db;
-  variant_t             *table_tbl;
-  variant_t             *super_db;
-  variant_t             *super_tbl;
-  variant_t             *tag_names;
-  variant_t             *tag_vals;
-  variant_t             *col_names;
-  variant_t             *col_vals;
+  var_t             *table_db;
+  var_t             *table_tbl;
+  var_t             *super_db;
+  var_t             *super_tbl;
+  var_t             *tag_names;
+  var_t             *tag_vals;
+  var_t             *col_names;
+  var_t             *col_vals;
 };
 
 struct ext_parser_param_s {

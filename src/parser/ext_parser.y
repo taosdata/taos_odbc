@@ -63,7 +63,7 @@
     #define LOG_MALS __FILE__, __LINE__, __func__, arg, param
     #define LOG_FLF __FILE__, __LINE__, __func__
 
-    static void _yyerr_log_impl(const char *file, int line, const char *func,
+    static int _ylogv(const char *file, int line, const char *func,
         yyscan_t arg,                      // match %param
         ext_parser_param_t *param,         // match %parse-param
         YYLTYPE *yylloc,                   // match %define locations
@@ -71,10 +71,10 @@
         ...) __attribute__ ((format (printf, 7, 8)));
 
     #ifdef _WIN32               /* { */
-    #define _yyerr_log(file, line, func, arg, param, yylloc, fmt, ...) \
-      (0 ? fprintf(stderr, fmt, ##__VA_ARGS__) : _yyerr_log_impl(file, line, func, arg, param, yylloc, fmt, ##__VA_ARGS__))
+    #define YLOG(file, line, func, arg, param, yylloc, fmt, ...) \
+      (0 ? fprintf(stderr, fmt, ##__VA_ARGS__) : _ylogv(file, line, func, arg, param, yylloc, fmt, ##__VA_ARGS__))
     #else                       /* }{ */
-    #define _yyerr_log _yyerr_log_impl
+    #define YLOG _ylogv
     #endif                      /* } */
 
     static int ext_parser_param_append_topic_name(ext_parser_param_t *param, const char *name, size_t len);
@@ -83,7 +83,7 @@
     #define SET_TOPIC(_v, _loc) do {                                           \
       if (!param) break;                                                       \
       if (ext_parser_param_append_topic_name(param, _v.text, _v.leng)) {       \
-        _yyerr_log(LOG_MALS, &_loc, "runtime error:out of memory");            \
+        YLOG(LOG_MALS, &_loc, "runtime error:out of memory");                  \
         YYABORT;                                                               \
       }                                                                        \
       param->is_topic = 1;                                                     \
@@ -92,7 +92,7 @@
     #define SET_TOPIC_KEY(_k, _loc) do {                                                        \
       if (!param) break;                                                                        \
       if (ext_parser_param_append_topic_conf(param, _k.text, _k.leng, NULL, 0)) {               \
-        _yyerr_log(LOG_MALS, &_loc, "runtime error:out of memory");                             \
+        YLOG(LOG_MALS, &_loc, "runtime error:out of memory");                                   \
         YYABORT;                                                                                \
       }                                                                                         \
     } while (0)
@@ -100,7 +100,7 @@
     #define SET_TOPIC_KEY_VAL(_k, _v, _loc) do {                                                \
       if (!param) break;                                                                        \
       if (ext_parser_param_append_topic_conf(param, _k.text, _k.leng, _v.text, _v.leng)) {      \
-        _yyerr_log(LOG_MALS, &_loc, "runtime error:out of memory");                             \
+        YLOG(LOG_MALS, &_loc, "runtime error:out of memory");                                   \
         YYABORT;                                                                                \
       }                                                                                         \
     } while (0)
@@ -140,7 +140,7 @@
         v->type = type;
         return v;
       }
-      _yyerr_log(LOG_VALS, "runtime error:out of memory");
+      YLOG(LOG_VALS, "runtime error:out of memory");
       return NULL;
     }
 
@@ -156,7 +156,7 @@
       int r = 0;                                                               \
       r = _insert_eval_set_table_qm(&param->insert_eval, LOG_MALS, &_loc);     \
       if (r) {                                                                 \
-        _yyerr_log(LOG_MALS, &_loc, "runtime error:out of memory");            \
+        YLOG(LOG_MALS, &_loc, "runtime error:out of memory");                  \
         YYABORT;                                                               \
       }                                                                        \
       param->is_topic  = 0;                                                    \
@@ -179,7 +179,7 @@
       if (!v) return NULL;
       int r = str_append(&v->str, s, n);
       if (r) {
-        _yyerr_log(LOG_VALS, "runtime error:out of memory");
+        YLOG(LOG_VALS, "runtime error:out of memory");
         return NULL;
       }
       return v;
@@ -216,7 +216,7 @@
         size_t cap = (arr->arr.nr + 1 + 15) / 16 * 16;
         var_t **p = (var_t**)realloc(arr->arr.vals, cap * sizeof(*p));
         if (!p) {
-          _yyerr_log(LOG_VALS, "runtime error:out of memory");
+          YLOG(LOG_VALS, "runtime error:out of memory");
           return -1;
         }
         arr->arr.vals      = p;
@@ -234,7 +234,7 @@
       int r = str_append(&id->str, s, n);
       if (r == 0) r = _arr_append_v(ids, id, LOG_VALS);
       if (r == 0) return 0;
-      _yyerr_log(LOG_VALS, "runtime error:out of memory");
+      YLOG(LOG_VALS, "runtime error:out of memory");
       _var_destroy(id);
       return -1;
     }
@@ -247,7 +247,7 @@
       int r = _ids_append(ids, s, n, LOG_VALS);
       if (r == 0) return ids;
 
-      _yyerr_log(LOG_VALS, "runtime error:out of memory");
+      YLOG(LOG_VALS, "runtime error:out of memory");
       _var_destroy(ids);
       return NULL;
     }
@@ -274,7 +274,7 @@
       int r = _arr_append_v(exps, exp, LOG_VALS);
       if (r == 0) return exps;
 
-      _yyerr_log(LOG_VALS, "runtime error:out of memory");
+      YLOG(LOG_VALS, "runtime error:out of memory");
       _var_destroy(exps);
       return NULL;
     }
@@ -283,7 +283,7 @@
       _r = _create_exps(_exp, LOG_MALS, &_loc);                                \
       if (!_r) {                                                               \
         _var_destroy(_exp);                                                    \
-        _yyerr_log(LOG_MALS, &_loc, "runtime error:out of memory");            \
+        YLOG(LOG_MALS, &_loc, "runtime error:out of memory");                  \
         YYABORT;                                                               \
       }                                                                        \
     } while (0)
@@ -302,14 +302,14 @@
     {
       var_t *exp = _create_var(VAR_EVAL, LOG_VALS);
       if (!exp) {
-        _yyerr_log(LOG_VALS, "runtime error:out of memory");
+        YLOG(LOG_VALS, "runtime error:out of memory");
         return NULL;
       }
       exp->exp.eval = eval;
       int r = 0;
       exp->exp.args = _create_var(VAR_ARR, LOG_VALS);
       if (!exp->exp.args) {
-        _yyerr_log(LOG_VALS, "runtime error:out of memory");
+        YLOG(LOG_VALS, "runtime error:out of memory");
         r = -1;
       }
       if (r == 0) r = _arr_append_v(exp->exp.args, e1, LOG_VALS);
@@ -324,7 +324,7 @@
       if (!_r) {                                                               \
         _var_destroy(_e1);                                                     \
         _var_destroy(_e2);                                                     \
-        _yyerr_log(LOG_MALS, &_loc, "runtime error:out of memory");            \
+        YLOG(LOG_MALS, &_loc, "runtime error:out of memory");                  \
         YYABORT;                                                               \
       }                                                                        \
     } while (0)
@@ -333,14 +333,14 @@
     {
       var_t *exp = _create_var(VAR_EVAL, LOG_VALS);
       if (!exp) {
-        _yyerr_log(LOG_VALS, "runtime error:out of memory");
+        YLOG(LOG_VALS, "runtime error:out of memory");
         return NULL;
       }
       exp->exp.eval = eval;
       int r = 0;
       exp->exp.args = _create_var(VAR_ARR, LOG_VALS);
       if (!exp->exp.args) {
-        _yyerr_log(LOG_VALS, "runtime error:out of memory");
+        YLOG(LOG_VALS, "runtime error:out of memory");
         r = -1;
       }
       if (r == 0) r = _arr_append_v(exp->exp.args, e, LOG_VALS);
@@ -392,7 +392,7 @@
       if (!exp) return NULL;
       int r = str_append(&exp->str, s, n);
       if (r == 0) return exp;
-      _yyerr_log(LOG_VALS, "runtime error:out of memory");
+      YLOG(LOG_VALS, "runtime error:out of memory");
       _var_destroy(exp);
       return NULL;
     }
@@ -408,7 +408,7 @@
       char buf[1024]; buf[0] = '\0';
       int r = snprintf(buf, sizeof(buf), "%.*s", (int)n, s);
       if (r < 0 || (size_t)r >= sizeof(buf)) {
-        _yyerr_log(LOG_VALS, "runtime error:buffer too small or internal logic error");
+        YLOG(LOG_VALS, "runtime error:buffer too small or internal logic error");
         return -1;
       }
 
@@ -416,7 +416,7 @@
       long long ll = strtoll(buf, &end, 0);
       int e = errno;
       if (*end) {
-        _yyerr_log(LOG_VALS, "runtime error:conversion failure");
+        YLOG(LOG_VALS, "runtime error:conversion failure");
         return -1;
       }
       if (e == ERANGE) {
@@ -424,7 +424,7 @@
         unsigned long long ull = strtoull(buf, &end, 0);
         e = errno;
         if (*end || e == ERANGE) {
-          _yyerr_log(LOG_VALS, "runtime error:conversion failure");
+          YLOG(LOG_VALS, "runtime error:conversion failure");
           return -1;
         }
         var_release(exp);
@@ -442,7 +442,7 @@
     {
       var_t *exp = _create_var(VAR_NULL, LOG_VALS);
       if (!exp) {
-        _yyerr_log(LOG_VALS, "runtime error:out of memory");
+        YLOG(LOG_VALS, "runtime error:out of memory");
         return NULL;
       }
       int r = _var_set_integral(exp, s, n, LOG_VALS);
@@ -462,7 +462,7 @@
       char buf[1024]; buf[0] = '\0';
       int r = snprintf(buf, sizeof(buf), "%.*s", (int)n, s);
       if (r < 0 || (size_t)r >= sizeof(buf)) {
-        _yyerr_log(LOG_VALS, "runtime error:buffer too small or internal logic error");
+        YLOG(LOG_VALS, "runtime error:buffer too small or internal logic error");
         return -1;
       }
 
@@ -470,7 +470,7 @@
       int    end = 0;
       r = sscanf(buf, "%lg%n", &dbl, &end);
       if (r != 1 || (size_t)end != n) {
-        _yyerr_log(LOG_VALS, "runtime error:conversion failure");
+        YLOG(LOG_VALS, "runtime error:conversion failure");
         return -1;
       }
       var_release(exp);
@@ -483,12 +483,12 @@
     {
       var_t *exp = _create_var(VAR_NULL, LOG_VALS);
       if (!exp) {
-        _yyerr_log(LOG_VALS, "runtime error:out of memory");
+        YLOG(LOG_VALS, "runtime error:out of memory");
         return NULL;
       }
       int r = _var_set_number(exp, s, n, LOG_VALS);
       if (r == 0) return exp;
-      _yyerr_log(LOG_VALS, "runtime error:out of memory");
+      YLOG(LOG_VALS, "runtime error:out of memory");
       _var_destroy(exp);
       return NULL;
     }
@@ -496,7 +496,7 @@
     #define CREATE_EXP_NUMBER(_r, _N, _loc) do {                               \
       _r = _create_exp_number(_N.text, _N.leng, LOG_MALS, &_loc);              \
       if (!_r) {                                                               \
-        _yyerr_log(LOG_MALS, &_loc, "runtime error:out of memory");            \
+        YLOG(LOG_MALS, &_loc, "runtime error:out of memory");                  \
         YYABORT;                                                               \
       }                                                                        \
     } while (0)
@@ -525,7 +525,7 @@
       var_release(v);
       TOD_SAFE_FREE(v);
 
-      _yyerr_log(LOG_VALS, "runtime error:out of memory");
+      YLOG(LOG_VALS, "runtime error:out of memory");
       return NULL;
     }
 
@@ -542,7 +542,7 @@
         size_t cap = (ss->arr.nr + 1 + 15) / 16 * 16;
         var_t **p = (var_t**)realloc(ss->arr.vals, cap * sizeof(*p));
         if (!p) {
-          _yyerr_log(LOG_VALS, "runtime error:out of memory");
+          YLOG(LOG_VALS, "runtime error:out of memory");
           return -1;
         }
         ss->arr.vals    = p;
@@ -586,7 +586,7 @@
       if (!v) return NULL;
       int r = str_append(&v->str, s, n);
       if (r) {
-        _yyerr_log(LOG_VALS, "runtime error:out of memory");
+        YLOG(LOG_VALS, "runtime error:out of memory");
         return NULL;
       }
       return v;
@@ -595,7 +595,7 @@
     #define CREATE_STR(_r, _s, _n, _loc) do {                                  \
       _r = _create_str(_s, _n, LOG_MALS, &_loc);                               \
       if (!_r) {                                                               \
-        _yyerr_log(LOG_MALS, &_loc, "runtime error:out of memory");            \
+        YLOG(LOG_MALS, &_loc, "runtime error:out of memory");                  \
         YYABORT;                                                               \
       }                                                                        \
     } while (0)
@@ -603,7 +603,7 @@
     #define CREATE_FUNC(_r, _n, _loc) do {                                     \
       _r = var_get_eval(_n.text, _n.leng);                                     \
       if (!_r) {                                                               \
-        _yyerr_log(LOG_MALS, &_loc, "runtime error:unknown func");             \
+        YLOG(LOG_MALS, &_loc, "runtime error:unknown func");                   \
         YYABORT;                                                               \
       }                                                                        \
     } while (0)
@@ -836,7 +836,7 @@ static void yyerror(
   _yyerror_impl(__FILE__, __LINE__, __func__, yylloc, arg, param, errmsg);
 }
 
-static void _yyerr_log_impl(const char *file, int line, const char *func,
+static int _ylogv(const char *file, int line, const char *func,
     yyscan_t arg,                      // match %param
     ext_parser_param_t *param,         // match %parse-param
     YYLTYPE *yylloc,                   // match %define locations
@@ -846,10 +846,12 @@ static void _yyerr_log_impl(const char *file, int line, const char *func,
   char buf[4096]; buf[0] = '\0';
   va_list ap;
   va_start(ap, fmt);
-  vsnprintf(buf, sizeof(buf), fmt, ap);
+  int n = vsnprintf(buf, sizeof(buf), fmt, ap);
   va_end(ap);
 
   _yyerror_impl(file, line, func, yylloc, arg, param, buf);
+
+  return n;
 }
 
 static int ext_parser_param_append_topic_name(ext_parser_param_t *param, const char *name, size_t len)

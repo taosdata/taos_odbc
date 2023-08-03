@@ -202,11 +202,25 @@
     #define SET_INSERT_TAGS(_names, _vals, _loc) do {                          \
       param->insert_eval.tag_names = _names;                                   \
       param->insert_eval.tag_vals  = _vals;                                    \
+      if (!_names) break;                                                      \
+      if (_names->arr.nr == _vals->arr.nr) break;                              \
+      YLOG(LOG_MALS, &_loc,                                                    \
+          "syntax error:"                                                      \
+          "# of tags [%zd] does not match # of tagvals [%zd]",                 \
+          _names->arr.nr, _vals->arr.nr);                                      \
+      YYABORT;                                                                 \
     } while (0)
 
     #define SET_INSERT_COLS(_names, _vals, _loc) do {                          \
       param->insert_eval.col_names = _names;                                   \
       param->insert_eval.col_vals  = _vals;                                    \
+      if (!_names) break;                                                      \
+      if (_names->arr.nr == _vals->arr.nr) break;                              \
+      YLOG(LOG_MALS, &_loc,                                                    \
+          "syntax error:"                                                      \
+          "# of cols [%zd] does not match # of colvals [%zd]",                 \
+          _names->arr.nr, _vals->arr.nr);                                      \
+      YYABORT;                                                                 \
     } while (0)
 
     static inline int _arr_append_v(var_t *arr, var_t *v, LOG_ARGS)
@@ -683,12 +697,12 @@ super_table_name:
 
 tags_clause:
   '(' ids ')' TAGS '(' exps ')' { SET_INSERT_TAGS($2,   $6, @$); }
-| TAGS '(' exps ')'             { SET_INSERT_TAGS(NULL, $3, @$); }
+| TAGS '(' exps ')'             { SET_INSERT_TAGS(((var_t*)NULL), $3, @$); }
 ;
 
 values_clause:
   '(' ids ')' VALUES '(' exps ')'  { SET_INSERT_COLS($2,   $6, @$); }
-| VALUES '(' exps ')'              { SET_INSERT_COLS(NULL, $3, @$); }
+| VALUES '(' exps ')'              { SET_INSERT_COLS(((var_t*)NULL), $3, @$); }
 ;
 
 ids:

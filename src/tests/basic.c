@@ -290,7 +290,7 @@ static int test_ext_parser(void)
     "!insert into \"t\\\"t\" (ts, v) values (1234,5)",
     "!insert into 't\\'t' (ts, v) values (1234,5)",
     "!insert into `t\\`t` (ts, v) values (1234,5)",
-    "!insert into t (ts, v) values (-1234,5)",
+    "!insert into t (s, v) values (-1234,5)",
   };
   for (size_t i=0; i<sizeof(text)/sizeof(text[0]); ++i) {
     const char *s = text[i];

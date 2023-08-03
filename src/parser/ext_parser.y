@@ -228,38 +228,37 @@
       return 0;
     }
 
-    static inline int _ids_append(var_t *ids, const char *s, size_t n, LOG_ARGS)
+    static inline int _ids_append(var_t *ids, var_t *id, LOG_ARGS)
     {
-      var_t *id = _create_var(VAR_ID, LOG_VALS, yylloc);
-      if (!id) return -1;
-      int r = str_append(&id->str, s, n);
-      if (r == 0) r = _arr_append_v(ids, id, LOG_VALS, yylloc);
+      int r = 0;
+      r = _arr_append_v(ids, id, LOG_VALS, yylloc);
       if (r == 0) return 0;
       YLOG(LOG_VALS, yylloc, "runtime error:out of memory");
       _var_destroy(id);
       return -1;
     }
 
-    static inline var_t* _create_ids(const char *s, size_t n, LOG_ARGS)
+    static inline var_t* _create_ids(var_t *id, LOG_ARGS)
     {
       var_t *ids = _create_var(VAR_ARR, LOG_VALS, yylloc);
       if (!ids) return NULL;
 
-      int r = _ids_append(ids, s, n, LOG_VALS, yylloc);
+      int r = _ids_append(ids, id, LOG_VALS, yylloc);
       if (r == 0) return ids;
 
       YLOG(LOG_VALS, yylloc, "runtime error:out of memory");
       _var_destroy(ids);
+      _var_destroy(id);
       return NULL;
     }
 
-    #define CREATE_IDS(_r, _ID, _loc) do {                                     \
-      _r = _create_ids(_ID.text, _ID.leng, LOG_MALS, &_loc);                   \
+    #define CREATE_IDS(_r, _id, _loc) do {                                     \
+      _r = _create_ids(_id, LOG_MALS, &_loc);                                  \
       if (!_r) YYABORT;                                                        \
     } while (0)
 
-    #define IDS_APPEND(_r, _ids, _ID, _loc) do {                               \
-      int r = _ids_append(_ids, _ID.text, _ID.leng, LOG_MALS, &_loc);          \
+    #define IDS_APPEND(_r, _ids, _id, _loc) do {                               \
+      int r = _ids_append(_ids, _id, LOG_MALS, &_loc);                         \
       if (r) {                                                                 \
         _var_destroy(_ids);                                                    \
         YYABORT;                                                               \
@@ -636,7 +635,7 @@
 %token <token> DIGITS ID INTEGRAL NUMBER QSTR SSTR TSTR
 %token <token> TNAME TKEY TVAL
 
-%nterm <var> id str ids exps exp term qstrs sstrs tstrs qstr sstr tstr
+%nterm <var> id ids exps exp term qstrs sstrs tstrs qstr sstr tstr
 %nterm <f> func
 
 %token INSERT INTO USING WITH TAGS VALUES
@@ -669,7 +668,7 @@ table_name:
 
 id:
   ID                            { CREATE_ID($$, $1, @$); }
-| str                           { $$ = $1; }
+| '`' tstrs '`'                 { STRS_FLAT($$, $2, @$); }
 ;
 
 using_clause:
@@ -693,8 +692,8 @@ values_clause:
 ;
 
 ids:
-  ID                               { CREATE_IDS($$, $1, @$); }
-| ids ',' ID                       { IDS_APPEND($$, $1, $3, @$); }
+  id                               { CREATE_IDS($$, $1, @$); }
+| ids ',' id                       { IDS_APPEND($$, $1, $3, @$); }
 ;
 
 exps:
@@ -718,13 +717,8 @@ term:
 | ID                               { CREATE_EXP_ID($$, $1, @$); }
 | INTEGRAL                         { CREATE_EXP_INTEGRAL($$, $1, @$); }
 | NUMBER                           { CREATE_EXP_NUMBER($$, $1, @$); }
-| str                              { $$ = $1; }
-;
-
-str:
-  '"' qstrs '"'                    { STRS_FLAT($$, $2, @$); }
+| '"' qstrs '"'                    { STRS_FLAT($$, $2, @$); }
 | '\'' sstrs '\''                  { STRS_FLAT($$, $2, @$); }
-| '`' tstrs '`'                    { STRS_FLAT($$, $2, @$); }
 ;
 
 qstrs:
@@ -734,7 +728,7 @@ qstrs:
 
 qstr:
   QSTR                             { CREATE_STR($$, $1.text, $1.leng, @$); }
-| '\\' '"'                         { CREATE_STR($$, "\"", 1, @$); }
+| '"' '"'                          { CREATE_STR($$, "\"", 1, @$); }
 ;
 
 sstrs:
@@ -744,7 +738,7 @@ sstrs:
 
 sstr:
   SSTR                             { CREATE_STR($$, $1.text, $1.leng, @$); }
-| '\\' '\''                        { CREATE_STR($$, "'", 1, @$); }
+| '\'' '\''                        { CREATE_STR($$, "'", 1, @$); }
 ;
 
 tstrs:
@@ -754,7 +748,7 @@ tstrs:
 
 tstr:
   TSTR                             { CREATE_STR($$, $1.text, $1.leng, @$); }
-| '\\' '`'                         { CREATE_STR($$, "`", 1, @$); }
+| '`' '`'                          { CREATE_STR($$, "`", 1, @$); }
 ;
 
 func:

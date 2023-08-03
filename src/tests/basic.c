@@ -259,50 +259,69 @@ static int test_ext_parser(void)
   param.ctx.debug_flex = 1;
   // param.ctx.debug_bison = 1;
 
-  const char *text[] = {
+#define OK(x)  {__LINE__, x, 1}
+#define BAD(x) {__LINE__, x, 0}
+  static const struct {
+    int                     line;
+    const char             *sql;
+    uint8_t                 ok:1;
+  } _cases [] = {
     // !topic
-    "!topic demo",
-    "!topic demo {}",
-    "!topic demo {helloworld}",
-    "!topic demo {helloworld=good}",
-    "!topic demo {helloworld=good;helloworld=good}",
-    "!topic demo foo {helloworld=good; helloworld=good}",
-    "!topic demo {"
-    " enable.auto.commit=true;"
-    " auto.commit.interval.ms=100;"
-    " group.id=cgrpName;"
-    " client.id=user_defined_name;"
-    " td.connect.user=root;"
-    " td.connect.pass=taosdata;"
-    " auto.offset.reset=earliest;"
-    " experimental.snapshot.enable=false"
-    "}",
-    "!insert into t (ts, v) values (1234,5)",
-    "!insert into t (ts, v) values (?, ?)",
-    "!insert into ? (ts, v) values (1234,5)",
-    "!insert into t.x (ts, v) values (1234,5)",
-    "!insert into ? using st (ts, v) values (123,4)",
-    "!insert into ? using st with (x,y) tags (4,5) (ts, v) values (123,4)",
-    "!insert into ? using st with (x,y) tags (4,5) (ts, v) values (123, add(4,5))",
-    "!insert into \"t\" (ts, v) values (1234,5)",
-    "!insert into `t` (ts, v) values (1234,5)",
-    "!insert into 't' (ts, v) values (1234,5)",
-    "!insert into \"t\\\"t\" (ts, v) values (1234,5)",
-    "!insert into 't\\'t' (ts, v) values (1234,5)",
-    "!insert into `t\\`t` (ts, v) values (1234,5)",
-    "!insert into t (s, v) values (-1234,5)",
+    OK("!topic demo"),
+    OK("!topic demo {}"),
+    OK("!topic demo {helloworld}"),
+    OK("!topic demo {helloworld=good}"),
+    OK("!topic demo {helloworld=good;helloworld=good}"),
+    OK("!topic demo foo {helloworld=good; helloworld=good}"),
+    OK(
+      "!topic demo {"
+      " enable.auto.commit=true;"
+      " auto.commit.interval.ms=100;"
+      " group.id=cgrpName;"
+      " client.id=user_defined_name;"
+      " td.connect.user=root;"
+      " td.connect.pass=taosdata;"
+      " auto.offset.reset=earliest;"
+      " experimental.snapshot.enable=false"
+      "}"),
+    OK("!insert into t (ts, v) values (1234,5)"),
+    OK("!insert into t (ts, v) values (?, ?)"),
+    OK("!insert into ? (ts, v) values (1234,5)"),
+    OK("!insert into t.x (ts, v) values (1234,5)"),
+    OK("!insert into ? using st (ts, v) values (123,4)"),
+    OK("!insert into ? using st with (x,y) tags (4,5) (ts, v) values (123,4)"),
+    OK("!insert into ? using st with (x,y) tags (4,5) (ts, v) values (123, add(4,5))"),
+    BAD("!insert into \"t\" (ts, v) values (1234,5)"),
+    OK("!insert into `t` (ts, v) values (1234,5)"),
+    BAD("!insert into 't' (ts, v) values (1234,5)"),
+    BAD("!insert into \"t\"\"t\" (ts, v) values (1234,5)"),
+    BAD("!insert into 't''t' (ts, v) values (1234,5)"),
+    OK("!insert into `t``t` (ts, v) values (1234,5)"),
+    OK("!insert into t (s, v) values (-1234,5)"),
+    OK("!insert into t (s, v) values ('h''w', 4)"),
+    OK("!insert into t (s, v) values ('h''w', \"a\"\"b\")"),
   };
-  for (size_t i=0; i<sizeof(text)/sizeof(text[0]); ++i) {
-    const char *s = text[i];
-    int r = ext_parser_parse(s, strlen(s), &param);
-    if (r) {
-      E("parsing:%s", s);
-      E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
-      E("failed:%s", param.ctx.err_msg);
+  const size_t _nr_cases = sizeof(_cases) / sizeof(_cases[0]);
+#undef BAD
+#undef OK
+
+  for (size_t i=0; i<_nr_cases; ++i) {
+    int         line = _cases[i].line;
+    const char *sql  = _cases[i].sql;
+    uint8_t     ok   = _cases[i].ok;
+    int r = ext_parser_parse(sql, strlen(sql), &param);
+    if (!r != !!ok) {
+      E("parsing:@%dL:%s", line, sql);
+      if (r) {
+        E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+        E("failed:%s", param.ctx.err_msg);
+      } else {
+        E("expecting failure, but got ==success==");
+      }
     }
 
     ext_parser_param_release(&param);
-    if (r) return -1;
+    if (!r != !!ok) return -1;
   }
 
   return 0;

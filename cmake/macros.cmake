@@ -111,7 +111,7 @@ macro(check_requirements)
 
   ## check `taosws`
   find_library(TAOSWS NAMES taosws PATHS C:/TDengine/driver)
-  if(${TAOSWS}-NOTFOUND)
+  if(${TAOSWS} STREQUAL TAOSWS-NOTFOUND)
     message(STATUS "${Yellow}"
                    "`libtaosws.so` is not found, you may refer to https://github.com/taosdata/TDengine"
                    "${ColorReset}")

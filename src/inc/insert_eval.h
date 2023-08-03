@@ -30,7 +30,10 @@
 
 EXTERN_C_BEGIN
 
-void insert_eval_release(insert_eval_t *v) FA_HIDDEN;
+void insert_eval_release(insert_eval_t *eval) FA_HIDDEN;
+
+int8_t insert_eval_nr_tags(insert_eval_t *eval) FA_HIDDEN;
+int8_t insert_eval_nr_cols(insert_eval_t *eval) FA_HIDDEN;
 
 EXTERN_C_END
 

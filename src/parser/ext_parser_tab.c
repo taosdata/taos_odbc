@@ -51,3 +51,15 @@ void insert_eval_release(insert_eval_t *eval)
   _var_destroy(eval->col_vals);      eval->col_vals       = NULL;
 }
 
+int8_t insert_eval_nr_tags(insert_eval_t *eval)
+{
+  if (!eval->tag_names) return 0;
+  return eval->tag_names->arr.nr;
+}
+
+int8_t insert_eval_nr_cols(insert_eval_t *eval)
+{
+  if (!eval->col_names) return 0;
+  return eval->col_names->arr.nr;
+}
+

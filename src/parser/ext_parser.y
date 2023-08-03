@@ -146,17 +146,20 @@
         YLOG(LOG_MALS, &_loc, "runtime error:out of memory");                  \
         YYABORT;                                                               \
       }                                                                        \
+      param->insert_eval.tbl_param = 1;                                        \
       param->is_topic  = 0;                                                    \
     } while (0)
 
     #define SET_INSERT_TBL(_tbl, _loc) do {                                    \
       param->insert_eval.table_tbl = _tbl;                                     \
+      param->insert_eval.tbl_param = 0;                                        \
       param->is_topic  = 0;                                                    \
     } while (0)
 
     #define SET_INSERT_DB_TBL(_db, _tbl, _loc) do {                            \
       param->insert_eval.table_db  = _db;                                      \
       param->insert_eval.table_tbl = _tbl;                                     \
+      param->insert_eval.tbl_param = 0;                                        \
       param->is_topic  = 0;                                                    \
     } while (0)
 
@@ -384,6 +387,7 @@
     #define CREATE_EXP_QM(_r, _loc) do {                                       \
       _r = _create_exp_qm(LOG_MALS, &_loc);                                    \
       if (!_r) YYABORT;                                                        \
+      param->insert_eval.nr_params += 1;                                       \
     } while (0)
 
     static inline var_t* _create_exp_id(const char *s, size_t n, LOG_ARGS)

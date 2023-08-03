@@ -510,10 +510,13 @@ struct insert_eval_s {
   var_t             *table_tbl;
   var_t             *super_db;
   var_t             *super_tbl;
-  var_t             *tag_names;
+  var_t             *tag_names;    // NOTE: nr_tags == tag_names ? tag_names->arr.nr : 0
   var_t             *tag_vals;
-  var_t             *col_names;
+  var_t             *col_names;    // NOTE: nr_cols == col_names ? col_names->arr.nr : 0
   var_t             *col_vals;
+
+  int8_t             nr_params;    // NOTE: count of '?'
+  uint8_t            tbl_param:1;  // NOTE: if table_name is '?'
 };
 
 struct ext_parser_param_s {

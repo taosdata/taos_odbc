@@ -28,6 +28,7 @@
 #include "env.h"
 #include "errs.h"
 #include "helpers.h"
+#include "insert_eval.h"
 #include "logger.h"
 #include "conn_parser.h"
 #include "ext_parser.h"
@@ -256,24 +257,29 @@ static int test_conn_parser(void)
 static int test_ext_parser(void)
 {
   ext_parser_param_t param = {0};
-  param.ctx.debug_flex = 1;
-  // param.ctx.debug_bison = 1;
 
-#define OK(x)  {__LINE__, x, 1}
-#define BAD(x) {__LINE__, x, 0}
+#define OK_TOPIC(x)     {__LINE__, x, 0, 0, 0, 0, 1, 1 }
+#define BAD_TOPIC(x)    {__LINE__, x, 0, 0, 0, 0, 0, 1 }
+#define OK_INSERT(...)  {__LINE__, ##__VA_ARGS__, 1, 0 }
+#define BAD_INSERT(...) {__LINE__, ##__VA_ARGS__, 0, 0 }
   static const struct {
     int                     line;
     const char             *sql;
+    uint8_t                 tbl_param;
+    int8_t                  nr_tags;
+    int8_t                  nr_cols;
+    int8_t                  nr_params;
     uint8_t                 ok:1;
+    uint8_t                 is_topic:1;
   } _cases [] = {
     // !topic
-    OK("!topic demo"),
-    OK("!topic demo {}"),
-    OK("!topic demo {helloworld}"),
-    OK("!topic demo {helloworld=good}"),
-    OK("!topic demo {helloworld=good;helloworld=good}"),
-    OK("!topic demo foo {helloworld=good; helloworld=good}"),
-    OK(
+    OK_TOPIC("!topic demo"),
+    OK_TOPIC("!topic demo {}"),
+    OK_TOPIC("!topic demo {helloworld}"),
+    OK_TOPIC("!topic demo {helloworld=good}"),
+    OK_TOPIC("!topic demo {helloworld=good;helloworld=good}"),
+    OK_TOPIC("!topic demo foo {helloworld=good; helloworld=good}"),
+    OK_TOPIC(
       "!topic demo {"
       " enable.auto.commit=true;"
       " auto.commit.interval.ms=100;"
@@ -284,31 +290,35 @@ static int test_ext_parser(void)
       " auto.offset.reset=earliest;"
       " experimental.snapshot.enable=false"
       "}"),
-    OK("!insert into t (ts, v) values (1234,5)"),
-    OK("!insert into t (ts, v) values (?, ?)"),
-    OK("!insert into ? (ts, v) values (1234,5)"),
-    OK("!insert into t.x (ts, v) values (1234,5)"),
-    OK("!insert into ? using st (ts, v) values (123,4)"),
-    OK("!insert into ? using st with (x,y) tags (4,5) (ts, v) values (123,4)"),
-    OK("!insert into ? using st with (x,y) tags (4,5) (ts, v) values (123, add(4,5))"),
-    BAD("!insert into \"t\" (ts, v) values (1234,5)"),
-    OK("!insert into `t` (ts, v) values (1234,5)"),
-    BAD("!insert into 't' (ts, v) values (1234,5)"),
-    BAD("!insert into \"t\"\"t\" (ts, v) values (1234,5)"),
-    BAD("!insert into 't''t' (ts, v) values (1234,5)"),
-    OK("!insert into `t``t` (ts, v) values (1234,5)"),
-    OK("!insert into t (s, v) values (-1234,5)"),
-    OK("!insert into t (s, v) values ('h''w', 4)"),
-    OK("!insert into t (s, v) values ('h''w', \"a\"\"b\")"),
+    OK_INSERT("!insert into t (ts, v) values (1234,5)", 0, 0, 2, 0),
+    OK_INSERT("!insert into t (ts, v) values (?, ?)", 0, 0, 2, 2),
+    OK_INSERT("!insert into ? (ts, v) values (1234,5)", 1, 0, 2, 0),
+    OK_INSERT("!insert into t.x (ts, v) values (1234,5)", 0, 0, 2, 0),
+    OK_INSERT("!insert into ? using st (ts, v) values (123,4)", 1, 0, 2, 0),
+    OK_INSERT("!insert into ? using st with (x,y) tags (4,5) (ts, v) values (123,4)", 1, 2, 2, 0),
+    OK_INSERT("!insert into ? using st with (x,y) tags (4,5) (ts, v) values (123, add(4,5))", 1, 2, 2, 0),
+    BAD_INSERT("!insert into \"t\" (ts, v) values (1234,5)", 0, 0, 2, 0),
+    OK_INSERT("!insert into `t` (ts, v) values (1234,5)", 0, 0, 2, 0),
+    BAD_INSERT("!insert into 't' (ts, v) values (1234,5)", 0, 0, 2, 0),
+    BAD_INSERT("!insert into \"t\"\"t\" (ts, v) values (1234,5)", 0, 0, 2, 0),
+    BAD_INSERT("!insert into 't''t' (ts, v) values (1234,5)", 0, 0, 2, 0),
+    OK_INSERT("!insert into `t``t` (ts, v) values (1234,5)", 0, 0, 2, 0),
+    OK_INSERT("!insert into t (s, v) values (-1234,5)", 0, 0, 2, 0),
+    OK_INSERT("!insert into t (s, v) values ('h''w', 4)", 0, 0, 2, 0),
+    OK_INSERT("!insert into t (s, v) values ('h''w', \"a\"\"b\")", 0, 0, 2, 0),
   };
   const size_t _nr_cases = sizeof(_cases) / sizeof(_cases[0]);
 #undef BAD
 #undef OK
 
   for (size_t i=0; i<_nr_cases; ++i) {
-    int         line = _cases[i].line;
-    const char *sql  = _cases[i].sql;
-    uint8_t     ok   = _cases[i].ok;
+    int         line            = _cases[i].line;
+    const char *sql             = _cases[i].sql;
+    uint8_t     ok              = _cases[i].ok;
+    uint8_t     is_topic        = _cases[i].is_topic;
+    memset(&param, 0, sizeof(param));
+    param.ctx.debug_flex = 1;
+    // param.ctx.debug_bison = 1;
     int r = ext_parser_parse(sql, strlen(sql), &param);
     if (!r != !!ok) {
       E("parsing:@%dL:%s", line, sql);
@@ -317,6 +327,39 @@ static int test_ext_parser(void)
         E("failed:%s", param.ctx.err_msg);
       } else {
         E("expecting failure, but got ==success==");
+      }
+    } else if (r == 0) {
+      A(is_topic == param.is_topic, "internal logic error");
+      if (is_topic == 0) {
+        insert_eval_t *insert_eval = &param.insert_eval;
+        uint8_t     exp_tbl_param       = !!_cases[i].tbl_param;
+        int8_t      exp_nr_tags         = _cases[i].nr_tags;
+        int8_t      exp_nr_cols         = _cases[i].nr_cols;
+        int8_t      exp_nr_params       = _cases[i].nr_params;
+        uint8_t     tbl_param       = !!insert_eval->tbl_param;
+        int8_t      nr_tags         = insert_eval_nr_tags(insert_eval);
+        int8_t      nr_cols         = insert_eval_nr_cols(insert_eval);
+        int8_t      nr_params       = insert_eval->nr_params;
+        if (r == 0 && !!exp_tbl_param != !!tbl_param) {
+          E("parsing:@%dL:%s", line, sql);
+          E("expecting tbl '?', but got ==NONE==");
+          r = -1;
+        }
+        if (r == 0 && exp_nr_tags != nr_tags) {
+          E("parsing:@%dL:%s", line, sql);
+          E("expecting %d tags, but got ==%d==", exp_nr_tags, nr_tags);
+          r = -1;
+        }
+        if (r == 0 && exp_nr_cols != nr_cols) {
+          E("parsing:@%dL:%s", line, sql);
+          E("expecting %d cols, but got ==%d==", exp_nr_cols, nr_cols);
+          r = -1;
+        }
+        if (r == 0 && exp_nr_params != nr_params) {
+          E("parsing:@%dL:%s", line, sql);
+          E("expecting %d params, but got ==%d==", exp_nr_params, nr_params);
+          r = -1;
+        }
       }
     }
 

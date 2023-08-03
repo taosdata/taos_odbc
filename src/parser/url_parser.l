@@ -42,10 +42,13 @@
     yy_pop_state(yyscanner);                  \
 } while (0)
 
-#define R() do {                                  \
-    yylloc->first_column = yylloc->last_column ;  \
-    yylloc->first_line   = yylloc->last_line;     \
-    yyextra->token_start = yyextra->token_end;    \
+#define R() do {                                               \
+    yylloc->first_column = yylloc->last_column ;               \
+    yylloc->first_line   = yylloc->last_line;                  \
+    yyextra->token_start = yyextra->token_end;                 \
+    parser_ctx_t *ctx = (parser_ctx_t*)yyget_extra(yyscanner); \
+    ctx->prev  = ctx->pres;                                    \
+    ctx->pres += yyleng;                                       \
 } while (0)
 
 #define L() do {                                  \

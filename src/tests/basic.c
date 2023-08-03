@@ -687,8 +687,8 @@ static int test_url_parser(void)
 #define RECORD(x,y) {__LINE__, x, y}
   struct {
     int             line;
-    const char     *ok_or_failure;
     const char     *url;
+    const char     *ok_or_failure;
   } _cases[] = {
     RECORD("http://example.com/h/g?fasd?fsd=fsd#fasd", "http://example.com/h/g?fasd?fsd=fsd#fasd"),
     RECORD("foo://example.com:8042/over/there?name=ferret#nose", "foo://example.com:8042/over/there?name=ferret#nose"),
@@ -702,8 +702,8 @@ static int test_url_parser(void)
     RECORD("http://www.com/?", "http://www.com/?"),
     RECORD("http://www.com#", "http://www.com#"),
     RECORD("http://www.com?", "http://www.com?"),
-    RECORD("(1,20)->(1,21)", "http://example.com/根"),
-    RECORD("(1,1)->(1,5)", "file:///fasd"),
+    RECORD("http://example.com/根", "(1,20)->(1,21)"),
+    RECORD("file:///fasd", "(1,1)->(1,5)"),
     RECORD("foo:/abc:def", "foo:/abc:def"),
     RECORD("http://hello%20world.com", "http://hello%20world.com"),
   };

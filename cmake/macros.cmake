@@ -93,7 +93,7 @@ macro(check_requirements)
   ## check `taos`
   find_library(TAOS NAMES taos PATHS C:/TDengine/driver)
   if(${TAOS} STREQUAL TAOS-NOTFOUND)
-    message(FATAL_ERROR "${Red}`libtaos.so` is required but not found, you may refer to https://github.com/taosdata/TDengine${ColorReset}")
+    message(FATAL_ERROR "${Red}`libtaos.so/libtaos.dylib/taos.dll/taos.lib` is required but not found, you may refer to https://github.com/taosdata/TDengine${ColorReset}")
   endif()
 
   set(CMAKE_REQUIRED_LIBRARIES taos)
@@ -113,7 +113,7 @@ macro(check_requirements)
   find_library(TAOSWS NAMES taosws PATHS C:/TDengine/driver)
   if(${TAOSWS} STREQUAL TAOSWS-NOTFOUND)
     message(STATUS "${Yellow}"
-                   "`libtaosws.so` is not found, you may refer to https://github.com/taosdata/TDengine"
+                   "`libtaosws.so/libtaosws.dylib/taosws.dll/taosws.lib` is not found, you may refer to https://github.com/taosdata/TDengine"
                    "${ColorReset}")
   else()
     set(CMAKE_REQUIRED_LIBRARIES taosws)

@@ -488,6 +488,11 @@ struct parser_ctx_s {
   size_t                 token_start;
   size_t                 token_end;
 
+  const char            *input; // NOTE: no owner ship
+  size_t                 len;
+  size_t                 prev;
+  size_t                 pres;
+
   unsigned int           debug_flex:1;
   unsigned int           debug_bison:1;
   unsigned int           oom:1;

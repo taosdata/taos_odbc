@@ -246,7 +246,9 @@ static void _yyerror_impl(
   param->ctx.row1 = yylloc->last_line;
   param->ctx.col1 = yylloc->last_column;
   param->ctx.err_msg[0] = '\0';
-  snprintf(param->ctx.err_msg, sizeof(param->ctx.err_msg), "%s", errmsg);
+  snprintf(param->ctx.err_msg, sizeof(param->ctx.err_msg), "near `%.*s`:%s",
+      (int)(param->ctx.pres + 10 - param->ctx.prev), param->ctx.input + param->ctx.prev,
+      errmsg);
 }
 
 /* Called by yyparse on error. */
@@ -269,7 +271,11 @@ int sqls_parser_parse(const char *input, size_t len, sqls_parser_param_t *param)
   int debug_bison = param ? param->ctx.debug_bison: 0;
   yyset_debug(debug_flex, arg);
   yydebug = debug_bison;
-  // yyset_extra(param, arg);
+  yyset_extra(&param->ctx, arg);
+  param->ctx.input = input;
+  param->ctx.len   = len;
+  param->ctx.prev  = 0;
+  param->ctx.pres  = 0;
   yy_scan_bytes(input ? input : "", input ? (int)len : 0, arg);
   int ret =yyparse(arg, param);
   yylex_destroy(arg);

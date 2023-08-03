@@ -38,3 +38,16 @@
 #undef yylval
 #include "ext_parser.tab.c"
 
+void insert_eval_release(insert_eval_t *eval)
+{
+  if (!eval) return;
+  _var_destroy(eval->table_db);      eval->table_db       = NULL;
+  _var_destroy(eval->table_tbl);     eval->table_tbl      = NULL;
+  _var_destroy(eval->super_db);      eval->super_db       = NULL;
+  _var_destroy(eval->super_tbl);     eval->super_tbl      = NULL;
+  _var_destroy(eval->tag_names);     eval->tag_names      = NULL;
+  _var_destroy(eval->tag_vals);      eval->tag_vals       = NULL;
+  _var_destroy(eval->col_names);     eval->col_names      = NULL;
+  _var_destroy(eval->col_vals);      eval->col_vals       = NULL;
+}
+

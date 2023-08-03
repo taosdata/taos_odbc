@@ -59,7 +59,7 @@
     );
 
     #define LOG_ARGS const char *file, int line, const char *func, yyscan_t arg, ext_parser_param_t *param, YYLTYPE *yylloc
-    #define LOG_VALS file, line, func, arg, param, yylloc
+    #define LOG_VALS file, line, func, arg, param
     #define LOG_MALS __FILE__, __LINE__, __func__, arg, param
     #define LOG_FLF __FILE__, __LINE__, __func__
 
@@ -71,8 +71,8 @@
         ...) __attribute__ ((format (printf, 7, 8)));
 
     #ifdef _WIN32               /* { */
-    #define YLOG(file, line, func, arg, param, yylloc, fmt, ...) \
-      (0 ? fprintf(stderr, fmt, ##__VA_ARGS__) : _ylogv(file, line, func, arg, param, yylloc, fmt, ##__VA_ARGS__))
+    #define YLOG(args, yylloc, fmt, ...) \
+      (0 ? fprintf(stderr, fmt, ##__VA_ARGS__) : _ylogv(args, yylloc, fmt, ##__VA_ARGS__))
     #else                       /* }{ */
     #define YLOG _ylogv
     #endif                      /* } */
@@ -111,19 +111,6 @@
       TOD_SAFE_FREE(v);
     }
 
-    void insert_eval_release(insert_eval_t *eval)
-    {
-      if (!eval) return;
-      _var_destroy(eval->table_db);      eval->table_db       = NULL;
-      _var_destroy(eval->table_tbl);     eval->table_tbl      = NULL;
-      _var_destroy(eval->super_db);      eval->super_db       = NULL;
-      _var_destroy(eval->super_tbl);     eval->super_tbl      = NULL;
-      _var_destroy(eval->tag_names);     eval->tag_names      = NULL;
-      _var_destroy(eval->tag_vals);      eval->tag_vals       = NULL;
-      _var_destroy(eval->col_names);     eval->col_names      = NULL;
-      _var_destroy(eval->col_vals);      eval->col_vals       = NULL;
-    }
-
     void ext_parser_param_release(ext_parser_param_t *param)
     {
       if (!param) return;
@@ -140,13 +127,13 @@
         v->type = type;
         return v;
       }
-      YLOG(LOG_VALS, "runtime error:out of memory");
+      YLOG(LOG_VALS, yylloc, "runtime error:out of memory");
       return NULL;
     }
 
     static inline int _insert_eval_set_table_qm(insert_eval_t *insert_eval, LOG_ARGS)
     {
-      var_t *v = _create_var(VAR_PARAM, LOG_VALS);
+      var_t *v = _create_var(VAR_PARAM, LOG_VALS, yylloc);
       if (!v) return -1;
       insert_eval->table_tbl = v;
       return 0;
@@ -175,11 +162,11 @@
 
     static inline var_t* _create_id(const char *s, size_t n, LOG_ARGS)
     {
-      var_t *v = _create_var(VAR_ID, LOG_VALS);
+      var_t *v = _create_var(VAR_ID, LOG_VALS, yylloc);
       if (!v) return NULL;
       int r = str_append(&v->str, s, n);
       if (r) {
-        YLOG(LOG_VALS, "runtime error:out of memory");
+        YLOG(LOG_VALS, yylloc, "runtime error:out of memory");
         return NULL;
       }
       return v;
@@ -230,7 +217,7 @@
         size_t cap = (arr->arr.nr + 1 + 15) / 16 * 16;
         var_t **p = (var_t**)realloc(arr->arr.vals, cap * sizeof(*p));
         if (!p) {
-          YLOG(LOG_VALS, "runtime error:out of memory");
+          YLOG(LOG_VALS, yylloc, "runtime error:out of memory");
           return -1;
         }
         arr->arr.vals      = p;
@@ -243,25 +230,25 @@
 
     static inline int _ids_append(var_t *ids, const char *s, size_t n, LOG_ARGS)
     {
-      var_t *id = _create_var(VAR_ID, LOG_VALS);
+      var_t *id = _create_var(VAR_ID, LOG_VALS, yylloc);
       if (!id) return -1;
       int r = str_append(&id->str, s, n);
-      if (r == 0) r = _arr_append_v(ids, id, LOG_VALS);
+      if (r == 0) r = _arr_append_v(ids, id, LOG_VALS, yylloc);
       if (r == 0) return 0;
-      YLOG(LOG_VALS, "runtime error:out of memory");
+      YLOG(LOG_VALS, yylloc, "runtime error:out of memory");
       _var_destroy(id);
       return -1;
     }
 
     static inline var_t* _create_ids(const char *s, size_t n, LOG_ARGS)
     {
-      var_t *ids = _create_var(VAR_ARR, LOG_VALS);
+      var_t *ids = _create_var(VAR_ARR, LOG_VALS, yylloc);
       if (!ids) return NULL;
 
-      int r = _ids_append(ids, s, n, LOG_VALS);
+      int r = _ids_append(ids, s, n, LOG_VALS, yylloc);
       if (r == 0) return ids;
 
-      YLOG(LOG_VALS, "runtime error:out of memory");
+      YLOG(LOG_VALS, yylloc, "runtime error:out of memory");
       _var_destroy(ids);
       return NULL;
     }
@@ -282,13 +269,13 @@
 
     static inline var_t* _create_exps(var_t *exp, LOG_ARGS)
     {
-      var_t *exps = _create_var(VAR_ARR, LOG_VALS);
+      var_t *exps = _create_var(VAR_ARR, LOG_VALS, yylloc);
       if (!exps) return NULL;
 
-      int r = _arr_append_v(exps, exp, LOG_VALS);
+      int r = _arr_append_v(exps, exp, LOG_VALS, yylloc);
       if (r == 0) return exps;
 
-      YLOG(LOG_VALS, "runtime error:out of memory");
+      YLOG(LOG_VALS, yylloc, "runtime error:out of memory");
       _var_destroy(exps);
       return NULL;
     }
@@ -314,20 +301,20 @@
 
     static inline var_t* _create_exp(var_eval_f eval, var_t *e1, var_t *e2, LOG_ARGS)
     {
-      var_t *exp = _create_var(VAR_EVAL, LOG_VALS);
+      var_t *exp = _create_var(VAR_EVAL, LOG_VALS, yylloc);
       if (!exp) {
-        YLOG(LOG_VALS, "runtime error:out of memory");
+        YLOG(LOG_VALS, yylloc, "runtime error:out of memory");
         return NULL;
       }
       exp->exp.eval = eval;
       int r = 0;
-      exp->exp.args = _create_var(VAR_ARR, LOG_VALS);
+      exp->exp.args = _create_var(VAR_ARR, LOG_VALS, yylloc);
       if (!exp->exp.args) {
-        YLOG(LOG_VALS, "runtime error:out of memory");
+        YLOG(LOG_VALS, yylloc, "runtime error:out of memory");
         r = -1;
       }
-      if (r == 0) r = _arr_append_v(exp->exp.args, e1, LOG_VALS);
-      if (r == 0) r = _arr_append_v(exp->exp.args, e2, LOG_VALS);
+      if (r == 0) r = _arr_append_v(exp->exp.args, e1, LOG_VALS, yylloc);
+      if (r == 0) r = _arr_append_v(exp->exp.args, e2, LOG_VALS, yylloc);
       if (r == 0) return exp;
       _var_destroy(exp);
       return NULL;
@@ -345,19 +332,19 @@
 
     static inline var_t* _create_exp_neg(var_eval_f eval, var_t *e, LOG_ARGS)
     {
-      var_t *exp = _create_var(VAR_EVAL, LOG_VALS);
+      var_t *exp = _create_var(VAR_EVAL, LOG_VALS, yylloc);
       if (!exp) {
-        YLOG(LOG_VALS, "runtime error:out of memory");
+        YLOG(LOG_VALS, yylloc, "runtime error:out of memory");
         return NULL;
       }
       exp->exp.eval = eval;
       int r = 0;
-      exp->exp.args = _create_var(VAR_ARR, LOG_VALS);
+      exp->exp.args = _create_var(VAR_ARR, LOG_VALS, yylloc);
       if (!exp->exp.args) {
-        YLOG(LOG_VALS, "runtime error:out of memory");
+        YLOG(LOG_VALS, yylloc, "runtime error:out of memory");
         r = -1;
       }
-      if (r == 0) r = _arr_append_v(exp->exp.args, e, LOG_VALS);
+      if (r == 0) r = _arr_append_v(exp->exp.args, e, LOG_VALS, yylloc);
       if (r == 0) return exp;
       _var_destroy(exp);
       return NULL;
@@ -373,7 +360,7 @@
 
     static inline var_t* _create_exp_by_name(var_eval_f eval, var_t *args, LOG_ARGS)
     {
-      var_t *exp = _create_var(VAR_EVAL, LOG_VALS);
+      var_t *exp = _create_var(VAR_EVAL, LOG_VALS, yylloc);
       if (!exp) return NULL;
       exp->exp.eval = eval;
       exp->exp.args = args;
@@ -390,7 +377,7 @@
 
     static inline var_t* _create_exp_qm(LOG_ARGS)
     {
-      var_t *exp = _create_var(VAR_PARAM, LOG_VALS);
+      var_t *exp = _create_var(VAR_PARAM, LOG_VALS, yylloc);
       if (!exp) return NULL;
       return exp;
     }
@@ -402,11 +389,11 @@
 
     static inline var_t* _create_exp_id(const char *s, size_t n, LOG_ARGS)
     {
-      var_t *exp = _create_var(VAR_ID, LOG_VALS);
+      var_t *exp = _create_var(VAR_ID, LOG_VALS, yylloc);
       if (!exp) return NULL;
       int r = str_append(&exp->str, s, n);
       if (r == 0) return exp;
-      YLOG(LOG_VALS, "runtime error:out of memory");
+      YLOG(LOG_VALS, yylloc, "runtime error:out of memory");
       _var_destroy(exp);
       return NULL;
     }
@@ -422,7 +409,7 @@
       char buf[1024]; buf[0] = '\0';
       int r = snprintf(buf, sizeof(buf), "%.*s", (int)n, s);
       if (r < 0 || (size_t)r >= sizeof(buf)) {
-        YLOG(LOG_VALS, "runtime error:buffer too small or internal logic error");
+        YLOG(LOG_VALS, yylloc, "runtime error:buffer too small or internal logic error");
         return -1;
       }
 
@@ -430,7 +417,7 @@
       long long ll = strtoll(buf, &end, 0);
       int e = errno;
       if (*end) {
-        YLOG(LOG_VALS, "runtime error:conversion failure");
+        YLOG(LOG_VALS, yylloc, "runtime error:conversion failure");
         return -1;
       }
       if (e == ERANGE) {
@@ -438,7 +425,7 @@
         unsigned long long ull = strtoull(buf, &end, 0);
         e = errno;
         if (*end || e == ERANGE) {
-          YLOG(LOG_VALS, "runtime error:conversion failure");
+          YLOG(LOG_VALS, yylloc, "runtime error:conversion failure");
           return -1;
         }
         var_release(exp);
@@ -454,12 +441,12 @@
 
     static inline var_t* _create_exp_integral(const char *s, size_t n, LOG_ARGS)
     {
-      var_t *exp = _create_var(VAR_NULL, LOG_VALS);
+      var_t *exp = _create_var(VAR_NULL, LOG_VALS, yylloc);
       if (!exp) {
-        YLOG(LOG_VALS, "runtime error:out of memory");
+        YLOG(LOG_VALS, yylloc, "runtime error:out of memory");
         return NULL;
       }
-      int r = _var_set_integral(exp, s, n, LOG_VALS);
+      int r = _var_set_integral(exp, s, n, LOG_VALS, yylloc);
       if (r == 0) return exp;
       _var_destroy(exp);
       return NULL;
@@ -476,7 +463,7 @@
       char buf[1024]; buf[0] = '\0';
       int r = snprintf(buf, sizeof(buf), "%.*s", (int)n, s);
       if (r < 0 || (size_t)r >= sizeof(buf)) {
-        YLOG(LOG_VALS, "runtime error:buffer too small or internal logic error");
+        YLOG(LOG_VALS, yylloc, "runtime error:buffer too small or internal logic error");
         return -1;
       }
 
@@ -484,7 +471,7 @@
       int    end = 0;
       r = sscanf(buf, "%lg%n", &dbl, &end);
       if (r != 1 || (size_t)end != n) {
-        YLOG(LOG_VALS, "runtime error:conversion failure");
+        YLOG(LOG_VALS, yylloc, "runtime error:conversion failure");
         return -1;
       }
       var_release(exp);
@@ -495,14 +482,14 @@
 
     static inline var_t* _create_exp_number(const char *s, size_t n, LOG_ARGS)
     {
-      var_t *exp = _create_var(VAR_NULL, LOG_VALS);
+      var_t *exp = _create_var(VAR_NULL, LOG_VALS, yylloc);
       if (!exp) {
-        YLOG(LOG_VALS, "runtime error:out of memory");
+        YLOG(LOG_VALS, yylloc, "runtime error:out of memory");
         return NULL;
       }
-      int r = _var_set_number(exp, s, n, LOG_VALS);
+      int r = _var_set_number(exp, s, n, LOG_VALS, yylloc);
       if (r == 0) return exp;
-      YLOG(LOG_VALS, "runtime error:out of memory");
+      YLOG(LOG_VALS, yylloc, "runtime error:out of memory");
       _var_destroy(exp);
       return NULL;
     }
@@ -517,7 +504,7 @@
 
     static inline var_t* _strs_flat(var_t *ss, LOG_ARGS)
     {
-      var_t *v = _create_var(VAR_STRING, LOG_VALS);
+      var_t *v = _create_var(VAR_STRING, LOG_VALS, yylloc);
       if (!v) return NULL;
       size_t n = 0;
       for (size_t i=0; i<ss->arr.nr; ++i) {
@@ -539,7 +526,7 @@
       var_release(v);
       TOD_SAFE_FREE(v);
 
-      YLOG(LOG_VALS, "runtime error:out of memory");
+      YLOG(LOG_VALS, yylloc, "runtime error:out of memory");
       return NULL;
     }
 
@@ -556,7 +543,7 @@
         size_t cap = (ss->arr.nr + 1 + 15) / 16 * 16;
         var_t **p = (var_t**)realloc(ss->arr.vals, cap * sizeof(*p));
         if (!p) {
-          YLOG(LOG_VALS, "runtime error:out of memory");
+          YLOG(LOG_VALS, yylloc, "runtime error:out of memory");
           return -1;
         }
         ss->arr.vals    = p;
@@ -596,11 +583,11 @@
 
     static inline var_t* _create_str(const char *s, size_t n, LOG_ARGS)
     {
-      var_t *v = _create_var(VAR_STRING, LOG_VALS);
+      var_t *v = _create_var(VAR_STRING, LOG_VALS, yylloc);
       if (!v) return NULL;
       int r = str_append(&v->str, s, n);
       if (r) {
-        YLOG(LOG_VALS, "runtime error:out of memory");
+        YLOG(LOG_VALS, yylloc, "runtime error:out of memory");
         return NULL;
       }
       return v;

@@ -799,10 +799,10 @@ static void _yyerror_impl(
   (void)errmsg;
 
   char bn[512]; bn[0] = '\0';
-  tod_basename(file, bn, sizeof(bn));
+  const char *fn = tod_basename(file, bn, sizeof(bn));
   if (!param) {
     fprintf(stderr, "%s[%d]:%s():(%d,%d)->(%d,%d):%s\n",
-        bn, line, func,
+        fn, line, func,
         yylloc->first_line, yylloc->first_column,
         yylloc->last_line, yylloc->last_column,
         errmsg);
@@ -816,7 +816,7 @@ static void _yyerror_impl(
   param->ctx.col1 = yylloc->last_column;
   param->ctx.err_msg[0] = '\0';
   snprintf(param->ctx.err_msg, sizeof(param->ctx.err_msg), "%s[%d]:%s():near `%.*s`:%s",
-      bn, line, func,
+      fn, line, func,
       (int)(param->ctx.pres + 10 - param->ctx.prev), param->ctx.input + param->ctx.prev,
       errmsg);
 }

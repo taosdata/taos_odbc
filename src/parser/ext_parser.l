@@ -164,31 +164,31 @@ DIGITS        [[:digit:]]+
 }
 
 <QSTR>{
-["]           { R(); POP(); return *yytext; }
-"\\"          { R(); PUSH(ESC); return *yytext; }
-[^"\\\r\n]+   { R(); SET_STR(); C(); return MKT(QSTR); }
+["]           { R(); POP(); C(); return *yytext; }
+["]/["]       { R(); PUSH(ESC); C(); return *yytext; }
+[^"\r\n]+     { R(); SET_STR(); C(); return MKT(QSTR); }
 {LN}          { R(); L(); } /* eat */
 .             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <SSTR>{
-[']           { R(); POP(); return *yytext; }
-"\\"          { R(); PUSH(ESC); return *yytext; }
-[^'\\\r\n]+   { R(); SET_STR(); C(); return MKT(SSTR); }
+[']           { R(); POP(); C(); return *yytext; }
+[']/[']       { R(); PUSH(ESC); C(); return *yytext; }
+[^'\r\n]+     { R(); SET_STR(); C(); return MKT(SSTR); }
 {LN}          { R(); L(); } /* eat */
 .             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <TSTR>{
-[`]           { R(); POP(); return *yytext; }
-"\\"          { R(); PUSH(ESC); return *yytext; }
+[`]           { R(); POP(); C(); return *yytext; }
+[`]/[`]       { R(); PUSH(ESC); C(); return *yytext; }
 [^`\\\r\n]+   { R(); SET_STR(); C(); return MKT(TSTR); }
 {LN}          { R(); L(); } /* eat */
 .             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <ESC>{
-{LN}          { R(); L(); } /* let bison to handle */
+{LN}          { R(); L(); return *yytext; } /* let bison to handle */
 .             { R(); POP(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 

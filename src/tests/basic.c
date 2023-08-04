@@ -256,8 +256,6 @@ static int test_conn_parser(void)
 
 static int test_ext_parser(void)
 {
-  ext_parser_param_t param = {0};
-
 #define OK_TOPIC(x)     {__LINE__, x, 0, 0, 0, 0, 1, 1 }
 #define BAD_TOPIC(x)    {__LINE__, x, 0, 0, 0, 0, 0, 1 }
 #define OK_INSERT(...)  {__LINE__, ##__VA_ARGS__, 1, 0 }
@@ -308,15 +306,17 @@ static int test_ext_parser(void)
     OK_INSERT("!insert into t (s, v) values ('h''w', \"a\"\"b\")", 0, 0, 2, 0),
   };
   const size_t _nr_cases = sizeof(_cases) / sizeof(_cases[0]);
-#undef BAD
-#undef OK
+#undef BAD_INSERT
+#undef OK_INSERT
+#undef BAD_TOPIC
+#undef OK_TOPIC
 
   for (size_t i=0; i<_nr_cases; ++i) {
     int         line            = _cases[i].line;
     const char *sql             = _cases[i].sql;
     uint8_t     ok              = _cases[i].ok;
     uint8_t     is_topic        = _cases[i].is_topic;
-    memset(&param, 0, sizeof(param));
+    ext_parser_param_t param = {0};
     param.ctx.debug_flex = 1;
     // param.ctx.debug_bison = 1;
     int r = ext_parser_parse(sql, strlen(sql), &param);

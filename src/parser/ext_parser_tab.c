@@ -54,12 +54,16 @@ void insert_eval_release(insert_eval_t *eval)
 int8_t insert_eval_nr_tags(insert_eval_t *eval)
 {
   if (!eval->tag_names) return 0;
-  return eval->tag_names->arr.nr;
+  size_t nr = eval->tag_names->arr.nr;
+  OA_ILE(nr <= INT8_MAX);
+  return (int8_t)nr;
 }
 
 int8_t insert_eval_nr_cols(insert_eval_t *eval)
 {
   if (!eval->col_names) return 0;
-  return eval->col_names->arr.nr;
+  size_t nr = eval->col_names->arr.nr;
+  OA_ILE(nr <= INT8_MAX);
+  return (int8_t)nr;
 }
 

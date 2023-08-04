@@ -100,7 +100,7 @@ void var_release(var_t *v)
       break;
     case VAR_ID:
     case VAR_STRING:
-      str_release(&v->str);
+      str_release(&v->str.s);
       break;
     case VAR_PARAM:
     case VAR_ARR:

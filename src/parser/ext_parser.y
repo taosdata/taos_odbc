@@ -167,7 +167,7 @@
     {
       var_t *v = _create_var(VAR_ID, LOG_VALS, yylloc);
       if (!v) return NULL;
-      int r = str_append(&v->str, s, n);
+      int r = str_append(&v->str.s, s, n);
       if (r) {
         YLOG(LOG_VALS, yylloc, "runtime error:out of memory");
         return NULL;
@@ -394,7 +394,7 @@
     {
       var_t *exp = _create_var(VAR_ID, LOG_VALS, yylloc);
       if (!exp) return NULL;
-      int r = str_append(&exp->str, s, n);
+      int r = str_append(&exp->str.s, s, n);
       if (r == 0) return exp;
       YLOG(LOG_VALS, yylloc, "runtime error:out of memory");
       _var_destroy(exp);
@@ -505,21 +505,22 @@
       }                                                                        \
     } while (0)
 
-    static inline var_t* _strs_flat(var_t *ss, LOG_ARGS)
+    static inline var_t* _strs_flat(var_t *ss, var_quote_e qt, LOG_ARGS)
     {
       var_t *v = _create_var(VAR_STRING, LOG_VALS, yylloc);
       if (!v) return NULL;
+      v->str.q = qt;
       size_t n = 0;
       for (size_t i=0; i<ss->arr.nr; ++i) {
-        str_t *str = &ss->arr.vals[i]->str;
+        str_t *str = &ss->arr.vals[i]->str.s;
         n += str->nr;
       }
-      int r = str_keep(&v->str, n + 1);
+      int r = str_keep(&v->str.s, n + 1);
 
       if (r == 0) {
         for (size_t i=0; i<ss->arr.nr; ++i) {
-          str_t *str = &ss->arr.vals[i]->str;
-          r = str_append(&v->str, str->str, str->nr);
+          str_t *str = &ss->arr.vals[i]->str.s;
+          r = str_append(&v->str.s, str->str, str->nr);
           if (r) break;
         }
       }
@@ -533,8 +534,8 @@
       return NULL;
     }
 
-    #define STRS_FLAT(_r, _ss, _loc) do {                                      \
-      _r = _strs_flat(_ss, LOG_MALS, &_loc);                                   \
+    #define STRS_FLAT(_r, _ss, _qt, _loc) do {                                 \
+      _r = _strs_flat(_ss, _qt, LOG_MALS, &_loc);                              \
       var_release(_ss);                                                        \
       TOD_SAFE_FREE(_ss);                                                      \
       if (!_r) YYABORT;                                                        \
@@ -588,7 +589,7 @@
     {
       var_t *v = _create_var(VAR_STRING, LOG_VALS, yylloc);
       if (!v) return NULL;
-      int r = str_append(&v->str, s, n);
+      int r = str_append(&v->str.s, s, n);
       if (r) {
         YLOG(LOG_VALS, yylloc, "runtime error:out of memory");
         return NULL;
@@ -672,7 +673,7 @@ table_name:
 
 id:
   ID                            { CREATE_ID($$, $1, @$); }
-| '`' tstrs '`'                 { STRS_FLAT($$, $2, @$); }
+| '`' tstrs '`'                 { STRS_FLAT($$, $2, QUOTE_BQ, @$); }
 ;
 
 using_clause:
@@ -721,8 +722,8 @@ term:
 | ID                               { CREATE_EXP_ID($$, $1, @$); }
 | INTEGRAL                         { CREATE_EXP_INTEGRAL($$, $1, @$); }
 | NUMBER                           { CREATE_EXP_NUMBER($$, $1, @$); }
-| '"' qstrs '"'                    { STRS_FLAT($$, $2, @$); }
-| '\'' sstrs '\''                  { STRS_FLAT($$, $2, @$); }
+| '"' qstrs '"'                    { STRS_FLAT($$, $2, QUOTE_DQ, @$); }
+| '\'' sstrs '\''                  { STRS_FLAT($$, $2, QUOTE_SQ, @$); }
 ;
 
 qstrs:

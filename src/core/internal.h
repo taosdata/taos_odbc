@@ -143,6 +143,12 @@ enum var_e {
 
 typedef var_t* (*var_eval_f)(var_t *args);
 
+enum var_quote_e {
+  QUOTE_DQ,   // double quote, quotation mark
+  QUOTE_SQ,   // single quote, apostrophe
+  QUOTE_BQ,   // back quote, back tick
+};
+
 struct var_s {
   var_e                 type;
   union {
@@ -163,7 +169,10 @@ struct var_s {
       double            v;
       str_t             s;
     } dbl;
-    str_t               str;
+    struct {
+      str_t             s;
+      var_quote_e       q;
+    } str;
     struct {
       var_t           **vals;
       size_t            cap;

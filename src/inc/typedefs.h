@@ -118,6 +118,7 @@ typedef struct url_s                    url_t;
 typedef struct url_parser_param_s       url_parser_param_t;
 
 typedef enum   var_e                    var_e;
+typedef enum   var_quote_e              var_quote_e;
 typedef struct var_s                    var_t;
 
 #endif // _typedefs_h_

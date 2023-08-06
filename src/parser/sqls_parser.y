@@ -44,12 +44,6 @@
 %code {
     // generated header from flex
     // introduce yylex decl for later use
-    static void _yyerror_impl(
-        YYLTYPE *yylloc,                   // match %define locations
-        yyscan_t arg,                      // match %param
-        sqls_parser_param_t *param,        // match %parse-param
-        const char *errmsg
-    );
     static void yyerror(
         YYLTYPE *yylloc,                   // match %define locations
         yyscan_t arg,                      // match %param
@@ -90,6 +84,7 @@
 %define api.pure full
 %define api.token.prefix {TOK_}
 %define locations
+%define api.location.type {parser_loc_t}
 %define parse.error verbose
 %define parse.lac full
 %define parse.trace true
@@ -219,38 +214,6 @@ sc:
 
 %%
 
-static void _yyerror_impl(
-    YYLTYPE *yylloc,                   // match %define locations
-    yyscan_t arg,                      // match %param
-    sqls_parser_param_t *param,         // match %parse-param
-    const char *errmsg
-)
-{
-  // to implement it here
-  (void)yylloc;
-  (void)arg;
-  (void)param;
-  (void)errmsg;
-
-  if (!param) {
-    fprintf(stderr, "(%d,%d)->(%d,%d):%s\n",
-        yylloc->first_line, yylloc->first_column,
-        yylloc->last_line, yylloc->last_column,
-        errmsg);
-
-    return;
-  }
-
-  param->ctx.row0 = yylloc->first_line;
-  param->ctx.col0 = yylloc->first_column;
-  param->ctx.row1 = yylloc->last_line;
-  param->ctx.col1 = yylloc->last_column;
-  param->ctx.err_msg[0] = '\0';
-  snprintf(param->ctx.err_msg, sizeof(param->ctx.err_msg), "near `%.*s`:%s",
-      (int)(param->ctx.pres + 10 - param->ctx.prev), param->ctx.input + param->ctx.prev,
-      errmsg);
-}
-
 /* Called by yyparse on error. */
 static void yyerror(
     YYLTYPE *yylloc,                   // match %define locations
@@ -259,7 +222,8 @@ static void yyerror(
     const char *errmsg
 )
 {
-  _yyerror_impl(yylloc, arg, param, errmsg);
+  parser_ctx_t *ctx = param ? &param->ctx : NULL;
+  parser_yyerror(__FILE__, __LINE__, __func__, yylloc, arg, ctx, errmsg);
 }
 
 int sqls_parser_parse(const char *input, size_t len, sqls_parser_param_t *param)

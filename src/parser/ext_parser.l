@@ -43,8 +43,10 @@
 } while (0)
 
 #define R() do {                                               \
-    yylloc->first_column = yylloc->last_column ;               \
+    yylloc->first_column = yylloc->last_column;                \
     yylloc->first_line   = yylloc->last_line;                  \
+    yylloc->prev         = yylloc->pres;                       \
+    yylloc->pres        += yyleng;                             \
     parser_ctx_t *ctx = (parser_ctx_t*)yyget_extra(yyscanner); \
     ctx->prev  = ctx->pres;                                    \
     ctx->pres += yyleng;                                       \
@@ -52,7 +54,7 @@
 
 #define L() do {                                  \
     yylloc->last_line   += 1;                     \
-    yylloc->last_column  = 1;                     \
+    yylloc->last_column  = 0;                     \
 } while (0)
 
 #define C()                                       \
@@ -169,24 +171,27 @@ DIGITS        [[:digit:]]+
 <QSTR>{
 ["]           { R(); POP(); C(); return *yytext; }
 ["]/["]       { R(); PUSH(ESC); C(); return *yytext; }
-[^"\r\n]+     { R(); SET_STR(); C(); return MKT(QSTR); }
-{LN}          { R(); L(); } /* eat */
+[^"\f\r\n]+   { R(); SET_STR(); C(); return MKT(QSTR); }
+"\f"          { R(); SET_STR(); L(); return MKT(QSTR); }
+{LN}          { R(); SET_STR(); L(); return MKT(QSTR); }
 .             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <SSTR>{
 [']           { R(); POP(); C(); return *yytext; }
 [']/[']       { R(); PUSH(ESC); C(); return *yytext; }
-[^'\r\n]+     { R(); SET_STR(); C(); return MKT(SSTR); }
-{LN}          { R(); L(); } /* eat */
+[^'\f\r\n]+   { R(); SET_STR(); C(); return MKT(SSTR); }
+"\f"          { R(); SET_STR(); L(); return MKT(SSTR); }
+{LN}          { R(); SET_STR(); L(); return MKT(SSTR); }
 .             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <TSTR>{
 [`]           { R(); POP(); C(); return *yytext; }
 [`]/[`]       { R(); PUSH(ESC); C(); return *yytext; }
-[^`\\\r\n]+   { R(); SET_STR(); C(); return MKT(TSTR); }
-{LN}          { R(); L(); } /* eat */
+[^`\f\r\n]+   { R(); SET_STR(); C(); return MKT(TSTR); }
+"\f"          { R(); SET_STR(); L(); return MKT(TSTR); }
+{LN}          { R(); SET_STR(); L(); return MKT(TSTR); }
 .             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 

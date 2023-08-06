@@ -443,6 +443,16 @@ struct conn_cfg_s {
   unsigned int           timestamp_as_is:1;
 };
 
+struct parser_loc_s {
+  int first_line;
+  int first_column;
+  int last_line;
+  int last_column;
+
+  int prev;
+  int pres;
+};
+
 struct parser_nterm_s {
   size_t           start;
   size_t           end;

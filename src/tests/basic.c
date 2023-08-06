@@ -763,12 +763,12 @@ static int test_url_parser(void)
     int r = url_parser_parse(url, strlen(url), &param);
     if (r) {
       char buf[4096];
-      snprintf(buf, sizeof(buf), "(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+      snprintf(buf, sizeof(buf), "(%d,%d)->(%d,%d)", param.ctx.row0+1, param.ctx.col0+1, param.ctx.row1+1, param.ctx.col1+1);
       if (strcmp(buf, ok_or_failure) == 0) {
         r = 0;
       } else {
         E("parsing @[%dL]:%s", line, url);
-        E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+        E("location:(%d,%d)->(%d,%d)", param.ctx.row0+1, param.ctx.col0+1, param.ctx.row1+1, param.ctx.col1+1);
         E("failed:%s", param.ctx.err_msg);
       }
     } else {

@@ -25,6 +25,7 @@
 #include "../core/internal.h"        // FIXME:
 #include "conn.h"
 #include "log.h"
+#include "parser.h"
 
 #include "conn_parser.tab.h"
 #include "conn_parser.lex.c"

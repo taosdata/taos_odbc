@@ -27,6 +27,7 @@
 #include "../core/internal.h"        // FIXME:
 #include "insert_eval.h"
 #include "log.h"
+#include "parser.h"
 #include "topic.h"
 #include "var.h"
 

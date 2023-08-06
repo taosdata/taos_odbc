@@ -43,8 +43,10 @@
 } while (0)
 
 #define R() do {                                               \
-    yylloc->first_column = yylloc->last_column ;               \
+    yylloc->first_column = yylloc->last_column;                \
     yylloc->first_line   = yylloc->last_line;                  \
+    yylloc->prev         = yylloc->pres;                       \
+    yylloc->pres        += yyleng;                             \
     parser_ctx_t *ctx = (parser_ctx_t*)yyget_extra(yyscanner); \
     ctx->prev  = ctx->pres;                                    \
     ctx->pres += yyleng;                                       \
@@ -52,7 +54,7 @@
 
 #define L() do {                                  \
     yylloc->last_line   += 1;                     \
-    yylloc->last_column  = 1;                     \
+    yylloc->last_column  = 0;                     \
 } while (0)
 
 #define C()                                       \

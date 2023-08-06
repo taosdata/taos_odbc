@@ -26,6 +26,7 @@
 
 #include "../core/internal.h"        // FIXME:
 #include "log.h"
+#include "parser.h"
 
 #include <ctype.h>
 

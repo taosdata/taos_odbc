@@ -33,16 +33,8 @@
 EXTERN_C_BEGIN
 
 typedef struct parser_ctx_s             parser_ctx_t;
-typedef struct parser_nterm_s           parser_nterm_t;
 typedef struct parser_token_s           parser_token_t;
 typedef struct parser_loc_s             parser_loc_t;
-
-struct parser_nterm_s {
-  size_t           start;
-  size_t           end;
-
-  int32_t          qms;
-};
 
 struct parser_token_s {
   const char      *text;

@@ -268,7 +268,6 @@
 // union members
 %union { parser_token_t token; }
 %union { char c; }
-%union { parser_nterm_t nterm; }
 %union { url_str_t  str; }
 %union { url_strs_t strs; }
 %destructor { url_str_release(&$$); }  <str>

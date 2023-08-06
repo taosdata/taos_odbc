@@ -89,7 +89,9 @@ typedef struct sql_data_s               sql_data_t;
 typedef struct sqlc_sql_map_s           sqlc_sql_map_t;
 
 typedef struct sqls_s                   sqls_t;
+typedef struct sqls_parser_nterm_s      sqls_parser_nterm_t;
 typedef struct sqls_parser_param_s      sqls_parser_param_t;
+
 
 typedef struct tables_args_s            tables_args_t;
 typedef struct tables_s                 tables_t;

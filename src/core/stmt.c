@@ -2869,7 +2869,7 @@ static int _stmt_sql_found(sqls_parser_param_t *param, size_t start, size_t end,
 
   if (sqls->nr >= sqls->cap) {
     size_t cap = sqls->cap + 16;
-    parser_nterm_t *nterms = (parser_nterm_t*)realloc(sqls->sqls, sizeof(*nterms) * cap);
+    sqls_parser_nterm_t *nterms = (sqls_parser_nterm_t*)realloc(sqls->sqls, sizeof(*nterms) * cap);
     if (!nterms) {
       stmt_oom(stmt);
       return -1;
@@ -2933,10 +2933,10 @@ static SQLRETURN _stmt_get_next_sql(stmt_t *stmt)
   sqls_t *sqls = &stmt->sqls;
   if (sqls->pos + 1 > sqls->nr) return SQL_NO_DATA;
 
-  parser_nterm_t *nterms = stmt->sqls.sqls + stmt->sqls.pos;
-  sqlc_tsdb->sqlc        = (const char*)stmt->raw.base + nterms->start;
-  sqlc_tsdb->sqlc_bytes  = nterms->end - nterms->start;
-  sqlc_tsdb->qms         = nterms->qms;
+  sqls_parser_nterm_t *nterms = stmt->sqls.sqls + stmt->sqls.pos;
+  sqlc_tsdb->sqlc             = (const char*)stmt->raw.base + nterms->start;
+  sqlc_tsdb->sqlc_bytes       = nterms->end - nterms->start;
+  sqlc_tsdb->qms              = nterms->qms;
 
   if (sqls->nr > 1) {
     if (sqlc_tsdb->qms > 0) {
@@ -7218,7 +7218,7 @@ static int _stmt_sql_parse(stmt_t *stmt, const char *sql, size_t len)
   sqls_t *sqls = &stmt->sqls;
   if (sqls->nr > 1) {
     for (size_t i=0; i<sqls->nr; ++i) {
-      parser_nterm_t *nterms = sqls->sqls + i;
+      sqls_parser_nterm_t *nterms = sqls->sqls + i;
       if (nterms->qms) {
         stmt_append_err(stmt, "HY000", 0, "General error:parameterized-statement in batch-statements not supported yet");
         return SQL_ERROR;

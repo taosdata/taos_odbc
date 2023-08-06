@@ -445,8 +445,15 @@ struct conn_cfg_s {
   unsigned int           timestamp_as_is:1;
 };
 
+struct sqls_parser_nterm_s {
+  size_t           start;
+  size_t           end;
+
+  int32_t          qms;
+};
+
 struct sqls_s {
-  parser_nterm_t        *sqls;
+  sqls_parser_nterm_t   *sqls;
   size_t                 cap;
   size_t                 nr;
 

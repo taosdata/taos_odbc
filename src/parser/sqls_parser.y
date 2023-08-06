@@ -93,7 +93,7 @@
 // union members
 %union { parser_token_t token; }
 %union { char c; }
-%union { parser_nterm_t nterm; }
+%union { sqls_parser_nterm_t nterm; }
 
 %token TOKEN ERROR STR
 %token LP RP LC RC LB RB

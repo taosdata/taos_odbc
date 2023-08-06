@@ -101,7 +101,7 @@
 
 %nterm <nterm> lc rc lp rp lb rb
 %nterm <nterm> dq sq aa qm sc
-%nterm <nterm> token str any_token sql quoted strs delimit sqls
+%nterm <nterm> token any_token sql quoted delimit sqls
 
  /* %nterm <str>   args */ // non-terminal `input` use `str` to store
                            // token value as well
@@ -167,11 +167,11 @@ rb:
 
 quoted:
   dq dq        { SET_TOKEN_BOUND($$, 0); }
-| dq strs dq   { SET_TOKEN_BOUND($$, 0); }
 | sq sq        { SET_TOKEN_BOUND($$, 0); }
-| sq strs sq   { SET_TOKEN_BOUND($$, 0); }
 | aa aa        { SET_TOKEN_BOUND($$, 0); }
-| aa strs aa   { SET_TOKEN_BOUND($$, 0); }
+| dq dqss dq   { SET_TOKEN_BOUND($$, 0); }
+| sq sqss sq   { SET_TOKEN_BOUND($$, 0); }
+| aa aass aa   { SET_TOKEN_BOUND($$, 0); }
 ;
 
 dq:
@@ -190,13 +190,34 @@ qm:
   '?'          { SET_TOKEN_BOUND($$, 1); }
 ;
 
-strs:
-  str          { SET_TOKEN_BOUND($$, 0); }
-| strs str     { SET_TOKEN_BOUND($$, 0); }
+dqss:
+  dqs
+| dqss dqs
 ;
 
-str:
-  STR          { SET_TOKEN_BOUND($$, 0); }
+dqs:
+  STR
+| DQ DQ
+;
+
+sqss:
+  sqs
+| sqss sqs
+;
+
+sqs:
+  STR
+| SQ SQ
+;
+
+aass:
+  aas
+| aass aas
+;
+
+aas:
+  STR
+| AA AA
 ;
 
 delimit:

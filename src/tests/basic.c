@@ -306,6 +306,8 @@ static int test_ext_parser(void)
     OK_INSERT("!insert into t (s, v) values (-1234,5)", 0, 0, 2, 0),
     OK_INSERT("!insert into t (s, v) values ('h''w', 4)", 0, 0, 2, 0),
     OK_INSERT("!insert into t (s, v) values ('h''w', \"a\"\"b\")", 0, 0, 2, 0),
+    OK_INSERT("!insert into t (s, v) values ('', \"a\"\"b\")", 0, 0, 2, 0),
+    OK_INSERT("!insert into t (s, v) values (\"\", \"a\"\"b\")", 0, 0, 2, 0),
   };
   const size_t _nr_cases = sizeof(_cases) / sizeof(_cases[0]);
 #undef BAD_INSERT
@@ -682,9 +684,19 @@ static int test_sqls_parser(void)
         {"insert into t (ts, name) values (now(), ?)", 1},
       },
     },{
-      "insert into ? (ts, name) values (now(), 'a')",
+      "insert into ? (ts, name) values (now(), 'a''')",
       {
-        {"insert into ? (ts, name) values (now(), 'a')", 1},
+        {"insert into ? (ts, name) values (now(), 'a''')", 1},
+      },
+    },{
+      "insert into ? (ts, name) values (now(), `a```)",
+      {
+        {"insert into ? (ts, name) values (now(), `a```)", 1},
+      },
+    },{
+      "insert into ? (ts, name) values (now(), \"a\"\"\")",
+      {
+        {"insert into ? (ts, name) values (now(), \"a\"\"\")", 1},
       },
     },{
       "insert into ? using tags (?, ?) values (?, ?)",

@@ -478,6 +478,14 @@
       }                                                                        \
     } while (0)
 
+    static inline var_t* _str_empty(var_quote_e qt, LOG_ARGS)
+    {
+      var_t *v = _create_var(VAR_STRING, LOG_VALS, yylloc);
+      if (!v) return NULL;
+      v->str.q = qt;
+      return v;
+    }
+
     static inline var_t* _strs_flat(var_t *ss, var_quote_e qt, LOG_ARGS)
     {
       var_t *v = _create_var(VAR_STRING, LOG_VALS, yylloc);
@@ -506,6 +514,11 @@
       YLOG(LOG_VALS, yylloc, "runtime error:out of memory");
       return NULL;
     }
+
+    #define STR_EMPTY(_r, _qt, _loc) do {                                      \
+      _r = _str_empty(_qt, LOG_MALS, &_loc);                                   \
+      if (!_r) YYABORT;                                                        \
+    } while (0)
 
     #define STRS_FLAT(_r, _ss, _qt, _loc) do {                                 \
       _r = _strs_flat(_ss, _qt, LOG_MALS, &_loc);                              \
@@ -647,6 +660,7 @@ table_name:
 
 id:
   ID                            { CREATE_ID($$, $1, @$); }
+| '`' '`'                       { STR_EMPTY($$, QUOTE_BQ, @$); }
 | '`' tstrs '`'                 { STRS_FLAT($$, $2, QUOTE_BQ, @$); }
 ;
 
@@ -696,7 +710,9 @@ term:
 | ID                               { CREATE_EXP_ID($$, $1, @$); }
 | INTEGRAL                         { CREATE_EXP_INTEGRAL($$, $1, @$); }
 | NUMBER                           { CREATE_EXP_NUMBER($$, $1, @$); }
+| '"' '"'                          { STR_EMPTY($$, QUOTE_DQ, @$); }
 | '"' qstrs '"'                    { STRS_FLAT($$, $2, QUOTE_DQ, @$); }
+| '\'' '\''                        { STR_EMPTY($$, QUOTE_SQ, @$); }
 | '\'' sstrs '\''                  { STRS_FLAT($$, $2, QUOTE_SQ, @$); }
 ;
 

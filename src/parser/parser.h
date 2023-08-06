@@ -63,8 +63,8 @@ static inline void parser_yyerror(
   if (!ctx) {
     fprintf(stderr, "%s[%d]:%s():(%d,%d)->(%d,%d):%s\n",
         fn, line, func,
-        yylloc->first_line+1, yylloc->first_column+1,
-        yylloc->last_line+1, yylloc->last_column+1,
+        yylloc->first_line, yylloc->first_column,
+        yylloc->last_line, yylloc->last_column,
         errmsg);
 
     return;

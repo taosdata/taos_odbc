@@ -745,8 +745,8 @@ static int test_url_parser(void)
     RECORD("http://www.com/?", "http://www.com/?"),
     RECORD("http://www.com#", "http://www.com#"),
     RECORD("http://www.com?", "http://www.com?"),
-    RECORD("http://example.com/根", "(1,20)->(1,21)"),
-    RECORD("file:///fasd", "(1,1)->(1,5)"),
+    RECORD("http://example.com/根", "(0,19)->(0,20)"),
+    RECORD("file:///fasd", "(0,0)->(0,4)"),
     RECORD("foo:/abc:def", "foo:/abc:def"),
     RECORD("http://hello%20world.com", "http://hello%20world.com"),
   };
@@ -763,12 +763,12 @@ static int test_url_parser(void)
     int r = url_parser_parse(url, strlen(url), &param);
     if (r) {
       char buf[4096];
-      snprintf(buf, sizeof(buf), "(%d,%d)->(%d,%d)", param.ctx.row0+1, param.ctx.col0+1, param.ctx.row1+1, param.ctx.col1+1);
+      snprintf(buf, sizeof(buf), "(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
       if (strcmp(buf, ok_or_failure) == 0) {
         r = 0;
       } else {
         E("parsing @[%dL]:%s", line, url);
-        E("location:(%d,%d)->(%d,%d)", param.ctx.row0+1, param.ctx.col0+1, param.ctx.row1+1, param.ctx.col1+1);
+        E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
         E("failed:%s", param.ctx.err_msg);
       }
     } else {

@@ -502,7 +502,9 @@ static int test_ejson_parser(void)
       if ((!!r) ^ (!match)) {
         E("parsing @[%dL]:%s", __line__, s);
         if (r) {
-          E("location:(%d,%d)->(%d,%d)", param.ctx.loc.first_line, param.ctx.loc.first_column, param.ctx.loc.last_line, param.ctx.loc.last_column);
+          parser_loc_t *loc = &param.ctx.bad_token;
+          E("location:(%d,%d)->(%d,%d)",
+              loc->first_line, loc->first_column, loc->last_line, loc->last_column);
           E("failed:%s", param.ctx.err_msg);
           E("expecting:%s", match);
           E("but got:%s", buf);

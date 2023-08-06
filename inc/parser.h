@@ -104,5 +104,6 @@ void parser_yyerror(
     const char *errmsg) FA_HIDDEN;
 
 EXTERN_C_END
+
 #endif // _parser_h_
 

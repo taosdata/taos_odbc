@@ -34,7 +34,6 @@
 EXTERN_C_BEGIN
 
 typedef struct ejson_parser_param_s             ejson_parser_param_t;
-typedef struct ejson_parser_ctx_s               ejson_parser_ctx_t;
 typedef struct ejson_parser_token_s             ejson_parser_token_t;
 
 typedef enum ejson_type_e               ejson_type_t;
@@ -120,17 +119,8 @@ struct ejson_parser_token_s {
   size_t           leng;
 };
 
-struct ejson_parser_ctx_s {
-  parser_loc_t           loc;
-  char                   err_msg[1024];
-
-  unsigned int           debug_flex:1;
-  unsigned int           debug_bison:1;
-  unsigned int           oom:1;
-};
-
 struct ejson_parser_param_s {
-  ejson_parser_ctx_t                 ctx;
+  parser_ctx_t                       ctx;
   ejson_t                           *ejson;
 };
 

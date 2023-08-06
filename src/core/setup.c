@@ -234,8 +234,9 @@ static int validate_url(HWND hDlg, const char *url, url_parser_param_t *param)
   char buf[4096]; buf[0] = '\0';
   r = url_parser_parse(url, strlen(url), param);
   if (r) {
+    parser_loc_t *loc = &param->ctx.bad_token;
     snprintf(buf, sizeof(buf), "bad url:@(%d,%d)->(%d,%d):%s",
-        param->ctx.row0, param->ctx.col0, param->ctx.row1, param->ctx.col1,
+        loc->first_line, loc->first_column, loc->last_line, loc->last_column,
         param->ctx.err_msg);
     MessageBox(hDlg, buf, "Error!", MB_OK|MB_ICONEXCLAMATION);
     return -1;

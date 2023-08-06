@@ -63,10 +63,7 @@
     } while (0)
 
     #define SET_LOC(_dst, _src) do {                                 \
-      _dst.first_line             = _src.first_line;                 \
-      _dst.first_column           = _src.first_column;               \
-      _dst.last_line              = _src.last_line;                  \
-      _dst.last_column            = _src.last_column;                \
+      _dst = _src;                                                   \
     } while (0)
 
     #define EJSON_NEW_WITH_ID(_ejson, _token, _loc) do {             \
@@ -214,6 +211,7 @@
 %define api.pure full
 %define api.token.prefix {TOK_}
 %define locations
+%define api.location.type {parser_loc_t}
 %define parse.error verbose
 %define parse.lac full
 %define parse.trace true

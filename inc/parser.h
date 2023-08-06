@@ -63,12 +63,9 @@ struct parser_ctx_s {
   parser_loc_t           bad_token;       // NOTE: unknown or unexpected
   char                   err_msg[1024];
 
-  // globally 0-based
-  size_t                 token_start;
-  size_t                 token_end;
-
   const char            *input; // NOTE: no owner ship
   size_t                 len;
+  // globally 0-based
   size_t                 prev;
   size_t                 pres;
 
@@ -83,6 +80,24 @@ int parser_ylogv(const char *file, int line, const char *func,
     parser_loc_t *yylloc,
     const char *fmt,
     ...) __attribute__ ((format (printf, 7, 8))) FA_HIDDEN;
+
+# define YYLLOC_DEFAULT(Cur, Rhs, N) do {                     \
+  if (N) {                                                    \
+    (Cur).first_line   = YYRHSLOC(Rhs, 1).first_line;         \
+    (Cur).first_column = YYRHSLOC(Rhs, 1).first_column;       \
+    (Cur).last_line    = YYRHSLOC(Rhs, N).last_line;          \
+    (Cur).last_column  = YYRHSLOC(Rhs, N).last_column;        \
+    (Cur).prev         = YYRHSLOC(Rhs, 1).prev;               \
+    (Cur).pres         = YYRHSLOC(Rhs, N).pres;               \
+  } else {                                                    \
+    (Cur).first_line   = (Cur).last_line   =                  \
+      YYRHSLOC(Rhs, 0).last_line;                             \
+    (Cur).first_column = (Cur).last_column =                  \
+      YYRHSLOC(Rhs, 0).last_column;                           \
+    (Cur).prev         = (Cur).pres        =                  \
+      YYRHSLOC(Rhs, 0).pres;                                  \
+  }                                                           \
+} while (0)
 
 #define LOG_ARGS const char *file, int line, const char *func, yyscan_t arg, parser_ctx_t *ctx, YYLTYPE *yylloc
 #define LOG_VALS file, line, func, arg, ctx

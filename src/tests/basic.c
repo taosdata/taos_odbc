@@ -695,7 +695,6 @@ static int test_sqls_parser(void)
   };
   const size_t _cases_nr = sizeof(_cases)/sizeof(_cases[0]);
   for (size_t i=0; i<_cases_nr; ++i) {
-    if (i + 1 < _cases_nr) continue;
     const char  *sqls             = _cases[i].sqls;
     const expected_sql_t *expects = _cases[i].expects;
 

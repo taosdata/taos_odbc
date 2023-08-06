@@ -192,8 +192,10 @@ static int test_conn_parser(void)
     int r = conn_parser_parse(s, strlen(s), &param);
     do {
       if (r) {
+        parser_loc_t *loc = &param.ctx.bad_token;
         E("parsing[@line:%d]:%s", line, s);
-        E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+        E("location:(%d,%d)->(%d,%d)",
+            loc->first_line, loc->first_column, loc->last_line, loc->last_column);
         E("failed:%s", param.ctx.err_msg);
         break;
       }
@@ -323,7 +325,9 @@ static int test_ext_parser(void)
     if (!r != !!ok) {
       E("parsing:@%dL:%s", line, sql);
       if (r) {
-        E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+        parser_loc_t *loc = &param.ctx.bad_token;
+        E("location:(%d,%d)->(%d,%d)",
+            loc->first_line, loc->first_column, loc->last_line, loc->last_column);
         E("failed:%s", param.ctx.err_msg);
       } else {
         E("expecting failure, but got ==success==");
@@ -709,7 +713,9 @@ static int test_sqls_parser(void)
     D("parsing:\n%s ...", sqls);
     int r = sqls_parser_parse(sqls, strlen(sqls), &param);
     if (r) {
-      E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+      parser_loc_t *loc = &param.ctx.bad_token;
+      E("location:(%d,%d)->(%d,%d)",
+          loc->first_line, loc->first_column, loc->last_line, loc->last_column);
       E("failed:%s", param.ctx.err_msg);
     } else if (check.failed) {
       r = -1;
@@ -762,13 +768,16 @@ static int test_url_parser(void)
 
     int r = url_parser_parse(url, strlen(url), &param);
     if (r) {
+      parser_loc_t *loc = &param.ctx.bad_token;
       char buf[4096];
-      snprintf(buf, sizeof(buf), "(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+      snprintf(buf, sizeof(buf), "(%d,%d)->(%d,%d)",
+          loc->first_line, loc->first_column, loc->last_line, loc->last_column);
       if (strcmp(buf, ok_or_failure) == 0) {
         r = 0;
       } else {
         E("parsing @[%dL]:%s", line, url);
-        E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+        E("location:(%d,%d)->(%d,%d)",
+            loc->first_line, loc->first_column, loc->last_line, loc->last_column);
         E("failed:%s", param.ctx.err_msg);
       }
     } else {

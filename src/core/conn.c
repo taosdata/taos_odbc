@@ -783,8 +783,10 @@ SQLRETURN conn_driver_connect(
 
   do {
     if (r) {
+      parser_loc_t *loc = &param.ctx.bad_token;
       conn_append_err_format(conn, "HY000", 0, "General error:parsing:%.*s", StringLength1, (const char*)InConnectionString);
-      conn_append_err_format(conn, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+      conn_append_err_format(conn, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)",
+          loc->first_line, loc->first_column, loc->last_line, loc->last_column);
       conn_append_err_format(conn, "HY000", 0, "General error:failed:%.*s", (int)strlen(param.ctx.err_msg), param.ctx.err_msg);
       conn_append_err(conn, "HY000", 0, "General error:supported connection string syntax:[<key[=<val>]>]+");
       break;

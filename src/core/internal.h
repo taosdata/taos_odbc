@@ -35,6 +35,8 @@
 
 #include "typedefs.h"
 
+#include "parser.h"
+
 #include "taos_helpers.h"
 #ifdef HAVE_TAOSWS           /* { */
 #include "taosws_helpers.h"
@@ -443,23 +445,6 @@ struct conn_cfg_s {
   unsigned int           timestamp_as_is:1;
 };
 
-struct parser_loc_s {
-  int first_line;
-  int first_column;
-  int last_line;
-  int last_column;
-
-  int prev;
-  int pres;
-};
-
-struct parser_nterm_s {
-  size_t           start;
-  size_t           end;
-
-  int32_t          qms;
-};
-
 struct sqls_s {
   parser_nterm_t        *sqls;
   size_t                 cap;
@@ -485,36 +470,12 @@ struct url_s {
   char                  *fragment;   // NOTE: without head '#'
 };
 
-struct parser_token_s {
-  const char      *text;
-  size_t           leng;
-};
-
 struct topic_cfg_s {
   char                 **names;
   size_t                 names_cap;
   size_t                 names_nr;
 
   kvs_t                  kvs;
-};
-
-struct parser_ctx_s {
-  int                    row0, col0;
-  int                    row1, col1;
-  char                   err_msg[1024];
-
-  // globally 0-based
-  size_t                 token_start;
-  size_t                 token_end;
-
-  const char            *input; // NOTE: no owner ship
-  size_t                 len;
-  size_t                 prev;
-  size_t                 pres;
-
-  unsigned int           debug_flex:1;
-  unsigned int           debug_bison:1;
-  unsigned int           oom:1;
 };
 
 struct conn_parser_param_s {

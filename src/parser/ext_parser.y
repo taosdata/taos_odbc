@@ -91,7 +91,6 @@
       if (param->is_topic) topic_cfg_release(&param->topic_cfg);
       else                 insert_eval_release(&param->insert_eval);
       param->ctx.err_msg[0] = '\0';
-      param->ctx.row0 = 0;
     }
 
     static inline var_t* _create_var(var_e type, LOG_ARGS)

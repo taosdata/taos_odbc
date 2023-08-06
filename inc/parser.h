@@ -26,16 +26,63 @@
 #define _parser_h_
 
 #include "macros.h"
-#include "typedefs.h"
+
+#include <stdint.h>
+#include <stdio.h>
 
 EXTERN_C_BEGIN
 
-static int _ylogv(const char *file, int line, const char *func,
+typedef struct parser_ctx_s             parser_ctx_t;
+typedef struct parser_nterm_s           parser_nterm_t;
+typedef struct parser_token_s           parser_token_t;
+typedef struct parser_loc_s             parser_loc_t;
+
+struct parser_nterm_s {
+  size_t           start;
+  size_t           end;
+
+  int32_t          qms;
+};
+
+struct parser_token_s {
+  const char      *text;
+  size_t           leng;
+};
+
+struct parser_loc_s {
+  int first_line;
+  int first_column;
+  int last_line;
+  int last_column;
+
+  int prev;
+  int pres;
+};
+
+struct parser_ctx_s {
+  parser_loc_t           bad_token;       // NOTE: unknown or unexpected
+  char                   err_msg[1024];
+
+  // globally 0-based
+  size_t                 token_start;
+  size_t                 token_end;
+
+  const char            *input; // NOTE: no owner ship
+  size_t                 len;
+  size_t                 prev;
+  size_t                 pres;
+
+  unsigned int           debug_flex:1;
+  unsigned int           debug_bison:1;
+  unsigned int           oom:1;
+};
+
+int parser_ylogv(const char *file, int line, const char *func,
     void *arg,
     parser_ctx_t *ctx,
     parser_loc_t *yylloc,
     const char *fmt,
-    ...) __attribute__ ((format (printf, 7, 8)));
+    ...) __attribute__ ((format (printf, 7, 8))) FA_HIDDEN;
 
 #define LOG_ARGS const char *file, int line, const char *func, yyscan_t arg, parser_ctx_t *ctx, YYLTYPE *yylloc
 #define LOG_VALS file, line, func, arg, ctx
@@ -44,61 +91,17 @@ static int _ylogv(const char *file, int line, const char *func,
 
 #ifdef _WIN32               /* { */
 #define YLOG(args, yylloc, fmt, ...) \
-  (0 ? fprintf(stderr, fmt, ##__VA_ARGS__) : _ylogv(args, yylloc, fmt, ##__VA_ARGS__))
+  (0 ? fprintf(stderr, fmt, ##__VA_ARGS__) : parser_ylogv(args, yylloc, fmt, ##__VA_ARGS__))
 #else                       /* }{ */
-#define YLOG _ylogv
+#define YLOG parser_ylogv
 #endif                      /* } */
 
-static inline void parser_yyerror(
+void parser_yyerror(
     const char *file, int line, const char *func,
     parser_loc_t *yylloc,
     void *arg,
     parser_ctx_t *ctx,
-    const char *errmsg)
-{
-  (void)arg;
-
-  char bn[512]; bn[0] = '\0';
-  const char *fn = tod_basename(file, bn, sizeof(bn));
-  if (!ctx) {
-    fprintf(stderr, "%s[%d]:%s():(%d,%d)->(%d,%d):%s\n",
-        fn, line, func,
-        yylloc->first_line, yylloc->first_column,
-        yylloc->last_line, yylloc->last_column,
-        errmsg);
-
-    return;
-  }
-
-  ctx->row0 = yylloc->first_line;
-  ctx->col0 = yylloc->first_column;
-  ctx->row1 = yylloc->last_line;
-  ctx->col1 = yylloc->last_column;
-  ctx->err_msg[0] = '\0';
-  snprintf(ctx->err_msg, sizeof(ctx->err_msg), "%s[%d]:%s():near `%.*s`:%s",
-      fn, line, func,
-      (int)(yylloc->pres + 10 - yylloc->prev), ctx->input + yylloc->prev,
-      errmsg);
-}
-
-static inline int _ylogv(const char *file, int line, const char *func,
-    void *arg,
-    parser_ctx_t *ctx,
-    parser_loc_t *yylloc,
-    const char *fmt,
-    ...)
-{
-  char buf[4096]; buf[0] = '\0';
-  va_list ap;
-  va_start(ap, fmt);
-  int n = vsnprintf(buf, sizeof(buf), fmt, ap);
-  va_end(ap);
-
-  parser_yyerror(file, line, func, yylloc, arg, ctx, buf);
-
-  return n;
-}
-
+    const char *errmsg) FA_HIDDEN;
 
 EXTERN_C_END
 #endif // _parser_h_

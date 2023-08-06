@@ -164,7 +164,6 @@
     {
       if (!param) return;
       param->ctx.err_msg[0] = '\0';
-      param->ctx.row0 = 0;
     }
 }
 

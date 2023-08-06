@@ -68,14 +68,12 @@
     {
       if (!param) return;
       param->ctx.err_msg[0] = '\0';
-      param->ctx.row0 = 0;
     }
 
     void sqls_parser_param_release(sqls_parser_param_t *param)
     {
       if (!param) return;
       param->ctx.err_msg[0] = '\0';
-      param->ctx.row0 = 0;
     }
 }
 

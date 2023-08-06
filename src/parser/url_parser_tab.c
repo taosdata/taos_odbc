@@ -213,7 +213,6 @@ void url_parser_param_reset(url_parser_param_t *param)
 {
   if (!param) return;
   param->ctx.err_msg[0] = '\0';
-  param->ctx.row0 = 0;
 }
 
 void url_parser_param_release(url_parser_param_t *param)
@@ -221,7 +220,6 @@ void url_parser_param_release(url_parser_param_t *param)
   if (!param) return;
   url_release(&param->url);
   param->ctx.err_msg[0] = '\0';
-  param->ctx.row0 = 0;
 }
 
 void url_release(url_t *url)

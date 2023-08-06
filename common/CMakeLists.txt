@@ -25,7 +25,8 @@
 list(APPEND common_SOURCES
     auxiliary.c
     enums.c
-    logger.c)
+    logger.c
+    parser.c)
 
 add_library(common_obj OBJECT ${common_SOURCES})
 if(TODBC_WINDOWS)

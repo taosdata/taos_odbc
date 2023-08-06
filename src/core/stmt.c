@@ -2905,10 +2905,13 @@ static SQLRETURN _stmt_cache_and_parse(stmt_t *stmt, sqls_parser_param_t *param,
 
   r = sqls_parser_parse(sql, len, param);
   if (r) {
-    E("location:(%d,%d)->(%d,%d)", param->ctx.row0, param->ctx.col0, param->ctx.row1, param->ctx.col1);
+    parser_loc_t *loc = &param->ctx.bad_token;
+    E("location:(%d,%d)->(%d,%d)",
+        loc->first_line, loc->first_column, loc->last_line, loc->last_column);
     E("failed:%s", param->ctx.err_msg);
     stmt_append_err_format(stmt, "HY000", 0, "General error:parsing:%.*s", (int)len, sql);
-    stmt_append_err_format(stmt, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)", param->ctx.row0, param->ctx.col0, param->ctx.row1, param->ctx.col1);
+    stmt_append_err_format(stmt, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)",
+        loc->first_line, loc->first_column, loc->last_line, loc->last_column);
     stmt_append_err_format(stmt, "HY000", 0, "General error:failed:%.*s", (int)strlen(param->ctx.err_msg), param->ctx.err_msg);
 
     return SQL_ERROR;
@@ -7168,8 +7171,10 @@ static SQLRETURN _stmt_prepare_ext(stmt_t *stmt)
   // param.ctx.debug_bison = 1;
   r = ext_parser_parse(start, end-start, &param);
   if (r) {
+    parser_loc_t *loc = &param.ctx.bad_token;
     stmt_append_err_format(stmt, "HY000", 0, "General error:parsing:%.*s", (int)(end-start), start);
-    stmt_append_err_format(stmt, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+    stmt_append_err_format(stmt, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)",
+        loc->first_line, loc->first_column, loc->last_line, loc->last_column);
     stmt_append_err_format(stmt, "HY000", 0, "General error:failed:%.*s", (int)strlen(param.ctx.err_msg), param.ctx.err_msg);
     stmt_append_err(stmt, "HY000", 0, "General error:taos_odbc_extended syntax for `topic`: !topic [name]+ [{[key[=val];]*}]?");
     stmt_append_err(stmt, "HY000", 0, "General error:taos_odbc_extended syntax for `insert`: !insert into ...");

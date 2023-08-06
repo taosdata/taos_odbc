@@ -74,11 +74,6 @@ typedef struct params_bind_meta_s       params_bind_meta_t;
 
 typedef struct param_state_s            param_state_t;
 
-typedef struct parser_ctx_s             parser_ctx_t;
-typedef struct parser_nterm_s           parser_nterm_t;
-typedef struct parser_token_s           parser_token_t;
-typedef struct parser_loc_s             parser_loc_t;
-
 typedef struct primarykeys_args_s       primarykeys_args_t;
 typedef struct primarykeys_s            primarykeys_t;
 

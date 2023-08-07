@@ -98,6 +98,7 @@
 %token TOKEN ERROR STR
 %token LP RP LC RC LB RB
 %token DQ SQ AA
+%token LN CH
 
 %nterm <nterm> qm
 %nterm <nterm> any_token sql sqls
@@ -197,6 +198,7 @@ dqss:
 dqs:
   STR
 | DQ DQ
+| esc
 ;
 
 sqss:
@@ -207,6 +209,7 @@ sqss:
 sqs:
   STR
 | SQ SQ
+| esc
 ;
 
 aass:
@@ -217,6 +220,11 @@ aass:
 aas:
   STR
 | AA AA
+| esc
+;
+
+esc:
+  '\\' CH
 ;
 
 delimit:

@@ -45,7 +45,7 @@
 
 %x LP LC LB
 %x DQ SQ AA QM
-%x ESC
+%x ESC TAOS_ESCAPE
 %x COMMENT
 
 SP            [ \t]
@@ -153,27 +153,30 @@ QM            "?"
 <DQ>{
 {DQ}                  { R(); C(); POP(); return (unsigned char)*yytext; }
 ["]/["]               { R(); PUSH(ESC); C(); return MKT(DQ); }
-[^"\f\r\n]+           { R(); SET_STR(); C(); return MKT(STR); }
+[^"\\\f\r\n]+         { R(); SET_STR(); C(); return MKT(STR); }
 "\f"                  { R(); SET_STR(); L(); return MKT(STR); }
 {LN}                  { R(); SET_STR(); L(); return MKT(STR); }
+[\\]                  { R(); PUSH(TAOS_ESCAPE); C(); return (unsigned char)*yytext; }
 .                     { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <SQ>{
 {SQ}                  { R(); C(); POP(); return (unsigned char)*yytext; }
 [']/[']               { R(); PUSH(ESC); C(); return MKT(SQ); }
-[^'\f\r\n]+           { R(); SET_STR(); C(); return MKT(STR); }
+[^'\\\f\r\n]+         { R(); SET_STR(); C(); return MKT(STR); }
 "\f"                  { R(); SET_STR(); L(); return MKT(STR); }
 {LN}                  { R(); SET_STR(); L(); return MKT(STR); }
+[\\]                  { R(); PUSH(TAOS_ESCAPE); C(); return (unsigned char)*yytext; }
 .                     { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <AA>{
 {AA}                  { R(); C(); POP(); return (unsigned char)*yytext; }
 [`]/[`]               { R(); PUSH(ESC); C(); return MKT(AA); }
-[^`\f\r\n]+           { R(); SET_STR(); C(); return MKT(STR); }
+[^`\\\f\r\n]+         { R(); SET_STR(); C(); return MKT(STR); }
 "\f"                  { R(); SET_STR(); L(); return MKT(STR); }
 {LN}                  { R(); SET_STR(); L(); return MKT(STR); }
+[\\]                  { R(); PUSH(TAOS_ESCAPE); C(); return (unsigned char)*yytext; }
 .                     { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
@@ -183,6 +186,11 @@ QM            "?"
 [`]                   { R(); POP(); C(); return MKT(AA); } /* let bison to handle */
 {LN}                  { R(); L(); return *yytext; } /* let bison to handle */
 .                     { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
+}
+
+<TAOS_ESCAPE>{        /* NOTE: taos-specific-escape */
+{LN}                  { R(); L(); return *yytext; } /* let bison to handle */
+.                     { R(); POP(); C(); return MKT(CH); }
 }
 
 %%

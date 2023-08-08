@@ -142,6 +142,8 @@ PPCHAR_PCT    ({PPCHAR}+)|({PCT}+)
 <HOST>{
 ":"                   { R(); C(); return (unsigned char)*yytext; }
 "/"                   { R(); C(); CHG(SLASH); return (unsigned char)*yytext; }
+"?"                   { R(); C(); CHG(QUERY); return (unsigned char)*yytext; }
+"#"                   { R(); C(); CHG(FRAGMENT); return (unsigned char)*yytext; }
 {DIGIT}+              { R(); C(); SET_STR(); return MKT(PORT); }
 {LN}                  { R(); L(); return (unsigned char)*yytext; } /* let bison to handle */
 .                     { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */

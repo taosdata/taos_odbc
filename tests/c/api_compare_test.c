@@ -768,6 +768,19 @@ static int get_records_count(SQLHANDLE hstmt, const char* table)
   return count;
 }
 
+static int get_records_count2(const char* table_name)
+{
+  for (int i = 0; i < db_source_ready_num; ++i) {
+    SQLHANDLE hstmt = _cases[i].ctx.hstmt;
+    char sql[1024];
+    SQLLEN numberOfrows;
+    sprintf(sql, "SELECT * FROM %s", table_name);
+    CALL_SQLExecDirect(hstmt, sql, SQL_NTS);
+    int r = CALL_SQLRowCount(hstmt, &numberOfrows);
+    XX("%s record result:%d count: %lld", table_name, r, numberOfrows);
+  }
+  return 0;
+}
 
 static int no_param_sql_test(void) {
   for (int i = 0; i < db_source_ready_num; ++i) {
@@ -1053,7 +1066,11 @@ static int case1_insert1_after_exec(void) {
   CHK1(create_table, tb_test2, 0);
 
   CHK1(case_1, 2, 0);
-  CHK0(free_stmt, 0);
+
+  CHK0(reset_stmt, 0);
+  get_records_count2(tb_test1);
+  CHK0(reset_stmt, 0);
+  get_records_count2(tb_test2);
 
   CHK1(drop_table, tb_test1, 0);
   CHK1(drop_table, tb_test2, 0);

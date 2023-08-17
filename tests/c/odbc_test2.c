@@ -700,6 +700,31 @@ static int primary_key_test(char* table) {
   return 0;
 }
 
+static int get_type_info_test() {
+  SQLRETURN sr = SQL_SUCCESS;
+  SQLHANDLE hstmt = link_info->ctx.hstmt;
+
+  sr = SQLGetTypeInfo(hstmt, SQL_ALL_TYPES);
+
+  // Fetch and print the data type information
+  SQLCHAR typeName[MAX_TABLE_NUMBER];
+  SQLLEN typeNameLen, columnSize;
+  SQLSMALLINT dataType, decimalDigits;
+  while (sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO) {
+    sr = SQLFetch(hstmt);
+    if (sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO) {
+      SQLGetData(hstmt, 1, SQL_C_CHAR, typeName, MAX_TABLE_NUMBER, &typeNameLen);
+      SQLGetData(hstmt, 2, SQL_C_SHORT, &dataType, sizeof(dataType), NULL);
+      SQLGetData(hstmt, 3, SQL_C_LONG, &columnSize, sizeof(columnSize), NULL);
+      SQLGetData(hstmt, 4, SQL_C_SHORT, &decimalDigits, sizeof(decimalDigits), NULL);
+      printf("Type: %s, DataType: %d, ColumnSize: %lld, DecimalDigits: %d\n", typeName, dataType, columnSize, decimalDigits);
+    }
+  }
+
+  return 0;
+}
+
+
 static int num_param_test(char* table) {
   int r = 0;
   SQLRETURN sr = SQL_SUCCESS;
@@ -984,6 +1009,17 @@ static int case_8(void) {
   return 0;
 }
 
+static int case_9(void) {
+  CHK0(create_sql_connect, 0);
+  CHK1(use_db, test_db, 0);
+  CHK0(check_t_table, 0);
+
+  CHK0(get_type_info_test, 0);
+
+  CHK0(free_connect, 0);
+  return 0;
+}
+
 static const int default_supported = 1;
 static const int default_unsupported = 2;
 static bool isTestCase(int argc, char* argv[], const char* test_case, const int support) {
@@ -1007,6 +1043,7 @@ static int run(int argc, char* argv[]) {
   if (isTestCase(argc, argv, "case_6", default_supported)) CHK0(case_6, 0);
   if (isTestCase(argc, argv, "case_7", default_supported)) CHK0(case_7, 0);
   if (isTestCase(argc, argv, "case_8", default_supported)) CHK0(case_8, 0);
+  if (isTestCase(argc, argv, "case_9", default_supported)) CHK0(case_9, 0);
 
   X("The test finished successfully.");
   return 0;

@@ -572,7 +572,9 @@ static int get_driver_info(void) {
   }
 
   int notSupported[200];
+  int supported[200];
   int notSupportedCount = 0;
+  int supportedCount = 0;
   SQLCHAR driverInfo[256];
   for (SQLUSMALLINT ty = SQL_INFO_FIRST; ty <= SQL_CONVERT_GUID; ty++) {
     if (ty == SQL_DRIVER_HSTMT || ty == SQL_DRIVER_HDESC) continue;
@@ -587,15 +589,26 @@ static int get_driver_info(void) {
         notSupportedCount++;
         X("CALL_SQLGetInfo type:%d not supported by taos-odbc.", ty);
       }
+      else if (strcmp(_cases[i].test_name, TN_TAOS) == 0 && rs[i] >= 0) {
+        supported[supportedCount] = ty;
+        supportedCount++;
+      }
     }
   }
 
-  char str[1024] = { 0 };
+  char unSupportStr[1024] = { 0 };
   for (int i = 0; i < notSupportedCount; i++) {
-    snprintf(str + strlen(str), 1024 - strlen(str), " %d", notSupported[i]);
+    snprintf(unSupportStr + strlen(unSupportStr), 1024 - strlen(unSupportStr), " %d", notSupported[i]);
   }
 
-  X("CALL_SQLGetInfo type not supported by taos-odbc: %s", str);
+  X("CALL_SQLGetInfo type not supported by taos-odbc: %s", unSupportStr);
+
+  char supportStr[1024] = { 0 };
+  for (int i = 0; i < supportedCount; i++) {
+    snprintf(supportStr + strlen(supportStr), 1024 - strlen(supportStr), " %d", supported[i]);
+  }
+
+  X("CALL_SQLGetInfo type supported by taos-odbc: %s", supportStr);
 
   return 0;
 }

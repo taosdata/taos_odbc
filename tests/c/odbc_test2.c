@@ -72,7 +72,7 @@ data_source_case _native_link = {
       .hstmt = SQL_NULL_HANDLE,
     },
     LINKMODENATIVE,
-    "DSN=TAOS_ODBC_DSN;Server=192.168.1.93",
+    "DSN=TAOS_ODBC_DSN;Server=192.168.1.93:6030;Uid=root;pwd=taosdata",
     "TAOS_ODBC_DSN",
     NULL,
     NULL,
@@ -98,7 +98,7 @@ data_source_case _cloud_link = {
       .hstmt = SQL_NULL_HANDLE,
     },
     LINKMODECLOUD,
-    "DSN=TAOS_CLOUD;",
+    "DSN=TAOS_CLOUD;url={taos+wss://gw.us-east-1.aws.cloud.tdengine.com/meter?token=bf55680e8b4bd94e48401bb768c312e88805bb73}",
     "TAOS_CLOUD",
     NULL,
     NULL,
@@ -135,6 +135,10 @@ data_source_case* link_info;
 #define MAX_TABLE_NUMBER 100
 #define MAX_TABLE_NAME_LEN 128
 #define test_db "meter"
+
+#define count_10 10
+#define count_100 100
+#define count_1000 1000
 
 #define CHKENVR(henv, r)  do {                                                                                                   \
    if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO)                                                                           \
@@ -197,6 +201,9 @@ data_source_case* link_info;
             return -1;                                                                               \
         }                                                                                            \
     } while(0)
+
+
+const char* t_table_create = "CREATE TABLE if not exists `t_table` (`ts` TIMESTAMP, `current_val` DOUBLE, `current_status` INT)";
 
 static void get_diag_rec(SQLSMALLINT handleType, SQLHANDLE h) {
 
@@ -298,7 +305,7 @@ static int reset_stmt(void) {
   return 0;
 }
 
-static int exec_sql(char* sql) {
+static int exec_sql(const char* sql) {
   int r = 0;
   CHK0(reset_stmt, 0);
   SQLHANDLE hstmt = link_info->ctx.hstmt;
@@ -524,6 +531,211 @@ static int show_table_data(char* table_name) {
   return row;
 }
 
+static SQLULEN fetch_scorll_test(char* table_name) {
+  reset_stmt();
+  SQLHANDLE hstmt = link_info->ctx.hstmt;
+
+  SQLSMALLINT numberOfColumns;
+  SQLULEN    numRowsFetched;         /* Number of rows fetched */
+
+  char sql[1024];
+  sprintf(sql, "SELECT * FROM %s limit 110", table_name);
+
+  CALL_SQLExecDirect(hstmt, sql, SQL_NTS);
+  CALL_SQLNumResultCols(hstmt, &numberOfColumns);
+
+#define ROWS 100
+#define TS_LEN 128
+  SQLULEN row = 0;
+  SQLRETURN ret;
+
+  ret = CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_CURSOR_TYPE, (SQLPOINTER)SQL_CURSOR_STATIC, SQL_IS_INTEGER);
+  X("CALL_SQLSetStmtAttr SQL_ATTR_CURSOR_TYPE result=%d", ret);
+
+  SQLCHAR        ts[ROWS][TS_LEN];       /* Record set */
+  SQLLEN         orind[ROWS];            /* Len or status ind */
+
+  SQLUSMALLINT   rowStatus[ROWS];        /* Status of each row */
+
+  ret = SQLSetStmtAttr(hstmt, SQL_ATTR_ROW_ARRAY_SIZE,
+    (SQLPOINTER)ROWS, 0);
+  X("CALL_SQLSetStmtAttr SQL_ATTR_ROW_ARRAY_SIZE result=%d", ret);
+
+  ret = SQLSetStmtAttr(hstmt, SQL_ATTR_ROW_STATUS_PTR,
+    (SQLPOINTER)rowStatus, 0);
+  X("CALL_SQLSetStmtAttr SQL_ATTR_ROW_STATUS_PTR result=%d", ret);
+
+  ret = SQLSetStmtAttr(hstmt, SQL_ATTR_ROWS_FETCHED_PTR,
+    (SQLPOINTER)&numRowsFetched, 0);
+  X("CALL_SQLSetStmtAttr SQL_ATTR_ROWS_FETCHED_PTR result=%d", ret);
+
+  SQLULEN maxRows = 90;
+  SQLSetStmtAttr(hstmt, SQL_ATTR_MAX_ROWS, (SQLPOINTER)maxRows, SQL_IS_UINTEGER);
+
+  SQLBindCol(hstmt,   /* Statement handle */
+    1,                /* Column number */
+    SQL_C_CHAR,       /* Bind to a C string */
+    ts,               /* The data to be fetched */
+    TS_LEN,           /* Maximum length of the data */
+    orind);           /* Status or length indicator */
+
+  while ((ret = CALL_SQLFetchScroll(hstmt, SQL_FETCH_NEXT, 0)) == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO) {
+    for (SQLUINTEGER i = 0; i < numRowsFetched; i++)
+    {
+      D("ts: %s", ts[i]);
+    }
+    row += numRowsFetched;
+    X("numRowsFetched %lld : %lld", row, numRowsFetched);
+  }
+
+  if (ret == SQL_NO_DATA) {
+    X("No more rows");
+  }
+  else if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO) {
+    SQLCHAR sqlState[6], message[256];
+    SQLINTEGER nativeError;
+    SQLSMALLINT textLength;
+    SQLGetDiagRec(SQL_HANDLE_STMT, hstmt, 1, sqlState, &nativeError, message, sizeof(message), &textLength);
+    X("Error: SQLSTATE=%s, Native Error=%d, Message=%s\n", sqlState, nativeError, message);
+    return -1;
+  }
+
+  X("Has got %lld rows, exit...", row);
+  return row;
+}
+
+static int more_result_test(char* table_name) {
+  reset_stmt();
+  SQLHANDLE hstmt = link_info->ctx.hstmt;
+  SQLULEN    numRowsFetched;
+  SQLULEN    row = 0;
+  SQLRETURN  ret;
+
+  char sql[1024];
+  sprintf(sql, "SELECT ts FROM %s limit 12; SELECT ts, current_val FROM %s limit 25;", table_name, table_name);
+
+  CALL_SQLExecDirect(hstmt, sql, SQL_NTS);
+
+  ret = SQLSetStmtAttr(hstmt, SQL_ATTR_ROWS_FETCHED_PTR,
+    (SQLPOINTER)&numRowsFetched, 0);
+  X("CALL_SQLSetStmtAttr SQL_ATTR_ROWS_FETCHED_PTR result=%d", ret);
+
+  ret = SQLSetStmtAttr(hstmt, SQL_ATTR_ROW_ARRAY_SIZE,
+    (SQLPOINTER)10, 0);
+  X("CALL_SQLSetStmtAttr SQL_ATTR_ROW_ARRAY_SIZE result=%d", ret);
+
+  do {
+    while ((ret = CALL_SQLFetchScroll(hstmt, SQL_FETCH_NEXT, 0)) == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO) {
+      for (SQLUINTEGER i = 0; i < numRowsFetched; i++)
+      {
+        X("row: %d", i);
+      }
+      row += numRowsFetched;
+      X("numRowsFetched %lld : %lld", row, numRowsFetched);
+    }
+    X("Has got %lld rows", row);
+  } while ((ret = SQLMoreResults(hstmt)) == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO);
+
+  return 0;
+}
+
+static int row_count_test(char* table_name) {
+  reset_stmt();
+  SQLHANDLE hstmt = link_info->ctx.hstmt;
+
+  char sql[100 + count_10*5 * 30];
+  sql[0] = '\0';
+
+  time_t t1 = time(NULL) * 1000;
+  for (int num = 0; num < 1; num++) {
+    sql[0] = '\0';
+    sprintf(sql, "insert into t_table (ts, current_val, current_status) values ");
+    char val[64];
+
+    for (int i = 0; i < count_10*5; i++) {
+      val[0] = '\0';
+      sprintf(val, " (%lld, %d, 0)", time(NULL) * 1000, 100 + i);
+      strcat(sql, val);
+      Sleep(300);
+    }
+    CHK1(exec_sql, sql, 0);
+
+    SQLLEN numberOfrows;
+    int r = CALL_SQLRowCount(link_info->ctx.hstmt, &numberOfrows);
+    X("insert into t_table count: %lld", numberOfrows);
+  }
+  time_t t2 = time(NULL) * 1000;
+  for (int num = 0; num < 1; num++) {
+    sql[0] = '\0';
+    sprintf(sql, "delete from t_table where ts >= %lld and ts <= %lld", t1, (t2 + t1) / 2);
+
+    CHK1(exec_sql, sql, 0);
+
+    SQLLEN numberOfrows;
+    int r = CALL_SQLRowCount(link_info->ctx.hstmt, &numberOfrows);
+    X("delete from t_table count: %lld", numberOfrows);
+  }
+
+  return 0;
+}
+
+static int primary_key_test(char* table) {
+  SQLRETURN ret;
+  SQLHANDLE hstmt = link_info->ctx.hstmt;
+  ret = SQLPrimaryKeys(hstmt, NULL, 0, NULL, 0, table, SQL_NTS);
+
+  // Fetch and print the primary key information
+  SQLCHAR columnName[MAX_TABLE_NAME_LEN];
+  SQLUSMALLINT dataType;
+  SQLLEN columnNameLen, ordinalPosition;
+  while (ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO) {
+    ret = SQLFetch(hstmt);
+    if (ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO) {
+      SQLGetData(hstmt, 4, SQL_C_CHAR, columnName, MAX_TABLE_NAME_LEN, &columnNameLen);
+      SQLGetData(hstmt, 5, SQL_C_SHORT, &dataType, sizeof(dataType), NULL);
+      SQLGetData(hstmt, 8, SQL_C_SHORT, &ordinalPosition, sizeof(ordinalPosition), NULL);
+      X("Column: %s, DataType: %d, OrdinalPosition: %lld", columnName, dataType, ordinalPosition);
+    }
+  }
+  return 0;
+}
+
+static int num_param_test(char* table) {
+  int r = 0;
+  SQLRETURN sr = SQL_SUCCESS;
+  SQLHANDLE hstmt = link_info->ctx.hstmt;
+
+  char* sql[] = {
+    "select ts from t_table;",
+    "select * from t_table where ts = ?;",
+    "select * from t_table where ts = ? and current_val = ?;",
+    "select * from t_table where ts = ? and current_val = ?;",
+    "insert into t_table (ts, current_val, current_status) values (?, ?, ?);",
+    "delete from t_table where ts = ? and current_val = ?;",
+  };
+  for (int i = 0; i < sizeof(sql)/sizeof(char*); i++) {
+    sr = CALL_SQLPrepare(hstmt, (SQLCHAR*)sql[i], SQL_NTS);
+    if (FAILED(sr)) return -1;
+
+    SQLSMALLINT ParameterCount = 0;
+    sr = CALL_SQLNumParams(hstmt, &ParameterCount);
+    if (FAILED(sr)) return -1;
+    X("sql:%s  numParam:%d", sql[i], ParameterCount);
+
+    for (int i = 0; i < ParameterCount; ++i) {
+      SQLSMALLINT DataType = 0;
+      SQLULEN     ParameterSize = 0;
+      SQLSMALLINT DecimalDigits = 0;
+      SQLSMALLINT Nullable = 0;
+      sr = CALL_SQLDescribeParam(hstmt, i + 1, &DataType, &ParameterSize, &DecimalDigits, &Nullable);
+      X("\t\tparam %d: datatype(%d) paramsize(%lld) decimaldigit(%d) nullable(%d)", i, DataType, ParameterSize, DecimalDigits, Nullable);
+      if (FAILED(sr)) return -1;
+    }
+  }
+
+  return 0;
+}
+
 static int get_records_counts(char* table_name) {
   reset_stmt();
   SQLHANDLE hstmt = link_info->ctx.hstmt;
@@ -663,42 +875,43 @@ static int case_2(void) {
   return 0;
 }
 
+static int check_t_table() {
+  CHK1(exec_sql, t_table_create, 0);
+  return 0;
+}
+
 static int case_3(void) {
   CHK0(create_sql_connect, 0);
   CHK1(use_db, test_db, 0);
+  CHK0(check_t_table, 0);
 
-  #define insert_times 100
-  #define insert_count 1000
-
-  char sql[100 + insert_count * 64];
+  char sql[100 + count_1000 * 64];
   sql[0] = '\0';
-
-  sql[0] = '\0';
-  strcpy(sql, "CREATE TABLE if not exists `t_table` (`ts` TIMESTAMP, `current_val` DOUBLE, `current_status` INT)");
-  CHK1(exec_sql, sql, 0);
 
   clock_t t1 = clock();
-
-
   time_t current_time = time(NULL);
 
-  for (int num = 0; num < insert_times; num++) {
+  for (int num = 0; num < count_100; num++) {
     sql[0] = '\0';
     sprintf(sql, "insert into t_table (ts, current_val, current_status) values ");
     char val[64];
 
-    for (int i = 0; i < insert_count; i++) {
+    for (int i = 0; i < count_1000; i++) {
       val[0] = '\0';
-      sprintf(val, " (%lld, %d, 0)", current_time * 1000 + num * insert_count + i, 100 + i);
+      sprintf(val, " (%lld, %d, 0)", current_time * 1000 + num * count_1000 + i, 100 + i);
       strcat(sql, val);
     }
     CHK1(exec_sql, sql, 0);
+
+    SQLLEN numberOfrows;
+    int r = CALL_SQLRowCount(link_info->ctx.hstmt, &numberOfrows);
+    X("insert into t_table count: %lld", numberOfrows);
   }
 
 
   clock_t t2 = clock();
   double elapsed_time = (double)(t2 - t1) / CLOCKS_PER_SEC;
-  X("Write %d * %d rows data, cost time : % f seconds", insert_times, insert_count, elapsed_time);
+  X("Write %d * %d rows data, cost time : % f seconds", count_100, count_1000, elapsed_time);
 
   int counts = show_table_data("t_table");
 
@@ -706,6 +919,68 @@ static int case_3(void) {
   elapsed_time = (double)(t3 - t2) / CLOCKS_PER_SEC;
   X("Read %d rows data, cost time: %f seconds", counts, elapsed_time);
 
+  CHK0(free_connect, 0);
+  return 0;
+}
+
+static int case_4(void) {
+  CHK0(create_sql_connect, 0);
+  CHK1(use_db, test_db, 0);
+  CHK0(check_t_table, 0);
+
+  clock_t t2 = clock();
+  SQLULEN counts = fetch_scorll_test("t_table");
+  if (counts < 0) return -1;
+
+  clock_t t3 = clock();
+  double elapsed_time = (double)(t3 - t2) / CLOCKS_PER_SEC;
+  X("Read %lld rows data, cost time: %f seconds", counts, elapsed_time);
+
+  //CHK0(free_connect, 0);
+  return 0;
+}
+
+static int case_5(void) {
+  CHK0(create_sql_connect, 0);
+  CHK1(use_db, test_db, 0);
+  CHK0(check_t_table, 0);
+
+  CHK1(more_result_test, "t_table", 0);
+
+  CHK0(free_connect, 0);
+  return 0;
+}
+
+static int case_6(void) {
+  CHK0(create_sql_connect, 0);
+  CHK1(use_db, test_db, 0);
+  CHK0(check_t_table, 0);
+
+  CHK1(row_count_test, "t_table", 0);
+
+  CHK0(free_connect, 0);
+  return 0;
+}
+
+static int case_7(void) {
+  CHK0(create_sql_connect, 0);
+  CHK1(use_db, test_db, 0);
+  CHK0(check_t_table, 0);
+
+  CHK1(primary_key_test, "t_table", 0);
+
+  CHK0(free_connect, 0);
+  return 0;
+}
+
+static int case_8(void) {
+  CHK0(create_sql_connect, 0);
+  CHK1(use_db, test_db, 0);
+  CHK0(check_t_table, 0);
+
+  CHK1(num_param_test, "t_table", 0);
+
+  CHK0(free_connect, 0);
   return 0;
 }
 
@@ -724,9 +999,14 @@ static int run(int argc, char* argv[]) {
   init();
 
   if (isTestCase(argc, argv, "db_test", default_supported)) CHK0(db_test, 0);
-  if (isTestCase(argc, argv, "basic", default_supported)) CHK0(case_1, 0);
+  if (isTestCase(argc, argv, "case_1", default_supported)) CHK0(case_1, 0);
   if (isTestCase(argc, argv, "case_2", default_supported)) CHK0(case_2, 0);
   if (isTestCase(argc, argv, "case_3", default_supported)) CHK0(case_3, 0);
+  if (isTestCase(argc, argv, "case_4", default_supported)) CHK0(case_4, 0);
+  if (isTestCase(argc, argv, "case_5", default_supported)) CHK0(case_5, 0);
+  if (isTestCase(argc, argv, "case_6", default_supported)) CHK0(case_6, 0);
+  if (isTestCase(argc, argv, "case_7", default_supported)) CHK0(case_7, 0);
+  if (isTestCase(argc, argv, "case_8", default_supported)) CHK0(case_8, 0);
 
   X("The test finished successfully.");
   return 0;
@@ -744,7 +1024,8 @@ static int cloud_test(int argc, char* argv[]) {
 
 static int mysql_help_test(int argc, char* argv[]) {
   CHK0(init, 0);
-  CHK0(case_2, 0);
+  if (isTestCase(argc, argv, "case_2", default_supported)) CHK0(case_2, 0);
+  if (isTestCase(argc, argv, "case_4", default_supported)) CHK0(case_4, 0);
 
   X("The test finished successfully.");
   return 0;
@@ -776,7 +1057,7 @@ int main(int argc, char* argv[])
       link_info = &_mysql_link;
       r = mysql_help_test(argc - 1, argv + 1);
     }
-    else if (argc >= 2 && strcmp(argv[1], LINKMODEMYSQL) == 0) {
+    else if (argc >= 2 && strcmp(argv[1], LINKMODESQLSERVER) == 0) {
       link_info = &_sqlserver_link;
       r = server_help_test(argc - 1, argv + 1);
     }

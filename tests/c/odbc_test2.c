@@ -234,6 +234,10 @@ static int init_henv(void) {
   return 0;
 }
 
+static bool is_sql_server_test(void) {
+  return strcmp(link_info->test_name, LINKMODESQLSERVER) == 0;
+}
+
 static int create_sql_connect(void) {
   int r = 0;
 
@@ -331,6 +335,7 @@ static int drop_database(char* db) {
 }
 
 static int create_database(char* db) {
+  if (is_sql_server_test()) return 0;
   char sql[128];
   memset(sql, 0, sizeof(sql));
   strcat(sql, "create database if not exists ");
@@ -557,20 +562,20 @@ static SQLULEN fetch_scorll_test(char* table_name) {
 
   SQLUSMALLINT   rowStatus[ROWS];        /* Status of each row */
 
-  ret = SQLSetStmtAttr(hstmt, SQL_ATTR_ROW_ARRAY_SIZE,
+  ret = CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_ROW_ARRAY_SIZE,
     (SQLPOINTER)ROWS, 0);
   X("CALL_SQLSetStmtAttr SQL_ATTR_ROW_ARRAY_SIZE result=%d", ret);
 
-  ret = SQLSetStmtAttr(hstmt, SQL_ATTR_ROW_STATUS_PTR,
+  ret = CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_ROW_STATUS_PTR,
     (SQLPOINTER)rowStatus, 0);
   X("CALL_SQLSetStmtAttr SQL_ATTR_ROW_STATUS_PTR result=%d", ret);
 
-  ret = SQLSetStmtAttr(hstmt, SQL_ATTR_ROWS_FETCHED_PTR,
+  ret = CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_ROWS_FETCHED_PTR,
     (SQLPOINTER)&numRowsFetched, 0);
   X("CALL_SQLSetStmtAttr SQL_ATTR_ROWS_FETCHED_PTR result=%d", ret);
 
   SQLULEN maxRows = 90;
-  SQLSetStmtAttr(hstmt, SQL_ATTR_MAX_ROWS, (SQLPOINTER)maxRows, SQL_IS_UINTEGER);
+  CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_MAX_ROWS, (SQLPOINTER)maxRows, SQL_IS_UINTEGER);
 
   SQLBindCol(hstmt,   /* Statement handle */
     1,                /* Column number */
@@ -616,11 +621,11 @@ static int more_result_test(char* table_name) {
 
   CALL_SQLExecDirect(hstmt, sql, SQL_NTS);
 
-  ret = SQLSetStmtAttr(hstmt, SQL_ATTR_ROWS_FETCHED_PTR,
+  ret = CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_ROWS_FETCHED_PTR,
     (SQLPOINTER)&numRowsFetched, 0);
   X("CALL_SQLSetStmtAttr SQL_ATTR_ROWS_FETCHED_PTR result=%d", ret);
 
-  ret = SQLSetStmtAttr(hstmt, SQL_ATTR_ROW_ARRAY_SIZE,
+  ret = CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_ROW_ARRAY_SIZE,
     (SQLPOINTER)10, 0);
   X("CALL_SQLSetStmtAttr SQL_ATTR_ROW_ARRAY_SIZE result=%d", ret);
 
@@ -705,11 +710,12 @@ static int get_type_info_test() {
   SQLHANDLE hstmt = link_info->ctx.hstmt;
 
   sr = SQLGetTypeInfo(hstmt, SQL_ALL_TYPES);
+  CHKSTMTR(hstmt, sr);
 
   // Fetch and print the data type information
   SQLCHAR typeName[MAX_TABLE_NUMBER];
-  SQLLEN typeNameLen, columnSize;
-  SQLSMALLINT dataType, decimalDigits;
+  SQLLEN typeNameLen = 0, columnSize = 0;
+  SQLSMALLINT dataType = 0, decimalDigits = 0;
   while (sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO) {
     sr = SQLFetch(hstmt);
     if (sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO) {
@@ -724,6 +730,130 @@ static int get_type_info_test() {
   return 0;
 }
 
+static int printSetResult(SQLHANDLE hstmt, const char* event, SQLRETURN sr) {
+  if (sr < 0) {
+    X("%s failed %d", event, sr);
+  }
+  else {
+    X("%s success", event);
+  }
+  CHKSTMTR(hstmt, sr);
+  return 0;
+}
+static int printGetResult(SQLHANDLE hstmt, const char* event, SQLRETURN sr, SQLLEN value) {
+  if (sr < 0) {
+    X("%s failed %d", event, sr);
+  }
+  else {
+    X("%s: %lld", event, value);
+  }
+  CHKSTMTR(hstmt, sr);
+  return 0;
+}
+
+static int set_stmt_attr_test() {
+  SQLRETURN sr = SQL_SUCCESS;
+  SQLHANDLE hstmt = link_info->ctx.hstmt;
+
+  SQLCHAR sql[] = "SELECT ts FROM t_table";
+  sr = SQLPrepare(hstmt, sql, SQL_NTS);
+  CHKSTMTR(hstmt, sr);
+  X("SQLPrepare result:%d", sr);
+
+  sr = CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_ASYNC_ENABLE, (SQLPOINTER)SQL_ASYNC_ENABLE_OFF, SQL_IS_INTEGER);
+  printSetResult(hstmt, "CALL_SQLSetStmtAttr SQL_ATTR_ASYNC_ENABLE", sr);
+
+  SQLLEN async_enable = 0;
+  sr = SQLGetStmtAttr(hstmt, SQL_ATTR_ASYNC_ENABLE, &async_enable, 0, NULL);
+  printGetResult(hstmt, "SQLGetStmtAttr SQL_ATTR_ASYNC_ENABLE", sr, async_enable);
+
+  // sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
+  // D("CALL_SQLExecDirect: %s result:%d", sql, sr);
+
+  sr = CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_CURSOR_TYPE, (SQLPOINTER)SQL_CURSOR_FORWARD_ONLY, SQL_IS_INTEGER);
+  printSetResult(hstmt, "CALL_SQLSetStmtAttr SQL_ATTR_CURSOR_TYPE", sr);
+
+  SQLLEN cursor_type;
+  sr = SQLGetStmtAttr(hstmt, SQL_ATTR_CURSOR_TYPE, &cursor_type, 0, NULL);
+  printGetResult(hstmt, "SQLGetStmtAttr SQL_ATTR_CURSOR_TYPE", sr, cursor_type);
+
+  SQLLEN max_rows = 100;
+  sr = CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_MAX_ROWS, (SQLPOINTER)&max_rows, SQL_IS_INTEGER);
+  printSetResult(hstmt, "CALL_SQLSetStmtAttr SQL_ATTR_MAX_ROWS", sr);
+
+  max_rows = 0;
+  sr = SQLGetStmtAttr(hstmt, SQL_ATTR_MAX_ROWS, &max_rows, 0, NULL);
+  printGetResult(hstmt, "SQLGetStmtAttr SQL_ATTR_MAX_ROWS", sr, max_rows);
+
+  SQLLEN max_length = 100;
+  sr = CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_MAX_LENGTH, (SQLPOINTER)&max_length, SQL_IS_INTEGER);
+  printSetResult(hstmt, "CALL_SQLSetStmtAttr SQL_ATTR_MAX_LENGTH", sr);
+
+  max_length = 0;
+  sr = SQLGetStmtAttr(hstmt, SQL_ATTR_MAX_LENGTH, &max_length, 0, NULL);
+  printGetResult(hstmt, "SQLGetStmtAttr SQL_ATTR_MAX_LENGTH", sr, max_length);
+
+  SQLLEN query_timeout = 100;
+  sr = CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_QUERY_TIMEOUT, (SQLPOINTER)&query_timeout, SQL_IS_INTEGER);
+  printSetResult(hstmt, "CALL_SQLSetStmtAttr SQL_ATTR_QUERY_TIMEOUT", sr);
+
+  query_timeout = 0;
+  sr = SQLGetStmtAttr(hstmt, SQL_ATTR_QUERY_TIMEOUT, &query_timeout, 0, NULL);
+  printGetResult(hstmt, "SQLGetStmtAttr SQL_ATTR_QUERY_TIMEOUT", sr, query_timeout);
+
+  sr = CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_NOSCAN, (SQLPOINTER)SQL_NOSCAN_ON, SQL_IS_INTEGER);
+  printSetResult(hstmt, "CALL_SQLSetStmtAttr SQL_ATTR_NOSCAN", sr);
+
+  SQLLEN noscan = 0;
+  sr = SQLGetStmtAttr(hstmt, SQL_ATTR_NOSCAN, &noscan, 0, NULL);
+  printGetResult(hstmt, "SQLGetStmtAttr SQL_ATTR_NOSCAN", sr, noscan);
+
+  return 0;
+}
+
+static int get_stmt_attr_test() {
+  SQLRETURN sr = SQL_SUCCESS;
+  SQLHANDLE hstmt = link_info->ctx.hstmt;
+
+  SQLCHAR sql[] = "SELECT * FROM t_table";
+  sr = SQLPrepare(hstmt, sql, SQL_NTS);
+  CHKSTMTR(hstmt, sr);
+  X("SQLPrepare result:%d", sr);
+
+  SQLLEN cursorType = 0;
+  sr = SQLGetStmtAttr(hstmt, SQL_ATTR_CURSOR_TYPE, &cursorType, 0, NULL);
+  printGetResult(hstmt, "SQLGetStmtAttr SQL_ATTR_CURSOR_TYPE", sr, cursorType);
+
+  SQLLEN row_number = 0;
+  sr = SQLGetStmtAttr(hstmt, SQL_ATTR_ROW_NUMBER, &row_number, 0, NULL);
+  printGetResult(hstmt, "SQLGetStmtAttr SQL_ATTR_ROW_NUMBER", sr, row_number);
+
+  SQLLEN rowArarrySize = 0;
+  sr = SQLGetStmtAttr(hstmt, SQL_ATTR_ROW_ARRAY_SIZE, &rowArarrySize, 0, NULL);
+  printGetResult(hstmt, "SQLGetStmtAttr SQL_ATTR_ROW_ARRAY_SIZE", sr, rowArarrySize);
+ 
+  SQLLEN time_out = 0;
+  sr = SQLGetStmtAttr(hstmt, SQL_ATTR_QUERY_TIMEOUT, &time_out, 0, NULL);
+  printGetResult(hstmt, "SQLGetStmtAttr SQL_ATTR_QUERY_TIMEOUT", sr, time_out);
+
+  SQLLEN maxRows = 0;
+  sr = SQLGetStmtAttr(hstmt, SQL_ATTR_MAX_ROWS, &maxRows, 0, NULL);
+  printGetResult(hstmt, "SQLGetStmtAttr SQL_ATTR_MAX_ROWS", sr, maxRows);
+
+  SQLLEN param_bind_type = 0;
+  sr = SQLGetStmtAttr(hstmt, SQL_ATTR_PARAM_BIND_TYPE, &param_bind_type, 0, NULL);
+  printGetResult(hstmt, "SQLGetStmtAttr SQL_ATTR_PARAM_BIND_TYPE", sr, param_bind_type);
+
+  SQLLEN param_size = 0;
+  sr = SQLGetStmtAttr(hstmt, SQL_ATTR_PARAMSET_SIZE, &param_size, 0, NULL);
+  printGetResult(hstmt, "SQLGetStmtAttr SQL_ATTR_PARAMSET_SIZE", sr, param_size);
+
+  SQLLEN row_array_size = 0;
+  sr = SQLGetStmtAttr(hstmt, SQL_ATTR_ROW_ARRAY_SIZE, &row_array_size, 0, NULL);
+  printGetResult(hstmt, "SQLGetStmtAttr SQL_ATTR_ROW_ARRAY_SIZE", sr, row_array_size);
+
+  return 0;
+}
 
 static int num_param_test(char* table) {
   int r = 0;
@@ -901,6 +1031,7 @@ static int case_2(void) {
 }
 
 static int check_t_table() {
+  if (is_sql_server_test()) return 0;
   CHK1(exec_sql, t_table_create, 0);
   return 0;
 }
@@ -1012,9 +1143,40 @@ static int case_8(void) {
 static int case_9(void) {
   CHK0(create_sql_connect, 0);
   CHK1(use_db, test_db, 0);
-  CHK0(check_t_table, 0);
 
   CHK0(get_type_info_test, 0);
+
+  CHK0(free_connect, 0);
+  return 0;
+}
+
+static int case_9_1(void) {
+  CHK0(create_sql_connect, 0);
+
+  CHK0(get_type_info_test, -1);
+
+  CHK0(free_connect, 0);
+  return 0;
+}
+
+
+static int case_10(void) {
+  CHK0(create_sql_connect, 0);
+  CHK1(use_db, test_db, 0);
+  CHK0(check_t_table, 0);
+
+  CHK0(set_stmt_attr_test, 0);
+
+  CHK0(free_connect, 0);
+  return 0;
+}
+
+static int case_11(void) {
+  CHK0(create_sql_connect, 0);
+  CHK1(use_db, test_db, 0);
+  CHK0(check_t_table, 0);
+
+  CHK0(get_stmt_attr_test, 0);
 
   CHK0(free_connect, 0);
   return 0;
@@ -1044,6 +1206,9 @@ static int run(int argc, char* argv[]) {
   if (isTestCase(argc, argv, "case_7", default_supported)) CHK0(case_7, 0);
   if (isTestCase(argc, argv, "case_8", default_supported)) CHK0(case_8, 0);
   if (isTestCase(argc, argv, "case_9", default_supported)) CHK0(case_9, 0);
+  if (isTestCase(argc, argv, "case_9_1", default_supported)) CHK0(case_9_1, 0);
+  if (isTestCase(argc, argv, "case_10", default_supported)) CHK0(case_10, 0);
+  if (isTestCase(argc, argv, "case_11", default_supported)) CHK0(case_11, 0);
 
   X("The test finished successfully.");
   return 0;
@@ -1063,12 +1228,17 @@ static int mysql_help_test(int argc, char* argv[]) {
   CHK0(init, 0);
   if (isTestCase(argc, argv, "case_2", default_supported)) CHK0(case_2, 0);
   if (isTestCase(argc, argv, "case_4", default_supported)) CHK0(case_4, 0);
+  if (isTestCase(argc, argv, "case_9", default_supported)) CHK0(case_9, 0);
+  if (isTestCase(argc, argv, "case_9_1", default_supported)) CHK0(case_9_1, 0);
+  if (isTestCase(argc, argv, "case_10", default_supported)) CHK0(case_10, 0);
 
   X("The test finished successfully.");
   return 0;
 }
 
 static int server_help_test(int argc, char* argv[]) {
+  CHK0(init, 0);
+  if (isTestCase(argc, argv, "case_10", default_supported)) CHK0(case_10, 0);
 
   X("SQLServer help test skip.");
   return 0;

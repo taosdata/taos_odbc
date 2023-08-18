@@ -948,6 +948,60 @@ static int show_columns2(char* table_name) {
   return 0;
 }
 
+static int end_tran_test() {
+  SQLRETURN sr = SQL_SUCCESS;
+  SQLHANDLE hstmt = link_info->ctx.hstmt;
+
+  sr = SQLGetTypeInfo(hstmt, SQL_ALL_TYPES);
+  CHKSTMTR(hstmt, sr);
+
+  sr = SQLEndTran(SQL_HANDLE_DBC, link_info->ctx.hconn, SQL_COMMIT);
+  X("SQLEndTran result: %d", sr);
+
+  return 0;
+}
+
+static int describe_col_test(char* table_name) {
+  reset_stmt();
+  SQLHANDLE hstmt = link_info->ctx.hstmt;
+  SQLULEN    row = 0;
+  SQLRETURN  ret;
+
+  char sql[1024];
+  sprintf(sql, "SELECT * FROM %s limit 12; SELECT ts, current_val FROM %s limit 25;", table_name, table_name);
+
+  CALL_SQLExecDirect(hstmt, sql, SQL_NTS);
+
+  SQLSMALLINT columnCount;
+  ret = CALL_SQLNumResultCols(hstmt, &columnCount);
+  CHKSTMTR(hstmt, ret);
+
+  SQLCHAR colName[256];
+  SQLSMALLINT colNameLen;
+  SQLSMALLINT dataType;
+  SQLULEN colSize;
+  SQLSMALLINT decimalDigits;
+  SQLSMALLINT nullable;
+
+  for (int i = 0; i < columnCount; ++i) {
+    ret = SQLDescribeCol(hstmt, i + 1, colName, sizeof(colName), &colNameLen, &dataType, &colSize, &decimalDigits, &nullable);
+    if (ret == SQL_SUCCESS) {
+      printf("Column Name: %.*s\n", colNameLen, colName);
+      printf("Data Type: %d\n", dataType);
+      printf("Column Size: %lld\n", colSize);
+      printf("Decimal Digits: %d\n", decimalDigits);
+      printf("Nullable: %d\n", nullable);
+    }
+    else {
+      // Handle error
+      printf("Failed to describe column.\n");
+    }
+    printf("\n");
+  }
+
+  return 0;
+}
+
 static int case_1(void) {
   char* tmp_db = "tmp_db";
   CHK0(create_sql_connect, 0);
@@ -1256,6 +1310,27 @@ static int case_13(void) {
   return 0;
 }
 
+ static int case_14(void) {
+   CHK0(create_sql_connect, 0);
+   CHK1(use_db, test_db, 0);
+
+   CHK0(end_tran_test, 0);
+
+   CHK0(free_connect, 0);
+   return 0;
+}
+
+ static int case_15(void) {
+   CHK0(create_sql_connect, 0);
+   CHK1(use_db, test_db, 0);
+   CHK0(check_t_table, 0);
+
+   CHK1(describe_col_test, "t_table", 0);
+
+   CHK0(free_connect, 0);
+   return 0;
+ }
+
 static const int default_supported = 1;
 static const int default_unsupported = 2;
 static bool isTestCase(int argc, char* argv[], const char* test_case, const int support) {
@@ -1285,6 +1360,8 @@ static int run(int argc, char* argv[]) {
   if (isTestCase(argc, argv, "case_11", default_supported)) CHK0(case_11, 0);
   if (isTestCase(argc, argv, "case_12", default_supported)) CHK0(case_12, 0);
   if (isTestCase(argc, argv, "case_13", default_supported)) CHK0(case_13, 0);
+  if (isTestCase(argc, argv, "case_14", default_supported)) CHK0(case_14, 0);
+  if (isTestCase(argc, argv, "case_15", default_supported)) CHK0(case_15, 0);
 
   X("The test finished successfully.");
   return 0;

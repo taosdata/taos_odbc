@@ -690,16 +690,24 @@ static int primary_key_test(char* table) {
   ret = SQLPrimaryKeys(hstmt, NULL, 0, NULL, 0, table, SQL_NTS);
 
   // Fetch and print the primary key information
+  SQLCHAR tableCat[MAX_TABLE_NAME_LEN];
+  SQLCHAR tableSchem[MAX_TABLE_NAME_LEN];
+  SQLCHAR tableName[MAX_TABLE_NAME_LEN];
   SQLCHAR columnName[MAX_TABLE_NAME_LEN];
-  SQLUSMALLINT dataType;
-  SQLLEN columnNameLen, ordinalPosition;
+  SQLCHAR pkName[MAX_TABLE_NAME_LEN];
+  SQLUSMALLINT keySEQ;
+  SQLLEN valLen;
   while (ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO) {
     ret = SQLFetch(hstmt);
     if (ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO) {
-      SQLGetData(hstmt, 4, SQL_C_CHAR, columnName, MAX_TABLE_NAME_LEN, &columnNameLen);
-      SQLGetData(hstmt, 5, SQL_C_SHORT, &dataType, sizeof(dataType), NULL);
-      SQLGetData(hstmt, 8, SQL_C_SHORT, &ordinalPosition, sizeof(ordinalPosition), NULL);
-      X("Column: %s, DataType: %d, OrdinalPosition: %lld", columnName, dataType, ordinalPosition);
+      SQLGetData(hstmt, 1, SQL_C_CHAR, tableCat, MAX_TABLE_NAME_LEN, &valLen);
+      SQLGetData(hstmt, 2, SQL_C_CHAR, tableSchem, MAX_TABLE_NAME_LEN, &valLen);
+      SQLGetData(hstmt, 3, SQL_C_CHAR, tableName, MAX_TABLE_NAME_LEN, &valLen);
+      SQLGetData(hstmt, 4, SQL_C_CHAR, columnName, MAX_TABLE_NAME_LEN, &valLen);
+      SQLGetData(hstmt, 5, SQL_C_SHORT, &keySEQ, sizeof(keySEQ), NULL);
+      SQLGetData(hstmt, 6, SQL_C_CHAR, pkName, MAX_TABLE_NAME_LEN, &valLen);
+      X("tableCat: %s, tableSchem: %s, tableName: %s, Column: %s, keySEQ: %d, pkName: %s",
+        tableCat, tableSchem, tableName, columnName, keySEQ, pkName);
     }
   }
   return 0;
@@ -710,21 +718,25 @@ static int get_type_info_test() {
   SQLHANDLE hstmt = link_info->ctx.hstmt;
 
   reset_stmt();
-  sr = SQLGetTypeInfo(hstmt, SQL_ALL_TYPES);
+  sr = CALL_SQLGetTypeInfo(hstmt, SQL_ALL_TYPES);
   CHKSTMTR(hstmt, sr);
 
   // Fetch and print the data type information
   SQLCHAR typeName[MAX_TABLE_NUMBER];
-  SQLLEN typeNameLen = 0, columnSize = 0;
+  SQLCHAR localTypeName[MAX_TABLE_NUMBER];
+
+  SQLLEN typeNameLen = 0;
+  SQLINTEGER columnSize = 0;
   SQLSMALLINT dataType = 0, decimalDigits = 0;
   while (sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO) {
     sr = SQLFetch(hstmt);
     if (sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO) {
-      SQLGetData(hstmt, 1, SQL_C_CHAR, typeName, MAX_TABLE_NUMBER, &typeNameLen);
-      SQLGetData(hstmt, 2, SQL_C_SHORT, &dataType, sizeof(dataType), NULL);
-      SQLGetData(hstmt, 3, SQL_C_LONG, &columnSize, sizeof(columnSize), NULL);
-      SQLGetData(hstmt, 4, SQL_C_SHORT, &decimalDigits, sizeof(decimalDigits), NULL);
-      printf("Type: %s, DataType: %d, ColumnSize: %lld, DecimalDigits: %d\n", typeName, dataType, columnSize, decimalDigits);
+      CALL_SQLGetData(hstmt, 1, SQL_C_CHAR, typeName, MAX_TABLE_NUMBER, &typeNameLen);
+      CALL_SQLGetData(hstmt, 2, SQL_C_SHORT, &dataType, sizeof(dataType), NULL);
+      CALL_SQLGetData(hstmt, 3, SQL_C_LONG, &columnSize, sizeof(columnSize), NULL);
+      CALL_SQLGetData(hstmt, 13, SQL_C_CHAR, localTypeName, MAX_TABLE_NUMBER, &typeNameLen);
+      //CALL_SQLGetData(hstmt, 19, SQL_C_SHORT, &decimalDigits, sizeof(decimalDigits), NULL);
+      printf("Type: %s, DataType: %d, localTypeName:%s, ColumnSize: %d, DecimalDigits: %d\n", typeName, dataType, localTypeName, columnSize, decimalDigits);
     }
   }
 
@@ -1361,35 +1373,35 @@ static int case_13(void) {
   return 0;
 }
 
- static int case_14(void) {
-   CHK0(create_sql_connect, 0);
-   CHK1(use_db, test_db, 0);
+static int case_14(void) {
+  CHK0(create_sql_connect, 0);
+  CHK1(use_db, test_db, 0);
 
-   CHK0(end_tran_test, 0);
+  CHK0(end_tran_test, 0);
 
-   CHK0(free_connect, 0);
-   return 0;
+  CHK0(free_connect, 0);
+  return 0;
 }
 
- static int case_15(void) {
-   CHK0(create_sql_connect, 0);
-   CHK1(use_db, test_db, 0);
-   CHK0(check_t_table, 0);
+static int case_15(void) {
+  CHK0(create_sql_connect, 0);
+  CHK1(use_db, test_db, 0);
+  CHK0(check_t_table, 0);
 
-   CHK1(describe_col_test, "t_table", 0);
-   CHK0(free_connect, 0);
-   return 0;
- }
+  CHK1(describe_col_test, "t_table", 0);
+  CHK0(free_connect, 0);
+  return 0;
+}
 
- static int case_16(void) {
-   CHK0(create_sql_connect, 0);
-   CHK1(use_db, test_db, 0);
-   CHK0(check_t_table, 0);
+static int case_16(void) {
+  CHK0(create_sql_connect, 0);
+  CHK1(use_db, test_db, 0);
+  CHK0(check_t_table, 0);
 
-   CHK1(col_attribute_test, "t_table", 0);
-   CHK0(free_connect, 0);
-   return 0;
- }
+  CHK1(col_attribute_test, "t_table", 0);
+  CHK0(free_connect, 0);
+  return 0;
+}
 
 static const int default_supported = 1;
 static const int default_unsupported = 2;

@@ -715,9 +715,9 @@ static int primary_key_test(char* table) {
 
 static int get_type_info_test() {
   SQLRETURN sr = SQL_SUCCESS;
+  CHK0(reset_stmt, 0);
   SQLHANDLE hstmt = link_info->ctx.hstmt;
 
-  reset_stmt();
   sr = CALL_SQLGetTypeInfo(hstmt, SQL_ALL_TYPES);
   CHKSTMTR(hstmt, sr);
 
@@ -1281,7 +1281,7 @@ static int case_9(void) {
 static int case_9_1(void) {
   CHK0(create_sql_connect, 0);
 
-  CHK0(get_type_info_test, -1);
+  CHK0(get_type_info_test, 0);
 
   CHK0(free_connect, 0);
   return 0;

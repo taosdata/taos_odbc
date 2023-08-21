@@ -709,6 +709,7 @@ static int get_type_info_test() {
   SQLRETURN sr = SQL_SUCCESS;
   SQLHANDLE hstmt = link_info->ctx.hstmt;
 
+  reset_stmt();
   sr = SQLGetTypeInfo(hstmt, SQL_ALL_TYPES);
   CHKSTMTR(hstmt, sr);
 
@@ -997,6 +998,56 @@ static int describe_col_test(char* table_name) {
       printf("Failed to describe column.\n");
     }
     printf("\n");
+  }
+
+  return 0;
+}
+
+static int col_attribute_test(char* table_name) {
+  reset_stmt();
+  SQLHANDLE hstmt = link_info->ctx.hstmt;
+  SQLULEN    row = 0;
+  SQLRETURN  ret;
+
+  char sql[1024];
+  sprintf(sql, "SELECT * FROM %s limit 12;", table_name);
+
+  CALL_SQLExecDirect(hstmt, sql, SQL_NTS);
+
+  SQLSMALLINT columnCount;
+  ret = CALL_SQLNumResultCols(hstmt, &columnCount);
+  CHKSTMTR(hstmt, ret);
+
+  SQLCHAR valstr[256];
+  SQLSMALLINT valLen;
+
+  for (int i = 1; i <= columnCount; ++i) {
+    valstr[0] = '\0';
+    ret = SQLColAttribute(hstmt, i, SQL_DESC_NAME, valstr, sizeof(valstr), &valLen, NULL);
+    if (ret == SQL_SUCCESS) {
+      printf("Column Name: %.*s\n", valLen, valstr);
+    }
+    else {
+      printf("Failed to get column attribute.\n");
+    }
+
+    valstr[0] = '\0';
+    ret = SQLColAttribute(hstmt, i, SQL_DESC_TYPE, valstr, sizeof(valstr), &valLen, NULL);
+    if (ret == SQL_SUCCESS) {
+      printf("SQL_DESC_TYPE: %.*s\n", valLen, valstr);
+    }
+    else {
+      printf("Failed to get column attribute.\n");
+    }
+
+    valstr[0] = '\0';
+    ret = SQLColAttribute(hstmt, i, SQL_DESC_ALLOC_TYPE, valstr, sizeof(valstr), &valLen, NULL);
+    if (ret == SQL_SUCCESS) {
+      printf("SQL_DESC_ALLOC_TYPE: %.*s\n", valLen, valstr);
+    }
+    else {
+      printf("Failed to get column attribute.\n");
+    }
   }
 
   return 0;
@@ -1326,7 +1377,16 @@ static int case_13(void) {
    CHK0(check_t_table, 0);
 
    CHK1(describe_col_test, "t_table", 0);
+   CHK0(free_connect, 0);
+   return 0;
+ }
 
+ static int case_16(void) {
+   CHK0(create_sql_connect, 0);
+   CHK1(use_db, test_db, 0);
+   CHK0(check_t_table, 0);
+
+   CHK1(col_attribute_test, "t_table", 0);
    CHK0(free_connect, 0);
    return 0;
  }
@@ -1362,6 +1422,7 @@ static int run(int argc, char* argv[]) {
   if (isTestCase(argc, argv, "case_13", default_supported)) CHK0(case_13, 0);
   if (isTestCase(argc, argv, "case_14", default_supported)) CHK0(case_14, 0);
   if (isTestCase(argc, argv, "case_15", default_supported)) CHK0(case_15, 0);
+  if (isTestCase(argc, argv, "case_16", default_supported)) CHK0(case_16, 0);
 
   X("The test finished successfully.");
   return 0;
@@ -1392,6 +1453,8 @@ static int mysql_help_test(int argc, char* argv[]) {
 
 static int server_help_test(int argc, char* argv[]) {
   CHK0(init, 0);
+  if (isTestCase(argc, argv, "case_9", default_supported)) CHK0(case_9, 0);
+  if (isTestCase(argc, argv, "case_9_1", default_supported)) CHK0(case_9_1, 0);
   if (isTestCase(argc, argv, "case_10", default_supported)) CHK0(case_10, 0);
   if (isTestCase(argc, argv, "case_13", default_supported)) CHK0(case_13, 0);
 

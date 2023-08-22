@@ -7332,41 +7332,22 @@ SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr,
   (void)StringLength;
 
   switch (Attribute) {
-    case SQL_ATTR_CURSOR_TYPE:
-      return _stmt_set_cursor_type(stmt, (SQLULEN)ValuePtr);
-    case SQL_ATTR_ROW_ARRAY_SIZE:
-      return _stmt_set_row_array_size(stmt, (SQLULEN)ValuePtr);
-    case SQL_ATTR_ROW_STATUS_PTR:
-      return _stmt_set_row_status_ptr(stmt, (SQLUSMALLINT*)ValuePtr);
-    case SQL_ATTR_ROW_BIND_TYPE:
-      return _stmt_set_row_bind_type(stmt, (SQLULEN)ValuePtr);
-    case SQL_ATTR_ROWS_FETCHED_PTR:
-      return _stmt_set_rows_fetched_ptr(stmt, (SQLULEN*)ValuePtr);
-    case SQL_ATTR_MAX_LENGTH:
-      return _stmt_set_max_length(stmt, (SQLULEN)ValuePtr);
-    case SQL_ATTR_ROW_BIND_OFFSET_PTR:
-      return _stmt_set_row_bind_offset_ptr(stmt, (SQLULEN*)ValuePtr);
-    case SQL_ATTR_PARAM_BIND_TYPE:
-      return _stmt_set_param_bind_type(stmt, (SQLULEN)ValuePtr);
-    case SQL_ATTR_PARAMSET_SIZE:
-      return _stmt_set_paramset_size(stmt, (SQLULEN)ValuePtr);
-    case SQL_ATTR_PARAM_STATUS_PTR:
-      return _stmt_set_param_status_ptr(stmt, (SQLUSMALLINT*)ValuePtr);
-    case SQL_ATTR_PARAMS_PROCESSED_PTR:
-      return _stmt_set_params_processed_ptr(stmt, (SQLULEN*)ValuePtr);
-    case SQL_ATTR_APP_ROW_DESC:
-      return _stmt_set_row_desc(stmt, ValuePtr);
     case SQL_ATTR_APP_PARAM_DESC:
       return _stmt_set_param_desc(stmt, ValuePtr);
-    case SQL_ATTR_QUERY_TIMEOUT:
-      if ((SQLULEN)(uintptr_t)ValuePtr == 0) return SQL_SUCCESS;
-      stmt_append_err_format(stmt, "01S02", 0, "Option value changed:`%zd` for `SQL_ATTR_QUERY_TIMEOUT` is substituted by `0`", (SQLULEN)(uintptr_t)ValuePtr);
-      return SQL_SUCCESS_WITH_INFO;
-    case SQL_ATTR_USE_BOOKMARKS:
-      if ((SQLULEN)(uintptr_t)ValuePtr == SQL_UB_OFF) return SQL_SUCCESS;
-      break;
+    case SQL_ATTR_APP_ROW_DESC:
+      return _stmt_set_row_desc(stmt, ValuePtr);
     case SQL_ATTR_ASYNC_ENABLE:
       if ((SQLULEN)(uintptr_t)ValuePtr == SQL_ASYNC_ENABLE_OFF) return SQL_SUCCESS;
+      break;
+#if (ODBCVER >= 0x0380)      /* { */
+    case SQL_ATTR_ASYNC_STMT_EVENT:
+      break;
+    case SQL_ATTR_ASYNC_STMT_PCALLBACK:
+      break;
+    case SQL_ATTR_ASYNC_STMT_PCONTEXT:
+      break;
+#endif                       /* } */
+    case SQL_ATTR_CONCURRENCY:
       break;
     case SQL_ATTR_CURSOR_SCROLLABLE:
       if ((SQLULEN)(uintptr_t)ValuePtr == SQL_NONSCROLLABLE) return SQL_SUCCESS;
@@ -7374,9 +7355,21 @@ SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr,
     case SQL_ATTR_CURSOR_SENSITIVITY:
       if ((SQLULEN)(uintptr_t)ValuePtr == SQL_UNSPECIFIED) return SQL_SUCCESS;
       break;
+    case SQL_ATTR_CURSOR_TYPE:
+      return _stmt_set_cursor_type(stmt, (SQLULEN)ValuePtr);
     case SQL_ATTR_ENABLE_AUTO_IPD:
       if ((SQLULEN)(uintptr_t)ValuePtr == SQL_FALSE) return SQL_SUCCESS;
       break;
+    case SQL_ATTR_FETCH_BOOKMARK_PTR:
+      break;
+    case SQL_ATTR_IMP_PARAM_DESC:
+      break;
+    case SQL_ATTR_IMP_ROW_DESC:
+      break;
+    case SQL_ATTR_KEYSET_SIZE:
+      break;
+    case SQL_ATTR_MAX_LENGTH:
+      return _stmt_set_max_length(stmt, (SQLULEN)ValuePtr);
     case SQL_ATTR_MAX_ROWS:
       if ((SQLULEN)(uintptr_t)ValuePtr == 0) return SQL_SUCCESS;
       break;
@@ -7388,20 +7381,45 @@ SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr,
       // FIXME:
       if ((SQLULEN)(uintptr_t)ValuePtr == SQL_NOSCAN_ON) return SQL_SUCCESS;
       break;
+    case SQL_ATTR_PARAM_BIND_OFFSET_PTR:
+      break;
+    case SQL_ATTR_PARAM_BIND_TYPE:
+      return _stmt_set_param_bind_type(stmt, (SQLULEN)ValuePtr);
+    case SQL_ATTR_PARAM_OPERATION_PTR:
+      break;
+    case SQL_ATTR_PARAM_STATUS_PTR:
+      return _stmt_set_param_status_ptr(stmt, (SQLUSMALLINT*)ValuePtr);
+    case SQL_ATTR_PARAMS_PROCESSED_PTR:
+      return _stmt_set_params_processed_ptr(stmt, (SQLULEN*)ValuePtr);
+    case SQL_ATTR_PARAMSET_SIZE:
+      return _stmt_set_paramset_size(stmt, (SQLULEN)ValuePtr);
+    case SQL_ATTR_QUERY_TIMEOUT:
+      if ((SQLULEN)(uintptr_t)ValuePtr == 0) return SQL_SUCCESS;
+      stmt_append_err_format(stmt, "01S02", 0, "Option value changed:`%zd` for `SQL_ATTR_QUERY_TIMEOUT` is substituted by `0`", (SQLULEN)(uintptr_t)ValuePtr);
+      return SQL_SUCCESS_WITH_INFO;
     case SQL_ATTR_RETRIEVE_DATA:
       if ((SQLULEN)(uintptr_t)ValuePtr == SQL_RD_ON) return SQL_SUCCESS;
       break;
-    case SQL_ATTR_CONCURRENCY:
-    case SQL_ATTR_FETCH_BOOKMARK_PTR:
-    case SQL_ATTR_IMP_PARAM_DESC:
-    case SQL_ATTR_IMP_ROW_DESC:
-    case SQL_ATTR_KEYSET_SIZE:
-    case SQL_ATTR_PARAM_BIND_OFFSET_PTR:
-    case SQL_ATTR_PARAM_OPERATION_PTR:
+    case SQL_ATTR_ROW_ARRAY_SIZE:
+      return _stmt_set_row_array_size(stmt, (SQLULEN)ValuePtr);
+    case SQL_ATTR_ROW_BIND_OFFSET_PTR:
+      return _stmt_set_row_bind_offset_ptr(stmt, (SQLULEN*)ValuePtr);
+    case SQL_ATTR_ROW_BIND_TYPE:
+      return _stmt_set_row_bind_type(stmt, (SQLULEN)ValuePtr);
     case SQL_ATTR_ROW_NUMBER:
+      break;
     case SQL_ATTR_ROW_OPERATION_PTR:
+      break;
+    case SQL_ATTR_ROW_STATUS_PTR:
+      return _stmt_set_row_status_ptr(stmt, (SQLUSMALLINT*)ValuePtr);
+    case SQL_ATTR_ROWS_FETCHED_PTR:
+      return _stmt_set_rows_fetched_ptr(stmt, (SQLULEN*)ValuePtr);
     case SQL_ATTR_SIMULATE_CURSOR:
-      // fall-through
+      break;
+    case SQL_ATTR_USE_BOOKMARKS:
+      if ((SQLULEN)(uintptr_t)ValuePtr == SQL_UB_OFF) return SQL_SUCCESS;
+      break;
+
     default:
       break;
   }

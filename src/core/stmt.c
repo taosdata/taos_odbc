@@ -7420,28 +7420,91 @@ SQLRETURN stmt_get_attr(stmt_t *stmt,
   (void)StringLength;
 
   switch (Attribute) {
+    case SQL_ATTR_APP_PARAM_DESC:
+      *(SQLHANDLE*)Value = (SQLHANDLE)(stmt->current_APD);
+      return SQL_SUCCESS;
     case SQL_ATTR_APP_ROW_DESC:
       *(SQLHANDLE*)Value = (SQLHANDLE)(stmt->current_ARD);
       return SQL_SUCCESS;
-    case SQL_ATTR_APP_PARAM_DESC:
-      *(SQLHANDLE*)Value = (SQLHANDLE)(stmt->current_APD);
+    case SQL_ATTR_ASYNC_ENABLE:
+      break;
+#if (ODBCVER >= 0x0380)      /* { */
+    case SQL_ATTR_ASYNC_STMT_EVENT:
+      break;
+    case SQL_ATTR_ASYNC_STMT_PCALLBACK:
+      break;
+    case SQL_ATTR_ASYNC_STMT_PCONTEXT:
+      break;
+#endif                       /* } */
+    case SQL_ATTR_CONCURRENCY:
+      break;
+    case SQL_ATTR_CURSOR_SCROLLABLE:
+      break;
+    case SQL_ATTR_CURSOR_SENSITIVITY:
+      break;
+    case SQL_ATTR_CURSOR_TYPE:
+      *(SQLULEN*)Value = SQL_CURSOR_FORWARD_ONLY;
+      return SQL_SUCCESS;
+    case SQL_ATTR_ENABLE_AUTO_IPD:
+      break;
+    case SQL_ATTR_FETCH_BOOKMARK_PTR:
+      break;
+    case SQL_ATTR_IMP_PARAM_DESC:
+      *(SQLHANDLE*)Value = (SQLHANDLE)(&stmt->IPD);
       return SQL_SUCCESS;
     case SQL_ATTR_IMP_ROW_DESC:
       *(SQLHANDLE*)Value = (SQLHANDLE)(&stmt->IRD);
       return SQL_SUCCESS;
-    case SQL_ATTR_IMP_PARAM_DESC:
-      *(SQLHANDLE*)Value = (SQLHANDLE)(&stmt->IPD);
-      return SQL_SUCCESS;
+    case SQL_ATTR_KEYSET_SIZE:
+      break;
+    case SQL_ATTR_MAX_LENGTH:
+      break;
+    case SQL_ATTR_MAX_ROWS:
+      break;
+    case SQL_ATTR_METADATA_ID:
+      break;
+    case SQL_ATTR_NOSCAN:
+      break;
+    case SQL_ATTR_PARAM_BIND_OFFSET_PTR:
+      break;
+    case SQL_ATTR_PARAM_BIND_TYPE:
+      break;
+    case SQL_ATTR_PARAM_OPERATION_PTR:
+      break;
+    case SQL_ATTR_PARAM_STATUS_PTR:
+      break;
+    case SQL_ATTR_PARAMS_PROCESSED_PTR:
+      break;
+    case SQL_ATTR_PARAMSET_SIZE:
+      break;
+    case SQL_ATTR_QUERY_TIMEOUT:
+      break;
+    case SQL_ATTR_RETRIEVE_DATA:
+      break;
     case SQL_ATTR_ROW_ARRAY_SIZE:
       *(SQLULEN*)Value = (SQLULEN)_stmt_get_row_array_size(stmt);
       return SQL_SUCCESS;
-    case SQL_ATTR_CURSOR_TYPE:
-      *(SQLULEN*)Value = SQL_CURSOR_FORWARD_ONLY;
-      return SQL_SUCCESS;
+    case SQL_ATTR_ROW_BIND_OFFSET_PTR:
+      break;
+    case SQL_ATTR_ROW_BIND_TYPE:
+      break;
+    case SQL_ATTR_ROW_NUMBER:
+      break;
+    case SQL_ATTR_ROW_OPERATION_PTR:
+      break;
+    case SQL_ATTR_ROW_STATUS_PTR:
+      break;
+    case SQL_ATTR_ROWS_FETCHED_PTR:
+      break;
+    case SQL_ATTR_SIMULATE_CURSOR:
+      break;
+    case SQL_ATTR_USE_BOOKMARKS:
+      break;
     default:
-      stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_stmt_attr(Attribute), Attribute, Attribute);
-      return SQL_ERROR;
+      break;
   }
+  stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_stmt_attr(Attribute), Attribute, Attribute);
+  return SQL_ERROR;
 }
 #endif                           /* } */
 

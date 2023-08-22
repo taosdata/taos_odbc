@@ -197,8 +197,10 @@ SQLRETURN env_set_attr(
   (void)StringLength;
 
   switch (Attribute) {
+#if (ODBCVER >= 0x0380)      /* { */
     case SQL_ATTR_CONNECTION_POOLING:
       break;
+#endif                       /* } */
     case SQL_ATTR_CP_MATCH:
       if (*(SQLUINTEGER*)ValuePtr == SQL_CP_STRICT_MATCH) return SQL_SUCCESS;
       env_append_err_format(env, "HYC00", 0,
@@ -232,8 +234,10 @@ SQLRETURN env_get_attr(
   (void)StringLength;
 
   switch (Attribute) {
+#if (ODBCVER >= 0x0380)      /* { */
     case SQL_ATTR_CONNECTION_POOLING:
       break;
+#endif                       /* } */
     case SQL_ATTR_CP_MATCH:
       *(SQLUINTEGER*)Value = SQL_CP_STRICT_MATCH;
       return SQL_SUCCESS;

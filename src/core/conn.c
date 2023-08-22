@@ -1344,18 +1344,32 @@ SQLRETURN conn_set_attr(
           "Option value changed:`%u` for `SQL_ATTR_ACCESS_MODE` is substituted by `SQL_MODE_READ_WRITE`",
           (SQLUINTEGER)(uintptr_t)ValuePtr);
       return SQL_SUCCESS_WITH_INFO;
+#if (ODBCVER >= 0x0380)      /* { */
+    case SQL_ATTR_ASYNC_DBC_EVENT:
+      break;
+    case SQL_ATTR_ASYNC_DBC_FUNCTIONS_ENABLE:
+      break;
+    case SQL_ATTR_ASYNC_DBC_PCALLBACK:
+      break;
+    case SQL_ATTR_ASYNC_DBC_PCONTEXT:
+      break;
+#endif                       /* } */
     case SQL_ATTR_ASYNC_ENABLE:
       if ((SQLULEN)(uintptr_t)ValuePtr == SQL_ASYNC_ENABLE_OFF) return SQL_SUCCESS;
       conn_append_err_format(conn, "01S02", 0,
           "Option value changed:`%u` for `SQL_ATTR_ASYNC_ENABLE` is substituted by `SQL_ASYNC_ENABLE_OFF`",
           (SQLUINTEGER)(uintptr_t)ValuePtr);
       return SQL_SUCCESS_WITH_INFO;
+    case SQL_ATTR_AUTO_IPD:
+      break;
     case SQL_ATTR_AUTOCOMMIT:
       if ((SQLUINTEGER)(uintptr_t)ValuePtr == SQL_AUTOCOMMIT_ON) return SQL_SUCCESS;
       conn_append_err_format(conn, "01S02", 0,
           "Option value changed:`%u` for `SQL_ATTR_AUTOCOMMIT` is substituted by `SQL_AUTOCOMMIT_ON`",
           (SQLUINTEGER)(uintptr_t)ValuePtr);
       return SQL_SUCCESS_WITH_INFO;
+    case SQL_ATTR_CONNECTION_DEAD:
+      break;
     case SQL_ATTR_CONNECTION_TIMEOUT:
       if (0 == (SQLUINTEGER)(uintptr_t)ValuePtr) return SQL_SUCCESS;
       conn_append_err_format(conn, "01S02", 0,
@@ -1367,6 +1381,12 @@ SQLRETURN conn_set_attr(
       if (r == 0) return SQL_SUCCESS;
       conn_append_err_format(conn, "HY000", r, "General error:[taosc]%s, failed to select db:%s", taos_errstr(NULL), (const char*)ValuePtr);
       return SQL_ERROR;
+#if (ODBCVER >= 0x0380)      /* { */
+    case SQL_ATTR_DBC_INFO_TOKEN:
+      break;
+#endif                       /* } */
+    case SQL_ATTR_ENLIST_IN_DTC:
+      break;
     case SQL_ATTR_LOGIN_TIMEOUT:
       if (0 == (SQLUINTEGER)(uintptr_t)ValuePtr) return SQL_SUCCESS;
       conn_append_err_format(conn, "01S02", 0,
@@ -1381,24 +1401,26 @@ SQLRETURN conn_set_attr(
       // FIXME:
       if ((SQLULEN)(uintptr_t)ValuePtr == SQL_CUR_USE_DRIVER) return SQL_SUCCESS;
       break;
+    case SQL_ATTR_PACKET_SIZE:
+      break;
 #ifdef _WIN32      /* { */
     case SQL_ATTR_QUIET_MODE:
       conn->win_handle = (HWND)ValuePtr;
       return SQL_SUCCESS;
 #endif             /* } */
+
+    case SQL_ATTR_TRACE:
+      break;
+    case SQL_ATTR_TRACEFILE:
+      break;
+    case SQL_ATTR_TRANSLATE_LIB:
+      break;
+    case SQL_ATTR_TRANSLATE_OPTION:
+      break;
     case SQL_ATTR_TXN_ISOLATION:
       conn->txn_isolation = *(int32_t*)ValuePtr;
       return SQL_SUCCESS;
 
-    case SQL_ATTR_AUTO_IPD:
-    case SQL_ATTR_CONNECTION_DEAD:
-    case SQL_ATTR_ENLIST_IN_DTC:
-    case SQL_ATTR_PACKET_SIZE:
-    case SQL_ATTR_TRACE:
-    case SQL_ATTR_TRACEFILE:
-    case SQL_ATTR_TRANSLATE_LIB:
-    case SQL_ATTR_TRANSLATE_OPTION:
-      // fall-through
     default:
       break;
   }
@@ -1471,14 +1493,61 @@ SQLRETURN conn_get_attr(
   }
 
   switch (Attribute) {
-    case SQL_CURRENT_QUALIFIER: /* SQL_ATTR_CURRENT_CATALOG */
-      return _conn_get_attr_current_qualifier(conn, Value, BufferLength, StringLengthPtr);
+    case SQL_ATTR_ACCESS_MODE:
+      break;
+#if (ODBCVER >= 0x0380)      /* { */
+    case SQL_ATTR_ASYNC_DBC_EVENT:
+      break;
+    case SQL_ATTR_ASYNC_DBC_FUNCTIONS_ENABLE:
+      break;
+    case SQL_ATTR_ASYNC_DBC_PCALLBACK:
+      break;
+    case SQL_ATTR_ASYNC_DBC_PCONTEXT:
+      break;
+#endif                       /* } */
+    case SQL_ATTR_ASYNC_ENABLE:
+      break;
+    case SQL_ATTR_AUTO_IPD:
+      break;
+    case SQL_ATTR_AUTOCOMMIT:
+      break;
     case SQL_ATTR_CONNECTION_DEAD:
       return _conn_check_alive(conn, Value);
+    case SQL_ATTR_CONNECTION_TIMEOUT:
+      break;
+    case SQL_ATTR_CURRENT_CATALOG: /* SQL_CURRENT_QUALIFIER */
+      return _conn_get_attr_current_qualifier(conn, Value, BufferLength, StringLengthPtr);
+#if (ODBCVER >= 0x0380)      /* { */
+    case SQL_ATTR_DBC_INFO_TOKEN:
+      break;
+#endif                       /* } */
+    case SQL_ATTR_ENLIST_IN_DTC:
+      break;
+    case SQL_ATTR_LOGIN_TIMEOUT:
+      break;
+    case SQL_ATTR_METADATA_ID:
+      break;
+    case SQL_ATTR_ODBC_CURSORS:
+      break;
+    case SQL_ATTR_PACKET_SIZE:
+      break;
+    case SQL_ATTR_QUIET_MODE:
+      break;
+    case SQL_ATTR_TRACE:
+      break;
+    case SQL_ATTR_TRACEFILE:
+      break;
+    case SQL_ATTR_TRANSLATE_LIB:
+      break;
+    case SQL_ATTR_TRANSLATE_OPTION:
+      break;
+    case SQL_ATTR_TXN_ISOLATION:
+      break;
     default:
-      conn_append_err_format(conn, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_conn_attr(Attribute), Attribute, Attribute);
-      return SQL_ERROR;
+      break;
   }
+  conn_append_err_format(conn, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_conn_attr(Attribute), Attribute, Attribute);
+  return SQL_ERROR;
 }
 #endif                            /* } */
 

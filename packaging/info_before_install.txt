@@ -1,0 +1,1 @@
+TAOS-ODBC is the driver program of time series database TDengine ODBC, which provides standard (ODBC) API for TDengine database access.

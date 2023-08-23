@@ -1112,7 +1112,6 @@ SQLRETURN conn_get_info(
   // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetinfo-function?view=sql-server-ver16
   switch (InfoType) {
     // Driver Information
-
     case SQL_ACTIVE_ENVIRONMENTS:
       break;
 #if (ODBCVER >= 0x0380)      /* { */

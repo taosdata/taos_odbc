@@ -126,10 +126,11 @@ def check_directory(path):
         sys.exit()
 
 def build_taos_odbc():
+    rm_directory(release_info.BuildPath)
     if release_info.OS == 'Windows':
         build_taos_odbc_on_windows()
     else:
-        return taosx_agent_name
+        build_taos_odbc_on_mac()
 
 def set_win_dev_env():
     output = os.popen('\"C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Auxiliary\\Build\\vcvarsall.bat\" x64 && set').read()
@@ -139,8 +140,8 @@ def set_win_dev_env():
         if(len(pair) >= 2):
             os.environ[pair[0]] = pair[1]
 
-def copy_taos_odbc():
-    print("copy_taos_odbc start...")
+def copy_taos_odbc_on_windows():
+    print("copy_taos_odbc on windows start...")
     taos_lib_src = os.path.join(release_info.BuildPath, "src", release_info.DefaultBuildMode, "taos_odbc.lib")
     taos_bin_src = os.path.join(release_info.BuildPath, "src", release_info.DefaultBuildMode, "taos_odbc.dll")
 
@@ -164,19 +165,45 @@ def copy_taos_odbc():
     else:
         print(f"not found \"{win_odbcinst_src}\"")
         sys.exit()
+        
+def copy_taos_odbc_on_mac():
+    print("copy_taos_odbc on mac start...")
+    taos_lib_src = os.path.join(release_info.BuildPath, "src", "libtaos_odbc.0.1.dylib")
+    odbc_in_src = os.path.join(root_path, "templates", "odbc.in")
+    odbcinst_in_src = os.path.join(root_path, "templates", "odbcinst.in")
+    install_sh_src = os.path.join(script_dir, "install.sh")
+    
+    taos_lib_dst = os.path.join(release_info.ReleasePath, "taos_odbc", "lib")
+
+    init_directory(taos_lib_dst)
+
+    if os.path.isfile(taos_lib_src):
+        shutil.copy2(taos_lib_src, taos_lib_dst)
+        shutil.copy2(odbc_in_src, os.path.join(release_info.ReleasePath, "taos_odbc"))
+        shutil.copy2(odbcinst_in_src, os.path.join(release_info.ReleasePath, "taos_odbc"))
+        shutil.copy2(install_sh_src, os.path.join(release_info.ReleasePath))
+    else:
+        print(f"not found \"{taos_lib_src}\".\n")
+        sys.exit()
 
 def build_taos_odbc_on_windows():
     print(f"build_taos_odbc {release_info.DefaultBuildMode} on windows start...")
     os.chdir(root_path)
-    rm_directory(release_info.BuildPath)
     set_win_dev_env()
     os.system('cmake --no-warn-unused-cli -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -B build -G \"Visual Studio 17 2022\" -A x64')
     cmd = f'cmake --build build --config {release_info.DefaultBuildMode} -j 4'
     os.system(cmd)
 
+def build_taos_odbc_on_mac():
+    print(f"build_taos_odbc {release_info.DefaultBuildMode} on mac start...")
+    os.chdir(root_path)
+    os.system('cmake -B build -DCMAKE_BUILD_TYPE=Debug')
+    cmd = f'cmake --build build'
+    os.system(cmd)
+    
 def package_on_windows():
     print("inno setup start...")
-
+    copy_taos_odbc_on_windows()
     cmd = f'iscc /F"{release_info.PackageName}" '\
         f'/DMyAppVersion="{release_info.TaosODBCVersion}" '\
         f'/DMyAppSourceDir="{release_info.ReleasePath}" '\
@@ -189,11 +216,18 @@ def package_on_windows():
         sys.exit(1)
 
 def tar_taos_odbc():
-    print("insert taos_odbc to tar...")
-
+    print("\ninsert taos_odbc to tar...")
+    copy_taos_odbc_on_mac()
+    
+    os.chdir(release_info.ReleasePath)
+    cmd = f'tar -zcv -f {release_info.PackageName}.tar.gz *'
+    os.system(cmd)
+    print(f"Write to:\n{release_info.ReleasePath}\{release_info.PackageName}.tar.gz")
+    print(f"\033[32mSuccess.\033[0m\n")
+    
 def package():
     print("package taos_odbc start...")
-    copy_taos_odbc()
+    rm_directory(release_info.ReleasePath)
     if release_info.OS == 'Windows':
         package_on_windows()
     else:

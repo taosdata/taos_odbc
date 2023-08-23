@@ -785,12 +785,12 @@ static int get_records_count2(const char* table_name)
 {
   for (int i = 0; i < db_source_ready_num; ++i) {
     SQLHANDLE hstmt = _cases[i].ctx.hstmt;
-    char sql[1024];
+    SQLCHAR sql[1024];
     SQLLEN numberOfrows;
-    sprintf(sql, "SELECT * FROM %s", table_name);
+    sprintf((char*)sql, "SELECT * FROM %s", table_name);
     CALL_SQLExecDirect(hstmt, sql, SQL_NTS);
     int r = CALL_SQLRowCount(hstmt, &numberOfrows);
-    XX("%s record result:%d count: %lld", table_name, r, numberOfrows);
+    XX("%s record result:%d count: %ld", table_name, r, numberOfrows);
   }
   return 0;
 }

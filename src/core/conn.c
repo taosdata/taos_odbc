@@ -1286,7 +1286,7 @@ SQLRETURN conn_get_info(
       break;
     case SQL_ALTER_DOMAIN:
       break;
-#ifdef _WIN32               /* { */
+#if 0                       /* { */
     case SQL_ALTER_SCHEMA:
       break;
 #endif                      /* } */
@@ -1294,7 +1294,7 @@ SQLRETURN conn_get_info(
       // NOTE: https://learn.microsoft.com/en-us/sql/odbc/reference/appendixes/sqlgetinfo-support?view=sql-server-ver16
       *(SQLINTEGER*)InfoValuePtr = SQL_AT_DROP_COLUMN | SQL_AT_ADD_COLUMN; // FIXME:
       return SQL_SUCCESS;
-#ifdef _WIN32               /* { */
+#if 0                       /* { */
     case SQL_ANSI_SQL_DATETIME_LITERALS:
       break;
 #endif                      /* } */

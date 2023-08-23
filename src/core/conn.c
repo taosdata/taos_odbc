@@ -1111,6 +1111,47 @@ SQLRETURN conn_get_info(
 {
   // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetinfo-function?view=sql-server-ver16
   switch (InfoType) {
+    // Driver Information
+
+    case SQL_ACTIVE_ENVIRONMENTS:
+      break;
+#if (ODBCVER >= 0x0380)      /* { */
+    case SQL_ASYNC_DBC_FUNCTIONS:
+      *(SQLUINTEGER*)InfoValuePtr = SQL_ASYNC_DBC_NOT_CAPABLE;
+      return SQL_SUCCESS;
+#endif                       /* } */
+    case SQL_ASYNC_MODE:
+      break;
+#if (ODBCVER >= 0x0380)      /* { */
+    case SQL_ASYNC_NOTIFICATION:
+      *(SQLUINTEGER*)InfoValuePtr = SQL_ASYNC_NOTIFICATION_NOT_CAPABLE;
+      return SQL_SUCCESS;
+#endif                       /* } */
+    case SQL_BATCH_ROW_COUNT:
+      break;
+    case SQL_BATCH_SUPPORT:
+      *(SQLUINTEGER*)InfoValuePtr = (SQL_BS_SELECT_EXPLICIT | SQL_BS_ROW_COUNT_EXPLICIT);
+      return SQL_SUCCESS;
+    case SQL_DATA_SOURCE_NAME:
+      break;
+    case SQL_DRIVER_AWARE_POOLING_SUPPORTED:
+      break;
+    case SQL_DRIVER_HDBC:
+      // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetinfo-function?view=sql-server-ver16
+      // These information types are implemented by the Driver Manager alone.
+      break;
+    case SQL_DRIVER_HDESC:
+      break;
+    case SQL_DRIVER_HENV:
+      // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetinfo-function?view=sql-server-ver16
+      // These information types are implemented by the Driver Manager alone.
+      break;
+    case SQL_DRIVER_HLIB:
+      break;
+    case SQL_DRIVER_HSTMT:
+      break;
+    case SQL_DRIVER_NAME:
+      return _conn_get_info_driver_name(conn, InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_DRIVER_ODBC_VER: {
       // https://learn.microsoft.com/en-us/sql/odbc/reference/install/driver-specification-subkeys?view=sql-server-ver16
       // `DriverODBCVer`: This must be the same as the value returned for the SQL_DRIVER_ODBC_VER option in SQLGetInfo.
@@ -1120,191 +1161,444 @@ SQLRETURN conn_get_info(
 #error `ODBCVER` must be equal to 0x0351
 #endif                               /* } */
     } break;
-    case SQL_DRIVER_NAME:
-      return _conn_get_info_driver_name(conn, InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_DRIVER_VER:
       return _conn_set_string(conn, "01.00.0000", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+    case SQL_DYNAMIC_CURSOR_ATTRIBUTES1:
+      // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetinfo-function?view=sql-server-ver16
+      *(SQLUINTEGER*)InfoValuePtr = SQL_CA1_NEXT | SQL_CA1_ABSOLUTE | SQL_CA1_RELATIVE;
+      return SQL_SUCCESS;
+    case SQL_DYNAMIC_CURSOR_ATTRIBUTES2:
+      // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetinfo-function?view=sql-server-ver16
+      *(SQLUINTEGER*)InfoValuePtr = SQL_CA2_READ_ONLY_CONCURRENCY;
+      return SQL_SUCCESS;
+    case SQL_FORWARD_ONLY_CURSOR_ATTRIBUTES1:
+      break;
+    case SQL_FORWARD_ONLY_CURSOR_ATTRIBUTES2:
+      break;
+    case SQL_FILE_USAGE:
+      break;
+    case SQL_GETDATA_EXTENSIONS:
+      *(SQLUINTEGER*)InfoValuePtr = SQL_GD_ANY_COLUMN | SQL_GD_ANY_ORDER /* | SQL_GD_BLOCK */ | SQL_GD_BOUND /* | SQL_GD_OUTPUT_PARAMS */;
+      return SQL_SUCCESS;
+    case SQL_INFO_SCHEMA_VIEWS:
+      break;
+    case SQL_KEYSET_CURSOR_ATTRIBUTES1:
+      break;
+    case SQL_KEYSET_CURSOR_ATTRIBUTES2:
+      break;
+    case SQL_MAX_ASYNC_CONCURRENT_STATEMENTS:
+      break;
+    case SQL_MAX_CONCURRENT_ACTIVITIES:
+      *(SQLUSMALLINT*)InfoValuePtr = 0;
+      return SQL_SUCCESS;
+    case SQL_MAX_DRIVER_CONNECTIONS:
+      break;
+    case SQL_ODBC_INTERFACE_CONFORMANCE:
+      *(SQLUSMALLINT*)InfoValuePtr = 0; // FIXME:
+      return SQL_SUCCESS;
+#if 0         /* { */
+    case SQL_ODBC_STANDARD_CLI_CONFORMANCE:
+      break;
+#endif        /* } */
+    case SQL_ODBC_VER:
+      break;
+    case SQL_PARAM_ARRAY_ROW_COUNTS:
+      *(SQLUINTEGER*)InfoValuePtr = SQL_PARC_NO_BATCH; // FIXME: more test cases
+      return SQL_SUCCESS;
+    case SQL_PARAM_ARRAY_SELECTS:
+      break;
+    case SQL_ROW_UPDATES:
+      break;
+    case SQL_SEARCH_PATTERN_ESCAPE:
+      return _conn_set_string(conn, "\\", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+    case SQL_SERVER_NAME:
+      return _conn_set_string(conn, "", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+    case SQL_STATIC_CURSOR_ATTRIBUTES1:
+      break;
+    case SQL_STATIC_CURSOR_ATTRIBUTES2:
+      break;
+
+    // DBMS Product Information
+    case SQL_DATABASE_NAME:
+      return _conn_get_info_database_name(conn, InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_DBMS_NAME:
       return _conn_set_string(conn, "tdengine", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_DBMS_VER:
       return _conn_get_info_dbms_ver(conn, InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
-    case SQL_SERVER_NAME:
-      return _conn_set_string(conn, "", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+
+    // Data Source Information
+    case SQL_ACCESSIBLE_PROCEDURES:
+      break;
+    case SQL_ACCESSIBLE_TABLES:
+      break;
+    case SQL_BOOKMARK_PERSISTENCE:
+      *(SQLUINTEGER*)InfoValuePtr = 0;
+      return SQL_SUCCESS;
+    case SQL_CATALOG_TERM:
+      return _conn_set_string(conn, "database", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+    case SQL_COLLATION_SEQ:
+      break;
+    case SQL_CONCAT_NULL_BEHAVIOR:
+      break;
     case SQL_CURSOR_COMMIT_BEHAVIOR:
       *(SQLUSMALLINT*)InfoValuePtr = 0; // NOTE: refer to msdn listed above
-      break;
+      return SQL_SUCCESS;
     case SQL_CURSOR_ROLLBACK_BEHAVIOR: 
       *(SQLUSMALLINT*)InfoValuePtr = 0; // NOTE: refer to msdn listed above
+      return SQL_SUCCESS;
+    case SQL_CURSOR_SENSITIVITY:
       break;
+    case SQL_DATA_SOURCE_READ_ONLY:
+      break;
+    case SQL_DEFAULT_TXN_ISOLATION:
+      break;
+    case SQL_DESCRIBE_PARAMETER:
+      break;
+    case SQL_MULT_RESULT_SETS:
+      break;
+    case SQL_MULTIPLE_ACTIVE_TXN:
+      break;
+    case SQL_NEED_LONG_DATA_LEN:
+      break;
+    case SQL_NULL_COLLATION:
+      break;
+    case SQL_PROCEDURE_TERM:
+      break;
+    case SQL_SCHEMA_TERM: // SQL_OWNER_TERM
+      return _conn_set_string(conn, "schema", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+    case SQL_SCROLL_OPTIONS:
+      break;
+    case SQL_TABLE_TERM:
+      break;
+    case SQL_TXN_CAPABLE:
+      // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetinfo-function?view=sql-server-ver16
+      *(SQLUSMALLINT*)InfoValuePtr = SQL_TC_NONE; // FIXME:
+      return SQL_SUCCESS;
     case SQL_TXN_ISOLATION_OPTION:
       *(SQLUINTEGER*)InfoValuePtr = 0; // TODO:
+      return SQL_SUCCESS;
+    case SQL_USER_NAME:
+      return _conn_get_info_user_name(conn, InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+
+    // Supported SQL
+    case SQL_AGGREGATE_FUNCTIONS:
+      // NOTE: need to fine-tune [taosc]
       break;
-    case SQL_GETDATA_EXTENSIONS:
-      *(SQLUINTEGER*)InfoValuePtr = SQL_GD_ANY_COLUMN | SQL_GD_ANY_ORDER /* | SQL_GD_BLOCK */ | SQL_GD_BOUND /* | SQL_GD_OUTPUT_PARAMS */;
+    case SQL_ALTER_DOMAIN:
       break;
-    case SQL_MAX_COLUMN_NAME_LEN:
-      *(SQLUSMALLINT*)InfoValuePtr = MAX_COLUMN_NAME_LEN;
+#ifdef _WIN32               /* { */
+    case SQL_ALTER_SCHEMA:
       break;
-    case SQL_MAX_CATALOG_NAME_LEN:
-      *(SQLUSMALLINT*)InfoValuePtr = MAX_CATALOG_NAME_LEN;
+#endif                      /* } */
+    case SQL_ALTER_TABLE:
+      // NOTE: https://learn.microsoft.com/en-us/sql/odbc/reference/appendixes/sqlgetinfo-support?view=sql-server-ver16
+      *(SQLINTEGER*)InfoValuePtr = SQL_AT_DROP_COLUMN | SQL_AT_ADD_COLUMN; // FIXME:
+      return SQL_SUCCESS;
+#ifdef _WIN32               /* { */
+    case SQL_ANSI_SQL_DATETIME_LITERALS:
       break;
-    case SQL_MAX_SCHEMA_NAME_LEN:
-      *(SQLUSMALLINT*)InfoValuePtr = MAX_SCHEMA_NAME_LEN;
-      break;
-    case SQL_MAX_TABLE_NAME_LEN:
-      *(SQLUSMALLINT*)InfoValuePtr = MAX_TABLE_NAME_LEN;
-      break;
-#if (ODBCVER >= 0x0380)      /* { */
-    case SQL_ASYNC_DBC_FUNCTIONS:
-      *(SQLUINTEGER*)InfoValuePtr = SQL_ASYNC_DBC_NOT_CAPABLE;
-      break;
-    case SQL_ASYNC_NOTIFICATION:
-      *(SQLUINTEGER*)InfoValuePtr = SQL_ASYNC_NOTIFICATION_NOT_CAPABLE;
-      break;
-#endif                       /* } */
-    case SQL_DTC_TRANSITION_COST:
-      *(SQLUINTEGER*)InfoValuePtr = 0;
-      break;
-    case SQL_CATALOG_NAME_SEPARATOR:
-      return _conn_set_string(conn, ".", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+#endif                      /* } */
+    case SQL_CATALOG_LOCATION: // SQL_QUALIFIER_LOCATION
+      *(SQLUSMALLINT*)InfoValuePtr = SQL_CL_START;
+      return SQL_SUCCESS;
     case SQL_CATALOG_NAME:
       return _conn_set_string(conn, "Y", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+    case SQL_CATALOG_NAME_SEPARATOR:
+      return _conn_set_string(conn, ".", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_CATALOG_USAGE:
       *(SQLUINTEGER*)InfoValuePtr = SQL_CU_DML_STATEMENTS | SQL_CU_PROCEDURE_INVOCATION | SQL_CU_TABLE_DEFINITION | SQL_CU_INDEX_DEFINITION | SQL_CU_PRIVILEGE_DEFINITION;
+      return SQL_SUCCESS;
+    case SQL_COLUMN_ALIAS:
+      return _conn_set_string(conn, "Y", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+    case SQL_CORRELATION_NAME:
+      break;
+    case SQL_CREATE_ASSERTION:
+      break;
+    case SQL_CREATE_CHARACTER_SET:
+      break;
+    case SQL_CREATE_COLLATION:
+      break;
+    case SQL_CREATE_DOMAIN:
+      break;
+    case SQL_CREATE_SCHEMA:
+      break;
+    case SQL_CREATE_TABLE:
+      break;
+    case SQL_CREATE_TRANSLATION:
+      break;
+    case SQL_DDL_INDEX:
+      break;
+    case SQL_DROP_ASSERTION:
+      break;
+    case SQL_DROP_CHARACTER_SET:
+      break;
+    case SQL_DROP_COLLATION:
+      break;
+    case SQL_DROP_DOMAIN:
+      break;
+    case SQL_DROP_SCHEMA:
+      break;
+    case SQL_DROP_TABLE:
+      break;
+    case SQL_DROP_TRANSLATION:
+      break;
+    case SQL_DROP_VIEW:
+      break;
+    case SQL_EXPRESSIONS_IN_ORDERBY:
+      break;
+    case SQL_GROUP_BY:
+      *(SQLUSMALLINT*)InfoValuePtr = SQL_GB_GROUP_BY_EQUALS_SELECT;
+      return SQL_SUCCESS;
+    case SQL_IDENTIFIER_CASE:
+      *(SQLUSMALLINT*)InfoValuePtr = SQL_IC_UPPER; // FIXME:
+      return SQL_SUCCESS;
+    case SQL_IDENTIFIER_QUOTE_CHAR:
+      return _conn_set_string(conn, "`", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+    case SQL_INDEX_KEYWORDS:
+      break;
+    case SQL_INSERT_STATEMENT:
+      break;
+    case SQL_INTEGRITY:
+      break;
+    case SQL_KEYWORDS:
+      break;
+    case SQL_LIKE_ESCAPE_CLAUSE:
+      break;
+    case SQL_NON_NULLABLE_COLUMNS:
       break;
     case SQL_OJ_CAPABILITIES:
       // *(SQLUINTEGER*)InfoValuePtr = SQL_OJ_LEFT | SQL_OJ_RIGHT | SQL_OJ_FULL | SQL_OJ_NESTED | SQL_OJ_NOT_ORDERED | SQL_OJ_INNER | SQL_OJ_ALL_COMPARISON_OPS;
       *(SQLUINTEGER*)InfoValuePtr = 0;
-      break;
-    case SQL_GROUP_BY:
-      *(SQLUSMALLINT*)InfoValuePtr = SQL_GB_GROUP_BY_EQUALS_SELECT;
-      break;
-    case SQL_IDENTIFIER_CASE:
-      *(SQLUSMALLINT*)InfoValuePtr = SQL_IC_UPPER; // FIXME:
-      break;
+      return SQL_SUCCESS;
     case SQL_ORDER_BY_COLUMNS_IN_SELECT:
       return _conn_set_string(conn, "N", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
-    case SQL_IDENTIFIER_QUOTE_CHAR:
-      return _conn_set_string(conn, "`", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+#if 0        /* { */
+    case SQL_OUTER_JOINS:
+      break;
+#endif       /* } */
+    case SQL_PROCEDURES:
+      break;
     case SQL_QUOTED_IDENTIFIER_CASE:
       *(SQLUSMALLINT*)InfoValuePtr = SQL_IC_SENSITIVE;
-      break;
-    case SQL_MAX_CONCURRENT_ACTIVITIES:
-      *(SQLUSMALLINT*)InfoValuePtr = 0;
-      break;
-    case SQL_BOOKMARK_PERSISTENCE:
+      return SQL_SUCCESS;
+    case SQL_SCHEMA_USAGE: // SQL_OWNER_USAGE
       *(SQLUINTEGER*)InfoValuePtr = 0;
-      break;
-    case SQL_SEARCH_PATTERN_ESCAPE:
-      return _conn_set_string(conn, "\\", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
-    case SQL_OWNER_USAGE:
-      *(SQLUINTEGER*)InfoValuePtr = 0;
-      break;
-    case SQL_QUALIFIER_LOCATION:
-      *(SQLUSMALLINT*)InfoValuePtr = SQL_CL_START;
-      break;
-    case SQL_SQL_CONFORMANCE:
-      *(SQLUINTEGER*)InfoValuePtr = SQL_SC_SQL92_ENTRY;
-      break;
-    case SQL_MAX_COLUMNS_IN_ORDER_BY:
-      *(SQLUSMALLINT*)InfoValuePtr = 0;
-      break;
-    case SQL_MAX_IDENTIFIER_LEN:
-      *(SQLUSMALLINT*)InfoValuePtr = 192;
-      break;
-    case SQL_MAX_COLUMNS_IN_GROUP_BY:
-      *(SQLUSMALLINT*)InfoValuePtr = 0;
-      break;
-    case SQL_MAX_COLUMNS_IN_SELECT:
-      *(SQLUSMALLINT*)InfoValuePtr = 4096;
-      break;
-    case SQL_COLUMN_ALIAS:
-      return _conn_set_string(conn, "Y", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
-    case SQL_CATALOG_TERM:
-      return _conn_set_string(conn, "database", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
-    case SQL_OWNER_TERM:
-      return _conn_set_string(conn, "schema", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
-    case SQL_TXN_CAPABLE:
-      // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetinfo-function?view=sql-server-ver16
-      *(SQLUSMALLINT*)InfoValuePtr = SQL_TC_NONE; // FIXME:
-      break;
-    case SQL_ODBC_INTERFACE_CONFORMANCE:
-      *(SQLUSMALLINT*)InfoValuePtr = 0; // FIXME:
-      break;
+      return SQL_SUCCESS;
     case SQL_SPECIAL_CHARACTERS:
       // NOTE: check with [taosc]
       return _conn_set_string(conn, "", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
-    // NOTE: need to fine-tune [taosc]
-    case SQL_AGGREGATE_FUNCTIONS:
-    case SQL_NUMERIC_FUNCTIONS:
-    case SQL_STRING_FUNCTIONS:
-    case SQL_TIMEDATE_FUNCTIONS:
-    case SQL_TIMEDATE_ADD_INTERVALS:
-    case SQL_TIMEDATE_DIFF_INTERVALS:
-    case SQL_DATETIME_LITERALS:
-    case SQL_SYSTEM_FUNCTIONS:
-    case SQL_CONVERT_FUNCTIONS:
-    case SQL_SQL92_VALUE_EXPRESSIONS:
-    case SQL_SQL92_NUMERIC_VALUE_FUNCTIONS:
-    case SQL_SQL92_STRING_FUNCTIONS:
-    case SQL_SQL92_DATETIME_FUNCTIONS:
-    case SQL_SQL92_RELATIONAL_JOIN_OPERATORS:
-    case SQL_SQL92_PREDICATES:
-      *(SQLUINTEGER*)InfoValuePtr = 0;
+    case SQL_SQL_CONFORMANCE:
+      *(SQLUINTEGER*)InfoValuePtr = SQL_SC_SQL92_ENTRY;
+      return SQL_SUCCESS;
+    case SQL_SUBQUERIES:
       break;
-    case SQL_BATCH_SUPPORT:
-      *(SQLUINTEGER*)InfoValuePtr = (SQL_BS_SELECT_EXPLICIT | SQL_BS_ROW_COUNT_EXPLICIT);
+    case SQL_UNION:
       break;
-    case SQL_DYNAMIC_CURSOR_ATTRIBUTES1:
-      // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetinfo-function?view=sql-server-ver16
-      *(SQLUINTEGER*)InfoValuePtr = SQL_CA1_NEXT | SQL_CA1_ABSOLUTE | SQL_CA1_RELATIVE;
-      break;
-    case SQL_DYNAMIC_CURSOR_ATTRIBUTES2:
-      // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetinfo-function?view=sql-server-ver16
-      *(SQLUINTEGER*)InfoValuePtr = SQL_CA2_READ_ONLY_CONCURRENCY;
-      break;
-    case SQL_PARAM_ARRAY_ROW_COUNTS:
-      *(SQLUINTEGER*)InfoValuePtr = SQL_PARC_NO_BATCH; // FIXME: more test cases
-      break;
-    case SQL_DATABASE_NAME:
-      return _conn_get_info_database_name(conn, InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
-    case SQL_USER_NAME:
-      return _conn_get_info_user_name(conn, InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
 
-    // NOTE: https://learn.microsoft.com/en-us/sql/odbc/reference/appendixes/sqlgetinfo-support?view=sql-server-ver16
-    case SQL_ALTER_TABLE:
-      *(SQLINTEGER*)InfoValuePtr = SQL_AT_DROP_COLUMN | SQL_AT_ADD_COLUMN; // FIXME:
+    // SQL Limits
+    case SQL_MAX_BINARY_LITERAL_LEN:
       break;
+    case SQL_MAX_CATALOG_NAME_LEN:
+      *(SQLUSMALLINT*)InfoValuePtr = MAX_CATALOG_NAME_LEN;
+      return SQL_SUCCESS;
+    case SQL_MAX_CHAR_LITERAL_LEN:
+      break;
+    case SQL_MAX_COLUMN_NAME_LEN:
+      *(SQLUSMALLINT*)InfoValuePtr = MAX_COLUMN_NAME_LEN;
+      return SQL_SUCCESS;
+    case SQL_MAX_COLUMNS_IN_GROUP_BY:
+      *(SQLUSMALLINT*)InfoValuePtr = 0;
+      return SQL_SUCCESS;
+    case SQL_MAX_COLUMNS_IN_INDEX:
+      break;
+    case SQL_MAX_COLUMNS_IN_ORDER_BY:
+      *(SQLUSMALLINT*)InfoValuePtr = 0;
+      return SQL_SUCCESS;
+    case SQL_MAX_COLUMNS_IN_SELECT:
+      *(SQLUSMALLINT*)InfoValuePtr = 4096;
+      return SQL_SUCCESS;
+    case SQL_MAX_COLUMNS_IN_TABLE:
+      break;
+    case SQL_MAX_CURSOR_NAME_LEN:
+      break;
+    case SQL_MAX_IDENTIFIER_LEN:
+      *(SQLUSMALLINT*)InfoValuePtr = 192;
+      return SQL_SUCCESS;
+    case SQL_MAX_INDEX_SIZE:
+      break;
+    case SQL_MAX_PROCEDURE_NAME_LEN:
+      break;
+    case SQL_MAX_ROW_SIZE:
+      break;
+    case SQL_MAX_ROW_SIZE_INCLUDES_LONG:
+      break;
+    case SQL_MAX_SCHEMA_NAME_LEN:
+      *(SQLUSMALLINT*)InfoValuePtr = MAX_SCHEMA_NAME_LEN;
+      return SQL_SUCCESS;
+    case SQL_MAX_STATEMENT_LEN:
+      break;
+    case SQL_MAX_TABLE_NAME_LEN:
+      *(SQLUSMALLINT*)InfoValuePtr = MAX_TABLE_NAME_LEN;
+      return SQL_SUCCESS;
+    case SQL_MAX_TABLES_IN_SELECT:
+      break;
+    case SQL_MAX_USER_NAME_LEN:
+      break;
+
+    // Scalar Function Information
+    case SQL_CONVERT_FUNCTIONS:
+      // NOTE: need to fine-tune [taosc]
+      break;
+    case SQL_NUMERIC_FUNCTIONS:
+      // NOTE: need to fine-tune [taosc]
+      break;
+    case SQL_STRING_FUNCTIONS:
+      // NOTE: need to fine-tune [taosc]
+      break;
+    case SQL_SYSTEM_FUNCTIONS:
+      // NOTE: need to fine-tune [taosc]
+      break;
+    case SQL_TIMEDATE_ADD_INTERVALS:
+      // NOTE: need to fine-tune [taosc]
+      break;
+    case SQL_TIMEDATE_DIFF_INTERVALS:
+      // NOTE: need to fine-tune [taosc]
+      break;
+    case SQL_TIMEDATE_FUNCTIONS:
+      // NOTE: need to fine-tune [taosc]
+      break;
+
+    // Conversion Information
+    case SQL_CONVERT_BIGINT:
+      break;
+    case SQL_CONVERT_BINARY:
+      break;
+    case SQL_CONVERT_BIT:
+      break;
+    case SQL_CONVERT_CHAR:
+      break;
+    case SQL_CONVERT_DATE:
+      break;
+    case SQL_CONVERT_DECIMAL:
+      break;
+    case SQL_CONVERT_DOUBLE:
+      break;
+    case SQL_CONVERT_FLOAT:
+      break;
+    case SQL_CONVERT_INTEGER:
+      break;
+    case SQL_CONVERT_INTERVAL_DAY_TIME:
+      break;
+    case SQL_CONVERT_INTERVAL_YEAR_MONTH:
+      break;
+    case SQL_CONVERT_LONGVARBINARY:
+      break;
+    case SQL_CONVERT_LONGVARCHAR:
+      break;
+    case SQL_CONVERT_NUMERIC:
+      break;
+    case SQL_CONVERT_REAL:
+      break;
+    case SQL_CONVERT_SMALLINT:
+      break;
+    case SQL_CONVERT_TIME:
+      break;
+    case SQL_CONVERT_TIMESTAMP:
+      break;
+    case SQL_CONVERT_TINYINT:
+      break;
+    case SQL_CONVERT_VARBINARY:
+      break;
+    case SQL_CONVERT_VARCHAR:
+      break;
+
+    // Information Types Added for ODBC 3.x
+    case SQL_DM_VER:
+      // TODO:
+      break;
+    case SQL_XOPEN_CLI_YEAR:
+      break;
+
+
+
+    // Information Types Deprecated in ODBC 3.x
+    // NOTE: https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetinfo-function?view=sql-server-ver16#information-types-deprecated-in-odbc-3x
+    // NOTE: https://learn.microsoft.com/en-us/sql/odbc/reference/appendixes/sqlgetinfo-support?view=sql-server-ver16
     case SQL_FETCH_DIRECTION:
       *(SQLINTEGER*)InfoValuePtr = SQL_FD_FETCH_NEXT; // FIXME:
-      break;
+      return SQL_SUCCESS;
     case SQL_LOCK_TYPES:
       *(SQLINTEGER*)InfoValuePtr = SQL_LCK_NO_CHANGE; // FIXME:
-      break;
+      return SQL_SUCCESS;
     case SQL_ODBC_API_CONFORMANCE:
       *(SQLSMALLINT*)InfoValuePtr = SQL_OAC_LEVEL2; // FIXME:
-      break;
+      return SQL_SUCCESS;
     case SQL_ODBC_SQL_CONFORMANCE:
       *(SQLSMALLINT*)InfoValuePtr = SQL_OSC_MINIMUM; // FIXME:
-      break;
+      return SQL_SUCCESS;
     case SQL_POS_OPERATIONS:
       *(SQLINTEGER*)InfoValuePtr = 0; // FIXME:
-      break;
+      return SQL_SUCCESS;
     case SQL_POSITIONED_STATEMENTS:
       *(SQLINTEGER*)InfoValuePtr = 0; // FIXME:
-      break;
+      return SQL_SUCCESS;
     case SQL_SCROLL_CONCURRENCY:
       *(SQLINTEGER*)InfoValuePtr = SQL_SCCO_READ_ONLY; // FIXME:
-      break;
+      return SQL_SUCCESS;
     case SQL_STATIC_SENSITIVITY:
       *(SQLINTEGER*)InfoValuePtr = 0; // FIXME:
+      return SQL_SUCCESS;
+
+
+    // Information Type Descriptions that's not listed above
+    case SQL_CONVERT_GUID:
+      break;
+    case SQL_CREATE_VIEW:
+      break;
+    case SQL_DATETIME_LITERALS:
+      // NOTE: need to fine-tune [taosc]
+      break;
+    case SQL_SQL92_DATETIME_FUNCTIONS:
+      // NOTE: need to fine-tune [taosc]
+      break;
+    case SQL_SQL92_FOREIGN_KEY_UPDATE_RULE:
+      break;
+    case SQL_SQL92_GRANT:
+      break;
+    case SQL_SQL92_NUMERIC_VALUE_FUNCTIONS:
+      // NOTE: need to fine-tune [taosc]
+      break;
+    case SQL_SQL92_PREDICATES:
+      *(SQLUINTEGER*)InfoValuePtr = 0;
+      return SQL_SUCCESS;
+    case SQL_SQL92_RELATIONAL_JOIN_OPERATORS:
+      // NOTE: need to fine-tune [taosc]
+      break;
+    case SQL_SQL92_REVOKE:
+      break;
+    case SQL_SQL92_ROW_VALUE_CONSTRUCTOR:
+      break;
+    case SQL_SQL92_STRING_FUNCTIONS:
+      // NOTE: need to fine-tune [taosc]
+      break;
+    case SQL_SQL92_VALUE_EXPRESSIONS:
+      // NOTE: need to fine-tune [taosc]
+      break;
+    case SQL_STANDARD_CLI_CONFORMANCE:
       break;
 
+#if 0         /* { */
+    case SQL_DTC_TRANSITION_COST:
+      *(SQLUINTEGER*)InfoValuePtr = 0;
+      return SQL_SUCCESS;
+#endif        /* } */
+
     default:
-      conn_append_err_format(conn, "HY000", 0, "General error:`%s[%d/0x%x]` not implemented yet", sql_info_type(InfoType), InfoType, InfoType);
-      return SQL_ERROR;
+      break;
   }
-  return SQL_SUCCESS;
+
+  conn_append_err_format(conn, "HY000", 0, "General error:`%s[%d/0x%x]` not implemented yet", sql_info_type(InfoType), InfoType, InfoType);
+  return SQL_ERROR;
 }
 
 SQLRETURN conn_end_tran(

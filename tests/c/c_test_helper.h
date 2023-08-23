@@ -149,3 +149,9 @@ int _gen_table_param_insert(simple_str_t* str, const char* table, const field_t*
 /**************     from conformance_test.c  end    *************/
 
 #endif // _c_test_helper_h_
+
+#ifdef _WIN64 // Windows
+#define SQLLEN_FORMAT "%lld"
+#else // macOS and others
+#define SQLLEN_FORMAT "%ld"
+#endif

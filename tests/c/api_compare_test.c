@@ -790,7 +790,7 @@ static int get_records_count2(const char* table_name)
     sprintf((char*)sql, "SELECT * FROM %s", table_name);
     CALL_SQLExecDirect(hstmt, sql, SQL_NTS);
     int r = CALL_SQLRowCount(hstmt, &numberOfrows);
-    XX("%s record result:%d count: %ld", table_name, r, numberOfrows);
+    XX("%s record result:%d count: "SQLLEN_FORMAT"", table_name, r, numberOfrows);
   }
   return 0;
 }

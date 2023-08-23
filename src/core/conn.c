@@ -1371,10 +1371,8 @@ SQLRETURN conn_get_info(
       return SQL_SUCCESS;
     case SQL_ORDER_BY_COLUMNS_IN_SELECT:
       return _conn_set_string(conn, "N", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
-#if 0        /* { */
     case SQL_OUTER_JOINS:
       break;
-#endif       /* } */
     case SQL_PROCEDURES:
       break;
     case SQL_QUOTED_IDENTIFIER_CASE:

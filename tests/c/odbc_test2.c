@@ -606,7 +606,7 @@ static int fetch_scroll_test(char* table_name) {
   }
 
   X("Has got "SQLLEN_FORMAT" rows, exit...", row);
-  return row;
+  return (int)row;
 }
 
 static int more_result_test(char* table_name) {

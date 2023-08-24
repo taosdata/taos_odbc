@@ -12,6 +12,8 @@ script_path = os.path.abspath(sys.argv[0])
 script_dir = os.path.dirname(script_path)
 root_path = os.path.join(script_dir, "..")
 
+taos_odbc_lib_file = "libtaos_odbc.so.0.1"   # different name on mac or linux
+
 class ReleaseInfo:
     def __init__(self, os):
         self.OS = os
@@ -61,7 +63,11 @@ def get_taos_odbc_version():
     return version
 
 def get_package_name():
+    global taos_odbc_lib_file
     target = "taos_odbc"
+    if release_info.OS == 'Darwin':
+        taos_odbc_lib_file = "libtaos_odbc.0.1.dylib"
+
     if release_info.OS == 'Windows':
         return  f'{target}-{release_info.TaosODBCVersion}-{release_info.OS.lower()}-{release_info.CpuType.lower()}-installer'
     else:
@@ -168,7 +174,7 @@ def copy_taos_odbc_on_windows():
         
 def copy_taos_odbc_on_mac():
     print("copy_taos_odbc on mac start...")
-    taos_lib_src = os.path.join(release_info.BuildPath, "src", "libtaos_odbc.0.1.dylib")
+    taos_lib_src = os.path.join(release_info.BuildPath, "src", taos_odbc_lib_file)
     odbc_in_src = os.path.join(root_path, "templates", "odbc.in")
     odbcinst_in_src = os.path.join(root_path, "templates", "odbcinst.in")
     install_sh_src = os.path.join(script_dir, "install.sh")

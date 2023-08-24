@@ -138,7 +138,7 @@ def build_taos_odbc():
     if release_info.OS == 'Windows':
         build_taos_odbc_on_windows()
     else:
-        build_taos_odbc()
+        build_taos_odbc_not_windows()
 
 def set_win_dev_env():
     output = os.popen('\"C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Auxiliary\\Build\\vcvarsall.bat\" x64 && set').read()
@@ -209,15 +209,15 @@ def copy_taos_odbc():
     update_install_sh(os.path.join(release_info.ReleasePath, "install.sh"))
 
 def build_taos_odbc_on_windows():
-    print(f"build_taos_odbc {release_info.DefaultBuildMode} on windows start...")
+    print(f"build_taos_odbc_on_windows {release_info.DefaultBuildMode} on windows start...")
     os.chdir(root_path)
     set_win_dev_env()
     os.system('cmake --no-warn-unused-cli -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE -B build -G \"Visual Studio 17 2022\" -A x64')
     cmd = f'cmake --build build --config {release_info.DefaultBuildMode} -j 4'
     os.system(cmd)
 
-def build_taos_odbc():
-    print(f"build_taos_odbc {release_info.DefaultBuildMode} on mac start...")
+def build_taos_odbc_not_windows():
+    print(f"build_taos_odbc_not_windows {release_info.DefaultBuildMode} start...")
     os.chdir(root_path)
     os.system('cmake -B build -DCMAKE_BUILD_TYPE=Debug')
     cmd = f'cmake --build build'

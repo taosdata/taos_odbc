@@ -4,16 +4,18 @@ set -e
 csudo=""
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 destination_dir="/usr/local/lib"
+taos_odbc_lib_file="libtaos_odbc.so.0.1"
+taos_odbc_lib_ln="libtaos_odbc.so"
 
 if command -v sudo >/dev/null; then
   csudo="sudo "
 fi
 
 copy_file(){
-    source_file="${script_dir}/taos_odbc/lib/libtaos_odbc.0.1.dylib"
+    source_file="${script_dir}/taos_odbc/lib/${taos_odbc_lib_file}"
     #echo "File copied from ${source_file} to ${destination_dir}"
     ${csudo}cp "${source_file}" "${destination_dir}"
-    ${csudo}ln -sf "${destination_dir}/libtaos_odbc.0.1.dylib" "${destination_dir}/libtaos_odbc.dylib"
+    ${csudo}ln -sf "${destination_dir}/${taos_odbc_lib_file}" "${destination_dir}/${taos_odbc_lib_ln}"
     echo "libtaos_odbc has copy to ${destination_dir}"
 }
 

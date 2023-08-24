@@ -13,6 +13,7 @@ script_dir = os.path.dirname(script_path)
 root_path = os.path.join(script_dir, "..")
 
 taos_odbc_lib_file = "libtaos_odbc.so.0.1"   # different name on mac or linux
+taos_odbc_lib_ln = "libtaos_odbc.so"   # different name on mac or linux
 
 class ReleaseInfo:
     def __init__(self, os):
@@ -63,10 +64,11 @@ def get_taos_odbc_version():
     return version
 
 def get_package_name():
-    global taos_odbc_lib_file
+    global taos_odbc_lib_file, taos_odbc_lib_ln
     target = "taos_odbc"
     if release_info.OS == 'Darwin':
         taos_odbc_lib_file = "libtaos_odbc.0.1.dylib"
+        taos_odbc_lib_ln = "libtaos_odbc.dylib"
 
     if release_info.OS == 'Windows':
         return  f'{target}-{release_info.TaosODBCVersion}-{release_info.OS.lower()}-{release_info.CpuType.lower()}-installer'
@@ -136,7 +138,7 @@ def build_taos_odbc():
     if release_info.OS == 'Windows':
         build_taos_odbc_on_windows()
     else:
-        build_taos_odbc_on_mac()
+        build_taos_odbc()
 
 def set_win_dev_env():
     output = os.popen('\"C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Auxiliary\\Build\\vcvarsall.bat\" x64 && set').read()
@@ -171,8 +173,21 @@ def copy_taos_odbc_on_windows():
     else:
         print(f"not found \"{win_odbcinst_src}\"")
         sys.exit()
-        
-def copy_taos_odbc_on_mac():
+
+def update_install_sh(install_sh):
+    with open(install_sh, 'r') as file:
+        lines = file.readlines()
+
+    for i, line in enumerate(lines):
+        if line.startswith("taos_odbc_lib_file="):
+            lines[i] = f'taos_odbc_lib_file="{taos_odbc_lib_file}"\n'
+        elif line.startswith("taos_odbc_lib_ln="):
+            lines[i] = f'taos_odbc_lib_ln="{taos_odbc_lib_ln}"\n'
+
+    with open(install_sh, 'w') as file:
+        file.writelines(lines)
+
+def copy_taos_odbc():
     print("copy_taos_odbc on mac start...")
     taos_lib_src = os.path.join(release_info.BuildPath, "src", taos_odbc_lib_file)
     odbc_in_src = os.path.join(root_path, "templates", "odbc.in")
@@ -191,6 +206,7 @@ def copy_taos_odbc_on_mac():
     else:
         print(f"not found \"{taos_lib_src}\".\n")
         sys.exit()
+    update_install_sh(os.path.join(release_info.ReleasePath, "install.sh"))
 
 def build_taos_odbc_on_windows():
     print(f"build_taos_odbc {release_info.DefaultBuildMode} on windows start...")
@@ -200,7 +216,7 @@ def build_taos_odbc_on_windows():
     cmd = f'cmake --build build --config {release_info.DefaultBuildMode} -j 4'
     os.system(cmd)
 
-def build_taos_odbc_on_mac():
+def build_taos_odbc():
     print(f"build_taos_odbc {release_info.DefaultBuildMode} on mac start...")
     os.chdir(root_path)
     os.system('cmake -B build -DCMAKE_BUILD_TYPE=Debug')
@@ -223,7 +239,7 @@ def package_on_windows():
 
 def tar_taos_odbc():
     print("\ninsert taos_odbc to tar...")
-    copy_taos_odbc_on_mac()
+    copy_taos_odbc()
     
     os.chdir(release_info.ReleasePath)
     cmd = f'tar -zcv -f {release_info.PackageName}.tar.gz *'

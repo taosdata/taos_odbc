@@ -536,7 +536,7 @@ static int show_table_data(char* table_name) {
   return row;
 }
 
-static SQLULEN fetch_scorll_test(char* table_name) {
+static int fetch_scroll_test(char* table_name) {
   reset_stmt();
   SQLHANDLE hstmt = link_info->ctx.hstmt;
 
@@ -1215,12 +1215,12 @@ static int case_4(void) {
   CHK0(check_t_table, 0);
 
   clock_t t2 = clock();
-  SQLULEN counts = fetch_scorll_test("t_table");
+  int counts = fetch_scroll_test("t_table");
   if (counts < 0) return -1;
 
   clock_t t3 = clock();
   double elapsed_time = (double)(t3 - t2) / CLOCKS_PER_SEC;
-  X("Read "SQLLEN_FORMAT" rows data, cost time: %f seconds", counts, elapsed_time);
+  X("Read %d rows data, cost time: %f seconds", counts, elapsed_time);
 
   //CHK0(free_connect, 0);
   return 0;

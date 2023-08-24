@@ -199,6 +199,7 @@ SQLRETURN env_set_attr(
   switch (Attribute) {
 #if (ODBCVER >= 0x0380)      /* { */
     case SQL_ATTR_CONNECTION_POOLING:
+      // NOTE: SQL_ATTR_CONNECTION_POOLING is implemented inside the Driver Manager
       break;
 #endif                       /* } */
     case SQL_ATTR_CP_MATCH:
@@ -236,6 +237,7 @@ SQLRETURN env_get_attr(
   switch (Attribute) {
 #if (ODBCVER >= 0x0380)      /* { */
     case SQL_ATTR_CONNECTION_POOLING:
+      // NOTE: SQL_ATTR_CONNECTION_POOLING is implemented inside the Driver Manager
       break;
 #endif                       /* } */
     case SQL_ATTR_CP_MATCH:

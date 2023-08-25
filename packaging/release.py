@@ -187,6 +187,17 @@ def update_install_sh(install_sh):
     with open(install_sh, 'w') as file:
         file.writelines(lines)
 
+def update_odbcinst_in(odbcinst_in_file):
+    with open(odbcinst_in_file, 'r') as file:
+        lines = file.readlines()
+
+    for i, line in enumerate(lines):
+        if line.startswith("Driver="):
+            lines[i] = f'Driver={taos_odbc_lib_ln}\n'
+
+    with open(odbcinst_in_file, 'w') as file:
+        file.writelines(lines)
+
 def copy_taos_odbc():
     print("copy_taos_odbc on mac start...")
     taos_lib_src = os.path.join(release_info.BuildPath, "src", taos_odbc_lib_file)
@@ -207,6 +218,7 @@ def copy_taos_odbc():
         print(f"not found \"{taos_lib_src}\".\n")
         sys.exit()
     update_install_sh(os.path.join(release_info.ReleasePath, "install.sh"))
+    update_odbcinst_in(os.path.join(release_info.ReleasePath, "taos_odbc", "odbcinst.in"))
 
 def build_taos_odbc_on_windows():
     print(f"build_taos_odbc_on_windows {release_info.DefaultBuildMode} on windows start...")
@@ -244,7 +256,7 @@ def tar_taos_odbc():
     os.chdir(release_info.ReleasePath)
     cmd = f'tar -zcv -f {release_info.PackageName}.tar.gz *'
     os.system(cmd)
-    print(f"Write to:\n{release_info.ReleasePath}\{release_info.PackageName}.tar.gz")
+    print(f"Write to:\n{release_info.ReleasePath}/{release_info.PackageName}.tar.gz")
     print(f"\033[32mSuccess.\033[0m\n")
     
 def package():

@@ -1105,7 +1105,7 @@ static int col_attribute_test(char* table_name) {
     SQLLEN val = 0;
     ret = SQLColAttribute(hstmt, i, SQL_DESC_TYPE, NULL, SQL_IS_INTEGER, &valLen, &val);
     if (ret == SQL_SUCCESS) {
-      printf("SQL_DESC_TYPE: %lld\n", val);
+      printf("SQL_DESC_TYPE: "SQLLEN_FORMAT"\n", val);
     }
     else {
       printf("Failed to get column attribute.\n");
@@ -1115,7 +1115,7 @@ static int col_attribute_test(char* table_name) {
     val = 0;
     ret = SQLColAttribute(hstmt, i, SQL_DESC_COUNT, NULL, SQL_IS_INTEGER, &valLen, &val);
     if (ret == SQL_SUCCESS) {
-      printf("SQL_DESC_COUNT: %lld\n", val);
+      printf("SQL_DESC_COUNT: "SQLLEN_FORMAT"\n", val);
     }
     else {
       printf("Failed to get column attribute.\n");
@@ -1125,7 +1125,7 @@ static int col_attribute_test(char* table_name) {
     val = 0;
     ret = SQLColAttribute(hstmt, i, SQL_DESC_PRECISION, NULL, SQL_IS_INTEGER, &valLen, &val);
     if (ret == SQL_SUCCESS) {
-      printf("SQL_DESC_PRECISION: %lld\n", val);
+      printf("SQL_DESC_PRECISION: "SQLLEN_FORMAT"\n", val);
     }
     else {
       printf("Failed to get column attribute.\n");
@@ -1135,7 +1135,7 @@ static int col_attribute_test(char* table_name) {
     val = 0;
     ret = SQLColAttribute(hstmt, i, SQL_DESC_SCALE, NULL, SQL_IS_INTEGER, &valLen, &val);
     if (ret == SQL_SUCCESS) {
-      printf("SQL_DESC_SCALE: %lld\n", val);
+      printf("SQL_DESC_SCALE: "SQLLEN_FORMAT"\n", val);
     }
     else {
       printf("Failed to get column attribute.\n");
@@ -1537,7 +1537,7 @@ static int example() {
   SQLExecDirect(hstmt, (SQLCHAR*)insert_sql, SQL_NTS);
   SQLLEN numberOfrows;
   SQLRowCount(hstmt, &numberOfrows);
-  printf("insert count: %lld\n", numberOfrows);
+  printf("insert count: "SQLLEN_FORMAT"\n", numberOfrows);
 
   // reset cursor
   SQLCloseCursor(hstmt);

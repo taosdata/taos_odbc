@@ -204,7 +204,7 @@ data_source_case* link_info;
     } while(0)
 
 
-const char* t_table_create = "CREATE TABLE if not exists `t_table` (`ts` TIMESTAMP, `current_val` DOUBLE, `current_status` INT)";
+const char* t_table_create = "CREATE TABLE if not exists `t_table` (`ts` TIMESTAMP, `double_val` DOUBLE, `int_val` INT)";
 
 static void get_diag_rec(SQLSMALLINT handleType, SQLHANDLE h) {
 
@@ -617,7 +617,7 @@ static int more_result_test(char* table_name) {
   SQLRETURN  ret;
 
   SQLCHAR sql[1024];
-  sprintf((char *)sql, "SELECT ts FROM %s limit 12; SELECT ts, current_val FROM %s limit 25;", table_name, table_name);
+  sprintf((char *)sql, "SELECT ts FROM %s limit 12; SELECT ts, double_val FROM %s limit 25;", table_name, table_name);
 
   CALL_SQLExecDirect(hstmt, sql, SQL_NTS);
 
@@ -660,7 +660,7 @@ static int row_count_test() {
   time_t t1 = time(NULL) * 1000;
   for (int num = 0; num < 1; num++) {
     sql[0] = '\0';
-    sprintf((char *)sql, "insert into t_table (ts, current_val, current_status) values ");
+    sprintf((char *)sql, "insert into t_table (ts, double_val, int_val) values ");
     char val[64];
 
     for (int i = 0; i < count_10 * 5; i++) {
@@ -887,17 +887,19 @@ static int get_stmt_attr_test() {
 
 static int num_param_t_table_test() {
   SQLRETURN sr = SQL_SUCCESS;
+  reset_stmt();
   SQLHANDLE hstmt = link_info->ctx.hstmt;
 
   char* sql[] = {
-    "select ts from t_table;",
-    "select * from t_table where ts = ?;",
-    "select * from t_table where ts = ? and current_val = ?;",
-    "select * from t_table where ts = ? and current_val = ?;",
-    "insert into t_table (ts, current_val, current_status) values (?, ?, ?);",
-    "delete from t_table where ts = ? and current_val = ?;",
+    // "select ts from t_table;",
+    // "select * from t_table where ts = ?;",
+    "select * from t_table where ts = ? and double_val = ?;",
+    "select * from t_table where ts = ? and double_val = ?;",
+    "insert into t_table (ts, double_val, int_val) values (?, ?, ?);",
+    "delete from t_table where ts = ? and double_val = ?;",
   };
   for (unsigned long i = 0; i < sizeof(sql) / sizeof(char*); i++) {
+    X("prepare...  sql:%s", sql[i]);
     sr = CALL_SQLPrepare(hstmt, (SQLCHAR*)sql[i], SQL_NTS);
     if (FAILED(sr)) return -1;
 
@@ -915,6 +917,7 @@ static int num_param_t_table_test() {
       X("\t\tparam %d: datatype(%d) paramsize("SQLLEN_FORMAT") decimaldigit(%d) nullable(%d)", i, DataType, ParameterSize, DecimalDigits, Nullable);
       if (FAILED(sr)) return -1;
     }
+    CALL_SQLCloseCursor(hstmt);
   }
 
   return 0;
@@ -984,7 +987,7 @@ static int describe_col_test(char* table_name) {
   SQLRETURN  ret;
 
   SQLCHAR sql[1024];
-  sprintf((char *)sql, "SELECT * FROM %s limit 12; SELECT ts, current_val FROM %s limit 25;", table_name, table_name);
+  sprintf((char *)sql, "SELECT * FROM %s limit 12; SELECT ts, double_val FROM %s limit 25;", table_name, table_name);
 
   CALL_SQLExecDirect(hstmt, sql, SQL_NTS);
 
@@ -1039,29 +1042,106 @@ static int col_attribute_test(char* table_name) {
     valstr[0] = '\0';
     ret = SQLColAttribute(hstmt, i, SQL_DESC_NAME, valstr, sizeof(valstr), &valLen, NULL);
     if (ret == SQL_SUCCESS) {
-      printf("Column Name: %.*s\n", valLen, valstr);
+      printf("SQL_DESC_NAME: %.*s\n", valLen, valstr);
     }
     else {
       printf("Failed to get column attribute.\n");
     }
 
     valstr[0] = '\0';
-    ret = SQLColAttribute(hstmt, i, SQL_DESC_TYPE, valstr, sizeof(valstr), &valLen, NULL);
+    ret = SQLColAttribute(hstmt, i, SQL_DESC_LOCAL_TYPE_NAME, valstr, sizeof(valstr), &valLen, NULL);
     if (ret == SQL_SUCCESS) {
-      printf("SQL_DESC_TYPE: %.*s\n", valLen, valstr);
+      printf("SQL_DESC_LOCAL_TYPE_NAME: %.*s\n", valLen, valstr);
     }
     else {
       printf("Failed to get column attribute.\n");
     }
 
     valstr[0] = '\0';
-    ret = SQLColAttribute(hstmt, i, SQL_DESC_ALLOC_TYPE, valstr, sizeof(valstr), &valLen, NULL);
+    ret = SQLColAttribute(hstmt, i, SQL_DESC_LITERAL_PREFIX, valstr, sizeof(valstr), &valLen, NULL);
     if (ret == SQL_SUCCESS) {
-      printf("SQL_DESC_ALLOC_TYPE: %.*s\n", valLen, valstr);
+      printf("SQL_DESC_LITERAL_PREFIX: %.*s\n", valLen, valstr);
     }
     else {
       printf("Failed to get column attribute.\n");
     }
+
+    valstr[0] = '\0';
+    ret = SQLColAttribute(hstmt, i, SQL_DESC_BASE_COLUMN_NAME, valstr, sizeof(valstr), &valLen, NULL);
+    if (ret == SQL_SUCCESS) {
+      printf("SQL_DESC_BASE_COLUMN_NAME: %.*s\n", valLen, valstr);
+    }
+    else {
+      printf("Failed to get column attribute.\n");
+    }
+
+    valstr[0] = '\0';
+    ret = SQLColAttribute(hstmt, i, SQL_DESC_BASE_TABLE_NAME, valstr, sizeof(valstr), &valLen, NULL);
+    if (ret == SQL_SUCCESS) {
+      printf("SQL_DESC_BASE_TABLE_NAME: %.*s\n", valLen, valstr);
+    }
+    else {
+      printf("Failed to get column attribute.\n");
+    }
+
+    valstr[0] = '\0';
+    ret = SQLColAttribute(hstmt, i, SQL_DESC_LABEL, valstr, sizeof(valstr), &valLen, NULL);
+    if (ret == SQL_SUCCESS) {
+      printf("SQL_DESC_LABEL: %.*s\n", valLen, valstr);
+    }
+    else {
+      printf("Failed to get column attribute.\n");
+    }
+
+    valstr[0] = '\0';
+    ret = SQLColAttribute(hstmt, i, SQL_DESC_CATALOG_NAME, valstr, sizeof(valstr), &valLen, NULL);
+    if (ret == SQL_SUCCESS) {
+      printf("SQL_DESC_CATALOG_NAME: %.*s\n", valLen, valstr);
+    }
+    else {
+      printf("Failed to get column attribute.\n");
+    }
+
+    SQLLEN val = 0;
+    ret = SQLColAttribute(hstmt, i, SQL_DESC_TYPE, NULL, SQL_IS_INTEGER, &valLen, &val);
+    if (ret == SQL_SUCCESS) {
+      printf("SQL_DESC_TYPE: %lld\n", val);
+    }
+    else {
+      printf("Failed to get column attribute.\n");
+      CHKSTMTR(hstmt, ret);
+    }
+
+    val = 0;
+    ret = SQLColAttribute(hstmt, i, SQL_DESC_COUNT, NULL, SQL_IS_INTEGER, &valLen, &val);
+    if (ret == SQL_SUCCESS) {
+      printf("SQL_DESC_COUNT: %lld\n", val);
+    }
+    else {
+      printf("Failed to get column attribute.\n");
+      CHKSTMTR(hstmt, ret);
+    }
+
+    val = 0;
+    ret = SQLColAttribute(hstmt, i, SQL_DESC_PRECISION, NULL, SQL_IS_INTEGER, &valLen, &val);
+    if (ret == SQL_SUCCESS) {
+      printf("SQL_DESC_PRECISION: %lld\n", val);
+    }
+    else {
+      printf("Failed to get column attribute.\n");
+      CHKSTMTR(hstmt, ret);
+    }
+
+    val = 0;
+    ret = SQLColAttribute(hstmt, i, SQL_DESC_SCALE, NULL, SQL_IS_INTEGER, &valLen, &val);
+    if (ret == SQL_SUCCESS) {
+      printf("SQL_DESC_SCALE: %lld\n", val);
+    }
+    else {
+      printf("Failed to get column attribute.\n");
+      CHKSTMTR(hstmt, ret);
+    }
+    printf("\n");
   }
 
   return 0;
@@ -1082,7 +1162,7 @@ static int case_1(void) {
   CHK1(exec_sql, sql, 0);
 
   sql[0] = '\0';
-  strcpy(sql, "CREATE STABLE `metertemplate` (`ts` TIMESTAMP, `current_val` DOUBLE, `current_status` INT) \
+  strcpy(sql, "CREATE STABLE `metertemplate` (`ts` TIMESTAMP, `double_val` DOUBLE, `int_val` INT) \
     TAGS(`element_id` NCHAR(100), `location` NCHAR(100))");
   CHK1(exec_sql, sql, 0);
   int table_counts = get_tables(table_names);
@@ -1107,12 +1187,12 @@ static int case_1(void) {
   const int insert_count = 10;
   for (int i = 0; i < insert_count; i++) {
     sql[0] = '\0';
-    sprintf(sql, "insert into tb1 (ts, current_val, current_status) values (now(), %d, 0)", 100 + i);
+    sprintf(sql, "insert into tb1 (ts, double_val, int_val) values (now(), %d, 0)", 100 + i);
     CHK1(exec_sql, sql, 0);
   }
   for (int i = 0; i < insert_count; i++) {
     sql[0] = '\0';
-    sprintf(sql, "insert into tb2 (ts, current_val, current_status) values (now(), %d, 0)", 100 + i);
+    sprintf(sql, "insert into tb2 (ts, double_val, int_val) values (now(), %d, 0)", 100 + i);
     CHK1(exec_sql, sql, 0);
   }
   show_table_data("tb1");
@@ -1141,7 +1221,7 @@ static int case_2(void) {
   CHK1(exec_sql, sql, 0);
 
   sql[0] = '\0';
-  strcpy(sql, "CREATE TABLE `tbx` (`ts` TIMESTAMP, `current_val` DOUBLE, `current_status` INT)");
+  strcpy(sql, "CREATE TABLE `tbx` (`ts` TIMESTAMP, `double_val` DOUBLE, `int_val` INT)");
   CHK1(exec_sql, sql, 0);
   int table_counts = get_tables(table_names);
   ASSERT_EQUAL(table_counts, 1);
@@ -1149,7 +1229,7 @@ static int case_2(void) {
   const int insert_count = 10;
   for (int i = 0; i < insert_count; i++) {
     sql[0] = '\0';
-    sprintf(sql, "insert into tbx (ts, current_val, current_status) values (now(), %d, 0)", 100 + i);
+    sprintf(sql, "insert into tbx (ts, double_val, int_val) values (now(), %d, 0)", 100 + i);
     CHK1(exec_sql, sql, 0);
   }
 
@@ -1179,7 +1259,7 @@ static int case_3(void) {
 
   for (int num = 0; num < count_100; num++) {
     sql[0] = '\0';
-    sprintf(sql, "insert into t_table (ts, current_val, current_status) values ");
+    sprintf(sql, "insert into t_table (ts, double_val, int_val) values ");
     char val[64];
 
     for (int i = 0; i < count_1000; i++) {
@@ -1416,9 +1496,86 @@ static bool isTestCase(int argc, char* argv[], const char* test_case, const int 
   return false;
 }
 
+static int example() {
+  SQLHANDLE henv = SQL_NULL_HANDLE;
+  SQLHANDLE hdbc = SQL_NULL_HANDLE;
+  SQLHANDLE hstmt = SQL_NULL_HANDLE;
+
+  SQLRETURN sr = SQL_SUCCESS;
+
+  SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &henv);
+  SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, 0);
+  SQLSetEnvAttr(henv, SQL_ATTR_CONNECTION_POOLING, (SQLPOINTER)SQL_CP_ONE_PER_DRIVER, 0);
+
+  SQLAllocHandle(SQL_HANDLE_DBC, henv, &hdbc);
+
+  // create a connection to tdengine data source
+  SQLCHAR OutConnectionString[1024] = {0};
+  SQLSMALLINT StringLength2 = 0;
+ 
+  char* conn_str = "DSN=TAOS_ODBC_DSN; server=127.0.0.1:6030; uid=root; pwd=taosdata; db=meter";
+  sr = SQLDriverConnect(hdbc,
+                   NULL,
+                   conn_str,
+                   (SQLSMALLINT)strlen(conn_str),
+                   OutConnectionString,
+                   sizeof(OutConnectionString),
+                   &StringLength2,
+                   SQL_DRIVER_NOPROMPT);
+
+  SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt);
+
+  // create test table
+  char* my_table = "my_table";
+  char create_table_sql[256];
+  sprintf(create_table_sql, "CREATE TABLE if not exists %s (`ts` TIMESTAMP, `double_val` DOUBLE, `int_val` INT)", my_table);
+  SQLExecDirect(hstmt, (SQLCHAR*)create_table_sql, SQL_NTS);
+ 
+  // write data into test table
+  char insert_sql[256];
+  sprintf(insert_sql, "insert into %s (ts, double_val, int_val) values (now(), 100.0, 1)", my_table);
+  SQLExecDirect(hstmt, (SQLCHAR*)insert_sql, SQL_NTS);
+  SQLLEN numberOfrows;
+  SQLRowCount(hstmt, &numberOfrows);
+  printf("insert count: %lld\n", numberOfrows);
+
+  // reset cursor
+  SQLCloseCursor(hstmt);
+
+  // read data from table
+  char select_sql[256];
+  sprintf(select_sql, "select ts, double_val, int_val from %s", my_table);
+  SQLExecDirect(hstmt, (SQLCHAR*)select_sql, SQL_NTS);
+
+  int row = 0;
+  SQLSMALLINT numberOfColumns;
+  CALL_SQLNumResultCols(hstmt, &numberOfColumns);
+
+  while (SQLFetch(hstmt) == SQL_SUCCESS) {
+    row++;
+    for (int i = 1; i <= numberOfColumns; i++) {
+      SQLCHAR columnData[256];
+      SQLLEN indicator;
+      SQLGetData(hstmt, i, SQL_C_CHAR, columnData, sizeof(columnData), &indicator);
+      if (indicator != SQL_NULL_DATA) {
+        printf("Row:%d Column %d: %s \n", row, i, columnData);
+      }
+    }
+  }
+
+  // close handle
+  SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+  SQLDisconnect(hdbc);
+  SQLFreeHandle(SQL_HANDLE_DBC, hdbc);
+  SQLFreeHandle(SQL_HANDLE_ENV, henv);
+
+  return 0;
+}
+
 static int run(int argc, char* argv[]) {
   init();
 
+  if (isTestCase(argc, argv, "example", default_supported)) CHK0(example, 0);
   if (isTestCase(argc, argv, "db_test", default_supported)) CHK0(db_test, 0);
   if (isTestCase(argc, argv, "case_1", default_supported)) CHK0(case_1, 0);
   if (isTestCase(argc, argv, "case_2", default_supported)) CHK0(case_2, 0);
@@ -1467,6 +1624,7 @@ static int mysql_help_test(int argc, char* argv[]) {
 
 static int server_help_test(int argc, char* argv[]) {
   CHK0(init, 0);
+  if (isTestCase(argc, argv, "db_test", default_supported)) CHK0(db_test, 0);
   if (isTestCase(argc, argv, "case_9", default_supported)) CHK0(case_9, 0);
   if (isTestCase(argc, argv, "case_9_1", default_supported)) CHK0(case_9_1, 0);
   if (isTestCase(argc, argv, "case_10", default_supported)) CHK0(case_10, 0);

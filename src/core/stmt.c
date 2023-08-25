@@ -7358,7 +7358,7 @@ SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr,
     case SQL_ATTR_CURSOR_TYPE:
       return _stmt_set_cursor_type(stmt, (SQLULEN)ValuePtr);
     case SQL_ATTR_ENABLE_AUTO_IPD:
-      if ((SQLULEN)(uintptr_t)ValuePtr == SQL_FALSE) return SQL_SUCCESS;
+      if ((SQLULEN)(uintptr_t)ValuePtr == SQL_TRUE) return SQL_SUCCESS;
       break;
     case SQL_ATTR_FETCH_BOOKMARK_PTR:
       break;

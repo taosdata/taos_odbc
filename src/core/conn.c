@@ -1799,6 +1799,7 @@ SQLRETURN conn_get_attr(
     case SQL_ATTR_ASYNC_ENABLE:
       break;
     case SQL_ATTR_AUTO_IPD:
+      *(SQLUINTEGER*)Value = SQL_TRUE;
       break;
     case SQL_ATTR_AUTOCOMMIT:
       break;

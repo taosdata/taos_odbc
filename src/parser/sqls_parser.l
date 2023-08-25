@@ -26,52 +26,7 @@
 
 
 %{
-#define MKT(x)    TOK_##x
-
-#define PUSH(state)      yy_push_state(state, yyscanner)
-#define POP()            yy_pop_state(yyscanner)
-
-#define CHG(state) do {                           \
-    yy_pop_state(yyscanner);                      \
-    yy_push_state(state, yyscanner);              \
-} while (0)
-
-#define TOP_STATE(_top) do {                  \
-    yy_push_state(INITIAL, yyscanner);        \
-    _top = yy_top_state(yyscanner);           \
-    yy_pop_state(yyscanner);                  \
-} while (0)
-
-#define R() do {                                               \
-    yylloc->first_column = yylloc->last_column ;               \
-    yylloc->first_line   = yylloc->last_line;                  \
-    yyextra->token_start = yyextra->token_end;                 \
-    parser_ctx_t *ctx = (parser_ctx_t*)yyget_extra(yyscanner); \
-    ctx->prev  = ctx->pres;                                    \
-    ctx->pres += yyleng;                                       \
-} while (0)
-
-#define L() do {                                  \
-    yylloc->last_line   += 1;                     \
-    yylloc->last_column  = 1;                     \
-    yyextra->token_end += yyleng;                 \
-} while (0)
-
-#define C()                                       \
-do {                                              \
-    yylloc->last_column += yyleng;                \
-    yyextra->token_end += yyleng;                 \
-} while (0)
-
-#define SET_STR() do {                            \
-    yylval->token.text = yytext;                  \
-    yylval->token.leng = yyleng;                  \
-} while (0)
-
-#define SET_CHR(chr) do {                         \
-    yylval->c = chr;                              \
-} while (0)
-
+#include "parser_macros.h"
 %}
 
 %option bison-bridge bison-locations reentrant
@@ -90,6 +45,7 @@ do {                                              \
 
 %x LP LC LB
 %x DQ SQ AA QM
+%x ESC TAOS_ESCAPE
 %x COMMENT
 
 SP            [ \t]
@@ -196,28 +152,45 @@ QM            "?"
 
 <DQ>{
 {DQ}                  { R(); C(); POP(); return (unsigned char)*yytext; }
-[^"\\]+               { R(); C(); return MKT(STR); }
-["]["]                { R(); C(); return MKT(STR); }
-{ESCAPE}              { R(); C(); return MKT(STR); }
-[\\]["]               { R(); C(); return MKT(STR); }
-[\\][x][[:xdigit:]]+  { R(); C(); return MKT(STR); }
+["]/["]               { R(); PUSH(ESC); C(); return MKT(DQ); }
+[^"\\\f\r\n]+         { R(); SET_STR(); C(); return MKT(STR); }
+"\f"                  { R(); SET_STR(); L(); return MKT(STR); }
+{LN}                  { R(); SET_STR(); L(); return MKT(STR); }
+[\\]                  { R(); PUSH(TAOS_ESCAPE); C(); return (unsigned char)*yytext; }
 .                     { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <SQ>{
 {SQ}                  { R(); C(); POP(); return (unsigned char)*yytext; }
-[^'\\]+               { R(); C(); return MKT(STR); }
-['][']                { R(); C(); return MKT(STR); }
-{ESCAPE}              { R(); C(); return MKT(STR); }
-[\\][']               { R(); C(); return MKT(STR); }
-[\\][x][[:xdigit:]]+  { R(); C(); return MKT(STR); }
+[']/[']               { R(); PUSH(ESC); C(); return MKT(SQ); }
+[^'\\\f\r\n]+         { R(); SET_STR(); C(); return MKT(STR); }
+"\f"                  { R(); SET_STR(); L(); return MKT(STR); }
+{LN}                  { R(); SET_STR(); L(); return MKT(STR); }
+[\\]                  { R(); PUSH(TAOS_ESCAPE); C(); return (unsigned char)*yytext; }
 .                     { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <AA>{
 {AA}                  { R(); C(); POP(); return (unsigned char)*yytext; }
-[^`]+                 { R(); C(); return MKT(STR); }
-[`][`]                { R(); C(); return MKT(STR); }
+[`]/[`]               { R(); PUSH(ESC); C(); return MKT(AA); }
+[^`\\\f\r\n]+         { R(); SET_STR(); C(); return MKT(STR); }
+"\f"                  { R(); SET_STR(); L(); return MKT(STR); }
+{LN}                  { R(); SET_STR(); L(); return MKT(STR); }
+[\\]                  { R(); PUSH(TAOS_ESCAPE); C(); return (unsigned char)*yytext; }
+.                     { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
+}
+
+<ESC>{
+["]                   { R(); POP(); C(); return MKT(DQ); } /* let bison to handle */
+[']                   { R(); POP(); C(); return MKT(SQ); } /* let bison to handle */
+[`]                   { R(); POP(); C(); return MKT(AA); } /* let bison to handle */
+{LN}                  { R(); L(); return *yytext; } /* let bison to handle */
+.                     { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
+}
+
+<TAOS_ESCAPE>{        /* NOTE: taos-specific-escape */
+{LN}                  { R(); L(); return *yytext; } /* let bison to handle */
+.                     { R(); POP(); C(); return MKT(CH); }
 }
 
 %%

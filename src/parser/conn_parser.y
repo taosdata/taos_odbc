@@ -44,12 +44,6 @@
 %code {
     // generated header from flex
     // introduce yylex decl for later use
-    static void _yyerror_impl(
-        YYLTYPE *yylloc,                   // match %define locations
-        yyscan_t arg,                      // match %param
-        conn_parser_param_t *param,        // match %parse-param
-        const char *errmsg
-    );
     static void yyerror(
         YYLTYPE *yylloc,                   // match %define locations
         yyscan_t arg,                      // match %param
@@ -62,13 +56,13 @@
       TOD_SAFE_FREE(param->conn_cfg->dsn);                                                      \
       param->conn_cfg->dsn = strndup(_v.text, _v.leng);                                         \
       if (!param->conn_cfg->dsn) {                                                              \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
+        YLOG(LOG_MALS, &_loc, "runtime error:out of memory");                                   \
         YYABORT;                                                                                \
       }                                                                                         \
       if (!param->init) break;                                                                  \
       char buf[1024]; buf[0] = '\0';                                                            \
       if (param->init(param->conn_cfg, buf, sizeof(buf))) {                                     \
-        _yyerror_impl(&_loc, arg, param, buf);                                                  \
+        YLOG(LOG_MALS, &_loc, "%s", buf);                                                       \
         YYABORT;                                                                                \
       }                                                                                         \
     } while (0)
@@ -77,7 +71,7 @@
       TOD_SAFE_FREE(param->conn_cfg->uid);                                                      \
       param->conn_cfg->uid = strndup(_v.text, _v.leng);                                         \
       if (!param->conn_cfg->uid) {                                                              \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
+        YLOG(LOG_MALS, &_loc, "runtime error:out of memory");                                   \
         YYABORT;                                                                                \
       }                                                                                         \
     } while (0)
@@ -86,7 +80,7 @@
       TOD_SAFE_FREE(param->conn_cfg->db);                                                       \
       param->conn_cfg->db = strndup(_v.text, _v.leng);                                          \
       if (!param->conn_cfg->db) {                                                               \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
+        YLOG(LOG_MALS, &_loc, "runtime error:out of memory");                                   \
         YYABORT;                                                                                \
       }                                                                                         \
     } while (0)
@@ -95,7 +89,7 @@
       TOD_SAFE_FREE(param->conn_cfg->pwd);                                                      \
       param->conn_cfg->pwd = strndup(_v.text, _v.leng);                                         \
       if (!param->conn_cfg->pwd) {                                                              \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
+        YLOG(LOG_MALS, &_loc, "runtime error:out of memory");                                   \
         YYABORT;                                                                                \
       }                                                                                         \
     } while (0)
@@ -104,7 +98,7 @@
       TOD_SAFE_FREE(param->conn_cfg->driver);                                                   \
       param->conn_cfg->driver = strndup(_v.text, _v.leng);                                      \
       if (!param->conn_cfg->driver) {                                                           \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
+        YLOG(LOG_MALS, &_loc, "runtime error:out of memory");                                   \
         YYABORT;                                                                                \
       }                                                                                         \
     } while (0)
@@ -113,7 +107,7 @@
       TOD_SAFE_FREE(param->conn_cfg->url);                                                      \
       param->conn_cfg->url = strndup(_v.text, _v.leng);                                         \
       if (!param->conn_cfg->url) {                                                              \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
+        YLOG(LOG_MALS, &_loc, "runtime error:out of memory");                                   \
         YYABORT;                                                                                \
       }                                                                                         \
     } while (0)
@@ -122,7 +116,7 @@
       TOD_SAFE_FREE(param->conn_cfg->ip);                                                       \
       param->conn_cfg->ip = strndup(_v.text, _v.leng);                                          \
       if (!param->conn_cfg->ip) {                                                               \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
+        YLOG(LOG_MALS, &_loc, "runtime error:out of memory");                                   \
         YYABORT;                                                                                \
       }                                                                                         \
       param->conn_cfg->port = 0;                                                                \
@@ -132,7 +126,7 @@
       TOD_SAFE_FREE(param->conn_cfg->ip);                                                       \
       param->conn_cfg->ip = strndup(_v.text, _v.leng);                                          \
       if (!param->conn_cfg->ip) {                                                               \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
+        YLOG(LOG_MALS, &_loc, "runtime error:out of memory");                                   \
         YYABORT;                                                                                \
       }                                                                                         \
       param->conn_cfg->port = strtol(_p.text, NULL, 10);                                        \
@@ -142,7 +136,7 @@
       TOD_SAFE_FREE(param->conn_cfg->charset_for_col_bind);                                     \
       param->conn_cfg->charset_for_col_bind = strndup(_v.text, _v.leng);                        \
       if (!param->conn_cfg->charset_for_col_bind) {                                             \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
+        YLOG(LOG_MALS, &_loc, "runtime error:out of memory");                                   \
         YYABORT;                                                                                \
       }                                                                                         \
     } while (0)
@@ -151,7 +145,7 @@
       TOD_SAFE_FREE(param->conn_cfg->charset_for_param_bind);                                   \
       param->conn_cfg->charset_for_param_bind = strndup(_v.text, _v.leng);                      \
       if (!param->conn_cfg->charset_for_param_bind) {                                           \
-        _yyerror_impl(&_loc, arg, param, "runtime error:out of memory");                        \
+        YLOG(LOG_MALS, &_loc, "runtime error:out of memory");                                   \
         YYABORT;                                                                                \
       }                                                                                         \
     } while (0)
@@ -170,7 +164,6 @@
     {
       if (!param) return;
       param->ctx.err_msg[0] = '\0';
-      param->ctx.row0 = 0;
     }
 }
 
@@ -179,6 +172,7 @@
 %define api.pure full
 %define api.token.prefix {TOK_}
 %define locations
+%define api.location.type {parser_loc_t}
 %define parse.error verbose
 %define parse.lac full
 %define parse.trace true
@@ -295,38 +289,6 @@ attribute:
 
 %%
 
-static void _yyerror_impl(
-    YYLTYPE *yylloc,                   // match %define locations
-    yyscan_t arg,                      // match %param
-    conn_parser_param_t *param,             // match %parse-param
-    const char *errmsg
-)
-{
-  // to implement it here
-  (void)yylloc;
-  (void)arg;
-  (void)param;
-  (void)errmsg;
-
-  if (!param) {
-    fprintf(stderr, "(%d,%d)->(%d,%d):%s\n",
-        yylloc->first_line, yylloc->first_column,
-        yylloc->last_line, yylloc->last_column,
-        errmsg);
-
-    return;
-  }
-
-  param->ctx.row0 = yylloc->first_line;
-  param->ctx.col0 = yylloc->first_column;
-  param->ctx.row1 = yylloc->last_line;
-  param->ctx.col1 = yylloc->last_column;
-  param->ctx.err_msg[0] = '\0';
-  snprintf(param->ctx.err_msg, sizeof(param->ctx.err_msg), "near `%.*s`:%s",
-      (int)(param->ctx.pres + 10 - param->ctx.prev), param->ctx.input + param->ctx.prev,
-      errmsg);
-}
-
 /* Called by yyparse on error. */
 static void yyerror(
     YYLTYPE *yylloc,                   // match %define locations
@@ -335,7 +297,8 @@ static void yyerror(
     const char *errmsg
 )
 {
-  _yyerror_impl(yylloc, arg, param, errmsg);
+  parser_ctx_t *ctx = param ? &param->ctx : NULL;
+  parser_yyerror(__FILE__, __LINE__, __func__, yylloc, arg, ctx, errmsg);
 }
 
 int conn_parser_parse(const char *input, size_t len, conn_parser_param_t *param)

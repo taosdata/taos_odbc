@@ -283,8 +283,10 @@ static inline cJSON* load_json_from_file(const char *json_file, FILE *fn, const 
 
     r = ejson_parser_parse(p, strlen(p), &param);
     if (r) {
+      parser_loc_t *loc = &param.ctx.bad_token;
       E("parsing @[%s]:%s", json_file, p);
-      E("location:(%d,%d)->(%d,%d)", param.ctx.loc.first_line, param.ctx.loc.first_column, param.ctx.loc.last_line, param.ctx.loc.last_column);
+      E("location:(%d,%d)->(%d,%d)",
+          loc->first_line, loc->first_column, loc->last_line, loc->last_column);
       E("failed:%s", param.ctx.err_msg);
       free(gb);
       free(buf);
@@ -519,8 +521,10 @@ static ejson_t* load_ejson_from_file(const char *json_file, FILE *fn, const char
 
   r = ejson_parser_parse(p, strlen(p), &param);
   if (r) {
+    parser_loc_t *loc = &param.ctx.bad_token;
     E("parsing @[%s]:%s", json_file, p);
-    E("location:(%d,%d)->(%d,%d)", param.ctx.loc.first_line, param.ctx.loc.first_column, param.ctx.loc.last_line, param.ctx.loc.last_column);
+    E("location:(%d,%d)->(%d,%d)",
+        loc->first_line, loc->first_column, loc->last_line, loc->last_column);
     E("failed:%s", param.ctx.err_msg);
     free(gb);
     free(buf);

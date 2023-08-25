@@ -22,49 +22,6 @@
 # SOFTWARE.
 ###############################################################################
 
-list(APPEND common_SOURCES
-    auxiliary.c
-    enums.c
-    logger.c
-    parser.c)
-
-add_library(common_obj OBJECT ${common_SOURCES})
-if(TODBC_WINDOWS)
-    add_dependencies(common_obj ex_iconv)
-endif()
-target_include_directories(common_obj PRIVATE
-    ${ODBC_INCLUDE_DIRECTORY}
-    ${ODBCINST_INCLUDE_DIRECTORY})
-set_property(TARGET common_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
-
-list(APPEND odbc_helpers_SOURCES
-    odbc_helpers.c)
-
-add_library(odbc_helpers_obj OBJECT ${odbc_helpers_SOURCES})
-if(TODBC_WINDOWS)
-    add_dependencies(odbc_helpers_obj ex_iconv)
-endif()
-set_property(TARGET odbc_helpers_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
-
-list(APPEND taos_helpers_SOURCES
-    taos_helpers.c)
-
-add_library(taos_helpers_obj OBJECT ${taos_helpers_SOURCES})
-if(TODBC_WINDOWS)
-    add_dependencies(taos_helpers_obj ex_iconv)
-endif()
-set_property(TARGET taos_helpers_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
-target_include_directories(taos_helpers_obj PRIVATE
-    ${CMAKE_CURRENT_BINARY_DIR}/..)
-
-parser_gen(ejson_parser)
-
-set(ejson_parser_SOURCES
-    ejson_parser_tab.c)
-
-add_library(ejson_parser_obj OBJECT ${ejson_parser_SOURCES})
-if(TODBC_WINDOWS)
-    add_dependencies(ejson_parser_obj ex_iconv)
-endif()
-set_property(TARGET ejson_parser_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
+add_test(NAME dump_prepare_bind_param_execute
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/dump_prepare_bind_param_execute.sh)
 

@@ -74,10 +74,6 @@ typedef struct params_bind_meta_s       params_bind_meta_t;
 
 typedef struct param_state_s            param_state_t;
 
-typedef struct parser_ctx_s             parser_ctx_t;
-typedef struct parser_nterm_s           parser_nterm_t;
-typedef struct parser_token_s           parser_token_t;
-
 typedef struct primarykeys_args_s       primarykeys_args_t;
 typedef struct primarykeys_s            primarykeys_t;
 
@@ -93,7 +89,9 @@ typedef struct sql_data_s               sql_data_t;
 typedef struct sqlc_sql_map_s           sqlc_sql_map_t;
 
 typedef struct sqls_s                   sqls_t;
+typedef struct sqls_parser_nterm_s      sqls_parser_nterm_t;
 typedef struct sqls_parser_param_s      sqls_parser_param_t;
+
 
 typedef struct tables_args_s            tables_args_t;
 typedef struct tables_s                 tables_t;
@@ -118,6 +116,7 @@ typedef struct url_s                    url_t;
 typedef struct url_parser_param_s       url_parser_param_t;
 
 typedef enum   var_e                    var_e;
+typedef enum   var_quote_e              var_quote_e;
 typedef struct var_s                    var_t;
 
 #endif // _typedefs_h_

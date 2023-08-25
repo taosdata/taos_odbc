@@ -27,12 +27,13 @@
 
 #include "macros.h"
 
+#include "parser.h"
+
 #include <stddef.h>
 
 EXTERN_C_BEGIN
 
 typedef struct ejson_parser_param_s             ejson_parser_param_t;
-typedef struct ejson_parser_ctx_s               ejson_parser_ctx_t;
 typedef struct ejson_parser_token_s             ejson_parser_token_t;
 
 typedef enum ejson_type_e               ejson_type_t;
@@ -40,26 +41,19 @@ typedef struct ejson_s                  ejson_t;
 typedef struct _ejson_str_s             _ejson_str_t;
 typedef struct _ejson_kv_s              _ejson_kv_t;
 
-typedef struct ejson_loc_s              ejson_loc_t;
-
-struct ejson_loc_s {
-  int first_line, first_column;
-  int last_line,  last_column;
-};
-
 struct _ejson_str_s {
   char                      *str;
   size_t                     cap;
   size_t                     nr;
 
-  ejson_loc_t                loc;
+  parser_loc_t               loc;
 };
 
 struct _ejson_kv_s {
   _ejson_str_t               key;
   ejson_t                   *val;
 
-  ejson_loc_t                loc;
+  parser_loc_t               loc;
 };
 
 enum ejson_type_e {
@@ -94,7 +88,7 @@ int ejson_is_arr(ejson_t *ejson) FA_HIDDEN;
 int ejson_cmp(ejson_t *l, ejson_t *r) FA_HIDDEN;
 int ejson_serialize(ejson_t *ejson, char *buf, size_t len) FA_HIDDEN;
 
-const ejson_loc_t* ejson_get_loc(ejson_t *ejson) FA_HIDDEN;
+const parser_loc_t* ejson_get_loc(ejson_t *ejson) FA_HIDDEN;
 
 const char* ejson_str_get(ejson_t *ejson) FA_HIDDEN;
 int ejson_num_get(ejson_t *ejson, double *v) FA_HIDDEN;
@@ -125,17 +119,8 @@ struct ejson_parser_token_s {
   size_t           leng;
 };
 
-struct ejson_parser_ctx_s {
-  ejson_loc_t            loc;
-  char                   err_msg[1024];
-
-  unsigned int           debug_flex:1;
-  unsigned int           debug_bison:1;
-  unsigned int           oom:1;
-};
-
 struct ejson_parser_param_s {
-  ejson_parser_ctx_t                 ctx;
+  parser_ctx_t                       ctx;
   ejson_t                           *ejson;
 };
 

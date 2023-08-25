@@ -26,6 +26,7 @@
 
 #include "../core/internal.h"        // FIXME:
 #include "log.h"
+#include "parser.h"
 
 #include "sqls_parser.tab.h"
 #include "sqls_parser.lex.c"

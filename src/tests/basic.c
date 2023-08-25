@@ -192,8 +192,10 @@ static int test_conn_parser(void)
     int r = conn_parser_parse(s, strlen(s), &param);
     do {
       if (r) {
+        parser_loc_t *loc = &param.ctx.bad_token;
         E("parsing[@line:%d]:%s", line, s);
-        E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+        E("location:(%d,%d)->(%d,%d)",
+            loc->first_line, loc->first_column, loc->last_line, loc->last_column);
         E("failed:%s", param.ctx.err_msg);
         break;
       }
@@ -304,6 +306,8 @@ static int test_ext_parser(void)
     OK_INSERT("!insert into t (s, v) values (-1234,5)", 0, 0, 2, 0),
     OK_INSERT("!insert into t (s, v) values ('h''w', 4)", 0, 0, 2, 0),
     OK_INSERT("!insert into t (s, v) values ('h''w', \"a\"\"b\")", 0, 0, 2, 0),
+    OK_INSERT("!insert into t (s, v) values ('', \"a\"\"b\")", 0, 0, 2, 0),
+    OK_INSERT("!insert into t (s, v) values (\"\", \"a\"\"b\")", 0, 0, 2, 0),
   };
   const size_t _nr_cases = sizeof(_cases) / sizeof(_cases[0]);
 #undef BAD_INSERT
@@ -323,7 +327,9 @@ static int test_ext_parser(void)
     if (!r != !!ok) {
       E("parsing:@%dL:%s", line, sql);
       if (r) {
-        E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+        parser_loc_t *loc = &param.ctx.bad_token;
+        E("location:(%d,%d)->(%d,%d)",
+            loc->first_line, loc->first_column, loc->last_line, loc->last_column);
         E("failed:%s", param.ctx.err_msg);
       } else {
         E("expecting failure, but got ==success==");
@@ -498,7 +504,9 @@ static int test_ejson_parser(void)
       if ((!!r) ^ (!match)) {
         E("parsing @[%dL]:%s", __line__, s);
         if (r) {
-          E("location:(%d,%d)->(%d,%d)", param.ctx.loc.first_line, param.ctx.loc.first_column, param.ctx.loc.last_line, param.ctx.loc.last_column);
+          parser_loc_t *loc = &param.ctx.bad_token;
+          E("location:(%d,%d)->(%d,%d)",
+              loc->first_line, loc->first_column, loc->last_line, loc->last_column);
           E("failed:%s", param.ctx.err_msg);
           E("expecting:%s", match);
           E("but got:%s", buf);
@@ -676,9 +684,19 @@ static int test_sqls_parser(void)
         {"insert into t (ts, name) values (now(), ?)", 1},
       },
     },{
-      "insert into ? (ts, name) values (now(), 'a')",
+      "insert into ? (ts, name) values (now(), 'a''')",
       {
-        {"insert into ? (ts, name) values (now(), 'a')", 1},
+        {"insert into ? (ts, name) values (now(), 'a''')", 1},
+      },
+    },{
+      "insert into ? (ts, name) values (now(), `a```)",
+      {
+        {"insert into ? (ts, name) values (now(), `a```)", 1},
+      },
+    },{
+      "insert into ? (ts, name) values (now(), \"a\"\"\")",
+      {
+        {"insert into ? (ts, name) values (now(), \"a\"\"\")", 1},
       },
     },{
       "insert into ? using tags (?, ?) values (?, ?)",
@@ -689,7 +707,6 @@ static int test_sqls_parser(void)
   };
   const size_t _cases_nr = sizeof(_cases)/sizeof(_cases[0]);
   for (size_t i=0; i<_cases_nr; ++i) {
-    if (i + 1 < _cases_nr) continue;
     const char  *sqls             = _cases[i].sqls;
     const expected_sql_t *expects = _cases[i].expects;
 
@@ -709,7 +726,9 @@ static int test_sqls_parser(void)
     D("parsing:\n%s ...", sqls);
     int r = sqls_parser_parse(sqls, strlen(sqls), &param);
     if (r) {
-      E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+      parser_loc_t *loc = &param.ctx.bad_token;
+      E("location:(%d,%d)->(%d,%d)",
+          loc->first_line, loc->first_column, loc->last_line, loc->last_column);
       E("failed:%s", param.ctx.err_msg);
     } else if (check.failed) {
       r = -1;
@@ -745,8 +764,8 @@ static int test_url_parser(void)
     RECORD("http://www.com/?", "http://www.com/?"),
     RECORD("http://www.com#", "http://www.com#"),
     RECORD("http://www.com?", "http://www.com?"),
-    RECORD("http://example.com/根", "(1,20)->(1,21)"),
-    RECORD("file:///fasd", "(1,1)->(1,5)"),
+    RECORD("http://example.com/根", "(0,19)->(0,20)"),
+    RECORD("file:///fasd", "(0,0)->(0,4)"),
     RECORD("foo:/abc:def", "foo:/abc:def"),
     RECORD("http://hello%20world.com", "http://hello%20world.com"),
   };
@@ -762,13 +781,16 @@ static int test_url_parser(void)
 
     int r = url_parser_parse(url, strlen(url), &param);
     if (r) {
+      parser_loc_t *loc = &param.ctx.bad_token;
       char buf[4096];
-      snprintf(buf, sizeof(buf), "(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+      snprintf(buf, sizeof(buf), "(%d,%d)->(%d,%d)",
+          loc->first_line, loc->first_column, loc->last_line, loc->last_column);
       if (strcmp(buf, ok_or_failure) == 0) {
         r = 0;
       } else {
         E("parsing @[%dL]:%s", line, url);
-        E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+        E("location:(%d,%d)->(%d,%d)",
+            loc->first_line, loc->first_column, loc->last_line, loc->last_column);
         E("failed:%s", param.ctx.err_msg);
       }
     } else {

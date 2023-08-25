@@ -44,38 +44,12 @@
 %code {
     // generated header from flex
     // introduce yylex decl for later use
-    static void _yyerror_impl(
-        const char *file, int line, const char *func,
-        YYLTYPE *yylloc,                   // match %define locations
-        yyscan_t arg,                      // match %param
-        ext_parser_param_t *param,         // match %parse-param
-        const char *errmsg
-    );
     static void yyerror(
         YYLTYPE *yylloc,                   // match %define locations
         yyscan_t arg,                      // match %param
         ext_parser_param_t *param,         // match %parse-param
         const char *errsg
     );
-
-    #define LOG_ARGS const char *file, int line, const char *func, yyscan_t arg, ext_parser_param_t *param, YYLTYPE *yylloc
-    #define LOG_VALS file, line, func, arg, param
-    #define LOG_MALS __FILE__, __LINE__, __func__, arg, param
-    #define LOG_FLF __FILE__, __LINE__, __func__
-
-    static int _ylogv(const char *file, int line, const char *func,
-        yyscan_t arg,                      // match %param
-        ext_parser_param_t *param,         // match %parse-param
-        YYLTYPE *yylloc,                   // match %define locations
-        const char *fmt,
-        ...) __attribute__ ((format (printf, 7, 8)));
-
-    #ifdef _WIN32               /* { */
-    #define YLOG(args, yylloc, fmt, ...) \
-      (0 ? fprintf(stderr, fmt, ##__VA_ARGS__) : _ylogv(args, yylloc, fmt, ##__VA_ARGS__))
-    #else                       /* }{ */
-    #define YLOG _ylogv
-    #endif                      /* } */
 
     static int ext_parser_param_append_topic_name(ext_parser_param_t *param, const char *name, size_t len);
     static int ext_parser_param_append_topic_conf(ext_parser_param_t *param, const char *k, size_t kn, const char *v, size_t vn);
@@ -117,7 +91,6 @@
       if (param->is_topic) topic_cfg_release(&param->topic_cfg);
       else                 insert_eval_release(&param->insert_eval);
       param->ctx.err_msg[0] = '\0';
-      param->ctx.row0 = 0;
     }
 
     static inline var_t* _create_var(var_e type, LOG_ARGS)
@@ -167,7 +140,7 @@
     {
       var_t *v = _create_var(VAR_ID, LOG_VALS, yylloc);
       if (!v) return NULL;
-      int r = str_append(&v->str, s, n);
+      int r = str_append(&v->str.s, s, n);
       if (r) {
         YLOG(LOG_VALS, yylloc, "runtime error:out of memory");
         return NULL;
@@ -394,7 +367,7 @@
     {
       var_t *exp = _create_var(VAR_ID, LOG_VALS, yylloc);
       if (!exp) return NULL;
-      int r = str_append(&exp->str, s, n);
+      int r = str_append(&exp->str.s, s, n);
       if (r == 0) return exp;
       YLOG(LOG_VALS, yylloc, "runtime error:out of memory");
       _var_destroy(exp);
@@ -505,21 +478,30 @@
       }                                                                        \
     } while (0)
 
-    static inline var_t* _strs_flat(var_t *ss, LOG_ARGS)
+    static inline var_t* _str_empty(var_quote_e qt, LOG_ARGS)
     {
       var_t *v = _create_var(VAR_STRING, LOG_VALS, yylloc);
       if (!v) return NULL;
+      v->str.q = qt;
+      return v;
+    }
+
+    static inline var_t* _strs_flat(var_t *ss, var_quote_e qt, LOG_ARGS)
+    {
+      var_t *v = _create_var(VAR_STRING, LOG_VALS, yylloc);
+      if (!v) return NULL;
+      v->str.q = qt;
       size_t n = 0;
       for (size_t i=0; i<ss->arr.nr; ++i) {
-        str_t *str = &ss->arr.vals[i]->str;
+        str_t *str = &ss->arr.vals[i]->str.s;
         n += str->nr;
       }
-      int r = str_keep(&v->str, n + 1);
+      int r = str_keep(&v->str.s, n + 1);
 
       if (r == 0) {
         for (size_t i=0; i<ss->arr.nr; ++i) {
-          str_t *str = &ss->arr.vals[i]->str;
-          r = str_append(&v->str, str->str, str->nr);
+          str_t *str = &ss->arr.vals[i]->str.s;
+          r = str_append(&v->str.s, str->str, str->nr);
           if (r) break;
         }
       }
@@ -533,8 +515,13 @@
       return NULL;
     }
 
-    #define STRS_FLAT(_r, _ss, _loc) do {                                      \
-      _r = _strs_flat(_ss, LOG_MALS, &_loc);                                   \
+    #define STR_EMPTY(_r, _qt, _loc) do {                                      \
+      _r = _str_empty(_qt, LOG_MALS, &_loc);                                   \
+      if (!_r) YYABORT;                                                        \
+    } while (0)
+
+    #define STRS_FLAT(_r, _ss, _qt, _loc) do {                                 \
+      _r = _strs_flat(_ss, _qt, LOG_MALS, &_loc);                              \
       var_release(_ss);                                                        \
       TOD_SAFE_FREE(_ss);                                                      \
       if (!_r) YYABORT;                                                        \
@@ -588,7 +575,7 @@
     {
       var_t *v = _create_var(VAR_STRING, LOG_VALS, yylloc);
       if (!v) return NULL;
-      int r = str_append(&v->str, s, n);
+      int r = str_append(&v->str.s, s, n);
       if (r) {
         YLOG(LOG_VALS, yylloc, "runtime error:out of memory");
         return NULL;
@@ -618,6 +605,7 @@
 %define api.pure full
 %define api.token.prefix {TOK_}
 %define locations
+%define api.location.type {parser_loc_t}
 %define parse.error verbose
 %define parse.lac full
 %define parse.trace true
@@ -672,7 +660,8 @@ table_name:
 
 id:
   ID                            { CREATE_ID($$, $1, @$); }
-| '`' tstrs '`'                 { STRS_FLAT($$, $2, @$); }
+| '`' '`'                       { STR_EMPTY($$, QUOTE_BQ, @$); }
+| '`' tstrs '`'                 { STRS_FLAT($$, $2, QUOTE_BQ, @$); }
 ;
 
 using_clause:
@@ -721,8 +710,10 @@ term:
 | ID                               { CREATE_EXP_ID($$, $1, @$); }
 | INTEGRAL                         { CREATE_EXP_INTEGRAL($$, $1, @$); }
 | NUMBER                           { CREATE_EXP_NUMBER($$, $1, @$); }
-| '"' qstrs '"'                    { STRS_FLAT($$, $2, @$); }
-| '\'' sstrs '\''                  { STRS_FLAT($$, $2, @$); }
+| '"' '"'                          { STR_EMPTY($$, QUOTE_DQ, @$); }
+| '"' qstrs '"'                    { STRS_FLAT($$, $2, QUOTE_DQ, @$); }
+| '\'' '\''                        { STR_EMPTY($$, QUOTE_SQ, @$); }
+| '\'' sstrs '\''                  { STRS_FLAT($$, $2, QUOTE_SQ, @$); }
 ;
 
 qstrs:
@@ -788,43 +779,6 @@ delimits:
 
 %%
 
-static void _yyerror_impl(
-    const char *file, int line, const char *func,
-    YYLTYPE *yylloc,                   // match %define locations
-    yyscan_t arg,                      // match %param
-    ext_parser_param_t *param,         // match %parse-param
-    const char *errmsg
-)
-{
-  // to implement it here
-  (void)yylloc;
-  (void)arg;
-  (void)param;
-  (void)errmsg;
-
-  char bn[512]; bn[0] = '\0';
-  const char *fn = tod_basename(file, bn, sizeof(bn));
-  if (!param) {
-    fprintf(stderr, "%s[%d]:%s():(%d,%d)->(%d,%d):%s\n",
-        fn, line, func,
-        yylloc->first_line, yylloc->first_column,
-        yylloc->last_line, yylloc->last_column,
-        errmsg);
-
-    return;
-  }
-
-  param->ctx.row0 = yylloc->first_line;
-  param->ctx.col0 = yylloc->first_column;
-  param->ctx.row1 = yylloc->last_line;
-  param->ctx.col1 = yylloc->last_column;
-  param->ctx.err_msg[0] = '\0';
-  snprintf(param->ctx.err_msg, sizeof(param->ctx.err_msg), "%s[%d]:%s():near `%.*s`:%s",
-      fn, line, func,
-      (int)(param->ctx.pres + 10 - param->ctx.prev), param->ctx.input + param->ctx.prev,
-      errmsg);
-}
-
 /* Called by yyparse on error. */
 static void yyerror(
     YYLTYPE *yylloc,                   // match %define locations
@@ -833,25 +787,8 @@ static void yyerror(
     const char *errmsg
 )
 {
-  _yyerror_impl(__FILE__, __LINE__, __func__, yylloc, arg, param, errmsg);
-}
-
-static int _ylogv(const char *file, int line, const char *func,
-    yyscan_t arg,                      // match %param
-    ext_parser_param_t *param,         // match %parse-param
-    YYLTYPE *yylloc,                   // match %define locations
-    const char *fmt,
-    ...)
-{
-  char buf[4096]; buf[0] = '\0';
-  va_list ap;
-  va_start(ap, fmt);
-  int n = vsnprintf(buf, sizeof(buf), fmt, ap);
-  va_end(ap);
-
-  _yyerror_impl(file, line, func, yylloc, arg, param, buf);
-
-  return n;
+  parser_ctx_t *ctx = param ? &param->ctx : NULL;
+  parser_yyerror(__FILE__, __LINE__, __func__, yylloc, arg, ctx, errmsg);
 }
 
 static int ext_parser_param_append_topic_name(ext_parser_param_t *param, const char *name, size_t len)

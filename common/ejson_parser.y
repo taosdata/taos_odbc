@@ -63,10 +63,7 @@
     } while (0)
 
     #define SET_LOC(_dst, _src) do {                                 \
-      _dst.first_line             = _src.first_line;                 \
-      _dst.first_column           = _src.first_column;               \
-      _dst.last_line              = _src.last_line;                  \
-      _dst.last_column            = _src.last_column;                \
+      _dst = _src;                                                   \
     } while (0)
 
     #define EJSON_NEW_WITH_ID(_ejson, _token, _loc) do {             \
@@ -201,7 +198,7 @@
     {
       if (!param) return;
       param->ctx.err_msg[0] = '\0';
-      param->ctx.loc.first_line = 0;
+      param->ctx.bad_token.first_line = 0;
       if (param->ejson) {
         ejson_dec_ref(param->ejson);
         param->ejson = NULL;
@@ -214,6 +211,7 @@
 %define api.pure full
 %define api.token.prefix {TOK_}
 %define locations
+%define api.location.type {parser_loc_t}
 %define parse.error verbose
 %define parse.lac full
 %define parse.trace true
@@ -337,10 +335,10 @@ static void _yyerror_impl(
     return;
   }
 
-  param->ctx.loc.first_line   = yylloc->first_line;
-  param->ctx.loc.first_column = yylloc->first_column;
-  param->ctx.loc.last_line    = yylloc->last_line;
-  param->ctx.loc.last_column  = yylloc->last_column;
+  param->ctx.bad_token.first_line   = yylloc->first_line;
+  param->ctx.bad_token.first_column = yylloc->first_column;
+  param->ctx.bad_token.last_line    = yylloc->last_line;
+  param->ctx.bad_token.last_column  = yylloc->last_column;
   param->ctx.err_msg[0] = '\0';
   snprintf(param->ctx.err_msg, sizeof(param->ctx.err_msg), "%s", errmsg);
 }
@@ -365,7 +363,11 @@ int ejson_parser_parse(const char *input, size_t len, ejson_parser_param_t *para
   int debug_bison = param ? param->ctx.debug_bison: 0;
   yyset_debug(debug_flex, arg);
   yydebug = debug_bison;
-  // yyset_extra(param, arg);
+  yyset_extra(param, arg);
+  param->ctx.input = input;
+  param->ctx.len   = len;
+  param->ctx.prev  = 0;
+  param->ctx.pres  = 0;
   yy_scan_bytes(input ? input : "", input ? (int)len : 0, arg);
   int ret =yyparse(arg, param);
   yylex_destroy(arg);

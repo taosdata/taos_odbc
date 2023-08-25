@@ -1046,18 +1046,18 @@ static int col_attribute_test(char* table_name) {
     }
 
     valstr[0] = '\0';
-    ret = SQLColAttribute(hstmt, i, SQL_DESC_TYPE, valstr, sizeof(valstr), &valLen, NULL);
+    ret = SQLColAttribute(hstmt, i, SQL_DESC_LOCAL_TYPE_NAME, valstr, sizeof(valstr), &valLen, NULL);
     if (ret == SQL_SUCCESS) {
-      printf("SQL_DESC_TYPE: %.*s\n", valLen, valstr);
+      printf("SQL_DESC_LOCAL_TYPE_NAME: %.*s\n", valLen, valstr);
     }
     else {
       printf("Failed to get column attribute.\n");
     }
 
     valstr[0] = '\0';
-    ret = SQLColAttribute(hstmt, i, SQL_DESC_ALLOC_TYPE, valstr, sizeof(valstr), &valLen, NULL);
+    ret = SQLColAttribute(hstmt, i, SQL_DESC_TYPE, valstr, sizeof(valstr), &valLen, NULL);
     if (ret == SQL_SUCCESS) {
-      printf("SQL_DESC_ALLOC_TYPE: %.*s\n", valLen, valstr);
+      printf("SQL_DESC_TYPE: %.*s\n", valLen, valstr);
     }
     else {
       printf("Failed to get column attribute.\n");

@@ -256,7 +256,7 @@ def tar_taos_odbc():
     os.chdir(release_info.ReleasePath)
     cmd = f'tar -zcv -f {release_info.PackageName}.tar.gz *'
     os.system(cmd)
-    print(f"Write to:\n{release_info.ReleasePath}\{release_info.PackageName}.tar.gz")
+    print(f"Write to:\n{release_info.ReleasePath}/{release_info.PackageName}.tar.gz")
     print(f"\033[32mSuccess.\033[0m\n")
     
 def package():

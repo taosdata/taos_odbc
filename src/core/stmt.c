@@ -46,6 +46,7 @@
 #include "typesinfo.h"
 
 #include <errno.h>
+#include <float.h>
 #include <limits.h>
 #include <math.h>
 #include <string.h>
@@ -5734,6 +5735,32 @@ static SQLRETURN _stmt_param_conv_sql_double_to_tsdb_timestamp(stmt_t *stmt, par
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_param_conv_sql_double_to_tsdb_float(stmt_t *stmt, param_state_t *param_state)
+{
+  (void)stmt;
+
+  int                   i_row             = param_state->i_row;
+  sql_data_t           *data              = &param_state->sql_data;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  float flt = data->dbl;
+
+  if (data->dbl > FLT_MAX) {
+    stmt_append_err(stmt, "HY000", 0, "General error:Too big a number");
+    return SQL_ERROR;
+  }
+
+  if (data->dbl < FLT_MIN) {
+    stmt_append_err(stmt, "HY000", 0, "General error:Too small a number");
+    return SQL_ERROR;
+  }
+
+  float *v = (float*)tsdb_bind->buffer;
+  v[i_row - param_state->i_batch_offset] = flt;
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_param_conv_sql_double_to_tsdb_int(stmt_t *stmt, param_state_t *param_state)
 {
   (void)stmt;
@@ -6367,6 +6394,9 @@ static const param_bind_map_t _param_bind_map[] = {
   {SQL_C_DOUBLE,  SQL_DOUBLE, TSDB_DATA_TYPE_DOUBLE,
     _stmt_param_adjust_reuse_sqlc_double,
     _stmt_param_conv_dummy},
+  {SQL_C_DOUBLE,  SQL_DOUBLE, TSDB_DATA_TYPE_FLOAT,
+    _stmt_param_adjust_reuse_sqlc_double,
+    _stmt_param_conv_sql_double_to_tsdb_float},
   {SQL_C_DOUBLE,  SQL_DOUBLE, TSDB_DATA_TYPE_INT,
     _stmt_param_adjust_reuse_sqlc_double,
     _stmt_param_conv_sql_double_to_tsdb_int},

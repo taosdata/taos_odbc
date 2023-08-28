@@ -113,6 +113,29 @@ def test_case0():
   y = [('试验', '测试'), ('测试', '试验')]
   assert str(x) == str(y), "{0} != {1}".format(x, y)
 
+  cursor.execute("drop table if exists x")
+  cursor.execute("create table x (ts timestamp, dbl double)")
+  cursor.execute("insert into x(ts, dbl) values (now(), 1.23)")
+  # cnxn.commit()
+  cursor.execute("insert into x(ts, dbl) values (?, ?)", 1682565350033, 2.34)
+  # cnxn.commit()
+  x = cursor.execute("select dbl from x").fetchall()
+  print(x, file=sys.stderr)
+  y = [(2.34,), (1.23,)]
+  assert str(x) == str(y), "{0} != {1}".format(x, y)
+
+  cursor.execute("drop table if exists x")
+  cursor.execute("create table x (ts timestamp, flt float)")
+  cursor.execute("insert into x(ts, flt) values (now(), 1.23)")
+  # cnxn.commit()
+  cursor.execute("insert into x(ts, flt) values (?, ?)", 1682565350033, 2.34)
+  # cnxn.commit()
+  x = cursor.execute("select flt from x").fetchall()
+  print(x, file=sys.stderr)
+  y = [(2.34,), (1.23,)]
+  assert str(round(x[0][0],2)) == str(y[0][0]), "1: {0} != {1}".format(x[0][0], y[0][0])
+  assert str(round(x[1][0],2)) == str(y[1][0]), "2: {0} != {1}".format(x[1][0], y[1][0])
+
   cursor.close()
   cnxn.close()
 

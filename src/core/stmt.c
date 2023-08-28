@@ -5743,20 +5743,20 @@ static SQLRETURN _stmt_param_conv_sql_double_to_tsdb_float(stmt_t *stmt, param_s
   sql_data_t           *data              = &param_state->sql_data;
   TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
 
-  float flt = data->dbl;
+  double dbl = data->dbl;
 
-  if (data->dbl > FLT_MAX) {
+  if (dbl > FLT_MAX) {
     stmt_append_err(stmt, "HY000", 0, "General error:Too big a number");
     return SQL_ERROR;
   }
 
-  if (data->dbl < FLT_MIN) {
+  if (dbl < FLT_MIN) {
     stmt_append_err(stmt, "HY000", 0, "General error:Too small a number");
     return SQL_ERROR;
   }
 
   float *v = (float*)tsdb_bind->buffer;
-  v[i_row - param_state->i_batch_offset] = flt;
+  v[i_row - param_state->i_batch_offset] = (float)dbl;
 
   return SQL_SUCCESS;
 }

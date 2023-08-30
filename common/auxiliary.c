@@ -266,7 +266,9 @@ char* tod_strncpy(char *dest, const char *src, size_t n)
 #ifndef _WIN32                        /* { */
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wstringop-truncation"
+#endif                                /* } */
   return strncpy(dest, src, n);
+#ifndef _WIN32                        /* { */
 #pragma GCC diagnostic pop
 #endif                                /* } */
 }

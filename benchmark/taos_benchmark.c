@@ -355,7 +355,7 @@ static int _bind_varchar_prepare(TAOS_MULTI_BIND *bind, size_t rows, size_t len)
     int v = rand();
     snprintf(base + i * bind->buffer_length, bind->buffer_length, "%0*d", (int)(bind->buffer_length - 1), v);
     // E("varchar:[%s]", base + i * bind->buffer_length);
-    bind->length[i] = bind->buffer_length - 1;
+    bind->length[i] = (int32_t)(bind->buffer_length - 1);
   }
 
   return 0;
@@ -388,7 +388,7 @@ static int _bind_nchar_prepare(TAOS_MULTI_BIND *bind, size_t rows, size_t len)
     int v = rand();
     snprintf(base + i * bind->buffer_length, bind->buffer_length, "%0*d", (int)(bind->buffer_length - 1), v);
     // E("varchar:[%s]", base + i * bind->buffer_length);
-    bind->length[i] = bind->buffer_length - 1;
+    bind->length[i] = (int32_t)(bind->buffer_length - 1);
   }
 
   return 0;

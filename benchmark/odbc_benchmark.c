@@ -49,6 +49,22 @@ static int gettimeofday(struct timeval *tp, void *tzp);
 #define E(fmt, ...) fprintf(stderr, "@%d:%s():" fmt "\n", __LINE__, __func__, ##__VA_ARGS__)
 #define SFREE(x) if (x) { free(x); x = NULL; }
 
+#define PROFILE(statement) do {                                                                  \
+  struct timeval tv0 = {0};                                                                      \
+  struct timeval tv1 = {0};                                                                      \
+  gettimeofday(&tv0, NULL);                                                                      \
+  statement;                                                                                     \
+  gettimeofday(&tv1, NULL);                                                                      \
+                                                                                                 \
+  double diff = difftime(tv1.tv_sec, tv0.tv_sec);                                                \
+  diff += ((double)(tv1.tv_usec - tv0.tv_usec)) / 1000000;                                       \
+                                                                                                 \
+  E("%s", #statement);                                                                           \
+  E("run_with_params(%s), with %zd rows / %zd cols:", cfg->insert, cfg->rows, cfg->cols);        \
+  E("elapsed: %lf secs", diff);                                                                  \
+  E("throughput: %lf rows/secs", cfg->rows / diff);                                              \
+} while (0)
+
 #ifdef _WIN32           /* { */
 static int gettimeofday(struct timeval *tp, void *tzp)
 {
@@ -267,8 +283,8 @@ static int _char_prepare(void **data, SQLLEN **pn, size_t rows, size_t i_col, si
 
   for (size_t i=0; i<rows; ++i) {
     int v = rand();
-    int n = snprintf(ps + i * (len + 1), len + 1, "%0*d", (int)len, v);
-    p[i] = n;
+    snprintf(ps + i * (len + 1), len + 1, "%0*d", (int)len, v);
+    p[i] = len;
     // E("char:[%s]", ps + i * (len + 1));
   }
 
@@ -418,26 +434,15 @@ static int _run_prepare(SQLHANDLE hstmt, odbc_conn_cfg_t *cfg, void ***data)
 
   if (r) return -1;
 
-  struct timeval tv0 = {0};
-  struct timeval tv1 = {0};
-  gettimeofday(&tv0, NULL);
   r = _prepare_and_run(hstmt, cfg);
-  gettimeofday(&tv1, NULL);
-
-  if (r) return -1;
-
-  double diff = difftime(tv1.tv_sec, tv0.tv_sec);
-  diff += ((double)(tv1.tv_usec - tv0.tv_usec)) / 1000000;
-
-  E("run_with_params(%s), with %zd rows / %zd cols:", cfg->insert, cfg->rows, cfg->cols);
-  E("elapsed: %lf secs", diff);
-  E("throughput: %lf rows/secs", cfg->rows / diff);
 
   SFREE(ParamStatusArray);
   for (size_t i=0; i<cfg->cols; ++i) {
     SFREE(StrLen_or_IndPtr[i]);
   }
   SFREE(StrLen_or_IndPtr);
+
+  if (r) return -1;
 
   return 0;
 }
@@ -613,6 +618,24 @@ static int _gen_sqls(odbc_conn_cfg_t *cfg)
   return 0;
 }
 
+static int _do_run(SQLHANDLE hstmt, odbc_conn_cfg_t *cfg)
+{
+  void **data = NULL;
+
+  int r = 0;
+
+  r = _run_prepare(hstmt, cfg, &data);
+
+  if (data) {
+    for (size_t i=0; i<cfg->cols; ++i) {
+      SFREE(data[i]);
+    }
+    SFREE(data);
+  }
+
+  return r ? -1 : 0;
+}
+
 static int _run(odbc_conn_cfg_t *cfg, SQLHANDLE *penv, SQLHANDLE *pdbc, SQLHANDLE *pstmt)
 {
   SQLRETURN sr = SQL_SUCCESS;
@@ -647,16 +670,9 @@ static int _run(odbc_conn_cfg_t *cfg, SQLHANDLE *penv, SQLHANDLE *pdbc, SQLHANDL
   sr = SQLExecDirect(hstmt, (SQLCHAR*)cfg->create, SQL_NTS);
   if (sr != SQL_SUCCESS) return -1;
 
-  void **data = NULL;
+  int r = 0;
 
-  int r = _run_prepare(hstmt, cfg, &data);
-
-  if (data) {
-    for (size_t i=0; i<cfg->cols; ++i) {
-      SFREE(data[i]);
-    }
-    SFREE(data);
-  }
+  PROFILE(r = _do_run(hstmt, cfg));
 
   return r ? -1 : 0;
 }

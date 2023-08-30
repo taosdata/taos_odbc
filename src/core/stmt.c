@@ -2010,10 +2010,10 @@ static SQLRETURN _stmt_get_data_copy_varchar(stmt_t *stmt, const char *s, size_t
 
   get_data_ctx_t *ctx = &stmt->get_data_ctx;
   tsdb_data_t *tsdb = &ctx->tsdb;
-  int64_t i64;
-  uint64_t u64;
-  float flt;
-  double dbl;
+  int64_t i64 = 0;
+  uint64_t u64 = 0;
+  float flt = 0.;
+  double dbl = 0.;
 
   switch (args->TargetType) {
     case SQL_C_BIT:

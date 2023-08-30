@@ -261,6 +261,16 @@ char* tod_dirname(const char *path, char *buf, size_t sz)
 }
 #endif
 
+char* tod_strncpy(char *dest, const char *src, size_t n)
+{
+#ifndef _WIN32                        /* { */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstringop-truncation"
+  return strncpy(dest, src, n);
+#pragma GCC diagnostic pop
+#endif                                /* } */
+}
+
 int tod_conv(const char *fromcode, const char *tocode, const char *src, size_t slen, char *dst, size_t dlen)
 {
   iconv_t cnv = iconv_open(tocode, fromcode);

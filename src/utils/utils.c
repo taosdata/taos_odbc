@@ -698,7 +698,7 @@ int buffer_concat_n(buffer_t *str, const char *s, size_t len)
   int r = 0;
   r = buffer_expand(str, len+1);
   if (r) return -1;
-  strncpy(str->base + str->nr, s, len);
+  tod_strncpy(str->base + str->nr, s, len);
   str->nr            += len;
   str->base[str->nr]  = '\0';
   return 0;

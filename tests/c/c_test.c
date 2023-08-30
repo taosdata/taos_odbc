@@ -931,7 +931,7 @@ fetch:
     const char *exp = ds->_expects[demo_limit-1][i-3];
     if (Len_or_Ind == SQL_NULL_DATA) {
       if (exp) {
-        E("[%zd,%d] expected `%s`, but got ==null==", demo_limit, i+1, ds->_expects[demo_limit-1][i]);
+        E("[%zd,%d] expected `%s`, but got ==null==", demo_limit, i+1, exp);
         return -1;
       }
     } else {

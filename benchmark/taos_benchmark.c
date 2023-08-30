@@ -46,6 +46,22 @@ static int gettimeofday(struct timeval *tp, void *tzp);
 #define E(fmt, ...) fprintf(stderr, "@%d:%s():" fmt "\n", __LINE__, __func__, ##__VA_ARGS__)
 #define SFREE(x) if (x) { free(x); x = NULL; }
 
+#define PROFILE(statement) do {                                                                  \
+  struct timeval tv0 = {0};                                                                      \
+  struct timeval tv1 = {0};                                                                      \
+  gettimeofday(&tv0, NULL);                                                                      \
+  statement;                                                                                     \
+  gettimeofday(&tv1, NULL);                                                                      \
+                                                                                                 \
+  double diff = difftime(tv1.tv_sec, tv0.tv_sec);                                                \
+  diff += ((double)(tv1.tv_usec - tv0.tv_usec)) / 1000000;                                       \
+                                                                                                 \
+  E("%s", #statement);                                                                           \
+  E("run_with_params(%s), with %zd rows / %zd cols:", cfg->insert, cfg->rows, cfg->cols);        \
+  E("elapsed: %lf secs", diff);                                                                  \
+  E("throughput: %lf rows/secs", cfg->rows / diff);                                              \
+} while (0)
+
 #ifdef _WIN32           /* { */
 static int gettimeofday(struct timeval *tp, void *tzp)
 {
@@ -337,9 +353,9 @@ static int _bind_varchar_prepare(TAOS_MULTI_BIND *bind, size_t rows, size_t len)
 
   for (size_t i=0; i<rows; ++i) {
     int v = rand();
-    int n = snprintf(base + i * bind->buffer_length, bind->buffer_length, "%0*d", (int)(bind->buffer_length - 1), v);
+    snprintf(base + i * bind->buffer_length, bind->buffer_length, "%0*d", (int)(bind->buffer_length - 1), v);
     // E("varchar:[%s]", base + i * bind->buffer_length);
-    bind->length[i] = n;
+    bind->length[i] = bind->buffer_length - 1;
   }
 
   return 0;
@@ -370,9 +386,9 @@ static int _bind_nchar_prepare(TAOS_MULTI_BIND *bind, size_t rows, size_t len)
 
   for (size_t i=0; i<rows; ++i) {
     int v = rand();
-    int n = snprintf(base + i * bind->buffer_length, bind->buffer_length, "%0*d", (int)(bind->buffer_length - 1), v);
+    snprintf(base + i * bind->buffer_length, bind->buffer_length, "%0*d", (int)(bind->buffer_length - 1), v);
     // E("varchar:[%s]", base + i * bind->buffer_length);
-    bind->length[i] = n;
+    bind->length[i] = bind->buffer_length - 1;
   }
 
   return 0;
@@ -524,20 +540,9 @@ static int _run_prepare(TAOS_STMT *stmt, taos_conn_cfg_t *cfg, TAOS_MULTI_BIND *
 
   if (r) return -1;
 
-  struct timeval tv0 = {0};
-  struct timeval tv1 = {0};
-  gettimeofday(&tv0, NULL);
   r = _prepare_and_run(stmt, cfg, *binds);
-  gettimeofday(&tv1, NULL);
 
   if (r) return -1;
-
-  double diff = difftime(tv1.tv_sec, tv0.tv_sec);
-  diff += ((double)(tv1.tv_usec - tv0.tv_usec)) / 1000000;
-
-  E("run_with_params(%s), with %zd rows / %zd cols:", cfg->insert, cfg->rows, cfg->cols);
-  E("elapsed: %lf secs", diff);
-  E("throughput: %lf rows/secs", cfg->rows / diff);
 
   return 0;
 }
@@ -570,6 +575,21 @@ static int _execute(TAOS *taos, const char *sql)
   return 0;
 }
 
+static int do_benchmark_case0(TAOS_STMT *stmt, taos_conn_cfg_t *cfg)
+{
+  int r = 0;
+
+  TAOS_MULTI_BIND *binds = NULL;
+  r = _run_prepare(stmt, cfg, &binds);
+
+  if (binds) {
+    _binds_free(binds, cfg->cols);
+    binds = NULL;
+  }
+
+  return r ? -1 : 0;
+}
+
 static int benchmark_case0(TAOS *taos, TAOS_STMT *stmt, taos_conn_cfg_t *cfg)
 {
   int r = 0;
@@ -579,13 +599,7 @@ static int benchmark_case0(TAOS *taos, TAOS_STMT *stmt, taos_conn_cfg_t *cfg)
   r = _execute(taos, cfg->create);
   if (r) return -1;
 
-  TAOS_MULTI_BIND *binds = NULL;
-  r = _run_prepare(stmt, cfg, &binds);
-
-  if (binds) {
-    _binds_free(binds, cfg->cols);
-    binds = NULL;
-  }
+  PROFILE(r = do_benchmark_case0(stmt, cfg));
 
   return r ? -1 : 0;
 }

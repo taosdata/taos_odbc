@@ -877,7 +877,6 @@ struct typesinfo_s {
 struct param_state_s {
   int                        nr_batch_size;
   size_t                     i_batch_offset;
-  SQLULEN                    i_current_row;
 
   SQLSMALLINT                nr_tsdb_fields;
 

@@ -6924,7 +6924,6 @@ static void _stmt_prepare_col_data(stmt_t *stmt, param_state_t *param_state)
     }
   }
 
-  param_state->i_current_row = i_row;
   param_state->nr_batch_size = (int)i_row_offset;
 }
 
@@ -6950,7 +6949,7 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
     }
   }
 
-  for (size_t i_row = 0; i_row < nr_paramset_size; /* i_row += param_state->nr_batch_size */) {
+  for (size_t i_row = 0; i_row < nr_paramset_size; i_row += param_state->nr_batch_size) {
     param_state->i_batch_offset = i_row;
     param_state->nr_batch_size = (int)(nr_paramset_size - i_row);
     if (param_state->nr_batch_size > INT16_MAX) param_state->nr_batch_size = INT16_MAX;
@@ -6962,19 +6961,16 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
       param_state->i_param    = (int)i_col;
       param_state->APD_record = APD->records + i_col;
       param_state->IPD_record = IPD->records + i_col;
-      param_state->i_current_row = i_row;
 
       sr = _stmt_prepare_col(stmt, param_state);
       if (sr != SQL_SUCCESS) return sr;
 
       _stmt_prepare_col_data(stmt, param_state);
 
-      if (param_state->nr_batch_size == 0) break;
-    }
-
-    if (param_state->nr_batch_size == 0) {
-      if (param_state->i_current_row == 0) return SQL_ERROR;
-      return SQL_SUCCESS;
+      if (param_state->nr_batch_size == 0) {
+        if (i_row == 0) return SQL_ERROR;
+        return SQL_SUCCESS;
+      }
     }
 
     nr_params_processed += param_state->nr_batch_size;
@@ -7050,8 +7046,6 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
     if (sr != SQL_SUCCESS) return SQL_ERROR;
 
     if (param_state->row_err) return SQL_SUCCESS_WITH_INFO;
-
-    i_row = param_state->i_current_row + 1;
   }
 
   return SQL_SUCCESS;

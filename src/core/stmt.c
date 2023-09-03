@@ -6715,7 +6715,7 @@ static SQLRETURN _stmt_prepare_col_subtbl(stmt_t *stmt, param_state_t *param_sta
 {
   SQLRETURN sr = SQL_SUCCESS;
 
-  char buf_subtbl[192 * 6];
+  char buf_subtbl[192 * 6]; // FIXME: hard-coded
   const char *fromcode = NULL;
   const char *tocode   = conn_get_sqlc_charset(stmt->conn);
   charset_conv_t *cnv = NULL;

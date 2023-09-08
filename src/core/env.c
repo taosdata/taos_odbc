@@ -197,23 +197,30 @@ SQLRETURN env_set_attr(
   (void)StringLength;
 
   switch (Attribute) {
+#if (ODBCVER >= 0x0380)      /* { */
+    case SQL_ATTR_CONNECTION_POOLING:
+      // NOTE: SQL_ATTR_CONNECTION_POOLING is implemented inside the Driver Manager
+      break;
+#endif                       /* } */
+    case SQL_ATTR_CP_MATCH:
+      if (*(SQLUINTEGER*)ValuePtr == SQL_CP_STRICT_MATCH) return SQL_SUCCESS;
+      env_append_err_format(env, "HYC00", 0,
+          "Optional feature not implemented:`%s[0x%x/%d]` shall be set to SQL_CP_STRICT_MATCH",
+          sql_env_attr(Attribute), Attribute, Attribute);
+      return SQL_ERROR;
     case SQL_ATTR_ODBC_VERSION:
       return _env_set_odbc_version(env, (SQLINTEGER)(size_t)ValuePtr);
     case SQL_ATTR_OUTPUT_NTS:
-      if (*(int32_t*)ValuePtr == SQL_TRUE) break;
+      if (*(int32_t*)ValuePtr == SQL_TRUE) return SQL_SUCCESS;
       env_append_err_format(env, "HYC00", 0, "Optional feature not implemented:`%s[0x%x/%d]` shall be set to SQL_TRUE", sql_env_attr(Attribute), Attribute, Attribute);
       return SQL_ERROR;
-    case SQL_ATTR_CP_MATCH:
-      if (*(SQLUINTEGER*)ValuePtr == SQL_CP_STRICT_MATCH) break;
-      env_append_err_format(env, "HYC00", 0, "Optional feature not implemented:`%s[0x%x/%d]` shall be set to SQL_CP_STRICT_MATCH", sql_env_attr(Attribute), Attribute, Attribute);
-      return SQL_ERROR;
     default:
-      env_append_err_format(env, "01S02", 0, "Optional value changed:`%s[0x%x/%d]` is substituted by default", sql_env_attr(Attribute), Attribute, Attribute);
-      OA_NIY(0);
-      return SQL_SUCCESS_WITH_INFO;
+      break;
   }
 
-  return SQL_SUCCESS;
+  env_append_err_format(env, "01S02", 0, "Optional value changed:`%s[0x%x/%d]` is substituted by default", sql_env_attr(Attribute), Attribute, Attribute);
+  OA_NIY(0);
+  return SQL_SUCCESS_WITH_INFO;
 }
 
 SQLRETURN env_get_attr(
@@ -228,23 +235,28 @@ SQLRETURN env_get_attr(
   (void)StringLength;
 
   switch (Attribute) {
-    case SQL_ATTR_ODBC_VERSION:
-      *(SQLINTEGER*)Value = (SQLINTEGER)SQL_OV_ODBC3;
+#if (ODBCVER >= 0x0380)      /* { */
+    case SQL_ATTR_CONNECTION_POOLING:
+      // NOTE: SQL_ATTR_CONNECTION_POOLING is implemented inside the Driver Manager
       break;
-    case SQL_ATTR_OUTPUT_NTS:
-      *(int32_t*)Value = SQL_TRUE;
-      break;
+#endif                       /* } */
     case SQL_ATTR_CP_MATCH:
       *(SQLUINTEGER*)Value = SQL_CP_STRICT_MATCH;
-      break;
+      return SQL_SUCCESS;
+    case SQL_ATTR_ODBC_VERSION:
+      *(SQLINTEGER*)Value = (SQLINTEGER)SQL_OV_ODBC3;
+      return SQL_SUCCESS;
+    case SQL_ATTR_OUTPUT_NTS:
+      *(int32_t*)Value = SQL_TRUE;
+      return SQL_SUCCESS;
     default:
-      OE("General error:`%s[0x%x/%d]` not supported yet", sql_env_attr(Attribute), Attribute, Attribute);
-      env_append_err_format(env, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_env_attr(Attribute), Attribute, Attribute);
-      OA_NIY(0);
-      return SQL_ERROR;
+      break;
   }
 
-  return SQL_SUCCESS;
+  OE("General error:`%s[0x%x/%d]` not supported yet", sql_env_attr(Attribute), Attribute, Attribute);
+  env_append_err_format(env, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_env_attr(Attribute), Attribute, Attribute);
+  OA_NIY(0);
+  return SQL_ERROR;
 }
 
 SQLRETURN env_end_tran(env_t *env, SQLSMALLINT CompletionType)

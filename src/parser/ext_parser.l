@@ -26,46 +26,7 @@
 
 
 %{
-#define MKT(x)    TOK_##x
-
-#define PUSH(state)      yy_push_state(state, yyscanner)
-#define POP()            yy_pop_state(yyscanner)
-
-#define CHG(state) do {                           \
-    yy_pop_state(yyscanner);                      \
-    yy_push_state(state, yyscanner);              \
-} while (0)
-
-#define TOP_STATE(_top) do {                  \
-    yy_push_state(INITIAL, yyscanner);        \
-    _top = yy_top_state(yyscanner);           \
-    yy_pop_state(yyscanner);                  \
-} while (0)
-
-#define R() do {                                  \
-    yylloc->first_column = yylloc->last_column ;  \
-    yylloc->first_line   = yylloc->last_line;     \
-} while (0)
-
-#define L() do {                                  \
-    yylloc->last_line   += 1;                     \
-    yylloc->last_column  = 1;                     \
-} while (0)
-
-#define C()                                       \
-do {                                              \
-    yylloc->last_column += yyleng;                \
-} while (0)
-
-#define SET_STR() do {                            \
-    yylval->token.text = yytext;                  \
-    yylval->token.leng = yyleng;                  \
-} while (0)
-
-#define SET_CHR(chr) do {                         \
-    yylval->c = chr;                              \
-} while (0)
-
+#include "parser_macros.h"
 %}
 
 %option bison-bridge bison-locations reentrant
@@ -85,6 +46,9 @@ do {                                              \
 %x TAOS_ODBC_EXT_TOPIC
 %x TAOS_ODBC_EXT_TOPIC_LP
 %x TAOS_ODBC_EXT_TOPIC_EQ
+%x TAOS_ODBC_EXT_INSERT_INTO
+%x TAOS_ODBC_EXT_INSERT_INTO_LR
+%x QSTR SSTR TSTR ESC
 
 SP            [ \t]
 LN            "\r\n"|"\n\r"|[\f\r\n]
@@ -92,10 +56,21 @@ LN            "\r\n"|"\n\r"|[\f\r\n]
 
 LP            [{]
 RP            [}]
+LR            [(]
+RR            [)]
 TOPIC         (?i:topic)
+INSERT        (?i:insert)
+INTO          (?i:into)
+USING         (?i:using)
+WITH          (?i:with)
+TAGS          (?i:tags)
+VALUES        (?i:values)
 TNAME         [_[:alpha:]][_[:alnum:]]*
 TKEY          [_[:alpha:]][_.[:alnum:]]*
 TVAL          [-_.\[\](),?*!@[:alnum:]]+
+ID            [_[:alpha:]][_[:alnum:]]*
+INTEGRAL      [[:digit:]]+
+NUMBER        ("0."|[1-9][[:digit:]]*[.])[[:digit:]]*([eE][-+][[:digit:]]+)?
 
 DIGITS        [[:digit:]]+
 %%
@@ -103,16 +78,82 @@ DIGITS        [[:digit:]]+
 <<EOF>> { if (0) { int state; TOP_STATE(state); if (state != INITIAL) return -1; }
           yyterminate(); }
 "!"           { R(); PUSH(TAOS_ODBC_EXT); C(); return (unsigned char)*yytext; }
-{DIGITS}      { R(); SET_STR(); C(); return MKT(DIGITS); }
+  /* {DIGITS}      { R(); SET_STR(); C(); return MKT(DIGITS); } */
 {SP}          { R(); C(); } /* eat */
 {LN}          { R(); L(); } /* eat */
 .             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 
 <TAOS_ODBC_EXT>{
 {TOPIC}       { R(); CHG(TAOS_ODBC_EXT_TOPIC); C(); return MKT(TOPIC); }
+{INSERT}      { R(); C(); return MKT(INSERT); }
+{INTO}        { R(); CHG(TAOS_ODBC_EXT_INSERT_INTO); C(); return MKT(INTO); }
+{SP}          { R(); C(); } /* eat */
+{LN}          { R(); L(); } /* eat */
+{ID}          { R(); C(); return MKT(ID); }
+.             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
+}
+
+<TAOS_ODBC_EXT_INSERT_INTO>{
+"?"           { R(); C(); return *yytext; }
+"."           { R(); C(); return *yytext; }
+{LR}          { R(); PUSH(TAOS_ODBC_EXT_INSERT_INTO_LR); C(); return (unsigned char)*yytext; }
+{USING}       { R(); C(); return MKT(USING); }
+{WITH}        { R(); C(); return MKT(WITH); }
+{TAGS}        { R(); C(); return MKT(TAGS); }
+{VALUES}      { R(); C(); return MKT(VALUES); }
+{ID}          { R(); SET_STR(); C(); return MKT(ID); }
+["]           { R(); PUSH(QSTR); return *yytext; }
+[']           { R(); PUSH(SSTR); return *yytext; }
+[`]           { R(); PUSH(TSTR); return *yytext; }
 {SP}          { R(); C(); } /* eat */
 {LN}          { R(); L(); } /* eat */
 .             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
+}
+
+<TAOS_ODBC_EXT_INSERT_INTO_LR>{
+{RR}          { R(); POP(); C(); return (unsigned char)*yytext; }
+{LR}          { R(); PUSH(TAOS_ODBC_EXT_INSERT_INTO_LR); C(); return (unsigned char)*yytext; }
+{ID}          { R(); SET_STR(); C(); return MKT(ID); }
+{INTEGRAL}    { R(); SET_STR(); C(); return MKT(INTEGRAL); }
+{NUMBER}      { R(); SET_STR(); C(); return MKT(NUMBER); }
+["]           { R(); PUSH(QSTR); return *yytext; }
+[']           { R(); PUSH(SSTR); return *yytext; }
+[`]           { R(); PUSH(TSTR); return *yytext; }
+{SP}          { R(); C(); } /* eat */
+{LN}          { R(); L(); } /* eat */
+.             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
+}
+
+<QSTR>{
+["]           { R(); POP(); C(); return *yytext; }
+["]/["]       { R(); PUSH(ESC); C(); return *yytext; }
+[^"\f\r\n]+   { R(); SET_STR(); C(); return MKT(QSTR); }
+"\f"          { R(); SET_STR(); L(); return MKT(QSTR); }
+{LN}          { R(); SET_STR(); L(); return MKT(QSTR); }
+.             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
+}
+
+<SSTR>{
+[']           { R(); POP(); C(); return *yytext; }
+[']/[']       { R(); PUSH(ESC); C(); return *yytext; }
+[^'\f\r\n]+   { R(); SET_STR(); C(); return MKT(SSTR); }
+"\f"          { R(); SET_STR(); L(); return MKT(SSTR); }
+{LN}          { R(); SET_STR(); L(); return MKT(SSTR); }
+.             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
+}
+
+<TSTR>{
+[`]           { R(); POP(); C(); return *yytext; }
+[`]/[`]       { R(); PUSH(ESC); C(); return *yytext; }
+[^`\f\r\n]+   { R(); SET_STR(); C(); return MKT(TSTR); }
+"\f"          { R(); SET_STR(); L(); return MKT(TSTR); }
+{LN}          { R(); SET_STR(); L(); return MKT(TSTR); }
+.             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
+}
+
+<ESC>{
+{LN}          { R(); L(); return *yytext; } /* let bison to handle */
+.             { R(); POP(); C(); return (unsigned char)*yytext; } /* let bison to handle */
 }
 
 <TAOS_ODBC_EXT_TOPIC>{

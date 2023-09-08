@@ -22,16 +22,21 @@
  * SOFTWARE.
  */
 
-#include "../core/internal.h"        // FIXME:
-#include "conn.h"
-#include "log.h"
-#include "parser.h"
+#ifndef _insert_eval_h_
+#define _insert_eval_h_
 
-#include "conn_parser.tab.h"
-#include "conn_parser.lex.c"
+#include "macros.h"
+#include "typedefs.h"
 
-#include "conn_parser.lex.h"
-#undef yylloc
-#undef yylval
-#include "conn_parser.tab.c"
+EXTERN_C_BEGIN
+
+void insert_eval_release(insert_eval_t *eval) FA_HIDDEN;
+
+int8_t insert_eval_nr_tags(insert_eval_t *eval) FA_HIDDEN;
+int8_t insert_eval_nr_cols(insert_eval_t *eval) FA_HIDDEN;
+
+EXTERN_C_END
+
+#endif // _insert_eval_h_
+
 

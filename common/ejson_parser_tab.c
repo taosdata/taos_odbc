@@ -67,7 +67,7 @@ struct ejson_s {
     ejson_arr_t              _arr;
   };
 
-  ejson_loc_t                loc;
+  parser_loc_t               loc;
   int                        refc;
 };
 
@@ -728,7 +728,7 @@ int ejson_serialize(ejson_t *ejson, char *buf, size_t len)
   }
 }
 
-const ejson_loc_t* ejson_get_loc(ejson_t *ejson)
+const parser_loc_t* ejson_get_loc(ejson_t *ejson)
 {
   if (!ejson) return NULL;
   return &ejson->loc;

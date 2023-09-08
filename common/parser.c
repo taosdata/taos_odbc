@@ -22,16 +22,56 @@
  * SOFTWARE.
  */
 
-#include "../core/internal.h"        // FIXME:
-#include "conn.h"
-#include "log.h"
 #include "parser.h"
 
-#include "conn_parser.tab.h"
-#include "conn_parser.lex.c"
+#include "os_port.h"
 
-#include "conn_parser.lex.h"
-#undef yylloc
-#undef yylval
-#include "conn_parser.tab.c"
+#include <stdarg.h>
+
+void parser_yyerror(
+    const char *file, int line, const char *func,
+    parser_loc_t *yylloc,
+    void *arg,
+    parser_ctx_t *ctx,
+    const char *errmsg)
+{
+  (void)arg;
+
+  char bn[512]; bn[0] = '\0';
+  const char *fn = tod_basename(file, bn, sizeof(bn));
+  if (!ctx) {
+    fprintf(stderr, "%s[%d]:%s():(%d,%d)->(%d,%d):%s\n",
+        fn, line, func,
+        yylloc->first_line, yylloc->first_column,
+        yylloc->last_line, yylloc->last_column,
+        errmsg);
+
+    return;
+  }
+
+  ctx->bad_token = *yylloc;
+  ctx->err_msg[0] = '\0';
+  snprintf(ctx->err_msg, sizeof(ctx->err_msg), "%s[%d]:%s():near `%.*s`:%s",
+      fn, line, func,
+      (int)(yylloc->pres + 10 - yylloc->prev), ctx->input + yylloc->prev,
+      errmsg);
+}
+
+int parser_ylogv(const char *file, int line, const char *func,
+    void *arg,
+    parser_ctx_t *ctx,
+    parser_loc_t *yylloc,
+    const char *fmt,
+    ...)
+{
+  char buf[4096]; buf[0] = '\0';
+  va_list ap;
+  va_start(ap, fmt);
+  int n = vsnprintf(buf, sizeof(buf), fmt, ap);
+  va_end(ap);
+
+  parser_yyerror(file, line, func, yylloc, arg, ctx, buf);
+
+  return n;
+}
 

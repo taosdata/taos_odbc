@@ -46,6 +46,7 @@
 #include "typesinfo.h"
 
 #include <errno.h>
+#include <float.h>
 #include <limits.h>
 #include <math.h>
 #include <string.h>
@@ -2009,10 +2010,10 @@ static SQLRETURN _stmt_get_data_copy_varchar(stmt_t *stmt, const char *s, size_t
 
   get_data_ctx_t *ctx = &stmt->get_data_ctx;
   tsdb_data_t *tsdb = &ctx->tsdb;
-  int64_t i64;
-  uint64_t u64;
-  float flt;
-  double dbl;
+  int64_t i64 = 0;
+  uint64_t u64 = 0;
+  float flt = 0.;
+  double dbl = 0.;
 
   switch (args->TargetType) {
     case SQL_C_BIT:
@@ -2869,7 +2870,7 @@ static int _stmt_sql_found(sqls_parser_param_t *param, size_t start, size_t end,
 
   if (sqls->nr >= sqls->cap) {
     size_t cap = sqls->cap + 16;
-    parser_nterm_t *nterms = (parser_nterm_t*)realloc(sqls->sqls, sizeof(*nterms) * cap);
+    sqls_parser_nterm_t *nterms = (sqls_parser_nterm_t*)realloc(sqls->sqls, sizeof(*nterms) * cap);
     if (!nterms) {
       stmt_oom(stmt);
       return -1;
@@ -2905,10 +2906,13 @@ static SQLRETURN _stmt_cache_and_parse(stmt_t *stmt, sqls_parser_param_t *param,
 
   r = sqls_parser_parse(sql, len, param);
   if (r) {
-    E("location:(%d,%d)->(%d,%d)", param->ctx.row0, param->ctx.col0, param->ctx.row1, param->ctx.col1);
+    parser_loc_t *loc = &param->ctx.bad_token;
+    E("location:(%d,%d)->(%d,%d)",
+        loc->first_line, loc->first_column, loc->last_line, loc->last_column);
     E("failed:%s", param->ctx.err_msg);
     stmt_append_err_format(stmt, "HY000", 0, "General error:parsing:%.*s", (int)len, sql);
-    stmt_append_err_format(stmt, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)", param->ctx.row0, param->ctx.col0, param->ctx.row1, param->ctx.col1);
+    stmt_append_err_format(stmt, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)",
+        loc->first_line, loc->first_column, loc->last_line, loc->last_column);
     stmt_append_err_format(stmt, "HY000", 0, "General error:failed:%.*s", (int)strlen(param->ctx.err_msg), param->ctx.err_msg);
 
     return SQL_ERROR;
@@ -2930,10 +2934,10 @@ static SQLRETURN _stmt_get_next_sql(stmt_t *stmt)
   sqls_t *sqls = &stmt->sqls;
   if (sqls->pos + 1 > sqls->nr) return SQL_NO_DATA;
 
-  parser_nterm_t *nterms = stmt->sqls.sqls + stmt->sqls.pos;
-  sqlc_tsdb->sqlc        = (const char*)stmt->raw.base + nterms->start;
-  sqlc_tsdb->sqlc_bytes  = nterms->end - nterms->start;
-  sqlc_tsdb->qms         = nterms->qms;
+  sqls_parser_nterm_t *nterms = stmt->sqls.sqls + stmt->sqls.pos;
+  sqlc_tsdb->sqlc             = (const char*)stmt->raw.base + nterms->start;
+  sqlc_tsdb->sqlc_bytes       = nterms->end - nterms->start;
+  sqlc_tsdb->qms              = nterms->qms;
 
   if (sqls->nr > 1) {
     if (sqlc_tsdb->qms > 0) {
@@ -2944,7 +2948,7 @@ static SQLRETURN _stmt_get_next_sql(stmt_t *stmt)
 
   const char *fromcode = conn_get_sqlc_charset(stmt->conn);
   const char *tocode   = conn_get_tsdb_charset(stmt->conn);
-  str_t src = {
+  string_t src = {
     .charset             = fromcode,
     .str                 = sqlc_tsdb->sqlc,
     .bytes               = sqlc_tsdb->sqlc_bytes,
@@ -2967,9 +2971,9 @@ static SQLRETURN _stmt_get_next_sql(stmt_t *stmt)
   const char *start = sqlc_tsdb->tsdb;
   const char *end   = sqlc_tsdb->tsdb + sqlc_tsdb->tsdb_bytes;
   if (end > start && start[0] == '!') {
-    stmt->tsdb_stmt.is_topic = 1;
+    stmt->tsdb_stmt.is_ext = 1;
   } else {
-    stmt->tsdb_stmt.is_topic = 0;
+    stmt->tsdb_stmt.is_ext = 0;
   }
 
   return SQL_SUCCESS;
@@ -5731,6 +5735,32 @@ static SQLRETURN _stmt_param_conv_sql_double_to_tsdb_timestamp(stmt_t *stmt, par
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_param_conv_sql_double_to_tsdb_float(stmt_t *stmt, param_state_t *param_state)
+{
+  (void)stmt;
+
+  int                   i_row             = param_state->i_row;
+  sql_data_t           *data              = &param_state->sql_data;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  double dbl = data->dbl;
+
+  if (dbl > FLT_MAX) {
+    stmt_append_err(stmt, "HY000", 0, "General error:Too big a number");
+    return SQL_ERROR;
+  }
+
+  if (dbl < FLT_MIN) {
+    stmt_append_err(stmt, "HY000", 0, "General error:Too small a number");
+    return SQL_ERROR;
+  }
+
+  float *v = (float*)tsdb_bind->buffer;
+  v[i_row - param_state->i_batch_offset] = (float)dbl;
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_param_conv_sql_double_to_tsdb_int(stmt_t *stmt, param_state_t *param_state)
 {
   (void)stmt;
@@ -6364,6 +6394,9 @@ static const param_bind_map_t _param_bind_map[] = {
   {SQL_C_DOUBLE,  SQL_DOUBLE, TSDB_DATA_TYPE_DOUBLE,
     _stmt_param_adjust_reuse_sqlc_double,
     _stmt_param_conv_dummy},
+  {SQL_C_DOUBLE,  SQL_DOUBLE, TSDB_DATA_TYPE_FLOAT,
+    _stmt_param_adjust_reuse_sqlc_double,
+    _stmt_param_conv_sql_double_to_tsdb_float},
   {SQL_C_DOUBLE,  SQL_DOUBLE, TSDB_DATA_TYPE_INT,
     _stmt_param_adjust_reuse_sqlc_double,
     _stmt_param_conv_sql_double_to_tsdb_int},
@@ -6682,7 +6715,7 @@ static SQLRETURN _stmt_prepare_col_subtbl(stmt_t *stmt, param_state_t *param_sta
 {
   SQLRETURN sr = SQL_SUCCESS;
 
-  char buf_subtbl[192 * 6];
+  char buf_subtbl[192 * 6]; // FIXME: hard-coded
   const char *fromcode = NULL;
   const char *tocode   = conn_get_sqlc_charset(stmt->conn);
   charset_conv_t *cnv = NULL;
@@ -6802,19 +6835,19 @@ static SQLRETURN _stmt_prepare_col(stmt_t *stmt, param_state_t *param_state)
       sr = _stmt_param_guess(stmt, param_state);
       if (sr != SQL_SUCCESS) return SQL_ERROR;
     }
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
     if (stmt->conn->cfg.url) {
       sr = _stmt_param_guess(stmt, param_state);
       if (sr != SQL_SUCCESS) return SQL_ERROR;
       sr = _stmt_param_tsdb_init(stmt, param_state);
       if (sr != SQL_SUCCESS) return SQL_ERROR;
     } else {
-#endif                       /* } */
+#endif                       /* ] */
       sr = _stmt_param_tsdb_init(stmt, param_state);
       if (sr != SQL_SUCCESS) return SQL_ERROR;
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
     }
-#endif                       /* } */
+#endif                       /* ] */
   }
 
   param_state->param_column = stmt->tsdb_paramset.params + param_state->i_param;
@@ -6891,7 +6924,6 @@ static void _stmt_prepare_col_data(stmt_t *stmt, param_state_t *param_state)
     }
   }
 
-  param_state->i_current_row = i_row;
   param_state->nr_batch_size = (int)i_row_offset;
 }
 
@@ -6917,7 +6949,7 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
     }
   }
 
-  for (size_t i_row = 0; i_row < nr_paramset_size; /* i_row += param_state->nr_batch_size */) {
+  for (size_t i_row = 0; i_row < nr_paramset_size; i_row += param_state->nr_batch_size) {
     param_state->i_batch_offset = i_row;
     param_state->nr_batch_size = (int)(nr_paramset_size - i_row);
     if (param_state->nr_batch_size > INT16_MAX) param_state->nr_batch_size = INT16_MAX;
@@ -6929,19 +6961,16 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
       param_state->i_param    = (int)i_col;
       param_state->APD_record = APD->records + i_col;
       param_state->IPD_record = IPD->records + i_col;
-      param_state->i_current_row = i_row;
 
       sr = _stmt_prepare_col(stmt, param_state);
       if (sr != SQL_SUCCESS) return sr;
 
       _stmt_prepare_col_data(stmt, param_state);
 
-      if (param_state->nr_batch_size == 0) break;
-    }
-
-    if (param_state->nr_batch_size == 0) {
-      if (param_state->i_current_row == 0) return SQL_ERROR;
-      return SQL_SUCCESS;
+      if (param_state->nr_batch_size == 0) {
+        if (i_row == 0) return SQL_ERROR;
+        return SQL_SUCCESS;
+      }
     }
 
     nr_params_processed += param_state->nr_batch_size;
@@ -6956,7 +6985,7 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
     if (stmt->tsdb_stmt.is_insert_stmt) {
       if (tsdb_params->nr_tag_fields) {
         TAOS_MULTI_BIND *mbs = stmt->tsdb_binds.mbs + (!!stmt->tsdb_stmt.params.subtbl_required);
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
         if (stmt->conn->cfg.url) {
           r = CALL_ws_stmt_set_tags((WS_STMT*)stmt->tsdb_stmt.stmt, (WS_MULTI_BIND*)mbs, tsdb_params->nr_tag_fields);
           if (r) {
@@ -6964,20 +6993,20 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
             return SQL_ERROR;
           }
         } else {
-#endif                       /* } */
+#endif                       /* ] */
           r = CALL_taos_stmt_set_tags(stmt->tsdb_stmt.stmt, mbs);
           if (r) {
             stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->tsdb_stmt.stmt));
             return SQL_ERROR;
           }
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
         }
-#endif                       /* } */
+#endif                       /* ] */
       }
     }
 
     TAOS_MULTI_BIND *mb = stmt->tsdb_binds.mbs + (!!stmt->tsdb_stmt.params.subtbl_required) + stmt->tsdb_stmt.params.nr_tag_fields;
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
     if (stmt->conn->cfg.url) {
       r = CALL_ws_stmt_bind_param_batch((WS_STMT*)stmt->tsdb_stmt.stmt, (WS_MULTI_BIND*)mb, tsdb_params->nr_tag_fields);
       if (r) {
@@ -6985,17 +7014,17 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
         return SQL_ERROR;
       }
     } else {
-#endif                       /* } */
+#endif                       /* ] */
       r = CALL_taos_stmt_bind_param_batch(stmt->tsdb_stmt.stmt, mb);
       if (r) {
         stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->tsdb_stmt.stmt));
         return SQL_ERROR;
       }
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
     }
-#endif                       /* } */
+#endif                       /* ] */
 
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
     if (stmt->conn->cfg.url) {
       r = CALL_ws_stmt_add_batch((WS_STMT*)stmt->tsdb_stmt.stmt);
       if (r) {
@@ -7003,22 +7032,20 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
         return SQL_ERROR;
       }
     } else {
-#endif                       /* } */
+#endif                       /* ] */
       r = CALL_taos_stmt_add_batch(stmt->tsdb_stmt.stmt);
       if (r) {
         stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->tsdb_stmt.stmt));
         return SQL_ERROR;
       }
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
     }
-#endif                       /* } */
+#endif                       /* ] */
 
     sr = stmt->base->execute(stmt->base);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
 
     if (param_state->row_err) return SQL_SUCCESS_WITH_INFO;
-
-    i_row = param_state->i_current_row + 1;
   }
 
   return SQL_SUCCESS;
@@ -7150,7 +7177,7 @@ static SQLRETURN _stmt_exec_direct_with_simple_sql(stmt_t *stmt)
   return _stmt_exec_direct_sql(stmt);
 }
 
-static SQLRETURN _stmt_prepare_topic(stmt_t *stmt)
+static SQLRETURN _stmt_prepare_ext(stmt_t *stmt)
 {
   SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
@@ -7168,22 +7195,34 @@ static SQLRETURN _stmt_prepare_topic(stmt_t *stmt)
   // param.ctx.debug_bison = 1;
   r = ext_parser_parse(start, end-start, &param);
   if (r) {
+    parser_loc_t *loc = &param.ctx.bad_token;
     stmt_append_err_format(stmt, "HY000", 0, "General error:parsing:%.*s", (int)(end-start), start);
-    stmt_append_err_format(stmt, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+    stmt_append_err_format(stmt, "HY000", 0, "General error:location:(%d,%d)->(%d,%d)",
+        loc->first_line, loc->first_column, loc->last_line, loc->last_column);
     stmt_append_err_format(stmt, "HY000", 0, "General error:failed:%.*s", (int)strlen(param.ctx.err_msg), param.ctx.err_msg);
     stmt_append_err(stmt, "HY000", 0, "General error:taos_odbc_extended syntax for `topic`: !topic [name]+ [{[key[=val];]*}]?");
+    stmt_append_err(stmt, "HY000", 0, "General error:taos_odbc_extended syntax for `insert`: !insert into ...");
 
     ext_parser_param_release(&param);
     return SQL_ERROR;
   }
 
-  sr = topic_open(&stmt->topic, sqlc_tsdb, &param.topic_cfg);
+  if (param.is_topic) {
+    sr = topic_open(&stmt->topic, sqlc_tsdb, &param.topic_cfg);
+    ext_parser_param_release(&param);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    stmt->base = &stmt->topic.base;
+
+    return SQL_SUCCESS;
+  }
+
+  stmt_append_err_format(stmt, "HY000", 0, "General error:parsing:%.*s", (int)(end-start), start);
+  stmt_append_err(stmt, "HY000", 0, "General error:taos_odbc_extended syntax for `insert`: !insert into ...");
+
   ext_parser_param_release(&param);
-  if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-  stmt->base = &stmt->topic.base;
-
-  return SQL_SUCCESS;
+  return SQL_ERROR;
 }
 
 static int _stmt_sql_parse(stmt_t *stmt, const char *sql, size_t len)
@@ -7203,7 +7242,7 @@ static int _stmt_sql_parse(stmt_t *stmt, const char *sql, size_t len)
   sqls_t *sqls = &stmt->sqls;
   if (sqls->nr > 1) {
     for (size_t i=0; i<sqls->nr; ++i) {
-      parser_nterm_t *nterms = sqls->sqls + i;
+      sqls_parser_nterm_t *nterms = sqls->sqls + i;
       if (nterms->qms) {
         stmt_append_err(stmt, "HY000", 0, "General error:parameterized-statement in batch-statements not supported yet");
         return SQL_ERROR;
@@ -7238,8 +7277,8 @@ SQLRETURN stmt_prepare(stmt_t *stmt,
   sr = _stmt_sql_parse(stmt, sql, len);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-  if (stmt->tsdb_stmt.is_topic) {
-    return _stmt_prepare_topic(stmt);
+  if (stmt->tsdb_stmt.is_ext) {
+    return _stmt_prepare_ext(stmt);
   }
 
   return _stmt_prepare(stmt);
@@ -7261,8 +7300,8 @@ SQLRETURN stmt_exec_direct(stmt_t *stmt, SQLCHAR *StatementText, SQLINTEGER Text
   sr = _stmt_sql_parse(stmt, sql, len);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-  if (stmt->tsdb_stmt.is_topic) {
-    sr = _stmt_prepare_topic(stmt);
+  if (stmt->tsdb_stmt.is_ext) {
+    sr = _stmt_prepare_ext(stmt);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
     sr = _stmt_execute(stmt);
     if (sr == SQL_ERROR) return SQL_ERROR;
@@ -7317,41 +7356,22 @@ SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr,
   (void)StringLength;
 
   switch (Attribute) {
-    case SQL_ATTR_CURSOR_TYPE:
-      return _stmt_set_cursor_type(stmt, (SQLULEN)ValuePtr);
-    case SQL_ATTR_ROW_ARRAY_SIZE:
-      return _stmt_set_row_array_size(stmt, (SQLULEN)ValuePtr);
-    case SQL_ATTR_ROW_STATUS_PTR:
-      return _stmt_set_row_status_ptr(stmt, (SQLUSMALLINT*)ValuePtr);
-    case SQL_ATTR_ROW_BIND_TYPE:
-      return _stmt_set_row_bind_type(stmt, (SQLULEN)ValuePtr);
-    case SQL_ATTR_ROWS_FETCHED_PTR:
-      return _stmt_set_rows_fetched_ptr(stmt, (SQLULEN*)ValuePtr);
-    case SQL_ATTR_MAX_LENGTH:
-      return _stmt_set_max_length(stmt, (SQLULEN)ValuePtr);
-    case SQL_ATTR_ROW_BIND_OFFSET_PTR:
-      return _stmt_set_row_bind_offset_ptr(stmt, (SQLULEN*)ValuePtr);
-    case SQL_ATTR_PARAM_BIND_TYPE:
-      return _stmt_set_param_bind_type(stmt, (SQLULEN)ValuePtr);
-    case SQL_ATTR_PARAMSET_SIZE:
-      return _stmt_set_paramset_size(stmt, (SQLULEN)ValuePtr);
-    case SQL_ATTR_PARAM_STATUS_PTR:
-      return _stmt_set_param_status_ptr(stmt, (SQLUSMALLINT*)ValuePtr);
-    case SQL_ATTR_PARAMS_PROCESSED_PTR:
-      return _stmt_set_params_processed_ptr(stmt, (SQLULEN*)ValuePtr);
-    case SQL_ATTR_APP_ROW_DESC:
-      return _stmt_set_row_desc(stmt, ValuePtr);
     case SQL_ATTR_APP_PARAM_DESC:
       return _stmt_set_param_desc(stmt, ValuePtr);
-    case SQL_ATTR_QUERY_TIMEOUT:
-      if ((SQLULEN)(uintptr_t)ValuePtr == 0) return SQL_SUCCESS;
-      stmt_append_err_format(stmt, "01S02", 0, "Option value changed:`%zd` for `SQL_ATTR_QUERY_TIMEOUT` is substituted by `0`", (SQLULEN)(uintptr_t)ValuePtr);
-      return SQL_SUCCESS_WITH_INFO;
-    case SQL_ATTR_USE_BOOKMARKS:
-      if ((SQLULEN)(uintptr_t)ValuePtr == SQL_UB_OFF) return SQL_SUCCESS;
-      break;
+    case SQL_ATTR_APP_ROW_DESC:
+      return _stmt_set_row_desc(stmt, ValuePtr);
     case SQL_ATTR_ASYNC_ENABLE:
       if ((SQLULEN)(uintptr_t)ValuePtr == SQL_ASYNC_ENABLE_OFF) return SQL_SUCCESS;
+      break;
+#if (ODBCVER >= 0x0380)      /* { */
+    case SQL_ATTR_ASYNC_STMT_EVENT:
+      break;
+    case SQL_ATTR_ASYNC_STMT_PCALLBACK:
+      break;
+    case SQL_ATTR_ASYNC_STMT_PCONTEXT:
+      break;
+#endif                       /* } */
+    case SQL_ATTR_CONCURRENCY:
       break;
     case SQL_ATTR_CURSOR_SCROLLABLE:
       if ((SQLULEN)(uintptr_t)ValuePtr == SQL_NONSCROLLABLE) return SQL_SUCCESS;
@@ -7359,9 +7379,21 @@ SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr,
     case SQL_ATTR_CURSOR_SENSITIVITY:
       if ((SQLULEN)(uintptr_t)ValuePtr == SQL_UNSPECIFIED) return SQL_SUCCESS;
       break;
+    case SQL_ATTR_CURSOR_TYPE:
+      return _stmt_set_cursor_type(stmt, (SQLULEN)ValuePtr);
     case SQL_ATTR_ENABLE_AUTO_IPD:
       if ((SQLULEN)(uintptr_t)ValuePtr == SQL_FALSE) return SQL_SUCCESS;
       break;
+    case SQL_ATTR_FETCH_BOOKMARK_PTR:
+      break;
+    case SQL_ATTR_IMP_PARAM_DESC:
+      break;
+    case SQL_ATTR_IMP_ROW_DESC:
+      break;
+    case SQL_ATTR_KEYSET_SIZE:
+      break;
+    case SQL_ATTR_MAX_LENGTH:
+      return _stmt_set_max_length(stmt, (SQLULEN)ValuePtr);
     case SQL_ATTR_MAX_ROWS:
       if ((SQLULEN)(uintptr_t)ValuePtr == 0) return SQL_SUCCESS;
       break;
@@ -7373,20 +7405,45 @@ SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr,
       // FIXME:
       if ((SQLULEN)(uintptr_t)ValuePtr == SQL_NOSCAN_ON) return SQL_SUCCESS;
       break;
+    case SQL_ATTR_PARAM_BIND_OFFSET_PTR:
+      break;
+    case SQL_ATTR_PARAM_BIND_TYPE:
+      return _stmt_set_param_bind_type(stmt, (SQLULEN)ValuePtr);
+    case SQL_ATTR_PARAM_OPERATION_PTR:
+      break;
+    case SQL_ATTR_PARAM_STATUS_PTR:
+      return _stmt_set_param_status_ptr(stmt, (SQLUSMALLINT*)ValuePtr);
+    case SQL_ATTR_PARAMS_PROCESSED_PTR:
+      return _stmt_set_params_processed_ptr(stmt, (SQLULEN*)ValuePtr);
+    case SQL_ATTR_PARAMSET_SIZE:
+      return _stmt_set_paramset_size(stmt, (SQLULEN)ValuePtr);
+    case SQL_ATTR_QUERY_TIMEOUT:
+      if ((SQLULEN)(uintptr_t)ValuePtr == 0) return SQL_SUCCESS;
+      stmt_append_err_format(stmt, "01S02", 0, "Option value changed:`%zd` for `SQL_ATTR_QUERY_TIMEOUT` is substituted by `0`", (SQLULEN)(uintptr_t)ValuePtr);
+      return SQL_SUCCESS_WITH_INFO;
     case SQL_ATTR_RETRIEVE_DATA:
       if ((SQLULEN)(uintptr_t)ValuePtr == SQL_RD_ON) return SQL_SUCCESS;
       break;
-    case SQL_ATTR_CONCURRENCY:
-    case SQL_ATTR_FETCH_BOOKMARK_PTR:
-    case SQL_ATTR_IMP_PARAM_DESC:
-    case SQL_ATTR_IMP_ROW_DESC:
-    case SQL_ATTR_KEYSET_SIZE:
-    case SQL_ATTR_PARAM_BIND_OFFSET_PTR:
-    case SQL_ATTR_PARAM_OPERATION_PTR:
+    case SQL_ATTR_ROW_ARRAY_SIZE:
+      return _stmt_set_row_array_size(stmt, (SQLULEN)ValuePtr);
+    case SQL_ATTR_ROW_BIND_OFFSET_PTR:
+      return _stmt_set_row_bind_offset_ptr(stmt, (SQLULEN*)ValuePtr);
+    case SQL_ATTR_ROW_BIND_TYPE:
+      return _stmt_set_row_bind_type(stmt, (SQLULEN)ValuePtr);
     case SQL_ATTR_ROW_NUMBER:
+      break;
     case SQL_ATTR_ROW_OPERATION_PTR:
+      break;
+    case SQL_ATTR_ROW_STATUS_PTR:
+      return _stmt_set_row_status_ptr(stmt, (SQLUSMALLINT*)ValuePtr);
+    case SQL_ATTR_ROWS_FETCHED_PTR:
+      return _stmt_set_rows_fetched_ptr(stmt, (SQLULEN*)ValuePtr);
     case SQL_ATTR_SIMULATE_CURSOR:
-      // fall-through
+      break;
+    case SQL_ATTR_USE_BOOKMARKS:
+      if ((SQLULEN)(uintptr_t)ValuePtr == SQL_UB_OFF) return SQL_SUCCESS;
+      break;
+
     default:
       break;
   }
@@ -7405,28 +7462,91 @@ SQLRETURN stmt_get_attr(stmt_t *stmt,
   (void)StringLength;
 
   switch (Attribute) {
+    case SQL_ATTR_APP_PARAM_DESC:
+      *(SQLHANDLE*)Value = (SQLHANDLE)(stmt->current_APD);
+      return SQL_SUCCESS;
     case SQL_ATTR_APP_ROW_DESC:
       *(SQLHANDLE*)Value = (SQLHANDLE)(stmt->current_ARD);
       return SQL_SUCCESS;
-    case SQL_ATTR_APP_PARAM_DESC:
-      *(SQLHANDLE*)Value = (SQLHANDLE)(stmt->current_APD);
+    case SQL_ATTR_ASYNC_ENABLE:
+      break;
+#if (ODBCVER >= 0x0380)      /* { */
+    case SQL_ATTR_ASYNC_STMT_EVENT:
+      break;
+    case SQL_ATTR_ASYNC_STMT_PCALLBACK:
+      break;
+    case SQL_ATTR_ASYNC_STMT_PCONTEXT:
+      break;
+#endif                       /* } */
+    case SQL_ATTR_CONCURRENCY:
+      break;
+    case SQL_ATTR_CURSOR_SCROLLABLE:
+      break;
+    case SQL_ATTR_CURSOR_SENSITIVITY:
+      break;
+    case SQL_ATTR_CURSOR_TYPE:
+      *(SQLULEN*)Value = SQL_CURSOR_FORWARD_ONLY;
+      return SQL_SUCCESS;
+    case SQL_ATTR_ENABLE_AUTO_IPD:
+      break;
+    case SQL_ATTR_FETCH_BOOKMARK_PTR:
+      break;
+    case SQL_ATTR_IMP_PARAM_DESC:
+      *(SQLHANDLE*)Value = (SQLHANDLE)(&stmt->IPD);
       return SQL_SUCCESS;
     case SQL_ATTR_IMP_ROW_DESC:
       *(SQLHANDLE*)Value = (SQLHANDLE)(&stmt->IRD);
       return SQL_SUCCESS;
-    case SQL_ATTR_IMP_PARAM_DESC:
-      *(SQLHANDLE*)Value = (SQLHANDLE)(&stmt->IPD);
-      return SQL_SUCCESS;
+    case SQL_ATTR_KEYSET_SIZE:
+      break;
+    case SQL_ATTR_MAX_LENGTH:
+      break;
+    case SQL_ATTR_MAX_ROWS:
+      break;
+    case SQL_ATTR_METADATA_ID:
+      break;
+    case SQL_ATTR_NOSCAN:
+      break;
+    case SQL_ATTR_PARAM_BIND_OFFSET_PTR:
+      break;
+    case SQL_ATTR_PARAM_BIND_TYPE:
+      break;
+    case SQL_ATTR_PARAM_OPERATION_PTR:
+      break;
+    case SQL_ATTR_PARAM_STATUS_PTR:
+      break;
+    case SQL_ATTR_PARAMS_PROCESSED_PTR:
+      break;
+    case SQL_ATTR_PARAMSET_SIZE:
+      break;
+    case SQL_ATTR_QUERY_TIMEOUT:
+      break;
+    case SQL_ATTR_RETRIEVE_DATA:
+      break;
     case SQL_ATTR_ROW_ARRAY_SIZE:
       *(SQLULEN*)Value = (SQLULEN)_stmt_get_row_array_size(stmt);
       return SQL_SUCCESS;
-    case SQL_ATTR_CURSOR_TYPE:
-      *(SQLULEN*)Value = SQL_CURSOR_FORWARD_ONLY;
-      return SQL_SUCCESS;
+    case SQL_ATTR_ROW_BIND_OFFSET_PTR:
+      break;
+    case SQL_ATTR_ROW_BIND_TYPE:
+      break;
+    case SQL_ATTR_ROW_NUMBER:
+      break;
+    case SQL_ATTR_ROW_OPERATION_PTR:
+      break;
+    case SQL_ATTR_ROW_STATUS_PTR:
+      break;
+    case SQL_ATTR_ROWS_FETCHED_PTR:
+      break;
+    case SQL_ATTR_SIMULATE_CURSOR:
+      break;
+    case SQL_ATTR_USE_BOOKMARKS:
+      break;
     default:
-      stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_stmt_attr(Attribute), Attribute, Attribute);
-      return SQL_ERROR;
+      break;
   }
+  stmt_append_err_format(stmt, "HY000", 0, "General error:`%s[0x%x/%d]` not supported yet", sql_stmt_attr(Attribute), Attribute, Attribute);
+  return SQL_ERROR;
 }
 #endif                           /* } */
 

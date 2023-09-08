@@ -28,6 +28,7 @@
 #include "env.h"
 #include "errs.h"
 #include "helpers.h"
+#include "insert_eval.h"
 #include "logger.h"
 #include "conn_parser.h"
 #include "ext_parser.h"
@@ -191,8 +192,10 @@ static int test_conn_parser(void)
     int r = conn_parser_parse(s, strlen(s), &param);
     do {
       if (r) {
+        parser_loc_t *loc = &param.ctx.bad_token;
         E("parsing[@line:%d]:%s", line, s);
-        E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+        E("location:(%d,%d)->(%d,%d)",
+            loc->first_line, loc->first_column, loc->last_line, loc->last_column);
         E("failed:%s", param.ctx.err_msg);
         break;
       }
@@ -255,40 +258,119 @@ static int test_conn_parser(void)
 
 static int test_ext_parser(void)
 {
-  ext_parser_param_t param = {0};
-  // param.ctx.debug_flex = 1;
-  // param.ctx.debug_bison = 1;
-
-  const char *text[] = {
+#define OK_TOPIC(x)     {__LINE__, x, 0, 0, 0, 0, 1, 1 }
+#define BAD_TOPIC(x)    {__LINE__, x, 0, 0, 0, 0, 0, 1 }
+#define OK_INSERT(...)  {__LINE__, ##__VA_ARGS__, 1, 0 }
+#define BAD_INSERT(...) {__LINE__, ##__VA_ARGS__, 0, 0 }
+  static const struct {
+    int                     line;
+    const char             *sql;
+    uint8_t                 tbl_param;
+    int8_t                  nr_tags;
+    int8_t                  nr_cols;
+    int8_t                  nr_params;
+    uint8_t                 ok:1;
+    uint8_t                 is_topic:1;
+  } _cases [] = {
     // !topic
-    "!topic demo",
-    "!topic demo {}",
-    "!topic demo {helloworld}",
-    "!topic demo {helloworld=good}",
-    "!topic demo {helloworld=good;helloworld=good}",
-    "!topic demo foo {helloworld=good; helloworld=good}",
-    "!topic demo {"
-    " enable.auto.commit=true;"
-    " auto.commit.interval.ms=100;"
-    " group.id=cgrpName;"
-    " client.id=user_defined_name;"
-    " td.connect.user=root;"
-    " td.connect.pass=taosdata;"
-    " auto.offset.reset=earliest;"
-    " experimental.snapshot.enable=false"
-    "}",
+    OK_TOPIC("!topic demo"),
+    OK_TOPIC("!topic demo {}"),
+    OK_TOPIC("!topic demo {helloworld}"),
+    OK_TOPIC("!topic demo {helloworld=good}"),
+    OK_TOPIC("!topic demo {helloworld=good;helloworld=good}"),
+    OK_TOPIC("!topic demo foo {helloworld=good; helloworld=good}"),
+    OK_TOPIC(
+      "!topic demo {"
+      " enable.auto.commit=true;"
+      " auto.commit.interval.ms=100;"
+      " group.id=cgrpName;"
+      " client.id=user_defined_name;"
+      " td.connect.user=root;"
+      " td.connect.pass=taosdata;"
+      " auto.offset.reset=earliest;"
+      " experimental.snapshot.enable=false"
+      "}"),
+    OK_INSERT("!insert into t (ts, v) values (1234,5)", 0, 0, 2, 0),
+    OK_INSERT("!insert into t (ts, v) values (?, ?)", 0, 0, 2, 2),
+    OK_INSERT("!insert into ? (ts, v) values (1234,5)", 1, 0, 2, 0),
+    OK_INSERT("!insert into t.x (ts, v) values (1234,5)", 0, 0, 2, 0),
+    OK_INSERT("!insert into ? using st (ts, v) values (123,4)", 1, 0, 2, 0),
+    OK_INSERT("!insert into ? using st with (x,y) tags (4,5) (ts, v) values (123,4)", 1, 2, 2, 0),
+    OK_INSERT("!insert into ? using st with (x,y) tags (4,5) (ts, v) values (123, add(4,5))", 1, 2, 2, 0),
+    BAD_INSERT("!insert into \"t\" (ts, v) values (1234,5)", 0, 0, 2, 0),
+    OK_INSERT("!insert into `t` (ts, v) values (1234,5)", 0, 0, 2, 0),
+    BAD_INSERT("!insert into 't' (ts, v) values (1234,5)", 0, 0, 2, 0),
+    BAD_INSERT("!insert into \"t\"\"t\" (ts, v) values (1234,5)", 0, 0, 2, 0),
+    BAD_INSERT("!insert into 't''t' (ts, v) values (1234,5)", 0, 0, 2, 0),
+    OK_INSERT("!insert into `t``t` (ts, v) values (1234,5)", 0, 0, 2, 0),
+    OK_INSERT("!insert into t (s, v) values (-1234,5)", 0, 0, 2, 0),
+    OK_INSERT("!insert into t (s, v) values ('h''w', 4)", 0, 0, 2, 0),
+    OK_INSERT("!insert into t (s, v) values ('h''w', \"a\"\"b\")", 0, 0, 2, 0),
+    OK_INSERT("!insert into t (s, v) values ('', \"a\"\"b\")", 0, 0, 2, 0),
+    OK_INSERT("!insert into t (s, v) values (\"\", \"a\"\"b\")", 0, 0, 2, 0),
   };
-  for (size_t i=0; i<sizeof(text)/sizeof(text[0]); ++i) {
-    const char *s = text[i];
-    int r = ext_parser_parse(s, strlen(s), &param);
-    if (r) {
-      E("parsing:%s", s);
-      E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
-      E("failed:%s", param.ctx.err_msg);
+  const size_t _nr_cases = sizeof(_cases) / sizeof(_cases[0]);
+#undef BAD_INSERT
+#undef OK_INSERT
+#undef BAD_TOPIC
+#undef OK_TOPIC
+
+  for (size_t i=0; i<_nr_cases; ++i) {
+    int         line            = _cases[i].line;
+    const char *sql             = _cases[i].sql;
+    uint8_t     ok              = _cases[i].ok;
+    uint8_t     is_topic        = _cases[i].is_topic;
+    ext_parser_param_t param = {0};
+    param.ctx.debug_flex = 1;
+    // param.ctx.debug_bison = 1;
+    int r = ext_parser_parse(sql, strlen(sql), &param);
+    if (!r != !!ok) {
+      E("parsing:@%dL:%s", line, sql);
+      if (r) {
+        parser_loc_t *loc = &param.ctx.bad_token;
+        E("location:(%d,%d)->(%d,%d)",
+            loc->first_line, loc->first_column, loc->last_line, loc->last_column);
+        E("failed:%s", param.ctx.err_msg);
+      } else {
+        E("expecting failure, but got ==success==");
+      }
+    } else if (r == 0) {
+      A(is_topic == param.is_topic, "internal logic error");
+      if (is_topic == 0) {
+        insert_eval_t *insert_eval = &param.insert_eval;
+        uint8_t     exp_tbl_param       = !!_cases[i].tbl_param;
+        int8_t      exp_nr_tags         = _cases[i].nr_tags;
+        int8_t      exp_nr_cols         = _cases[i].nr_cols;
+        int8_t      exp_nr_params       = _cases[i].nr_params;
+        uint8_t     tbl_param       = !!insert_eval->tbl_param;
+        int8_t      nr_tags         = insert_eval_nr_tags(insert_eval);
+        int8_t      nr_cols         = insert_eval_nr_cols(insert_eval);
+        int8_t      nr_params       = insert_eval->nr_params;
+        if (r == 0 && !!exp_tbl_param != !!tbl_param) {
+          E("parsing:@%dL:%s", line, sql);
+          E("expecting tbl '?', but got ==NONE==");
+          r = -1;
+        }
+        if (r == 0 && exp_nr_tags != nr_tags) {
+          E("parsing:@%dL:%s", line, sql);
+          E("expecting %d tags, but got ==%d==", exp_nr_tags, nr_tags);
+          r = -1;
+        }
+        if (r == 0 && exp_nr_cols != nr_cols) {
+          E("parsing:@%dL:%s", line, sql);
+          E("expecting %d cols, but got ==%d==", exp_nr_cols, nr_cols);
+          r = -1;
+        }
+        if (r == 0 && exp_nr_params != nr_params) {
+          E("parsing:@%dL:%s", line, sql);
+          E("expecting %d params, but got ==%d==", exp_nr_params, nr_params);
+          r = -1;
+        }
+      }
     }
 
     ext_parser_param_release(&param);
-    if (r) return -1;
+    if (!r != !!ok) return -1;
   }
 
   return 0;
@@ -422,7 +504,9 @@ static int test_ejson_parser(void)
       if ((!!r) ^ (!match)) {
         E("parsing @[%dL]:%s", __line__, s);
         if (r) {
-          E("location:(%d,%d)->(%d,%d)", param.ctx.loc.first_line, param.ctx.loc.first_column, param.ctx.loc.last_line, param.ctx.loc.last_column);
+          parser_loc_t *loc = &param.ctx.bad_token;
+          E("location:(%d,%d)->(%d,%d)",
+              loc->first_line, loc->first_column, loc->last_line, loc->last_column);
           E("failed:%s", param.ctx.err_msg);
           E("expecting:%s", match);
           E("but got:%s", buf);
@@ -600,9 +684,19 @@ static int test_sqls_parser(void)
         {"insert into t (ts, name) values (now(), ?)", 1},
       },
     },{
-      "insert into ? (ts, name) values (now(), 'a')",
+      "insert into ? (ts, name) values (now(), 'a''')",
       {
-        {"insert into ? (ts, name) values (now(), 'a')", 1},
+        {"insert into ? (ts, name) values (now(), 'a''')", 1},
+      },
+    },{
+      "insert into ? (ts, name) values (now(), `a```)",
+      {
+        {"insert into ? (ts, name) values (now(), `a```)", 1},
+      },
+    },{
+      "insert into ? (ts, name) values (now(), \"a\"\"\")",
+      {
+        {"insert into ? (ts, name) values (now(), \"a\"\"\")", 1},
       },
     },{
       "insert into ? using tags (?, ?) values (?, ?)",
@@ -613,7 +707,6 @@ static int test_sqls_parser(void)
   };
   const size_t _cases_nr = sizeof(_cases)/sizeof(_cases[0]);
   for (size_t i=0; i<_cases_nr; ++i) {
-    if (i + 1 < _cases_nr) continue;
     const char  *sqls             = _cases[i].sqls;
     const expected_sql_t *expects = _cases[i].expects;
 
@@ -633,7 +726,9 @@ static int test_sqls_parser(void)
     D("parsing:\n%s ...", sqls);
     int r = sqls_parser_parse(sqls, strlen(sqls), &param);
     if (r) {
-      E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+      parser_loc_t *loc = &param.ctx.bad_token;
+      E("location:(%d,%d)->(%d,%d)",
+          loc->first_line, loc->first_column, loc->last_line, loc->last_column);
       E("failed:%s", param.ctx.err_msg);
     } else if (check.failed) {
       r = -1;
@@ -654,8 +749,8 @@ static int test_url_parser(void)
 #define RECORD(x,y) {__LINE__, x, y}
   struct {
     int             line;
-    const char     *ok_or_failure;
     const char     *url;
+    const char     *ok_or_failure;
   } _cases[] = {
     RECORD("http://example.com/h/g?fasd?fsd=fsd#fasd", "http://example.com/h/g?fasd?fsd=fsd#fasd"),
     RECORD("foo://example.com:8042/over/there?name=ferret#nose", "foo://example.com:8042/over/there?name=ferret#nose"),
@@ -669,8 +764,8 @@ static int test_url_parser(void)
     RECORD("http://www.com/?", "http://www.com/?"),
     RECORD("http://www.com#", "http://www.com#"),
     RECORD("http://www.com?", "http://www.com?"),
-    RECORD("(1,20)->(1,21)", "http://example.com/根"),
-    RECORD("(1,1)->(1,5)", "file:///fasd"),
+    RECORD("http://example.com/根", "(0,19)->(0,20)"),
+    RECORD("file:///fasd", "(0,0)->(0,4)"),
     RECORD("foo:/abc:def", "foo:/abc:def"),
     RECORD("http://hello%20world.com", "http://hello%20world.com"),
   };
@@ -686,13 +781,16 @@ static int test_url_parser(void)
 
     int r = url_parser_parse(url, strlen(url), &param);
     if (r) {
+      parser_loc_t *loc = &param.ctx.bad_token;
       char buf[4096];
-      snprintf(buf, sizeof(buf), "(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+      snprintf(buf, sizeof(buf), "(%d,%d)->(%d,%d)",
+          loc->first_line, loc->first_column, loc->last_line, loc->last_column);
       if (strcmp(buf, ok_or_failure) == 0) {
         r = 0;
       } else {
         E("parsing @[%dL]:%s", line, url);
-        E("location:(%d,%d)->(%d,%d)", param.ctx.row0, param.ctx.col0, param.ctx.row1, param.ctx.col1);
+        E("location:(%d,%d)->(%d,%d)",
+            loc->first_line, loc->first_column, loc->last_line, loc->last_column);
         E("failed:%s", param.ctx.err_msg);
       }
     } else {
@@ -713,7 +811,7 @@ static int test_url_parser(void)
   return 0;
 }
 
-static int _wildcard_match(const str_t *ex, const str_t *str, const int match)
+static int _wildcard_match(const string_t *ex, const string_t *str, const int match)
 {
   int r;
   wildex_t *wild = NULL;
@@ -777,19 +875,19 @@ static int test_wildmatch(void)
     {"你%_%_%",          "你好啊",             1},
     {"你%%_%%_%%",       "你好啊",             1},
     {"你___",            "你好啊",             0},
-    {"你\\_",            "你h",               0},
-    {"你\\_",            "你_",               1},
-    {"你\\_",            "你.",               0},
+    {"你\\_",            "你h",                0},
+    {"你\\_",            "你_",                1},
+    {"你\\_",            "你.",                0},
     {"",                 "",                   1},
   };
 
   for (size_t i=0; i<sizeof(cases)/sizeof(cases[0]); ++i) {
-    str_t pattern = {
+    string_t pattern = {
       .charset              = charset,
       .str                  = cases[i].pattern,
       .bytes                = strlen(cases[i].pattern),
     };
-    str_t content = {
+    string_t content = {
       .charset              = charset,
       .str                  = cases[i].content,
       .bytes                = strlen(cases[i].content),

@@ -334,7 +334,7 @@ again:
     sr = columns->desc.base.get_data(&columns->desc.base, 1, tsdb);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-    str_t str = {
+    string_t str = {
       .charset              = fromcode,
       .str                  = tsdb->str.str,
       .bytes                = tsdb->str.len,
@@ -806,7 +806,7 @@ SQLRETURN columns_open(
       stmt_oom(columns->owner);
       return SQL_ERROR;
     }
-    str_t str = {
+    string_t str = {
       .charset              = cnv->from,
       .str                  = (const char*)ColumnName,
       .bytes                = NameLength4,

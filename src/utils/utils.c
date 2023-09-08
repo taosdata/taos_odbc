@@ -188,7 +188,7 @@ again:
   return 0;
 }
 
-int mem_conv_ex(mem_t *mem, const str_t *src, const char *dst_charset)
+int mem_conv_ex(mem_t *mem, const string_t *src, const char *dst_charset)
 {
   charset_conv_t *cnv = tls_get_charset_conv(src->charset, dst_charset);
   if (!cnv) return -1;
@@ -496,7 +496,7 @@ static int _wild_comp(wildex_t *wild)
   return 0;
 }
 
-int wildcomp(wildex_t **pwild, const str_t *wildex)
+int wildcomp(wildex_t **pwild, const string_t *wildex)
 {
   int r = 0;
 
@@ -545,7 +545,7 @@ static void _wild_exec(wildex_t *wild, const int32_t *s, size_t nr, size_t inode
   match(wild, s, nr, inode, matched);
 }
 
-int wildexec(wildex_t *wild, const str_t *str, int *matched)
+int wildexec(wildex_t *wild, const string_t *str, int *matched)
 {
   int r = 0;
 
@@ -698,7 +698,7 @@ int buffer_concat_n(buffer_t *str, const char *s, size_t len)
   int r = 0;
   r = buffer_expand(str, len+1);
   if (r) return -1;
-  strncpy(str->base + str->nr, s, len);
+  tod_strncpy(str->base + str->nr, s, len);
   str->nr            += len;
   str->base[str->nr]  = '\0';
   return 0;
@@ -1145,3 +1145,88 @@ void hash_table_get(hash_table_t *hash_table, const char *key, void **val)
 
   *val = node ? node->val : NULL;
 }
+
+void str_reset(str_t *str)
+{
+  if (!str) return;
+  if (str->str) str->str[0] = '\0';
+  str->nr = 0;
+}
+
+void str_release(str_t *str)
+{
+  if (!str) return;
+  TOD_SAFE_FREE(str->str);
+  str->cap = 0;
+  str->nr  = 0;
+}
+
+int str_keep(str_t *str, size_t cap)
+{
+  if (cap <= str->cap) return 0;
+  cap = (cap + 15) / 16 * 16;
+  char *p = (char*)realloc(str->str, cap+1);
+  if (!p) return -1;
+
+  str->str = p;
+  str->cap = cap;
+
+  return 0;
+}
+
+int str_append(str_t *str, const char *s, size_t n)
+{
+  n = strnlen(s, n);
+
+  if (n == 0) return 0;
+
+  int r = str_keep(str, str->nr + n);
+  if (r) return -1;
+
+  strncpy(str->str + str->nr, s, n);
+  str->nr += n;
+  str->str[str->nr] = '\0';
+
+  return 0;
+}
+
+void strs_reset(strs_t *strs)
+{
+  if (!strs) return;
+
+  for (size_t i=0; i<strs->nr; ++i) {
+    str_reset(strs->strs + i);
+  }
+
+  strs->nr = 0;
+}
+
+void strs_release(strs_t *strs)
+{
+  if (!strs) return;
+
+  for (size_t i=0; i<strs->nr; ++i) {
+    str_release(strs->strs + i);
+  }
+
+  TOD_SAFE_FREE(strs->strs);
+  strs->cap = 0;
+  strs->nr  = 0;
+}
+
+int strs_keep(strs_t *strs, size_t cap)
+{
+  if (cap <= strs->cap) return 0;
+  cap = (cap + 15) / 16 * 16;
+
+  if (cap == 0) return 0;
+
+  str_t *p = (str_t*)realloc(strs->strs, cap * sizeof(*p));
+  if (!p) return -1;
+
+  strs->strs = p;
+  strs->cap  = cap;
+
+  return 0;
+}
+

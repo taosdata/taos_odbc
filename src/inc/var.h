@@ -22,16 +22,25 @@
  * SOFTWARE.
  */
 
-#include "../core/internal.h"        // FIXME:
-#include "conn.h"
-#include "log.h"
-#include "parser.h"
+#ifndef _var_h_
+#define _var_h_
 
-#include "conn_parser.tab.h"
-#include "conn_parser.lex.c"
+#include "macros.h"
+#include "typedefs.h"
 
-#include "conn_parser.lex.h"
-#undef yylloc
-#undef yylval
-#include "conn_parser.tab.c"
+EXTERN_C_BEGIN
+
+void var_release(var_t *v) FA_HIDDEN;
+
+var_t* var_add(var_t *args) FA_HIDDEN;
+var_t* var_sub(var_t *args) FA_HIDDEN;
+var_t* var_mul(var_t *args) FA_HIDDEN;
+var_t* var_div(var_t *args) FA_HIDDEN;
+var_t* var_neg(var_t *args) FA_HIDDEN;
+
+var_eval_f var_get_eval(const char *name, size_t nr) FA_HIDDEN;
+
+EXTERN_C_END
+
+#endif // _var_h_
 

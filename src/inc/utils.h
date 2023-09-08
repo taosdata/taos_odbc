@@ -37,8 +37,8 @@ EXTERN_C_BEGIN
 
 #define TOD_SAFE_FREE(_p) if (_p) { free(_p); _p = NULL; }
 
-typedef struct str_s                    str_t;
-struct str_s {
+typedef struct string_s                    string_t;
+struct string_s {
   const char           *charset; // NOTE: no ownership
   const char           *str;     // NOTE: no ownership
   size_t                bytes;
@@ -93,7 +93,7 @@ void mem_memset(mem_t *mem, int c) FA_HIDDEN;
 int mem_expand(mem_t *mem, size_t delta) FA_HIDDEN;
 int mem_keep(mem_t *mem, size_t cap) FA_HIDDEN;
 int mem_conv(mem_t *mem, iconv_t cnv, const char *src, size_t len) FA_HIDDEN;
-int mem_conv_ex(mem_t *mem, const str_t *src, const char *dst_charset) FA_HIDDEN;
+int mem_conv_ex(mem_t *mem, const string_t *src, const char *dst_charset) FA_HIDDEN;
 int mem_iconv(mem_t *mem, const char *fromcode, const char *tocode, const char *src, size_t len) FA_HIDDEN;
 int mem_copy(mem_t *mem, const char *src) FA_HIDDEN;
 int mem_copy_str(mem_t *mem, const char *src, size_t len) FA_HIDDEN;
@@ -117,8 +117,8 @@ void buffers_release(buffers_t *buffers) FA_HIDDEN;
 void* buffers_realloc(buffers_t *buffers, size_t idx, size_t sz) FA_HIDDEN;
 
 typedef struct wildex_s           wildex_t;
-int wildcomp(wildex_t **pwild, const str_t *wildex) FA_HIDDEN;
-int wildexec(wildex_t *wild, const str_t *str, int *matched) FA_HIDDEN;
+int wildcomp(wildex_t **pwild, const string_t *wildex) FA_HIDDEN;
+int wildexec(wildex_t *wild, const string_t *str, int *matched) FA_HIDDEN;
 
 void wildfree(wildex_t *wild) FA_HIDDEN;
 
@@ -200,6 +200,33 @@ hash_table_t* hash_table_new(void (*release_cb)(hash_table_t *hash_table, void *
 void hash_table_release(hash_table_t *hash_table) FA_HIDDEN;
 int hash_table_set(hash_table_t *hash_table, const char *key, void *val) FA_HIDDEN;
 void hash_table_get(hash_table_t *hash_table, const char *key, void **val) FA_HIDDEN;
+
+
+typedef struct str_s                    str_t;
+typedef struct strs_s                   strs_t;
+
+struct str_s {
+  char               *str;
+  size_t              cap; // NOTE: null-terminator-exclusive
+  size_t              nr;
+};
+
+struct strs_s {
+  str_t              *strs;
+  size_t              cap;
+  size_t              nr;
+};
+
+void str_reset(str_t *str) FA_HIDDEN;
+void str_release(str_t *str) FA_HIDDEN;
+int str_keep(str_t *str, size_t cap) FA_HIDDEN;
+int str_append(str_t *str, const char *s, size_t n) FA_HIDDEN;
+
+void strs_reset(strs_t *strs) FA_HIDDEN;
+void strs_release(strs_t *strs) FA_HIDDEN;
+int strs_keep(strs_t *strs, size_t cap) FA_HIDDEN;
+int strs_flat(strs_t *strs, str_t *str) FA_HIDDEN;
+
 
 EXTERN_C_END
 

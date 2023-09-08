@@ -35,6 +35,8 @@
 
 #include "typedefs.h"
 
+#include "parser.h"
+
 #include "taos_helpers.h"
 #ifdef HAVE_TAOSWS           /* { */
 #include "taosws_helpers.h"
@@ -120,6 +122,70 @@ static inline int sql_succeeded(SQLRETURN sr)
 {
   return sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO;
 }
+
+enum var_e {
+  VAR_NULL,
+  VAR_BOOL,
+  VAR_INT8,
+  VAR_INT16,
+  VAR_INT32,
+  VAR_INT64,
+  VAR_UINT8,
+  VAR_UINT16,
+  VAR_UINT32,
+  VAR_UINT64,
+  VAR_FLOAT,
+  VAR_DOUBLE,
+  VAR_ID,
+  VAR_STRING,
+  VAR_PARAM,
+  VAR_ARR,
+  VAR_EVAL,
+};
+
+typedef var_t* (*var_eval_f)(var_t *args);
+
+enum var_quote_e {
+  QUOTE_DQ,   // double quote, quotation mark
+  QUOTE_SQ,   // single quote, apostrophe
+  QUOTE_BQ,   // back quote, back tick
+};
+
+struct var_s {
+  var_e                 type;
+  union {
+    bool                b;
+    int8_t              i8;
+    int16_t             i16;
+    int32_t             i32;
+    int64_t             i64;
+    uint8_t             u8;
+    uint16_t            u16;
+    uint32_t            u32;
+    uint64_t            u64;
+    struct {
+      float             v;
+      str_t             s;
+    } flt;
+    struct {
+      double            v;
+      str_t             s;
+    } dbl;
+    struct {
+      str_t             s;
+      var_quote_e       q;
+    } str;
+    struct {
+      var_t           **vals;
+      size_t            cap;
+      size_t            nr;
+    } arr;
+    struct {
+      var_eval_f        eval;
+      var_t            *args;
+    } exp;
+  };
+};
 
 struct sqlc_tsdb_s {
   const char           *sqlc;              // NOTE: no ownership
@@ -379,7 +445,7 @@ struct conn_cfg_s {
   unsigned int           timestamp_as_is:1;
 };
 
-struct parser_nterm_s {
+struct sqls_parser_nterm_s {
   size_t           start;
   size_t           end;
 
@@ -387,7 +453,7 @@ struct parser_nterm_s {
 };
 
 struct sqls_s {
-  parser_nterm_t        *sqls;
+  sqls_parser_nterm_t   *sqls;
   size_t                 cap;
   size_t                 nr;
 
@@ -411,31 +477,12 @@ struct url_s {
   char                  *fragment;   // NOTE: without head '#'
 };
 
-struct parser_token_s {
-  const char      *text;
-  size_t           leng;
-};
-
 struct topic_cfg_s {
   char                 **names;
   size_t                 names_cap;
   size_t                 names_nr;
 
   kvs_t                  kvs;
-};
-
-struct parser_ctx_s {
-  int                    row0, col0;
-  int                    row1, col1;
-  char                   err_msg[1024];
-
-  // globally 0-based
-  size_t                 token_start;
-  size_t                 token_end;
-
-  unsigned int           debug_flex:1;
-  unsigned int           debug_bison:1;
-  unsigned int           oom:1;
 };
 
 struct conn_parser_param_s {
@@ -445,10 +492,28 @@ struct conn_parser_param_s {
   parser_ctx_t           ctx;
 };
 
+struct insert_eval_s {
+  var_t             *table_db;
+  var_t             *table_tbl;
+  var_t             *super_db;
+  var_t             *super_tbl;
+  var_t             *tag_names;    // NOTE: nr_tags == tag_names ? tag_names->arr.nr : 0
+  var_t             *tag_vals;
+  var_t             *col_names;    // NOTE: nr_cols == col_names ? col_names->arr.nr : 0
+  var_t             *col_vals;
+
+  int8_t             nr_params;    // NOTE: count of '?'
+  uint8_t            tbl_param:1;  // NOTE: if table_name is '?'
+};
+
 struct ext_parser_param_s {
-  topic_cfg_t            topic_cfg;
+  union {
+    topic_cfg_t          topic_cfg;
+    insert_eval_t        insert_eval;
+  };
 
   parser_ctx_t           ctx;
+  uint8_t                is_topic:1;
 };
 
 struct sqls_parser_param_s {
@@ -659,7 +724,7 @@ struct tsdb_stmt_s {
   tsdb_res_t                 res;
 
   unsigned int               prepared:1;
-  unsigned int               is_topic:1;
+  unsigned int               is_ext:1;
   unsigned int               is_insert_stmt:1;
 };
 
@@ -812,7 +877,6 @@ struct typesinfo_s {
 struct param_state_s {
   int                        nr_batch_size;
   size_t                     i_batch_offset;
-  SQLULEN                    i_current_row;
 
   SQLSMALLINT                nr_tsdb_fields;
 

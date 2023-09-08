@@ -155,15 +155,15 @@ static int _tsdb_paramset_calloc(tsdb_paramset_t *paramset, int nr)
 static void _tsdb_params_reset_tag_fields(tsdb_params_t *params)
 {
   if (params->tag_fields) {
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
     if (params->owner->owner->conn->cfg.url) {
       OA_NIY(params->tag_fields == NULL);
     } else {
-#endif                       /* } */
+#endif                       /* ] */
       CALL_taos_stmt_reclaim_fields(params->owner->stmt, params->tag_fields);
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
     }
-#endif                       /* } */
+#endif                       /* ] */
     params->tag_fields = NULL;
   }
   params->nr_tag_fields = 0;
@@ -187,15 +187,15 @@ static void _tsdb_params_reset_col_fields(tsdb_params_t *params)
   if (params->col_fields == &_default_param_field) params->col_fields = NULL;
 
   if (params->col_fields) {
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
     if (params->owner->owner->conn->cfg.url) {
       OA_NIY(params->col_fields == NULL);
     } else {
-#endif                       /* } */
+#endif                       /* ] */
       CALL_taos_stmt_reclaim_fields(params->owner->stmt, params->col_fields);
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
     }
-#endif                       /* } */
+#endif                       /* ] */
     params->col_fields = NULL;
   }
 
@@ -269,15 +269,15 @@ void tsdb_res_reset(tsdb_res_t *res)
   _tsdb_fields_reset(&res->fields);
   if (res->res) {
     if (res->res_is_from_taos_query) {
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
       if (res->owner->owner->conn->cfg.url) {
         CALL_ws_free_result((WS_RES*)res->res);
       } else {
-#endif                       /* } */
+#endif                       /* ] */
         CALL_taos_free_result(res->res);
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
       }
-#endif                       /* } */
+#endif                       /* ] */
       res->res_is_from_taos_query = 0;
     }
     res->res = NULL;
@@ -316,7 +316,7 @@ static SQLRETURN _stmt_post_query(tsdb_stmt_t *stmt)
   tsdb_res_t          *res         = &stmt->res;
   tsdb_fields_t       *fields      = &res->fields;
 
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   if (stmt->owner->conn->cfg.url) {
     if (res->res) {
       res->time_precision = CALL_ws_result_precision((WS_RES*)res->res);
@@ -333,7 +333,7 @@ static SQLRETURN _stmt_post_query(tsdb_stmt_t *stmt)
       res->affected_row_count = CALL_ws_stmt_affected_rows((WS_RES*)stmt->stmt);
     }
   } else {
-#endif                       /* } */
+#endif                       /* ] */
     if (res->res) {
       res->time_precision = CALL_taos_result_precision(res->res);
       if (res->time_precision < 0 || res->time_precision > 2) {
@@ -348,9 +348,9 @@ static SQLRETURN _stmt_post_query(tsdb_stmt_t *stmt)
     } else {
       res->affected_row_count = CALL_taos_stmt_affected_rows_once(stmt->stmt);
     }
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   }
-#endif                       /* } */
+#endif                       /* ] */
   return SQL_SUCCESS;
 }
 
@@ -360,18 +360,18 @@ static SQLRETURN _query(stmt_base_t *base, const sqlc_tsdb_t *sqlc_tsdb)
 
   tsdb_res_t          *res         = &stmt->res;
   tsdb_res_reset(res);
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   if (stmt->owner->conn->cfg.url) {
     res->res = CALL_ws_query((WS_TAOS*)stmt->owner->conn->ds_conn.taos, sqlc_tsdb->tsdb);
   } else {
-#endif                       /* } */
+#endif                       /* ] */
     res->res = CALL_taos_query(stmt->owner->conn->ds_conn.taos, sqlc_tsdb->tsdb);
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   }
-#endif                       /* } */
+#endif                       /* ] */
   res->res_is_from_taos_query = res->res ? 1 : 0;
 
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   if (stmt->owner->conn->cfg.url) {
     int e = ws_errno((WS_RES*)res->res);
     if (e) {
@@ -380,16 +380,16 @@ static SQLRETURN _query(stmt_base_t *base, const sqlc_tsdb_t *sqlc_tsdb)
       return SQL_ERROR;
     }
   } else {
-#endif                       /* } */
+#endif                       /* ] */
     int e = CALL_taos_errno(res->res);
     if (e) {
       const char *estr = CALL_taos_errstr(res->res);
       stmt_append_err_format(stmt->owner, "HY000", e, "General error:[taosc]%s, executing:%.*s", estr, (int)sqlc_tsdb->sqlc_bytes, sqlc_tsdb->sqlc);
       return SQL_ERROR;
     }
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   }
-#endif                       /* } */
+#endif                       /* ] */
 
   return _stmt_post_query(stmt);
 }
@@ -400,11 +400,11 @@ static TAOS_FIELD_E* _tsdb_stmt_get_tsdb_field_by_tsdb_params(tsdb_stmt_t *stmt,
 
   if (!stmt->is_insert_stmt) return (TAOS_FIELD_E*)&_default_param_field;
 
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   if (stmt->owner->conn->cfg.url) {
     return (TAOS_FIELD_E*)&_default_param_field;
   }
-#endif                       /* } */
+#endif                       /* ] */
 
   if (i_param == 0 && params->subtbl_required) {
     return (TAOS_FIELD_E*)&_default_param_field;
@@ -486,7 +486,7 @@ static SQLRETURN _tsdb_stmt_get_taos_params_for_non_insert(tsdb_stmt_t *stmt)
   int r = 0;
 
   int nr_params = 0;
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   if (stmt->owner->conn->cfg.url) {
     // stmt_append_err(stmt->owner, "HY000", r, "General error:not implemented yet");
     // tsdb_stmt_reset(stmt);
@@ -496,7 +496,7 @@ static SQLRETURN _tsdb_stmt_get_taos_params_for_non_insert(tsdb_stmt_t *stmt)
     sr = _tsdb_stmt_generate_default_param_fields(stmt, nr_params);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
   } else {
-#endif                       /* } */
+#endif                       /* ] */
     r = CALL_taos_stmt_num_params(stmt->stmt, &nr_params);
     if (r) {
       stmt_append_err_format(stmt->owner, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->stmt));
@@ -513,9 +513,9 @@ static SQLRETURN _tsdb_stmt_get_taos_params_for_non_insert(tsdb_stmt_t *stmt)
 
       return SQL_ERROR;
     }
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   }
-#endif                       /* } */
+#endif                       /* ] */
 
   sr = _tsdb_stmt_generate_default_param_fields(stmt, nr_params);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
@@ -530,7 +530,7 @@ static SQLRETURN _tsdb_stmt_describe_tags(tsdb_stmt_t *stmt)
 
   int tagNum = 0;
   TAOS_FIELD_E *tags = NULL;
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   if (stmt->owner->conn->cfg.url) {
     // stmt_append_err(stmt->owner, "HY000", r, "General error:not implemented yet");
     // return SQL_ERROR;
@@ -542,7 +542,7 @@ static SQLRETURN _tsdb_stmt_describe_tags(tsdb_stmt_t *stmt)
       return SQL_ERROR;
     }
   } else {
-#endif                       /* } */
+#endif                       /* ] */
     r = CALL_taos_stmt_get_tag_fields(stmt->stmt, &tagNum, &tags);
     if (r) {
       stmt_append_err_format(stmt->owner, "HY000", r, "General error:[taosc]%s", CALL_taos_errstr(NULL));
@@ -550,9 +550,9 @@ static SQLRETURN _tsdb_stmt_describe_tags(tsdb_stmt_t *stmt)
 
       return SQL_ERROR;
     }
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   }
-#endif                       /* } */
+#endif                       /* ] */
   stmt->params.nr_tag_fields = tagNum;
   stmt->params.tag_fields    = tags;
 
@@ -565,7 +565,7 @@ static SQLRETURN _tsdb_stmt_describe_cols(tsdb_stmt_t *stmt)
 
   int colNum = 0;
   TAOS_FIELD_E *cols = NULL;
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   if (stmt->owner->conn->cfg.url) {
     // stmt_append_err(stmt->owner, "HY000", r, "General error:not implemented yet");
     // return SQL_ERROR;
@@ -576,16 +576,16 @@ static SQLRETURN _tsdb_stmt_describe_cols(tsdb_stmt_t *stmt)
       return SQL_ERROR;
     }
   } else {
-#endif                       /* } */
+#endif                       /* ] */
     r = CALL_taos_stmt_get_col_fields(stmt->stmt, &colNum, &cols);
     if (r) {
       stmt_append_err_format(stmt->owner, "HY000", r, "General error:[taosc]%s", CALL_taos_errstr(NULL));
       if (r != TSDB_CODE_APP_ERROR) return SQL_ERROR;
       return SQL_ERROR;
     }
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   }
-#endif                       /* } */
+#endif                       /* ] */
   stmt->params.nr_col_fields = colNum;
   stmt->params.col_fields    = cols;
 
@@ -600,7 +600,7 @@ static SQLRETURN _tsdb_stmt_get_taos_tags_cols_for_subtbled_insert(tsdb_stmt_t *
 
   const char *subtbl = stmt->params.subtbl;
   if (!subtbl) subtbl = "__hard_coded_fake_name__";
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   if (stmt->owner->conn->cfg.url) {
     r = CALL_ws_stmt_set_tbname((WS_STMT*)stmt->stmt, subtbl);
     if (r) {
@@ -609,16 +609,16 @@ static SQLRETURN _tsdb_stmt_get_taos_tags_cols_for_subtbled_insert(tsdb_stmt_t *
       return SQL_ERROR;
     }
   } else {
-#endif                       /* } */
+#endif                       /* ] */
     r = CALL_taos_stmt_set_tbname(stmt->stmt, subtbl);
     if (r) {
       stmt_append_err_format(stmt->owner, "HY000", e, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->stmt));
       if (r != TSDB_CODE_APP_ERROR) return SQL_ERROR;
       return SQL_ERROR;
     }
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   }
-#endif                       /* } */
+#endif                       /* ] */
 
   sr = _tsdb_stmt_describe_tags(stmt);
   if (sr == SQL_ERROR) return SQL_ERROR;
@@ -650,7 +650,7 @@ static SQLRETURN _tsdb_stmt_get_taos_tags_cols_for_insert(tsdb_stmt_t *stmt)
   SQLRETURN sr = SQL_SUCCESS;
   int tagNum = 0;
   TAOS_FIELD_E *tag_fields = NULL;
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   if (stmt->owner->conn->cfg.url) {
     // // stmt_append_err(stmt->owner, "HY000", r, "General error:not implemented yet");
     // // sr = SQL_ERROR;
@@ -689,7 +689,7 @@ static SQLRETURN _tsdb_stmt_get_taos_tags_cols_for_insert(tsdb_stmt_t *stmt)
       sr = _tsdb_stmt_describe_cols(stmt);
     }
   } else {
-#endif                       /* } */
+#endif                       /* ] */
     r = CALL_taos_stmt_get_tag_fields(stmt->stmt, &tagNum, &tag_fields);
     if (r) {
       int e = CALL_taos_errno(NULL);
@@ -714,9 +714,9 @@ static SQLRETURN _tsdb_stmt_get_taos_tags_cols_for_insert(tsdb_stmt_t *stmt)
       stmt->params.nr_tag_fields = tagNum;
       sr = _tsdb_stmt_describe_cols(stmt);
     }
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   }
-#endif                       /* } */
+#endif                       /* ] */
 
   if (sr == SQL_SUCCESS) stmt->prepared = 1;
   return sr;
@@ -729,7 +729,7 @@ static SQLRETURN _tsdb_stmt_prepare(tsdb_stmt_t *stmt, const sqlc_tsdb_t *sqlc_t
 
   int32_t isInsert = 0;
 
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   if (stmt->owner->conn->cfg.url) {
     stmt->stmt = CALL_ws_stmt_init((WS_TAOS*)stmt->owner->conn->ds_conn.taos);
     if (!stmt->stmt) {
@@ -760,7 +760,7 @@ static SQLRETURN _tsdb_stmt_prepare(tsdb_stmt_t *stmt, const sqlc_tsdb_t *sqlc_t
       return SQL_ERROR;
     }
   } else {
-#endif                       /* } */
+#endif                       /* ] */
     stmt->stmt = CALL_taos_stmt_init(stmt->owner->conn->ds_conn.taos);
     if (!stmt->stmt) {
       stmt_append_err_format(stmt->owner, "HY000", CALL_taos_errno(NULL), "General error:[taosc]%s", CALL_taos_errstr(NULL));
@@ -782,9 +782,9 @@ static SQLRETURN _tsdb_stmt_prepare(tsdb_stmt_t *stmt, const sqlc_tsdb_t *sqlc_t
 
       return SQL_ERROR;
     }
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   }
-#endif                       /* } */
+#endif                       /* ] */
   stmt->is_insert_stmt = isInsert;
 
   if (!stmt->is_insert_stmt) {
@@ -855,7 +855,7 @@ static SQLRETURN _execute(stmt_base_t *base)
     return _query(base, stmt->current_sql);
   }
 
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   if (stmt->owner->conn->cfg.url) {
     int32_t affected_rows = 0;
     r = CALL_ws_stmt_execute((WS_STMT*)stmt->stmt, &affected_rows);
@@ -874,7 +874,7 @@ static SQLRETURN _execute(stmt_base_t *base)
     }
     res->affected_row_count = affected_rows;
   } else {
-#endif                       /* } */
+#endif                       /* ] */
     r = CALL_taos_stmt_execute(stmt->stmt);
     if (r) {
       stmt_append_err_format(stmt->owner, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->stmt));
@@ -890,9 +890,9 @@ static SQLRETURN _execute(stmt_base_t *base)
       stmt_append_err_format(stmt->owner, "HY000", e, "General error:[taosc]%s", estr);
       return SQL_ERROR;
     }
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   }
-#endif                       /* } */
+#endif                       /* ] */
 
   return _stmt_post_query(stmt);
 }
@@ -917,7 +917,7 @@ static SQLRETURN _tsdb_stmt_fetch_rows_block(tsdb_stmt_t *stmt)
 
   TAOS_ROW rows = NULL;
   int nr_rows = 0;
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   if (stmt->owner->conn->cfg.url) {
     tsdb_fields_t       *fields      = &res->fields;
     if (fields->nr == 0) return SQL_NO_DATA;
@@ -931,15 +931,15 @@ static SQLRETURN _tsdb_stmt_fetch_rows_block(tsdb_stmt_t *stmt)
     rows_block->nr     = rows;
     rows_block->pos    = 0;
   } else {
-#endif                       /* } */
+#endif                       /* ] */
     nr_rows = CALL_taos_fetch_block(res->res, &rows);
     if (nr_rows == 0) return SQL_NO_DATA;
     rows_block->rows   = rows;
     rows_block->nr     = nr_rows;
     rows_block->pos    = 0;
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   }
-#endif                       /* } */
+#endif                       /* ] */
 
   return SQL_SUCCESS;
 }
@@ -1134,7 +1134,7 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
   TAOS_ROW     rows       = rows_block->rows;
 
   char buf[4096];
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   if (stmt->owner->conn->cfg.url) {
     WS_RES   *ws_res        = (WS_RES*)res->res;
     WS_FIELD *ws_fields     = (WS_FIELD*)fields->fields;
@@ -1150,11 +1150,11 @@ static SQLRETURN _get_data(stmt_base_t *base, SQLUSMALLINT Col_or_Param_Num, tsd
 
     r = helper_get_tsdb_ws(result_precision, ws_field->name, col_type, col_data, col_len, i_row, i_col, tsdb, buf, sizeof(buf));
   } else {
-#endif                       /* } */
+#endif                       /* ] */
     r = helper_get_tsdb(res->res, 1, fields->fields, res->time_precision, rows, i_row, i_col, tsdb, buf, sizeof(buf));
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   }
-#endif                       /* } */
+#endif                       /* ] */
 
   if (r) {
     stmt_append_err_format(stmt->owner, "HY000", 0, "General error:%.*s", (int)strlen(buf), buf);
@@ -1190,7 +1190,7 @@ void tsdb_stmt_unprepare(tsdb_stmt_t *stmt)
   stmt->current_sql = NULL;
   _tsdb_params_reset(&stmt->params);
   stmt->prepared = 0;
-  stmt->is_topic = 0;
+  stmt->is_ext   = 0;
   stmt->is_insert_stmt = 0;
   _tsdb_binds_reset(&stmt->owner->tsdb_binds);
 }
@@ -1206,15 +1206,15 @@ void tsdb_stmt_reset(tsdb_stmt_t *stmt)
   _tsdb_stmt_close_result(stmt);
   if (stmt->stmt) {
     int r = 0;
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
     if (stmt->owner->conn->cfg.url) {
       CALL_ws_stmt_close((WS_STMT*)stmt->stmt);
     } else {
-#endif                       /* } */
+#endif                       /* ] */
       r = CALL_taos_stmt_close(stmt->stmt);
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
     }
-#endif                       /* } */
+#endif                       /* ] */
     OA_NIY(r == 0);
     stmt->stmt = NULL;
   }
@@ -1256,7 +1256,7 @@ SQLRETURN tsdb_stmt_rebind_subtbl(tsdb_stmt_t *stmt)
   int e = 0;
   const char *subtbl = stmt->params.subtbl;
   int r = 0;
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   if (stmt->owner->conn->cfg.url) {
     r = CALL_ws_stmt_set_tbname((WS_STMT*)stmt->stmt, subtbl);
     if (r) {
@@ -1265,16 +1265,16 @@ SQLRETURN tsdb_stmt_rebind_subtbl(tsdb_stmt_t *stmt)
       return SQL_ERROR;
     }
   } else {
-#endif                       /* } */
+#endif                       /* ] */
     r = CALL_taos_stmt_set_tbname(stmt->stmt, subtbl);
     if (r) {
       stmt_append_err_format(stmt->owner, "HY000", e, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->stmt));
       if (r != TSDB_CODE_APP_ERROR) return SQL_ERROR;
       return SQL_ERROR;
     }
-#ifdef HAVE_TAOSWS           /* { */
+#ifdef HAVE_TAOSWS           /* [ */
   }
-#endif                       /* } */
+#endif                       /* ] */
 
   sr = _tsdb_stmt_describe_tags(stmt);
   if (sr == SQL_ERROR) return SQL_ERROR;

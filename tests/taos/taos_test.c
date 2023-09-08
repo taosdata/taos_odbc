@@ -218,6 +218,8 @@ static int cjson_cmp_tsdb_double(int i_col, ejson_t *val, const char *base)
 
 static int field_cmp_val(int i_field, TAOS_FIELD *field, TAOS_ROW record, int *lengths, ejson_t *val)
 {
+  (void)lengths;
+
   const char *col = record[i_field];
   if (!col) {
     return cjson_cmp_tsdb_null(i_field, val);
@@ -733,7 +735,7 @@ static int _store_param_val_by_mb_as_tsdb_varchar(executes_ctx_t *ctx, ejson_t *
   length     += irow;
   is_null    += irow;
 
-  strncpy(buffer, s, n);
+  tod_strncpy(buffer, s, n);
   buffer[n] = '\0';
   buffer[n+1] = '\0';
   *length    = (int32_t)n;       // plus 2 ?

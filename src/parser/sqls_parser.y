@@ -44,12 +44,6 @@
 %code {
     // generated header from flex
     // introduce yylex decl for later use
-    static void _yyerror_impl(
-        YYLTYPE *yylloc,                   // match %define locations
-        yyscan_t arg,                      // match %param
-        sqls_parser_param_t *param,        // match %parse-param
-        const char *errmsg
-    );
     static void yyerror(
         YYLTYPE *yylloc,                   // match %define locations
         yyscan_t arg,                      // match %param
@@ -57,16 +51,14 @@
         const char *errsg
     );
 
-    #define SET_TOKEN_BOUND(_rr, _start, _end, _qms) do {    \
-      _rr.start  = _start;                                   \
-      _rr.end    = _end;                                     \
-      _rr.qms  = _qms;                                       \
+    #define SET_TOKEN_BOUND(_rr, _qms) do {    \
+      _rr.qms  = _qms;                         \
     } while (0)
 
     #define FOUND(_start, _end, _qms) do {                                    \
       if (param->sql_found) {                                                 \
         int r = param->sql_found(param, _start, _end, _qms, param->arg);      \
-        if (r) return -1;                                                     \
+        if (r) YYABORT;                                                       \
       }                                                                       \
     } while (0)
 
@@ -74,14 +66,12 @@
     {
       if (!param) return;
       param->ctx.err_msg[0] = '\0';
-      param->ctx.row0 = 0;
     }
 
     void sqls_parser_param_release(sqls_parser_param_t *param)
     {
       if (!param) return;
       param->ctx.err_msg[0] = '\0';
-      param->ctx.row0 = 0;
     }
 }
 
@@ -90,6 +80,7 @@
 %define api.pure full
 %define api.token.prefix {TOK_}
 %define locations
+%define api.location.type {parser_loc_t}
 %define parse.error verbose
 %define parse.lac full
 %define parse.trace true
@@ -102,15 +93,15 @@
 // union members
 %union { parser_token_t token; }
 %union { char c; }
-%union { parser_nterm_t nterm; }
+%union { sqls_parser_nterm_t nterm; }
 
 %token TOKEN ERROR STR
 %token LP RP LC RC LB RB
 %token DQ SQ AA
+%token LN CH
 
-%nterm <nterm> lc rc lp rp lb rb
-%nterm <nterm> dq sq aa qm sc
-%nterm <nterm> token str any_token sql quoted strs delimit sqls
+%nterm <nterm> qm
+%nterm <nterm> any_token sql sqls
 
  /* %nterm <str>   args */ // non-terminal `input` use `str` to store
                            // token value as well
@@ -124,130 +115,128 @@ input:
 ;
 
 sqls:
-  %empty                    { SET_TOKEN_BOUND($$, 0, 0, 0); }
-| sql                       { SET_TOKEN_BOUND($$, $1.start, $1.end, $1.qms); FOUND($1.start, $1.end+1, $$.qms); }
-| sqls delimit sql          { SET_TOKEN_BOUND($$, $1.start, $3.end, $3.qms); FOUND($3.start, $3.end+1, $$.qms); }
+  %empty                    { SET_TOKEN_BOUND($$, 0); }
+| sql                       { SET_TOKEN_BOUND($$, $1.qms); FOUND(@1.prev, @1.pres+1, $$.qms); }
+| sqls delimit sql          { SET_TOKEN_BOUND($$, $3.qms); FOUND(@3.prev, @3.pres+1, $$.qms); }
 ;
 
 sql:
-  any_token            { SET_TOKEN_BOUND($$, $1.start, $1.end, $1.qms); }
-| sql any_token        { SET_TOKEN_BOUND($$, $1.start, $2.end, ($1.qms + $2.qms)); }
+  any_token            { SET_TOKEN_BOUND($$, $1.qms); }
+| sql any_token        { SET_TOKEN_BOUND($$, ($1.qms + $2.qms)); }
 ;
 
 any_token:
-  token                { SET_TOKEN_BOUND($$, $1.start, $1.end, $1.qms); }
-| quoted               { SET_TOKEN_BOUND($$, $1.start, $1.end, $1.qms); }
-| lc rc                { SET_TOKEN_BOUND($$, $1.start, $2.end, 0); }
-| lp rp                { SET_TOKEN_BOUND($$, $1.start, $2.end, 0); }
-| lb rb                { SET_TOKEN_BOUND($$, $1.start, $2.end, 0); }
-| lc sql rc            { SET_TOKEN_BOUND($$, $1.start, $3.end, $2.qms); }
-| lp sql rp            { SET_TOKEN_BOUND($$, $1.start, $3.end, $2.qms); }
-| lb sql rb            { SET_TOKEN_BOUND($$, $1.start, $3.end, $2.qms); }
-| qm                   { SET_TOKEN_BOUND($$, $1.start, $1.end, $1.qms); }
+  token                { SET_TOKEN_BOUND($$, 0); }
+| quoted               { SET_TOKEN_BOUND($$, 0); }
+| lc rc                { SET_TOKEN_BOUND($$, 0); }
+| lp rp                { SET_TOKEN_BOUND($$, 0); }
+| lb rb                { SET_TOKEN_BOUND($$, 0); }
+| lc sql rc            { SET_TOKEN_BOUND($$, $2.qms); }
+| lp sql rp            { SET_TOKEN_BOUND($$, $2.qms); }
+| lb sql rb            { SET_TOKEN_BOUND($$, $2.qms); }
+| qm                   { SET_TOKEN_BOUND($$, $1.qms); }
 ;
 
 token:
-  TOKEN        { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end, 0); }
+  TOKEN
 ;
 
 lc:
-  '('          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end, 0); }
+  '('
 ;
 
 rc:
-  ')'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end, 0); }
+  ')'
 ;
 
 lp:
-  '{'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end, 0); }
+  '{'
 ;
 
 rp:
-  '}'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end, 0); }
+  '}'
 ;
 
 lb:
-  '['          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end, 0); }
+  '['
 ;
 
 rb:
-  ']'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end, 0); }
+  ']'
 ;
 
 quoted:
-  dq dq        { SET_TOKEN_BOUND($$, $1.start, $2.end, 0); }
-| dq strs dq   { SET_TOKEN_BOUND($$, $1.start, $3.end, 0); }
-| sq sq        { SET_TOKEN_BOUND($$, $1.start, $2.end, 0); }
-| sq strs sq   { SET_TOKEN_BOUND($$, $1.start, $3.end, 0); }
-| aa aa        { SET_TOKEN_BOUND($$, $1.start, $2.end, 0); }
-| aa strs aa   { SET_TOKEN_BOUND($$, $1.start, $3.end, 0); }
+  dq dq
+| sq sq
+| aa aa
+| dq dqss dq
+| sq sqss sq
+| aa aass aa
 ;
 
 dq:
-  '"'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end, 0); }
+  '"'
 ;
 
 sq:
-  '\''         { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end, 0); }
+  '\''
 ;
 
 aa:
-  '`'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end, 0); }
+  '`'
 ;
 
 qm:
-  '?'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end, 1); }
+  '?'          { SET_TOKEN_BOUND($$, 1); }
 ;
 
-strs:
-  str          { SET_TOKEN_BOUND($$, $1.start, $1.end, 0); }
-| strs str     { SET_TOKEN_BOUND($$, $1.start, $2.end, 0); }
+dqss:
+  dqs
+| dqss dqs
 ;
 
-str:
-  STR          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end, 0); }
+dqs:
+  STR
+| DQ DQ
+| esc
+;
+
+sqss:
+  sqs
+| sqss sqs
+;
+
+sqs:
+  STR
+| SQ SQ
+| esc
+;
+
+aass:
+  aas
+| aass aas
+;
+
+aas:
+  STR
+| AA AA
+| esc
+;
+
+esc:
+  '\\' CH
 ;
 
 delimit:
-  sc           { SET_TOKEN_BOUND($$, $1.start, $1.end, 0); }
-| delimit sc   { SET_TOKEN_BOUND($$, $1.start, $2.end, 0); }
+  sc
+| delimit sc
 ;
 
 sc:
-  ';'          { SET_TOKEN_BOUND($$, param->ctx.token_start, param->ctx.token_end, 0); }
+  ';'
 ;
 
 %%
-
-static void _yyerror_impl(
-    YYLTYPE *yylloc,                   // match %define locations
-    yyscan_t arg,                      // match %param
-    sqls_parser_param_t *param,         // match %parse-param
-    const char *errmsg
-)
-{
-  // to implement it here
-  (void)yylloc;
-  (void)arg;
-  (void)param;
-  (void)errmsg;
-
-  if (!param) {
-    fprintf(stderr, "(%d,%d)->(%d,%d):%s\n",
-        yylloc->first_line, yylloc->first_column,
-        yylloc->last_line, yylloc->last_column,
-        errmsg);
-
-    return;
-  }
-
-  param->ctx.row0 = yylloc->first_line;
-  param->ctx.col0 = yylloc->first_column;
-  param->ctx.row1 = yylloc->last_line;
-  param->ctx.col1 = yylloc->last_column;
-  param->ctx.err_msg[0] = '\0';
-  snprintf(param->ctx.err_msg, sizeof(param->ctx.err_msg), "%s", errmsg);
-}
 
 /* Called by yyparse on error. */
 static void yyerror(
@@ -257,7 +246,8 @@ static void yyerror(
     const char *errmsg
 )
 {
-  _yyerror_impl(yylloc, arg, param, errmsg);
+  parser_ctx_t *ctx = param ? &param->ctx : NULL;
+  parser_yyerror(__FILE__, __LINE__, __func__, yylloc, arg, ctx, errmsg);
 }
 
 int sqls_parser_parse(const char *input, size_t len, sqls_parser_param_t *param)
@@ -269,7 +259,11 @@ int sqls_parser_parse(const char *input, size_t len, sqls_parser_param_t *param)
   int debug_bison = param ? param->ctx.debug_bison: 0;
   yyset_debug(debug_flex, arg);
   yydebug = debug_bison;
-  // yyset_extra(param, arg);
+  yyset_extra(&param->ctx, arg);
+  param->ctx.input = input;
+  param->ctx.len   = len;
+  param->ctx.prev  = 0;
+  param->ctx.pres  = 0;
   yy_scan_bytes(input ? input : "", input ? (int)len : 0, arg);
   int ret =yyparse(arg, param);
   yylex_destroy(arg);

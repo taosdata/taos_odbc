@@ -26,46 +26,7 @@
 
 
 %{
-#define MKT(x)    TOK_##x
-
-#define PUSH(state)      yy_push_state(state, yyscanner)
-#define POP()            yy_pop_state(yyscanner)
-
-#define CHG(state) do {                           \
-    yy_pop_state(yyscanner);                      \
-    yy_push_state(state, yyscanner);              \
-} while (0)
-
-#define TOP_STATE(_top) do {                  \
-    yy_push_state(INITIAL, yyscanner);        \
-    _top = yy_top_state(yyscanner);           \
-    yy_pop_state(yyscanner);                  \
-} while (0)
-
-#define R() do {                                  \
-    yylloc->first_column = yylloc->last_column ;  \
-    yylloc->first_line   = yylloc->last_line;     \
-} while (0)
-
-#define L() do {                                  \
-    yylloc->last_line   += 1;                     \
-    yylloc->last_column  = 1;                     \
-} while (0)
-
-#define C()                                       \
-do {                                              \
-    yylloc->last_column += yyleng;                \
-} while (0)
-
-#define SET_STR() do {                            \
-    yylval->token.text = yytext;                  \
-    yylval->token.leng = yyleng;                  \
-} while (0)
-
-#define SET_CHR(chr) do {                         \
-    yylval->c = chr;                              \
-} while (0)
-
+#include "parser_macros.h"
 %}
 
 %option bison-bridge bison-locations reentrant

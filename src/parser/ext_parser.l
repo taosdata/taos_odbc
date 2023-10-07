@@ -130,7 +130,7 @@ DIGITS        [[:digit:]]+
 [^"\f\r\n]+   { R(); SET_STR(); C(); return MKT(QSTR); }
 "\f"          { R(); SET_STR(); L(); return MKT(QSTR); }
 {LN}          { R(); SET_STR(); L(); return MKT(QSTR); }
-.             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
+  /* .             { R(); C(); return (unsigned char)*yytext; } */ /* let bison to handle */
 }
 
 <SSTR>{
@@ -139,7 +139,7 @@ DIGITS        [[:digit:]]+
 [^'\f\r\n]+   { R(); SET_STR(); C(); return MKT(SSTR); }
 "\f"          { R(); SET_STR(); L(); return MKT(SSTR); }
 {LN}          { R(); SET_STR(); L(); return MKT(SSTR); }
-.             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
+  /* .             { R(); C(); return (unsigned char)*yytext; } */ /* let bison to handle */
 }
 
 <TSTR>{
@@ -148,7 +148,7 @@ DIGITS        [[:digit:]]+
 [^`\f\r\n]+   { R(); SET_STR(); C(); return MKT(TSTR); }
 "\f"          { R(); SET_STR(); L(); return MKT(TSTR); }
 {LN}          { R(); SET_STR(); L(); return MKT(TSTR); }
-.             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
+  /* .             { R(); C(); return (unsigned char)*yytext; } */ /* let bison to handle */
 }
 
 <ESC>{

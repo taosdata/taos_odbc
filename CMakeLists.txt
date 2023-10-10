@@ -92,6 +92,16 @@ endif()
 
 configure_file(inc/taos_odbc_config.h.in ${CMAKE_CURRENT_BINARY_DIR}/taos_odbc_config.h)
 
+if(TODBC_LINUX)
+  IF (${COVER} MATCHES "true")
+    MESSAGE(STATUS "Test coverage mode, add extra flags")
+    SET(GCC_COVERAGE_COMPILE_FLAGS "-fprofile-arcs -ftest-coverage")
+    SET(GCC_COVERAGE_LINK_FLAGS    "-lgcov --coverage")
+    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
+  ENDIF ()
+endif()
+
 add_subdirectory(common)
 add_subdirectory(src)
 add_subdirectory(templates)

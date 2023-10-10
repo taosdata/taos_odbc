@@ -21,18 +21,29 @@ function lcovFunc {
   cd debug
 
   # collect data
-  lcov -d . --capture --rc lcov_branch_coverage=1 --rc genhtml_branch_coverage=1 --no-external -b $ROOT_DIR -o coverage.info
+  lcov -d . --capture --rc lcov_branch_coverage=1 --rc genhtml_branch_coverage=1 --no-external -b $ROOT_DIR -o coverage.info --exclude "$ROOT_DIR/debug/*" --exclude "*/tests/*"
 
   echo "generate result"
   lcov -l --rc lcov_branch_coverage=1 coverage.info | tee -a $REPORT_FILE
+}
+
+function runTest {
+  echo "start run ctest..."
+  cd $ROOT_DIR
+  cd debug
+  export TAOS_TEST_CASES=$(pwd)/tests/taos/taos_test.cases
+  export ODBC_TEST_CASES=$(pwd)/tests/c/odbc_test.cases
+  export TAOS_ODBC_LOG_LEVEL=ERROR
+  export TAOS_ODBC_LOGGER=stderr
+  ctest --output-on-failure
 }
 
 function main {
   date >> $REPORT_FILE
   echo "Run Coverage Test"
 
-  # buildTaosODBC
-
+  buildTaosODBC
+  runTest
   lcovFunc
 
   date >> $REPORT_FILE

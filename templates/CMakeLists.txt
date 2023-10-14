@@ -47,10 +47,10 @@ if(NOT TODBC_WINDOWS)
       COMMAND sudo odbcinst -i -d -f ${CMAKE_CURRENT_BINARY_DIR}/odbcinst.ini -l
       COMMAND cmake -E echo TAOS_ODBC_DRIVER is installed in /etc/odbcinst.ini
 
-      COMMAND sudo odbcinst -i -s -f ${CMAKE_CURRENT_BINARY_DIR}/odbc.in -l
+      COMMAND sudo odbcinst -i -s -f ${CMAKE_CURRENT_BINARY_DIR}/odbc.ini -l
       COMMAND cmake -E echo TAOS_ODBC_DSN is installed in /etc/odbc.ini
 
-      COMMAND odbcinst -i -s -f ${CMAKE_CURRENT_BINARY_DIR}/odbc.in -h
+      COMMAND odbcinst -i -s -f ${CMAKE_CURRENT_BINARY_DIR}/odbc.ini -h
       COMMAND cmake -E echo TAOS_ODBC_DSN is installed in ~/.odbc.ini)
 else()
   configure_file(win_odbcinst.ini.in ${CMAKE_CURRENT_BINARY_DIR}/win_odbcinst.ini)
@@ -58,3 +58,4 @@ else()
       COMMAND odbcconf /S /F ${CMAKE_CURRENT_BINARY_DIR}/win_odbcinst.ini
       COMMAND ${CMAKE_COMMAND} -E echo "-=Done=-")
 endif()
+

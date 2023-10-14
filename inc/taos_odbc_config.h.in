@@ -27,6 +27,7 @@
 
 #include "macros.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 // NOTE: these macro names, by design, is only valid during compilation of this project, both driver and test cases

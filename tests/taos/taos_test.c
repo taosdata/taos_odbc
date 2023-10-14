@@ -1388,10 +1388,28 @@ static int run_case(ejson_t *json)
   const char *uid   = ejson_str_get(ejson_obj_get(ejson_obj_get(json, "conn"), "uid"));
   const char *pwd   = ejson_str_get(ejson_obj_get(ejson_obj_get(json, "conn"), "pwd"));
   const char *db    = ejson_str_get(ejson_obj_get(ejson_obj_get(json, "conn"), "db"));
+  if (ip==NULL || strcmp(ip, "$HOST_FOR_TEST") == 0) {
+    ip = taos_odbc_config_get_host_for_test();
+  }
+
   uint16_t    port  = 0; {
-    double d = 0;
-    ejson_num_get(ejson_obj_get(ejson_obj_get(json, "conn"), "port"), &d);
-    if (d > 0) port = (uint16_t)d;
+    ejson_t *jp = ejson_obj_get(ejson_obj_get(json, "conn"), "port");
+    const char *sport = NULL;
+    if (jp) {
+      sport  = ejson_str_get(jp);
+      if (sport) {
+        if (strcmp(sport, "$PORT_FOR_TEST") == 0) {
+          port = taos_odbc_config_get_port_for_test();
+        } else {
+          port = atoi(sport);
+        }
+      }
+    }
+    if (!sport) {
+      double d = 0;
+      ejson_num_get(ejson_obj_get(ejson_obj_get(json, "conn"), "port"), &d);
+      if (d > 0) port = (uint16_t)d;
+    }
   }
 
   TAOS *taos = CALL_taos_connect(ip, uid, pwd, db, port);
@@ -2703,11 +2721,11 @@ static int conformance_tests_with_taos(TAOS *taos)
 
 static int conformance_tests(void)
 {
-  const char *ip = NULL;
+  const char *ip = taos_odbc_config_get_host_for_test();
   const char *user = NULL;
   const char *pass = NULL;
   const char *db = NULL;
-  uint16_t port = 0;
+  uint16_t port = taos_odbc_config_get_port_for_test();
   TAOS *taos = CALL_taos_connect(ip,user,pass,db,port);
   if (!taos) return -1;
 
@@ -2800,11 +2818,11 @@ static int conformance_ts_with_taos(TAOS *taos)
 
 static int conformance_ts(void)
 {
-  const char *ip = NULL;
+  const char *ip = taos_odbc_config_get_host_for_test();
   const char *user = NULL;
   const char *pass = NULL;
   const char *db = NULL;
-  uint16_t port = 0;
+  uint16_t port = taos_odbc_config_get_port_for_test();
   TAOS *taos = CALL_taos_connect(ip,user,pass,db,port);
   if (!taos) return -1;
 

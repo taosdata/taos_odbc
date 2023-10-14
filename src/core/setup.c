@@ -38,7 +38,9 @@
 
 #include "conn_parser.h"
 
-#include <taosws.h>
+#ifdef HAVE_TAOSWS           /* { */
+#include "taosws_helpers.h"
+#endif                       /* } */
 
 #include <string.h>
 
@@ -249,6 +251,7 @@ static int validate_url(HWND hDlg, const char *url, url_parser_param_t *param)
   return 0;
 }
 
+#ifdef HAVE_TAOSWS                                        /* { */
 static void check_taosws_connection(HWND hDlg, config_t *config, url_parser_param_t *param)
 {
   int r = 0;
@@ -297,6 +300,7 @@ static void check_taosws_connection(HWND hDlg, config_t *config, url_parser_para
   // MessageBox(hDlg, buf, "Warning!", MB_OK | MB_ICONEXCLAMATION);
   TOD_SAFE_FREE(out);
 }
+#endif                                                    /* } */
 
 static INT_PTR OnTest(HWND hDlg, WPARAM wParam, LPARAM lParam, url_parser_param_t *param)
 {
@@ -309,7 +313,12 @@ static INT_PTR OnTest(HWND hDlg, WPARAM wParam, LPARAM lParam, url_parser_param_
   if (config.taos_checked) {
     check_taos_connection(hDlg, &config);
   } else {
+#ifdef HAVE_TAOSWS                                        /* { */
     check_taosws_connection(hDlg, &config, param);
+#else                                                     /* }{ */
+    MessageBox(hDlg, "not built with `taosws-rs`", "Error", MB_OK | MB_ICONEXCLAMATION);
+    return FALSE;
+#endif                                                    /* } */
   }
   return TRUE;
 }

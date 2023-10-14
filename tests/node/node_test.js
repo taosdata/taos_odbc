@@ -778,7 +778,8 @@ async function do_test_cases(conn_str, ws) {
   assert.equal(!!await connectToDatabase('DSN=xyz'),1);
   // assert.equal(!!await execute('DSN=TAOS_ODBC_WS_DSN', 'xshow databases'),1);
   assert.equal(!!await do_test_cases('DSN=TAOS_ODBC_DSN', 0), 0);
-  assert.equal(!!await do_test_cases('DSN=TAOS_ODBC_WS_DSN', 1), 0);
+  // TODO: how to build taosadapter on Windows Platform?
+  // assert.equal(!!await do_test_cases('DSN=TAOS_ODBC_WS_DSN', 1), 0);
   console.log("==Success==");
 })()
 

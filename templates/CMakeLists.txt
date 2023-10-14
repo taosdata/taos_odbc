@@ -30,9 +30,10 @@ if(TODBC_DARWIN)
   set(libtaos_odbc "/usr/local/lib/libtaos_odbc.dylib")
 endif()
 
-configure_file(odbcinst.in ${CMAKE_CURRENT_BINARY_DIR}/odbcinst.ini)
-
 if(NOT TODBC_WINDOWS)
+  configure_file(odbc.ini.in ${CMAKE_CURRENT_BINARY_DIR}/odbc.ini)
+  configure_file(odbcinst.ini.in ${CMAKE_CURRENT_BINARY_DIR}/odbcinst.ini)
+
   add_custom_target(install_templates
       COMMAND odbcinst -u -s -h -n TAOS_ODBC_DSN
       COMMAND cmake -E echo TAOS_ODBC_DSN is uninstalled from ~/.odbc.ini
@@ -46,13 +47,14 @@ if(NOT TODBC_WINDOWS)
       COMMAND sudo odbcinst -i -d -f ${CMAKE_CURRENT_BINARY_DIR}/odbcinst.ini -l
       COMMAND cmake -E echo TAOS_ODBC_DRIVER is installed in /etc/odbcinst.ini
 
-      COMMAND sudo odbcinst -i -s -f ${CMAKE_CURRENT_SOURCE_DIR}/odbc.in -l
+      COMMAND sudo odbcinst -i -s -f ${CMAKE_CURRENT_BINARY_DIR}/odbc.in -l
       COMMAND cmake -E echo TAOS_ODBC_DSN is installed in /etc/odbc.ini
 
-      COMMAND odbcinst -i -s -f ${CMAKE_CURRENT_SOURCE_DIR}/odbc.in -h
+      COMMAND odbcinst -i -s -f ${CMAKE_CURRENT_BINARY_DIR}/odbc.in -h
       COMMAND cmake -E echo TAOS_ODBC_DSN is installed in ~/.odbc.ini)
 else()
+  configure_file(win_odbcinst.ini.in ${CMAKE_CURRENT_BINARY_DIR}/win_odbcinst.ini)
   add_custom_target(install_templates
-      COMMAND odbcconf /S /F ${CMAKE_CURRENT_SOURCE_DIR}/win_odbcinst.in
+      COMMAND odbcconf /S /F ${CMAKE_CURRENT_BINARY_DIR}/win_odbcinst.ini
       COMMAND ${CMAKE_COMMAND} -E echo "-=Done=-")
 endif()

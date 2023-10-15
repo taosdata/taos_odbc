@@ -6,7 +6,7 @@ English | [简体中文](README.cn.md)
 * macOS
   ```
   Note:
-  Since 3.1.x.x, it seems TDengine OSS macOS port is not fully tested by TDengine, please be kindly noted
+  Since TDengine 3.1.x.x, it seems TDengine OSS macOS port is not fully tested by TDengine, please be kindly noted
   ```
 * Windows
   ```

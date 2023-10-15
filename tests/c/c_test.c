@@ -1203,8 +1203,11 @@ static int running_case(handles_t *handles, case_t *_case)
   r = _case->routine(handles, "DSN=TAOS_ODBC_DSN", 0);
   handles_disconnect(handles);
   if (r) return -1;
+#ifdef HAVE_TAOSWS                /* { */
   r = _case->routine(handles, "DSN=TAOS_ODBC_WS_DSN", 1);
   handles_disconnect(handles);
+  if (r) return -1;
+#endif                            /* } */
   return r;
 }
 
@@ -1280,7 +1283,10 @@ int main(int argc, char *argv[])
     RECORD(test_charsets),
     RECORD(test_charsets_with_col_bind),
     RECORD(test_charsets_with_param_bind),
+#ifndef _WIN32              /* { */
+    // NOTE: do NOT forget to check this!
     RECORD(test_topic),
+#endif                      /* } */
     RECORD(test_params_with_all_chars),
     RECORD(test_json_tag),
 #ifdef HAVE_TAOSWS               /* { */

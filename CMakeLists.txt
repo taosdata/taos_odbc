@@ -90,6 +90,41 @@ if(TODBC_DARWIN)
   endif()
 endif()
 
+if(TODBC_WINDOWS)
+  if(NOT DEFINED SERVER_FOR_TEST)
+    message(FATAL_ERROR " you must define SERVER_FOR_TEST on windows platform,\n"
+                        " because taosd is NOT included TDengine OSS since 3.1.x.x\n"
+                        " eg.: -DSERVER_FOR_TEST:STRING=127.0.0.1:6030")
+  endif()
+  if(NOT DEFINED WS_FOR_TEST)
+    message(FATAL_ERROR " you must define WS_FOR_TEST on windows platform,\n"
+                        " because taosd is NOT included TDengine OSS since 3.1.x.x\n"
+                        " eg.: -DWS_FOR_TEST:STRING=127.0.0.1:6041")
+  endif()
+endif()
+
+if(DEFINED SERVER_FOR_TEST)
+  string(FIND "${SERVER_FOR_TEST}" ":" HP_POS)
+  if(${HP_POS} STREQUAL "-1")
+    set(HOST_FOR_TEST "${SERVER_FOR_TEST}")
+  else()
+    string(SUBSTRING ${SERVER_FOR_TEST} 0 ${HP_POS} HOST_FOR_TEST)
+    string(SUBSTRING ${SERVER_FOR_TEST} ${HP_POS} -1 PORT_FOR_TEST)
+    string(SUBSTRING ${PORT_FOR_TEST} 1 -1 PORT_FOR_TEST)
+  endif()
+endif()
+
+if(DEFINED WS_FOR_TEST)
+  string(FIND "${WS_FOR_TEST}" ":" HP_POS)
+  if(${HP_POS} STREQUAL "-1")
+    set(WS_HOST_FOR_TEST "${WS_FOR_TEST}")
+  else()
+    string(SUBSTRING ${WS_FOR_TEST} 0 ${HP_POS} WS_HOST_FOR_TEST)
+    string(SUBSTRING ${WS_FOR_TEST} ${HP_POS} -1 WS_PORT_FOR_TEST)
+    string(SUBSTRING ${WS_PORT_FOR_TEST} 1 -1 WS_PORT_FOR_TEST)
+  endif()
+endif()
+
 configure_file(inc/taos_odbc_config.h.in ${CMAKE_CURRENT_BINARY_DIR}/taos_odbc_config.h)
 
 add_subdirectory(common)

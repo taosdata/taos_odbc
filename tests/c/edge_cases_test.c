@@ -614,8 +614,11 @@ static int test(void)
   int r = 0;
   r = test_with_conn_str("DSN=TAOS_ODBC_DSN", 0);
   if (r) return -1;
+#ifdef HAVE_TAOSWS                /* { */
   r = test_with_conn_str("DSN=TAOS_ODBC_WS_DSN", 1);
-  return r ? -1 : 0;
+  if (r) return -1;
+#endif                            /* } */
+  return r;
 }
 
 int main(int argc, char *argv[])

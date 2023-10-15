@@ -644,7 +644,7 @@ static SQLRETURN _build_consumer(topic_t *topic)
   _topic_reset_tmq(topic);
   topic->tmq = CALL_tmq_consumer_new(conf, NULL, 0);
   if (!topic->tmq) {
-    stmt_append_err(topic->owner, "HY000", 0, "General error:[taosc]tmq_consumer_new failed:reason unknown, but don't forget to specifi `group.id`");
+    stmt_append_err(topic->owner, "HY000", 0, "General error:[taosc]tmq_consumer_new failed:reason unknown, but don't forget to specify `group.id`");
     return SQL_ERROR;
   }
   return SQL_SUCCESS;

@@ -44,7 +44,7 @@
 %option nounistd
 
 %x LP LC LB
-%x DQ SQ AA QM
+%x DQ SQ AA
 %x ESC TAOS_ESCAPE
 %x COMMENT
 
@@ -157,7 +157,7 @@ QM            "?"
 "\f"                  { R(); SET_STR(); L(); return MKT(STR); }
 {LN}                  { R(); SET_STR(); L(); return MKT(STR); }
 [\\]                  { R(); PUSH(TAOS_ESCAPE); C(); return (unsigned char)*yytext; }
-.                     { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
+  /* .                     { R(); C(); return (unsigned char)*yytext; } */ /* let bison to handle */
 }
 
 <SQ>{
@@ -167,7 +167,7 @@ QM            "?"
 "\f"                  { R(); SET_STR(); L(); return MKT(STR); }
 {LN}                  { R(); SET_STR(); L(); return MKT(STR); }
 [\\]                  { R(); PUSH(TAOS_ESCAPE); C(); return (unsigned char)*yytext; }
-.                     { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
+  /* .                     { R(); C(); return (unsigned char)*yytext; } */ /* let bison to handle */
 }
 
 <AA>{
@@ -177,7 +177,7 @@ QM            "?"
 "\f"                  { R(); SET_STR(); L(); return MKT(STR); }
 {LN}                  { R(); SET_STR(); L(); return MKT(STR); }
 [\\]                  { R(); PUSH(TAOS_ESCAPE); C(); return (unsigned char)*yytext; }
-.                     { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
+  /* .                     { R(); C(); return (unsigned char)*yytext; } */ /* let bison to handle */
 }
 
 <ESC>{

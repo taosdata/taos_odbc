@@ -6,12 +6,12 @@
 * macOS
   ```
   注意:
-  自3.1.x.x起, TDengine OSS 的 macOS版本似乎官方并没有完整测试, 请知晓!
+  自TDengine 3.1.x.x起, TDengine OSS 的 macOS版本似乎官方并没有完整测试, 请知晓!
   ```
 * Windows
   ```
   注意:
-  `taosd`, TDengine的服务端程序自3.1.x.x版起, 已不包含在TDengine OSS的windows版的发行包中了.
+  `taosd`, TDengine的服务端程序自TDengine 3.1.x.x版起, 已不包含在TDengine OSS的windows版的发行包中了.
   测试用例中已经据此按照你在编译过程中的指定, 使用远程`taosd`.
   ```
 

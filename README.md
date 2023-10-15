@@ -2,9 +2,18 @@
 English | [简体中文](README.cn.md)
 
 ### Supported platform
-- Linux
-- macOS
-- Windows
+* Linux
+* macOS
+  ```
+  Note:
+  Since 3.1.x.x, it seems TDengine OSS macOS port is not fully tested by TDengine, please be kindly noted
+  ```
+* Windows
+  ```
+  Note:
+  `taosd`, TDengine server-side program, has been eliminated from TDengine OSS since TDengine 3.1.x.x.
+  test cases are adjusted to use remote `taosd` you specified when building the project
+  ```
 
 ### Features
 - **on-going implementation of ODBC driver for TDengine 3.0 (TAOS)**

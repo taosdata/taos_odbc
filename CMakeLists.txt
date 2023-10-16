@@ -33,6 +33,9 @@ option(ENABLE_SQLITE3_TEST "whether to test with sqlite3 or not" OFF)
 option(ENABLE_SQLSERVER_TEST "whether to test with sqlserver or not" OFF)
 option(FAKE_TAOS "whether to fake `taos` or not" OFF)
 
+# experimental
+option(BUILD_TAOSWSD_EXPERIMENTAL "whether to build `taoswsd` or not" OFF)
+
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   set(TODBC_LINUX TRUE)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
@@ -130,7 +133,9 @@ configure_file(inc/taos_odbc_config.h.in ${CMAKE_CURRENT_BINARY_DIR}/taos_odbc_c
 add_subdirectory(common)
 add_subdirectory(src)
 add_subdirectory(templates)
-add_subdirectory(taosws)
+if(BUILD_TAOSWSD_EXPERIMENTAL)
+  add_subdirectory(taosws)
+endif()
 add_subdirectory(tests)
 add_subdirectory(samples)
 add_subdirectory(benchmark)

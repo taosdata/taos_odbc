@@ -44,9 +44,8 @@ if False:
 
 def test_case0():
   ## # Specifying the ODBC driver, server name, database, etc. directly
-  ## NOTE: eliminated because of removal of taosd from TDengine OSS since 3.1.x.x of TDengine on Windows Platform
-  ## cnxn = pyodbc.connect('DRIVER={TAOS_ODBC_DRIVER};SERVER=localhost;DATABASE=information_schema;UID=root;PWD=taosdata')
-  ## cnxn.close()
+  cnxn = pyodbc.connect('DRIVER={TAOS_ODBC_DRIVER};SERVER=@SERVER_FOR_TEST@;DATABASE=information_schema;UID=root;PWD=taosdata')
+  cnxn.close()
 
   # Using a DSN, but providing a password as well
   cnxn = pyodbc.connect('DSN=TAOS_ODBC_DSN;PWD=taosdata')

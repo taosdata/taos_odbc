@@ -131,6 +131,11 @@
       }                                                                                         \
       param->conn_cfg->port = strtol(_p.text, NULL, 10);                                        \
     } while (0)
+    #define CLR_FQDN_PORT(_loc) do {                                                            \
+      if (!param) break;                                                                        \
+      TOD_SAFE_FREE(param->conn_cfg->ip);                                                       \
+      param->conn_cfg->port = 0;                                                                \
+    } while (0)
     #define SET_CHARSET_FOR_COL_BIND(_v, _loc) do {                                             \
       if (!param) break;                                                                        \
       TOD_SAFE_FREE(param->conn_cfg->charset_for_col_bind);                                     \
@@ -274,6 +279,7 @@ odbc_attr:
 | SERVER '=' FQDN                 { SET_FQDN($3, @$); }
 | SERVER '=' FQDN ':'             { SET_FQDN($3, @$); }
 | SERVER '=' FQDN ':' DIGITS      { SET_FQDN_PORT($3, $5, @$); }
+| SERVER '='                      { CLR_FQDN_PORT(@$); }
 ;
 
 url_attr:

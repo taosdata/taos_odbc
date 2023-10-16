@@ -75,7 +75,7 @@ endif()
 
 if(DEFINED SERVER_FOR_TEST)
   add_test(NAME taos_regression
-      COMMAND taos_regression --ip ${HOST_FOR_TEST} --port ${PORT_FOR_TEST})
+      COMMAND taos_regression --ip "${HOST_FOR_TEST}" --port "${PORT_FOR_TEST}")
 else()
   add_test(NAME taos_regression
       COMMAND taos_regression)

@@ -1283,10 +1283,7 @@ int main(int argc, char *argv[])
     RECORD(test_charsets),
     RECORD(test_charsets_with_col_bind),
     RECORD(test_charsets_with_param_bind),
-#ifndef _WIN32              /* { */
-    // NOTE: do NOT forget to check this!
     RECORD(test_topic),
-#endif                      /* } */
     RECORD(test_params_with_all_chars),
     RECORD(test_json_tag),
 #ifdef HAVE_TAOSWS               /* { */

@@ -24,7 +24,7 @@ config_taos_odbc_driver(){
     sudo odbcinst -u -s -l -n TAOS_ODBC_DSN > /dev/null
     sudo odbcinst -u -d -l -n TAOS_ODBC_DRIVER > /dev/null
     sudo odbcinst -i -d -f ${script_dir}/taos_odbc/odbcinst.in -l
- 
+
     sudo odbcinst -i -s -f ${script_dir}/taos_odbc/odbc.in -l
     odbcinst -i -s -f ${script_dir}/taos_odbc/odbc.in -h
 

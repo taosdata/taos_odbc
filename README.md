@@ -357,3 +357,5 @@ ctest --test-dir build --output-on-failure -C Debug
 - https://learn.microsoft.com/en-us/sql/odbc/reference/introduction-to-odbc?view=sql-server-ver16
 - https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/odbc-api-reference?view=sql-server-ver16
 
+## originally initiated by freemine@yeah.net
+

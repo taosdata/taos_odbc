@@ -1828,7 +1828,7 @@ static int start(int argc, char *argv[])
     if (strcmp(argv[i], "--ip") == 0) {
       ++i;
       if (i>=argc) break;
-      arg.ip= argv[i];
+      if (argv[i][0]) arg.ip= argv[i];
       continue;
     }
     if (strcmp(argv[i], "--uid") == 0) {
@@ -1840,7 +1840,7 @@ static int start(int argc, char *argv[])
     if (strcmp(argv[i], "--pwd") == 0) {
       ++i;
       if (i>=argc) break;
-      arg.pwd = argv[i];
+      if (argv[i][0]) arg.pwd = argv[i];
       continue;
     }
     if (strcmp(argv[i], "--db") == 0) {

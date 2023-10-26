@@ -602,6 +602,11 @@ static SQLRETURN _build_consumer(topic_t *topic)
   // msg.with.table.name
   // taos_odbc.limit.records        /* return SQL_NO_DATA once # of records has been reached */
   // taos_odbc.limit.seconds        /* return SQL_NO_DATA once # of seconds has passed */
+  stmt_t     *stmt          = topic->owner;
+  conn_t     *conn          = stmt->conn;
+  conn_cfg_t *cfg           = &conn->cfg;
+  const char *ip            = cfg->ip;
+  uint16_t    port          = cfg->port;
 
   _topic_release_conf(topic);
 
@@ -617,6 +622,28 @@ static SQLRETURN _build_consumer(topic_t *topic)
   topic->seconds_max = -1;
 
   tmq_conf_t *conf = topic->conf;
+  if (ip) {
+    const char *k = "td.connect.ip";
+    code = CALL_tmq_conf_set(conf, k, ip);
+    if (code != TMQ_CONF_OK) {
+      stmt_append_err_format(topic->owner, "HY000", 0,
+          "General error:[taosc]tmq_conf_set(%s=%s) failed",
+          k, ip);
+      return SQL_ERROR;
+    }
+  }
+  if (port) {
+    char buf[64]; buf[0] = '\0';
+    snprintf(buf, sizeof(buf), "%d", port);
+    const char *k = "td.connect.port";
+    code = CALL_tmq_conf_set(conf, k, buf);
+    if (code != TMQ_CONF_OK) {
+      stmt_append_err_format(topic->owner, "HY000", 0,
+          "General error:[taosc]tmq_conf_set(%s=%d) failed",
+          k, port);
+      return SQL_ERROR;
+    }
+  }
 
   kvs_t *kvs = &topic->cfg.kvs;
   for (size_t i=0; i<kvs->nr; ++i) {
@@ -644,7 +671,7 @@ static SQLRETURN _build_consumer(topic_t *topic)
   _topic_reset_tmq(topic);
   topic->tmq = CALL_tmq_consumer_new(conf, NULL, 0);
   if (!topic->tmq) {
-    stmt_append_err(topic->owner, "HY000", 0, "General error:[taosc]tmq_consumer_new failed:reason unknown, but don't forget to specifi `group.id`");
+    stmt_append_err(topic->owner, "HY000", 0, "General error:[taosc]tmq_consumer_new failed:reason unknown, but don't forget to specify `group.id`");
     return SQL_ERROR;
   }
   return SQL_SUCCESS;

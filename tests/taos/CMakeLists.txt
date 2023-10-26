@@ -73,8 +73,13 @@ if(NOT FAKE_TAOS)
   target_link_libraries(taos_regression taos)
 endif()
 
-add_test(NAME taos_regression
-    COMMAND taos_regression)
+if(DEFINED SERVER_FOR_TEST)
+  add_test(NAME taos_regression
+      COMMAND taos_regression --ip "${HOST_FOR_TEST}" --port "${PORT_FOR_TEST}")
+else()
+  add_test(NAME taos_regression
+      COMMAND taos_regression)
+endif()
 
 if(HAVE_VALGRIND)
   add_test(NAME Vtaos_regression

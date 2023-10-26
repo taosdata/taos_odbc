@@ -46,6 +46,7 @@
 #include "typesinfo.h"
 
 #include <errno.h>
+#include <float.h>
 #include <limits.h>
 #include <math.h>
 #include <string.h>
@@ -2009,10 +2010,10 @@ static SQLRETURN _stmt_get_data_copy_varchar(stmt_t *stmt, const char *s, size_t
 
   get_data_ctx_t *ctx = &stmt->get_data_ctx;
   tsdb_data_t *tsdb = &ctx->tsdb;
-  int64_t i64;
-  uint64_t u64;
-  float flt;
-  double dbl;
+  int64_t i64 = 0;
+  uint64_t u64 = 0;
+  float flt = 0.;
+  double dbl = 0.;
 
   switch (args->TargetType) {
     case SQL_C_BIT:
@@ -5734,6 +5735,32 @@ static SQLRETURN _stmt_param_conv_sql_double_to_tsdb_timestamp(stmt_t *stmt, par
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_param_conv_sql_double_to_tsdb_float(stmt_t *stmt, param_state_t *param_state)
+{
+  (void)stmt;
+
+  int                   i_row             = param_state->i_row;
+  sql_data_t           *data              = &param_state->sql_data;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  double dbl = data->dbl;
+
+  if (dbl > FLT_MAX) {
+    stmt_append_err(stmt, "HY000", 0, "General error:Too big a number");
+    return SQL_ERROR;
+  }
+
+  if (dbl < FLT_MIN) {
+    stmt_append_err(stmt, "HY000", 0, "General error:Too small a number");
+    return SQL_ERROR;
+  }
+
+  float *v = (float*)tsdb_bind->buffer;
+  v[i_row - param_state->i_batch_offset] = (float)dbl;
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_param_conv_sql_double_to_tsdb_int(stmt_t *stmt, param_state_t *param_state)
 {
   (void)stmt;
@@ -6367,6 +6394,9 @@ static const param_bind_map_t _param_bind_map[] = {
   {SQL_C_DOUBLE,  SQL_DOUBLE, TSDB_DATA_TYPE_DOUBLE,
     _stmt_param_adjust_reuse_sqlc_double,
     _stmt_param_conv_dummy},
+  {SQL_C_DOUBLE,  SQL_DOUBLE, TSDB_DATA_TYPE_FLOAT,
+    _stmt_param_adjust_reuse_sqlc_double,
+    _stmt_param_conv_sql_double_to_tsdb_float},
   {SQL_C_DOUBLE,  SQL_DOUBLE, TSDB_DATA_TYPE_INT,
     _stmt_param_adjust_reuse_sqlc_double,
     _stmt_param_conv_sql_double_to_tsdb_int},
@@ -6685,7 +6715,7 @@ static SQLRETURN _stmt_prepare_col_subtbl(stmt_t *stmt, param_state_t *param_sta
 {
   SQLRETURN sr = SQL_SUCCESS;
 
-  char buf_subtbl[192 * 6];
+  char buf_subtbl[192 * 6]; // FIXME: hard-coded
   const char *fromcode = NULL;
   const char *tocode   = conn_get_sqlc_charset(stmt->conn);
   charset_conv_t *cnv = NULL;
@@ -6894,7 +6924,6 @@ static void _stmt_prepare_col_data(stmt_t *stmt, param_state_t *param_state)
     }
   }
 
-  param_state->i_current_row = i_row;
   param_state->nr_batch_size = (int)i_row_offset;
 }
 
@@ -6920,7 +6949,7 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
     }
   }
 
-  for (size_t i_row = 0; i_row < nr_paramset_size; /* i_row += param_state->nr_batch_size */) {
+  for (size_t i_row = 0; i_row < nr_paramset_size; i_row += param_state->nr_batch_size) {
     param_state->i_batch_offset = i_row;
     param_state->nr_batch_size = (int)(nr_paramset_size - i_row);
     if (param_state->nr_batch_size > INT16_MAX) param_state->nr_batch_size = INT16_MAX;
@@ -6932,19 +6961,16 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
       param_state->i_param    = (int)i_col;
       param_state->APD_record = APD->records + i_col;
       param_state->IPD_record = IPD->records + i_col;
-      param_state->i_current_row = i_row;
 
       sr = _stmt_prepare_col(stmt, param_state);
       if (sr != SQL_SUCCESS) return sr;
 
       _stmt_prepare_col_data(stmt, param_state);
 
-      if (param_state->nr_batch_size == 0) break;
-    }
-
-    if (param_state->nr_batch_size == 0) {
-      if (param_state->i_current_row == 0) return SQL_ERROR;
-      return SQL_SUCCESS;
+      if (param_state->nr_batch_size == 0) {
+        if (i_row == 0) return SQL_ERROR;
+        return SQL_SUCCESS;
+      }
     }
 
     nr_params_processed += param_state->nr_batch_size;
@@ -7020,8 +7046,6 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
     if (sr != SQL_SUCCESS) return SQL_ERROR;
 
     if (param_state->row_err) return SQL_SUCCESS_WITH_INFO;
-
-    i_row = param_state->i_current_row + 1;
   }
 
   return SQL_SUCCESS;

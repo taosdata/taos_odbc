@@ -931,7 +931,7 @@ fetch:
     const char *exp = ds->_expects[demo_limit-1][i-3];
     if (Len_or_Ind == SQL_NULL_DATA) {
       if (exp) {
-        E("[%zd,%d] expected `%s`, but got ==null==", demo_limit, i+1, ds->_expects[demo_limit-1][i]);
+        E("[%zd,%d] expected `%s`, but got ==null==", demo_limit, i+1, exp);
         return -1;
       }
     } else {
@@ -1203,8 +1203,11 @@ static int running_case(handles_t *handles, case_t *_case)
   r = _case->routine(handles, "DSN=TAOS_ODBC_DSN", 0);
   handles_disconnect(handles);
   if (r) return -1;
+#ifdef HAVE_TAOSWS                /* { */
   r = _case->routine(handles, "DSN=TAOS_ODBC_WS_DSN", 1);
   handles_disconnect(handles);
+  if (r) return -1;
+#endif                            /* } */
   return r;
 }
 

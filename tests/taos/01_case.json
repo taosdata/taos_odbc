@@ -2,12 +2,10 @@
   {
     "conn": {}
   },{
-    "conn": { "ip": "localhost" }
+    "conn": { "ip": "$HOST_FOR_TEST" }
   },{
     "conn": { "ip": "foo.bar" },
     "positive": false
-  },{
-    "conn": { "ip": "127.0.0.1" }
   },{
     "conn": { "uid": "root" }
   },{

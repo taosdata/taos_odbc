@@ -351,7 +351,7 @@ static SQLRETURN _tables_open_catalogs(tables_t *tables)
   // BI mode not show system databases
   if (tables->owner->conn->cfg.conn_mode == 1){
     sql = "select name `TABLE_CAT`, null `TABLE_SCHEM`, null `TABLE_NAME`, null `TABLE_TYPE`, null `REMARKS` from information_schema.ins_databases "
-          "where name not in (`information_schema`, `performance_schema`) order by `TABLE_CAT`";
+          "where name not in ('information_schema', 'performance_schema') order by `TABLE_CAT`";
   }
 
   sqlc_tsdb_t sqlc_tsdb = {

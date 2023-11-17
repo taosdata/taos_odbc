@@ -171,10 +171,11 @@ static int test_conn_parser(void)
       },
     },{
       __LINE__,
-      "DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION=1;CHARSET_ENCODER_FOR_PARAM_BIND=UTF-8",
+      "DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION=1;CONN_MODE=1;CHARSET_ENCODER_FOR_PARAM_BIND=UTF-8",
       {
         .dsn                    = "TAOS_ODBC_DSN",
         .unsigned_promotion     = 1,
+        .conn_mode               = 1,
         .charset_for_col_bind   = "UTF-8",
       },
     },

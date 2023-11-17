@@ -348,6 +348,11 @@ static SQLRETURN _tables_open_catalogs(tables_t *tables)
 
   const char *sql =
     "select name `TABLE_CAT`, null `TABLE_SCHEM`, null `TABLE_NAME`, null `TABLE_TYPE`, null `REMARKS` from information_schema.ins_databases order by `TABLE_CAT`";
+  // BI mode not show system databases
+  if (tables->owner->conn->cfg.conn_mode == 1){
+    sql = "select name `TABLE_CAT`, null `TABLE_SCHEM`, null `TABLE_NAME`, null `TABLE_TYPE`, null `REMARKS` from information_schema.ins_databases "
+          "where name not in (`information_schema`, `performance_schema`) order by `TABLE_CAT`";
+  }
 
   sqlc_tsdb_t sqlc_tsdb = {
     .sqlc           = sql,
@@ -725,6 +730,18 @@ SQLRETURN tables_open(
     "  end `TABLE_TYPE`, table_comment `REMARKS` from information_schema.ins_tables"
     " "
     "order by `TABLE_TYPE`, `TABLE_CAT`, `TABLE_SCHEM`, `TABLE_NAME`";
+  // BI mode do not show system table and child table  
+  if (stmt->conn->cfg.conn_mode == 1){
+    sql =
+        "select db_name `TABLE_CAT`, '' `TABLE_SCHEM`, stable_name `TABLE_NAME`, 'TABLE' `TABLE_TYPE`, table_comment `REMARKS` from information_schema.ins_stables"
+        " "
+        "union all"
+        " "
+        "select db_name `TABLE_CAT`, '' `TABLE_SCHEM`, table_name `TABLE_NAME`, 'TABLE' `TABLE_TYPE`, table_comment `REMARKS` from information_schema.ins_tables "
+        "where type = 'NORMAL_TABLE' "
+        " "
+        "order by `TABLE_TYPE`, `TABLE_CAT`, `TABLE_SCHEM`, `TABLE_NAME`";    
+  }
 
   sqlc_tsdb_t sqlc_tsdb = {
     .sqlc           = sql,

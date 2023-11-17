@@ -39,6 +39,7 @@
 #define IDC_STC_TEST                    1026
 #define IDC_STC_UID                     1027
 #define IDC_STC_PWD                     1028
+#define IDC_CHK_BI_MODE                 1029
 #define IDC_STATIC                      -1
 
 // Next default values for new objects

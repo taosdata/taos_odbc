@@ -637,6 +637,13 @@ static void _conn_fill_out_connection_str(
   }
   if (n>0) count += n;
 
+  if (conn->cfg.conn_mode) {
+    fixed_buf_sprintf(n, &buffer, "CONN_MODE=%u;", conn->cfg.conn_mode);
+  } else {
+    fixed_buf_sprintf(n, &buffer, "CONN_MODE=0;");
+  }
+  if (n>0) count += n;
+
   if (buffer.nr+1 == buffer.cap) {
     char *x = buffer.buf + buffer.nr;
     for (int i=0; i<3 && x>buffer.buf; ++i, --x) x[-1] = '.';
@@ -716,6 +723,10 @@ static int _conn_cfg_init_by_dsn(conn_cfg_t *cfg, char *ebuf, size_t elen)
   buf[0] = '\0';
   r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "TIMESTAMP_AS_IS", (LPCSTR)"0", (LPSTR)buf, sizeof(buf), "Odbc.ini");
   if (r == 1) cfg->timestamp_as_is = !!atoi(buf);
+
+  buf[0] = '\0';
+  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "CONN_MODE", (LPCSTR)"0", (LPSTR)buf, sizeof(buf), "Odbc.ini");
+  if (r == 1) cfg->conn_mode = atoi(buf);
 
   buf[0] = '\0';
   r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "CHARSET_ENCODER_FOR_COL_BIND", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");

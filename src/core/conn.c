@@ -500,7 +500,7 @@ static SQLRETURN _do_conn_connect(conn_t *conn)
   if (conn->cfg.url) {
 #ifdef HAVE_TAOSWS           /* { */
     char *url = NULL;
-    int r = url_parse_and_encode(conn->cfg.url, conn->cfg.ip, conn->cfg.port, conn->cfg.db, &url);
+    int r = url_parse_and_encode(&conn->cfg, &url);
     if (r) {
       conn_append_err_format(conn, "HY000", 0, "General error:assembling url failed:[%s]/[%s:%d]/[%s]", conn->cfg.url, conn->cfg.ip, conn->cfg.port, conn->cfg.db);
       return SQL_ERROR;

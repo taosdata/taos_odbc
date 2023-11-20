@@ -396,6 +396,25 @@ static int url_encode_with_db(url_t *url, const char *db, char **out)
   return 0;
 }
 
+static int url_encode_with_cfg(url_t *url, const conn_cfg_t *cfg)
+{
+  char* buf = (char*)malloc(256);
+  buf[0] = '\0';
+  
+  if (cfg->conn_mode){
+    snprintf(buf, sizeof(buf), "&conn_mode=%u", cfg->conn_mode);
+
+    if (url->query){
+      url->query = (char*)realloc(url->query, strlen(url->query) + strlen(buf) + 1);
+      memcpy(url->query + strlen(url->query), buf, strlen(buf));
+    }else{
+      url->query = (char*)malloc(strlen(buf) + 1);
+      memcpy(url->query, buf, strlen(buf));
+    }
+  }
+  return 0;
+}
+
 int url_encode(url_t *url, char **out)
 {
   return url_encode_with_db(url, NULL, out);
@@ -406,13 +425,20 @@ int url_encode_with_database(url_t *url, const char *db, char **out)
   return url_encode_with_db(url, db, out);
 }
 
-int url_parse_and_encode(const char *url, const char *ip, uint16_t port, const char *db, char **out)
+int url_parse_and_encode(const conn_cfg_t *cfg, char **out)
 {
+  const char *url = cfg->url;
+  const char *ip = cfg->ip;
+  uint16_t port = cfg->port;
+  const char *db = cfg->db;
+
+
   int r = 0;
   url_parser_param_t param = {0};
 
   r = url_parser_parse(url, strlen(url), &param);
   if (r == 0 && ip && *ip) r = url_set_host_port(&param.url, ip, port);
+  if (r == 0) r = url_encode_with_cfg(&param.url, cfg);
   if (r == 0) r = url_encode_with_db(&param.url, db, out);
   url_parser_param_release(&param);
 

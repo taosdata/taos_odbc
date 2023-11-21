@@ -1678,7 +1678,7 @@ int main(void)
 
   if (r == 0) r = test("DSN=TAOS_ODBC_DSN", 0);
 #ifdef HAVE_TAOSWS               /* { */
-  if (r == 0) r = test("DSN=TAOS_ODBC_WS_DSN", 1);
+  if (r == 0) r = test("DSN=TAOS_ODBC_DSN", 1);
 #endif                           /* } */
 
   fprintf(stderr, "==%s==\n", r ? "failure" : "success");

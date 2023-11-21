@@ -578,44 +578,44 @@ static int test(void)
 
   CHECK(test_connect("DSN=TAOS_ODBC_DSN", NULL, NULL, NULL));
   CHECK(test_connect("DSN=TAOS_ODBC_DSN;UID=;PWD=;", NULL, NULL, NULL));
-  CHECK(test_connect("Driver={TAOS_ODBC_DRIVER};UID=root;PWD=taosdata;Server=localhost:6030;DB=;UNSIGNED_PROMOTION=1;", NULL, NULL, NULL));
+  CHECK(test_connect("Driver={TDengine};UID=root;PWD=taosdata;Server=localhost:6030;DB=;UNSIGNED_PROMOTION=1;", NULL, NULL, NULL));
 
-  CHECK(test_connect("Driver={TAOS_ODBC_DRIVER}", NULL, NULL, NULL));
+  CHECK(test_connect("Driver={TDengine}", NULL, NULL, NULL));
 
-  CHECK(test_connect("Driver={TAOS_ODBC_DRIVER};UID=;", NULL, NULL, NULL));
-  CHECK(test_connect("Driver={TAOS_ODBC_DRIVER};UID=root;", NULL, NULL, NULL));
-  CHECK(!test_connect("Driver={TAOS_ODBC_DRIVER};UID=xroot;", NULL, NULL, NULL));
+  CHECK(test_connect("Driver={TDengine};UID=;", NULL, NULL, NULL));
+  CHECK(test_connect("Driver={TDengine};UID=root;", NULL, NULL, NULL));
+  CHECK(!test_connect("Driver={TDengine};UID=xroot;", NULL, NULL, NULL));
 
-  CHECK(test_connect("Driver={TAOS_ODBC_DRIVER};PWD=taosdata;", NULL, NULL, NULL));
-  CHECK(test_connect("Driver={TAOS_ODBC_DRIVER};PWD=;", NULL, NULL, NULL));
-  CHECK(!test_connect("Driver={TAOS_ODBC_DRIVER};PWD=xtaosdata;", NULL, NULL, NULL));
+  CHECK(test_connect("Driver={TDengine};PWD=taosdata;", NULL, NULL, NULL));
+  CHECK(test_connect("Driver={TDengine};PWD=;", NULL, NULL, NULL));
+  CHECK(!test_connect("Driver={TDengine};PWD=xtaosdata;", NULL, NULL, NULL));
 
-  CHECK(test_connect("Driver={TAOS_ODBC_DRIVER};Server=;", NULL, NULL, NULL));
-  CHECK(test_connect("Driver={TAOS_ODBC_DRIVER};Server=localhost;", NULL, NULL, NULL));
-  CHECK(test_connect("Driver={TAOS_ODBC_DRIVER};Server=127.0.0.1;", NULL, NULL, NULL));
-  CHECK(test_connect("Driver={TAOS_ODBC_DRIVER};Server=localhost:6030;", NULL, NULL, NULL));
-  CHECK(test_connect("Driver={TAOS_ODBC_DRIVER};Server=127.0.0.1:6030;", NULL, NULL, NULL));
-  CHECK(!test_connect("Driver={TAOS_ODBC_DRIVER};Server=localhost:5030;", NULL, NULL, NULL));
-  CHECK(!test_connect("Driver={TAOS_ODBC_DRIVER};Server=127.0.0.1:5030;", NULL, NULL, NULL));
+  CHECK(test_connect("Driver={TDengine};Server=;", NULL, NULL, NULL));
+  CHECK(test_connect("Driver={TDengine};Server=localhost;", NULL, NULL, NULL));
+  CHECK(test_connect("Driver={TDengine};Server=127.0.0.1;", NULL, NULL, NULL));
+  CHECK(test_connect("Driver={TDengine};Server=localhost:6030;", NULL, NULL, NULL));
+  CHECK(test_connect("Driver={TDengine};Server=127.0.0.1:6030;", NULL, NULL, NULL));
+  CHECK(!test_connect("Driver={TDengine};Server=localhost:5030;", NULL, NULL, NULL));
+  CHECK(!test_connect("Driver={TDengine};Server=127.0.0.1:5030;", NULL, NULL, NULL));
 
-  CHECK(test_connect("Driver={TAOS_ODBC_DRIVER};UNSIGNED_PROMOTION=;", NULL, NULL, NULL));
-  CHECK(test_connect("Driver={TAOS_ODBC_DRIVER};UNSIGNED_PROMOTION=1;", NULL, NULL, NULL));
-  CHECK(!test_connect("Driver={TAOS_ODBC_DRIVER};UNSIGNED_PROMOTION=x;", NULL, NULL, NULL));
-  CHECK(!test_connect("Driver={TAOS_ODBC_DRIVER};UNSIGNED_PROMOTION=1x;", NULL, NULL, NULL));
+  CHECK(test_connect("Driver={TDengine};UNSIGNED_PROMOTION=;", NULL, NULL, NULL));
+  CHECK(test_connect("Driver={TDengine};UNSIGNED_PROMOTION=1;", NULL, NULL, NULL));
+  CHECK(!test_connect("Driver={TDengine};UNSIGNED_PROMOTION=x;", NULL, NULL, NULL));
+  CHECK(!test_connect("Driver={TDengine};UNSIGNED_PROMOTION=1x;", NULL, NULL, NULL));
 
-  CHECK(test_connect("Driver={TAOS_ODBC_DRIVER};", NULL, NULL, NULL));
+  CHECK(test_connect("Driver={TDengine};", NULL, NULL, NULL));
 
   // FIXME: why these two internal-databases can not be opened during taos_connect
   //        taosc reports failure cause as: Invalid database name
-  CHECK(!test_connect("Driver={TAOS_ODBC_DRIVER};UID=root;PWD=taosdata;Server=localhost:6030;DB=performance_schema;UNSIGNED_PROMOTION=1;", NULL, NULL, NULL));
-  CHECK(!test_connect("Driver={TAOS_ODBC_DRIVER};UID=root;PWD=taosdata;Server=localhost:6030;DB=information_schema;UNSIGNED_PROMOTION=1;", NULL, NULL, NULL));
+  CHECK(!test_connect("Driver={TDengine};UID=root;PWD=taosdata;Server=localhost:6030;DB=performance_schema;UNSIGNED_PROMOTION=1;", NULL, NULL, NULL));
+  CHECK(!test_connect("Driver={TDengine};UID=root;PWD=taosdata;Server=localhost:6030;DB=information_schema;UNSIGNED_PROMOTION=1;", NULL, NULL, NULL));
 #endif               /* } */
 
   int r = 0;
   r = test_with_conn_str("DSN=TAOS_ODBC_DSN", 0);
   if (r) return -1;
 #ifdef HAVE_TAOSWS                /* { */
-  r = test_with_conn_str("DSN=TAOS_ODBC_WS_DSN", 1);
+  r = test_with_conn_str("DSN=TAOS_ODBC_DSN", 1);
   if (r) return -1;
 #endif                            /* } */
   return r;

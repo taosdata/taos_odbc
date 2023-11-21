@@ -498,10 +498,10 @@ static int do_sql_driver_conns(SQLHANDLE connh)
 #ifndef _WIN32                     /* { */
   // NOTE: since TDengine 3.1.x.x, taosd is not included in so-called TDengine OSS package on Windows Platform
   //       no free lunch, haha
-  CHK2(test_sql_driver_conn, connh, "Driver={TAOS_ODBC_DRIVER};Server=127.0.0.1:6030", 0);
+  CHK2(test_sql_driver_conn, connh, "Driver={TDengine};Server=127.0.0.1:6030", 0);
 #endif                             /* } */
   CHK2(test_sql_driver_conn, connh, "DSN=TAOS_ODBC_DSN", 0);
-  CHK2(test_sql_driver_conn, connh, "Driver={TAOS_ODBC_DRIVER};DB=what", -1);
+  CHK2(test_sql_driver_conn, connh, "Driver={TDengine};DB=what", -1);
 #ifndef _WIN32                     /* { */
   // NOTE: since TDengine 3.1.x.x, taosd is not included in so-called TDengine OSS package on Windows Platform
   //       no free lunch, haha
@@ -521,9 +521,9 @@ static int do_sql_driver_conns(SQLHANDLE connh)
   // CHK4(test_sql_conn, connh, "TAOS_ODBC_WS_DSN", NULL, "", -1);
   CHK2(test_sql_driver_conn, connh, "bad", -1);
   CHK2(test_sql_driver_conn, connh, "DSN=NOT_EXIST", -1);
-  CHK2(test_sql_driver_conn, connh, "Driver={TAOS_ODBC_DRIVER};URL={http://www.examples.com};Server=127.0.0.1:6041", 0);
+  CHK2(test_sql_driver_conn, connh, "Driver={TDengine};URL={http://www.examples.com};Server=127.0.0.1:6041", 0);
   CHK2(test_sql_driver_conn, connh, "DSN=TAOS_ODBC_WS_DSN", 0);
-  CHK2(test_sql_driver_conn, connh, "Driver={TAOS_ODBC_DRIVER};URL={http://localhost:6041};DB=what", -1);
+  CHK2(test_sql_driver_conn, connh, "Driver={TDengine};URL={http://localhost:6041};DB=what", -1);
   CHK2(test_sql_driver_conn, connh, "DSN=TAOS_ODBC_WS_DSN;URL={http://www.examples.com};Server=127.0.0.1:6041", 0);
   CHK2(test_sql_driver_conn, connh, "DSN=TAOS_ODBC_WS_DSN;URL={http://www.examples.com};Server=127.0.0.1:6666", -1);
 #endif                            /* } */

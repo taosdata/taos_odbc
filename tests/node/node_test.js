@@ -755,8 +755,8 @@ async function do_test_cases(conn_str, ws) {
   if (false) assert.equal(!!await test_sql_server(), 0)
   if (false) assert.equal(!!await test_params(conn_str, ws),0);
   if (false) assert.equal(0)
-  // // assert.equal(!!await execute('DSN=TAOS_ODBC_WS_DSN', 'select ts, name from foo.t'),0);
-  // // assert.equal(!!await execute('DSN=TAOS_ODBC_WS_DSN; LEGACY', 'select * from foo.t'),1);
+  // // assert.equal(!!await execute('DSN=TAOS_ODBC_DSN', 'select ts, name from foo.t'),0);
+  // // assert.equal(!!await execute('DSN=TAOS_ODBC_DSN; LEGACY', 'select * from foo.t'),1);
   assert.equal(!!await case0(conn_str, ws),0);
   assert.equal(!!await case1(conn_str, ws),0);
   assert.equal(!!await case2(conn_str, ws),0);
@@ -776,10 +776,10 @@ async function do_test_cases(conn_str, ws) {
 
 (async () => {
   assert.equal(!!await connectToDatabase('DSN=xyz'),1);
-  // assert.equal(!!await execute('DSN=TAOS_ODBC_WS_DSN', 'xshow databases'),1);
+  // assert.equal(!!await execute('DSN=TAOS_ODBC_DSN', 'xshow databases'),1);
   assert.equal(!!await do_test_cases('DSN=TAOS_ODBC_DSN', 0), 0);
   // TODO: how to build taosadapter on Windows Platform?
-  // assert.equal(!!await do_test_cases('DSN=TAOS_ODBC_WS_DSN', 1), 0);
+  // assert.equal(!!await do_test_cases('DSN=TAOS_ODBC_DSN', 1), 0);
   console.log("==Success==");
 })()
 

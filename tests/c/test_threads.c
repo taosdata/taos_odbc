@@ -595,7 +595,7 @@ int main(int argc, char *argv[])
 
   if (r == 0) r = _run(argc, argv, "TAOS_ODBC_DSN");
 #ifdef HAVE_TAOSWS                /* { */
-  if (r == 0) r = _run(argc, argv, "TAOS_ODBC_WS_DSN");
+  if (r == 0) r = _run(argc, argv, "TAOS_ODBC_DSN");
 #endif                            /* } */
 
   fprintf(stderr, "==%s==\n", r ? "failure" : "success");

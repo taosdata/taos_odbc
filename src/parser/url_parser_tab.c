@@ -402,12 +402,13 @@ static int url_encode_with_cfg(url_t *url, const conn_cfg_t *cfg)
   buf[0] = '\0';
   
   if (cfg->conn_mode){
-    snprintf(buf, sizeof(buf), "&conn_mode=%u", cfg->conn_mode);
 
     if (url->query){
+      snprintf(buf, sizeof(buf), "&conn_mode=%u", cfg->conn_mode);
       url->query = (char*)realloc(url->query, strlen(url->query) + strlen(buf) + 1);
       memcpy(url->query + strlen(url->query), buf, strlen(buf));
     }else{
+      snprintf(buf, sizeof(buf), "conn_mode=%u", cfg->conn_mode);
       url->query = (char*)malloc(strlen(buf) + 1);
       memcpy(url->query, buf, strlen(buf));
     }

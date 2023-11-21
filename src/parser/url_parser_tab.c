@@ -398,21 +398,24 @@ static int url_encode_with_db(url_t *url, const char *db, char **out)
 
 static int url_encode_with_cfg(url_t *url, const conn_cfg_t *cfg)
 {
-  char* buf = (char*)malloc(256);
+  int len = 256;
+  char* buf = (char*)malloc(len);
   buf[0] = '\0';
   
   if (cfg->conn_mode){
 
-    if (url->query){
-      snprintf(buf, sizeof(buf), "&conn_mode=%u", cfg->conn_mode);
+    if (url->query && *(url->query)){
+      snprintf(buf, len, "&conn_mode=%u", cfg->conn_mode);
       url->query = (char*)realloc(url->query, strlen(url->query) + strlen(buf) + 1);
-      memcpy(url->query + strlen(url->query), buf, strlen(buf));
+      memcpy(url->query + strlen(url->query), buf, strlen(buf) + 1);
     }else{
-      snprintf(buf, sizeof(buf), "conn_mode=%u", cfg->conn_mode);
+      snprintf(buf, len, "conn_mode=%u", cfg->conn_mode);
       url->query = (char*)malloc(strlen(buf) + 1);
-      memcpy(url->query, buf, strlen(buf));
+      memcpy(url->query, buf, strlen(buf) + 1);
     }
   }
+
+  free(buf);
   return 0;
 }
 

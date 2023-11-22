@@ -410,7 +410,7 @@ static int url_encode_with_cfg(url_t *url, const conn_cfg_t *cfg)
       memcpy(url->query + strlen(url->query), buf, strlen(buf) + 1);
     }else{
       snprintf(buf, len, "conn_mode=%u", cfg->conn_mode);
-      url->query = (char*)malloc(strlen(buf) + 1);
+      url->query = (char*)realloc(url->query, (buf) + 1);
       memcpy(url->query, buf, strlen(buf) + 1);
     }
   }

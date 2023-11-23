@@ -349,7 +349,7 @@ static int url_encode_query(url_t *url, int8_t conn_mode, url_str_t *str)
   }
 
   if (!conn_mode) r = url_str_append_str(str, "?");
-  else            r = url_str_append_str(str, "?conn_mode=1;");
+  else            r = url_str_append_str(str, "?conn_mode=1&");
   if (r) return -1;
 
   return url_str_append_str(str, url->query);

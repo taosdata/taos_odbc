@@ -615,7 +615,7 @@ static int test(void)
   r = test_with_conn_str("DSN=TAOS_ODBC_DSN", 0);
   if (r) return -1;
 #ifdef HAVE_TAOSWS                /* { */
-  r = test_with_conn_str("DSN=TAOS_ODBC_DSN", 1);
+  r = test_with_conn_str("DSN=TAOS_ODBC_WS_DSN", 1);
   if (r) return -1;
 #endif                            /* } */
   return r;

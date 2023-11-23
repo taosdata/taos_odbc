@@ -1204,7 +1204,7 @@ static int running_case(handles_t *handles, case_t *_case)
   handles_disconnect(handles);
   if (r) return -1;
 #ifdef HAVE_TAOSWS                /* { */
-  r = _case->routine(handles, "DSN=TAOS_ODBC_DSN", 1);
+  r = _case->routine(handles, "DSN=TAOS_ODBC_WS_DSN", 1);
   handles_disconnect(handles);
   if (r) return -1;
 #endif                            /* } */

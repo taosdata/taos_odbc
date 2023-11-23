@@ -2331,7 +2331,7 @@ static int test_cases_get_data(SQLHANDLE henv)
 #endif                         /* } */
     {"DSN=TAOS_ODBC_DSN", TAOS_ODBC, __LINE__},
 #ifdef HAVE_TAOSWS                /* { */
-    {"DSN=TAOS_ODBC_DSN", TAOS_ODBC, __LINE__},
+    {"DSN=TAOS_ODBC_WS_DSN", TAOS_ODBC, __LINE__},
 #endif                            /* } */
   };
 
@@ -2449,7 +2449,7 @@ static int test_cases_prepare(SQLHANDLE henv)
 #endif                         /* } */
     {"DSN=TAOS_ODBC_DSN", TAOS_ODBC, __LINE__},
 #ifdef HAVE_TAOSWS                /* { */
-    {"DSN=TAOS_ODBC_DSN", TAOS_ODBC, __LINE__},
+    {"DSN=TAOS_ODBC_WS_DSN", TAOS_ODBC, __LINE__},
 #endif                            /* } */
   };
 
@@ -2485,7 +2485,7 @@ static int test_hard_coded_cases(SQLHANDLE henv)
   if (r) return -1;
 
 #ifdef HAVE_TAOSWS                /* { */
-  r = test_hard_coded(henv, "TAOS_ODBC_DSN", NULL, NULL, NULL, 0);
+  r = test_hard_coded(henv, "TAOS_ODBC_WS_DSN", NULL, NULL, NULL, 0);
   if (r) return -1;
 #endif                            /* } */
 
@@ -2590,7 +2590,7 @@ static int run(int argc, char *argv[])
     r = test_chars("DSN=TAOS_ODBC_DSN");
     if (r) return -1;
 #ifdef HAVE_TAOSWS                /* { */
-    r = test_chars("DSN=TAOS_ODBC_DSN");
+    r = test_chars("DSN=TAOS_ODBC_WS_DSN");
     if (r) return -1;
 #endif                            /* } */
     return 0;

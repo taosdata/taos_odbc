@@ -1,5 +1,5 @@
 [TDengine]
-Description=TDengine 3.0 odbc driver
+Description=TDengine 3.0 ODBC Driver
 Driver=@libtaos_odbc@
 CPTimeout=60
 

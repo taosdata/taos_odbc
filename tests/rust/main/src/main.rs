@@ -296,7 +296,7 @@ fn _do_test_cases_in_env(env: &Environment<Odbc3>) {
   assert_eq!(_test_connect(env, "DSN=xTAOS_ODBC_DSN"), false);
   assert_eq!(_test_connect(env, "DSN=TAOS_ODBC_DSN"), true);
   // NOTE: await taosws's upgrade
-  // assert_eq!(_test_connect(env, "DSN=TAOS_ODBC_DSN"), true);
+  // assert_eq!(_test_connect(env, "DSN=TAOS_ODBC_WS_DSN"), true);
 
   let conn = env.connect_with_connection_string("DSN=TAOS_ODBC_DSN").unwrap();
   do_test_cases_in_conn(&conn);
@@ -304,7 +304,7 @@ fn _do_test_cases_in_env(env: &Environment<Odbc3>) {
   _test_case3(&conn);
 
   // NOTE: await taosws's upgrade
-  // let conn = env.connect_with_connection_string("DSN=TAOS_ODBC_DSN").unwrap();
+  // let conn = env.connect_with_connection_string("DSN=TAOS_ODBC_WS_DSN").unwrap();
   do_test_cases_in_conn(&conn);
 
   // assert_eq!(0, 1);

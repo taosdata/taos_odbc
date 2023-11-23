@@ -410,10 +410,10 @@ static INT_PTR OnInitDlg(HWND hDlg, WPARAM wParam, LPARAM lParam)
             CheckDlgButton(hDlg, IDC_CHK_TIMESTAMP_AS_IS, FALSE);
           }
           SQLGetPrivateProfileString(v, "CONN_MODE", "", k, sizeof(k), "Odbc.ini");
-          if (atoi(k) == 1) {
-            CheckDlgButton(hDlg, IDC_CHK_BI_MODE, TRUE);
-          } else {
+          if (atoi(k) == 0) {
             CheckDlgButton(hDlg, IDC_CHK_BI_MODE, FALSE);
+          } else {
+            CheckDlgButton(hDlg, IDC_CHK_BI_MODE, TRUE);
           }
 
 
@@ -479,7 +479,7 @@ static INT_PTR OnOK(HWND hDlg, WPARAM wParam, LPARAM lParam, url_parser_param_t 
   int r = 0;
 
   char buf[4096]; buf[0] = '\0';
-  char tmp_buf[100] = {0};
+  char tmp_buf[100]; tmp_buf[0] = '\0';
 
   char driver_dll[MAX_PATH + 1];
   r = get_driver_dll_path(hDlg, driver_dll, sizeof(driver_dll));

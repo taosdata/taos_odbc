@@ -38,8 +38,8 @@ if(NOT TODBC_WINDOWS)
       COMMAND odbcinst -u -s -h -n TAOS_ODBC_DSN
       COMMAND cmake -E echo TAOS_ODBC_DSN is uninstalled from ~/.odbc.ini
 
-      COMMAND sudo odbcinst -u -s -l -n TAOS_ODBC_WS_DSN
-      COMMAND cmake -E echo TAOS_ODBC_WS_DSN is uninstalled from /etc/odbc.ini
+      COMMAND sudo odbcinst -u -s -l -n TAOS_ODBC_DSN
+      COMMAND cmake -E echo TAOS_ODBC_DSN is uninstalled from /etc/odbc.ini
 
       COMMAND sudo odbcinst -u -d -l -n TDengine
       COMMAND cmake -E echo TDengine is uninstalled from /etc/odbcinst.ini

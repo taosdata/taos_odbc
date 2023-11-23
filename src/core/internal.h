@@ -444,8 +444,8 @@ struct conn_cfg_s {
   //       thus, if timestamp_as_is is not set, TSDB_DATA_TYPE_TIMESTAMP would map to SQL_WVARCHAR
   unsigned int           timestamp_as_is:1;
 
-  //default is 0, BI mode : 1, 
-  unsigned int           conn_mode;
+  // NOTE: default is 0, BI mode : 1
+  unsigned int           conn_mode:1;
 };
 
 struct sqls_parser_nterm_s {

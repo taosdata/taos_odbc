@@ -726,7 +726,7 @@ static int _conn_cfg_init_by_dsn(conn_cfg_t *cfg, char *ebuf, size_t elen)
 
   buf[0] = '\0';
   r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "CONN_MODE", (LPCSTR)"0", (LPSTR)buf, sizeof(buf), "Odbc.ini");
-  if (r == 1) cfg->conn_mode = atoi(buf);
+  if (r == 1) cfg->conn_mode = !!atoi(buf);
 
   buf[0] = '\0';
   r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "CHARSET_ENCODER_FOR_COL_BIND", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");

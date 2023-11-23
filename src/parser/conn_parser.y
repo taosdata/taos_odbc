@@ -168,7 +168,7 @@
     #define SET_CONN_MODE(_s, _n, _loc) do {                                                    \
       if (!param) break;                                                                        \
       OA_NIY(_s[_n] == '\0');                                                                   \
-      param->conn_cfg->conn_mode = atoi(_s);                                          \
+      param->conn_cfg->conn_mode = !!atoi(_s);                                                  \
     } while (0)
 
     void conn_parser_param_release(conn_parser_param_t *param)
@@ -297,7 +297,7 @@ attribute:
 | TIMESTAMP_AS_IS '=' DIGITS      { SET_TIMESTAMP_AS_IS($3.text, $3.leng, @$); }
 | CHARSET_FOR_COL_BIND '=' VALUE               { SET_CHARSET_FOR_COL_BIND($3, @$); }
 | CHARSET_FOR_PARAM_BIND '=' VALUE             { SET_CHARSET_FOR_PARAM_BIND($3, @$); }
-| CONN_MODE '=' DIGITS             { SET_CONN_MODE($3.text, $3.leng, @$); }
+| CONN_MODE '=' DIGITS            { SET_CONN_MODE($3.text, $3.leng, @$); }
 ;
 
 %%

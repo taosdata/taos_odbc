@@ -77,7 +77,7 @@ void tables_reset(tables_t *tables)
   mem_reset(&tables->schema_cache);
   mem_reset(&tables->table_cache);
   mem_reset(&tables->type_cache);
-  
+
   tables_args_reset(&tables->tables_args);
 
   tables->catalog = NULL;
@@ -730,8 +730,8 @@ SQLRETURN tables_open(
     "  end `TABLE_TYPE`, table_comment `REMARKS` from information_schema.ins_tables"
     " "
     "order by `TABLE_TYPE`, `TABLE_CAT`, `TABLE_SCHEM`, `TABLE_NAME`";
-  // BI mode do not show system table and child table  
-  if (stmt->conn->cfg.conn_mode == 1){
+  // BI mode do not show system table and child table
+  if (stmt->conn->cfg.conn_mode){
     sql =
         "select db_name `TABLE_CAT`, '' `TABLE_SCHEM`, stable_name `TABLE_NAME`, 'TABLE' `TABLE_TYPE`, table_comment `REMARKS` from information_schema.ins_stables"
         " "
@@ -740,7 +740,7 @@ SQLRETURN tables_open(
         "select db_name `TABLE_CAT`, '' `TABLE_SCHEM`, table_name `TABLE_NAME`, 'TABLE' `TABLE_TYPE`, table_comment `REMARKS` from information_schema.ins_tables "
         "where type = 'NORMAL_TABLE' "
         " "
-        "order by `TABLE_TYPE`, `TABLE_CAT`, `TABLE_SCHEM`, `TABLE_NAME`";    
+        "order by `TABLE_TYPE`, `TABLE_CAT`, `TABLE_SCHEM`, `TABLE_NAME`";
   }
 
   sqlc_tsdb_t sqlc_tsdb = {

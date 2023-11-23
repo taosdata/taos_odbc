@@ -146,7 +146,7 @@ struct config_s {
   char                           encoder_col[64];
   int8_t                         unsigned_promotion;
   int8_t                         timestamp_as_is;
-  uint32_t                       conn_mode;
+  int8_t                         conn_mode;
   int8_t                         encoder_param_checked;
   int8_t                         encoder_col_checked;
 
@@ -479,7 +479,6 @@ static INT_PTR OnOK(HWND hDlg, WPARAM wParam, LPARAM lParam, url_parser_param_t 
   int r = 0;
 
   char buf[4096]; buf[0] = '\0';
-  char tmp_buf[100]; tmp_buf[0] = '\0';
 
   char driver_dll[MAX_PATH + 1];
   r = get_driver_dll_path(hDlg, driver_dll, sizeof(driver_dll));
@@ -543,9 +542,9 @@ static INT_PTR OnOK(HWND hDlg, WPARAM wParam, LPARAM lParam, url_parser_param_t 
   if (ok) ok = SaveKeyVal(hDlg, config.dsn, "TIMESTAMP_AS_IS", config.timestamp_as_is ? "1" : "0");
 
 
-  sprintf(tmp_buf, "%u", config.conn_mode);
-  if (ok) ok = SaveKeyVal(hDlg, config.dsn, "CONN_MODE", tmp_buf);
-  
+  snprintf(buf, sizeof(buf), "%u", !!config.conn_mode);
+  if (ok) ok = SaveKeyVal(hDlg, config.dsn, "CONN_MODE", buf);
+
   if (ok) ok = SaveKeyVal(hDlg, config.dsn, "CHARSET_ENCODER_FOR_PARAM_BIND", config.encoder_param_checked ? config.encoder_param : "");
   if (ok) ok = SaveKeyVal(hDlg, config.dsn, "CHARSET_ENCODER_FOR_COL_BIND", config.encoder_col_checked ? config.encoder_col : "");
   if (ok) {

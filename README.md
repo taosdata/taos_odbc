@@ -284,7 +284,7 @@ cmake --build build --config Debug --target install_templates
 ```
 9. check and see if a new TAOS_ODBC_DSN registry has been setup in win_registry
 ```
-HKEY_LOCAL_MACHINE\SOFTWARE\ODBC\ODBCINST.INI\TAOS_ODBC_DRIVER
+HKEY_LOCAL_MACHINE\SOFTWARE\ODBC\ODBCINST.INI\TDengine
 HKEY_CURRENT_USER\Software\ODBC\Odbc.ini\TAOS_ODBC_DSN
 ```
 

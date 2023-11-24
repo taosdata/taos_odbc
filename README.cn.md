@@ -283,7 +283,7 @@ cmake --build build --config Debug --target install_templates
 ```
 9. 检查windows注册表项，看下相关的TAOS_ODBC_DSN条目等是否存在
 ```
-HKEY_LOCAL_MACHINE\SOFTWARE\ODBC\ODBCINST.INI\TAOS_ODBC_DRIVER
+HKEY_LOCAL_MACHINE\SOFTWARE\ODBC\ODBCINST.INI\TDengine
 HKEY_CURRENT_USER\Software\ODBC\Odbc.ini\TAOS_ODBC_DSN
 ```
 

@@ -63,6 +63,7 @@ CHARSET_FOR_COL_BIND   (?i:charset_encoder_for_col_bind)
 CHARSET_FOR_PARAM_BIND (?i:charset_encoder_for_param_bind)
 UNSIGNED_PROMOTION          (?i:unsigned_promotion)
 TIMESTAMP_AS_IS             (?i:timestamp_as_is)
+CONN_MODE                   (?i:conn_mode)
 FQDN          [-[:alnum:]]+((\.[-[:alnum:]]+)+)*(\.)?
 ID            [^\[\]{}(),;?*=!@[:space:]]+
 VALUE         [^\[\]{}(),;?*=!@[:space:]]+
@@ -85,6 +86,7 @@ DIGITS        [[:digit:]]+
 {CHARSET_FOR_PARAM_BIND}   { R(); C(); return MKT(CHARSET_FOR_PARAM_BIND); }
 {UNSIGNED_PROMOTION}       { R(); C(); return MKT(UNSIGNED_PROMOTION); }
 {TIMESTAMP_AS_IS}          { R(); C(); return MKT(TIMESTAMP_AS_IS); }
+{CONN_MODE}                { R(); C(); return MKT(CONN_MODE); }
 {DIGITS}      { R(); SET_STR(); C(); return MKT(DIGITS); }
 {ID}          { R(); SET_STR(); C(); return MKT(ID); }
 "="           { R(); PUSH(EQ); C(); return (unsigned char)*yytext; }

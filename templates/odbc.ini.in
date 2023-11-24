@@ -1,6 +1,6 @@
 [TAOS_ODBC_DSN]
-Description=Connection to TAOS 3.0
-Driver=TAOS_ODBC_DRIVER
+Description=Native connection to TDengine 3.0
+Driver=TDengine
 SERVER=
 DB=
 UNSIGNED_PROMOTION=
@@ -9,11 +9,13 @@ CHARSET_ENCODER_FOR_PARAM_BIND=
 CHARSET_ENCODER_FOR_COL_BIND=
 
 [TAOS_ODBC_WS_DSN]
-Description=Connection to TAOS 3.0
-Driver=TAOS_ODBC_DRIVER
+Description=Websocket connection to TDengine 3.0
+Driver=TDengine
+SERVER=
 URL=http://localhost:6041
 DB=
 UNSIGNED_PROMOTION=
 TIMESTAMP_AS_IS=
 CHARSET_ENCODER_FOR_PARAM_BIND=
 CHARSET_ENCODER_FOR_COL_BIND=
+CONN_MODE=

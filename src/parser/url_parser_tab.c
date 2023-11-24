@@ -74,6 +74,11 @@ static int url_str_append(url_str_t *str, const char *s, size_t n)
   return 0;
 }
 
+static int url_str_append_str(url_str_t *str, const char *s)
+{
+  return url_str_append(str, s, strlen(s));
+}
+
 static unsigned char url_decode_char(const char *s)
 {
   unsigned char v = 0;
@@ -258,18 +263,18 @@ static int is_sub_delims(const char c)
 static int url_encode_scheme(url_t *url, url_str_t *str)
 {
   int r = 0;
-  r = url_str_append(str, url->scheme, strlen(url->scheme));
+  r = url_str_append_str(str, url->scheme);
   if (r) return -1;
 
-  r = url_str_append(str, ":", 1);
+  r = url_str_append_str(str, ":");
   if (r) return -1;
 
   if (url->user && url->user[0]) {
-    return url_str_append(str, "//", 2);
+    return url_str_append_str(str, "//");
   }
 
   if (url->host && url->host[0]) {
-    return url_str_append(str, "//", 2);
+    return url_str_append_str(str, "//");
   }
 
   return 0;
@@ -303,13 +308,13 @@ static int url_encode_user_pass(url_t *url, url_str_t *str)
   if (r) return -1;
 
   if (url->pass && *url->pass) {
-    r = url_str_append(str, ":", 1);
+    r = url_str_append_str(str, ":");
     if (r) return -1;
     r = url_str_encode_component(str, url->pass);
     if (r) return -1;
   }
 
-  return url_str_append(str, "@", 1);
+  return url_str_append_str(str, "@");
 }
 
 static int url_encode_host_port(url_t *url, url_str_t *str)
@@ -318,7 +323,7 @@ static int url_encode_host_port(url_t *url, url_str_t *str)
   if (!url->host || !*url->host) return 0;
   const char c = url->host[0];
   if (c == '[' /* ] */ || (c >= '0' && c <= '9')) {
-    r = url_str_append(str, url->host, strlen(url->host));
+    r = url_str_append_str(str, url->host);
   } else {
     r = url_str_encode_component(str, url->host);
   }
@@ -326,34 +331,40 @@ static int url_encode_host_port(url_t *url, url_str_t *str)
   if (url->port == 0) return 0;
   char buf[64]; buf[0] = '\0';
   snprintf(buf, sizeof(buf), ":%d", url->port);
-  return url_str_append(str, buf, strlen(buf));
+  return url_str_append_str(str, buf);
 }
 
 static int url_encode_path(url_t *url, url_str_t *str)
 {
   if (!url->path || !*url->path) return 0;
-  return url_str_append(str, url->path, strlen(url->path));
+  return url_str_append_str(str, url->path);
 }
 
-static int url_encode_query(url_t *url, url_str_t *str)
+static int url_encode_query(url_t *url, int8_t conn_mode, url_str_t *str)
 {
   int r = 0;
-  if (!url->query) return 0;
-  r = url_str_append(str, "?", 1);
+  if (!url->query) {
+    if (!conn_mode) return 0;
+    return url_str_append_str(str, "?conn_mode=1");
+  }
+
+  if (!conn_mode) r = url_str_append_str(str, "?");
+  else            r = url_str_append_str(str, "?conn_mode=1&");
   if (r) return -1;
-  return url_str_append(str, url->query, strlen(url->query));
+
+  return url_str_append_str(str, url->query);
 }
 
 static int url_encode_fragment(url_t *url, url_str_t *str)
 {
   int r = 0;
   if (!url->fragment) return 0;
-  r = url_str_append(str, "#", 1);
+  r = url_str_append_str(str, "#");
   if (r) return -1;
-  return url_str_append(str, url->fragment, strlen(url->fragment));
+  return url_str_append_str(str, url->fragment);
 }
 
-static int url_encode_str(url_t *url, const char *db, url_str_t *str)
+static int url_encode_str(url_t *url, int8_t conn_mode, const char *db, url_str_t *str)
 {
   int r = 0;
   r = url_encode_scheme(url, str);
@@ -377,17 +388,17 @@ static int url_encode_str(url_t *url, const char *db, url_str_t *str)
     if (r) return -1;
   }
 
-  r = url_encode_query(url, str);
+  r = url_encode_query(url, conn_mode, str);
   if (r) return -1;
   r = url_encode_fragment(url, str);
   return r ? -1 : 0;
 }
 
-static int url_encode_with_db(url_t *url, const char *db, char **out)
+static int url_encode_with_db(url_t *url, int8_t conn_mode, const char *db, char **out)
 {
   int r = 0;
   url_str_t str = {0};
-  r = url_encode_str(url, db, &str);
+  r = url_encode_str(url, conn_mode, db, &str);
   if (r) {
     url_str_release(&str);
     return -1;
@@ -398,22 +409,29 @@ static int url_encode_with_db(url_t *url, const char *db, char **out)
 
 int url_encode(url_t *url, char **out)
 {
-  return url_encode_with_db(url, NULL, out);
+  return url_encode_with_db(url, 0, NULL, out);
 }
 
 int url_encode_with_database(url_t *url, const char *db, char **out)
 {
-  return url_encode_with_db(url, db, out);
+  return url_encode_with_db(url, 0, db, out);
 }
 
-int url_parse_and_encode(const char *url, const char *ip, uint16_t port, const char *db, char **out)
+int url_parse_and_encode(const conn_cfg_t *cfg, char **out)
 {
+  const char *url = cfg->url;
+  const char *ip = cfg->ip;
+  uint16_t port = cfg->port;
+  const char *db = cfg->db;
+  int8_t conn_mode = !!cfg->conn_mode;
+
+
   int r = 0;
   url_parser_param_t param = {0};
 
   r = url_parser_parse(url, strlen(url), &param);
   if (r == 0 && ip && *ip) r = url_set_host_port(&param.url, ip, port);
-  if (r == 0) r = url_encode_with_db(&param.url, db, out);
+  if (r == 0) r = url_encode_with_db(&param.url, conn_mode, db, out);
   url_parser_param_release(&param);
 
   return r ? -1 : 0;

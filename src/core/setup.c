@@ -146,6 +146,7 @@ struct config_s {
   char                           encoder_col[64];
   int8_t                         unsigned_promotion;
   int8_t                         timestamp_as_is;
+  int8_t                         conn_mode;
   int8_t                         encoder_param_checked;
   int8_t                         encoder_col_checked;
 
@@ -195,6 +196,7 @@ static void GetConfig(HWND hDlg, config_t *config)
   GetItemText(hDlg, IDC_EDT_URL, config->url, sizeof(config->url));
   config->unsigned_promotion = (IsDlgButtonChecked(hDlg, IDC_CHK_UNSIGNED_PROMOTION) == BST_CHECKED) ? 1 : 0;
   config->timestamp_as_is= (IsDlgButtonChecked(hDlg, IDC_CHK_TIMESTAMP_AS_IS) == BST_CHECKED) ? 1 : 0;
+  config->conn_mode =  (IsDlgButtonChecked(hDlg, IDC_CHK_BI_MODE) == BST_CHECKED) ? 1 : 0;
   config->encoder_param_checked= (IsDlgButtonChecked(hDlg, IDC_CHK_ENCODER_PARAM) == BST_CHECKED) ? 1 : 0;
   GetItemText(hDlg, IDC_EDT_ENCODER_PARAM, config->encoder_param, sizeof(config->encoder_param));
   config->encoder_col_checked= (IsDlgButtonChecked(hDlg, IDC_CHK_ENCODER_COL) == BST_CHECKED) ? 1 : 0;
@@ -407,6 +409,13 @@ static INT_PTR OnInitDlg(HWND hDlg, WPARAM wParam, LPARAM lParam)
           } else {
             CheckDlgButton(hDlg, IDC_CHK_TIMESTAMP_AS_IS, FALSE);
           }
+          SQLGetPrivateProfileString(v, "CONN_MODE", "", k, sizeof(k), "Odbc.ini");
+          if (atoi(k) == 0) {
+            CheckDlgButton(hDlg, IDC_CHK_BI_MODE, FALSE);
+          } else {
+            CheckDlgButton(hDlg, IDC_CHK_BI_MODE, TRUE);
+          }
+
 
           SQLGetPrivateProfileString(v, "CHARSET_ENCODER_FOR_PARAM_BIND", "", k, sizeof(k), "Odbc.ini");
           if (k[0]) {
@@ -470,6 +479,7 @@ static INT_PTR OnOK(HWND hDlg, WPARAM wParam, LPARAM lParam, url_parser_param_t 
   int r = 0;
 
   char buf[4096]; buf[0] = '\0';
+
   char driver_dll[MAX_PATH + 1];
   r = get_driver_dll_path(hDlg, driver_dll, sizeof(driver_dll));
   if (r) {
@@ -530,6 +540,11 @@ static INT_PTR OnOK(HWND hDlg, WPARAM wParam, LPARAM lParam, url_parser_param_t 
   if (ok) ok = SaveKeyVal(hDlg, config.dsn, "DB", config.database[0] ? config.database : "");
   if (ok) ok = SaveKeyVal(hDlg, config.dsn, "UNSIGNED_PROMOTION", config.unsigned_promotion ? "1" : "0");
   if (ok) ok = SaveKeyVal(hDlg, config.dsn, "TIMESTAMP_AS_IS", config.timestamp_as_is ? "1" : "0");
+
+
+  snprintf(buf, sizeof(buf), "%u", !!config.conn_mode);
+  if (ok) ok = SaveKeyVal(hDlg, config.dsn, "CONN_MODE", buf);
+
   if (ok) ok = SaveKeyVal(hDlg, config.dsn, "CHARSET_ENCODER_FOR_PARAM_BIND", config.encoder_param_checked ? config.encoder_param : "");
   if (ok) ok = SaveKeyVal(hDlg, config.dsn, "CHARSET_ENCODER_FOR_COL_BIND", config.encoder_col_checked ? config.encoder_col : "");
   if (ok) {

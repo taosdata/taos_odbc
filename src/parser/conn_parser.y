@@ -165,6 +165,12 @@
       param->conn_cfg->timestamp_as_is = !!(atoi(_s));                                          \
     } while (0)
 
+    #define SET_CONN_MODE(_s, _n, _loc) do {                                                    \
+      if (!param) break;                                                                        \
+      OA_NIY(_s[_n] == '\0');                                                                   \
+      param->conn_cfg->conn_mode = !!atoi(_s);                                                  \
+    } while (0)
+
     void conn_parser_param_release(conn_parser_param_t *param)
     {
       if (!param) return;
@@ -191,7 +197,7 @@
 %union { parser_token_t token; }
 %union { char c; }
 
-%token DSN UID PWD DRIVER URL SERVER UNSIGNED_PROMOTION TIMESTAMP_AS_IS DB
+%token DSN UID PWD DRIVER URL SERVER UNSIGNED_PROMOTION TIMESTAMP_AS_IS CONN_MODE DB
 %token CHARSET_FOR_COL_BIND CHARSET_FOR_PARAM_BIND
 %token TOPIC
 %token <token> ID VALUE FQDN DIGITS
@@ -291,6 +297,7 @@ attribute:
 | TIMESTAMP_AS_IS '=' DIGITS      { SET_TIMESTAMP_AS_IS($3.text, $3.leng, @$); }
 | CHARSET_FOR_COL_BIND '=' VALUE               { SET_CHARSET_FOR_COL_BIND($3, @$); }
 | CHARSET_FOR_PARAM_BIND '=' VALUE             { SET_CHARSET_FOR_PARAM_BIND($3, @$); }
+| CONN_MODE '=' DIGITS            { SET_CONN_MODE($3.text, $3.leng, @$); }
 ;
 
 %%

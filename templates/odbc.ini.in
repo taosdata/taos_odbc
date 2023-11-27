@@ -1,7 +1,7 @@
 [TAOS_ODBC_DSN]
 Description=Native connection to TDengine 3.0
 Driver=TDengine
-SERVER=
+SERVER=@SERVER_FOR_TEST@
 DB=
 UNSIGNED_PROMOTION=
 TIMESTAMP_AS_IS=
@@ -12,7 +12,7 @@ CHARSET_ENCODER_FOR_COL_BIND=
 Description=Websocket connection to TDengine 3.0
 Driver=TDengine
 SERVER=
-URL=http://localhost:6041
+URL=http://@WS_FOR_TEST@
 DB=
 UNSIGNED_PROMOTION=
 TIMESTAMP_AS_IS=

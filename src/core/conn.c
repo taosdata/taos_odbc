@@ -500,11 +500,14 @@ static SQLRETURN _do_conn_connect(conn_t *conn)
   if (conn->cfg.url) {
 #ifdef HAVE_TAOSWS           /* { */
     char *url = NULL;
-    int r = url_parse_and_encode(&conn->cfg, &url);
+    url_parser_param_t param = {0};
+    int r = url_parse_and_encode(&conn->cfg, &url, &param);
     if (r) {
-      conn_append_err_format(conn, "HY000", 0, "General error:assembling url failed:[%s]/[%s:%d]/[%s]", conn->cfg.url, conn->cfg.ip, conn->cfg.port, conn->cfg.db);
+      conn_append_err_format(conn, "HY000", 0, "General error:assembling url failed:[%s]/[%s:%d]/[%s]:cause:[%s]", conn->cfg.url, conn->cfg.ip, conn->cfg.port, conn->cfg.db, param.ctx.err_msg);
+      url_parser_param_release(&param);
       return SQL_ERROR;
     }
+    url_parser_param_release(&param);
     conn->ds_conn.taos = CALL_ws_connect_with_dsn(url);
     if (!conn->ds_conn.taos) {
       conn_append_err_format(conn, "08001", ws_errno(NULL), "Client unable to establish connection:[%s][%s]", url, ws_errstr(NULL));

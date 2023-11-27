@@ -164,10 +164,10 @@ static int test_conn_parser(void)
       },
     },{
       __LINE__,
-      "Driver={MySQL ODBC 3.51 中文 driver};URL={taos://localhost:6041}",
+      "Driver={MySQL ODBC 3.51 中文 driver};URL={http://localhost:6041}",
       {
         .driver                 = "MySQL ODBC 3.51 中文 driver",
-        .url                    = "taos://localhost:6041",
+        .url                    = "http://localhost:6041",
       },
     },{
       __LINE__,

@@ -1137,7 +1137,7 @@ static int test_taosws_conn(handles_t *handles, const char *conn_str, int ws)
   (void)ws;
 
   int r = 0;
-  const char *connstr = conn_str; // "DSN=TAOS_ODBC_DSN;URL={taos://127.0.0.1:6041}";
+  const char *connstr = conn_str; // "DSN=TAOS_ODBC_DSN;URL={http://127.0.0.1:6041}";
   const char *sqls = NULL;
 
   sqls = NULL;

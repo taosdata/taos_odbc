@@ -25,6 +25,7 @@
 #include "taos_helpers.h"
 
 #include "../test_helper.h"
+#include "test_config.h"
 
 #include <assert.h>
 #include <float.h>

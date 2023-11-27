@@ -25,6 +25,7 @@
 #include "taosws_helpers.h"
 
 #include "../test_helper.h"
+#include "test_config.h"
 
 #include <iconv.h>
 #include <locale.h>
@@ -1259,7 +1260,7 @@ static int start(int argc, char *argv[])
   int r = 0;
 
   arg_t arg = {0};
-  arg.url = "taos://localhost:6041";
+  arg.url = "http://" WS_FOR_TEST;
 
   for (int i=1; i<argc; ++i) {
     if (strcmp(argv[i], "-h") == 0) {

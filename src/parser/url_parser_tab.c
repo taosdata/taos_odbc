@@ -417,7 +417,7 @@ int url_encode_with_database(url_t *url, const char *db, char **out)
   return url_encode_with_db(url, 0, db, out);
 }
 
-int url_parse_and_encode(const conn_cfg_t *cfg, char **out)
+int url_parse_and_encode(const conn_cfg_t *cfg, char **out, url_parser_param_t *param)
 {
   const char *url = cfg->url;
   const char *ip = cfg->ip;
@@ -427,12 +427,10 @@ int url_parse_and_encode(const conn_cfg_t *cfg, char **out)
 
 
   int r = 0;
-  url_parser_param_t param = {0};
 
-  r = url_parser_parse(url, strlen(url), &param);
-  if (r == 0 && ip && *ip) r = url_set_host_port(&param.url, ip, port);
-  if (r == 0) r = url_encode_with_db(&param.url, conn_mode, db, out);
-  url_parser_param_release(&param);
+  r = url_parser_parse(url, strlen(url), param);
+  if (r == 0 && ip && *ip) r = url_set_host_port(&param->url, ip, port);
+  if (r == 0) r = url_encode_with_db(&param->url, conn_mode, db, out);
 
   return r ? -1 : 0;
 }

@@ -106,6 +106,13 @@ if(TODBC_WINDOWS)
   endif()
 endif()
 
+if(NOT DEFINED SERVER_FOR_TEST)
+  set(SERVER_FOR_TEST "localhost:6030")
+endif()
+if(NOT DEFINED WS_FOR_TEST)
+  set(WS_FOR_TEST "localhost:6041")
+endif()
+
 if(DEFINED SERVER_FOR_TEST)
   string(FIND "${SERVER_FOR_TEST}" ":" HP_POS)
   if(${HP_POS} STREQUAL "-1")

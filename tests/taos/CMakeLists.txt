@@ -31,7 +31,7 @@ add_executable(taos_test
     $<TARGET_OBJECTS:taos_helpers_obj>)
 add_dependencies(taos_test ex_cjson)
 
-target_include_directories(taos_test PRIVATE ${CJSON_INSTALL_PATH}/include)
+target_include_directories(taos_test PRIVATE ${CJSON_INSTALL_PATH}/include ${CMAKE_CURRENT_BINARY_DIR}/..)
 target_link_directories(taos_test PRIVATE ${CJSON_INSTALL_PATH}/lib)
 # NOTE: cJSON_xxx exported in `libtaos.so`
 if(TODBC_WINDOWS)
@@ -95,7 +95,7 @@ if(HAVE_TAOSWS)
       $<TARGET_OBJECTS:os_port_obj>)
   add_dependencies(taosws_regression ex_cjson)
 
-  target_include_directories(taosws_regression PRIVATE ${CJSON_INSTALL_PATH}/include)
+  target_include_directories(taosws_regression PRIVATE ${CJSON_INSTALL_PATH}/include ${CMAKE_CURRENT_BINARY_DIR}/..)
   target_link_directories(taosws_regression PRIVATE ${CJSON_INSTALL_PATH}/lib)
   # NOTE: cJSON_xxx exported in `libtaos.so`
   if(TODBC_WINDOWS)

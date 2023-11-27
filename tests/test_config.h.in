@@ -25,7 +25,76 @@
 #ifndef _test_config_h_
 #define _test_config_h_
 
+#include "macros.h"
+
+#include <stdint.h>
+
 #cmakedefine ENABLE_MYSQL_TEST
 #cmakedefine ENABLE_SQLITE3_TEST
+
+// NOTE: these macro names, by design, is only valid during compilation of this project, both driver and test cases
+//       application that directly and indirectly depends on this project shall not rely on these macro names!
+
+#cmakedefine SERVER_FOR_TEST "@SERVER_FOR_TEST@"
+#cmakedefine HOST_FOR_TEST "@HOST_FOR_TEST@"
+#cmakedefine PORT_FOR_TEST @PORT_FOR_TEST@
+
+#cmakedefine WS_FOR_TEST "@WS_FOR_TEST@"
+#cmakedefine WS_HOST_FOR_TEST "@WS_HOST_FOR_TEST@"
+#cmakedefine WS_PORT_FOR_TEST @WS_PORT_FOR_TEST@
+
+static inline const char* taos_odbc_config_get_server_for_test(void)
+{
+#ifdef SERVER_FOR_TEST
+    return SERVER_FOR_TEST;
+#else
+    return NULL;
+#endif
+}
+
+static inline const char* taos_odbc_config_get_host_for_test(void)
+{
+#ifdef HOST_FOR_TEST
+    return HOST_FOR_TEST;
+#else
+    return NULL;
+#endif
+}
+
+static inline uint16_t taos_odbc_config_get_port_for_test(void)
+{
+#ifdef PORT_FOR_TEST
+    return PORT_FOR_TEST;
+#else
+    return 0;
+#endif
+}
+
+static inline const char* taos_odbc_config_get_ws_for_test(void)
+{
+#ifdef WS_FOR_TEST
+    return WS_FOR_TEST;
+#else
+    return NULL;
+#endif
+}
+
+static inline const char* taos_odbc_config_get_ws_host_for_test(void)
+{
+#ifdef WS_HOST_FOR_TEST
+    return WS_HOST_FOR_TEST;
+#else
+    return NULL;
+#endif
+}
+
+static inline uint16_t taos_odbc_config_get_ws_port_for_test(void)
+{
+#ifdef WS_PORT_FOR_TEST
+    return WS_PORT_FOR_TEST;
+#else
+    return 0;
+#endif
+}
 
 #endif // _test_config_h_

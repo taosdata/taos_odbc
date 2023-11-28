@@ -1175,7 +1175,7 @@ SQLRETURN conn_get_info(
 #endif                               /* } */
     } break;
     case SQL_DRIVER_VER:
-      return _conn_set_string(conn, "1.00.00.00", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+      return _conn_set_string(conn, "01.00.0000", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_DYNAMIC_CURSOR_ATTRIBUTES1:
       // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetinfo-function?view=sql-server-ver16
       *(SQLUINTEGER*)InfoValuePtr = SQL_CA1_NEXT | SQL_CA1_ABSOLUTE | SQL_CA1_RELATIVE;

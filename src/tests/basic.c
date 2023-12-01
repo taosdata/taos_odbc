@@ -1287,18 +1287,22 @@ int main(int argc, char *argv[])
 
   int tested = 0;
 
-  const char *TIMES = getenv("TIMES");
-  if (TIMES) {
-    long long times = strtoll(TIMES, NULL, 0); // FIXME: error check
-    if (times > 0 && (size_t)times > iconv_case.times) {
-      iconv_case.times = (size_t)times;
-    }
-  }
-
   for (int i=1; i<argc; ++i) {
     if (strcmp(argv[i], "-h") == 0) {
       usage(argv[0]);
       return 0;
+    }
+    if (strcmp(argv[i], "--times") == 0) {
+      if (i+1 >= argc) {
+        fprintf(stderr, "<times> expected after --times\n");
+        return 1;
+      }
+      ++i;
+      long long times = strtoll(argv[i], NULL, 0); // FIXME: error check
+      if (times > 0 && (size_t)times > iconv_case.times) {
+        iconv_case.times = (size_t)times;
+      }
+      continue;
     }
     tested = 1;
     r = run(argv[i]);

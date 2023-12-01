@@ -47,3 +47,7 @@ add_sample(bind_param)
 add_sample(desc_bind_col)
 add_sample(demo)
 
+add_sample(taos_demo)
+add_dependencies(taos_demo taos_odbc)
+target_link_libraries(taos_demo taos)
+

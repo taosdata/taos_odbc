@@ -666,7 +666,7 @@ static BOOL doDSNConfig(HWND	hwndParent, LPCSTR	lpszDriver, LPCSTR lpszAttribute
   }
 
   if (hwndParent) {
-    MessageBox(hwndParent, "Please use odbcconf to config DSN for TAOS ODBC Driver", "Warning!", MB_OK|MB_ICONEXCLAMATION);
+    MessageBox(hwndParent, "Please use odbcconf to config DSN for TDengine ODBC Driver", "Warning!", MB_OK|MB_ICONEXCLAMATION);
     return FALSE;
   }
 

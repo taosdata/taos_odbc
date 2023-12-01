@@ -6,6 +6,12 @@
 
 #define DUMP(fmt, ...) fprintf(stderr, "[%d]:%s():" fmt "\n", __LINE__, __func__, ##__VA_ARGS__)
 
+#define safe_free(x) do {      \
+  if (x == NULL) break;        \
+  free(x);                     \
+  x = NULL;                    \
+} while (0)
+
 // #define LOG_SQL_CALL
 #ifdef LOG_SQL_CALL                   /* { */
 #define MAKE_CALL(x) CALL_##x
@@ -61,12 +67,85 @@ struct handles_s {
 
 typedef struct col_bind_s                col_bind_t;
 struct col_bind_s {
+  size_t                  idx;
+  SQLLEN                  sql_type;
+
   SQLCHAR                 name[1024];
   SQLSMALLINT             len;
   SQLLEN                  attr;
   SQLCHAR                 value[1024];
   SQLLEN                  value_ind_len;
+
+  SQLSMALLINT             TargetType;
+  SQLPOINTER             *TargetValuePtr;
+  SQLLEN                  BufferLength;
+  SQLLEN                  StrLen_or_Ind;
 };
+
+typedef struct col_binds_s               col_binds_t;
+struct col_binds_s {
+  col_bind_t           *col_binds;
+  size_t                sz;
+  size_t                nr;
+};
+
+static void col_bind_release(col_bind_t *col_bind)
+{
+  (void)col_bind;
+}
+
+static void col_binds_release(col_binds_t *col_binds)
+{
+  for (size_t i=0; i<col_binds->sz; ++i) {
+    col_bind_t *col_bind = col_binds->col_binds + i;
+    col_bind_release(col_bind);
+  }
+  safe_free(col_binds->col_binds);
+  col_binds->nr = 0;
+  col_binds->sz = 0;
+}
+
+static int col_binds_keep(col_binds_t *col_binds, size_t sz)
+{
+  if (sz <= col_binds->sz) return 0;
+  sz = (sz + 15) / 16 * 16;
+  col_bind_t *p = (col_bind_t*)realloc(col_binds->col_binds, sz * sizeof(*p));
+  if (!p) return -1;
+  memset(p + col_binds->nr, 0, (sz - col_binds->nr) * sizeof(*p));
+  col_binds->col_binds = p;
+  col_binds->sz        = sz;
+  return 0;
+}
+
+static int col_binds_add_sql_integer(col_binds_t *col_binds)
+{
+  int r = 0;
+  r = col_binds_keep(col_binds, col_binds->nr + 1);
+  if (r) return -1;
+  col_bind_t *col_bind           = col_binds->col_binds + col_binds->nr;
+  col_bind->idx                  = col_binds->nr++;
+  col_bind->sql_type             = SQL_INTEGER;
+  col_bind->TargetType           = SQL_C_SLONG;
+  col_bind->TargetValuePtr       = (SQLPOINTER)col_bind->value;
+  col_bind->BufferLength         = sizeof(int32_t);
+  col_bind->StrLen_or_Ind        = 0;
+  return 0;
+}
+
+static int col_binds_add_sql_varchar(col_binds_t *col_binds)
+{
+  int r = 0;
+  r = col_binds_keep(col_binds, col_binds->nr + 1);
+  if (r) return -1;
+  col_bind_t *col_bind           = col_binds->col_binds + col_binds->nr;
+  col_bind->idx                  = col_binds->nr++;
+  col_bind->sql_type             = SQL_VARCHAR;
+  col_bind->TargetType           = SQL_C_CHAR;
+  col_bind->TargetValuePtr       = (SQLPOINTER)col_bind->value;
+  col_bind->BufferLength         = sizeof(col_bind->value);
+  col_bind->StrLen_or_Ind        = 0;
+  return 0;
+}
 
 typedef enum param_type_e                param_type_t;
 enum param_type_e {
@@ -84,7 +163,7 @@ struct param_bind_s {
   SQLSMALLINT     ParameterType;
   SQLULEN         ColumnSize;
   SQLSMALLINT     DecimalDigits;
-  SQLPOINTER     *ParameterValuePtr;
+  SQLPOINTER      ParameterValuePtr;
   SQLLEN          BufferLength;
   SQLLEN         *StrLen_or_IndPtr;
   char           *buf;
@@ -103,15 +182,13 @@ struct param_binds_s {
 static void param_bind_release(param_bind_t *param_bind)
 {
   if (param_bind->buf) {
-    free(param_bind->buf);
-    param_bind->buf = NULL;
+    safe_free(param_bind->buf);
     param_bind->sz  = 0;
     param_bind->nr  = 0;
     param_bind->ParameterValuePtr = NULL;
   }
   if (param_bind->StrLen_or_IndPtr) {
-    free(param_bind->StrLen_or_IndPtr);
-    param_bind->StrLen_or_IndPtr = NULL;
+    safe_free(param_bind->StrLen_or_IndPtr);
   }
 }
 
@@ -128,7 +205,7 @@ static int bind_param_ms(param_bind_t *param_bind, size_t nr_rows)
     DUMP("out of memory");
     return -1;
   }
-  param_bind->ParameterValuePtr      = (SQLPOINTER*)param_bind->buf;
+  param_bind->ParameterValuePtr      = (SQLPOINTER)param_bind->buf;
   param_bind->BufferLength           = sz;
   param_bind->StrLen_or_IndPtr       = (SQLLEN*)malloc(nr_rows * sizeof(*param_bind->StrLen_or_IndPtr));
 
@@ -267,23 +344,22 @@ static void param_binds_release(param_binds_t *param_binds)
     param_bind_release(param_bind);
   }
   if (param_binds->param_binds) {
-    free(param_binds->param_binds);
-    param_binds->param_binds = NULL;
+    safe_free(param_binds->param_binds);
   }
   param_binds->sz = 0;
   param_binds->nr = 0;
   if (param_binds->ParamStatusPtr) {
-    free(param_binds->ParamStatusPtr);
-    param_binds->ParamStatusPtr = NULL;
+    safe_free(param_binds->ParamStatusPtr);
   }
 }
 
 static int param_binds_keep(param_binds_t *param_binds, size_t sz)
 {
-  if (sz < param_binds->sz) return 0;
+  if (sz <= param_binds->sz) return 0;
   sz = (sz + 15) / 16 * 16;
   param_bind_t *p = (param_bind_t*)realloc(param_binds->param_binds, sizeof(*p) * sz);
   if (!p) return -1;
+  memset(p + param_binds->nr, 0, (sz - param_binds->nr) * sizeof(*p));
   param_binds->param_binds = p;
   param_binds->sz          = sz;
   return 0;
@@ -337,18 +413,36 @@ static int param_binds_add_i32(param_binds_t *param_binds)
   return 0;
 }
 
-static int run_query_with_cols(SQLHANDLE hstmt, col_bind_t *cols, SQLSMALLINT nr_cols, int display)
+static int run_query_with_cols(SQLHANDLE hstmt, col_binds_t *col_binds, SQLSMALLINT nr_cols, int display)
 {
   SQLRETURN          sr;
+  int r = 0;
 
   for (int i=0; i<nr_cols; ++i) {
-    col_bind_t *col = cols + i;
-    sr = CALLX_SQLColAttribute(hstmt, i+1, SQL_DESC_DISPLAY_SIZE, NULL, 0, NULL, &col->attr);
+    SQLLEN sql_type = 0;
+    sr = CALLX_SQLColAttribute(hstmt, i+1, SQL_DESC_TYPE, NULL, 0, NULL, &sql_type);
     if (sr != SQL_SUCCESS) return -1;
-    sr = CALLX_SQLColAttribute(hstmt, i+1, SQL_DESC_NAME, col->name, sizeof(col->name),  &col->len, NULL);
+    switch (sql_type) {
+      case SQL_INTEGER:
+        r = col_binds_add_sql_integer(col_binds);
+        if (r) return -1;
+        break;
+      case SQL_VARCHAR:
+        r = col_binds_add_sql_varchar(col_binds);
+        if (r) return -1;
+        break;
+      default:
+        DUMP("unknown col type:[%" PRId64 "]", sql_type);
+        return -1;
+    }
+
+    col_bind_t *col_bind = col_binds->col_binds + i;
+    sr = CALLX_SQLColAttribute(hstmt, i+1, SQL_DESC_DISPLAY_SIZE, NULL, 0, NULL, &col_bind->attr);
     if (sr != SQL_SUCCESS) return -1;
-    DUMP("col[%d]:%s:len[%d]:attr[%" PRId64 "]", i+1, col->name, col->len, col->attr);
-    sr = CALLX_SQLBindCol(hstmt, i+1, SQL_C_CHAR, col->value, sizeof(col->value), &col->value_ind_len);
+    sr = CALLX_SQLColAttribute(hstmt, i+1, SQL_DESC_NAME, col_bind->name, sizeof(col_bind->name),  &col_bind->len, NULL);
+    if (sr != SQL_SUCCESS) return -1;
+    // DUMP("col_bind[%d]:%s:len[%d]:attr[%" PRId64 "]", i+1, col_bind->name, col_bind->len, col_bind->attr);
+    sr = CALLX_SQLBindCol(hstmt, i+1, col_bind->TargetType, col_bind->TargetValuePtr, col_bind->BufferLength, &col_bind->StrLen_or_Ind);
     if (sr != SQL_SUCCESS) return -1;
   }
 
@@ -360,15 +454,30 @@ static int run_query_with_cols(SQLHANDLE hstmt, col_bind_t *cols, SQLSMALLINT nr
       return 0;
     }
     if (sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO) {
-      if (display) DUMP("row[%zd]:", nr_rows);
+      if (display) fprintf(stderr, "row[%zd]:", nr_rows+1);
       for (int i=0; i<nr_cols; ++i) {
-        col_bind_t *col = cols + i;
+      col_bind_t *col_bind = col_binds->col_binds + i;
         if (display) {
-          if (i) DUMP(",");
-          DUMP("%s[%s]", col->name, col->value_ind_len == SQL_NULL_DATA ? "null" : (const char*)col->value);
+          if (i) fprintf(stderr, ",");
+          if (col_bind->StrLen_or_Ind == SQL_NULL_DATA) {
+            fprintf(stderr, "%s[null]", col_bind->name);
+          } else {
+            switch (col_bind->TargetType) {
+              case SQL_C_SLONG:
+                fprintf(stderr, "%s[%d]", col_bind->name, *(int32_t*)col_bind->value);
+                break;
+              case SQL_C_CHAR:
+                fprintf(stderr, "%s[%s]", col_bind->name, col_bind->value);
+                break;
+              default:
+                fprintf(stderr, "\n");
+                DUMP("unknown TargetType:[%d]", col_bind->TargetType);
+                return -1;
+            }
+          }
         }
       }
-      if (display) DUMP("");
+      if (display) fprintf(stderr, "\n");
       sr = SQL_SUCCESS;
       ++nr_rows;
       continue;
@@ -378,7 +487,7 @@ static int run_query_with_cols(SQLHANDLE hstmt, col_bind_t *cols, SQLSMALLINT nr
   return sr == SQL_SUCCESS ? 0 : -1;
 }
 
-static int run_query_with_sql(handles_t *handles, const char *query, int display)
+static int run_query_with_sql(handles_t *handles, col_binds_t *col_binds, const char *query, int display)
 {
   SQLRETURN          sr;
   int r = 0;
@@ -390,7 +499,6 @@ static int run_query_with_sql(handles_t *handles, const char *query, int display
 
   SQLHANDLE hstmt = handles->hstmt;
 
-  col_bind_t        *cols    = NULL;
   SQLSMALLINT        nr_cols = 0;
 
   sr = CALLX_SQLExecDirect(hstmt, (SQLCHAR*)query, SQL_NTS);
@@ -406,22 +514,16 @@ static int run_query_with_sql(handles_t *handles, const char *query, int display
     return 0;
   }
 
-  cols = (col_bind_t*)calloc(nr_cols, sizeof(*cols));
-  if (!cols) {
+  r = col_binds_keep(col_binds, nr_cols);
+  if (r) {
     DUMP("out of memory");
     return -1;
   }
 
-  r = run_query_with_cols(hstmt, cols, nr_cols, display);
-
-  if (cols) {
-    free(cols);
-    cols = NULL;
-  }
-
-  return r;
+  return run_query_with_cols(hstmt, col_binds, nr_cols, display);
 }
-static int run_query(handles_t *handles, int i, int argc, char *argv[])
+
+static int run_query_with_col_binds(handles_t *handles, col_binds_t *col_binds, int i, int argc, char *argv[])
 {
   int r = 0;
   int display = 0;
@@ -434,10 +536,18 @@ static int run_query(handles_t *handles, int i, int argc, char *argv[])
       display = 1;
       continue;
     }
-    r = run_query_with_sql(handles, argv[i], display);
+    r = run_query_with_sql(handles, col_binds, argv[i], display);
     if (r) return -1;
   }
   return i;
+}
+
+static int run_query(handles_t *handles, int i, int argc, char *argv[])
+{
+  col_binds_t       col_binds = {0};
+  int r = run_query_with_col_binds(handles, &col_binds, i, argc, argv);
+  col_binds_release(&col_binds);
+  return r;
 }
 
 static int run_insert_with_options(handles_t *handles, const char *sql, size_t nr_rows, param_binds_t *param_binds)

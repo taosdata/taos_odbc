@@ -962,6 +962,23 @@ static int test_pthread_once(void)
   return 0;
 }
 
+typedef struct iconv_case_s         iconv_case_t;
+struct iconv_case_s {
+  size_t times;
+  const char   *tocode;
+  const char   *fromcode;
+  const char   *src;
+  char    buf[4096];
+};
+
+static iconv_case_t    iconv_case = {
+  .times = 1,
+  .tocode = "GB18030",
+  .fromcode = "UTF-8",
+  // .src   = "\xe4\xb8\xad\xe6\x96\x87", //"中文";
+  .src   = "heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+};
+
 static int test_iconv(void)
 {
   int r = 0;
@@ -978,7 +995,7 @@ static int test_iconv(void)
 
   do {
     char buf[1024];
-    char utf8[] = "\xe4\xb8\xad\xe6\x96\x87"; //"中文";
+    char utf8[] = "\xe4\xb8\xad\xe6\x96\x87";
     char          *inbuf                = utf8;
     size_t         inbytes              = sizeof(utf8);
     size_t         inbytesleft          = inbytes;
@@ -1034,8 +1051,8 @@ static int test_iconv(void)
 
 static int _test_iconv_perf_gen_iconv(iconv_t *cnv)
 {
-  const char *tocode = "GB18030";
-  const char *fromcode = "UTF-8";
+  const char *tocode = iconv_case.tocode;
+  const char *fromcode = iconv_case.fromcode;
 
   *cnv = iconv_open(tocode, fromcode);
   if (!*cnv) {
@@ -1047,25 +1064,15 @@ static int _test_iconv_perf_gen_iconv(iconv_t *cnv)
   return 0;
 }
 
-typedef struct iconv_case_s         iconv_case_t;
-struct iconv_case_s {
-  size_t times;
-  char   *src;
-  char    buf[4096];
-};
-
-static iconv_case_t    iconv_case = {
-  .times = 1024 * 1024,
-  .src   = "heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-};
-
 static int _test_iconv_perf(iconv_t cnv, char *buf, size_t sz, const char *src, const size_t times)
 {
   int r = 0;
   size_t n = 0;
   const size_t src_len = strlen(src);
+  DUMP("times:%zd", times);
 
   for (size_t i=0; i<times; ++i) {
+    buf[0] = '\0';
     char          *inbuf                = (char*)src;
     size_t         inbytesleft          = src_len;
     char          *outbuf               = buf;
@@ -1086,6 +1093,7 @@ static int _test_iconv_perf(iconv_t cnv, char *buf, size_t sz, const char *src, 
     }
 
     if (r) return -1;
+    // DUMP("[%s]", buf);
   }
 
   return 0;
@@ -1099,6 +1107,7 @@ static int test_iconv_perf_reuse(void)
   r = _test_iconv_perf_gen_iconv(&cnv);
   if (r) return -1;
 
+  iconv_case.buf[0] = '\0';
   r = _test_iconv_perf(cnv, iconv_case.buf, sizeof(iconv_case.buf), iconv_case.src, iconv_case.times);
 
   iconv_close(cnv);
@@ -1113,6 +1122,56 @@ static int test_iconv_perf_on_the_fly(void)
   iconv_t cnv = NULL;
 
   r = _test_iconv_perf(cnv, iconv_case.buf, sizeof(iconv_case.buf), iconv_case.src, iconv_case.times);
+
+  return r;
+}
+
+static int _test_mbcs(char *buf, size_t sz, const char *src, const size_t times)
+{
+  int r = 0;
+  size_t n = 0;
+  const size_t src_len = strlen(src);
+  DUMP("times:%zd", times);
+
+  WCHAR ws[4096]; ws[0] = 0;
+  for (size_t i=0; i<times; ++i) {
+    buf[0] = '\0';
+    r = MultiByteToWideChar(CP_UTF8, 0, src, (int)src_len, ws, sizeof(ws) / sizeof(ws[0]));
+    if (r == 0) {
+      DUMP("convert1 failed:[0x%x]", GetLastError());
+      return -1;
+    }
+    // DUMP("convert1:%d", r);
+    // fprintf(stderr, "0x");
+    // for (int k = 0; k < r; ++k) {
+    //   fprintf(stderr, "%02x", ((unsigned char*)ws)[k*2]);
+    //   fprintf(stderr, "%02x", ((unsigned char*)ws)[k*2+1]);
+    // }
+    // fprintf(stderr, "\n");
+    BOOL used = FALSE;
+    // DUMP("r=%d",r);
+    r = WideCharToMultiByte(CP_ACP, 0, ws, r, buf, (int)(sz-1), NULL, &used);
+    if (r == 0) {
+      DUMP("convert2 failed:[0x%x]", GetLastError());
+      return -1;
+    }
+    if (used) {
+      DUMP("convert3 failed:[0x%x]", GetLastError());
+      return -1;
+    }
+    //DUMP("convert2:%d", r);
+    buf[r] = '\0';
+    // DUMP("====[%s]====", buf);
+  }
+
+  return 0;
+}
+
+static int test_mbcs(void)
+{
+  int r = 0;
+
+  r = _test_mbcs(iconv_case.buf, sizeof(iconv_case.buf), iconv_case.src, iconv_case.times);
 
   return r;
 }
@@ -1240,6 +1299,9 @@ static struct {
   RECORD(test_iconv),
   RECORD(test_iconv_perf_reuse),
   RECORD(test_iconv_perf_on_the_fly),
+#ifdef _WIN32              /* { */
+  RECORD(test_mbcs),
+#endif                     /* } */
   RECORD(test_strncpy),
   RECORD(test_snprintf),
   RECORD(test_buffer),

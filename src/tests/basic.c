@@ -1126,6 +1126,7 @@ static int test_iconv_perf_on_the_fly(void)
   return r;
 }
 
+#ifdef _WIN32              /* { */
 static int _test_mbcs(char *buf, size_t sz, const char *src, const size_t times)
 {
   int r = 0;
@@ -1175,6 +1176,7 @@ static int test_mbcs(void)
 
   return r;
 }
+#endif                     /* } */
 
 static int test_strncpy(void)
 {

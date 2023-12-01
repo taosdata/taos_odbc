@@ -483,6 +483,7 @@ static int run_query_with_cols(SQLHANDLE hstmt, col_binds_t *col_binds, SQLSMALL
       continue;
     }
   }
+  DUMP("%zd rows returned", nr_rows);
 
   return sr == SQL_SUCCESS ? 0 : -1;
 }

@@ -9,6 +9,10 @@
   x = NULL;                    \
 } while (0)
 
+#ifdef _WIN32        /* { */
+#define strcasecmp       _stricmp
+#endif               /* } */
+
 static void usage(const char *app)
 {
   fprintf(stderr, "usage:\n");

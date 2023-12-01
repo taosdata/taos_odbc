@@ -1047,19 +1047,29 @@ static int _test_iconv_perf_gen_iconv(iconv_t *cnv)
   return 0;
 }
 
-static int _test_iconv_perf(iconv_t cnv)
+typedef struct iconv_case_s         iconv_case_t;
+struct iconv_case_s {
+  size_t times;
+  char   *src;
+  char    buf[4096];
+};
+
+static iconv_case_t    iconv_case = {
+  .times = 1024 * 1024,
+  .src   = "heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+};
+
+static int _test_iconv_perf(iconv_t cnv, char *buf, size_t sz, const char *src, const size_t times)
 {
   int r = 0;
   size_t n = 0;
+  const size_t src_len = strlen(src);
 
-  const char src[] = "hello";
-  char buf[4096];
-
-  for (size_t i=0; i<1024*16; ++i) {
+  for (size_t i=0; i<times; ++i) {
     char          *inbuf                = (char*)src;
-    size_t         inbytesleft          = sizeof(src);
+    size_t         inbytesleft          = src_len;
     char          *outbuf               = buf;
-    size_t         outbytesleft         = sizeof(buf);
+    size_t         outbytesleft         = sz;
 
     if (cnv == NULL) {
       iconv_t cv;
@@ -1089,7 +1099,7 @@ static int test_iconv_perf_reuse(void)
   r = _test_iconv_perf_gen_iconv(&cnv);
   if (r) return -1;
 
-  r = _test_iconv_perf(cnv);
+  r = _test_iconv_perf(cnv, iconv_case.buf, sizeof(iconv_case.buf), iconv_case.src, iconv_case.times);
 
   iconv_close(cnv);
 
@@ -1102,10 +1112,27 @@ static int test_iconv_perf_on_the_fly(void)
 
   iconv_t cnv = NULL;
 
-  r = _test_iconv_perf(cnv);
+  r = _test_iconv_perf(cnv, iconv_case.buf, sizeof(iconv_case.buf), iconv_case.src, iconv_case.times);
 
   return r;
 }
+
+static int test_strncpy(void)
+{
+  for (size_t i=0; i<iconv_case.times; ++i) {
+    strncpy(iconv_case.buf, iconv_case.src, sizeof(iconv_case.buf));
+  }
+  return 0;
+}
+
+static int test_snprintf(void)
+{
+  for (size_t i=0; i<iconv_case.times; ++i) {
+    snprintf(iconv_case.buf, sizeof(iconv_case.buf), "%s", iconv_case.src);
+  }
+  return 0;
+}
+
 static int get_int(void)
 {
   static int tick = 0;
@@ -1213,6 +1240,8 @@ static struct {
   RECORD(test_iconv),
   RECORD(test_iconv_perf_reuse),
   RECORD(test_iconv_perf_on_the_fly),
+  RECORD(test_strncpy),
+  RECORD(test_snprintf),
   RECORD(test_buffer),
   RECORD(test_trim),
   RECORD(test_gettimeofday),
@@ -1257,6 +1286,14 @@ int main(int argc, char *argv[])
   int r = 0;
 
   int tested = 0;
+
+  const char *TIMES = getenv("TIMES");
+  if (TIMES) {
+    long long times = strtoll(TIMES, NULL, 0); // FIXME: error check
+    if (times > 0 && (size_t)times > iconv_case.times) {
+      iconv_case.times = (size_t)times;
+    }
+  }
 
   for (int i=1; i<argc; ++i) {
     if (strcmp(argv[i], "-h") == 0) {

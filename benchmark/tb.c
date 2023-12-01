@@ -245,7 +245,7 @@ static int run(handles_t *handles, int argc, char *argv[])
       changed = 1;
       continue;
     }
-    if (0 == strcasecmp(arg, "--conn")) {
+    if (0 == strcasecmp(arg, "conn")) {
       changed = 0;
       r = handles_connect(handles, ip, user, pass, db, port);
       if (r) return -1;

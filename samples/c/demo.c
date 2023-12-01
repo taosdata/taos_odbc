@@ -326,7 +326,10 @@ static int run_query_with_cols(SQLHANDLE hstmt, col_bind_t *cols, SQLSMALLINT nr
   size_t nr_rows = 0;
   while (sr == SQL_SUCCESS) {
     sr = CALL_SQLFetch(hstmt);
-    if (sr == SQL_NO_DATA) return 0;
+    if (sr == SQL_NO_DATA) {
+      DUMP("%zd rows fetched", nr_rows);
+      return 0;
+    }
     if (sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO) {
       if (display) DUMP("row[%zd]:", ++nr_rows);
       for (int i=0; i<nr_cols; ++i) {
@@ -338,6 +341,7 @@ static int run_query_with_cols(SQLHANDLE hstmt, col_bind_t *cols, SQLSMALLINT nr
       }
       if (display) DUMP("");
       sr = SQL_SUCCESS;
+      ++nr_rows;
       continue;
     }
   }

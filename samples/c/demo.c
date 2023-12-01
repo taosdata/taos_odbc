@@ -6,7 +6,36 @@
 
 #define DUMP(fmt, ...) fprintf(stderr, "[%d]:%s():" fmt "\n", __LINE__, __func__, ##__VA_ARGS__)
 
+// #define LOG_SQL_CALL
+#ifdef LOG_SQL_CALL                   /* { */
+#define MAKE_CALL(x) CALL_##x
+#else                                 /* }{ }*/
+#define MAKE_CALL(x) x
+#endif                                /* } */
+
+#define CALLX_SQLColAttribute                 MAKE_CALL(SQLColAttribute)
+#define CALLX_SQLBindCol                      MAKE_CALL(SQLBindCol)
+#define CALLX_SQLFetch                        MAKE_CALL(SQLFetch)
+#define CALLX_SQLAllocHandle                  MAKE_CALL(SQLAllocHandle)
+#define CALLX_SQLExecDirect                   MAKE_CALL(SQLExecDirect)
+#define CALLX_SQLNumResultCols                MAKE_CALL(SQLNumResultCols)
+#define CALLX_SQLRowCount                     MAKE_CALL(SQLRowCount)
+#define CALLX_SQLSetStmtAttr                  MAKE_CALL(SQLSetStmtAttr)
+#define CALLX_SQLPrepare                      MAKE_CALL(SQLPrepare)
+#define CALLX_SQLNumParams                    MAKE_CALL(SQLNumParams)
+#define CALLX_SQLDescribeParam                MAKE_CALL(SQLDescribeParam)
+#define CALLX_SQLBindParameter                MAKE_CALL(SQLBindParameter)
+#define CALLX_SQLExecute                      MAKE_CALL(SQLExecute)
+#define CALLX_SQLFreeHandle                   MAKE_CALL(SQLFreeHandle)
+#define CALLX_SQLDisconnect                   MAKE_CALL(SQLDisconnect)
+#define CALLX_SQLSetEnvAttr                   MAKE_CALL(SQLSetEnvAttr)
+#define CALLX_SQLSetConnectAttr               MAKE_CALL(SQLSetConnectAttr)
+#define CALLX_SQLConnect                      MAKE_CALL(SQLConnect)
+#define CALLX_SQLDriverConnect                MAKE_CALL(SQLDriverConnect)
+
+
 #ifdef _WIN32        /* { */
+#define strcasecmp       _stricmp
 #endif               /* } */
 
 static void usage(const char *app)
@@ -314,24 +343,24 @@ static int run_query_with_cols(SQLHANDLE hstmt, col_bind_t *cols, SQLSMALLINT nr
 
   for (int i=0; i<nr_cols; ++i) {
     col_bind_t *col = cols + i;
-    sr = CALL_SQLColAttribute(hstmt, i+1, SQL_DESC_DISPLAY_SIZE, NULL, 0, NULL, &col->attr);
+    sr = CALLX_SQLColAttribute(hstmt, i+1, SQL_DESC_DISPLAY_SIZE, NULL, 0, NULL, &col->attr);
     if (sr != SQL_SUCCESS) return -1;
-    sr = CALL_SQLColAttribute(hstmt, i+1, SQL_DESC_NAME, col->name, sizeof(col->name),  &col->len, NULL);
+    sr = CALLX_SQLColAttribute(hstmt, i+1, SQL_DESC_NAME, col->name, sizeof(col->name),  &col->len, NULL);
     if (sr != SQL_SUCCESS) return -1;
     DUMP("col[%d]:%s:len[%d]:attr[%" PRId64 "]", i+1, col->name, col->len, col->attr);
-    sr = CALL_SQLBindCol(hstmt, i+1, SQL_C_CHAR, col->value, sizeof(col->value), &col->value_ind_len);
+    sr = CALLX_SQLBindCol(hstmt, i+1, SQL_C_CHAR, col->value, sizeof(col->value), &col->value_ind_len);
     if (sr != SQL_SUCCESS) return -1;
   }
 
   size_t nr_rows = 0;
   while (sr == SQL_SUCCESS) {
-    sr = CALL_SQLFetch(hstmt);
+    sr = CALLX_SQLFetch(hstmt);
     if (sr == SQL_NO_DATA) {
       DUMP("%zd rows fetched", nr_rows);
       return 0;
     }
     if (sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO) {
-      if (display) DUMP("row[%zd]:", ++nr_rows);
+      if (display) DUMP("row[%zd]:", nr_rows);
       for (int i=0; i<nr_cols; ++i) {
         col_bind_t *col = cols + i;
         if (display) {
@@ -355,7 +384,7 @@ static int run_query_with_sql(handles_t *handles, const char *query, int display
   int r = 0;
 
   if (handles->hstmt == SQL_NULL_HSTMT) {
-    sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, handles->hdbc, &handles->hstmt);
+    sr = CALLX_SQLAllocHandle(SQL_HANDLE_STMT, handles->hdbc, &handles->hstmt);
     if (sr != SQL_SUCCESS) return -1;
   }
 
@@ -364,14 +393,14 @@ static int run_query_with_sql(handles_t *handles, const char *query, int display
   col_bind_t        *cols    = NULL;
   SQLSMALLINT        nr_cols = 0;
 
-  sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)query, SQL_NTS);
+  sr = CALLX_SQLExecDirect(hstmt, (SQLCHAR*)query, SQL_NTS);
   if (sr != SQL_SUCCESS) return -1;
 
-  sr = CALL_SQLNumResultCols(hstmt, &nr_cols);
+  sr = CALLX_SQLNumResultCols(hstmt, &nr_cols);
   if (sr != SQL_SUCCESS) return -1;
   if (nr_cols == 0) {
     SQLLEN nr_rows_affected = 0;
-    sr = CALL_SQLRowCount(hstmt, &nr_rows_affected);
+    sr = CALLX_SQLRowCount(hstmt, &nr_rows_affected);
     if (sr != SQL_SUCCESS) return -1;
     DUMP("%zd row(s) affected", (size_t)nr_rows_affected);
     return 0;
@@ -432,35 +461,35 @@ static int run_insert_with_options(handles_t *handles, const char *sql, size_t n
   }
 
   if (handles->hstmt == SQL_NULL_HSTMT) {
-    sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, handles->hdbc, &handles->hstmt);
+    sr = CALLX_SQLAllocHandle(SQL_HANDLE_STMT, handles->hdbc, &handles->hstmt);
     if (sr != SQL_SUCCESS) return -1;
   }
 
   // Set the SQL_ATTR_PARAM_BIND_TYPE statement attribute to use
   // column-wise binding.
-  sr = CALL_SQLSetStmtAttr(handles->hstmt, SQL_ATTR_PARAM_BIND_TYPE, SQL_PARAM_BIND_BY_COLUMN, 0);
+  sr = CALLX_SQLSetStmtAttr(handles->hstmt, SQL_ATTR_PARAM_BIND_TYPE, SQL_PARAM_BIND_BY_COLUMN, 0);
   if (sr != SQL_SUCCESS) return -1;
 
   // Specify the number of elements in each parameter array.
-  sr = CALL_SQLSetStmtAttr(handles->hstmt, SQL_ATTR_PARAMSET_SIZE, (SQLPOINTER)(uintptr_t)nr_rows, 0);
+  sr = CALLX_SQLSetStmtAttr(handles->hstmt, SQL_ATTR_PARAMSET_SIZE, (SQLPOINTER)(uintptr_t)nr_rows, 0);
   if (sr != SQL_SUCCESS) return -1;
 
   // Specify an array in which to return the status of each set of
   // parameters.
-  sr = CALL_SQLSetStmtAttr(handles->hstmt, SQL_ATTR_PARAM_STATUS_PTR, param_binds->ParamStatusPtr, 0);
+  sr = CALLX_SQLSetStmtAttr(handles->hstmt, SQL_ATTR_PARAM_STATUS_PTR, param_binds->ParamStatusPtr, 0);
   if (sr != SQL_SUCCESS) return -1;
 
   // Specify an SQLUINTEGER value in which to return the number of sets of
   // parameters processed.
-  sr = CALL_SQLSetStmtAttr(handles->hstmt, SQL_ATTR_PARAMS_PROCESSED_PTR, &param_binds->ParamsProcessed, 0);
+  sr = CALLX_SQLSetStmtAttr(handles->hstmt, SQL_ATTR_PARAMS_PROCESSED_PTR, &param_binds->ParamsProcessed, 0);
   if (sr != SQL_SUCCESS) return -1;
 
   SQLHANDLE hstmt = handles->hstmt;
-  sr = CALL_SQLPrepare(hstmt, (SQLCHAR*)sql, SQL_NTS);
+  sr = CALLX_SQLPrepare(hstmt, (SQLCHAR*)sql, SQL_NTS);
   if (sr != SQL_SUCCESS) return -1;
 
   SQLSMALLINT nr_params = 0;
-  sr = CALL_SQLNumParams(hstmt, &nr_params);
+  sr = CALLX_SQLNumParams(hstmt, &nr_params);
   if (sr != SQL_SUCCESS) return -1;
 
   for (SQLSMALLINT i=0; i<nr_params; ++i) {
@@ -468,7 +497,7 @@ static int run_insert_with_options(handles_t *handles, const char *sql, size_t n
     SQLULEN         ParameterSize;
     SQLSMALLINT     DecimalDigits;
     SQLSMALLINT     Nullable;
-    sr = CALL_SQLDescribeParam(hstmt, i+1, &DataType, &ParameterSize, &DecimalDigits, &Nullable);
+    sr = CALLX_SQLDescribeParam(hstmt, i+1, &DataType, &ParameterSize, &DecimalDigits, &Nullable);
     if (sr != SQL_SUCCESS) return -1;
     DUMP("DataType:[0x%x]%s;ParameterSize:%" PRIu64 ";DecimalDigits:%d;Nullable:%d",
         DataType, sql_data_type(DataType), ParameterSize, DecimalDigits, Nullable);
@@ -476,9 +505,9 @@ static int run_insert_with_options(handles_t *handles, const char *sql, size_t n
 
   for (size_t i=0; i<param_binds->nr; ++i) {
     param_bind_t *param_bind = param_binds->param_binds + i;
-    sr = CALL_SQLBindParameter(
+    sr = CALLX_SQLBindParameter(
         handles->hstmt,
-        param_bind->idx+1,
+        (SQLUSMALLINT)param_bind->idx+1,
         SQL_PARAM_INPUT,
         param_bind->ValueType,
         param_bind->ParameterType,
@@ -490,10 +519,10 @@ static int run_insert_with_options(handles_t *handles, const char *sql, size_t n
     if (sr != SQL_SUCCESS) return -1;
   }
 
-  sr = CALL_SQLExecute(handles->hstmt);
+  sr = CALLX_SQLExecute(handles->hstmt);
   if (sr != SQL_SUCCESS) return -1;
 
-  DUMP("processed:%lu", param_binds->ParamsProcessed);
+  DUMP("processed:%" PRIu64 "", (uint64_t)param_binds->ParamsProcessed);
 
   return 0;
 }
@@ -582,13 +611,13 @@ static int run_cmd(handles_t *handles, const char *cmd)
   int r = 0;
 
   if (handles->hstmt == SQL_NULL_HSTMT) {
-    sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, handles->hdbc, &handles->hstmt);
+    sr = CALLX_SQLAllocHandle(SQL_HANDLE_STMT, handles->hdbc, &handles->hstmt);
     if (sr != SQL_SUCCESS) return -1;
   }
 
   SQLHANDLE hstmt = handles->hstmt;
 
-  sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)cmd, SQL_NTS);
+  sr = CALLX_SQLExecDirect(hstmt, (SQLCHAR*)cmd, SQL_NTS);
   if (sr != SQL_SUCCESS) return -1;
 
   return r;
@@ -597,18 +626,18 @@ static int run_cmd(handles_t *handles, const char *cmd)
 static void handles_release(handles_t *handles)
 {
   if (handles->hstmt != SQL_NULL_HSTMT) {
-    CALL_SQLFreeHandle(SQL_HANDLE_STMT, handles->hstmt);
+    CALLX_SQLFreeHandle(SQL_HANDLE_STMT, handles->hstmt);
     handles->hstmt = SQL_NULL_HSTMT;
   }
 
   if (handles->hdbc != SQL_NULL_HDBC) {
-    CALL_SQLDisconnect(handles->hdbc);
-    CALL_SQLFreeHandle(SQL_HANDLE_DBC, handles->hdbc);
+    CALLX_SQLDisconnect(handles->hdbc);
+    CALLX_SQLFreeHandle(SQL_HANDLE_DBC, handles->hdbc);
     handles->hdbc = SQL_NULL_HDBC;
   }
 
   if (handles->henv != SQL_NULL_HENV) {
-    CALL_SQLFreeHandle(SQL_HANDLE_ENV, handles->henv);
+    CALLX_SQLFreeHandle(SQL_HANDLE_ENV, handles->henv);
     handles->henv = SQL_NULL_HENV;
   }
 }
@@ -616,12 +645,12 @@ static void handles_release(handles_t *handles)
 static void handles_disconnect(handles_t *handles)
 {
   if (handles->hstmt != SQL_NULL_HSTMT) {
-    CALL_SQLFreeHandle(SQL_HANDLE_STMT, handles->hstmt);
+    CALLX_SQLFreeHandle(SQL_HANDLE_STMT, handles->hstmt);
     handles->hstmt = SQL_NULL_HSTMT;
   }
 
   if (handles->hdbc != SQL_NULL_HDBC) {
-    CALL_SQLDisconnect(handles->hdbc);
+    CALLX_SQLDisconnect(handles->hdbc);
   }
 }
 
@@ -636,22 +665,22 @@ static int handles_connect(handles_t *handles, const char *dsn, const char *user
 
   handles_disconnect(handles);
   if (handles->henv == SQL_NULL_HANDLE) {
-    sr = CALL_SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &handles->henv);
+    sr = CALLX_SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &handles->henv);
     if (sr != SQL_SUCCESS) return -1;
-    sr = CALL_SQLSetEnvAttr(handles->henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER*)SQL_OV_ODBC3, 0);
+    sr = CALLX_SQLSetEnvAttr(handles->henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER*)SQL_OV_ODBC3, 0);
     if (sr != SQL_SUCCESS) return -1;
   }
 
   if (handles->hdbc == SQL_NULL_HANDLE) {
-    sr = CALL_SQLAllocHandle(SQL_HANDLE_DBC, handles->henv, &handles->hdbc);
+    sr = CALLX_SQLAllocHandle(SQL_HANDLE_DBC, handles->henv, &handles->hdbc);
     if (sr != SQL_SUCCESS) return -1;
   }
 
-  sr = CALL_SQLSetConnectAttr(handles->hdbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)0, 0);
+  sr = CALLX_SQLSetConnectAttr(handles->hdbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)0, 0);
   if (sr != SQL_SUCCESS) return -1;
 
-  if (dsn) sr = CALL_SQLConnect(handles->hdbc, (SQLCHAR*)dsn, SQL_NTS, (SQLCHAR*)user, SQL_NTS, (SQLCHAR*)pass, SQL_NTS);
-  else     sr = CALL_SQLDriverConnect(handles->hdbc, NULL, (SQLCHAR*)conn_str, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT);
+  if (dsn) sr = CALLX_SQLConnect(handles->hdbc, (SQLCHAR*)dsn, SQL_NTS, (SQLCHAR*)user, SQL_NTS, (SQLCHAR*)pass, SQL_NTS);
+  else     sr = CALLX_SQLDriverConnect(handles->hdbc, NULL, (SQLCHAR*)conn_str, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT);
   if (sr != SQL_SUCCESS) return -1;
 
   return 0;
@@ -776,7 +805,7 @@ int main(int argc, char *argv[])
     .hstmt   = SQL_NULL_HSTMT,
   };
 
-  srand(time(0));
+  srand((unsigned int)time(0));
 
   int r = process(&handles, argc, argv);
 

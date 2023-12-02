@@ -22,6 +22,7 @@
 #define CALLX_SQLColAttribute                 MAKE_CALL(SQLColAttribute)
 #define CALLX_SQLBindCol                      MAKE_CALL(SQLBindCol)
 #define CALLX_SQLFetch                        MAKE_CALL(SQLFetch)
+#define CALLX_SQLGetData                      MAKE_CALL(SQLGetData)
 #define CALLX_SQLAllocHandle                  MAKE_CALL(SQLAllocHandle)
 #define CALLX_SQLExecDirect                   MAKE_CALL(SQLExecDirect)
 #define CALLX_SQLNumResultCols                MAKE_CALL(SQLNumResultCols)
@@ -413,7 +414,7 @@ static int param_binds_add_i32(param_binds_t *param_binds)
   return 0;
 }
 
-static int run_query_with_cols(SQLHANDLE hstmt, col_binds_t *col_binds, SQLSMALLINT nr_cols, int display)
+static int run_query_with_cols(SQLHANDLE hstmt, col_binds_t *col_binds, SQLSMALLINT nr_cols, int display, int get_data)
 {
   SQLRETURN          sr;
   int r = 0;
@@ -442,8 +443,10 @@ static int run_query_with_cols(SQLHANDLE hstmt, col_binds_t *col_binds, SQLSMALL
     sr = CALLX_SQLColAttribute(hstmt, i+1, SQL_DESC_NAME, col_bind->name, sizeof(col_bind->name),  &col_bind->len, NULL);
     if (sr != SQL_SUCCESS) return -1;
     // DUMP("col_bind[%d]:%s:len[%d]:attr[%" PRId64 "]", i+1, col_bind->name, col_bind->len, col_bind->attr);
-    sr = CALLX_SQLBindCol(hstmt, i+1, col_bind->TargetType, col_bind->TargetValuePtr, col_bind->BufferLength, &col_bind->StrLen_or_Ind);
-    if (sr != SQL_SUCCESS) return -1;
+    if (!get_data) {
+      sr = CALLX_SQLBindCol(hstmt, i+1, col_bind->TargetType, col_bind->TargetValuePtr, col_bind->BufferLength, &col_bind->StrLen_or_Ind);
+      if (sr != SQL_SUCCESS) return -1;
+    }
   }
 
   size_t nr_rows = 0;
@@ -454,9 +457,16 @@ static int run_query_with_cols(SQLHANDLE hstmt, col_binds_t *col_binds, SQLSMALL
       return 0;
     }
     if (sr == SQL_SUCCESS || sr == SQL_SUCCESS_WITH_INFO) {
+      if (get_data) {
+        for (int i=0; i<nr_cols; ++i) {
+          col_bind_t *col_bind = col_binds->col_binds + i;
+          sr = CALLX_SQLGetData(hstmt, i+1, col_bind->TargetType, col_bind->TargetValuePtr, col_bind->BufferLength, &col_bind->StrLen_or_Ind);
+          if (sr != SQL_SUCCESS) return -1;
+        }
+      }
       if (display) fprintf(stderr, "row[%zd]:", nr_rows+1);
       for (int i=0; i<nr_cols; ++i) {
-      col_bind_t *col_bind = col_binds->col_binds + i;
+        col_bind_t *col_bind = col_binds->col_binds + i;
         if (display) {
           if (i) fprintf(stderr, ",");
           if (col_bind->StrLen_or_Ind == SQL_NULL_DATA) {
@@ -488,7 +498,7 @@ static int run_query_with_cols(SQLHANDLE hstmt, col_binds_t *col_binds, SQLSMALL
   return sr == SQL_SUCCESS ? 0 : -1;
 }
 
-static int run_query_with_sql(handles_t *handles, col_binds_t *col_binds, const char *query, int display)
+static int run_query_with_sql(handles_t *handles, col_binds_t *col_binds, const char *query, int display, int get_data)
 {
   SQLRETURN          sr;
   int r = 0;
@@ -521,13 +531,14 @@ static int run_query_with_sql(handles_t *handles, col_binds_t *col_binds, const 
     return -1;
   }
 
-  return run_query_with_cols(hstmt, col_binds, nr_cols, display);
+  return run_query_with_cols(hstmt, col_binds, nr_cols, display, get_data);
 }
 
 static int run_query_with_col_binds(handles_t *handles, col_binds_t *col_binds, int i, int argc, char *argv[])
 {
   int r = 0;
   int display = 0;
+  int get_data = 0;
 
   for (; i<argc; ++i) {
     const char *arg = argv[i];
@@ -537,7 +548,11 @@ static int run_query_with_col_binds(handles_t *handles, col_binds_t *col_binds, 
       display = 1;
       continue;
     }
-    r = run_query_with_sql(handles, col_binds, argv[i], display);
+    if (0 == strcasecmp(arg, "--get_data")) {
+      get_data = 1;
+      continue;
+    }
+    r = run_query_with_sql(handles, col_binds, argv[i], display, get_data);
     if (r) return -1;
   }
   return i;

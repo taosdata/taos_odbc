@@ -69,10 +69,11 @@ static int handles_connect(handles_t *handles, const char *ip, const char *user,
 
 static int handles_read_as_varchar(handles_t *handles, int display, int i, int j)
 {
-  if (taos_is_null(handles->res, i, j)) {
+  if (display ? taos_is_null(handles->res, i, j) : CALL_taos_is_null(handles->res, i, j) ) {
     if (display) fprintf(stderr, "[null]");
+    return 0;
   }
-  int *offsets = taos_get_column_data_offset(handles->res, j);
+  int *offsets = display ? taos_get_column_data_offset(handles->res, j) : CALL_taos_get_column_data_offset(handles->res, j);
   char *col = (char*)(handles->rows[j]);
   col += offsets[i];
   int16_t length = *(int16_t*)col;
@@ -83,8 +84,9 @@ static int handles_read_as_varchar(handles_t *handles, int display, int i, int j
 
 static int handles_read_as_int(handles_t *handles, int display, int i, int j)
 {
-  if (taos_is_null(handles->res, i, j)) {
+  if (display ? taos_is_null(handles->res, i, j) : CALL_taos_is_null(handles->res, i, j) ) {
     if (display) fprintf(stderr, "[null]");
+    return 0;
   }
   int32_t *col = (int32_t*)handles->rows[j];
   col += i;

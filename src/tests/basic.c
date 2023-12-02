@@ -1183,6 +1183,7 @@ static int test_strncpy(void)
   for (size_t i=0; i<iconv_case.times; ++i) {
     strncpy(iconv_case.buf, iconv_case.src, sizeof(iconv_case.buf));
   }
+  DUMP("%zd times passed", iconv_case.times);
   return 0;
 }
 
@@ -1191,6 +1192,7 @@ static int test_snprintf(void)
   for (size_t i=0; i<iconv_case.times; ++i) {
     snprintf(iconv_case.buf, sizeof(iconv_case.buf), "%s", iconv_case.src);
   }
+  DUMP("%zd times passed", iconv_case.times);
   return 0;
 }
 

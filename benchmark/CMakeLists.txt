@@ -42,7 +42,7 @@ add_executable(tb
 if(NOT TODBC_WINDOWS)
     target_link_libraries(tb taos)
 else()
-    target_link_libraries(tb odbc32)
+    target_link_libraries(tb taos)
     set_source_files_properties(tb.c PROPERTIES COMPILE_OPTIONS "/source-charset:utf-8")
 endif()
 

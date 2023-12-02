@@ -968,6 +968,7 @@ struct iconv_case_s {
   const char   *tocode;
   const char   *fromcode;
   const char   *src;
+  const char   *chk;
   char    buf[4096];
 };
 
@@ -976,7 +977,9 @@ static iconv_case_t    iconv_case = {
   .tocode = "GB18030",
   .fromcode = "UTF-8",
   // .src   = "\xe4\xb8\xad\xe6\x96\x87", //"中文";
+  // .chk   = "中文",
   .src   = "heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  .chk   = "heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
 };
 
 static int test_iconv(void)
@@ -1064,10 +1067,16 @@ static int _test_iconv_perf_gen_iconv(iconv_t *cnv)
   return 0;
 }
 
-static int _test_iconv_perf(iconv_t cnv, char *buf, size_t sz, const char *src, const size_t times)
+static int _test_iconv_perf(iconv_t cnv, iconv_case_t *iconv_case)
 {
   int r = 0;
   size_t n = 0;
+  char *buf = iconv_case->buf;
+  size_t sz = sizeof(iconv_case->buf) - 1;
+  const char *src = iconv_case->src;
+  const size_t times = iconv_case->times;
+  const char *chk = iconv_case->chk;
+
   const size_t src_len = strlen(src);
   DUMP("times:%zd", times);
 
@@ -1093,6 +1102,11 @@ static int _test_iconv_perf(iconv_t cnv, char *buf, size_t sz, const char *src, 
     }
 
     if (r) return -1;
+    *outbuf = '\0';
+    if (strcmp(chk, buf)) {
+      DUMP("does not match:[%s]<<<>>>>[%s]", buf, chk);
+      return -1;
+    }
     // DUMP("[%s]", buf);
   }
 
@@ -1108,7 +1122,7 @@ static int test_iconv_perf_reuse(void)
   if (r) return -1;
 
   iconv_case.buf[0] = '\0';
-  r = _test_iconv_perf(cnv, iconv_case.buf, sizeof(iconv_case.buf), iconv_case.src, iconv_case.times);
+  r = _test_iconv_perf(cnv, &iconv_case);
 
   iconv_close(cnv);
 
@@ -1121,14 +1135,19 @@ static int test_iconv_perf_on_the_fly(void)
 
   iconv_t cnv = NULL;
 
-  r = _test_iconv_perf(cnv, iconv_case.buf, sizeof(iconv_case.buf), iconv_case.src, iconv_case.times);
+  r = _test_iconv_perf(cnv, &iconv_case);
 
   return r;
 }
 
 #ifdef _WIN32              /* { */
-static int _test_mbcs(char *buf, size_t sz, const char *src, const size_t times)
+static int _test_mbcs(iconv_case_t *iconv_case)
 {
+  char *buf  = iconv_case->buf;
+  size_t sz  = sizeof(iconv_case->buf);
+  const char *src = iconv_case->src;
+  const char *chk = iconv_case->chk;
+  const size_t times = iconv_case->times;
   int r = 0;
   size_t n = 0;
   const size_t src_len = strlen(src);
@@ -1142,15 +1161,7 @@ static int _test_mbcs(char *buf, size_t sz, const char *src, const size_t times)
       DUMP("convert1 failed:[0x%x]", GetLastError());
       return -1;
     }
-    // DUMP("convert1:%d", r);
-    // fprintf(stderr, "0x");
-    // for (int k = 0; k < r; ++k) {
-    //   fprintf(stderr, "%02x", ((unsigned char*)ws)[k*2]);
-    //   fprintf(stderr, "%02x", ((unsigned char*)ws)[k*2+1]);
-    // }
-    // fprintf(stderr, "\n");
     BOOL used = FALSE;
-    // DUMP("r=%d",r);
     r = WideCharToMultiByte(CP_ACP, 0, ws, r, buf, (int)(sz-1), NULL, &used);
     if (r == 0) {
       DUMP("convert2 failed:[0x%x]", GetLastError());
@@ -1160,9 +1171,11 @@ static int _test_mbcs(char *buf, size_t sz, const char *src, const size_t times)
       DUMP("convert3 failed:[0x%x]", GetLastError());
       return -1;
     }
-    //DUMP("convert2:%d", r);
     buf[r] = '\0';
-    // DUMP("====[%s]====", buf);
+    if (strcmp(buf, chk)) {
+      DUMP("does not match:[%s]<<<>>>>[%s]", buf, chk);
+      return -1;
+    }
   }
 
   return 0;
@@ -1172,7 +1185,7 @@ static int test_mbcs(void)
 {
   int r = 0;
 
-  r = _test_mbcs(iconv_case.buf, sizeof(iconv_case.buf), iconv_case.src, iconv_case.times);
+  r = _test_mbcs(&iconv_case);
 
   return r;
 }

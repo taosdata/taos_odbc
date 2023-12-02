@@ -12,7 +12,7 @@
   x = NULL;                    \
 } while (0)
 
-// #define LOG_SQL_CALL
+#define LOG_SQL_CALL
 #ifdef LOG_SQL_CALL                   /* { */
 #define MAKE_CALL(x) CALL_##x
 #else                                 /* }{ }*/
@@ -503,7 +503,7 @@ static int run_query_with_sql(handles_t *handles, col_binds_t *col_binds, const 
   SQLSMALLINT        nr_cols = 0;
 
   sr = CALLX_SQLExecDirect(hstmt, (SQLCHAR*)query, SQL_NTS);
-  if (sr != SQL_SUCCESS) return -1;
+  if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) return -1;
 
   sr = CALLX_SQLNumResultCols(hstmt, &nr_cols);
   if (sr != SQL_SUCCESS) return -1;
@@ -631,7 +631,7 @@ static int run_insert_with_options(handles_t *handles, const char *sql, size_t n
   }
 
   sr = CALLX_SQLExecute(handles->hstmt);
-  if (sr != SQL_SUCCESS) return -1;
+  if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) return -1;
 
   DUMP("processed:%" PRIu64 "", (uint64_t)param_binds->ParamsProcessed);
 
@@ -729,7 +729,7 @@ static int run_cmd(handles_t *handles, const char *cmd)
   SQLHANDLE hstmt = handles->hstmt;
 
   sr = CALLX_SQLExecDirect(hstmt, (SQLCHAR*)cmd, SQL_NTS);
-  if (sr != SQL_SUCCESS) return -1;
+  if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) return -1;
 
   return r;
 }
@@ -792,7 +792,7 @@ static int handles_connect(handles_t *handles, const char *dsn, const char *user
 
   if (dsn) sr = CALLX_SQLConnect(handles->hdbc, (SQLCHAR*)dsn, SQL_NTS, (SQLCHAR*)user, SQL_NTS, (SQLCHAR*)pass, SQL_NTS);
   else     sr = CALLX_SQLDriverConnect(handles->hdbc, NULL, (SQLCHAR*)conn_str, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT);
-  if (sr != SQL_SUCCESS) return -1;
+  if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) return -1;
 
   return 0;
 }

@@ -148,12 +148,29 @@ static int col_binds_add_sql_varchar(col_binds_t *col_binds)
   return 0;
 }
 
+static int col_binds_add_sql_wvarchar(col_binds_t *col_binds)
+{
+  int r = 0;
+  r = col_binds_keep(col_binds, col_binds->nr + 1);
+  if (r) return -1;
+  col_bind_t *col_bind           = col_binds->col_binds + col_binds->nr;
+  col_bind->idx                  = col_binds->nr++;
+  col_bind->sql_type             = SQL_WVARCHAR;
+  col_bind->TargetType           = SQL_C_CHAR;
+  col_bind->TargetValuePtr       = (SQLPOINTER)col_bind->value;
+  col_bind->BufferLength         = sizeof(col_bind->value);
+  col_bind->StrLen_or_Ind        = 0;
+  return 0;
+}
+
 typedef enum param_type_e                param_type_t;
 enum param_type_e {
   param_type_ms,
   param_type_ms_str,
   param_type_str,
   param_type_i32,
+  param_type_flt,
+  param_type_dbl,
 };
 
 typedef struct param_bind_s              param_bind_t;
@@ -170,7 +187,10 @@ struct param_bind_s {
   char           *buf;
   size_t          sz;
   size_t          nr;
+
+  int64_t         ms;
 };
+
 typedef struct param_binds_s             param_binds_t;
 struct param_binds_s {
   param_bind_t        *param_binds;
@@ -233,6 +253,46 @@ static int bind_param_i32(param_bind_t *param_bind, size_t nr_rows)
   return 0;
 }
 
+static int bind_param_flt(param_bind_t *param_bind, size_t nr_rows)
+{
+  size_t sz = sizeof(float);
+
+  param_bind->ValueType              = SQL_C_FLOAT;
+  param_bind->ParameterType          = SQL_REAL;
+  param_bind->ColumnSize             = sz;
+  param_bind->DecimalDigits          = 0;
+  param_bind->buf = (char*)malloc(sz * nr_rows);
+  if (!param_bind->buf) {
+    DUMP("out of memory");
+    return -1;
+  }
+  param_bind->ParameterValuePtr      = (SQLPOINTER*)param_bind->buf;
+  param_bind->BufferLength           = sz;
+  param_bind->StrLen_or_IndPtr       = (SQLLEN*)malloc(nr_rows * sizeof(*param_bind->StrLen_or_IndPtr));
+
+  return 0;
+}
+
+static int bind_param_dbl(param_bind_t *param_bind, size_t nr_rows)
+{
+  size_t sz = sizeof(double);
+
+  param_bind->ValueType              = SQL_C_DOUBLE;
+  param_bind->ParameterType          = SQL_DOUBLE;
+  param_bind->ColumnSize             = sz;
+  param_bind->DecimalDigits          = 0;
+  param_bind->buf = (char*)malloc(sz * nr_rows);
+  if (!param_bind->buf) {
+    DUMP("out of memory");
+    return -1;
+  }
+  param_bind->ParameterValuePtr      = (SQLPOINTER*)param_bind->buf;
+  param_bind->BufferLength           = sz;
+  param_bind->StrLen_or_IndPtr       = (SQLLEN*)malloc(nr_rows * sizeof(*param_bind->StrLen_or_IndPtr));
+
+  return 0;
+}
+
 static int bind_param_str(param_bind_t *param_bind, size_t nr_rows)
 {
   size_t sz = 64; // TODO: dynamic and configurable
@@ -255,15 +315,11 @@ static int bind_param_str(param_bind_t *param_bind, size_t nr_rows)
 
 static int prepare_param_ms(param_bind_t *param_bind, size_t nr_rows)
 {
-  int64_t i64 = (int64_t)time(0);
-  i64 *= 1000;
-
   int64_t *p = (int64_t*)param_bind->buf;
   SQLLEN *pInd = param_bind->StrLen_or_IndPtr;
   for (size_t i=0; i<nr_rows; ++i) {
-    *p = i64;
+    *p = param_bind->ms++;
     *pInd = 0; // NOTE: null
-    ++i64;
     ++p;
     ++pInd;
   }
@@ -282,6 +338,48 @@ static int prepare_param_i32(param_bind_t *param_bind, size_t nr_rows)
     *pInd = 0; // NOTE: null
 
     i32 = rand();
+    ++p;
+    ++pInd;
+  }
+
+  return 0;
+}
+
+static int prepare_param_flt(param_bind_t *param_bind, size_t nr_rows)
+{
+  int32_t v = rand();
+  if (v == 0) v = 1;
+
+  float flt = rand();
+
+  float *p = (float*)param_bind->buf;
+  SQLLEN *pInd = param_bind->StrLen_or_IndPtr;
+  for (size_t i=0; i<nr_rows; ++i) {
+    *p = flt / v;
+    *pInd = 0; // NOTE: null
+
+    flt = rand();
+    ++p;
+    ++pInd;
+  }
+
+  return 0;
+}
+
+static int prepare_param_dbl(param_bind_t *param_bind, size_t nr_rows)
+{
+  int32_t v = rand();
+  if (v == 0) v = 1;
+
+  double dbl = rand();
+
+  double *p = (double*)param_bind->buf;
+  SQLLEN *pInd = param_bind->StrLen_or_IndPtr;
+  for (size_t i=0; i<nr_rows; ++i) {
+    *p = dbl / v;
+    *pInd = 0; // NOTE: null
+
+    dbl = rand();
     ++p;
     ++pInd;
   }
@@ -316,6 +414,10 @@ static int bind_param(param_bind_t *param_bind, size_t nr_rows)
       return bind_param_i32(param_bind, nr_rows);
     case param_type_str:
       return bind_param_str(param_bind, nr_rows);
+    case param_type_flt:
+      return bind_param_flt(param_bind, nr_rows);
+    case param_type_dbl:
+      return bind_param_dbl(param_bind, nr_rows);
     default:
       DUMP("unknown param_type:[0x%x]", param_bind->param_type);
       return -1;
@@ -331,6 +433,10 @@ static int prepare_param(param_bind_t *param_bind, size_t nr_rows)
       return prepare_param_i32(param_bind, nr_rows);
     case param_type_str:
       return prepare_param_str(param_bind, nr_rows);
+    case param_type_flt:
+      return prepare_param_flt(param_bind, nr_rows);
+    case param_type_dbl:
+      return prepare_param_dbl(param_bind, nr_rows);
     default:
       DUMP("unknown param_type:[0x%x]", param_bind->param_type);
       return -1;
@@ -374,6 +480,7 @@ static int param_binds_add_ms(param_binds_t *param_binds)
   param_bind_t *param_bind           = param_binds->param_binds + param_binds->nr;
   param_bind->idx                    = param_binds->nr++;
   param_bind->param_type             = param_type_ms;
+  param_bind->ms                     = ((int64_t)time(0)) * 1000;
   return 0;
 }
 
@@ -414,6 +521,28 @@ static int param_binds_add_i32(param_binds_t *param_binds)
   return 0;
 }
 
+static int param_binds_add_flt(param_binds_t *param_binds)
+{
+  int r = 0;
+  r = param_binds_keep(param_binds, param_binds->nr + 1);
+  if (r) return -1;
+  param_bind_t *param_bind           = param_binds->param_binds + param_binds->nr;
+  param_bind->idx                    = param_binds->nr++;
+  param_bind->param_type             = param_type_flt;
+  return 0;
+}
+
+static int param_binds_add_dbl(param_binds_t *param_binds)
+{
+  int r = 0;
+  r = param_binds_keep(param_binds, param_binds->nr + 1);
+  if (r) return -1;
+  param_bind_t *param_bind           = param_binds->param_binds + param_binds->nr;
+  param_bind->idx                    = param_binds->nr++;
+  param_bind->param_type             = param_type_dbl;
+  return 0;
+}
+
 static int run_query_with_cols(SQLHANDLE hstmt, col_binds_t *col_binds, SQLSMALLINT nr_cols, int display, int get_data)
 {
   SQLRETURN          sr;
@@ -430,6 +559,10 @@ static int run_query_with_cols(SQLHANDLE hstmt, col_binds_t *col_binds, SQLSMALL
         break;
       case SQL_VARCHAR:
         r = col_binds_add_sql_varchar(col_binds);
+        if (r) return -1;
+        break;
+      case SQL_WVARCHAR:
+        r = col_binds_add_sql_wvarchar(col_binds);
         if (r) return -1;
         break;
       default:
@@ -566,12 +699,12 @@ static int run_query(handles_t *handles, int i, int argc, char *argv[])
   return r;
 }
 
-static int run_insert_with_options(handles_t *handles, const char *sql, size_t nr_rows, param_binds_t *param_binds)
+static int run_insert_with_options(handles_t *handles, const char *sql, size_t nr_rows, size_t nr_batch, param_binds_t *param_binds)
 {
   SQLRETURN          sr;
   int r = 0;
 
-  param_binds->ParamStatusPtr = (SQLUSMALLINT*)calloc(nr_rows, sizeof(*param_binds->ParamStatusPtr));
+  param_binds->ParamStatusPtr = (SQLUSMALLINT*)calloc(nr_batch, sizeof(*param_binds->ParamStatusPtr));
   if (!param_binds->ParamStatusPtr) {
     DUMP("out of memory");
     return -1;
@@ -580,9 +713,7 @@ static int run_insert_with_options(handles_t *handles, const char *sql, size_t n
 
   for (size_t i=0; i<param_binds->nr; ++i) {
     param_bind_t *param_bind = param_binds->param_binds + i;
-    r = bind_param(param_bind, nr_rows);
-    if (r) return -1;
-    r = prepare_param(param_bind, nr_rows);
+    r = bind_param(param_bind, nr_batch);
     if (r) return -1;
   }
 
@@ -594,10 +725,6 @@ static int run_insert_with_options(handles_t *handles, const char *sql, size_t n
   // Set the SQL_ATTR_PARAM_BIND_TYPE statement attribute to use
   // column-wise binding.
   sr = CALLX_SQLSetStmtAttr(handles->hstmt, SQL_ATTR_PARAM_BIND_TYPE, SQL_PARAM_BIND_BY_COLUMN, 0);
-  if (sr != SQL_SUCCESS) return -1;
-
-  // Specify the number of elements in each parameter array.
-  sr = CALLX_SQLSetStmtAttr(handles->hstmt, SQL_ATTR_PARAMSET_SIZE, (SQLPOINTER)(uintptr_t)nr_rows, 0);
   if (sr != SQL_SUCCESS) return -1;
 
   // Specify an array in which to return the status of each set of
@@ -645,10 +772,29 @@ static int run_insert_with_options(handles_t *handles, const char *sql, size_t n
     if (sr != SQL_SUCCESS) return -1;
   }
 
-  sr = CALLX_SQLExecute(handles->hstmt);
-  if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) return -1;
+  size_t sz_total = 0;
 
-  DUMP("processed:%" PRIu64 "", (uint64_t)param_binds->ParamsProcessed);
+  for (size_t j=0; j<nr_rows; j+=nr_batch) {
+    size_t nr = nr_rows - j;
+    if (nr > nr_batch) nr = nr_batch;
+
+    for (size_t i=0; i<param_binds->nr; ++i) {
+      param_bind_t *param_bind = param_binds->param_binds + i;
+      r = prepare_param(param_bind, nr);
+      if (r) return -1;
+    }
+
+    // Specify the number of elements in each parameter array.
+    sr = CALLX_SQLSetStmtAttr(handles->hstmt, SQL_ATTR_PARAMSET_SIZE, (SQLPOINTER)(uintptr_t)nr, 0);
+    if (sr != SQL_SUCCESS) return -1;
+
+    sr = CALLX_SQLExecute(handles->hstmt);
+    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) return -1;
+
+    sz_total += param_binds->ParamsProcessed;
+  }
+
+  DUMP("processed:%" PRId64 "", (int64_t)sz_total);
 
   return 0;
 }
@@ -657,7 +803,8 @@ static int run_insert_with_param_binds(handles_t *handles, param_binds_t *param_
 {
   int r = 0;
 
-  size_t          nr_rows = 0;
+  size_t          nr_rows  = 0;
+  size_t          nr_batch = 0;
   const char     *sql     = NULL;
 
   for (; i<argc; ++i) {
@@ -670,6 +817,14 @@ static int run_insert_with_param_binds(handles_t *handles, param_binds_t *param_
         return -1;
       }
       nr_rows = strtoll(argv[i], NULL, 0); // TODO: error check
+      continue;
+    }
+    if (0 == strcasecmp(arg, "--batch")) {
+      if (++i >= argc) {
+        DUMP("<batch> is expected after --batch");
+        return -1;
+      }
+      nr_batch = strtoll(argv[i], NULL, 0); // TODO: error check
       continue;
     }
     if (0 == strcasecmp(arg, "--sql")) {
@@ -707,6 +862,16 @@ static int run_insert_with_param_binds(handles_t *handles, param_binds_t *param_
           if (r) return -1;
           continue;
         }
+        if (0 == strcasecmp(arg, "flt")) {
+          r = param_binds_add_flt(param_binds);
+          if (r) return -1;
+          continue;
+        }
+        if (0 == strcasecmp(arg, "dbl")) {
+          r = param_binds_add_dbl(param_binds);
+          if (r) return -1;
+          continue;
+        }
         DUMP("unknown argument:%s", arg);
         return -1;
       }
@@ -716,7 +881,9 @@ static int run_insert_with_param_binds(handles_t *handles, param_binds_t *param_
     return -1;
   }
 
-  r = run_insert_with_options(handles, sql, nr_rows, param_binds);
+  if (nr_batch == 0) nr_batch = 1024000;
+
+  r = run_insert_with_options(handles, sql, nr_rows, nr_batch, param_binds);
   if (r) return -1;
 
   return i;

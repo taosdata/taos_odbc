@@ -350,7 +350,7 @@ static int prepare_param_flt(param_bind_t *param_bind, size_t nr_rows)
   int32_t v = rand();
   if (v == 0) v = 1;
 
-  float flt = rand();
+  float flt = (float)rand();
 
   float *p = (float*)param_bind->buf;
   SQLLEN *pInd = param_bind->StrLen_or_IndPtr;
@@ -358,7 +358,7 @@ static int prepare_param_flt(param_bind_t *param_bind, size_t nr_rows)
     *p = flt / v;
     *pInd = 0; // NOTE: null
 
-    flt = rand();
+    flt = (float)rand();
     ++p;
     ++pInd;
   }
@@ -371,7 +371,7 @@ static int prepare_param_dbl(param_bind_t *param_bind, size_t nr_rows)
   int32_t v = rand();
   if (v == 0) v = 1;
 
-  double dbl = rand();
+  double dbl = (double)rand();
 
   double *p = (double*)param_bind->buf;
   SQLLEN *pInd = param_bind->StrLen_or_IndPtr;
@@ -379,7 +379,7 @@ static int prepare_param_dbl(param_bind_t *param_bind, size_t nr_rows)
     *p = dbl / v;
     *pInd = 0; // NOTE: null
 
-    dbl = rand();
+    dbl = (double)rand();
     ++p;
     ++pInd;
   }

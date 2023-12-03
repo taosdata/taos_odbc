@@ -2324,9 +2324,9 @@ static int test_SQLColumns(SQLHANDLE hstmt)
   SQLRETURN sr = SQL_SUCCESS;
 
   const char *sqls[] = {
-    "drop database if exists foo",
-    "create database foo",
-    "use foo",
+    "drop database if exists foobar",
+    "create database foobar",
+    "use foobar",
     "create table bar (ts timestamp, name varchar(20), f float)",
   };
 

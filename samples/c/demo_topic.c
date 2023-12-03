@@ -209,9 +209,9 @@ static int topic_demo_with_stmt(const arg_t *arg, SQLHANDLE hstmt)
   if (0) {
     const char *sqls[] = {
       "drop topic if exists demo",
-      "drop database if exists bar",
-      "create database bar WAL_RETENTION_PERIOD 2592000",
-      "use bar",
+      "drop database if exists foo",
+      "create database foo WAL_RETENTION_PERIOD 2592000",
+      "use foo",
     };
 
     r = execute_sqls(hstmt, sqls, sizeof(sqls)/sizeof(sqls[0]));

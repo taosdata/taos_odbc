@@ -711,7 +711,7 @@ async function test_sql_server() {
 
 async function test_chars(conn_str, ws) {
   const conn = await odbc.connect(conn_str);
-  var result = await conn.query('select name, mark from bar.x');
+  var result = await conn.query('select name, mark from foo.x');
   rows = await rs_collect(result);
   console.log(rows);
   await conn.close();

@@ -756,7 +756,7 @@ static int test_url_parser(void)
     RECORD("http://example.com/h/g?fasd?fsd=fsd#fasd", "http://example.com/h/g?fasd?fsd=fsd#fasd"),
     RECORD("foo://example.com:8042/over/there?name=ferret#nose", "foo://example.com:8042/over/there?name=ferret#nose"),
     RECORD("http://192.168.0.1", "http://192.168.0.1"),
-    RECORD("http://foo:bar@255.255.255.255/root?name=foo?age=3?path=/fad#first?what", "http://foo:bar@255.255.255.255/root?name=foo?age=3?path=/fad#first?what"),
+    RECORD("http://foo:foo@255.255.255.255/root?name=foo?age=3?path=/fad#first?what", "http://foo:foo@255.255.255.255/root?name=foo?age=3?path=/fad#first?what"),
     RECORD("http://example.com/~/h/g?fda%5e~", "http://example.com/~/h/g?fda%5e~"),
     RECORD("http://example.com/~/%5eh/g%5e?fda%5e~", "http://example.com/~/%5eh/g%5e?fda%5e~"),
     RECORD("http://f%5eoo:b%5eh@192.168.0.1", "http://f%5eoo:b%5eh@192.168.0.1"),
@@ -902,12 +902,12 @@ static int test_wildmatch(void)
 
 static int test_basename_dirname(void)
 {
-  const char *path = "/Users/foo/bar.txt";
+  const char *path = "/Users/foo/foo.txt";
   char buf[PATH_MAX + 1];
   char *p;
   p = tod_basename(path, buf, sizeof(buf));
-  if (strcmp(p, "bar.txt")) {
-    E("`bar.txt` expected, but got ==%s==", p);
+  if (strcmp(p, "foo.txt")) {
+    E("`foo.txt` expected, but got ==%s==", p);
     return -1;
   }
   p = tod_dirname(path, buf, sizeof(buf));

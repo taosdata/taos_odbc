@@ -793,7 +793,7 @@ int main(int argc, char *argv[])
   int r = 0;
 
   taos_conn_cfg_t cfg = {0};
-  cfg.db = "bar";
+  cfg.db = "foo";
   cfg.rows = 32767; // INT16_MAX
 
   for (int i=1; i<argc; ++i) {

@@ -66,6 +66,11 @@ static void _init_charset(void)
 #ifdef _WIN32
   UINT acp = GetACP();
   switch (acp) {
+    case 437:
+    case 850:
+    case 858:
+      snprintf(_c_charset, sizeof(_c_charset), "cp850");
+      break;    
     case 936:
       snprintf(_c_charset, sizeof(_c_charset), "GB18030");
       break;

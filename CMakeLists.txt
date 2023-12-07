@@ -32,7 +32,6 @@ option(ENABLE_MYSQL_TEST "whether to test with mysql or not" OFF)
 option(ENABLE_SQLITE3_TEST "whether to test with sqlite3 or not" OFF)
 option(ENABLE_SQLSERVER_TEST "whether to test with sqlserver or not" OFF)
 option(FAKE_TAOS "whether to fake `taos` or not" OFF)
-option(USE_WIN_ICONV "whether to use win-iconv or not" OFF)
 
 # experimental
 option(BUILD_TAOSWSD_EXPERIMENTAL "whether to build `taoswsd` or not" OFF)
@@ -52,6 +51,7 @@ set(CMAKE_CXX_STANDARD 11)
 
 if (TODBC_WINDOWS)
   option(DISABLE_C5105 "whether to disable compiler warning C5105 or not" OFF)
+  option(USE_WIN_ICONV "whether to use win-iconv or not" OFF)
 endif()
 
 if(NOT TODBC_WINDOWS)
@@ -153,6 +153,8 @@ add_subdirectory(tests)
 add_subdirectory(samples)
 add_subdirectory(benchmark)
 
-if(USE_WIN_ICONV)
-  message(WARNING "you have chosen to use win-iconv, which is supposed to downgrade performance")
+if (TODBC_WINDOWS)
+  if(USE_WIN_ICONV)
+    message(WARNING "you have chosen to use win-iconv, which is supposed to downgrade performance")
+  endif()
 endif()

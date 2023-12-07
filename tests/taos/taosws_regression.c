@@ -69,7 +69,7 @@ static void _init_charset(void)
     case 437:
     case 850:
     case 858:
-      snprintf(_c_charset, sizeof(_c_charset), "cp850");
+      snprintf(_c_charset, sizeof(_c_charset), "CP850");
       break;    
     case 936:
       snprintf(_c_charset, sizeof(_c_charset), "GB18030");

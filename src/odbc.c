@@ -130,7 +130,7 @@ static void _init_charsets(void)
     case 437:
     case 850:
     case 858:
-      snprintf(_global.sqlc_charset, sizeof(_global.sqlc_charset), "cp850");
+      snprintf(_global.sqlc_charset, sizeof(_global.sqlc_charset), "CP850");
       break;
     case 936:
       snprintf(_global.sqlc_charset, sizeof(_global.sqlc_charset), "GB18030");

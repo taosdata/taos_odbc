@@ -171,28 +171,26 @@ static void ucs4_to_utf16(uint32_t wc, uint16_t *wbuf, int32_t *wbufsize)
 
 static int iconv_get_acp(const char *code, cpinfo_t *info)
 {
-  if (0 == tod_strcasecmp(code, "GB18030")) {
-    info->cp = 54936;
-    goto cpinfo;
-  }
+#define RECORD(x, y) { x, y}
+  struct {
+    const char          *name;
+    UINT                 cp;
+  } names[] = {
+    RECORD("GB18030",        54936),
+    RECORD("UTF8",           CP_UTF8),
+    RECORD("UTF-8",          CP_UTF8),
+    RECORD("UCS-2LE",        1200),
+    RECORD("UCS-4LE",        12000),
+    RECORD("CP437",          437),
+    RECORD("CP850",          850),
+    RECORD("CP858",          858),
+  };
+  const size_t nr_names = sizeof(names) / sizeof(names[0]);
+#undef RECORD
 
-  if (0 == tod_strcasecmp(code, "UTF-8")) {
-    info->cp = 65001;
-    goto cpinfo;
-  }
-
-  if (0 == tod_strcasecmp(code, "UCS-4LE")) {
-    info->cp = 12000;
-    goto cpinfo;
-  }
-
-  if (0 == tod_strcasecmp(code, "UCS-2LE")) {
-    info->cp = 1200;
-    goto cpinfo;
-  }
-
-  if (0 == tod_strcasecmp(code, "UTF-8") || 0 == tod_strcasecmp(code, "UTF8")) {
-    info->cp = CP_UTF8;
+  for (size_t i=0; i<nr_names; ++i) {
+    if (tod_strcasecmp(code, names[i].name)) continue;
+    info->cp = names[i].cp;
     goto cpinfo;
   }
 

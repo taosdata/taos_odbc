@@ -65,7 +65,7 @@ macro(check_requirements)
   include(ExternalProject)
 
   ## prepare `cjson`
-  set(CJSON_INSTALL_PATH ${TAOS_ODBC_LOCAL_REPO}/install)
+  set(CJSON_INSTALL_PATH ${TAOS_ODBC_LOCAL_REPO}/install/cjson)
   ExternalProject_Add(ex_cjson
       GIT_REPOSITORY https://github.com/taosdata-contrib/cJSON.git
       GIT_TAG v1.7.15
@@ -77,8 +77,8 @@ macro(check_requirements)
       )
 
   ## prepare `iconv`
-  if(TODBC_WINDOWS)
-    set(ICONV_INSTALL_PATH ${TAOS_ODBC_LOCAL_REPO}/install)
+  if(TODBC_WINDOWS AND USE_WIN_ICONV)
+    set(ICONV_INSTALL_PATH ${TAOS_ODBC_LOCAL_REPO}/install/iconv)
     ExternalProject_Add(ex_iconv
         GIT_REPOSITORY https://github.com/win-iconv/win-iconv.git
         GIT_TAG v0.0.8

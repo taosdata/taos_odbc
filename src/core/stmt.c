@@ -404,8 +404,173 @@ static void _stmt_reset_primarykeys(stmt_t *stmt)
   primarykeys_reset(&stmt->primarykeys);
 }
 
+#ifdef USE_TICK_TO_DEBUG                 /* { */
+static void _ticks_reset(ticks_t *ticks)
+{
+  ticks->idx = 0;
+
+  ticks->max_delta = INT64_MIN;
+  ticks->min_delta = INT64_MAX;
+  ticks->total_delta = 0;
+
+  ticks->max_interval = INT64_MIN;
+  ticks->min_interval = INT64_MAX;
+  ticks->total_interval = 0;
+}
+
+static void _stmt_reset_ticks(stmt_t *stmt)
+{
+  _ticks_reset(&stmt->ticks_for_SQLGetData);
+  _ticks_reset(&stmt->ticks_for_fetch_block);
+}
+
+static void _ticks_release(ticks_t *ticks)
+{
+  TOD_SAFE_FREE(ticks->ticks)
+  ticks->sz = 0;
+  ticks->idx = 0;
+}
+
+static void _stmt_release_ticks(stmt_t *stmt)
+{
+  _ticks_release(&stmt->ticks_for_SQLGetData);
+  _ticks_release(&stmt->ticks_for_fetch_block);
+}
+
+static void _ticks_init(ticks_t *ticks)
+{
+  ticks->idx = 0;
+
+  ticks->max_delta = INT64_MIN;
+  ticks->min_delta = INT64_MAX;
+  ticks->total_delta = 0;
+
+  ticks->max_interval = INT64_MIN;
+  ticks->min_interval = INT64_MAX;
+  ticks->total_interval = 0;
+
+  QueryPerformanceFrequency(&ticks->freq);
+}
+
+static int _stmt_init_ticks(stmt_t *stmt)
+{
+  const size_t ticks = 102600001;
+
+  stmt->ticks_for_SQLGetData.ticks = (tick_t*)calloc(ticks, sizeof(*stmt->ticks_for_SQLGetData.ticks));
+  if (!stmt->ticks_for_SQLGetData.ticks) return -1;
+  stmt->ticks_for_SQLGetData.sz = ticks;
+  _ticks_init(&stmt->ticks_for_SQLGetData);
+
+  stmt->ticks_for_fetch_block.ticks = (tick_t*)calloc(ticks, sizeof(*stmt->ticks_for_SQLGetData.ticks));
+  if (!stmt->ticks_for_fetch_block.ticks) return -1;
+  stmt->ticks_for_fetch_block.sz = ticks;
+  _ticks_init(&stmt->ticks_for_fetch_block);
+
+  return 0;
+}
+
+static int _ticks_enter(ticks_t *ticks)
+{
+  if (ticks->idx >= ticks->sz) return -1;
+  tick_t *tick = ticks->ticks + ticks->idx;
+#ifdef _WIN32               /* { */
+  QueryPerformanceCounter(&tick->enter);
+#else                       /* }{ */
+  clock_gettime(CLOCK_MONOTONIC_RAW, &tick->enter);
+#endif                      /* } */
+  return 0;
+}
+
+#ifdef _WIN32               /* { */
+static int64_t _ticks_delta(ticks_t *ticks, LARGE_INTEGER *t0, LARGE_INTEGER *t1)
+{
+  int64_t delta = 0;
+  delta  = t1->QuadPart - t0->QuadPart;
+  delta *= 1000000000;
+  delta /= ticks->freq.QuadPart;
+  return delta;
+}
+#else                       /* }{ */
+static int64_t _ticks_delta(ticks_t *ticks, struct timespec *t0, struct timespec *t1)
+{
+  int64_t delta = 0;
+  delta = t1->tv_sec - t0->tv_sec;
+  delta *= 1000000000;
+  delta += t1->tv_nsec - t0->tv_nsec;
+  return delta;
+}
+#endif                      /* } */
+
+static void _ticks_leave(ticks_t *ticks)
+{
+  if (ticks->idx >= ticks->sz) return;
+  tick_t *tick = ticks->ticks + ticks->idx;
+
+#ifdef _WIN32               /* { */
+  QueryPerformanceCounter(&tick->leave);
+#else                       /* }{ */
+  clock_gettime(CLOCK_MONOTONIC_RAW, &tick->leave);
+#endif                      /* } */
+
+  int64_t delta = _ticks_delta(ticks, &tick->enter, &tick->leave);
+  if (delta > ticks->max_delta) ticks->max_delta = delta;
+  if (delta < ticks->min_delta) ticks->min_delta = delta;
+  ticks->total_delta += delta;
+
+  ticks->idx += 1;
+  if (ticks->idx > 1) {
+    delta = _ticks_delta(ticks, &(tick-1)->enter, &tick->enter);
+    if (delta > ticks->max_interval) ticks->max_interval = delta;
+    if (delta < ticks->min_interval) ticks->min_interval = delta;
+    ticks->total_interval += delta;
+  }
+}
+
+static int _stmt_enter_SQLGetData(stmt_t *stmt)
+{
+  return _ticks_enter(&stmt->ticks_for_SQLGetData);
+}
+
+static void _stmt_leave_SQLGetData(stmt_t *stmt)
+{
+  _ticks_leave(&stmt->ticks_for_SQLGetData);
+}
+
+int stmt_enter_fetch_block(stmt_t *stmt)
+{
+  return _ticks_enter(&stmt->ticks_for_fetch_block);
+}
+
+void stmt_leave_fetch_block(stmt_t *stmt)
+{
+  _ticks_leave(&stmt->ticks_for_fetch_block);
+}
+
+static void ticks_report(ticks_t *ticks, const char *title, size_t minimum)
+{
+  if (ticks->idx < minimum) return;
+  OE("%s:   delta:max[%10" PRId64 "ns];min[%10" PRId64 "ns];nr[%10" PRId64 "];avg:[%10" PRId64 "]",
+    title, ticks->max_delta, ticks->min_delta, ticks->idx,
+    (ticks->total_delta) / ticks->idx);
+  OE("%s:interval:max[%10" PRId64 "ns];min[%10" PRId64 "ns];nr[%10" PRId64 "];avg:[%10" PRId64 "]",
+    title, ticks->max_interval, ticks->min_interval, ticks->idx,
+    (ticks->total_interval) / ticks->idx);
+  OE("\n");
+}
+
+static void _stmt_report_ticks(stmt_t *stmt)
+{
+  ticks_report(&stmt->ticks_for_SQLGetData,  "      SQLGetData", 102400);
+  ticks_report(&stmt->ticks_for_fetch_block, "taos_fetch_block", 20);
+  _stmt_reset_ticks(stmt);
+}
+#endif                                   /* } */
+
 static void _stmt_close_result(stmt_t *stmt)
 {
+#ifdef USE_TICK_TO_DEBUG                 /* { */
+  _stmt_report_ticks(stmt);
+#endif                                   /* } */
   _stmt_reset_result(stmt);
   stmt->base = &stmt->tsdb_stmt.base;
 }
@@ -567,6 +732,9 @@ static void _stmt_release(stmt_t *stmt)
   _sqls_release(&stmt->sqls);
   _param_state_release(&stmt->param_state);
   _params_bind_meta_release(&stmt->params_bind_meta);
+#ifdef USE_TICK_TO_DEBUG                 /* { */
+  _stmt_release_ticks(stmt);
+#endif                                   /* } */
 
   conn_unref(stmt->conn);
   stmt->conn = NULL;
@@ -581,6 +749,16 @@ stmt_t* stmt_create(conn_t *conn)
     conn_oom(conn);
     return NULL;
   }
+#ifdef USE_TICK_TO_DEBUG                 /* { */
+  int r = 0;
+  if (r == 0) r = _stmt_init_ticks(stmt);
+  if (r) {
+    _stmt_release_ticks(stmt);
+    TOD_SAFE_FREE(stmt);
+    conn_oom(conn);
+    return NULL;
+  }
+#endif                                   /* } */
 
   tod_list_add_tail(&stmt->node, &conn->stmts);
   conn->nr_stmts += 1;
@@ -2455,7 +2633,7 @@ static SQLRETURN _stmt_get_data_x(stmt_t *stmt, stmt_get_data_args_t *args)
   return _stmt_get_data_copy(stmt, args);
 }
 
-SQLRETURN stmt_get_data(
+SQLRETURN _stmt_get_data_impl(
     stmt_t        *stmt,
     SQLUSMALLINT   Col_or_Param_Num,
     SQLSMALLINT    TargetType,
@@ -2495,6 +2673,33 @@ SQLRETURN stmt_get_data(
   };
 
   sr = _stmt_get_data_x(stmt, &args);
+  return sr;
+}
+
+SQLRETURN stmt_get_data(
+    stmt_t        *stmt,
+    SQLUSMALLINT   Col_or_Param_Num,
+    SQLSMALLINT    TargetType,
+    SQLPOINTER     TargetValuePtr,
+    SQLLEN         BufferLength,
+    SQLLEN        *StrLen_or_IndPtr)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+#ifdef USE_TICK_TO_DEBUG                 /* { */
+  int r = 0;
+  r = _stmt_enter_SQLGetData(stmt);
+  if (r) {
+    stmt_append_err(stmt, "HY000", 0, "General error:internal logic error");
+    return SQL_ERROR;
+  }
+#endif                                   /* } */
+
+  sr = _stmt_get_data_impl(stmt, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, StrLen_or_IndPtr);
+#ifdef USE_TICK_TO_DEBUG                 /* { */
+  _stmt_leave_SQLGetData(stmt);
+#endif                                   /* } */
+
   return sr;
 }
 
@@ -7044,6 +7249,9 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
 
     sr = stmt->base->execute(stmt->base);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
+#ifdef USE_TICK_TO_DEBUG                 /* { */
+    _stmt_reset_ticks(stmt);
+#endif                                   /* } */
 
     if (param_state->row_err) return SQL_SUCCESS_WITH_INFO;
   }
@@ -7116,7 +7324,11 @@ static SQLRETURN _stmt_execute(stmt_t *stmt)
     return _stmt_execute_with_params(stmt);
   }
 
-  return stmt->base->execute(stmt->base);
+  SQLRETURN sr = stmt->base->execute(stmt->base);
+#ifdef USE_TICK_TO_DEBUG                 /* { */
+  _stmt_reset_ticks(stmt);
+#endif                                   /* } */
+  return sr;
 }
 
 static SQLRETURN _stmt_exec_direct(stmt_t *stmt)
@@ -7810,6 +8022,9 @@ SQLRETURN stmt_more_results(
   }
 
   if (stmt->base == &stmt->tsdb_stmt.base) {
+#ifdef USE_TICK_TO_DEBUG                 /* { */
+    _stmt_report_ticks(stmt);
+#endif                                   /* } */
     sr = _stmt_get_next_sql(stmt);
     if (sr == SQL_NO_DATA) return SQL_NO_DATA;
     if (sr != SQL_SUCCESS) return SQL_ERROR;

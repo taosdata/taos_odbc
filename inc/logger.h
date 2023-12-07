@@ -27,6 +27,10 @@
 
 #include "macros.h"
 
+#ifdef _WIN32      /* { */
+#include <stdio.h>
+#endif             /* } */
+
 typedef enum logger_level_e {
   LOGGER_VERBOSE,
   LOGGER_DEBUG,

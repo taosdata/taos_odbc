@@ -27,7 +27,7 @@
 
 #include "macros.h"
 
-#include <iconv.h>
+#include "iconv_wrapper.h"
 
 #include <stdarg.h>
 #include <stdlib.h>

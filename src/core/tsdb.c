@@ -932,7 +932,14 @@ static SQLRETURN _tsdb_stmt_fetch_rows_block(tsdb_stmt_t *stmt)
     rows_block->pos    = 0;
   } else {
 #endif                       /* ] */
+#ifdef USE_TICK_TO_DEBUG                 /* { */
+    int r = stmt_enter_fetch_block(stmt->owner);
+    OA_ILE(r == 0);
+#endif                                   /* } */
     nr_rows = CALL_taos_fetch_block(res->res, &rows);
+#ifdef USE_TICK_TO_DEBUG                 /* { */
+    stmt_leave_fetch_block(stmt->owner);
+#endif                                   /* } */
     if (nr_rows == 0) return SQL_NO_DATA;
     rows_block->rows   = rows;
     rows_block->nr     = nr_rows;

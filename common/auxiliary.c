@@ -26,7 +26,7 @@
 
 #include "helpers.h"
 
-#include <iconv.h>
+#include "iconv_wrapper.h"
 
 #include <errno.h>
 #ifndef _WIN32

@@ -29,7 +29,9 @@ set(conn_parser_SOURCES
 
 add_library(conn_parser_obj OBJECT ${conn_parser_SOURCES})
 if(TODBC_WINDOWS)
-    add_dependencies(conn_parser_obj ex_iconv)
+    if(USE_WIN_ICONV)
+        add_dependencies(conn_parser_obj ex_iconv)
+    endif()
 endif()
 target_include_directories(conn_parser_obj PRIVATE
     ${INTERNAL_INC_PATH})
@@ -45,7 +47,9 @@ set(ext_parser_SOURCES
 
 add_library(ext_parser_obj OBJECT ${ext_parser_SOURCES})
 if(TODBC_WINDOWS)
-    add_dependencies(ext_parser_obj ex_iconv)
+    if(USE_WIN_ICONV)
+        add_dependencies(ext_parser_obj ex_iconv)
+    endif()
 endif()
 target_include_directories(ext_parser_obj PRIVATE
     ${INTERNAL_INC_PATH})
@@ -61,7 +65,9 @@ set(sqls_parser_SOURCES
 
 add_library(sqls_parser_obj OBJECT ${sqls_parser_SOURCES})
 if(TODBC_WINDOWS)
-    add_dependencies(sqls_parser_obj ex_iconv)
+    if(USE_WIN_ICONV)
+        add_dependencies(sqls_parser_obj ex_iconv)
+    endif()
 endif()
 target_include_directories(sqls_parser_obj PRIVATE
     ${INTERNAL_INC_PATH})
@@ -75,7 +81,9 @@ set(url_parser_SOURCES
 
 add_library(url_parser_obj OBJECT ${url_parser_SOURCES})
 if(TODBC_WINDOWS)
-    add_dependencies(url_parser_obj ex_iconv)
+    if(USE_WIN_ICONV)
+        add_dependencies(url_parser_obj ex_iconv)
+    endif()
 endif()
 target_include_directories(url_parser_obj PRIVATE
     ${INTERNAL_INC_PATH})

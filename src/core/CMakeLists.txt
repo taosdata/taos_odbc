@@ -46,7 +46,9 @@ endif()
 
 add_library(core_obj OBJECT ${core_SOURCES})
 if(TODBC_WINDOWS)
-    add_dependencies(core_obj ex_iconv)
+    if(USE_WIN_ICONV)
+        add_dependencies(core_obj ex_iconv)
+    endif()
 endif()
 target_include_directories(core_obj PRIVATE
     ${INTERNAL_INC_PATH}

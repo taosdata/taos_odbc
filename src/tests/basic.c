@@ -962,6 +962,41 @@ static int test_pthread_once(void)
   return 0;
 }
 
+static int test_iconv_names(void)
+{
+#define RECORD(x) {x, __LINE__}
+  struct {
+    const char           *name;
+    int                   line;
+  } _cases[] = {
+    RECORD("GB18030"),
+    RECORD("UTF8"),
+    RECORD("UTF-8"),
+    RECORD("UCS-2LE"),
+    RECORD("UCS-4LE"),
+    RECORD("CP437"),
+    RECORD("CP850"),
+    RECORD("CP858"),
+  };
+  size_t _nr_cases = sizeof(_cases) / sizeof(_cases[0]);
+#undef RECORD
+
+  const char *fromcode = "UTF-8";
+  for (size_t i=0; i<_nr_cases; ++i) {
+    const char *tocode = _cases[i].name;
+    iconv_t cnv = iconv_open(tocode, fromcode);
+    if (cnv != (iconv_t)-1) {
+      iconv_close(cnv);
+      continue;
+    }
+    int e = errno;
+    E("iconv_open(tocode:%s, fromcode:%s) failed:[%d]%s", tocode, fromcode, e, strerror(e));
+    return -1;
+  }
+
+  return 0;
+}
+
 typedef struct iconv_case_s         iconv_case_t;
 struct iconv_case_s {
   size_t times;
@@ -1399,6 +1434,7 @@ static struct {
   RECORD(test_wildmatch),
   RECORD(test_basename_dirname),
   RECORD(test_pthread_once),
+  RECORD(test_iconv_names),
   RECORD(test_iconv),
   RECORD(test_iconvs),
   RECORD(test_iconv_perf_reuse),

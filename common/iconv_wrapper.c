@@ -352,6 +352,7 @@ again:
   while (i < src_len) {
     size_t j = 0;
     while (j < cd->from.info.MaxCharSize) {
+      if (i+j >= src_len) break;
       cd->from.buf[j] = src[i + j];
       WCHAR wc;
       n = CALL_MultiByteToWideChar(cd->from.cp, dwFlags, cd->from.buf, (int)(j+1), &wc, 1);
@@ -361,8 +362,10 @@ again:
         i = nr;
         break;
       }
+      ++j;
     }
     if (j == cd->from.info.MaxCharSize) break;
+    if (i+j >= src_len) break;
   }
 
   mbcs->buf     += nr;

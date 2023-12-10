@@ -1249,6 +1249,101 @@ static int test_iconv_perf_on_the_fly(void)
   return r;
 }
 
+static int test_iconv_full(void)
+{
+  int r = 0;
+  int e = 0;
+  size_t n = 0;
+
+#define RECORD(...) {__LINE__, ##__VA_ARGS__}
+  struct {
+    int                    line;
+
+    const char            *fromcode;
+    const char            *src;
+    size_t                 src_len;
+    size_t                 src_consumed;
+    const char            *tocode;
+    const char            *dst;
+    size_t                 dst_len;
+    size_t                 ret;
+    int                    err;
+  } _cases[] = {
+    RECORD("UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96\xe7\x95\x8c", 12, 12, "GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7", 8, 0, 0),
+    RECORD("UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96\xe7\x95", 11, 9, "GB18030", "\xc4\xe3\xba\xc3\xca\xc0", 6, (size_t)-1, EINVAL),
+    RECORD("UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96\xe7\x95\x00", 12, 9, "GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7", 6, -1, EILSEQ),
+    RECORD("GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7", 8, 8, "UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96\xe7\x95\x8c", 12, 0, 0),
+    RECORD("GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd", 7, 6, "UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96", 9, -1, EINVAL),
+    RECORD("GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd\x00", 8, 6, "UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96", 9, -1, EILSEQ),
+  };
+  const size_t _nr_cases = sizeof(_cases) / sizeof(_cases[0]);
+#undef RECORD
+
+  for (size_t i=0; i<_nr_cases; ++i) {
+    int           line               = _cases[i].line;
+    const char   *fromcode           = _cases[i].fromcode;
+    const char   *src                = _cases[i].src;
+    size_t        src_len            = _cases[i].src_len;
+    size_t        src_consumed       = _cases[i].src_consumed;
+    const char   *tocode             = _cases[i].tocode;
+    const char   *dst                = _cases[i].dst;
+    size_t        dst_len            = _cases[i].dst_len;
+    size_t        ret                = _cases[i].ret;
+    int           err                = _cases[i].err;
+
+    iconv_t cd = iconv_open(tocode, fromcode);
+    if (cd == (iconv_t)-1) {
+      e = errno;
+      E("iconv_open(tocode:%s,fromcode:%s) failed:[%d]%s", tocode, fromcode, e, strerror(e));
+      return -1;
+    }
+
+    do {
+      char buf[4096];
+      char        *inbuf           = (char*)src;
+      size_t       inbytesleft     = src_len;
+      char        *outbuf          = buf;
+      size_t       outbytesleft    = sizeof(buf);
+      n = iconv(cd, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+      if (n != ret) {
+        E("@[%d]:%zd expected, but got ==%zd==", line, ret, n);
+        r = -1;
+        break;
+      }
+      if (n == (size_t)-1) {
+        if (err != errno) {
+          E("@[%d]:`[%d]%s` expected, but got ==[%d]%s==", line, err, strerror(err), errno, strerror(errno));
+          r = -1;
+          break;
+        }
+      }
+      if (src_len - inbytesleft != src_consumed) {
+        E("@[%d]:%zd expected, but got ==%zd==", line, src_consumed, src_len - inbytesleft);
+        r = -1;
+        break;
+      }
+      if (dst_len != sizeof(buf) - outbytesleft) {
+        E("@[%d]:%zd expected, but got ==%zd==", line, dst_len, sizeof(buf) - outbytesleft);
+        r = -1;
+        break;
+      }
+      if (memcmp(buf, dst, sizeof(buf) - outbytesleft )) {
+        E("@[%d]:dst does not equal", line);
+        r = -1;
+        break;
+      }
+      r = 0;
+    } while (0);
+
+    iconv_close(cd);
+
+    if (r) break;
+  }
+
+  return r ? -1 : 0;
+}
+
+
 #ifdef _WIN32              /* { */
 static int _test_mbcs(iconv_case_t *iconv_case)
 {
@@ -1439,6 +1534,7 @@ static struct {
   RECORD(test_iconvs),
   RECORD(test_iconv_perf_reuse),
   RECORD(test_iconv_perf_on_the_fly),
+  RECORD(test_iconv_full),
 #ifdef _WIN32              /* { */
   RECORD(test_mbcs),
   RECORD(test_codepages),

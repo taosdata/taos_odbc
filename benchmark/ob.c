@@ -566,7 +566,7 @@ static int run_query_with_cols(SQLHANDLE hstmt, col_binds_t *col_binds, SQLSMALL
         if (r) return -1;
         break;
       default:
-        DUMP("unknown col type:[%" PRId64 "]", sql_type);
+        DUMP("unknown col type:[%" PRId64 "]", (int64_t)sql_type);
         return -1;
     }
 

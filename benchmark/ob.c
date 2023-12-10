@@ -753,7 +753,7 @@ static int run_insert_with_options(handles_t *handles, const char *sql, size_t n
     sr = CALLX_SQLDescribeParam(hstmt, i+1, &DataType, &ParameterSize, &DecimalDigits, &Nullable);
     if (sr != SQL_SUCCESS) return -1;
     DUMP("DataType:[0x%x]%s;ParameterSize:%" PRIu64 ";DecimalDigits:%d;Nullable:%d",
-        DataType, sql_data_type(DataType), ParameterSize, DecimalDigits, Nullable);
+        DataType, sql_data_type(DataType), (uint64_t)ParameterSize, DecimalDigits, Nullable);
   }
 
   for (size_t i=0; i<param_binds->nr; ++i) {

@@ -2343,7 +2343,7 @@ static int test_SQLColumns(SQLHANDLE hstmt)
   const char *ColumnName;
   SQLSMALLINT ColumnCount;
 
-  CatalogName = "foo";
+  CatalogName = "bar";
   SchemaName = "";
   TableName = "bar";
   ColumnName = "ts";

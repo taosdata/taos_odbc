@@ -767,6 +767,12 @@ SQLRETURN conn_driver_connect(
   (void)WindowHandle;
   SQLRETURN sr = SQL_SUCCESS;
 
+#ifdef USE_WIN_ICONV  /* { */
+  OI("win-iconv is used");
+#else                 /* }{ */
+  OI("taos_odbc's implementation of iconv-api is used");
+#endif                /* } */
+
   conn_cfg_release(&conn->cfg);
 
   if (StringLength1 == SQL_NTS) StringLength1 = (SQLSMALLINT)strlen((const char*)InConnectionString);
@@ -921,6 +927,12 @@ SQLRETURN conn_connect(
     SQLSMALLINT    NameLength3)
 {
   int r = 0;
+
+#ifdef USE_WIN_ICONV  /* { */
+  OI("win-iconv is used");
+#else                 /* }{ */
+  OI("taos_odbc's implementation of iconv-api is used");
+#endif                /* } */
 
   conn_cfg_release(&conn->cfg);
 
@@ -1175,7 +1187,7 @@ SQLRETURN conn_get_info(
 #endif                               /* } */
     } break;
     case SQL_DRIVER_VER:
-      return _conn_set_string(conn, "1.00.00.00", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
+      return _conn_set_string(conn, "01.00.0000", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_DYNAMIC_CURSOR_ATTRIBUTES1:
       // https://learn.microsoft.com/en-us/sql/odbc/reference/syntax/sqlgetinfo-function?view=sql-server-ver16
       *(SQLUINTEGER*)InfoValuePtr = SQL_CA1_NEXT | SQL_CA1_ABSOLUTE | SQL_CA1_RELATIVE;

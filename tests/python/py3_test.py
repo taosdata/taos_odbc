@@ -43,8 +43,8 @@ if False:
 
 
 def test_case0():
-  ## # Specifying the ODBC driver, server name, database, etc. directly
-  cnxn = pyodbc.connect('DRIVER={TDengine};SERVER=@SERVER_FOR_TEST@;DATABASE=information_schema;UID=root;PWD=taosdata')
+   # Specifying the ODBC driver, server name, database, etc. directly
+  cnxn = pyodbc.connect('DRIVER={TAOS_ODBC_DRIVER};SERVER=@SERVER_FOR_TEST@;DATABASE=information_schema;UID=root;PWD=taosdata')
   cnxn.close()
 
   # Using a DSN, but providing a password as well

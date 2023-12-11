@@ -127,9 +127,9 @@ namespace ConsoleApp1
             // }
 
             connString = "DSN=TAOS_ODBC_DSN";
-            queryString = "drop database if exists s; create database if not exists s; use s; drop table if exists t;create table t(ts timestamp, name varchar(20), mark nchar(20)); insert into t (ts, name, mark) values (now(), '测试', '人物')";
+            queryString = "drop database if exists foo; create database if not exists foo; use foo; drop table if exists t;create table t(ts timestamp, name varchar(20), mark nchar(20)); insert into t (ts, name, mark) values (now(), '测试', '人物')";
             execute_non_query(connString, queryString);
-            execute_query(connString, "select * from s.t");
+            execute_query(connString, "select * from foo.t");
             String ts = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
             Console.WriteLine(ts);
             execute_query_with_params(connString, "insert into t (ts, name, mark) values (?, ?, ?)", new string [] {ts, "测试", "人物"});

@@ -194,13 +194,21 @@ static void GetConfig(HWND hDlg, config_t *config)
   GetItemText(hDlg, IDC_EDT_DB, config->database, sizeof(config->database));
   config->url_checked = (IsDlgButtonChecked(hDlg, IDC_CHK_UNSIGNED_PROMOTION) == BST_CHECKED) ? 1 : 0;
   GetItemText(hDlg, IDC_EDT_URL, config->url, sizeof(config->url));
-  config->unsigned_promotion = (IsDlgButtonChecked(hDlg, IDC_CHK_UNSIGNED_PROMOTION) == BST_CHECKED) ? 1 : 0;
-  config->timestamp_as_is= (IsDlgButtonChecked(hDlg, IDC_CHK_TIMESTAMP_AS_IS) == BST_CHECKED) ? 1 : 0;
-  config->conn_mode =  (IsDlgButtonChecked(hDlg, IDC_CHK_BI_MODE) == BST_CHECKED) ? 1 : 0;
-  config->encoder_param_checked= (IsDlgButtonChecked(hDlg, IDC_CHK_ENCODER_PARAM) == BST_CHECKED) ? 1 : 0;
-  GetItemText(hDlg, IDC_EDT_ENCODER_PARAM, config->encoder_param, sizeof(config->encoder_param));
-  config->encoder_col_checked= (IsDlgButtonChecked(hDlg, IDC_CHK_ENCODER_COL) == BST_CHECKED) ? 1 : 0;
-  GetItemText(hDlg, IDC_EDT_ENCODER_COL, config->encoder_col, sizeof(config->encoder_col));
+  // config->unsigned_promotion = (IsDlgButtonChecked(hDlg, IDC_CHK_UNSIGNED_PROMOTION) == BST_CHECKED) ? 1 : 0;
+  // config->timestamp_as_is= (IsDlgButtonChecked(hDlg, IDC_CHK_TIMESTAMP_AS_IS) == BST_CHECKED) ? 1 : 0;
+  // config->conn_mode =  (IsDlgButtonChecked(hDlg, IDC_CHK_BI_MODE) == BST_CHECKED) ? 1 : 0;
+  // config->encoder_param_checked= (IsDlgButtonChecked(hDlg, IDC_CHK_ENCODER_PARAM) == BST_CHECKED) ? 1 : 0;
+  // GetItemText(hDlg, IDC_EDT_ENCODER_PARAM, config->encoder_param, sizeof(config->encoder_param));
+  // config->encoder_col_checked= (IsDlgButtonChecked(hDlg, IDC_CHK_ENCODER_COL) == BST_CHECKED) ? 1 : 0;
+  // GetItemText(hDlg, IDC_EDT_ENCODER_COL, config->encoder_col, sizeof(config->encoder_col));
+
+  //first version for power bi etc:
+  config->unsigned_promotion = 0;
+  config->timestamp_as_is= 0;
+  config->conn_mode = 1;
+  config->encoder_param_checked = 0;
+  config->encoder_col_checked = 0;
+
   GetItemText(hDlg, IDC_EDT_USER, config->user, sizeof(config->user));
   GetDlgItemText(hDlg, IDC_EDT_PASS, config->password, sizeof(config->password));
 }
@@ -397,45 +405,45 @@ static INT_PTR OnInitDlg(HWND hDlg, WPARAM wParam, LPARAM lParam)
           SQLGetPrivateProfileString(v, "DB", "", k, sizeof(k), "Odbc.ini");
           SetDlgItemText(hDlg, IDC_EDT_DB, k);
 
-          SQLGetPrivateProfileString(v, "UNSIGNED_PROMOTION", "", k, sizeof(k), "Odbc.ini");
-          if (!!atoi(k)) {
-            CheckDlgButton(hDlg, IDC_CHK_UNSIGNED_PROMOTION, TRUE);
-          } else {
-            CheckDlgButton(hDlg, IDC_CHK_UNSIGNED_PROMOTION, FALSE);
-          }
-          SQLGetPrivateProfileString(v, "TIMESTAMP_AS_IS", "", k, sizeof(k), "Odbc.ini");
-          if (!!atoi(k)) {
-            CheckDlgButton(hDlg, IDC_CHK_TIMESTAMP_AS_IS, TRUE);
-          } else {
-            CheckDlgButton(hDlg, IDC_CHK_TIMESTAMP_AS_IS, FALSE);
-          }
-          SQLGetPrivateProfileString(v, "CONN_MODE", "", k, sizeof(k), "Odbc.ini");
-          if (atoi(k) == 0) {
-            CheckDlgButton(hDlg, IDC_CHK_BI_MODE, FALSE);
-          } else {
-            CheckDlgButton(hDlg, IDC_CHK_BI_MODE, TRUE);
-          }
+          // SQLGetPrivateProfileString(v, "UNSIGNED_PROMOTION", "", k, sizeof(k), "Odbc.ini");
+          // if (!!atoi(k)) {
+          //   CheckDlgButton(hDlg, IDC_CHK_UNSIGNED_PROMOTION, TRUE);
+          // } else {
+          //   CheckDlgButton(hDlg, IDC_CHK_UNSIGNED_PROMOTION, FALSE);
+          // }
+          // SQLGetPrivateProfileString(v, "TIMESTAMP_AS_IS", "", k, sizeof(k), "Odbc.ini");
+          // if (!!atoi(k)) {
+          //   CheckDlgButton(hDlg, IDC_CHK_TIMESTAMP_AS_IS, TRUE);
+          // } else {
+          //   CheckDlgButton(hDlg, IDC_CHK_TIMESTAMP_AS_IS, FALSE);
+          // }
+          // SQLGetPrivateProfileString(v, "CONN_MODE", "", k, sizeof(k), "Odbc.ini");
+          // if (atoi(k) == 0) {
+          //   CheckDlgButton(hDlg, IDC_CHK_BI_MODE, FALSE);
+          // } else {
+          //   CheckDlgButton(hDlg, IDC_CHK_BI_MODE, TRUE);
+          // }
 
 
-          SQLGetPrivateProfileString(v, "CHARSET_ENCODER_FOR_PARAM_BIND", "", k, sizeof(k), "Odbc.ini");
-          if (k[0]) {
-            CheckDlgButton(hDlg, IDC_CHK_ENCODER_PARAM, TRUE);
-            ShowWindow(GetDlgItem(hDlg, IDC_EDT_ENCODER_PARAM), TRUE);
-          } else {
-            CheckDlgButton(hDlg, IDC_CHK_ENCODER_PARAM, FALSE);
-            ShowWindow(GetDlgItem(hDlg, IDC_EDT_ENCODER_PARAM), FALSE);
-          }
-          SetDlgItemText(hDlg, IDC_EDT_ENCODER_PARAM, k);
+          // SQLGetPrivateProfileString(v, "CHARSET_ENCODER_FOR_PARAM_BIND", "", k, sizeof(k), "Odbc.ini");
+          // if (k[0]) {
+          //   CheckDlgButton(hDlg, IDC_CHK_ENCODER_PARAM, TRUE);
+          //   ShowWindow(GetDlgItem(hDlg, IDC_EDT_ENCODER_PARAM), TRUE);
+          // } else {
+          //   CheckDlgButton(hDlg, IDC_CHK_ENCODER_PARAM, FALSE);
+          //   ShowWindow(GetDlgItem(hDlg, IDC_EDT_ENCODER_PARAM), FALSE);
+          // }
+          // SetDlgItemText(hDlg, IDC_EDT_ENCODER_PARAM, k);
 
-          SQLGetPrivateProfileString(v, "CHARSET_ENCODER_FOR_COL_BIND", "", k, sizeof(k), "Odbc.ini");
-          if (k[0]) {
-            CheckDlgButton(hDlg, IDC_CHK_ENCODER_COL, TRUE);
-            ShowWindow(GetDlgItem(hDlg, IDC_EDT_ENCODER_COL), TRUE);
-          } else {
-            CheckDlgButton(hDlg, IDC_CHK_ENCODER_COL, FALSE);
-            ShowWindow(GetDlgItem(hDlg, IDC_EDT_ENCODER_COL), FALSE);
-          }
-          SetDlgItemText(hDlg, IDC_EDT_ENCODER_COL, k);
+          // SQLGetPrivateProfileString(v, "CHARSET_ENCODER_FOR_COL_BIND", "", k, sizeof(k), "Odbc.ini");
+          // if (k[0]) {
+          //   CheckDlgButton(hDlg, IDC_CHK_ENCODER_COL, TRUE);
+          //   ShowWindow(GetDlgItem(hDlg, IDC_EDT_ENCODER_COL), TRUE);
+          // } else {
+          //   CheckDlgButton(hDlg, IDC_CHK_ENCODER_COL, FALSE);
+          //   ShowWindow(GetDlgItem(hDlg, IDC_EDT_ENCODER_COL), FALSE);
+          // }
+          // SetDlgItemText(hDlg, IDC_EDT_ENCODER_COL, k);
           break;
         }
       }
@@ -666,7 +674,7 @@ static BOOL doDSNConfig(HWND	hwndParent, LPCSTR	lpszDriver, LPCSTR lpszAttribute
   }
 
   if (hwndParent) {
-    MessageBox(hwndParent, "Please use odbcconf to config DSN for TAOS ODBC Driver", "Warning!", MB_OK|MB_ICONEXCLAMATION);
+    MessageBox(hwndParent, "Please use odbcconf to config DSN for TDengine ODBC Driver", "Warning!", MB_OK|MB_ICONEXCLAMATION);
     return FALSE;
   }
 

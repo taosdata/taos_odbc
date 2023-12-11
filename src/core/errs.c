@@ -36,8 +36,8 @@ void errs_init(errs_t *errs)
 
 static void err_set_x(err_t *err, const char *file, int line, const char *func, const char *data_source, const char *sql_state, int e, const char *estr)
 {
-  const char *vendor = "freemine@yeah.net";
-  const char *odbc_component = "TAOS ODBC Driver";
+  const char *vendor = "yjshe@taosdata.com,freemine@yeah.net";
+  const char *odbc_component = "TDengine ODBC Driver";
   err->err = e;
   char buf[PATH_MAX + 1];
   char *p = tod_basename(file, buf, sizeof(buf));

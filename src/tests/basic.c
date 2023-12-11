@@ -1285,6 +1285,8 @@ static int test_iconv_full(void)
 #else               /* }{ */
     RECORD("GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd\x00", 8, 6, "UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96", 9, -1, EILSEQ),
 #endif              /* } */
+    RECORD("UCS-4LE", "\x00\xf6\x01\x00", 4, 4, "UTF8", "\xf0\x9f\x98\x80", 4, 0, 0), // 😀
+    RECORD("UTF8", "\xf0\x9f\x98\x80", 4, 4, "UCS-4LE", "\x00\xf6\x01\x00", 4, 0, 0), // 😀
   };
   const size_t _nr_cases = sizeof(_cases) / sizeof(_cases[0]);
 #undef RECORD

@@ -408,17 +408,17 @@ static int to_mbcs(iconv_t cd, buffer_t *input, buffer_t *output)
       dst_len      -= n;
       ++wnr;
       if (dst_len == 0) {
-        TOD_LOGE("dst_len:#%zd;wchar.nr:#%zd;wnr:#%zd", dst_len, cd->wchar.nr, wnr);
+        // TOD_LOGE("dst_len:#%zd;wchar.nr:#%zd;wnr:#%zd", dst_len, cd->wchar.nr, wnr);
         break;
       }
       continue;
     }
 
-    TOD_LOGE("");
+    // TOD_LOGE("");
     goto err;
   }
 
-  TOD_LOGE("");
+  // TOD_LOGE("");
   goto adjust;
 
 err:
@@ -430,25 +430,25 @@ err:
   buf[n] = '\0';
   switch (e) {
     case ERROR_INSUFFICIENT_BUFFER:
-      TOD_LOGE("[0x%x]%s", e, buf);
+      // TOD_LOGE("[0x%x]%s", e, buf);
       bad = 1;
       errno = E2BIG;
       break;
     case ERROR_INVALID_FLAGS:
-      TOD_LOGE("[0x%x]%s", e, buf);
+      // TOD_LOGE("[0x%x]%s", e, buf);
       errno = EINVAL;
       return -1;
     case ERROR_INVALID_PARAMETER:
-      TOD_LOGE("[0x%x]%s", e, buf);
+      // TOD_LOGE("[0x%x]%s", e, buf);
       errno = EINVAL;
       return -1;
     case ERROR_NO_UNICODE_TRANSLATION:
-      TOD_LOGE("[0x%x]%s", e, buf);
+      // TOD_LOGE("[0x%x]%s", e, buf);
       bad = 1;
       errno = EINVAL;
       break;
     default:
-      TOD_LOGE("[0x%x]%s", e, buf);
+      // TOD_LOGE("[0x%x]%s", e, buf);
       bad = 1;
       errno = EINVAL;
       break;
@@ -459,7 +459,7 @@ adjust:
   output->len           = dst_len;
   delta = cd->wchar.nr - wnr * 2;
   cd->wchar.nr          = wnr * 2;
-  TOD_LOGE("delta:#%zd;wnr:#%zd;i:#%zd", delta, wnr, i);
+  // TOD_LOGE("delta:#%zd;wnr:#%zd;i:#%zd", delta, wnr, i);
 
   n = CALL_WideCharToMultiByte(cd->from.cp, 0, (const WCHAR*)(cd->wchar.buf + cd->wchar.nr), (int)(delta / 2), NULL, 0, NULL, NULL);
   input->buf    -= n;

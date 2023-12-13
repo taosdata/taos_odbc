@@ -127,6 +127,11 @@ static void _init_charsets(void)
   UINT acp = GetACP();
   snprintf(_global.locale_or_ACP, sizeof(_global.locale_or_ACP), "%d", acp);
   switch (acp) {
+    case 437:
+    case 850:
+    case 858:
+      snprintf(_global.sqlc_charset, sizeof(_global.sqlc_charset), "CP850");
+      break;
     case 936:
       snprintf(_global.sqlc_charset, sizeof(_global.sqlc_charset), "GB18030");
       break;

@@ -38,6 +38,7 @@ EXTERN_C_BEGIN
 #define OW                        W
 #define OE                        E
 #define OA                        A
+#define OI                        I
 
 #define OA_ILE(_statement)        OA(_statement, "internal logic error")
 #define OA_NIY(_statement)        OA(_statement, "not implemented yet")

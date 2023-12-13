@@ -2591,4 +2591,35 @@
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17hd4c384d9de75ca91E
    fun:ws_connect_with_dsn
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   fun:__libc_alloc_buffer_allocate
+   fun:alloc_buffer_allocate
+   fun:__resolv_conf_allocate
+   fun:__resolv_conf_load
+   fun:__resolv_conf_get_current
+   fun:__res_vinit
+   fun:maybe_init
+   fun:context_get
+   fun:context_get
+   fun:__resolv_context_get
+   fun:get_nss_addresses
+   fun:gaih_inet
+   fun:getaddrinfo
+   fun:_ZN104_$LT$std..sys_common..net..LookupHost$u20$as$u20$core..convert..TryFrom$LT$$LP$$RF$str$C$u16$RP$$GT$$GT$8try_from28_$u7b$$u7b$closure$u7d$$u7d$17hbe119f5ed1a18d04E
+   fun:_ZN90_$LT$std..sys_common..net..LookupHost$u20$as$u20$core..convert..TryFrom$LT$$RF$str$GT$$GT$8try_from17h8f545b6832055880E
+   fun:_ZN60_$LT$str$u20$as$u20$std..net..socket_addr..ToSocketAddrs$GT$15to_socket_addrs17h00080e8c2e6d4c82E
+   fun:_ZN78_$LT$alloc..string..String$u20$as$u20$std..net..socket_addr..ToSocketAddrs$GT$15to_socket_addrs17h6407564da1d9a291E
+   fun:_ZN102_$LT$tokio..runtime..blocking..task..BlockingTask$LT$T$GT$$u20$as$u20$core..future..future..Future$GT$4poll17hf2930e445f7bbee1E
+   fun:_ZN5tokio7runtime4task4core17Core$LT$T$C$S$GT$4poll17h88736f3bdc489f9aE
+   fun:_ZN5tokio7runtime4task7harness20Harness$LT$T$C$S$GT$4poll17hadfc3438b919a3edE
+   fun:_ZN5tokio7runtime8blocking4pool5Inner3run17h75b61ccc05932b38E
+   fun:_ZN3std10sys_common9backtrace28__rust_begin_short_backtrace17h8cb536ea99a6578eE
+   fun:_ZN4core3ops8function6FnOnce40call_once$u7b$$u7b$vtable.shim$u7d$$u7d$17h3619bfa2382666d1E
+   fun:_ZN3std3sys4unix6thread6Thread3new12thread_start17h7168e596cd5e5ce6E
+   fun:start_thread
+}
 

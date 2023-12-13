@@ -767,6 +767,12 @@ SQLRETURN conn_driver_connect(
   (void)WindowHandle;
   SQLRETURN sr = SQL_SUCCESS;
 
+#ifdef USE_WIN_ICONV  /* { */
+  OI("win-iconv is used");
+#else                 /* }{ */
+  OI("taos_odbc's implementation of iconv-api is used");
+#endif                /* } */
+
   conn_cfg_release(&conn->cfg);
 
   if (StringLength1 == SQL_NTS) StringLength1 = (SQLSMALLINT)strlen((const char*)InConnectionString);
@@ -921,6 +927,12 @@ SQLRETURN conn_connect(
     SQLSMALLINT    NameLength3)
 {
   int r = 0;
+
+#ifdef USE_WIN_ICONV  /* { */
+  OI("win-iconv is used");
+#else                 /* }{ */
+  OI("taos_odbc's implementation of iconv-api is used");
+#endif                /* } */
 
   conn_cfg_release(&conn->cfg);
 

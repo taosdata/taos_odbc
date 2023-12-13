@@ -66,11 +66,11 @@ BEGIN
     BEGIN
         BLOCK "080404b0"
         BEGIN
-            VALUE "CompanyName", "TAOS Data"
-            VALUE "FileDescription", "TDengine 3.0 ODBC driver"
+            VALUE "CompanyName", "涛思数据"
+            VALUE "FileDescription", "TDengine 3.0 ODBC 驱动"
             VALUE "FileVersion", "1.0.0.0"
             VALUE "InternalName", "taos_odbc.dll"
-            VALUE "LegalCopyright", "Copyright (C) 2023"
+            VALUE "LegalCopyright", "版权所有（c） 2023"
             VALUE "OriginalFilename", "taos_odbc.dll"
             VALUE "ProductName", "TDengine"
             VALUE "ProductVersion", "1.0.0.0"

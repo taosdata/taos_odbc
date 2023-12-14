@@ -338,9 +338,9 @@ static int test_case0(handles_t *handles, const char *conn_str, int ws)
   }
 #endif                     /* } */
   connstr = conn_str;
-  sqls = "drop database if exists bar;"
-         "create database if not exists bar;"
-         "use bar;"
+  sqls = "drop database if exists foo;"
+         "create database if not exists foo;"
+         "use foo;"
          "drop table if exists t;"
          "create table t(ts timestamp, name varchar(20), mark nchar(20), i32 int);"
          "insert into t (ts, name, mark) values (now(), '测试', '人物');"
@@ -350,23 +350,23 @@ static int test_case0(handles_t *handles, const char *conn_str, int ws)
   r = execute_batches_of_statements(connstr, sqls);
   if (r) return -1;
   if (!ws) {
-    sql = "insert into bar.t (ts, name, mark) values (?, ?, ?)";
+    sql = "insert into foo.t (ts, name, mark) values (?, ?, ?)";
     r = execute_with_params(connstr, sql, 3, "2023-05-07 10:11:44.215", "测试", "人物y");
     if (r) return -1;
     tod_get_format_current_local_timestamp_ms(tmbuf, sizeof(tmbuf));
     DUMP("current:%s", tmbuf);
     r = execute_with_params(connstr, sql, 3, tmbuf, "测试", "人物z");
     if (r) return -1;
-    sqls = "select * from bar.t;";
+    sqls = "select * from foo.t;";
     r = execute_batches_of_statements(connstr, sqls);
     if (r) return -1;
-    sql = "select * from bar.t where name like ?";
+    sql = "select * from foo.t where name like ?";
     r = execute_with_params(connstr, sql, 1, "测试");
     if (r) return -1;
-    sql = "insert into bar.t (ts, i32) values (?, ?)";
+    sql = "insert into foo.t (ts, i32) values (?, ?)";
     r = execute_with_params(connstr, sql, 2, "2023-05-07 10:11:45.216", "32767");
     if (r) return -1;
-    sql = "select * from bar.t where i32 = ?";
+    sql = "select * from foo.t where i32 = ?";
     r = execute_with_int(connstr, sql, 32767, 5);
     if (r) return -1;
   }

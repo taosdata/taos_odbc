@@ -27,7 +27,7 @@
 #include "../test_helper.h"
 #include "test_config.h"
 
-#include <iconv.h>
+#include "iconv_wrapper.h"
 #include <locale.h>
 #include <stdio.h>
 

@@ -30,6 +30,8 @@ target_include_directories(utils_obj PRIVATE
     ${INTERNAL_INC_PATH})
 set_property(TARGET utils_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
 if(TODBC_WINDOWS)
-    add_dependencies(utils_obj ex_iconv)
+    if(USE_WIN_ICONV)
+        add_dependencies(utils_obj ex_iconv)
+    endif()
 endif()
 

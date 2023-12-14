@@ -40,10 +40,10 @@ getNextTs <- function(t0) {
 }
 
 conn <- dbConnect(odbc::odbc(), dsn="TAOS_ODBC_DSN")
-assert(0L == dbExecute(conn, "create database if not exists bar"))
+assert(0L == dbExecute(conn, "create database if not exists foo"))
 dbDisconnect(conn)
 
-conn <- dbConnect(odbc::odbc(), dsn="TAOS_ODBC_DSN", database="bar")
+conn <- dbConnect(odbc::odbc(), dsn="TAOS_ODBC_DSN", database="foo")
 assert(!is.null(conn))
 
 assert(0L == dbExecute(conn, "drop table if exists r_table"))

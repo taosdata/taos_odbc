@@ -24,15 +24,38 @@
 
 add_executable(taos_benchmark
     taos_benchmark.c)
-
 target_link_libraries(taos_benchmark taos)
 
 add_executable(odbc_benchmark
     odbc_benchmark.c)
-
 if(NOT TODBC_WINDOWS)
     target_link_libraries(odbc_benchmark odbc)
 else()
     target_link_libraries(odbc_benchmark odbc32)
+endif()
+
+add_executable(tb
+    $<TARGET_OBJECTS:common_obj>
+    $<TARGET_OBJECTS:os_port_obj>
+    tb.c
+)
+if(NOT TODBC_WINDOWS)
+    target_link_libraries(tb taos)
+else()
+    target_link_libraries(tb taos)
+    set_source_files_properties(tb.c PROPERTIES COMPILE_OPTIONS "/source-charset:utf-8")
+endif()
+
+add_executable(ob
+    $<TARGET_OBJECTS:common_obj>
+    $<TARGET_OBJECTS:os_port_obj>
+    $<TARGET_OBJECTS:odbc_helpers_obj>
+    ob.c
+)
+if(NOT TODBC_WINDOWS)
+    target_link_libraries(ob odbc)
+else()
+    target_link_libraries(ob odbc32)
+    set_source_files_properties(ob.c PROPERTIES COMPILE_OPTIONS "/source-charset:utf-8")
 endif()
 

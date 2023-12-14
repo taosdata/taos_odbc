@@ -245,9 +245,9 @@
     "comments": "like operator",
     "conn": {},
     "sqls": [
-      "drop database if exists bar",
-      "create database if not exists bar",
-      "use bar",
+      "drop database if exists foo",
+      "create database if not exists foo",
+      "use foo",
       "create table x (ts timestamp, name varchar(20), mark nchar(20))",
       "insert into x (ts, name, mark) values (now(), '人a', '人a')",
       {

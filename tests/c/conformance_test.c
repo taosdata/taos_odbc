@@ -2324,9 +2324,9 @@ static int test_SQLColumns(SQLHANDLE hstmt)
   SQLRETURN sr = SQL_SUCCESS;
 
   const char *sqls[] = {
-    "drop database if exists bar",
-    "create database bar",
-    "use bar",
+    "drop database if exists foo",
+    "create database foo",
+    "use foo",
     "create table bar (ts timestamp, name varchar(20), f float)",
   };
 
@@ -2343,7 +2343,7 @@ static int test_SQLColumns(SQLHANDLE hstmt)
   const char *ColumnName;
   SQLSMALLINT ColumnCount;
 
-  CatalogName = "bar";
+  CatalogName = "foo";
   SchemaName = "";
   TableName = "bar";
   ColumnName = "ts";

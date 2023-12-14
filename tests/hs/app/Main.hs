@@ -66,9 +66,9 @@ keepDatabase db = do
 main :: IO ()
 main = do
   putStrLn "Hello, Haskell!"
-  keepDatabase "bar"
+  keepDatabase "foo"
 
-  conn <- connectODBC "DSN=TAOS_ODBC_DSN;Database=bar"
+  conn <- connectODBC "DSN=TAOS_ODBC_DSN;Database=foo"
 
   runAndCheck conn "drop table if exists haskell" 0
   runAndCheck conn  "create table if not exists haskell (ts timestamp, name varchar(20))" 0

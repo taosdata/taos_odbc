@@ -37,25 +37,25 @@
 
 #include <errno.h>
 
-static int _tsdb_timestamp_to_tm_local(int64_t val, int time_precision, struct tm *tm, int32_t *ms, int *w)
+static int _tsdb_timestamp_to_tm_local(int64_t val, int time_precision, struct tm *tm, int32_t *fraction, int *w)
 {
   time_t  tt;
-  int32_t xms = 0;
+  int32_t xfraction = 0;
   int xw;
   switch (time_precision) {
     case 2:
       tt = (time_t)(val / 1000000000);
-      xms = val % 1000000000;
+      xfraction = val % 1000000000;
       xw = 9;
       break;
     case 1:
       tt = (time_t)(val / 1000000);
-      xms = val % 1000000;
+      xfraction = val % 1000000;
       xw = 6;
       break;
     case 0:
       tt = (time_t)(val / 1000);
-      xms = val % 1000;
+      xfraction = val % 1000;
       xw = 3;
       break;
     default:
@@ -63,23 +63,23 @@ static int _tsdb_timestamp_to_tm_local(int64_t val, int time_precision, struct t
       break;
   }
 
-  if (tt <= 0 && xms < 0) {
+  if (tt <= 0 && xfraction < 0) {
     OA_NIY(0);
   }
 
   struct tm *p = localtime_r(&tt, tm);
   if (p != tm) return -1;
-  if (ms) *ms = xms;
+  if (fraction) *fraction = xfraction;
   if (w)  *w  = xw;
   return 0;
 }
 
 int tsdb_timestamp_to_SQL_C_TYPE_TIMESTAMP(int64_t val, int time_precision, SQL_TIMESTAMP_STRUCT *ts)
 {
-  int32_t ms = 0;
+  int32_t fraction = 0;
   int w;
   struct tm ptm = {0};
-  int r = _tsdb_timestamp_to_tm_local(val, time_precision, &ptm, &ms, &w);
+  int r = _tsdb_timestamp_to_tm_local(val, time_precision, &ptm, &fraction, &w);
   if (r) return -1;
   ts->year       = ptm.tm_year + 1900;
   ts->month      = ptm.tm_mon + 1;
@@ -87,24 +87,35 @@ int tsdb_timestamp_to_SQL_C_TYPE_TIMESTAMP(int64_t val, int time_precision, SQL_
   ts->hour       = ptm.tm_hour;
   ts->minute     = ptm.tm_min;
   ts->second     = ptm.tm_sec;
-  ts->fraction   = ms;
+  switch (time_precision) {
+    case 0:
+      ts->fraction = fraction * 1000000;
+      break;
+    case 1:
+      ts->fraction = fraction * 1000;
+      break;
+    default:
+      ts->fraction = fraction;
+      break;
+  }
+
   return 0;
 }
 
 int tsdb_timestamp_to_string(int64_t val, int time_precision, char *buf, size_t len)
 {
   int n;
-  int32_t ms = 0;
+  int32_t fraction = 0;
   int w;
   struct tm ptm = {0};
-  int r = _tsdb_timestamp_to_tm_local(val, time_precision, &ptm, &ms, &w);
+  int r = _tsdb_timestamp_to_tm_local(val, time_precision, &ptm, &fraction, &w);
   if (r) return -1;
 
   n = snprintf(buf, len,
       "%04d-%02d-%02d %02d:%02d:%02d.%0*d",
       ptm.tm_year + 1900, ptm.tm_mon + 1, ptm.tm_mday,
       ptm.tm_hour, ptm.tm_min, ptm.tm_sec,
-      w, ms);
+      w, fraction);
 
   OA_ILE(n > 0);
 
@@ -932,7 +943,14 @@ static SQLRETURN _tsdb_stmt_fetch_rows_block(tsdb_stmt_t *stmt)
     rows_block->pos    = 0;
   } else {
 #endif                       /* ] */
+#ifdef USE_TICK_TO_DEBUG                 /* { */
+    int r = stmt_enter_fetch_block(stmt->owner);
+    OA_ILE(r == 0);
+#endif                                   /* } */
     nr_rows = CALL_taos_fetch_block(res->res, &rows);
+#ifdef USE_TICK_TO_DEBUG                 /* { */
+    stmt_leave_fetch_block(stmt->owner);
+#endif                                   /* } */
     if (nr_rows == 0) return SQL_NO_DATA;
     rows_block->rows   = rows;
     rows_block->nr     = nr_rows;

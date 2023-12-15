@@ -50,8 +50,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,0,0
- PRODUCTVERSION 1,0,0,0
+ FILEVERSION 1,0,1,0
+ PRODUCTVERSION 1,0,1,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -67,12 +67,12 @@ BEGIN
         BLOCK "080404b0"
         BEGIN
             VALUE "CompanyName", "涛思数据"
-            VALUE "FileVersion", "1.0.0.0"
+            VALUE "FileVersion", "1.0.1.0"
             VALUE "InternalName", "taos_odbc.dll"
             VALUE "LegalCopyright", "版权所有（c） 2023"
             VALUE "OriginalFilename", "taos_odbc.dll"
             VALUE "ProductName", "TDengine"
-            VALUE "ProductVersion", "1.0.0.0"
+            VALUE "ProductVersion", "1.0.1.0"
             VALUE "FileDescription", "TDengine 3.0 ODBC driver"
         END
     END

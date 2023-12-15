@@ -989,10 +989,49 @@ struct param_bind_map_s {
   param_f        conv;      // conv sqlc to tsdb
 };
 
+
+// NOTE: do not use this unless you know what it does!!!
+#ifdef USE_TICK_TO_DEBUG                 /* { */
+typedef struct tick_s                   tick_t;
+typedef struct ticks_s                  ticks_t;
+
+struct tick_s {
+#ifdef _WIN32               /* { */
+  LARGE_INTEGER              enter;
+  LARGE_INTEGER              leave;
+#else                       /* }{ */
+  struct timespec            enter;
+  struct timespec            leave;
+#endif                      /* } */
+};
+
+struct ticks_s {
+  tick_t                    *ticks;
+  size_t                     sz;
+  size_t                     idx;
+
+  int64_t                    max_delta;
+  int64_t                    min_delta;
+  int64_t                    total_delta;
+  int64_t                    max_interval;
+  int64_t                    min_interval;
+  int64_t                    total_interval;
+
+#ifdef _WIN32               /* { */
+  LARGE_INTEGER              freq;
+#endif                      /* } */
+};
+#endif                                   /* } */
+
 struct stmt_s {
   atomic_int                 refc;
 
   struct tod_list_head       node;
+
+#ifdef USE_TICK_TO_DEBUG                 /* { */
+  ticks_t                    ticks_for_SQLGetData;
+  ticks_t                    ticks_for_fetch_block;
+#endif                                   /* } */
 
   conn_t                    *conn;
 
@@ -1045,6 +1084,11 @@ struct tls_s {
   // debug leakage only
   char                      *leakage;
 };
+
+#ifdef USE_TICK_TO_DEBUG                 /* { */
+int stmt_enter_fetch_block(stmt_t *stmt) FA_HIDDEN;
+void stmt_leave_fetch_block(stmt_t *stmt) FA_HIDDEN;
+#endif                                   /* } */
 
 EXTERN_C_END
 

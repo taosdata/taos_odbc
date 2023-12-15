@@ -28,7 +28,7 @@
 #include "macros.h"
 #include "typedefs.h"
 
-#include <iconv.h>
+#include "iconv_wrapper.h"
 
 EXTERN_C_BEGIN
 

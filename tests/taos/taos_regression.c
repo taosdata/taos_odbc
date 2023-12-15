@@ -25,7 +25,7 @@
 #include "taos_helpers.h"
 
 #include "../test_helper.h"
-#include <iconv.h>
+#include "iconv_wrapper.h"
 
 #define DUMP(fmt, ...)          printf(fmt "\n", ##__VA_ARGS__)
 
@@ -831,7 +831,7 @@ static int _fetch_on_connected_with_exp(TAOS *taos, fetch_exp_t *exp)
   tocode = "GB18030"; // FIXME: better check according to code page
 #endif                       /* } */
   exp->cnv = iconv_open(tocode, fromcode);
-  if ((size_t)exp->cnv == (size_t)-1) {
+  if (exp->cnv == (iconv_t)-1) {
     E("no conversion from %s to %s", fromcode, tocode);
     return -1;
   }

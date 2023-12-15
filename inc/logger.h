@@ -27,6 +27,10 @@
 
 #include "macros.h"
 
+#ifdef _WIN32      /* { */
+#include <stdio.h>
+#endif             /* } */
+
 typedef enum logger_level_e {
   LOGGER_VERBOSE,
   LOGGER_DEBUG,
@@ -77,6 +81,7 @@ static inline const char* color_reset(void)
   TOD_LOGW("%s" _fmt "%s",                                    \
       color_yellow(), ##__VA_ARGS__, color_reset());          \
 } while (0)
+#define I(_fmt, ...) TOD_LOGI(_fmt,  ##__VA_ARGS__)
 #define E(_fmt, ...) do {                                     \
   TOD_LOGE("%s" _fmt "%s",                                    \
       color_red(), ##__VA_ARGS__, color_reset());             \

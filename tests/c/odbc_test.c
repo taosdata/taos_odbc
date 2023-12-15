@@ -2562,7 +2562,7 @@ static int test_chars(const char *conn_str)
   SQLHANDLE hdbc  = SQL_NULL_HANDLE;
   SQLHANDLE hstmt = SQL_NULL_HANDLE;
 
-  sr = test_chars_with_handles(&henv, &hdbc, &hstmt, conn_str, "select name from bar.x", SQL_C_CHAR);
+  sr = test_chars_with_handles(&henv, &hdbc, &hstmt, conn_str, "select name from foo.x", SQL_C_CHAR);
 
   if (hstmt != SQL_NULL_HANDLE) {
     CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);

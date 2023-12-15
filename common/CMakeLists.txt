@@ -25,12 +25,15 @@
 list(APPEND common_SOURCES
     auxiliary.c
     enums.c
+    iconv_wrapper.c
     logger.c
     parser.c)
 
 add_library(common_obj OBJECT ${common_SOURCES})
 if(TODBC_WINDOWS)
-    add_dependencies(common_obj ex_iconv)
+    if(USE_WIN_ICONV)
+        add_dependencies(common_obj ex_iconv)
+    endif()
 endif()
 target_include_directories(common_obj PRIVATE
     ${ODBC_INCLUDE_DIRECTORY}
@@ -42,7 +45,9 @@ list(APPEND odbc_helpers_SOURCES
 
 add_library(odbc_helpers_obj OBJECT ${odbc_helpers_SOURCES})
 if(TODBC_WINDOWS)
-    add_dependencies(odbc_helpers_obj ex_iconv)
+    if(USE_WIN_ICONV)
+        add_dependencies(odbc_helpers_obj ex_iconv)
+    endif()
 endif()
 set_property(TARGET odbc_helpers_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
 
@@ -51,7 +56,9 @@ list(APPEND taos_helpers_SOURCES
 
 add_library(taos_helpers_obj OBJECT ${taos_helpers_SOURCES})
 if(TODBC_WINDOWS)
-    add_dependencies(taos_helpers_obj ex_iconv)
+    if(USE_WIN_ICONV)
+        add_dependencies(taos_helpers_obj ex_iconv)
+    endif()
 endif()
 set_property(TARGET taos_helpers_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
 target_include_directories(taos_helpers_obj PRIVATE
@@ -64,7 +71,9 @@ set(ejson_parser_SOURCES
 
 add_library(ejson_parser_obj OBJECT ${ejson_parser_SOURCES})
 if(TODBC_WINDOWS)
-    add_dependencies(ejson_parser_obj ex_iconv)
+    if(USE_WIN_ICONV)
+        add_dependencies(ejson_parser_obj ex_iconv)
+    endif()
 endif()
 set_property(TARGET ejson_parser_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
 

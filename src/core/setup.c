@@ -290,17 +290,25 @@ static void check_taosws_connection(HWND hDlg, config_t *config, url_parser_para
   if (!taosws) {
     int e = ws_errno(NULL);
     const char *errstr = ws_errstr(NULL);
-    iconv_t cnv = iconv_open("GB18030", "UTF-8");
-    char gb18030[2048];
-    char   *inbuf        = (char*)errstr;
-    char   *outbuf       = gb18030;
-    size_t  inbytesleft  = strlen(errstr);
-    size_t  outbytesleft = sizeof(gb18030);
-    iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
-    *outbuf = '\0';
-    iconv_close(cnv);
-    snprintf(buf, sizeof(buf), "Connect failure:[%d]%s\n%s", e, gb18030, out);
-    MessageBox(hDlg, buf, "Warning!", MB_OK | MB_ICONEXCLAMATION);
+    const char *from = "UTF-8";
+    const char *to   = "GB18030";
+    iconv_t cnv = iconv_open(to, from);
+    if (cnv == (iconv_t)-1) {
+      int e = errno;
+      snprintf(buf, sizeof(buf), "Connect failure:[%d]%s:no convertion from %s to %s", e, strerror(e), from, to);
+      MessageBox(hDlg, buf, "Warning!", MB_OK | MB_ICONEXCLAMATION);
+    } else {
+      char gb18030[2048];
+      char   *inbuf        = (char*)errstr;
+      char   *outbuf       = gb18030;
+      size_t  inbytesleft  = strlen(errstr);
+      size_t  outbytesleft = sizeof(gb18030);
+      iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+      *outbuf = '\0';
+      iconv_close(cnv);
+      snprintf(buf, sizeof(buf), "Connect failure:[%d]%s\n%s", e, gb18030, out);
+      MessageBox(hDlg, buf, "Warning!", MB_OK | MB_ICONEXCLAMATION);
+    }
   } else {
     CALL_ws_close(taosws);
     snprintf(buf, sizeof(buf), "Successfully connected to:\n%s", out);

@@ -79,14 +79,14 @@ func test_case0() int {
   defer db.Close()
 
   sqls := [...]string {
-    "drop database if exists bar",
-    "create database if not exists bar",
-    "create table bar.x (ts timestamp, name varchar(20), mark nchar(20))",
-    "insert into bar.x (ts, name, mark) values (now(), 'name', 'mark')",
-    "insert into bar.x (ts, name, mark) values (now()+1s, '人a', '检验')"}
+    "drop database if exists foo",
+    "create database if not exists foo",
+    "create table foo.x (ts timestamp, name varchar(20), mark nchar(20))",
+    "insert into foo.x (ts, name, mark) values (now(), 'name', 'mark')",
+    "insert into foo.x (ts, name, mark) values (now()+1s, '人a', '检验')"}
   exec_sqls(db, sqls[:])
 
-  rows, err := db.Query("SELECT * FROM bar.x WHERE name = ?", "人a")
+  rows, err := db.Query("SELECT * FROM foo.x WHERE name = ?", "人a")
   if err != nil {
     log.Fatal(err)
   }

@@ -705,7 +705,7 @@ int main(int argc, char *argv[])
   int r = 0;
 
   odbc_conn_cfg_t cfg = {0};
-  cfg.conn = "DSN=TAOS_ODBC_DSN;DATABASE=bar";
+  cfg.conn = "DSN=TAOS_ODBC_DSN;DATABASE=foo";
   cfg.rows = 32767; // INT16_MAX
 
   for (int i=1; i<argc; ++i) {

@@ -33,7 +33,9 @@ list(APPEND odbc_SOURCES odbc.c)
 
 add_library(odbc_obj OBJECT ${odbc_SOURCES})
 if(TODBC_WINDOWS)
-    add_dependencies(odbc_obj ex_iconv)
+    if(USE_WIN_ICONV)
+      add_dependencies(odbc_obj ex_iconv)
+    endif()
 endif()
 target_include_directories(odbc_obj PRIVATE
     ${INTERNAL_INC_PATH}

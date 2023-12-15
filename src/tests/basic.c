@@ -756,7 +756,7 @@ static int test_url_parser(void)
     RECORD("http://example.com/h/g?fasd?fsd=fsd#fasd", "http://example.com/h/g?fasd?fsd=fsd#fasd"),
     RECORD("foo://example.com:8042/over/there?name=ferret#nose", "foo://example.com:8042/over/there?name=ferret#nose"),
     RECORD("http://192.168.0.1", "http://192.168.0.1"),
-    RECORD("http://foo:bar@255.255.255.255/root?name=foo?age=3?path=/fad#first?what", "http://foo:bar@255.255.255.255/root?name=foo?age=3?path=/fad#first?what"),
+    RECORD("http://foo:foo@255.255.255.255/root?name=foo?age=3?path=/fad#first?what", "http://foo:foo@255.255.255.255/root?name=foo?age=3?path=/fad#first?what"),
     RECORD("http://example.com/~/h/g?fda%5e~", "http://example.com/~/h/g?fda%5e~"),
     RECORD("http://example.com/~/%5eh/g%5e?fda%5e~", "http://example.com/~/%5eh/g%5e?fda%5e~"),
     RECORD("http://f%5eoo:b%5eh@192.168.0.1", "http://f%5eoo:b%5eh@192.168.0.1"),
@@ -902,12 +902,12 @@ static int test_wildmatch(void)
 
 static int test_basename_dirname(void)
 {
-  const char *path = "/Users/foo/bar.txt";
+  const char *path = "/Users/foo/foo.txt";
   char buf[PATH_MAX + 1];
   char *p;
   p = tod_basename(path, buf, sizeof(buf));
-  if (strcmp(p, "bar.txt")) {
-    E("`bar.txt` expected, but got ==%s==", p);
+  if (strcmp(p, "foo.txt")) {
+    E("`foo.txt` expected, but got ==%s==", p);
     return -1;
   }
   p = tod_dirname(path, buf, sizeof(buf));
@@ -962,6 +962,61 @@ static int test_pthread_once(void)
   return 0;
 }
 
+static int test_iconv_names(void)
+{
+#define RECORD(x) {x, __LINE__}
+  struct {
+    const char           *name;
+    int                   line;
+  } _cases[] = {
+    RECORD("GB18030"),
+    RECORD("UTF8"),
+    RECORD("UTF-8"),
+    RECORD("UCS-2LE"),
+    RECORD("UCS-4LE"),
+    RECORD("CP437"),
+    RECORD("CP850"),
+    RECORD("CP858"),
+  };
+  size_t _nr_cases = sizeof(_cases) / sizeof(_cases[0]);
+#undef RECORD
+
+  const char *fromcode = "UTF-8";
+  for (size_t i=0; i<_nr_cases; ++i) {
+    const char *tocode = _cases[i].name;
+    iconv_t cnv = iconv_open(tocode, fromcode);
+    if (cnv != (iconv_t)-1) {
+      iconv_close(cnv);
+      continue;
+    }
+    int e = errno;
+    E("iconv_open(tocode:%s, fromcode:%s) failed:[%d]%s", tocode, fromcode, e, strerror(e));
+    return -1;
+  }
+
+  return 0;
+}
+
+typedef struct iconv_case_s         iconv_case_t;
+struct iconv_case_s {
+  size_t times;
+  const char   *tocode;
+  const char   *fromcode;
+  const char   *src;
+  const char   *chk;
+  char    buf[4096];
+};
+
+static iconv_case_t    iconv_case = {
+  .times = 1,
+  .tocode = "GB18030",
+  .fromcode = "UTF-8",
+  // .src   = "\xe4\xb8\xad\xe6\x96\x87", //"中文";
+  // .chk   = "中文",
+  .src   = "heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  .chk   = "heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+};
+
 static int test_iconv(void)
 {
   int r = 0;
@@ -970,7 +1025,7 @@ static int test_iconv(void)
   const char *fromcode = "UTF-8";
 
   iconv_t cnv = iconv_open(tocode, fromcode);
-  if (!cnv) {
+  if (cnv == (iconv_t)-1) {
     int e = errno;
     E("iconv_open(tocode:%s, fromcode:%s) failed:[%d]%s", tocode, fromcode, e, strerror(e));
     return -1;
@@ -978,7 +1033,7 @@ static int test_iconv(void)
 
   do {
     char buf[1024];
-    char utf8[] = "\xe4\xb8\xad\xe6\x96\x87"; //"中文";
+    char utf8[] = "\xe4\xb8\xad\xe6\x96\x87"; // 中文
     char          *inbuf                = utf8;
     size_t         inbytes              = sizeof(utf8);
     size_t         inbytesleft          = inbytes;
@@ -1001,7 +1056,7 @@ static int test_iconv(void)
     outbytesleft = outbytes;
     n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
     A(n == (size_t)-1, "-1 expected, but got ==%zd==", n);
-    A(errno == E2BIG, "");
+    A(errno == E2BIG, "errno:[%d]%s", errno, strerror(errno));
     A(inbytes - inbytesleft == 3, "3 expected, but got ==%zd==", inbytes - inbytesleft);
     A(inbuf - utf8 == 3, "");
     A(outbytes - outbytesleft == 2, "");
@@ -1014,7 +1069,7 @@ static int test_iconv(void)
     A(n == (size_t)-1, "-1 expected, but got ==%zd==", n);
     A(errno == E2BIG, "");
     A(inbytes - inbytesleft == 6, "6 expected, but got ==%zd==", inbytes - inbytesleft);
-    A(outbytes - outbytesleft == 2, "");
+    A(outbytes - outbytesleft == 2, "%zd", outbytes - outbytesleft);
     A(strncmp(buf, "\xd6\xd0\xce\xc4", 4)==0, "");
 
     outbytes = 1;
@@ -1031,14 +1086,88 @@ static int test_iconv(void)
   return r ? -1 : 0;
 }
 
+static int _test_iconvs(int line, const char *func, const char *fromcode, const char *tocode, const char *in, size_t inlen, const char *exp, size_t explen)
+{
+  int r = 0;
+  int e = 0;
+  iconv_t cd = iconv_open(tocode, fromcode);
+  if (cd == (iconv_t)-1) {
+    e = errno;
+    E("@[%d]:%s():iconv_open(tocode:%s, fromcode:%s) failed:[%d]%s", line, func, tocode, fromcode, e, strerror(e));
+    return -1;
+  }
+  char      buf[4096]; buf[0] = '\0';
+  size_t    sz            = sizeof(buf);
+  char     *inbuf         = (char*)in;
+  size_t    inbytesleft   = inlen;
+  char     *outbuf        = buf;
+  size_t    outbytesleft  = sz;
+  size_t n = iconv(cd, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+  if (n == (size_t)-1) {
+    e = errno;
+    E("@[%d]:%s():iconv(...) failed:[%d]%s", line, func, e, strerror(e));
+    r = -1;
+  } else {
+    if (explen != sz-outbytesleft) {
+      E("@[%d]:%s():%zd <> %zd", line, func, explen, sz-outbytesleft);
+      r = -1;
+    } else {
+      r = memcmp(exp, buf, explen);
+      if (r) {
+        E("@[%d]:%s():memcmp(...) failed", line, func);
+      }
+    }
+  }
+  iconv_close(cd);
+  return r ? -1 : 0;
+}
+
+static int test_iconvs(void)
+{
+#define RECORD(fromcode, tocode, in, inlen, exp, explen) {__LINE__, __func__, #fromcode, #tocode, in, inlen, exp, explen}
+  struct {
+    int               line;
+    const char       *func;
+    const char       *fromcode;
+    const char       *tocode;
+    const char       *in;
+    size_t            inlen;
+    const char       *exp;
+    size_t            explen;
+  } _cases[] = {
+    RECORD(GB18030, UTF-8, "b", 1, "b", 1),
+    RECORD(GB18030, UCS-2LE, "b", 1, "\x62\x00", 2),
+    RECORD(GB18030, UCS-2LE, "\x62\xc3\xf1\x30", 4, "\x62\x00\x11\x6c\x30\x00", 6), // b民0
+    RECORD(GB18030, UCS-2LE, "\x0", 1, "\x00\x00", 2),
+    RECORD(GB18030, UCS-4LE, "\x0", 1, "\x00\x00\x00\x00", 4),
+  };
+  const size_t nr_cases = sizeof(_cases) / sizeof(_cases[0]);
+#undef RECORD
+  for (size_t i=0; i<nr_cases; ++i) {
+    int            line       = _cases[i].line;
+    const char    *func       = _cases[i].func;
+    const char    *fromcode   = _cases[i].fromcode;
+    const char    *tocode     = _cases[i].tocode;
+    const char    *in         = _cases[i].in;
+    size_t         inlen      = _cases[i].inlen;
+    const char    *exp        = _cases[i].exp;
+    size_t         explen     = _cases[i].explen;
+
+    int r = 0;
+    if (r == 0) r = _test_iconvs(line, func, fromcode, tocode, in, inlen, exp, explen);
+    if (r == 0) r = _test_iconvs(line, func, tocode, fromcode, exp, explen, in, inlen);
+    if (r) return -1;
+  }
+  return 0;
+}
 
 static int _test_iconv_perf_gen_iconv(iconv_t *cnv)
 {
-  const char *tocode = "GB18030";
-  const char *fromcode = "UTF-8";
+  const char *tocode = iconv_case.tocode;
+  const char *fromcode = iconv_case.fromcode;
 
   *cnv = iconv_open(tocode, fromcode);
-  if (!*cnv) {
+  if (*cnv == (iconv_t)-1) {
     int e = errno;
     E("iconv_open(tocode:%s, fromcode:%s) failed:[%d]%s", tocode, fromcode, e, strerror(e));
     return -1;
@@ -1047,19 +1176,25 @@ static int _test_iconv_perf_gen_iconv(iconv_t *cnv)
   return 0;
 }
 
-static int _test_iconv_perf(iconv_t cnv)
+static int _test_iconv_perf(iconv_t cnv, iconv_case_t *iconv_case)
 {
   int r = 0;
   size_t n = 0;
+  char *buf = iconv_case->buf;
+  size_t sz = sizeof(iconv_case->buf) - 1;
+  const char *src = iconv_case->src;
+  const size_t times = iconv_case->times;
+  const char *chk = iconv_case->chk;
 
-  const char src[] = "hello";
-  char buf[4096];
+  const size_t src_len = strlen(src);
+  DUMP("times:%zd", times);
 
-  for (size_t i=0; i<1024*16; ++i) {
+  for (size_t i=0; i<times; ++i) {
+    buf[0] = '\0';
     char          *inbuf                = (char*)src;
-    size_t         inbytesleft          = sizeof(src);
+    size_t         inbytesleft          = src_len;
     char          *outbuf               = buf;
-    size_t         outbytesleft         = sizeof(buf);
+    size_t         outbytesleft         = sz;
 
     if (cnv == NULL) {
       iconv_t cv;
@@ -1076,6 +1211,12 @@ static int _test_iconv_perf(iconv_t cnv)
     }
 
     if (r) return -1;
+    *outbuf = '\0';
+    if (strcmp(chk, buf)) {
+      DUMP("does not match:[%s]<<<>>>>[%s]", buf, chk);
+      return -1;
+    }
+    // DUMP("[%s]", buf);
   }
 
   return 0;
@@ -1089,7 +1230,8 @@ static int test_iconv_perf_reuse(void)
   r = _test_iconv_perf_gen_iconv(&cnv);
   if (r) return -1;
 
-  r = _test_iconv_perf(cnv);
+  iconv_case.buf[0] = '\0';
+  r = _test_iconv_perf(cnv, &iconv_case);
 
   iconv_close(cnv);
 
@@ -1102,10 +1244,199 @@ static int test_iconv_perf_on_the_fly(void)
 
   iconv_t cnv = NULL;
 
-  r = _test_iconv_perf(cnv);
+  r = _test_iconv_perf(cnv, &iconv_case);
 
   return r;
 }
+
+static int test_iconv_full(void)
+{
+  int r = 0;
+  int e = 0;
+  size_t n = 0;
+
+#define RECORD(...) {__LINE__, ##__VA_ARGS__}
+  struct {
+    int                    line;
+
+    const char            *fromcode;
+    const char            *src;
+    size_t                 src_len;
+    size_t                 src_consumed;
+    const char            *tocode;
+    const char            *dst;
+    size_t                 dst_len;
+    size_t                 ret;
+    int                    err;
+  } _cases[] = {
+    RECORD("UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96\xe7\x95\x8c", 12, 12, "GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7", 8, 0, 0),
+    RECORD("UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96\xe7\x95", 11, 9, "GB18030", "\xc4\xe3\xba\xc3\xca\xc0", 6, (size_t)-1, EINVAL),
+#ifdef _WIN32       /* { */
+    // NOTE: on windows, currently, failed to distinguish between EILSEQ (illegal sequence) and EINVAL (incomplete sequence)
+    RECORD("UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96\xe7\x95\x00", 12, 9, "GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7", 6, -1, EINVAL),
+#else               /* }{ */
+    RECORD("UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96\xe7\x95\x00", 12, 9, "GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7", 6, -1, EILSEQ),
+#endif              /* } */
+    RECORD("GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7", 8, 8, "UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96\xe7\x95\x8c", 12, 0, 0),
+    RECORD("GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd", 7, 6, "UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96", 9, -1, EINVAL),
+#ifdef _WIN32       /* { */
+    // NOTE: on windows, currently, failed to distinguish between EILSEQ (illegal sequence) and EINVAL (incomplete sequence)
+    RECORD("GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd\x00", 8, 6, "UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96", 9, -1, EINVAL),
+#else               /* }{ */
+    RECORD("GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd\x00", 8, 6, "UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96", 9, -1, EILSEQ),
+#endif              /* } */
+    RECORD("UCS-4LE", "\x00\xf6\x01\x00", 4, 4, "UTF8", "\xf0\x9f\x98\x80", 4, 0, 0), // 😀
+    RECORD("UTF8", "\xf0\x9f\x98\x80", 4, 4, "UCS-4LE", "\x00\xf6\x01\x00", 4, 0, 0), // 😀
+  };
+  const size_t _nr_cases = sizeof(_cases) / sizeof(_cases[0]);
+#undef RECORD
+
+  for (size_t i=0; i<_nr_cases; ++i) {
+    int           line               = _cases[i].line;
+    const char   *fromcode           = _cases[i].fromcode;
+    const char   *src                = _cases[i].src;
+    size_t        src_len            = _cases[i].src_len;
+    size_t        src_consumed       = _cases[i].src_consumed;
+    const char   *tocode             = _cases[i].tocode;
+    const char   *dst                = _cases[i].dst;
+    size_t        dst_len            = _cases[i].dst_len;
+    size_t        ret                = _cases[i].ret;
+    int           err                = _cases[i].err;
+
+    iconv_t cd = iconv_open(tocode, fromcode);
+    if (cd == (iconv_t)-1) {
+      e = errno;
+      E("iconv_open(tocode:%s,fromcode:%s) failed:[%d]%s", tocode, fromcode, e, strerror(e));
+      return -1;
+    }
+
+    do {
+      char buf[4096];
+      char        *inbuf           = (char*)src;
+      size_t       inbytesleft     = src_len;
+      char        *outbuf          = buf;
+      size_t       outbytesleft    = sizeof(buf);
+      n = iconv(cd, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+      if (n != ret) {
+        E("@[%d]:%zd expected, but got ==%zd==", line, ret, n);
+        r = -1;
+        break;
+      }
+      if (n == (size_t)-1) {
+        if (err != errno) {
+          E("@[%d]:`[%d]%s` expected, but got ==[%d]%s==", line, err, strerror(err), errno, strerror(errno));
+          r = -1;
+          break;
+        }
+      }
+      if (src_len - inbytesleft != src_consumed) {
+        E("@[%d]:%zd expected, but got ==%zd==", line, src_consumed, src_len - inbytesleft);
+        r = -1;
+        break;
+      }
+      if (dst_len != sizeof(buf) - outbytesleft) {
+        E("@[%d]:%zd expected, but got ==%zd==", line, dst_len, sizeof(buf) - outbytesleft);
+        r = -1;
+        break;
+      }
+      if (memcmp(buf, dst, sizeof(buf) - outbytesleft )) {
+        E("@[%d]:dst does not equal", line);
+        r = -1;
+        break;
+      }
+      r = 0;
+    } while (0);
+
+    iconv_close(cd);
+
+    if (r) break;
+  }
+
+  return r ? -1 : 0;
+}
+
+
+#ifdef _WIN32              /* { */
+static int _test_mbcs(iconv_case_t *iconv_case)
+{
+  char *buf  = iconv_case->buf;
+  size_t sz  = sizeof(iconv_case->buf);
+  const char *src = iconv_case->src;
+  const char *chk = iconv_case->chk;
+  const size_t times = iconv_case->times;
+  int r = 0;
+  size_t n = 0;
+  const size_t src_len = strlen(src);
+  DUMP("times:%zd", times);
+
+  WCHAR ws[4096]; ws[0] = 0;
+  for (size_t i=0; i<times; ++i) {
+    buf[0] = '\0';
+    r = MultiByteToWideChar(CP_UTF8, 0, src, (int)src_len, ws, sizeof(ws) / sizeof(ws[0]));
+    if (r == 0) {
+      DUMP("convert1 failed:[0x%x]", GetLastError());
+      return -1;
+    }
+    BOOL used = FALSE;
+    r = WideCharToMultiByte(CP_ACP, 0, ws, r, buf, (int)(sz-1), NULL, &used);
+    if (r == 0) {
+      DUMP("convert2 failed:[0x%x]", GetLastError());
+      return -1;
+    }
+    if (used) {
+      DUMP("convert3 failed:[0x%x]", GetLastError());
+      return -1;
+    }
+    buf[r] = '\0';
+    if (strcmp(buf, chk)) {
+      DUMP("does not match:[%s]<<<>>>>[%s]", buf, chk);
+      return -1;
+    }
+  }
+
+  return 0;
+}
+
+static int test_mbcs(void)
+{
+  int r = 0;
+
+  r = _test_mbcs(&iconv_case);
+
+  return r;
+}
+
+static BOOL CALLBACK codepage_cb(LPTSTR lpCodePageString)
+{
+  fprintf(stderr, "codepage:%s\n", lpCodePageString);
+  return TRUE;
+}
+
+static int test_codepages(void)
+{
+  EnumSystemCodePagesA(codepage_cb, CP_INSTALLED);
+  return 0;
+}
+#endif                     /* } */
+
+static int test_strncpy(void)
+{
+  for (size_t i=0; i<iconv_case.times; ++i) {
+    strncpy(iconv_case.buf, iconv_case.src, sizeof(iconv_case.buf));
+  }
+  DUMP("%zd times passed", iconv_case.times);
+  return 0;
+}
+
+static int test_snprintf(void)
+{
+  for (size_t i=0; i<iconv_case.times; ++i) {
+    snprintf(iconv_case.buf, sizeof(iconv_case.buf), "%s", iconv_case.src);
+  }
+  DUMP("%zd times passed", iconv_case.times);
+  return 0;
+}
+
 static int get_int(void)
 {
   static int tick = 0;
@@ -1210,9 +1541,18 @@ static struct {
   RECORD(test_wildmatch),
   RECORD(test_basename_dirname),
   RECORD(test_pthread_once),
+  RECORD(test_iconv_names),
   RECORD(test_iconv),
+  RECORD(test_iconvs),
   RECORD(test_iconv_perf_reuse),
   RECORD(test_iconv_perf_on_the_fly),
+  RECORD(test_iconv_full),
+#ifdef _WIN32              /* { */
+  RECORD(test_mbcs),
+  RECORD(test_codepages),
+#endif                     /* } */
+  RECORD(test_strncpy),
+  RECORD(test_snprintf),
   RECORD(test_buffer),
   RECORD(test_trim),
   RECORD(test_gettimeofday),
@@ -1263,6 +1603,18 @@ int main(int argc, char *argv[])
       usage(argv[0]);
       return 0;
     }
+    if (strcmp(argv[i], "--times") == 0) {
+      if (i+1 >= argc) {
+        fprintf(stderr, "<times> expected after --times\n");
+        return 1;
+      }
+      ++i;
+      long long times = strtoll(argv[i], NULL, 0); // FIXME: error check
+      if (times > 0 && (size_t)times > iconv_case.times) {
+        iconv_case.times = (size_t)times;
+      }
+      continue;
+    }
     tested = 1;
     r = run(argv[i]);
     if (r) return 1;
@@ -1274,4 +1626,3 @@ int main(int argc, char *argv[])
 
   return !!r;
 }
-

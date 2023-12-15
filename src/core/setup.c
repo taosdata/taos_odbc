@@ -233,7 +233,7 @@ static void check_taos_connection(HWND hDlg, config_t *config)
     snprintf(buf, sizeof(buf), "connecting failure:[%d/0x%x]%s", e, e, taos_errstr(NULL));
     MessageBox(hDlg, buf, "Error!", MB_OK | MB_ICONEXCLAMATION);
   } else {
-    MessageBox(hDlg, "Connecting Success", "Success!", MB_OK);
+    MessageBox(hDlg, "Connecting Success", "TDengine ODBC Connection Test", MB_OK);
   }
   if (taos) {
     taos_close(taos);
@@ -303,8 +303,8 @@ static void check_taosws_connection(HWND hDlg, config_t *config, url_parser_para
     MessageBox(hDlg, buf, "Warning!", MB_OK | MB_ICONEXCLAMATION);
   } else {
     CALL_ws_close(taosws);
-    snprintf(buf, sizeof(buf), "Connect success:\n%s", out);
-    MessageBox(hDlg, buf, "Success!", MB_OK | MB_ICONEXCLAMATION);
+    snprintf(buf, sizeof(buf), "Successfully connected to:\n%s", out);
+    MessageBox(hDlg, buf, "TDengine ODBC Connection Test", MB_OK | MB_ICONEXCLAMATION);
   }
   // snprintf(buf, sizeof(buf), "About to connect with:\n%s\n\nbut not implemented yet", out ? out : config->url);
   // MessageBox(hDlg, buf, "Warning!", MB_OK | MB_ICONEXCLAMATION);
@@ -376,8 +376,8 @@ static INT_PTR OnCheckCol(HWND hDlg, WPARAM wParam, LPARAM lParam)
 static INT_PTR OnInitDlg(HWND hDlg, WPARAM wParam, LPARAM lParam)
 {
   LPCSTR lpszAttributes = gAttributes;
-  CheckRadioButton(hDlg, IDC_RAD_TAOS, IDC_RAD_TAOSWS, IDC_RAD_TAOS);
-  SwitchTaos(hDlg, TRUE);
+  CheckRadioButton(hDlg, IDC_RAD_TAOS, IDC_RAD_TAOSWS, IDC_RAD_TAOSWS);
+  SwitchTaos(hDlg, FALSE);
   if (lpszAttributes) {
     const char *p = lpszAttributes;
     char k[4096], v[4096];
@@ -389,9 +389,10 @@ static INT_PTR OnInitDlg(HWND hDlg, WPARAM wParam, LPARAM lParam)
           SetDlgItemText(hDlg, IDC_EDT_DSN, v);
 
           k[0] = '\0';
-          SQLGetPrivateProfileString(v, "URL", "", k, sizeof(k), "Odbc.ini");
-          SetDlgItemText(hDlg, IDC_EDT_URL, k);
-          if (k[0] == 0) {
+
+          SQLGetPrivateProfileString(v, "SERVER", "", k, sizeof(k), "Odbc.ini");
+          SetDlgItemText(hDlg, IDC_EDT_SERVER, k);
+          if (k[0] != 0) {
             CheckRadioButton(hDlg, IDC_RAD_TAOS, IDC_RAD_TAOSWS, IDC_RAD_TAOS);
             SwitchTaos(hDlg, TRUE);
           } else {
@@ -399,9 +400,9 @@ static INT_PTR OnInitDlg(HWND hDlg, WPARAM wParam, LPARAM lParam)
             SwitchTaos(hDlg, FALSE);
           }
 
-          SQLGetPrivateProfileString(v, "SERVER", "", k, sizeof(k), "Odbc.ini");
-          SetDlgItemText(hDlg, IDC_EDT_SERVER, k);
-
+          SQLGetPrivateProfileString(v, "URL", "", k, sizeof(k), "Odbc.ini");
+          SetDlgItemText(hDlg, IDC_EDT_URL, k);
+  
           SQLGetPrivateProfileString(v, "DB", "", k, sizeof(k), "Odbc.ini");
           SetDlgItemText(hDlg, IDC_EDT_DB, k);
 

@@ -36,7 +36,7 @@ if False:
 if False:
   cnxn = pyodbc.connect('DSN=TAOS_ODBC_DSN')
   cursor = cnxn.cursor()
-  x = cursor.execute("select name,mark from bar.x").fetchall()
+  x = cursor.execute("select name,mark from foo.x").fetchall()
   cursor.close()
   cnxn.close()
   print(x, file=sys.stderr)
@@ -53,9 +53,9 @@ def test_case0():
   # Create a cursor from the connection
   cursor = cnxn.cursor()
 
-  cursor.execute("drop database if exists bar")
-  cursor.execute("create database if not exists bar")
-  cursor.execute("use bar")
+  cursor.execute("drop database if exists foo")
+  cursor.execute("create database if not exists foo")
+  cursor.execute("use foo")
 
   cursor.execute("select * from information_schema.ins_tables")
   while True:

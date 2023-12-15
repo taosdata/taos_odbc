@@ -29,7 +29,9 @@ list(APPEND test_helper_SOURCES
 
 add_library(test_helper_obj OBJECT ${test_helper_SOURCES})
 if(TODBC_WINDOWS)
-    add_dependencies(test_helper_obj ex_iconv)
+    if(USE_WIN_ICONV)
+        add_dependencies(test_helper_obj ex_iconv)
+    endif()
 endif()
 add_dependencies(test_helper_obj ex_cjson)
 set_property(TARGET test_helper_obj PROPERTY POSITION_INDEPENDENT_CODE 1)

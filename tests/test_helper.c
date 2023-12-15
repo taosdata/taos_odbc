@@ -27,7 +27,7 @@
 
 #include "logger.h"
 
-#include <iconv.h>
+#include "iconv_wrapper.h"
 
 #include <errno.h>
 #include <limits.h>
@@ -239,7 +239,7 @@ static inline cJSON* load_json_from_file(const char *json_file, FILE *fn, const 
   const char *p = buf;
 
   iconv_t cnv = iconv_open(tocode, fromcode);
-  if (!cnv) {
+  if (cnv == (iconv_t)-1) {
     W("no charset conversion between `%s` <=> `%s`", fromcode, tocode);
     free(buf);
     return NULL;
@@ -478,7 +478,7 @@ static ejson_t* load_ejson_from_file(const char *json_file, FILE *fn, const char
   const char *p = buf;
 
   iconv_t cnv = iconv_open(tocode, fromcode);
-  if (!cnv) {
+  if (cnv == (iconv_t)-1) {
     W("no charset conversion between `%s` <=> `%s`", fromcode, tocode);
     free(buf);
     return NULL;

@@ -298,9 +298,9 @@ static int do_sql_stmt_execute_direct(SQLHANDLE stmth)
 {
   CHK2(test_sql_stmt_execute_direct, stmth, "xshow databases", -1);
   CHK2(test_sql_stmt_execute_direct, stmth, "show databases", 0);
-  CHK2(test_sql_stmt_execute_direct, stmth, "drop database if exists bar", 0);
-  CHK2(test_sql_stmt_execute_direct, stmth, "create database bar", 0);
-  CHK2(test_sql_stmt_execute_direct, stmth, "use bar", 0);
+  CHK2(test_sql_stmt_execute_direct, stmth, "drop database if exists foo", 0);
+  CHK2(test_sql_stmt_execute_direct, stmth, "create database foo", 0);
+  CHK2(test_sql_stmt_execute_direct, stmth, "use foo", 0);
   CHK2(test_sql_stmt_execute_direct, stmth, "show tables", 0);
   CHK2(test_sql_stmt_execute_direct, stmth, "drop table if exists t", 0);
   CHK2(test_sql_stmt_execute_direct, stmth, "create table t (ts timestamp, v int)", 0);
@@ -334,8 +334,8 @@ static int do_sql_stmt_execute_direct(SQLHANDLE stmth)
 __attribute__((unused))
 static int do_sql_stmt_execute_direct_prepare(SQLHANDLE stmth)
 {
-  CHK2(test_sql_stmt_execute_direct, stmth, "create database if not exists bar", 0);
-  CHK2(test_sql_stmt_execute_direct, stmth, "use bar", 0);
+  CHK2(test_sql_stmt_execute_direct, stmth, "create database if not exists foo", 0);
+  CHK2(test_sql_stmt_execute_direct, stmth, "use foo", 0);
   CHK2(test_sql_stmt_execute_direct, stmth, "create table if not exists t (ts timestamp, v int)", 0);
 
   // SQLRETURN r;

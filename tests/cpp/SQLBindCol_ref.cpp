@@ -28,7 +28,7 @@
 #include "odbc_helpers.h"
 
 #include <errno.h>
-#include <iconv.h>
+#include "iconv_wrapper.h"
 #include <stdlib.h>
 #include <string.h>
 #include <wchar.h>
@@ -38,7 +38,7 @@ static int _encode(
     const char *tocode, char **outbuf, size_t *outbytesleft)
 {
   iconv_t cd = iconv_open(tocode, fromcode);
-  if ((size_t)cd == (size_t)-1) {
+  if (cd == (iconv_t)-1) {
     D("[iconv] No character set conversion found for `%s` to `%s`: [%d] %s",
         fromcode, tocode, errno, strerror(errno));
     return -1;

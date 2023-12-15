@@ -2638,17 +2638,17 @@ static int conformance_fetch_one_row_or_block(TAOS *taos)
   TAOS_RES *res;
 
   const char *sqls[] = {
-    "drop database if exists bar",
-    "create database if not exists bar",
-    "create table bar.demo (ts timestamp, name varchar(20))",
-    "insert into bar.demo (ts, name) values (now(), '测试1')",
-    "insert into bar.demo (ts, name) values (now(), '测试1')",
+    "drop database if exists foo",
+    "create database if not exists foo",
+    "create table foo.demo (ts timestamp, name varchar(20))",
+    "insert into foo.demo (ts, name) values (now(), '测试1')",
+    "insert into foo.demo (ts, name) values (now(), '测试1')",
   };
 
   r = _execute_sqls(taos, sqls, sizeof(sqls)/sizeof(sqls[0]));
   if (r) return -1;
 
-  const char *sql = "select * from bar.demo";
+  const char *sql = "select * from foo.demo";
   char name_one_row[4096], name_block[4096];
 
   res = CALL_taos_query(taos, sql);
@@ -2741,10 +2741,10 @@ static int conformance_tests(void)
 static int conformance_ts_with_taos(TAOS *taos)
 {
   const char *sqls[] = {
-    "drop database if exists bar",
-    "create database bar",
-    "create table bar.foo (ts timestamp, name varchar(20))",
-    "insert into bar.foo (ts, name) values (1662861448752, 'hello')",
+    "drop database if exists foo",
+    "create database foo",
+    "create table foo.foo (ts timestamp, name varchar(20))",
+    "insert into foo.foo (ts, name) values (1662861448752, 'hello')",
   };
   for (size_t i=0; i<sizeof(sqls)/sizeof(sqls[0]); ++i) {
     const char *sql = sqls[i];
@@ -2763,7 +2763,7 @@ static int conformance_ts_with_taos(TAOS *taos)
     res = NULL;
   }
 
-  const char *sql = "select ts from bar.foo";
+  const char *sql = "select ts from foo.foo";
   TAOS_RES *res = CALL_taos_query(taos, sql);
   int e = CALL_taos_errno(res);
   if (e) {

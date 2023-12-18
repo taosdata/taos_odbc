@@ -215,9 +215,15 @@ static void GetConfig(HWND hDlg, config_t *config)
 
 static void check_taos_connection(HWND hDlg, config_t *config)
 {
+  HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtr(hDlg, GWLP_HINSTANCE);
+  char title[100]; title[0] = '\0';
+  char message[256]; message[0] = '\0';
+  LoadString(hInstance, IDS_TEST_CONN_TITLE, title, sizeof(title));
+
   int r = ParseServer(hDlg, config);
   if (r) {
-    MessageBox(hDlg, "Server not valid", "Warning!", MB_OK | MB_ICONEXCLAMATION);
+    LoadString(hInstance, IDS_TEST_CONN_SERVER_INVALID, message, sizeof(message));
+    MessageBox(hDlg, message, title, MB_OK | MB_ICONEXCLAMATION);
     return;
   }
   TAOS *taos = NULL;
@@ -230,10 +236,12 @@ static void check_taos_connection(HWND hDlg, config_t *config)
   if (!taos) {
     int e = taos_errno(NULL);
     char buf[1024];
-    snprintf(buf, sizeof(buf), "connecting failure:[%d/0x%x]%s", e, e, taos_errstr(NULL));
-    MessageBox(hDlg, buf, "Error!", MB_OK | MB_ICONEXCLAMATION);
+    LoadString(hInstance, IDS_TEST_CONN_MSG_FAILURE, message, sizeof(message));
+    snprintf(buf, sizeof(buf), "%s:[%d/0x%x]%s", message, e, e, taos_errstr(NULL));
+    MessageBox(hDlg, buf, title, MB_OK | MB_ICONEXCLAMATION);
   } else {
-    MessageBox(hDlg, "Connecting Success", "TDengine ODBC Connection Test", MB_OK);
+    LoadString(hInstance, IDS_TEST_CONN_NATIVE_MSG_SUCCESS, message, sizeof(message));
+    MessageBox(hDlg, message, title, MB_OK);
   }
   if (taos) {
     taos_close(taos);

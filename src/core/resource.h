@@ -1,6 +1,6 @@
 ﻿//{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ 生成的包含文件。
-// 供 taos_odbc_setup.rc 使用
+// 供 taos_odbc_setup_zh.rc 使用
 //
 #define IDC_MYICON                      2
 #define IDD_TAOSODBCSETUP_DIALOG        102
@@ -40,6 +40,18 @@
 #define IDC_STC_UID                     1027
 #define IDC_STC_PWD                     1028
 #define IDC_CHK_BI_MODE                 1029
+
+#define IDS_TEST_CONN_TITLE                  1101
+#define IDS_TEST_CONN_MSG_SUCCESS            1102
+#define IDS_TEST_CONN_MSG_FAILURE            1103
+
+#define IDS_TEST_CONN_ENCODE_URL_FAILURE     1104
+#define IDS_TEST_CONN_BIND_URL_FAILURE       1105
+#define IDS_TEST_CONN_NO_URL_FAILURE         1106
+#define IDS_TEST_CONN_SERVER_INVALID         1107
+#define IDS_TEST_CONN_NATIVE_MSG_SUCCESS     1108
+
+
 #define IDC_STATIC                      -1
 
 // Next default values for new objects

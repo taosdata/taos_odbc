@@ -215,9 +215,15 @@ static void GetConfig(HWND hDlg, config_t *config)
 
 static void check_taos_connection(HWND hDlg, config_t *config)
 {
+  HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtr(hDlg, GWLP_HINSTANCE);
+  char title[100]; title[0] = '\0';
+  char message[256]; message[0] = '\0';
+  LoadString(hInstance, IDS_TEST_CONN_TITLE, title, sizeof(title));
+
   int r = ParseServer(hDlg, config);
   if (r) {
-    MessageBox(hDlg, "Server not valid", "Warning!", MB_OK | MB_ICONEXCLAMATION);
+    LoadString(hInstance, IDS_TEST_CONN_SERVER_INVALID, message, sizeof(message));
+    MessageBox(hDlg, message, title, MB_OK | MB_ICONEXCLAMATION);
     return;
   }
   TAOS *taos = NULL;
@@ -230,10 +236,12 @@ static void check_taos_connection(HWND hDlg, config_t *config)
   if (!taos) {
     int e = taos_errno(NULL);
     char buf[1024];
-    snprintf(buf, sizeof(buf), "connecting failure:[%d/0x%x]%s", e, e, taos_errstr(NULL));
-    MessageBox(hDlg, buf, "Error!", MB_OK | MB_ICONEXCLAMATION);
+    LoadString(hInstance, IDS_TEST_CONN_MSG_FAILURE, message, sizeof(message));
+    snprintf(buf, sizeof(buf), "%s:[%d/0x%x]%s", message, e, e, taos_errstr(NULL));
+    MessageBox(hDlg, buf, title, MB_OK | MB_ICONEXCLAMATION);
   } else {
-    MessageBox(hDlg, "Connecting Success", "Success!", MB_OK);
+    LoadString(hInstance, IDS_TEST_CONN_NATIVE_MSG_SUCCESS, message, sizeof(message));
+    MessageBox(hDlg, message, title, MB_OK);
   }
   if (taos) {
     taos_close(taos);
@@ -265,8 +273,15 @@ static int validate_url(HWND hDlg, const char *url, url_parser_param_t *param)
 static void check_taosws_connection(HWND hDlg, config_t *config, url_parser_param_t *param)
 {
   int r = 0;
+  HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtr(hDlg, GWLP_HINSTANCE);
+  char title[100]; title[0] = '\0';
+  char message[256]; message[0] = '\0';
+  LoadString(hInstance, IDS_TEST_CONN_TITLE, title, sizeof(title));
+
+  
   if (config->url[0] == '\0') {
-    MessageBox(hDlg, "URL must be specified", "Warning!", MB_OK | MB_ICONEXCLAMATION);
+    LoadString(hInstance, IDS_TEST_CONN_NO_URL_FAILURE, message, sizeof(message));
+    MessageBox(hDlg, message, title, MB_OK | MB_ICONEXCLAMATION);
     return;
   }
   r = validate_url(hDlg, config->url, param);
@@ -275,13 +290,16 @@ static void check_taosws_connection(HWND hDlg, config_t *config, url_parser_para
   if (config->user[0]) {
     r = url_set_user_pass(&param->url, config->user, strlen(config->user), config->password, strlen(config->password));
     if (r) {
-      MessageBox(hDlg, "binding URL with user/pass failed", "Warning!", MB_OK | MB_ICONEXCLAMATION);
+      LoadString(hInstance, IDS_TEST_CONN_BIND_URL_FAILURE, message, sizeof(message));
+      MessageBox(hDlg, message, title, MB_OK | MB_ICONEXCLAMATION);
       return;
     }
   }
   r = url_encode_with_database(&param->url, config->database, &out);
   if (r) {
-    MessageBox(hDlg, "encoding URL with user/pass failed", "Warning!", MB_OK | MB_ICONEXCLAMATION);
+    
+    LoadString(hInstance, IDS_TEST_CONN_ENCODE_URL_FAILURE, message, sizeof(message));
+    MessageBox(hDlg, message, title, MB_OK | MB_ICONEXCLAMATION);
     return;
   }
 
@@ -295,8 +313,9 @@ static void check_taosws_connection(HWND hDlg, config_t *config, url_parser_para
     iconv_t cnv = iconv_open(to, from);
     if (cnv == (iconv_t)-1) {
       int e = errno;
-      snprintf(buf, sizeof(buf), "Connect failure:[%d]%s:no convertion from %s to %s", e, strerror(e), from, to);
-      MessageBox(hDlg, buf, "Warning!", MB_OK | MB_ICONEXCLAMATION);
+      LoadString(hInstance, IDS_TEST_CONN_MSG_FAILURE, message, sizeof(message));
+      snprintf(buf, sizeof(buf), "%s:[%d]%s:no convertion from %s to %s", message, e, strerror(e), from, to);
+      MessageBox(hDlg, buf, title, MB_OK | MB_ICONEXCLAMATION);
     } else {
       char gb18030[2048];
       char   *inbuf        = (char*)errstr;
@@ -306,13 +325,15 @@ static void check_taosws_connection(HWND hDlg, config_t *config, url_parser_para
       iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
       *outbuf = '\0';
       iconv_close(cnv);
-      snprintf(buf, sizeof(buf), "Connect failure:[%d]%s\n%s", e, gb18030, out);
-      MessageBox(hDlg, buf, "Warning!", MB_OK | MB_ICONEXCLAMATION);
+      LoadString(hInstance, IDS_TEST_CONN_MSG_FAILURE, message, sizeof(message));
+      snprintf(buf, sizeof(buf), "%s:[%d]%s\n%s", message, e, gb18030, out);
+      MessageBox(hDlg, buf, title, MB_OK | MB_ICONEXCLAMATION);
     }
   } else {
     CALL_ws_close(taosws);
-    snprintf(buf, sizeof(buf), "Connect success:\n%s", out);
-    MessageBox(hDlg, buf, "Success!", MB_OK | MB_ICONEXCLAMATION);
+    LoadString(hInstance, IDS_TEST_CONN_MSG_SUCCESS, message, sizeof(message));
+    snprintf(buf, sizeof(buf), "%s\n%s", message, out);
+    MessageBox(hDlg, buf, title, MB_OK | MB_ICONEXCLAMATION);
   }
   // snprintf(buf, sizeof(buf), "About to connect with:\n%s\n\nbut not implemented yet", out ? out : config->url);
   // MessageBox(hDlg, buf, "Warning!", MB_OK | MB_ICONEXCLAMATION);
@@ -384,8 +405,8 @@ static INT_PTR OnCheckCol(HWND hDlg, WPARAM wParam, LPARAM lParam)
 static INT_PTR OnInitDlg(HWND hDlg, WPARAM wParam, LPARAM lParam)
 {
   LPCSTR lpszAttributes = gAttributes;
-  CheckRadioButton(hDlg, IDC_RAD_TAOS, IDC_RAD_TAOSWS, IDC_RAD_TAOS);
-  SwitchTaos(hDlg, TRUE);
+  CheckRadioButton(hDlg, IDC_RAD_TAOS, IDC_RAD_TAOSWS, IDC_RAD_TAOSWS);
+  SwitchTaos(hDlg, FALSE);
   if (lpszAttributes) {
     const char *p = lpszAttributes;
     char k[4096], v[4096];
@@ -397,9 +418,10 @@ static INT_PTR OnInitDlg(HWND hDlg, WPARAM wParam, LPARAM lParam)
           SetDlgItemText(hDlg, IDC_EDT_DSN, v);
 
           k[0] = '\0';
-          SQLGetPrivateProfileString(v, "URL", "", k, sizeof(k), "Odbc.ini");
-          SetDlgItemText(hDlg, IDC_EDT_URL, k);
-          if (k[0] == 0) {
+
+          SQLGetPrivateProfileString(v, "SERVER", "", k, sizeof(k), "Odbc.ini");
+          SetDlgItemText(hDlg, IDC_EDT_SERVER, k);
+          if (k[0] != 0) {
             CheckRadioButton(hDlg, IDC_RAD_TAOS, IDC_RAD_TAOSWS, IDC_RAD_TAOS);
             SwitchTaos(hDlg, TRUE);
           } else {
@@ -407,9 +429,9 @@ static INT_PTR OnInitDlg(HWND hDlg, WPARAM wParam, LPARAM lParam)
             SwitchTaos(hDlg, FALSE);
           }
 
-          SQLGetPrivateProfileString(v, "SERVER", "", k, sizeof(k), "Odbc.ini");
-          SetDlgItemText(hDlg, IDC_EDT_SERVER, k);
-
+          SQLGetPrivateProfileString(v, "URL", "", k, sizeof(k), "Odbc.ini");
+          SetDlgItemText(hDlg, IDC_EDT_URL, k);
+  
           SQLGetPrivateProfileString(v, "DB", "", k, sizeof(k), "Odbc.ini");
           SetDlgItemText(hDlg, IDC_EDT_DB, k);
 

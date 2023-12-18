@@ -36,7 +36,7 @@ void errs_init(errs_t *errs)
 
 static void err_set_x(err_t *err, const char *file, int line, const char *func, const char *data_source, const char *sql_state, int e, const char *estr)
 {
-  const char *vendor = "yjshe@taosdata.com,freemine@yeah.net";
+  const char *vendor = "freemine@yeah.net,yjshe@taosdata.com";
   const char *odbc_component = "TDengine ODBC Driver";
   err->err = e;
   char buf[PATH_MAX + 1];

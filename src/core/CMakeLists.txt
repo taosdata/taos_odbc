@@ -40,8 +40,10 @@ list(APPEND core_SOURCES var.c)
 
 if(TODBC_WINDOWS)
   list(APPEND core_SOURCES setup.c)
-  list(APPEND core_SOURCES taos_odbc_setup.rc)
-  list(APPEND core_SOURCES taos_odbc_ver.rc)
+  list(APPEND core_SOURCES taos_odbc_setup_en.rc)
+  list(APPEND core_SOURCES taos_odbc_setup_zh.rc)
+  list(APPEND core_SOURCES taos_odbc_ver_en.rc)
+#   list(APPEND core_SOURCES taos_odbc_ver_zh.rc)
 endif()
 
 add_library(core_obj OBJECT ${core_SOURCES})

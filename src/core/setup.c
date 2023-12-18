@@ -265,6 +265,12 @@ static int validate_url(HWND hDlg, const char *url, url_parser_param_t *param)
 static void check_taosws_connection(HWND hDlg, config_t *config, url_parser_param_t *param)
 {
   int r = 0;
+  HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtr(hDlg, GWLP_HINSTANCE);
+  char* title[100]; title[0] = '\0';
+  char* message[256]; message[0] = '\0';
+  LoadString(hInstance, IDS_TEST_CONN_TITLE, title, sizeof(title));
+
+  
   if (config->url[0] == '\0') {
     MessageBox(hDlg, "URL must be specified", "Warning!", MB_OK | MB_ICONEXCLAMATION);
     return;
@@ -312,7 +318,7 @@ static void check_taosws_connection(HWND hDlg, config_t *config, url_parser_para
   } else {
     CALL_ws_close(taosws);
     snprintf(buf, sizeof(buf), "Successfully connected to:\n%s", out);
-    MessageBox(hDlg, buf, "TDengine ODBC Connection Test", MB_OK | MB_ICONEXCLAMATION);
+    MessageBox(hDlg, buf, title, MB_OK | MB_ICONEXCLAMATION);
   }
   // snprintf(buf, sizeof(buf), "About to connect with:\n%s\n\nbut not implemented yet", out ? out : config->url);
   // MessageBox(hDlg, buf, "Warning!", MB_OK | MB_ICONEXCLAMATION);

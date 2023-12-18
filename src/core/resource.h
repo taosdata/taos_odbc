@@ -40,6 +40,15 @@
 #define IDC_STC_UID                     1027
 #define IDC_STC_PWD                     1028
 #define IDC_CHK_BI_MODE                 1029
+
+#define IDS_TEST_CONN_TITLE             1101
+#define IDS_TEST_CONN_MSG_SUCCESS       1102
+#define IDS_TEST_CONN_MSG_FAILURE       1103
+
+#define IDS_TEST_CONN_ENCODE_URL_FAILURE 1104
+#define IDS_TEST_CONN_BIND_URL_FAILURE   1105
+#define IDS_TEST_CONN_NO_URL_FAILURE     1106
+
 #define IDC_STATIC                      -1
 
 // Next default values for new objects

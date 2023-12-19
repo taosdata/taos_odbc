@@ -241,7 +241,7 @@ static void check_taos_connection(HWND hDlg, config_t *config)
     MessageBox(hDlg, buf, title, MB_OK | MB_ICONEXCLAMATION);
   } else {
     LoadString(hInstance, IDS_TEST_CONN_NATIVE_MSG_SUCCESS, message, sizeof(message));
-    MessageBox(hDlg, message, title, MB_OK);
+    MessageBox(hDlg, message, title, MB_OK | MB_ICONEXCLAMATION);
   }
   if (taos) {
     taos_close(taos);

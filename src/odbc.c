@@ -139,6 +139,7 @@ static void _init_charsets(void)
       snprintf(_global.sqlc_charset, sizeof(_global.sqlc_charset), "UTF-8");
       break;
     default:
+      snprintf(_global.sqlc_charset, sizeof(_global.sqlc_charset), "CP%d", acp);
       break;
   }
 #else

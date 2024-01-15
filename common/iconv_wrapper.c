@@ -184,6 +184,7 @@ static int iconv_get_acp(const char *code, cpinfo_t *info)
     RECORD("CP437",          437),
     RECORD("CP850",          850),
     RECORD("CP858",          858),
+    RECORD("CP1252",         1252),
   };
   const size_t nr_names = sizeof(names) / sizeof(names[0]);
 #undef RECORD

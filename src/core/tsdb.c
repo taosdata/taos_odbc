@@ -935,7 +935,8 @@ static SQLRETURN _tsdb_stmt_fetch_rows_block(tsdb_stmt_t *stmt)
     const void *ptr = NULL;
     int32_t rows = 0;
     int32_t r = CALL_ws_fetch_block((WS_RES*)res->res, &ptr, &rows);
-    OA_NIY(r == 0); // TODO:
+    if (r != 0) return SQL_ERROR;
+    
     if (rows == 0) return SQL_NO_DATA;
 
     rows_block->ws_ptr = ptr;

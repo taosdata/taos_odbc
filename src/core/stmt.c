@@ -7608,6 +7608,11 @@ SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr,
       return _stmt_set_max_length(stmt, (SQLULEN)ValuePtr);
     case SQL_ATTR_MAX_ROWS:
       if ((SQLULEN)(uintptr_t)ValuePtr == 0) return SQL_SUCCESS;
+      if ((SQLULEN)(uintptr_t)ValuePtr == 4096) return SQL_SUCCESS;
+      stmt_append_err_format(stmt, "01S02", 0,
+          "Option value changed:`%" PRIu64 "` for `SQL_ATTR_MAX_ROWS` is substituted by `4096`",
+          (uint64_t)(SQLULEN)(uintptr_t)ValuePtr);
+      return SQL_SUCCESS_WITH_INFO;
       break;
     case SQL_ATTR_METADATA_ID:
       // FIXME:
@@ -7714,6 +7719,9 @@ SQLRETURN stmt_get_attr(stmt_t *stmt,
     case SQL_ATTR_MAX_LENGTH:
       break;
     case SQL_ATTR_MAX_ROWS:
+      // TODO: check with TDengine documentation and test!
+      *(SQLULEN*)Value = (SQLULEN)4096;
+      return SQL_SUCCESS;
       break;
     case SQL_ATTR_METADATA_ID:
       break;

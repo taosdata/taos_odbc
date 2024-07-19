@@ -15,7 +15,7 @@ if __name__ == "__main__":
     # print(info)
     # cnxn = pyodbc.connect(info)
 
-    cnxn = pyodbc.connect('DSN=TAOS_ODBC_DSN;PWD=taosdata')
+    cnxn = pyodbc.connect('DSN=TAOS_ODBC_WS_DSN;PWD=taosdata')
 
     # Create a cursor from the connection
     cursor = cnxn.cursor()

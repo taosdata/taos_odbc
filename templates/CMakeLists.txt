@@ -55,7 +55,8 @@ if(NOT TODBC_WINDOWS)
 else()
   configure_file(win_odbcinst.ini.in ${CMAKE_CURRENT_BINARY_DIR}/win_odbcinst.ini)
   add_custom_target(install_templates
-      COMMAND odbcconf /S /F ${CMAKE_CURRENT_BINARY_DIR}/win_odbcinst.ini
+
+      COMMAND ${CMAKE_SYSTEM_ROOT}/SysWOW64/odbcconf.exe /S /F ${CMAKE_CURRENT_BINARY_DIR}/win_odbcinst.ini
       COMMAND ${CMAKE_COMMAND} -E echo "-=Done=-")
 endif()
 

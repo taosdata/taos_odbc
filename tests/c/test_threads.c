@@ -273,7 +273,7 @@ static int _thread_routine(const arg_t *arg)
 }
 
 #ifdef _WIN32                /* { */
-static DWORD _routine_CreateThread(LPVOID arg)
+static DWORD WINAPI _routine_CreateThread(LPVOID arg)
 {
   int r = 0;
   r = _thread_routine((const arg_t*)arg);

@@ -5053,8 +5053,8 @@ static SQLRETURN _stmt_param_get(stmt_t *stmt, param_state_t *param_state)
   size_t len = len_arr ? (size_t)(len_arr[irow]) : (base ? strlen(base) : 0);
   if (1) {
     // NOTE: this is to hacking common_lisp plain-odbc `feature`
-    if (len_arr && len >> 32) {
-      len = (int32_t)len;
+    if (len_arr && sizeof(len) > 4 && len > UINT32_MAX) {
+      len &= UINT32_MAX;
     }
   }
   param_state->sqlc_base = base;

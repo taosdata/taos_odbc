@@ -106,26 +106,27 @@ macro(check_requirements)
   endif()
 
   ## check `taos`
-  find_library(TAOS NAMES taos PATHS C:/TDengine/driver)
-  if(${TAOS} STREQUAL TAOS-NOTFOUND)
-    message(FATAL_ERROR "${Red}`libtaos.so/libtaos.dylib/taos.dll/taos.lib` is required but not found, you may refer to https://github.com/taosdata/TDengine${ColorReset}")
-  endif()
+  # find_library(TAOS NAMES taos PATHS C:/TDengine-32/driver)
+  # if(${TAOS} STREQUAL TAOS-NOTFOUND)
+  #   message(FATAL_ERROR "${Red}`libtaos.so/libtaos.dylib/taos.dll/taos.lib` is required but not found, you may refer to https://github.com/taosdata/TDengine${ColorReset}")
+  # endif()
 
   set(CMAKE_REQUIRED_LIBRARIES taos)
   if(TODBC_DARWIN)
     set(CMAKE_REQUIRED_INCLUDES /usr/local/include)
     set(CMAKE_REQUIRED_LINK_OPTIONS -L/usr/local/lib)
   elseif(TODBC_WINDOWS)
-    set(CMAKE_REQUIRED_INCLUDES C:/TDengine/include)
-    set(CMAKE_REQUIRED_LINK_OPTIONS /LIBPATH:C:/TDengine/driver)
+    set(CMAKE_REQUIRED_INCLUDES C:/TDengine-32/include)
+    set(CMAKE_REQUIRED_LINK_OPTIONS /LIBPATH:C:/TDengine-32/driver)
+    message(STATUS ".cmake enter TODBC_WINDOWS branch: ${TODBC_WINDOWS}")
   endif()
-  check_symbol_exists(taos_query "taos.h" HAVE_TAOS)
-  if(NOT HAVE_TAOS)
-    message(FATAL_ERROR "${Red}`taos.h` is required but not found, you may refer to https://github.com/taosdata/TDengine${ColorReset}")
-  endif()
+  # check_symbol_exists(taos_query "taos.h" HAVE_TAOS)
+  # if(NOT HAVE_TAOS)
+  #   message(FATAL_ERROR "${Red}`taos.h` is required but not found, you may refer to https://github.com/taosdata/TDengine${ColorReset}")
+  # endif()
 
   ## check `taosws`
-  find_library(TAOSWS NAMES taosws PATHS C:/TDengine/driver)
+  find_library(TAOSWS NAMES taosws PATHS C:/TDengine-32/driver)
   if(${TAOSWS} STREQUAL TAOSWS-NOTFOUND)
     message(STATUS "${Yellow}"
                    "`libtaosws.so/libtaosws.dylib/taosws.dll/taosws.lib` is not found, you may refer to https://github.com/taosdata/TDengine"
@@ -136,15 +137,15 @@ macro(check_requirements)
       set(CMAKE_REQUIRED_INCLUDES /usr/local/include)
       set(CMAKE_REQUIRED_LINK_OPTIONS -L/usr/local/lib)
     elseif(TODBC_WINDOWS)
-      set(CMAKE_REQUIRED_INCLUDES C:/TDengine/include)
-      set(CMAKE_REQUIRED_LINK_OPTIONS /LIBPATH:C:/TDengine/driver)
+      set(CMAKE_REQUIRED_INCLUDES C:/TDengine-32/include)
+      set(CMAKE_REQUIRED_LINK_OPTIONS /LIBPATH:C:/TDengine-32/driver)
     endif()
     check_symbol_exists(ws_query "taosws.h" HAVE_TAOSWS)
-    if(NOT HAVE_TAOSWS)
-      message(STATUS "${Yellow}"
-                     "`taosws.h` is not found, you may refer to https://github.com/taosdata/TDengine"
-                     "${ColorReset}")
-    endif()
+    # if(NOT HAVE_TAOSWS)
+    #   message(STATUS "${Yellow}"
+    #                  "`taosws.h` is not found, you may refer to https://github.com/taosdata/TDengine"
+    #                  "${ColorReset}")
+    # endif()
   endif()
 
   if(TODBC_DARWIN)

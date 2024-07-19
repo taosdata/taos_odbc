@@ -27,6 +27,34 @@
           "type": "STRING"
         }
       ]
+    },
+    {
+      "name": "x32-Debug",
+      "generator": "Visual Studio 17 2022",
+      "configurationType": "Debug",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": "",
+      "inheritEnvironments": [ "msvc_x86" ],
+      "variables": [
+        {
+          "name": "CMAKE_EXPORT_COMPILE_COMMANDS",
+          "value": "TRUE ",
+          "type": "BOOL"
+        },
+        {
+          "name": "SERVER_FOR_TEST",
+          "value": "192.168.154.252:6030 ",
+          "type": "STRING"
+        },
+        {
+          "name": "WS_FOR_TEST",
+          "value": "192.168.154.252:6041 ",
+          "type": "STRING"
+        }
+      ]
     }
   ]
 }

@@ -22,9 +22,20 @@
 # SOFTWARE.
 ###############################################################################
 
-add_executable(taos_benchmark
-    taos_benchmark.c)
-target_link_libraries(taos_benchmark taos)
+if(FAKE_TAOS)
+    add_executable(taos_benchmark
+        taos_benchmark.c
+        $<TARGET_OBJECTS:common_obj>
+        $<TARGET_OBJECTS:os_port_obj>
+        $<TARGET_OBJECTS:taos_helpers_obj>)
+
+    # add_dependencies(taos_helpers_obj os_port_obj)
+    # target_link_libraries(taos_benchmark PRIVATE taos_helpers_obj os_port_obj)
+else()
+    add_executable(taos_benchmark
+        taos_benchmark.c)
+    target_link_libraries(taos_benchmark taos)
+endif()
 
 add_executable(odbc_benchmark
     odbc_benchmark.c)
@@ -34,15 +45,26 @@ else()
     target_link_libraries(odbc_benchmark odbc32)
 endif()
 
-add_executable(tb
-    $<TARGET_OBJECTS:common_obj>
-    $<TARGET_OBJECTS:os_port_obj>
-    tb.c
-)
-if(NOT TODBC_WINDOWS)
-    target_link_libraries(tb taos)
+
+message(STATUS "in benchmark: TODBC_WINDOWS: ${TODBC_WINDOWS}")
+message(STATUS "in benchmark: FAKE_TAOS: ${FAKE_TAOS}")
+if(FAKE_TAOS)
+    add_executable(tb
+        $<TARGET_OBJECTS:common_obj>
+        $<TARGET_OBJECTS:os_port_obj>
+        $<TARGET_OBJECTS:taos_helpers_obj>
+        tb.c
+    )
 else()
+    add_executable(tb
+        $<TARGET_OBJECTS:common_obj>
+        $<TARGET_OBJECTS:os_port_obj>
+        tb.c
+    )
     target_link_libraries(tb taos)
+endif()
+
+if(TODBC_WINDOWS)
     set_source_files_properties(tb.c PROPERTIES COMPILE_OPTIONS "/source-charset:utf-8")
 endif()
 

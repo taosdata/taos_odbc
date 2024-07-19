@@ -104,7 +104,8 @@ if(HAVE_TAOSWS)
   else()
     target_link_libraries(taosws_regression cjson dl pthread)
   endif()
-  if(NOT FAKE_TAOS)
+
+  if(NOT FAKE_TAOSWS)
     target_link_libraries(taosws_regression taosws)
   endif()
 

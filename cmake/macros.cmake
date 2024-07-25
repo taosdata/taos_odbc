@@ -141,11 +141,13 @@ macro(check_requirements)
       set(CMAKE_REQUIRED_LINK_OPTIONS /LIBPATH:C:/TDengine-32/driver)
     endif()
     check_symbol_exists(ws_query "taosws.h" HAVE_TAOSWS)
-    # if(NOT HAVE_TAOSWS)
-    #   message(STATUS "${Yellow}"
-    #                  "`taosws.h` is not found, you may refer to https://github.com/taosdata/TDengine"
-    #                  "${ColorReset}")
-    # endif()
+    if(NOT HAVE_TAOSWS)
+      message(STATUS "${Yellow}"
+                     "`taosws.h` is not found, you may refer to https://github.com/taosdata/TDengine"
+                     "${ColorReset}")
+    else()
+      message(WARNING "found ws_query in taows.h")
+    endif()
   endif()
 
   if(TODBC_DARWIN)

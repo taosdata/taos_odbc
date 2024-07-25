@@ -1537,10 +1537,10 @@ static SQLRETURN _stmt_set_row_bind_type(stmt_t *stmt, SQLULEN row_bind_type)
 
 static SQLRETURN _stmt_set_param_bind_type(stmt_t *stmt, SQLULEN param_bind_type)
 {
-  if (param_bind_type != SQL_BIND_BY_COLUMN) {
-    stmt_append_err(stmt, "HY000", 0, "General error:only `SQL_BIND_BY_COLUMN` is supported now");
-    return SQL_ERROR;
-  }
+  // if (param_bind_type != SQL_BIND_BY_COLUMN) {
+  //   stmt_append_err(stmt, "HY000", 0, "General error:only `SQL_BIND_BY_COLUMN` is supported now");
+  //   return SQL_ERROR;
+  // }
 
   descriptor_t *APD = stmt_APD(stmt);
   desc_header_t *APD_header = &APD->header;
@@ -7634,6 +7634,7 @@ SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr,
       stmt_append_err_format(stmt, "01S02", 0, "Option value changed:`%zd` for `SQL_ATTR_QUERY_TIMEOUT` is substituted by `0`", (SQLULEN)(uintptr_t)ValuePtr);
       return SQL_SUCCESS_WITH_INFO;
     case SQL_ATTR_RETRIEVE_DATA:
+      return SQL_SUCCESS;
       if ((SQLULEN)(uintptr_t)ValuePtr == SQL_RD_ON) return SQL_SUCCESS;
       break;
     case SQL_ATTR_ROW_ARRAY_SIZE:
@@ -7655,6 +7656,9 @@ SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr,
     case SQL_ATTR_USE_BOOKMARKS:
       if ((SQLULEN)(uintptr_t)ValuePtr == SQL_UB_OFF) return SQL_SUCCESS;
       break;
+    case SQL_ROWSET_SIZE:
+      // return SQL_SUCCESS;       // FIXME:
+      return _stmt_set_row_array_size(stmt, (SQLULEN)ValuePtr);
 
     default:
       break;
@@ -7691,7 +7695,8 @@ SQLRETURN stmt_get_attr(stmt_t *stmt,
       break;
 #endif                       /* } */
     case SQL_ATTR_CONCURRENCY:
-      break;
+      *(SQLULEN*)Value = SQL_CONCUR_READ_ONLY;
+      return SQL_SUCCESS;
     case SQL_ATTR_CURSOR_SCROLLABLE:
       break;
     case SQL_ATTR_CURSOR_SENSITIVITY:
@@ -7732,7 +7737,8 @@ SQLRETURN stmt_get_attr(stmt_t *stmt,
     case SQL_ATTR_PARAMSET_SIZE:
       break;
     case SQL_ATTR_QUERY_TIMEOUT:
-      break;
+      *(SQLULEN*)Value = 0;
+      return SQL_SUCCESS;;
     case SQL_ATTR_RETRIEVE_DATA:
       break;
     case SQL_ATTR_ROW_ARRAY_SIZE:
@@ -7754,6 +7760,10 @@ SQLRETURN stmt_get_attr(stmt_t *stmt,
       break;
     case SQL_ATTR_USE_BOOKMARKS:
       break;
+    case SQL_ROWSET_SIZE:
+      // *(SQLULEN*)Value = (SQLULEN)1;
+      *(SQLULEN*)Value = (SQLULEN)_stmt_get_row_array_size(stmt);
+      return SQL_SUCCESS;
     default:
       break;
   }
@@ -7896,7 +7906,7 @@ SQLRETURN stmt_get_diag_field(
     case SQL_DIAG_NUMBER:
       return _stmt_get_diag_number(stmt, DiagIdentifier, DiagInfoPtr, BufferLength, StringLengthPtr);
     default:
-      OA(0, "RecNumber:[%d]; DiagIdentifier:[%d]%s", RecNumber, DiagIdentifier, sql_diag_identifier(DiagIdentifier));
+      OE("RecNumber:[%d]; DiagIdentifier:[%d]%s", RecNumber, DiagIdentifier, sql_diag_identifier(DiagIdentifier));
       return SQL_ERROR;
   }
 }

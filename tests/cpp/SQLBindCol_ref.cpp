@@ -1675,8 +1675,10 @@ static int test(const char *conn_str, int ws)
 int main(void)
 {
   int r = 0;
-
+#ifndef FAKE_TAOS
   if (r == 0) r = test("DSN=TAOS_ODBC_DSN", 0);
+#endif
+
 #ifdef HAVE_TAOSWS               /* { */
   if (r == 0) r = test("DSN=TAOS_ODBC_WS_DSN", 1);
 #endif                           /* } */

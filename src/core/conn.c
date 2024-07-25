@@ -1075,17 +1075,24 @@ static SQLRETURN _conn_get_info_database_name(
 {
   // FIXME: `database` or current database selected?
   int r = 0;
+  char dbName[128] = {0};     // #define TSDB_DB_NAME_LEN  65
 
-  r = _conn_get_current_db(conn, (char*)InfoValuePtr, BufferLength);
+
+  r = _conn_get_current_db(conn, (char*)dbName, sizeof(dbName));
   if (r) return SQL_ERROR;
 
-  int n = (int)strlen((const char*)InfoValuePtr);
+  int n = (int)strlen((const char*)dbName);
   if (StringLengthPtr) *StringLengthPtr = n;
 
-  if (n >= BufferLength) {
-    conn_append_err_format(conn, "01004", 0, "String data, right truncated:`%s[%d/0x%x]`", sql_info_type(InfoType), InfoType, InfoType);
-    // FIXME: or SQL_ERROR?
-    return SQL_SUCCESS_WITH_INFO;
+
+  if (InfoValuePtr) {
+    if (n >= BufferLength) {
+      conn_append_err_format(conn, "01004", 0, "String data, right truncated:`%s[%d/0x%x]`", sql_info_type(InfoType), InfoType, InfoType);
+      // FIXME: or SQL_ERROR?
+      return SQL_SUCCESS_WITH_INFO;
+    }
+
+    snprintf(InfoValuePtr, BufferLength, "%s", dbName);
   }
 
   return SQL_SUCCESS;
@@ -1197,7 +1204,8 @@ SQLRETURN conn_get_info(
       *(SQLUINTEGER*)InfoValuePtr = SQL_CA2_READ_ONLY_CONCURRENCY;
       return SQL_SUCCESS;
     case SQL_FORWARD_ONLY_CURSOR_ATTRIBUTES1:
-      break;
+      *(SQLUINTEGER*)InfoValuePtr = SQL_CA1_NEXT;
+      return SQL_SUCCESS;
     case SQL_FORWARD_ONLY_CURSOR_ATTRIBUTES2:
       break;
     case SQL_FILE_USAGE:
@@ -1208,9 +1216,11 @@ SQLRETURN conn_get_info(
     case SQL_INFO_SCHEMA_VIEWS:
       break;
     case SQL_KEYSET_CURSOR_ATTRIBUTES1:
-      break;
+      *(SQLUINTEGER*)InfoValuePtr = SQL_CA1_NEXT | SQL_CA1_ABSOLUTE | SQL_CA1_RELATIVE;
+      return SQL_SUCCESS;
     case SQL_KEYSET_CURSOR_ATTRIBUTES2:
-      break;
+      *(SQLUINTEGER*)InfoValuePtr = 0;
+      return SQL_SUCCESS;
     case SQL_MAX_ASYNC_CONCURRENT_STATEMENTS:
       break;
     case SQL_MAX_CONCURRENT_ACTIVITIES:
@@ -1239,9 +1249,11 @@ SQLRETURN conn_get_info(
     case SQL_SERVER_NAME:
       return _conn_set_string(conn, "", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_STATIC_CURSOR_ATTRIBUTES1:
-      break;
+      *(SQLUINTEGER*)InfoValuePtr = SQL_CA1_NEXT | SQL_CA1_ABSOLUTE | SQL_CA1_RELATIVE;
+      return SQL_SUCCESS;
     case SQL_STATIC_CURSOR_ATTRIBUTES2:
-      break;
+      *(SQLUINTEGER*)InfoValuePtr = 0;
+      return SQL_SUCCESS;
 
     // DBMS Product Information
     case SQL_DATABASE_NAME:
@@ -1266,25 +1278,26 @@ SQLRETURN conn_get_info(
     case SQL_CONCAT_NULL_BEHAVIOR:
       break;
     case SQL_CURSOR_COMMIT_BEHAVIOR:
-      *(SQLUSMALLINT*)InfoValuePtr = 0; // NOTE: refer to msdn listed above
+      *(SQLUSMALLINT*)InfoValuePtr = SQL_CB_DELETE; // NOTE: refer to msdn listed above
       return SQL_SUCCESS;
     case SQL_CURSOR_ROLLBACK_BEHAVIOR: 
-      *(SQLUSMALLINT*)InfoValuePtr = 0; // NOTE: refer to msdn listed above
+      *(SQLUSMALLINT*)InfoValuePtr = SQL_CB_DELETE; // NOTE: refer to msdn listed above
       return SQL_SUCCESS;
     case SQL_CURSOR_SENSITIVITY:
       break;
     case SQL_DATA_SOURCE_READ_ONLY:
-      break;
+      return _conn_set_string(conn, "N", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_DEFAULT_TXN_ISOLATION:
-      break;
+      *(SQLUINTEGER*)InfoValuePtr = 0;
+      return SQL_SUCCESS;;
     case SQL_DESCRIBE_PARAMETER:
       break;
     case SQL_MULT_RESULT_SETS:
-      break;
+      return _conn_set_string(conn, "N", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_MULTIPLE_ACTIVE_TXN:
       break;
     case SQL_NEED_LONG_DATA_LEN:
-      break;
+      return _conn_set_string(conn, "N", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_NULL_COLLATION:
       break;
     case SQL_PROCEDURE_TERM:
@@ -1292,7 +1305,8 @@ SQLRETURN conn_get_info(
     case SQL_SCHEMA_TERM: // SQL_OWNER_TERM
       return _conn_set_string(conn, "schema", InfoType, InfoValuePtr, BufferLength, StringLengthPtr);
     case SQL_SCROLL_OPTIONS:
-      break;
+      *(SQLUINTEGER*)InfoValuePtr = 0;
+      return SQL_SUCCESS;;
     case SQL_TABLE_TERM:
       break;
     case SQL_TXN_CAPABLE:
@@ -1647,10 +1661,12 @@ SQLRETURN conn_set_attr(
 {
   int r = 0;
 
+  /*
   if (conn->cfg.url) {
     conn_append_err(conn, "HY000", 0, "General error:websocket backend not implemented yet");
     return SQL_ERROR;
   }
+  */
 
   (void)StringLength;
 
@@ -1727,7 +1743,7 @@ SQLRETURN conn_set_attr(
 #endif             /* } */
 
     case SQL_ATTR_TRACE:
-      break;
+      if ((SQLUINTEGER)(uintptr_t)ValuePtr == SQL_OPT_TRACE_OFF) return SQL_SUCCESS;
     case SQL_ATTR_TRACEFILE:
       break;
     case SQL_ATTR_TRANSLATE_LIB:
@@ -1737,6 +1753,12 @@ SQLRETURN conn_set_attr(
     case SQL_ATTR_TXN_ISOLATION:
       conn->txn_isolation = *(int32_t*)ValuePtr;
       return SQL_SUCCESS;
+    case SQL_ATTR_MAX_ROWS:
+      if ((SQLULEN)ValuePtr == 0) return SQL_SUCCESS;
+      break;
+    case SQL_ATTR_QUERY_TIMEOUT:
+      if ((SQLULEN)ValuePtr == 0) return SQL_SUCCESS;
+      break;
 
     default:
       break;
@@ -1860,7 +1882,8 @@ SQLRETURN conn_get_attr(
     case SQL_ATTR_TRANSLATE_OPTION:
       break;
     case SQL_ATTR_TXN_ISOLATION:
-      break;
+      *(SQLUINTEGER*)Value = conn->txn_isolation;
+      return SQL_SUCCESS;
     default:
       break;
   }

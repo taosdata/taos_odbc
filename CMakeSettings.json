@@ -18,12 +18,12 @@
         },
         {
           "name": "SERVER_FOR_TEST",
-          "value": "192.168.154.252:6030 ",
+          "value": "192.168.154.252:6030",
           "type": "STRING"
         },
         {
           "name": "WS_FOR_TEST",
-          "value": "192.168.154.252:6041 ",
+          "value": "192.168.154.252:6041",
           "type": "STRING"
         }
       ]
@@ -40,19 +40,29 @@
       "inheritEnvironments": [ "msvc_x86" ],
       "variables": [
         {
+          "name": "CMAKE_VERBOSE_MAKEFILE",
+          "value": "TRUE ",
+          "type": "BOOL"
+        },
+        {
           "name": "CMAKE_EXPORT_COMPILE_COMMANDS",
           "value": "TRUE ",
           "type": "BOOL"
         },
         {
           "name": "SERVER_FOR_TEST",
-          "value": "192.168.154.252:6030 ",
+          "value": "192.168.154.252:6030",
           "type": "STRING"
         },
         {
           "name": "WS_FOR_TEST",
-          "value": "192.168.154.252:6041 ",
+          "value": "192.168.154.252:6041",
           "type": "STRING"
+        },
+        {
+          "name": "FAKE_TAOS",
+          "value": "ON",
+          "type": "BOOL"
         }
       ]
     }

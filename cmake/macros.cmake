@@ -142,7 +142,7 @@ macro(check_requirements)
     endif()
     check_symbol_exists(ws_query "taosws.h" HAVE_TAOSWS)
     if(NOT HAVE_TAOSWS)
-      message(STATUS "${Yellow}"
+      message(FATAL_ERROR "${Yellow}"
                      "`taosws.h` is not found, you may refer to https://github.com/taosdata/TDengine"
                      "${ColorReset}")
     else()

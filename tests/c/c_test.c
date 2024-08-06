@@ -309,7 +309,7 @@ static int test_case0(handles_t *handles, const char *conn_str, int ws)
   const char *sql = NULL;
   char tmbuf[128]; tmbuf[0] = '\0';
 
-#ifdef _WIN32              /* { */
+#ifdef _WIN32_SQLSERVER     /* { */
   connstr = "DSN=SQLSERVER_ODBC_DSN";
   sqls = "drop table if exists t;"
          "create table t(name varchar(7), mark nchar(20), i16 smallint);"
@@ -1200,9 +1200,12 @@ static case_t* find_case(case_t *cases, size_t nr_cases, const char *name)
 static int running_case(handles_t *handles, case_t *_case)
 {
   int r = 0;
+#ifndef FAKE_TAOS
   r = _case->routine(handles, "DSN=TAOS_ODBC_DSN", 0);
   handles_disconnect(handles);
   if (r) return -1;
+#endif
+
 #ifdef HAVE_TAOSWS                /* { */
   r = _case->routine(handles, "DSN=TAOS_ODBC_WS_DSN", 1);
   handles_disconnect(handles);

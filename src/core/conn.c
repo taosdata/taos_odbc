@@ -317,21 +317,34 @@ static int _conn_setup_iconvs(conn_t *conn)
 
 static int _conn_get_timezone_from_tsdb(conn_t *conn, const tsdb_data_t *ts)
 {
-  char buf[4096]; buf[0] = '\0';
+  char buf[4096];
+  buf[0] = '\0';
 
   if (ts->type != TSDB_DATA_TYPE_VARCHAR || ts->is_null) {
     conn_append_err(conn, "HY000", 0, "General error:internal logic error or taosc conformance issue");
     return -1;
   }
 
-  if (ts->str.len != 24 || (ts->str.str[19] != '+' && ts->str.str[19] != '-')) {
+  int start_pos = 19;
+  if (ts->str.len == 28) {
+    start_pos = 23;
+  }
+
+  if (ts->str.len != 24 && ts->str.len != 28) {
     conn_append_err_format(conn, "HY000", 0,
-        "General error:format for `%.*s` not implemented yet",
+        "General error:format for `%.*s` len not implemented yet",
         (int)ts->str.len, ts->str.str);
     return -1;
   }
 
-  snprintf(buf, sizeof(buf), "%.*s", 5, ts->str.str + 19);
+  if (ts->str.str[start_pos] != '+' && ts->str.str[start_pos] != '-') {
+    conn_append_err_format(conn, "HY000", 0,
+          "General error:format for `%.*s` not implemented yet",
+          (int)ts->str.len, ts->str.str);
+    return -1;
+  }
+
+  snprintf(buf, sizeof(buf), "%.*s", 5, ts->str.str + start_pos);
   int tz = 0;
   int n = sscanf(buf, "%d", &tz);
   if (n!=1) {
@@ -342,7 +355,7 @@ static int _conn_get_timezone_from_tsdb(conn_t *conn, const tsdb_data_t *ts)
   }
   buf[0] = '\0';
   snprintf(buf, sizeof(buf), "%+05d", tz);
-  if (strncmp(buf, ts->str.str + 19, 5)) {
+  if (strncmp(buf, ts->str.str + start_pos, 5)) {
     conn_append_err_format(conn, "HY000", 0,
         "General error:format for `%.*s` not implemented yet",
         (int)ts->str.len, ts->str.str);

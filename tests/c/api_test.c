@@ -485,6 +485,7 @@ again:
 __attribute__((unused))
 static int do_sql_driver_conns(SQLHANDLE connh)
 {
+#ifndef FAKE_TAOS
   CHK4(test_sql_conn, connh, "TAOS_ODBC_DSN", NULL, NULL, 0);
   CHK4(test_sql_conn, connh, "TAOS_ODBC_DSN", "root", "taosdata", 0);
   CHK4(test_sql_conn, connh, "TAOS_ODBC_DSN", "root", NULL, 0);
@@ -509,6 +510,7 @@ static int do_sql_driver_conns(SQLHANDLE connh)
   CHK2(test_sql_driver_conn, connh, "DSN=TAOS_ODBC_DSN;Server=" SERVER_FOR_TEST "", 0);
 #endif                             /* } */
   CHK2(test_sql_driver_conn, connh, "DSN=TAOS_ODBC_DSN;Server=127.0.0.1:6666", -1);
+#endif
 
 #ifdef HAVE_TAOSWS                /* { */
   CHK4(test_sql_conn, connh, "TAOS_ODBC_WS_DSN", NULL, NULL, 0);
@@ -592,7 +594,7 @@ static int do_cases(void)
   CHK1(test_so, "libtaos_odbc.dylib", 0);
 #elif defined(_WIN32)
   CHK1(test_so, "taos_odbc.dll", -1);
-  CHK1(test_so, "C:/Program Files/taos_odbc/bin/taos_odbc.dll", 0);
+  CHK1(test_so, "C:/Program Files (x86)/taos_odbc/bin/taos_odbc.dll", 0);
   CHK1(test_so, "taos_odbc.dll", -1);
 #else
   CHK1(test_so, "/tmp/not_exists.so", -1);

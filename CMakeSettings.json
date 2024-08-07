@@ -58,11 +58,6 @@
           "name": "WS_FOR_TEST",
           "value": "192.168.154.252:6041",
           "type": "STRING"
-        },
-        {
-          "name": "FAKE_TAOS",
-          "value": "ON",
-          "type": "BOOL"
         }
       ]
     }

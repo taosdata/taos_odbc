@@ -34,7 +34,7 @@ if(FAKE_TAOS)
 else()
     add_executable(taos_benchmark
         taos_benchmark.c)
-    target_link_libraries(taos_benchmark taos)
+    target_link_libraries(taos_benchmark ${TAOS_LIB_NAME})
 endif()
 
 add_executable(odbc_benchmark
@@ -61,7 +61,7 @@ else()
         $<TARGET_OBJECTS:os_port_obj>
         tb.c
     )
-    target_link_libraries(tb taos)
+    target_link_libraries(tb ${TAOS_LIB_NAME})
 endif()
 
 if(TODBC_WINDOWS)

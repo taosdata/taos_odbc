@@ -1336,7 +1336,7 @@ static SQLRETURN _stmt_fill_IRD(stmt_t *stmt)
       break;
     }
     if (!_map) {
-      stmt_append_err_format(stmt, "HY000", 0, "General error:`%s` not supported yet", taos_data_type(col->type));
+      stmt_append_err_format(stmt, "HY000", 0, "General error:`%s`[%d] not supported yet", taos_data_type(col->type), col->type);
       return SQL_ERROR;
     }
 

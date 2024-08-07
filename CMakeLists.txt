@@ -44,10 +44,24 @@ elseif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set(TODBC_DARWIN TRUE)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
   set(TODBC_WINDOWS TRUE)
-  message(STATUS "set TODBC_WINDOWS: ${TODBC_WINDOWS}")
 else()
   message(FATAL_ERROR "Not ported on `${CMAKE_SYSTEM_NAME}`")
 endif()
+
+
+# judging platform architecture
+message(STATUS "FAKE_TAOS: ${FAKE_TAOS}")
+if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+  message(STATUS "building for 64-bit platform")
+else()
+  message(STATUS "building for 32-bit platform")
+  set(TODBC_X86 TRUE)
+  if (NOT FAKE_TAOS)
+    set(FAKE_TAOS TRUE)
+    message(STATUS "set FAKE_TAOS: ${FAKE_TAOS}")
+  endif()
+endif()
+
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 11)

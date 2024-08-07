@@ -40,7 +40,7 @@ else()
   target_link_libraries(taos_test cjson dl pthread)
 endif()
 if(NOT FAKE_TAOS)
-  target_link_libraries(taos_test taos)
+  target_link_libraries(taos_test ${TAOS_LIB_NAME})
 endif()
 
 add_test(NAME taos_test
@@ -70,7 +70,7 @@ else()
   target_link_libraries(taos_regression cjson dl pthread)
 endif()
 if(NOT FAKE_TAOS)
-  target_link_libraries(taos_regression taos)
+  target_link_libraries(taos_regression ${TAOS_LIB_NAME})
 endif()
 
 if(DEFINED SERVER_FOR_TEST)
@@ -106,7 +106,7 @@ if(HAVE_TAOSWS)
   endif()
 
   if(NOT FAKE_TAOSWS)
-    target_link_libraries(taosws_regression taosws)
+    target_link_libraries(taosws_regression ${TAOSWS_LIB_NAME})
   endif()
 
   add_test(NAME taosws_regression

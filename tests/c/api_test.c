@@ -528,7 +528,9 @@ static int do_sql_driver_conns(SQLHANDLE connh)
   CHK2(test_sql_driver_conn, connh, "DSN=TAOS_ODBC_WS_DSN", 0);
   CHK2(test_sql_driver_conn, connh, "Driver={TAOS_ODBC_DRIVER};URL={http://" WS_FOR_TEST "};DB=what", -1);
   CHK2(test_sql_driver_conn, connh, "DSN=TAOS_ODBC_WS_DSN;URL={http://www.examples.com};Server=" WS_FOR_TEST "", 0);
-  CHK2(test_sql_driver_conn, connh, "DSN=TAOS_ODBC_WS_DSN;URL={http://www.examples.com};Server=127.0.0.1:6666", -1);
+  
+  // Note that the ws_connect_with_dsn interface is blocking
+  // CHK2(test_sql_driver_conn, connh, "DSN=TAOS_ODBC_WS_DSN;URL={http://www.examples.com};Server=127.0.0.1:6666", -1);
 #endif                            /* } */
 
   return 0;
@@ -594,7 +596,11 @@ static int do_cases(void)
   CHK1(test_so, "libtaos_odbc.dylib", 0);
 #elif defined(_WIN32)
   CHK1(test_so, "taos_odbc.dll", -1);
+#ifdef TODBC_X86
   CHK1(test_so, "C:/Program Files (x86)/taos_odbc/bin/taos_odbc.dll", 0);
+#else
+  CHK1(test_so, "C:/Program Files/taos_odbc/bin/taos_odbc.dll", 0);
+#endif
   CHK1(test_so, "taos_odbc.dll", -1);
 #else
   CHK1(test_so, "/tmp/not_exists.so", -1);

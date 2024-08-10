@@ -45,7 +45,7 @@ if False:
 
 def test_case0():
   # Specifying the ODBC driver, server name, database, etc. directly
-  server = os.getenv('DB_SERVER', '127.0.01:6030')
+  server = os.getenv('DB_SERVER', '127.0.0.1:6030')
   driver = os.getenv('DB_DRIVER', 'TAOS_ODBC_DRIVER')
   database = os.getenv('DB_DATABASE', 'information_schema')
   uid = os.getenv('DB_UID', 'root')

@@ -5,7 +5,7 @@ import sys
 if __name__ == "__main__":
     # Using a DSN, but providing a password as well
 
-    # server = os.getenv('DB_SERVER', '192.168.154.252:6030')
+    # server = os.getenv('DB_SERVER', '127.0.0.1:6030')
     # driver = os.getenv('DB_DRIVER', 'TAOS_ODBC_DRIVER')
     # database = os.getenv('DB_DATABASE', 'information_schema')
     # uid = os.getenv('DB_UID', 'root')

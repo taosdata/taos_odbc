@@ -2086,9 +2086,9 @@ static int test_bind_exec_direct_with_stmt(SQLHANDLE hconn, SQLHANDLE hstmt)
 
   const param_t params[] = {
     {SQL_PARAM_INPUT,  SQL_C_SBIGINT,  SQL_TYPE_TIMESTAMP,  23,       3,          ts_arr,           0,   ts_ind},
-    {SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_VARCHAR,         99,       0,          varchar_arr,      100, varchar_ind},
-    {SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_WVARCHAR,        99,       0,          nchar_arr,        100, nchar_ind},
-    {SQL_PARAM_INPUT,  SQL_C_SBIGINT,  SQL_BIGINT,          99,       0,          i64_arr,          100, i64_ind},
+    {SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_VARCHAR,         20,       0,          varchar_arr,      100, varchar_ind},
+    {SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_WVARCHAR,        20,       0,          nchar_arr,        100, nchar_ind},
+    {SQL_PARAM_INPUT,  SQL_C_SBIGINT,  SQL_BIGINT,          8,        0,          i64_arr,          0,   i64_ind},
   };
 
   SQLULEN nr_paramset_size = 4;

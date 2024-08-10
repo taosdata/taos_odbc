@@ -23,25 +23,23 @@
 ###############################################################################
 
 if(HAVE_CARGO)
-
-  message(STATUS "env info: CARGO_NAME: ${CARGO_NAME}")
-  message(STATUS "env info: CMAKE_CURRENT_SOURCE_DIR: ${CMAKE_CURRENT_SOURCE_DIR}")
-  message(STATUS "env info: CMAKE_CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR}")
-
   if(TODBC_WINDOWS)
-    message(STATUS "set TODBC_WINDOWS: ${TODBC_WINDOWS}")
+    if(TODBC_X86)
+        set(RUST_TARGET "i686-pc-windows-msvc")
+    else()
+        set(RUST_TARGET "x86_64-pc-windows-msvc")
+    endif()
+    message("RUST_TARGET: ${RUST_TARGET}")
 
     add_custom_target(rust_test_build ALL
-        COMMAND ${CARGO_NAME} build --manifest-path ${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml --target=i686-pc-windows-msvc --target-dir ${CMAKE_CURRENT_BINARY_DIR})
+        COMMAND ${CARGO_NAME} build --manifest-path ${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml --target=${RUST_TARGET} --target-dir ${CMAKE_CURRENT_BINARY_DIR})
 
     add_test(NAME rust_test
-        COMMAND ${CARGO_NAME} run --manifest-path ${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml --target=i686-pc-windows-msvc --target-dir ${CMAKE_CURRENT_BINARY_DIR})
+        COMMAND ${CARGO_NAME} run --manifest-path ${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml --target=${RUST_TARGET} --target-dir ${CMAKE_CURRENT_BINARY_DIR})
 
     add_test(NAME ${CARGO_NAME}_test
-        COMMAND ${CARGO_NAME} test --manifest-path ${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml --target=i686-pc-windows-msvc --target-dir ${CMAKE_CURRENT_BINARY_DIR})
+        COMMAND ${CARGO_NAME} test --manifest-path ${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml --target=${RUST_TARGET} --target-dir ${CMAKE_CURRENT_BINARY_DIR})
   else()
-    message(STATUS "not set TODBC_WINDOWS")
-
     add_custom_target(rust_test_build ALL
         COMMAND env RUST_BACKTRACE=1 ${CARGO_NAME} build --manifest-path ${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml --target-dir ${CMAKE_CURRENT_BINARY_DIR})
 

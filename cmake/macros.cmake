@@ -108,7 +108,7 @@ macro(check_requirements)
   ## check `taos`
   set(TAOS_LIB_NAME "")
   if(TODBC_X86)
-    set(TAOS_LIB_NAME "taos-x86")
+    set(TAOS_LIB_NAME "taos_x86")
   else()
     set(TAOS_LIB_NAME "taos")
   endif()
@@ -135,7 +135,7 @@ macro(check_requirements)
   ## check `taosws`
   set(TAOSWS_LIB_NAME "")
   if(TODBC_X86)
-    set(TAOSWS_LIB_NAME "taosws-x86")
+    set(TAOSWS_LIB_NAME "taosws_x86")
   else()
     set(TAOSWS_LIB_NAME "taosws")
   endif()
@@ -155,7 +155,7 @@ macro(check_requirements)
     endif()
     check_symbol_exists(ws_query "taosws.h" HAVE_TAOSWS)
     if(NOT HAVE_TAOSWS)
-      message(FATAL_ERROR "${Yellow}"
+      message(STATUS "${Yellow}"
                      "`taosws.h` is not found, you may refer to https://github.com/taosdata/TDengine"
                      "${ColorReset}")
     endif()

@@ -59,7 +59,6 @@ if(TODBC_WINDOWS)
     if(USE_WIN_ICONV)
         add_dependencies(taos_helpers_obj ex_iconv)
     endif()
-    # add_dependencies(taos_helpers_obj win_port_obj)
 endif()
 set_property(TARGET taos_helpers_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
 target_include_directories(taos_helpers_obj PRIVATE

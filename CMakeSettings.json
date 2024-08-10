@@ -18,12 +18,12 @@
         },
         {
           "name": "SERVER_FOR_TEST",
-          "value": "192.168.154.252:6030",
+          "value": "127.0.0.1:6030",
           "type": "STRING"
         },
         {
           "name": "WS_FOR_TEST",
-          "value": "192.168.154.252:6041",
+          "value": "127.0.0.1:6041",
           "type": "STRING"
         }
       ]
@@ -51,12 +51,12 @@
         },
         {
           "name": "SERVER_FOR_TEST",
-          "value": "192.168.154.252:6030",
+          "value": "127.0.0.1:6030",
           "type": "STRING"
         },
         {
           "name": "WS_FOR_TEST",
-          "value": "192.168.154.252:6041",
+          "value": "127.0.0.1:6041",
           "type": "STRING"
         }
       ]

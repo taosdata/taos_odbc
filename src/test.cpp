@@ -18,7 +18,7 @@ int main() {
     SQLCHAR OutConnectionString[1024] = { 0 };
     SQLSMALLINT StringLength2 = 0;
 
-    char* conn_str = "DSN=TAOS_ODBC_DSN; server=192.168.154.252:6030; uid=root; pwd=taosdata; db=meter";
+    char* conn_str = "DSN=TAOS_ODBC_DSN; server=127.0.0.1:6030; uid=root; pwd=taosdata; db=meter";
     SQLDriverConnect(hdbc,
         NULL,
         (SQLCHAR*)conn_str,

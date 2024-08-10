@@ -28,9 +28,6 @@ if(FAKE_TAOS)
         $<TARGET_OBJECTS:common_obj>
         $<TARGET_OBJECTS:os_port_obj>
         $<TARGET_OBJECTS:taos_helpers_obj>)
-
-    # add_dependencies(taos_helpers_obj os_port_obj)
-    # target_link_libraries(taos_benchmark PRIVATE taos_helpers_obj os_port_obj)
 else()
     add_executable(taos_benchmark
         taos_benchmark.c)
@@ -46,8 +43,6 @@ else()
 endif()
 
 
-message(STATUS "in benchmark: TODBC_WINDOWS: ${TODBC_WINDOWS}")
-message(STATUS "in benchmark: FAKE_TAOS: ${FAKE_TAOS}")
 if(FAKE_TAOS)
     add_executable(tb
         $<TARGET_OBJECTS:common_obj>

@@ -126,16 +126,23 @@ namespace ConsoleApp1
             //     execute_query_with_params(connString, "select * from t where mark = ?", new string [] {"人物"});
             // }
 
+#if !FAKE_TAOS
             connString = "DSN=TAOS_ODBC_DSN";
+#else
+            connString = "DSN=TAOS_ODBC_WS_DSN";
+#endif
             queryString = "drop database if exists foo; create database if not exists foo; use foo; drop table if exists t;create table t(ts timestamp, name varchar(20), mark nchar(20)); insert into t (ts, name, mark) values (now(), '测试', '人物')";
             execute_non_query(connString, queryString);
             execute_query(connString, "select * from foo.t");
             String ts = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
             Console.WriteLine(ts);
-            execute_query_with_params(connString, "insert into t (ts, name, mark) values (?, ?, ?)", new string [] {ts, "测试", "人物"});
+            execute_query_with_params(connString, "insert into foo.t (ts, name, mark) values (?, ?, ?)", new string [] {ts, "测试", "人物"});
+#if !FAKE_TAOS
             execute_query_with_params(connString, "select * from t where name = ?", new string [] {"测试"});
             execute_query_with_params(connString, "select * from t where mark = ?", new string [] {"人物"});
             execute_query_with_params(connString, "select * from t where mark = ?", new string [] {"人物z"});
+#endif
+            Console.ReadLine();
         }
     }
 }

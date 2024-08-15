@@ -49,7 +49,7 @@ endif()
 
 if(HAVE_TAOSWS)
   add_test(NAME ws_conformance_test
-      COMMAND conformance_test --dsn TAOS_ODBC_WS_DSN --ws)
+      COMMAND conformance_test --dsn TAOS_ODBC_WS_DSN)
 
   if(HAVE_VALGRIND)
     add_test(NAME Vws_conformance_test

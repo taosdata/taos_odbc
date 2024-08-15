@@ -319,7 +319,7 @@ static inline int call_ws_stmt_affected_rows(const char *file, int line, const c
 {
   LOGD_TAOSWS(file, line, func, "ws_stmt_affected_rows(stmt:%p) ...", stmt);
   int r = ws_stmt_affected_rows(stmt);
-  if (r) diag_ws_stmt(stmt);
+  if (r <= 0) diag_ws_stmt(stmt);
   LOGD_TAOSWS(file, line, func, "ws_stmt_affected_rows(stmt:%p) => %d", stmt, r);
   return r;
 }

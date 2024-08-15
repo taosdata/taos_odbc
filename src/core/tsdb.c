@@ -200,7 +200,9 @@ static void _tsdb_params_reset_col_fields(tsdb_params_t *params)
   if (params->col_fields) {
 #ifdef HAVE_TAOSWS           /* [ */
     if (params->owner->owner->conn->cfg.url) {
-      OA_NIY(params->col_fields == NULL);
+      // OA_NIY(params->col_fields == NULL);
+      // D("not implemented yet");
+      CALL_ws_stmt_reclaim_fields((struct StmtField**)&params->col_fields, params->nr_col_fields);
     } else {
 #endif                       /* ] */
       CALL_taos_stmt_reclaim_fields(params->owner->stmt, params->col_fields);

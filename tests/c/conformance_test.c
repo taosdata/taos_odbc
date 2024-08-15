@@ -2114,7 +2114,8 @@ static int test_bind_exec_direct_with_stmt(SQLHANDLE hconn, SQLHANDLE hstmt)
   CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAM_BIND_TYPE, SQL_PARAM_BIND_BY_COLUMN, 0);
 
   // Specify the number of elements in each parameter array.
-  CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAMSET_SIZE, (SQLPOINTER)(uintptr_t)nr_paramset_size, 0);
+  // CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAMSET_SIZE, (SQLPOINTER)(uintptr_t)nr_paramset_size, 0);
+  CALL_SQLSetStmtAttr(hstmt, SQL_ATTR_PARAMSET_SIZE, (SQLPOINTER)(uintptr_t)ARRAY_SIZE, 0);
 
   // Specify an array in which to return the status of each set of
   // parameters.
@@ -2146,8 +2147,8 @@ static int test_bind_exec_direct_with_stmt(SQLHANDLE hconn, SQLHANDLE hstmt)
   sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)buf, SQL_NTS);
   if (sr == SQL_ERROR) return -1;
 
-  if (nr_params_processed != nr_paramset_size) {
-    W("%zu rows of params to be processed, but only %zu", nr_paramset_size, nr_params_processed);
+  if (nr_params_processed != ARRAY_SIZE) {
+    W("%d rows of params to be processed, but only %zu", ARRAY_SIZE, nr_params_processed);
     return -1;
   }
 
@@ -2185,14 +2186,14 @@ static int test_bind_exec_direct_with_stmt(SQLHANDLE hconn, SQLHANDLE hstmt)
 
   r = _exec_and_bind_check(hconn, buf, sizeof(buf),
       "select wname from t",
-      1, 4,
-      "b民0", "b民1", "b民2", "b民3");
+      1, 10,
+      "b民0", "b民1", "b民2", "b民3", "b民4", "b民5", "b民6", "b民7", "b民8", "b民9");
   if (r) return -1;
 
   r = _exec_and_bind_check(hconn, buf, sizeof(buf),
       "select vname from t",
-      1, 4,
-      "a人0", "a人1", "a人2", "a人3");
+      1, 10,
+      "a人0", "a人1", "a人2", "a人3", "a人4", "a人5", "a人6", "a人7", "a人8", "a人9");
   if (r) return -1;
 
   return r ? -1 : 0;

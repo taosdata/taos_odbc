@@ -134,7 +134,11 @@ namespace ConsoleApp1
             queryString = "drop database if exists foo; create database if not exists foo; use foo; drop table if exists t;create table t(ts timestamp, name varchar(20), mark nchar(20)); insert into t (ts, name, mark) values (now(), '测试', '人物')";
             execute_non_query(connString, queryString);
             execute_query(connString, "select * from foo.t");
+#if !FAKE_TAOS
             String ts = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
+#else
+            String ts = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+#endif
             Console.WriteLine(ts);
             execute_query_with_params(connString, "insert into foo.t (ts, name, mark) values (?, ?, ?)", new string [] {ts, "测试", "人物"});
 #if !FAKE_TAOS
@@ -142,7 +146,6 @@ namespace ConsoleApp1
             execute_query_with_params(connString, "select * from t where mark = ?", new string [] {"人物"});
             execute_query_with_params(connString, "select * from t where mark = ?", new string [] {"人物z"});
 #endif
-            Console.ReadLine();
         }
     }
 }

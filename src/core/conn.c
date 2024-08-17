@@ -413,11 +413,11 @@ static int _conn_get_timezone(conn_t *conn)
 {
   int r = 0;
 
-#ifdef FAKE_TAOS            /* { */
-  conn->tz = 800;
-  conn->tz_seconds = 28800;
-  return 0;
-#endif                      /* } */
+// #ifdef FAKE_TAOS            /* { */
+//   conn->tz = 800;
+//   conn->tz_seconds = 28800;
+//   return 0;
+// #endif                      /* } */
 
   const char *sql = "select to_iso8601(0) as ts";
   ds_res_t ds_res = {0};
@@ -1759,6 +1759,7 @@ SQLRETURN conn_set_attr(
 
     case SQL_ATTR_TRACE:
       if ((SQLUINTEGER)(uintptr_t)ValuePtr == SQL_OPT_TRACE_OFF) return SQL_SUCCESS;
+      break;
     case SQL_ATTR_TRACEFILE:
       break;
     case SQL_ATTR_TRANSLATE_LIB:

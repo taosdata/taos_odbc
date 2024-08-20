@@ -7148,7 +7148,7 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
   SQLULEN nr_params_processed = 0;
 
   if (APD_header->DESC_BIND_TYPE != SQL_BIND_BY_COLUMN) {
-      stmt_append_err_format(stmt, "HY000", 0, "General error:invalid bind type, expected SQL_BIND_BY_COLUMN, but got ==%d==", APD_header->DESC_BIND_TYPE);
+      stmt_append_err_format(stmt, "HY000", 0, "General error:invalid bind type, expected SQL_BIND_BY_COLUMN, but got ==%u==", (uint32_t)APD_header->DESC_BIND_TYPE);
     return SQL_ERROR;
   }
 

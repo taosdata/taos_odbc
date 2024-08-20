@@ -376,7 +376,7 @@ static int _conn_get_timezone_from_res(conn_t *conn, const char *sql, ds_res_t *
   nr_fields = (int)ds_res->fields.nr_fields;
   if (nr_fields != 1) {
     conn_append_err_format(conn, "HY000", 0,
-        "General error:# of fields from `%s` is expected 2 but got ==%d==", sql, nr_fields);
+        "General error:# of fields from `%s` is expected 1 but got ==%d==", sql, nr_fields);
     return -1;
   }
 

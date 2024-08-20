@@ -1537,10 +1537,10 @@ static SQLRETURN _stmt_set_row_bind_type(stmt_t *stmt, SQLULEN row_bind_type)
 
 static SQLRETURN _stmt_set_param_bind_type(stmt_t *stmt, SQLULEN param_bind_type)
 {
-  // if (param_bind_type != SQL_BIND_BY_COLUMN) {
-  //   stmt_append_err(stmt, "HY000", 0, "General error:only `SQL_BIND_BY_COLUMN` is supported now");
-  //   return SQL_ERROR;
-  // }
+  if (param_bind_type != SQL_BIND_BY_COLUMN) {
+    stmt_append_err(stmt, "HY000", 0, "General error:only `SQL_BIND_BY_COLUMN` is supported now");
+    return SQL_ERROR;
+  }
 
   descriptor_t *APD = stmt_APD(stmt);
   desc_header_t *APD_header = &APD->header;
@@ -5051,12 +5051,12 @@ static SQLRETURN _stmt_param_get(stmt_t *stmt, param_state_t *param_state)
   sqlc_data->is_null = 0;
   const char *base    = buffer ? buffer + APD_record->DESC_OCTET_LENGTH * irow : NULL;
   size_t len = (len_arr && (len_arr[irow] != SQL_NTS)) ? (size_t)(len_arr[irow]) : (base ? strlen(base) : 0);
-  if (1) {
-    // NOTE: this is to hacking common_lisp plain-odbc `feature`
-    if (len_arr && sizeof(len) > 4 && len > UINT32_MAX) {
-      len &= UINT32_MAX;
-    }
+#ifndef TODBC_X86
+  // NOTE: this is to hacking common_lisp plain-odbc `feature`
+  if (len_arr && len >> 32) {
+    len = (int32_t)len;
   }
+#endif
   param_state->sqlc_base = base;
   param_state->sqlc_len  = len;
 
@@ -7147,6 +7147,11 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
   if (params_processed_ptr) *params_processed_ptr = 0;
   SQLULEN nr_params_processed = 0;
 
+  if (APD_header->DESC_BIND_TYPE != SQL_BIND_BY_COLUMN) {
+      stmt_append_err_format(stmt, "HY000", 0, "General error:invalid bind type, expected SQL_BIND_BY_COLUMN, but got ==%d==", APD_header->DESC_BIND_TYPE);
+    return SQL_ERROR;
+  }
+
   if (nr_paramset_size != 1) {
     if (stmt->tsdb_stmt.prepared && !stmt->tsdb_stmt.is_insert_stmt) {
       stmt_append_err(stmt, "HY000", 0, "General error:taosc currently does not support batch execution for non-insert-statement");
@@ -7210,18 +7215,18 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
       }
     }
 
-    TAOS_MULTI_BIND *mb = stmt->tsdb_binds.mbs + (!!stmt->tsdb_stmt.params.subtbl_required) + stmt->tsdb_stmt.params.nr_tag_fields;
+    TAOS_MULTI_BIND *mbs = stmt->tsdb_binds.mbs + (!!stmt->tsdb_stmt.params.subtbl_required) + stmt->tsdb_stmt.params.nr_tag_fields;
 #ifdef HAVE_TAOSWS           /* [ */
     if (stmt->conn->cfg.url) {
       // r = CALL_ws_stmt_bind_param_batch((WS_STMT*)stmt->tsdb_stmt.stmt, (WS_MULTI_BIND*)mb, tsdb_params->nr_tag_fields);
-      r = CALL_ws_stmt_bind_param_batch((WS_STMT*)stmt->tsdb_stmt.stmt, (WS_MULTI_BIND*)mb, tsdb_params->nr_params);
+      r = CALL_ws_stmt_bind_param_batch((WS_STMT*)stmt->tsdb_stmt.stmt, (WS_MULTI_BIND*)mbs, tsdb_params->nr_col_fields);
       if (r) {
         stmt_append_err_format(stmt, "HY000", r, "General error:[taosws]%s", ws_stmt_errstr((WS_STMT*)stmt->tsdb_stmt.stmt));
         return SQL_ERROR;
       }
     } else {
 #endif                       /* ] */
-      r = CALL_taos_stmt_bind_param_batch(stmt->tsdb_stmt.stmt, mb);
+      r = CALL_taos_stmt_bind_param_batch(stmt->tsdb_stmt.stmt, mbs);
       if (r) {
         stmt_append_err_format(stmt, "HY000", r, "General error:[taosc]%s", CALL_taos_stmt_errstr(stmt->tsdb_stmt.stmt));
         return SQL_ERROR;
@@ -7635,9 +7640,9 @@ SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr,
       stmt_append_err_format(stmt, "01S02", 0, "Option value changed:`%zd` for `SQL_ATTR_QUERY_TIMEOUT` is substituted by `0`", (SQLULEN)(uintptr_t)ValuePtr);
       return SQL_SUCCESS_WITH_INFO;
     case SQL_ATTR_RETRIEVE_DATA:
-      return SQL_SUCCESS;
       if ((SQLULEN)(uintptr_t)ValuePtr == SQL_RD_ON) return SQL_SUCCESS;
-      break;
+      stmt_append_err_format(stmt, "01S02", 0, "Option value changed:`%zd` for `SQL_ATTR_RETRIEVE_DATA` is substituted by `SQL_RD_ON`", (SQLULEN)(uintptr_t)ValuePtr);
+      return SQL_SUCCESS_WITH_INFO;
     case SQL_ATTR_ROW_ARRAY_SIZE:
       return _stmt_set_row_array_size(stmt, (SQLULEN)ValuePtr);
     case SQL_ATTR_ROW_BIND_OFFSET_PTR:
@@ -7658,7 +7663,7 @@ SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr,
       if ((SQLULEN)(uintptr_t)ValuePtr == SQL_UB_OFF) return SQL_SUCCESS;
       break;
     case SQL_ROWSET_SIZE:
-      // return SQL_SUCCESS;       // FIXME:
+      // FIXME: add for king scada joint debugging
       return _stmt_set_row_array_size(stmt, (SQLULEN)ValuePtr);
 
     default:
@@ -7762,7 +7767,7 @@ SQLRETURN stmt_get_attr(stmt_t *stmt,
     case SQL_ATTR_USE_BOOKMARKS:
       break;
     case SQL_ROWSET_SIZE:
-      // *(SQLULEN*)Value = (SQLULEN)1;
+      // FIXME: add for king scada joint debugging
       *(SQLULEN*)Value = (SQLULEN)_stmt_get_row_array_size(stmt);
       return SQL_SUCCESS;
     default:

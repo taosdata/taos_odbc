@@ -200,8 +200,6 @@ static void _tsdb_params_reset_col_fields(tsdb_params_t *params)
   if (params->col_fields) {
 #ifdef HAVE_TAOSWS           /* [ */
     if (params->owner->owner->conn->cfg.url) {
-      // OA_NIY(params->col_fields == NULL);
-      // D("not implemented yet");
       CALL_ws_stmt_reclaim_fields((struct StmtField**)&params->col_fields, params->nr_col_fields);
     } else {
 #endif                       /* ] */
@@ -685,7 +683,7 @@ static SQLRETURN _tsdb_stmt_get_taos_tags_cols_for_insert(tsdb_stmt_t *stmt)
       } else if (e == TSDB_CODE_TSC_STMT_API_ERROR) {
         sr = _tsdb_stmt_get_taos_tags_cols_for_normal_insert(stmt, r);
       } else {
-        // temp processing due to a bug in taows
+        // temp processing due to a bug in taosws TD-31398
         D("call ws_stmt_get_tag_fields, result: 0x%x, e: 0x%x", r, e);
         if ((r | 0x80000000) == TSDB_CODE_TSC_STMT_API_ERROR) {
           D("temp processing due to a bug in taows of ws_stmt_get_tag_fields");
@@ -935,21 +933,19 @@ static SQLRETURN _tsdb_stmt_fetch_rows_block(tsdb_stmt_t *stmt)
 
   _tsdb_rows_block_reset(rows_block);
 
-  TAOS_ROW rows = NULL;
-  int nr_rows = 0;
 #ifdef HAVE_TAOSWS           /* [ */
   if (stmt->owner->conn->cfg.url) {
     tsdb_fields_t       *fields      = &res->fields;
     if (fields->nr == 0) return SQL_NO_DATA;
     const void *ptr = NULL;
-    int32_t rows = 0;
-    int32_t r = CALL_ws_fetch_block((WS_RES*)res->res, &ptr, &rows);
+    int32_t nr_rows = 0;
+    int32_t r = CALL_ws_fetch_block((WS_RES*)res->res, &ptr, &nr_rows);
     if (r != 0) return SQL_ERROR;
     
-    if (rows == 0) return SQL_NO_DATA;
+    if (nr_rows == 0) return SQL_NO_DATA;
 
     rows_block->ws_ptr = ptr;
-    rows_block->nr     = rows;
+    rows_block->nr     = nr_rows;
     rows_block->pos    = 0;
   } else {
 #endif                       /* ] */
@@ -957,7 +953,8 @@ static SQLRETURN _tsdb_stmt_fetch_rows_block(tsdb_stmt_t *stmt)
     int r = stmt_enter_fetch_block(stmt->owner);
     OA_ILE(r == 0);
 #endif                                   /* } */
-    nr_rows = CALL_taos_fetch_block(res->res, &rows);
+    TAOS_ROW rows = NULL;
+    int nr_rows = CALL_taos_fetch_block(res->res, &rows);
 #ifdef USE_TICK_TO_DEBUG                 /* { */
     stmt_leave_fetch_block(stmt->owner);
 #endif                                   /* } */

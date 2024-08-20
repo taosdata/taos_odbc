@@ -1734,6 +1734,7 @@ SQLRETURN conn_set_attr(
     case SQL_ATTR_ENLIST_IN_DTC:
       break;
     case SQL_ATTR_LOGIN_TIMEOUT:
+      // FIXME: add for king scada joint debugging
       conn->login_timeout = (SQLUINTEGER)(uintptr_t)ValuePtr;
       return SQL_SUCCESS;
 
@@ -1880,6 +1881,7 @@ SQLRETURN conn_get_attr(
     case SQL_ATTR_ENLIST_IN_DTC:
       break;
     case SQL_ATTR_LOGIN_TIMEOUT:
+      // FIXME: add for king scada joint debugging
       *(SQLUINTEGER*)Value = conn->login_timeout;
       return SQL_SUCCESS;
     case SQL_ATTR_METADATA_ID:

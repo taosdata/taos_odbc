@@ -1537,8 +1537,8 @@ static SQLRETURN _stmt_set_row_bind_type(stmt_t *stmt, SQLULEN row_bind_type)
 
 static SQLRETURN _stmt_set_param_bind_type(stmt_t *stmt, SQLULEN param_bind_type)
 {
-  if (param_bind_type != SQL_BIND_BY_COLUMN) {
-    stmt_append_err(stmt, "HY000", 0, "General error:only `SQL_BIND_BY_COLUMN` is supported now");
+  if (param_bind_type != SQL_PARAM_BIND_BY_COLUMN) {
+    stmt_append_err(stmt, "HY000", 0, "General error:only `SQL_PARAM_BIND_BY_COLUMN` is supported now");
     return SQL_ERROR;
   }
 
@@ -7147,8 +7147,8 @@ static SQLRETURN _stmt_execute_with_param_state(stmt_t *stmt, param_state_t *par
   if (params_processed_ptr) *params_processed_ptr = 0;
   SQLULEN nr_params_processed = 0;
 
-  if (APD_header->DESC_BIND_TYPE != SQL_BIND_BY_COLUMN) {
-      stmt_append_err_format(stmt, "HY000", 0, "General error:invalid bind type, expected SQL_BIND_BY_COLUMN, but got ==%u==", (uint32_t)APD_header->DESC_BIND_TYPE);
+  if (APD_header->DESC_BIND_TYPE != SQL_PARAM_BIND_BY_COLUMN) {
+      stmt_append_err_format(stmt, "HY000", 0, "General error:invalid bind type, expected SQL_PARAM_BIND_BY_COLUMN, but got ==%u==", (uint32_t)APD_header->DESC_BIND_TYPE);
     return SQL_ERROR;
   }
 

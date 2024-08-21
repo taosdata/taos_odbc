@@ -23,6 +23,7 @@
 ###############################################################################
 
 import pyodbc
+import os
 import sys
 
 if False:
@@ -43,8 +44,16 @@ if False:
 
 
 def test_case0():
-   # Specifying the ODBC driver, server name, database, etc. directly
-  cnxn = pyodbc.connect('DRIVER={TAOS_ODBC_DRIVER};SERVER=@SERVER_FOR_TEST@;DATABASE=information_schema;UID=root;PWD=taosdata')
+  # Specifying the ODBC driver, server name, database, etc. directly
+  server = os.getenv('DB_SERVER', '127.0.0.1:6030')
+  driver = os.getenv('DB_DRIVER', 'TAOS_ODBC_DRIVER')
+  database = os.getenv('DB_DATABASE', 'information_schema')
+  uid = os.getenv('DB_UID', 'root')
+  pwd = os.getenv('DB_PWD', 'taosdata')
+
+  info = f'DRIVER={driver};SERVER={server};DATABASE={database};UID={uid};PWD={pwd}'
+  print(info)
+  cnxn = pyodbc.connect(info)
   cnxn.close()
 
   # Using a DSN, but providing a password as well

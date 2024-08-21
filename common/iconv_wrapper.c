@@ -142,7 +142,7 @@ static void hexify(const char *data, size_t sz)
 /*
  * http://www.faqs.org/rfcs/rfc2781.html
  */
-static uint32_t utf16_to_ucs4(const uint16_t *wbuf, int32_t *nbuf)
+static uint32_t utf16_to_ucs4(const uint16_t *wbuf, uint32_t *nbuf)
 {
     uint32_t wc = wbuf[0];
     *nbuf = 1;
@@ -153,7 +153,7 @@ static uint32_t utf16_to_ucs4(const uint16_t *wbuf, int32_t *nbuf)
     return wc;
 }
 
-static void ucs4_to_utf16(uint32_t wc, uint16_t *wbuf, int32_t *wbufsize)
+static void ucs4_to_utf16(uint32_t wc, uint16_t *wbuf, uint32_t *wbufsize)
 {
     if (wc < 0x10000)
     {
@@ -634,7 +634,7 @@ static size_t mbcs_to_ucs4le(iconv_t cd, char **inbuf, size_t *inbytesleft, char
       incomplete = 1;
       break;
     }
-    int32_t nbuf = 0;
+    uint32_t nbuf = 0;
     uint32_t wc = utf16_to_ucs4(v, &nbuf);
     if (n<4 && nbuf == 2) {
       incomplete = 1;
@@ -699,7 +699,7 @@ static size_t ucs4le_to_mbcs(iconv_t cd, char **inbuf, size_t *inbytesleft, char
     uint32_t wc;
     memcpy(&wc, src, 4);
     uint16_t vbuf[2];
-    int32_t nbuf;
+    uint32_t nbuf;
     ucs4_to_utf16(wc, vbuf, &nbuf);
     if (nbuf == 1 && n_cache < 2) {
       too_big = 1;

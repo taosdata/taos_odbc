@@ -639,6 +639,7 @@ struct conn_s {
   HWND                win_handle;
 #endif                  /* } */
   int32_t             txn_isolation;
+  SQLUINTEGER         login_timeout;
 
   unsigned int        fmt_time:1;
   unsigned int        dead:1;

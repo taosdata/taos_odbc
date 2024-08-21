@@ -219,6 +219,9 @@ static void check_taos_connection(HWND hDlg, config_t *config)
   char title[100]; title[0] = '\0';
   char message[256]; message[0] = '\0';
   LoadString(hInstance, IDS_TEST_CONN_TITLE, title, sizeof(title));
+#ifdef TODBC_X86
+  snprintf(title, sizeof(title), "%s (x86)", title);
+#endif
 
   int r = ParseServer(hDlg, config);
   if (r) {
@@ -277,7 +280,9 @@ static void check_taosws_connection(HWND hDlg, config_t *config, url_parser_para
   char title[100]; title[0] = '\0';
   char message[256]; message[0] = '\0';
   LoadString(hInstance, IDS_TEST_CONN_TITLE, title, sizeof(title));
-
+#ifdef TODBC_X86
+  snprintf(title, sizeof(title), "%s (x86)", title);
+#endif
   
   if (config->url[0] == '\0') {
     LoadString(hInstance, IDS_TEST_CONN_NO_URL_FAILURE, message, sizeof(message));
@@ -407,6 +412,10 @@ static INT_PTR OnInitDlg(HWND hDlg, WPARAM wParam, LPARAM lParam)
   LPCSTR lpszAttributes = gAttributes;
   CheckRadioButton(hDlg, IDC_RAD_TAOS, IDC_RAD_TAOSWS, IDC_RAD_TAOSWS);
   SwitchTaos(hDlg, FALSE);
+#ifdef FAKE_TAOS
+  ShowWindow(GetDlgItem(hDlg, IDC_RAD_TAOS), FALSE);
+#endif
+
   if (lpszAttributes) {
     const char *p = lpszAttributes;
     char k[4096], v[4096];
@@ -428,6 +437,9 @@ static INT_PTR OnInitDlg(HWND hDlg, WPARAM wParam, LPARAM lParam)
             CheckRadioButton(hDlg, IDC_RAD_TAOS, IDC_RAD_TAOSWS, IDC_RAD_TAOSWS);
             SwitchTaos(hDlg, FALSE);
           }
+#ifdef FAKE_TAOS
+          ShowWindow(GetDlgItem(hDlg, IDC_RAD_TAOS), FALSE);
+#endif
 
           SQLGetPrivateProfileString(v, "URL", "", k, sizeof(k), "Odbc.ini");
           SetDlgItemText(hDlg, IDC_EDT_URL, k);

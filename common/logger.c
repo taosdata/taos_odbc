@@ -292,7 +292,7 @@ void tod_logger_write_impl(logger_t *logger, logger_level_t request, logger_leve
   struct timespec ts = {0};
 
   clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
-  tick = ts.tv_sec + (double)ts.tv_nsec / 1000000;
+  tick = ts.tv_sec + (double)ts.tv_nsec / 1000000000;
 #endif                      /* } */
 
   n = snprintf(p, l, "%c:%.3fs:%zx:%s[%d]:%s():", logger_level_char(request), tick, tod_get_current_thread_id(), fn, line, func);

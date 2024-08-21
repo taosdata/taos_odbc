@@ -612,8 +612,11 @@ static int test(void)
 #endif               /* } */
 
   int r = 0;
+#ifndef FAKE_TAOS
   r = test_with_conn_str("DSN=TAOS_ODBC_DSN", 0);
   if (r) return -1;
+#endif
+
 #ifdef HAVE_TAOSWS                /* { */
   r = test_with_conn_str("DSN=TAOS_ODBC_WS_DSN", 1);
   if (r) return -1;

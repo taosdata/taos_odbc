@@ -2329,7 +2329,9 @@ static int test_cases_get_data(SQLHANDLE henv)
 #ifdef ENABLE_SQLITE3_TEST     /* { */
     {"Driver={SQLite3}",  SQLITE3_ODBC, __LINE__},
 #endif                         /* } */
+#ifndef FAKE_TAOS
     {"DSN=TAOS_ODBC_DSN", TAOS_ODBC, __LINE__},
+#endif
 #ifdef HAVE_TAOSWS                /* { */
     {"DSN=TAOS_ODBC_WS_DSN", TAOS_ODBC, __LINE__},
 #endif                            /* } */
@@ -2447,7 +2449,9 @@ static int test_cases_prepare(SQLHANDLE henv)
 #ifdef ENABLE_MYSQL_TEST       /* { */
     // {"DSN=MYSQL_ODBC_DSN",  MYSQL_ODBC, __LINE__},
 #endif                         /* } */
+#ifndef FAKE_TAOS
     {"DSN=TAOS_ODBC_DSN", TAOS_ODBC, __LINE__},
+#endif
 #ifdef HAVE_TAOSWS                /* { */
     {"DSN=TAOS_ODBC_WS_DSN", TAOS_ODBC, __LINE__},
 #endif                            /* } */
@@ -2481,8 +2485,10 @@ static int test_hard_coded_cases(SQLHANDLE henv)
   if (r) return -1;
 #endif                           /* } */
 
+#ifndef FAKE_TAOS
   r = test_hard_coded(henv, "TAOS_ODBC_DSN", NULL, NULL, NULL, 0);
   if (r) return -1;
+#endif
 
 #ifdef HAVE_TAOSWS                /* { */
   r = test_hard_coded(henv, "TAOS_ODBC_WS_DSN", NULL, NULL, NULL, 0);
@@ -2587,8 +2593,10 @@ static int run(int argc, char *argv[])
   int r = 0;
 
   if (0) {
+#ifndef FAKE_TAOS
     r = test_chars("DSN=TAOS_ODBC_DSN");
     if (r) return -1;
+#endif
 #ifdef HAVE_TAOSWS                /* { */
     r = test_chars("DSN=TAOS_ODBC_WS_DSN");
     if (r) return -1;

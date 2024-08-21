@@ -2086,9 +2086,9 @@ static int test_bind_exec_direct_with_stmt(SQLHANDLE hconn, SQLHANDLE hstmt)
 
   const param_t params[] = {
     {SQL_PARAM_INPUT,  SQL_C_SBIGINT,  SQL_TYPE_TIMESTAMP,  23,       3,          ts_arr,           0,   ts_ind},
-    {SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_VARCHAR,         99,       0,          varchar_arr,      100, varchar_ind},
-    {SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_WVARCHAR,        99,       0,          nchar_arr,        100, nchar_ind},
-    {SQL_PARAM_INPUT,  SQL_C_SBIGINT,  SQL_BIGINT,          99,       0,          i64_arr,          100, i64_ind},
+    {SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_VARCHAR,         20,       0,          varchar_arr,      100, varchar_ind},
+    {SQL_PARAM_INPUT,  SQL_C_CHAR,     SQL_WVARCHAR,        20,       0,          nchar_arr,        100, nchar_ind},
+    {SQL_PARAM_INPUT,  SQL_C_SBIGINT,  SQL_BIGINT,          8,        0,          i64_arr,          0,   i64_ind},
   };
 
   SQLULEN nr_paramset_size = 4;
@@ -2775,12 +2775,12 @@ static int test_conn_SQL_catalog_functions(SQLHANDLE hconn)
   SQLRETURN sr = SQL_SUCCESS;
   int r = 0;
 
-  const char *dsn = "SQLSERVER_ODBC_DSN";
-  const char *uid = NULL;
-  const char *pwd = NULL;
+  // const char *dsn = "SQLSERVER_ODBC_DSN";
+  // const char *uid = NULL;
+  // const char *pwd = NULL;
 
-  sr = CALL_SQLConnect(hconn, (SQLCHAR*)dsn, SQL_NTS, (SQLCHAR*)uid, SQL_NTS, (SQLCHAR*)pwd, SQL_NTS);
-  if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) return -1;
+  // sr = CALL_SQLConnect(hconn, (SQLCHAR*)dsn, SQL_NTS, (SQLCHAR*)uid, SQL_NTS, (SQLCHAR*)pwd, SQL_NTS);
+  // if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) return -1;
 
   do {
     SQLHANDLE hstmt;
@@ -2800,18 +2800,13 @@ static int test_conn_SQL_catalog_functions(SQLHANDLE hconn)
     CALL_SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
   } while (0);
 
-  CALL_SQLDisconnect(hconn);
+  // CALL_SQLDisconnect(hconn);
 
   return r ? -1 : 0;
 }
 
 static int test_conn(int argc, char *argv[], SQLHANDLE hconn)
 {
-  if (1) {
-    int r = test_conn_SQL_catalog_functions(hconn);
-    if (r) return -1;
-  }
-
   conn_arg_t conn_arg = {0};
 
   conn_arg.odbc_type = TAOS_ODBC;
@@ -2869,6 +2864,9 @@ static int test_conn(int argc, char *argv[], SQLHANDLE hconn)
   }
 
   if (r == 0) {
+    r = test_conn_SQL_catalog_functions(hconn);
+    if (r) return -1;
+
     r = test_connected_conn(hconn, &conn_arg);
   }
 

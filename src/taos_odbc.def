@@ -57,7 +57,7 @@ SQLColAttribute
 SQLTables
 SQLBulkOperations
 ;SQLCancel
-;SQLCloseCursor
+SQLCloseCursor
 SQLColumnPrivileges
 SQLColumns
 SQLCompleteAsync

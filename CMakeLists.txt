@@ -32,10 +32,12 @@ option(ENABLE_MYSQL_TEST "whether to test with mysql or not" OFF)
 option(ENABLE_SQLITE3_TEST "whether to test with sqlite3 or not" OFF)
 option(ENABLE_SQLSERVER_TEST "whether to test with sqlserver or not" OFF)
 option(FAKE_TAOS "whether to fake `taos` or not" OFF)
+option(FAKE_TAOSWS "whether to fake `taosws` or not" OFF)
 
 # experimental
 option(BUILD_TAOSWSD_EXPERIMENTAL "whether to build `taoswsd` or not" OFF)
 
+message(STATUS "CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   set(TODBC_LINUX TRUE)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
@@ -45,6 +47,21 @@ elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 else()
   message(FATAL_ERROR "Not ported on `${CMAKE_SYSTEM_NAME}`")
 endif()
+
+
+# judging platform architecture
+message(STATUS "FAKE_TAOS: ${FAKE_TAOS}")
+if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+  message(STATUS "building for 64-bit platform")
+else()
+  message(STATUS "building for 32-bit platform")
+  set(TODBC_X86 TRUE)
+  if (NOT FAKE_TAOS)
+    set(FAKE_TAOS TRUE)
+    message(STATUS "set FAKE_TAOS: ${FAKE_TAOS}")
+  endif()
+endif()
+
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 11)

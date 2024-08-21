@@ -53,9 +53,28 @@ if(NOT TODBC_WINDOWS)
       COMMAND odbcinst -i -s -f ${CMAKE_CURRENT_BINARY_DIR}/odbc.ini -h
       COMMAND cmake -E echo TAOS_ODBC_DSN is installed in ~/.odbc.ini)
 else()
-  configure_file(win_odbcinst.ini.in ${CMAKE_CURRENT_BINARY_DIR}/win_odbcinst.ini)
-  add_custom_target(install_templates
-      COMMAND odbcconf /S /F ${CMAKE_CURRENT_BINARY_DIR}/win_odbcinst.ini
-      COMMAND ${CMAKE_COMMAND} -E echo "-=Done=-")
-endif()
+  if(TODBC_X86)
+    set(DRIVER_PATH "C:/Program Files (x86)/taos_odbc/bin/taos_odbc.dll")
+  else()
+    set(DRIVER_PATH "C:/Program Files/taos_odbc/bin/taos_odbc.dll")
+  endif()
+  string(REPLACE "/" "\\" DRIVER_PATH "${DRIVER_PATH}")
+  message("DRIVER_PATH: ${DRIVER_PATH}")
+  configure_file(win_odbcinst.ini.in ${CMAKE_CURRENT_BINARY_DIR}/win_odbcinst.ini @ONLY)
 
+  set(WINDOWS_SYSTEM_PATH $ENV{SystemRoot})
+  message(STATUS "Windows System Path: ${WINDOWS_SYSTEM_PATH}")
+  if(TODBC_X86)
+    set(ODBCCONF_PATH "${WINDOWS_SYSTEM_PATH}/SysWOW64/odbcconf.exe")
+  else()
+    set(ODBCCONF_PATH "${WINDOWS_SYSTEM_PATH}/System32/odbcconf.exe")
+  endif()
+  string(REPLACE "/" "\\" ODBCCONF_PATH "${ODBCCONF_PATH}")
+  message("ODBCCONF_PATH: ${ODBCCONF_PATH}")
+  message("CMAKE_CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR}")
+
+  add_custom_target(install_templates
+    COMMAND ${ODBCCONF_PATH} /S /F ${CMAKE_CURRENT_BINARY_DIR}/win_odbcinst.ini
+    COMMAND ${CMAKE_COMMAND} -E echo "-=Done=-"
+  )
+endif()

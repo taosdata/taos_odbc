@@ -29,6 +29,7 @@
 
 #cmakedefine FAKE_TAOS
 #cmakedefine HAVE_TAOSWS
+#cmakedefine TODBC_X86
 
 EXTERN_C_BEGIN
 

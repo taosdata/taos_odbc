@@ -37,8 +37,10 @@ else()
     target_link_libraries(conformance_test odbc32 cjson)
 endif()
 
-add_test(NAME conformance_test
-    COMMAND conformance_test)
+if(NOT FAKE_TAOS)
+    add_test(NAME conformance_test
+        COMMAND conformance_test)
+endif()
 
 if(HAVE_VALGRIND)
   add_test(NAME Vconformance_test
@@ -47,7 +49,7 @@ endif()
 
 if(HAVE_TAOSWS)
   add_test(NAME ws_conformance_test
-      COMMAND conformance_test --dsn TAOS_ODBC_WS_DSN --ws)
+      COMMAND conformance_test --dsn TAOS_ODBC_WS_DSN)
 
   if(HAVE_VALGRIND)
     add_test(NAME Vws_conformance_test
@@ -168,8 +170,13 @@ else()
     target_link_libraries(odbc_test odbc32 cjson)
 endif()
 
-add_test(NAME odbc_test
-    COMMAND odbc_test)
+if(NOT FAKE_TAOS)
+    add_test(NAME odbc_test
+        COMMAND odbc_test)
+else()
+    add_test(NAME odbc_test
+        COMMAND odbc_test --dsn TAOS_ODBC_WS_DSN --non-taos)
+endif()
 
 if(HAVE_VALGRIND)
   add_test(NAME Vodbc_test

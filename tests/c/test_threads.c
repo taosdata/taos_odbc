@@ -273,7 +273,7 @@ static int _thread_routine(const arg_t *arg)
 }
 
 #ifdef _WIN32                /* { */
-static DWORD _routine_CreateThread(LPVOID arg)
+static DWORD WINAPI _routine_CreateThread(LPVOID arg)
 {
   int r = 0;
   r = _thread_routine((const arg_t*)arg);
@@ -593,7 +593,10 @@ int main(int argc, char *argv[])
 {
   int r = 0;
 
+#ifndef FAKE_TAOS
   if (r == 0) r = _run(argc, argv, "TAOS_ODBC_DSN");
+#endif
+
 #ifdef HAVE_TAOSWS                /* { */
   // FIXME: segfault on cli-windows / svr-linux
   //        don't know why, need to fix it later
@@ -605,9 +608,8 @@ int main(int argc, char *argv[])
   //          taosws.dll, don't know how to get version info of it's source code
   // NOTE: bypass this test case for the moment!
   // 2023-12-04
-#ifndef _WIN32        /* { */
+
   if (r == 0) r = _run(argc, argv, "TAOS_ODBC_WS_DSN");
-#endif                /* } */
 #endif                            /* } */
 
   fprintf(stderr, "==%s==\n", r ? "failure" : "success");

@@ -40,11 +40,13 @@ else()
   target_link_libraries(taos_test cjson dl pthread)
 endif()
 if(NOT FAKE_TAOS)
-  target_link_libraries(taos_test taos)
+  target_link_libraries(taos_test ${TAOS_LIB_NAME})
 endif()
 
-add_test(NAME taos_test
-    COMMAND taos_test)
+if(NOT FAKE_TAOS)
+  add_test(NAME taos_test
+      COMMAND taos_test)
+endif()
 
 if(HAVE_VALGRIND)
   add_test(NAME Vtaos_test
@@ -70,15 +72,17 @@ else()
   target_link_libraries(taos_regression cjson dl pthread)
 endif()
 if(NOT FAKE_TAOS)
-  target_link_libraries(taos_regression taos)
+  target_link_libraries(taos_regression ${TAOS_LIB_NAME})
 endif()
 
-if(DEFINED SERVER_FOR_TEST)
-  add_test(NAME taos_regression
-      COMMAND taos_regression --ip "${HOST_FOR_TEST}" --port "${PORT_FOR_TEST}")
-else()
-  add_test(NAME taos_regression
-      COMMAND taos_regression)
+if(NOT FAKE_TAOS)
+  if(DEFINED SERVER_FOR_TEST)
+    add_test(NAME taos_regression
+        COMMAND taos_regression --ip "${HOST_FOR_TEST}" --port "${PORT_FOR_TEST}")
+  else()
+    add_test(NAME taos_regression
+        COMMAND taos_regression)
+  endif()
 endif()
 
 if(HAVE_VALGRIND)
@@ -104,8 +108,9 @@ if(HAVE_TAOSWS)
   else()
     target_link_libraries(taosws_regression cjson dl pthread)
   endif()
-  if(NOT FAKE_TAOS)
-    target_link_libraries(taosws_regression taosws)
+
+  if(NOT FAKE_TAOSWS)
+    target_link_libraries(taosws_regression ${TAOSWS_LIB_NAME})
   endif()
 
   add_test(NAME taosws_regression

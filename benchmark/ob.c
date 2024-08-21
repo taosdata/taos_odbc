@@ -816,7 +816,7 @@ static int run_insert_with_param_binds(handles_t *handles, param_binds_t *param_
         DUMP("<rows> is expected after --rows");
         return -1;
       }
-      nr_rows = strtoll(argv[i], NULL, 0); // TODO: error check
+      nr_rows = (size_t)strtoll(argv[i], NULL, 0); // TODO: error check
       continue;
     }
     if (0 == strcasecmp(arg, "--batch")) {
@@ -824,7 +824,7 @@ static int run_insert_with_param_binds(handles_t *handles, param_binds_t *param_
         DUMP("<batch> is expected after --batch");
         return -1;
       }
-      nr_batch = strtoll(argv[i], NULL, 0); // TODO: error check
+      nr_batch = (size_t)strtoll(argv[i], NULL, 0); // TODO: error check
       continue;
     }
     if (0 == strcasecmp(arg, "--sql")) {

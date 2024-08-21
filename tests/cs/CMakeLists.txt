@@ -32,9 +32,15 @@ add_executable(cs_test
 LIST(APPEND VS_DOTNET_REFERENCES "System")
 LIST(APPEND VS_DOTNET_REFERENCES "System.Data")
 LIST(APPEND VS_DOTNET_REFERENCES "System.Data.Odbc")
-set_target_properties(cs_test PROPERTIES
-    VS_DOTNET_REFERENCES "${VS_DOTNET_REFERENCES}")
 
+if(NOT FAKE_TAOS)
+    set_target_properties(cs_test PROPERTIES
+        VS_DOTNET_REFERENCES "${VS_DOTNET_REFERENCES}")
+else()
+    set_target_properties(cs_test PROPERTIES
+        VS_DOTNET_REFERENCES "${VS_DOTNET_REFERENCES}"
+        COMPILE_DEFINITIONS "FAKE_TAOS")
+endif()
 
 add_test(NAME cs_test
     COMMAND cs_test)

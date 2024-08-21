@@ -202,6 +202,8 @@ SQLRETURN descriptor_bind_col(descriptor_t *ARD,
   memset(ARD_record, 0, sizeof(*ARD_record));
 
   switch (TargetType) {
+    case SQL_C_TINYINT:
+    case SQL_C_STINYINT:
     case SQL_C_UTINYINT:
       ARD_record->DESC_LENGTH            = 1;
       ARD_record->DESC_PRECISION         = 0;
@@ -211,14 +213,8 @@ SQLRETURN descriptor_bind_col(descriptor_t *ARD,
       ARD_record->DESC_OCTET_LENGTH      = ARD_record->DESC_LENGTH;
       break;
     case SQL_C_SHORT:
-      ARD_record->DESC_LENGTH            = 2;
-      ARD_record->DESC_PRECISION         = 0;
-      ARD_record->DESC_SCALE             = 0;
-      ARD_record->DESC_TYPE              = TargetType;
-      ARD_record->DESC_CONCISE_TYPE      = TargetType;
-      ARD_record->DESC_OCTET_LENGTH      = ARD_record->DESC_LENGTH;
-      break;
     case SQL_C_SSHORT:
+    case SQL_C_USHORT:
       ARD_record->DESC_LENGTH            = 2;
       ARD_record->DESC_PRECISION         = 0;
       ARD_record->DESC_SCALE             = 0;
@@ -226,7 +222,9 @@ SQLRETURN descriptor_bind_col(descriptor_t *ARD,
       ARD_record->DESC_CONCISE_TYPE      = TargetType;
       ARD_record->DESC_OCTET_LENGTH      = ARD_record->DESC_LENGTH;
       break;
+    case SQL_C_LONG:
     case SQL_C_SLONG:
+    case SQL_C_ULONG:
       ARD_record->DESC_LENGTH            = 4;
       ARD_record->DESC_PRECISION         = 0;
       ARD_record->DESC_SCALE             = 0;
@@ -235,7 +233,16 @@ SQLRETURN descriptor_bind_col(descriptor_t *ARD,
       ARD_record->DESC_OCTET_LENGTH      = ARD_record->DESC_LENGTH;
       break;
     case SQL_C_SBIGINT:
+    case SQL_C_UBIGINT:
       ARD_record->DESC_LENGTH            = 8;
+      ARD_record->DESC_PRECISION         = 0;
+      ARD_record->DESC_SCALE             = 0;
+      ARD_record->DESC_TYPE              = TargetType;
+      ARD_record->DESC_CONCISE_TYPE      = TargetType;
+      ARD_record->DESC_OCTET_LENGTH      = ARD_record->DESC_LENGTH;
+      break;
+    case SQL_C_FLOAT:
+      ARD_record->DESC_LENGTH            = 4;
       ARD_record->DESC_PRECISION         = 0;
       ARD_record->DESC_SCALE             = 0;
       ARD_record->DESC_TYPE              = TargetType;

@@ -446,6 +446,9 @@ struct conn_cfg_s {
 
   // NOTE: default is 0, BI mode : 1
   unsigned int           conn_mode:1;
+
+  // NOTE: default is 0, ODBC client as SCADA
+  unsigned int           scada:1;
 };
 
 struct sqls_parser_nterm_s {

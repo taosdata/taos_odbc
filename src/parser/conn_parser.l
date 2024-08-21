@@ -64,6 +64,7 @@ CHARSET_FOR_PARAM_BIND (?i:charset_encoder_for_param_bind)
 UNSIGNED_PROMOTION          (?i:unsigned_promotion)
 TIMESTAMP_AS_IS             (?i:timestamp_as_is)
 CONN_MODE                   (?i:conn_mode)
+SCADA         (?i:scada)
 FQDN          [-[:alnum:]]+((\.[-[:alnum:]]+)+)*(\.)?
 ID            [^\[\]{}(),;?*=!@[:space:]]+
 VALUE         [^\[\]{}(),;?*=!@[:space:]]+
@@ -87,6 +88,7 @@ DIGITS        [[:digit:]]+
 {UNSIGNED_PROMOTION}       { R(); C(); return MKT(UNSIGNED_PROMOTION); }
 {TIMESTAMP_AS_IS}          { R(); C(); return MKT(TIMESTAMP_AS_IS); }
 {CONN_MODE}                { R(); C(); return MKT(CONN_MODE); }
+{SCADA}                    { R(); C(); return MKT(SCADA); }
 {DIGITS}      { R(); SET_STR(); C(); return MKT(DIGITS); }
 {ID}          { R(); SET_STR(); C(); return MKT(ID); }
 "="           { R(); PUSH(EQ); C(); return (unsigned char)*yytext; }

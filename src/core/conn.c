@@ -660,6 +660,11 @@ static void _conn_fill_out_connection_str(
   }
   if (n>0) count += n;
 
+  if (conn->cfg.scada) {
+    fixed_buf_sprintf(n, &buffer, "SCADA=%u;", conn->cfg.scada);
+  }
+  if (n>0) count += n;
+
   if (buffer.nr+1 == buffer.cap) {
     char *x = buffer.buf + buffer.nr;
     for (int i=0; i<3 && x>buffer.buf; ++i, --x) x[-1] = '.';
@@ -743,6 +748,10 @@ static int _conn_cfg_init_by_dsn(conn_cfg_t *cfg, char *ebuf, size_t elen)
   buf[0] = '\0';
   r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "CONN_MODE", (LPCSTR)"0", (LPSTR)buf, sizeof(buf), "Odbc.ini");
   if (r == 1) cfg->conn_mode = !!atoi(buf);
+
+  buf[0] = '\0';
+  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "SCADA", (LPCSTR)"0", (LPSTR)buf, sizeof(buf), "Odbc.ini");
+  if (r == 1) cfg->scada = !!atoi(buf);
 
   buf[0] = '\0';
   r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "CHARSET_ENCODER_FOR_COL_BIND", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
@@ -1734,9 +1743,12 @@ SQLRETURN conn_set_attr(
     case SQL_ATTR_ENLIST_IN_DTC:
       break;
     case SQL_ATTR_LOGIN_TIMEOUT:
-      // FIXME: add for king scada joint debugging
-      conn->login_timeout = (SQLUINTEGER)(uintptr_t)ValuePtr;
-      return SQL_SUCCESS;
+      if ((SQLUINTEGER)(uintptr_t)ValuePtr == 0) return SQL_SUCCESS;
+      if (conn->cfg.scada) {
+        // FIXME: add for king scada joint debugging
+        conn->login_timeout = (SQLUINTEGER)(uintptr_t)ValuePtr;
+        return SQL_SUCCESS;
+      }
 
       conn_append_err_format(conn, "01S02", 0,
           "Option value changed:`%u` for `SQL_ATTR_LOGIN_TIMEOUT` is substituted by `0`",
@@ -1881,8 +1893,12 @@ SQLRETURN conn_get_attr(
     case SQL_ATTR_ENLIST_IN_DTC:
       break;
     case SQL_ATTR_LOGIN_TIMEOUT:
-      // FIXME: add for king scada joint debugging
-      *(SQLUINTEGER*)Value = conn->login_timeout;
+      if (conn->cfg.scada) {
+        // FIXME: add for king scada joint debugging
+        *(SQLUINTEGER*)Value = conn->login_timeout;
+      } else {
+        *(SQLUINTEGER*)Value = 0;
+      }
       return SQL_SUCCESS;
     case SQL_ATTR_METADATA_ID:
       break;

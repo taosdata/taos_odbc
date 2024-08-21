@@ -7573,6 +7573,8 @@ SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr,
 {
   (void)StringLength;
 
+  conn_t *conn = stmt->conn;
+
   switch (Attribute) {
     case SQL_ATTR_APP_PARAM_DESC:
       return _stmt_set_param_desc(stmt, ValuePtr);
@@ -7663,8 +7665,11 @@ SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr,
       if ((SQLULEN)(uintptr_t)ValuePtr == SQL_UB_OFF) return SQL_SUCCESS;
       break;
     case SQL_ROWSET_SIZE:
-      // FIXME: add for king scada joint debugging
-      return _stmt_set_row_array_size(stmt, (SQLULEN)ValuePtr);
+      if (conn && conn->cfg.scada) {
+        // FIXME: add for king scada joint debugging
+        return _stmt_set_row_array_size(stmt, (SQLULEN)ValuePtr);
+      }
+      break;
 
     default:
       break;
@@ -7682,6 +7687,8 @@ SQLRETURN stmt_get_attr(stmt_t *stmt,
 {
   (void)BufferLength;
   (void)StringLength;
+  conn_t *conn = stmt->conn;
+
 
   switch (Attribute) {
     case SQL_ATTR_APP_PARAM_DESC:
@@ -7767,9 +7774,12 @@ SQLRETURN stmt_get_attr(stmt_t *stmt,
     case SQL_ATTR_USE_BOOKMARKS:
       break;
     case SQL_ROWSET_SIZE:
-      // FIXME: add for king scada joint debugging
-      *(SQLULEN*)Value = (SQLULEN)_stmt_get_row_array_size(stmt);
-      return SQL_SUCCESS;
+      if (conn && conn->cfg.scada) {
+        // FIXME: add for king scada joint debugging
+        *(SQLULEN*)Value = (SQLULEN)_stmt_get_row_array_size(stmt);
+        return SQL_SUCCESS;
+      }
+      break;
     default:
       break;
   }

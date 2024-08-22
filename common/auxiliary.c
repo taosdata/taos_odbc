@@ -65,11 +65,15 @@ static time_t _local_timezone = 0;
 
 static void _init_local_timezone(void)
 {
-  const char *dt  = "1970-01-01 00:00:00";
-  const char *fmt = "%Y-%m-%d %H:%M:%S";
-  struct tm tm0_local;
-  tod_strptime(dt, fmt, &tm0_local);
-  _local_timezone = 0 - mktime(&tm0_local);
+  // const char *dt  = "1970-01-01 00:00:00";
+  // const char *fmt = "%Y-%m-%d %H:%M:%S";
+  // struct tm tm0_local;
+  // tod_strptime(dt, fmt, &tm0_local);
+  // _local_timezone = 0 - mktime(&tm0_local);
+  time_t t0 = 0;
+  struct tm tm;
+  gmtime_r(&t0, &tm);
+  _local_timezone = 0 - mktime(&tm);
 }
 
 time_t tod_get_local_timezone(void)

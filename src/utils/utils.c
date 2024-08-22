@@ -1230,3 +1230,79 @@ int strs_keep(strs_t *strs, size_t cap)
   return 0;
 }
 
+#define HEX_PREFIX_LEN 2    // \x
+static const uint8_t hex_chars[] = "0123456789ABCDEF";
+
+static uint8_t value_of(uint8_t symbol) {
+  if (symbol > 15)
+    return -1;
+  else
+    return hex_chars[symbol];
+}
+
+uint8_t is_hex(const uint8_t *z, size_t n) {
+  if (n < HEX_PREFIX_LEN)
+    return false;
+  else
+    return (z[0] == '\\' && z[1] == 'x');
+}
+
+uint8_t is_validate_hex(const uint8_t *z, size_t n) {
+  if ((n & 1) != 0) return false;
+  for (size_t i = HEX_PREFIX_LEN; i < n; i++) {
+    if (isxdigit(z[i]) == 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
+int32_t byte2hex(const uint8_t *z, size_t n, uint8_t *data, size_t *size) {
+  size_t cap = HEX_PREFIX_LEN + n*2;
+  if (*size < cap)
+    return -1;
+
+  *size = cap;
+  uint8_t *tmp = data;
+  *(tmp++) = '\\';
+  *(tmp++) = 'x';
+  for (size_t i = 0; i < n; i++) {
+    const uint8_t val = z[i];
+    tmp[i*2] = value_of(val >> 4);
+    tmp[i*2 + 1] = value_of(val & 0x0F);
+  }
+  return 0;
+}
+
+int32_t hex2byte(const uint8_t *z, size_t n, uint8_t *data, size_t *size) {
+  if ((n < HEX_PREFIX_LEN) || ((n & 1) != 0))
+    return -1;
+  size_t cap = (n - HEX_PREFIX_LEN) >> 1;
+  if (*size < cap)
+    return -1;
+
+  n -= HEX_PREFIX_LEN;
+  z += HEX_PREFIX_LEN;
+  *size = cap;
+
+  uint8_t num = 0;
+  uint8_t *byte = data;
+  for (size_t i = 0; i < n; i+=1) {
+    if (z[i] >= 'a') {
+      num = 10 + (z[i] - 'a');
+    } else if (z[i] >= 'A') {
+      num = 10 + (z[i] - 'A');
+    } else {
+      num = z[i] - '0';
+    }
+    if ((i & 1) == 0) {
+      *byte = (num << 4);
+    } else {
+      *byte |= num;
+      ++byte;
+    }
+  }
+  return 0;
+}
+
+

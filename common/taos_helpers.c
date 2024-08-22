@@ -141,6 +141,14 @@ int helper_get_tsdb_ws(int time_precision, const char *name, uint8_t col_type, c
         tsdb->str.len = strnlen(col, col_len); // FIXME:
         tsdb->str.encoder = NULL;
       } break;
+    case TSDB_DATA_TYPE_VARBINARY:
+    case TSDB_DATA_TYPE_GEOMETRY:
+      {
+        char *col = (char*)col_data;
+        tsdb->str.str = col;
+        tsdb->str.len = col_len;
+        tsdb->str.encoder = NULL;
+      } break;
     case TSDB_DATA_TYPE_TIMESTAMP:
       {
         int64_t *col = (int64_t*)col_data;
@@ -239,6 +247,8 @@ int helper_get_tsdb(TAOS_RES *res, int block, TAOS_FIELD *fields, int time_preci
     case TSDB_DATA_TYPE_VARCHAR:
     case TSDB_DATA_TYPE_NCHAR:
     case TSDB_DATA_TYPE_JSON:
+    case TSDB_DATA_TYPE_VARBINARY:
+    case TSDB_DATA_TYPE_GEOMETRY:
       if (block) {
         int *offsets = CALL_taos_get_column_data_offset(res, i_col);
         char *col = (char*)(rows[i_col]);

@@ -1016,6 +1016,34 @@ static col_bind_map_t _col_bind_map[] = {
     .num_prec_radix = 10,
     .unsigned_      = SQL_TRUE,
     .searchable     = SQL_PRED_BASIC,
+  },{
+    .tsdb_type      = TSDB_DATA_TYPE_VARBINARY,
+    .type_name      = "VARBINARY",
+    .sql_type       = SQL_VARBINARY,
+    .sql_promoted   = SQL_VARBINARY,
+    .suffix         = "",
+    .length         = -1,
+    .octet_length   = -1,
+    .precision      = -1,
+    .scale          = 0,
+    .display_size   = -1,
+    .num_prec_radix = 10,
+    .unsigned_      = SQL_TRUE,
+    .searchable     = SQL_PRED_BASIC,
+  },{
+    .tsdb_type      = TSDB_DATA_TYPE_GEOMETRY,
+    .type_name      = "GEOMETRY",
+    .sql_type       = SQL_VARBINARY,
+    .sql_promoted   = SQL_VARBINARY,
+    .suffix         = "",
+    .length         = -1,
+    .octet_length   = -1,
+    .precision      = -1,
+    .scale          = 0,
+    .display_size   = -1,
+    .num_prec_radix = 10,
+    .unsigned_      = SQL_TRUE,
+    .searchable     = SQL_PRED_BASIC,
   },
 };
 
@@ -1801,6 +1829,11 @@ static SQLRETURN _stmt_get_data_prepare_ctx(stmt_t *stmt, stmt_get_data_args_t *
       ctx->nr = tsdb->str.len;
       ctx->pos = tsdb->str.str;
       break;
+    case TSDB_DATA_TYPE_VARBINARY:
+    case TSDB_DATA_TYPE_GEOMETRY:
+      ctx->nr = tsdb->str.len;
+      ctx->pos = tsdb->str.str;
+      break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Column[%d] conversion from `%s[0x%x/%d]` not implemented yet",
@@ -1988,26 +2021,26 @@ static SQLRETURN _stmt_get_data_copy_buf_to_binary(stmt_t *stmt, stmt_get_data_a
     return SQL_ERROR;
   }
 
-  size_t n = ctx->nr - args->BufferLength;
-  if (n > 0) n = args->BufferLength;
-  else       n = ctx->nr;
+  size_t n = ctx->nr;
+  if ((size_t)(args->BufferLength) < n)
+    n = args->BufferLength;
 
   memcpy(args->TargetValuePtr, ctx->pos, n);
 
-  ctx->nr = ctx->nr - n;
-
-  if (ctx->nr) {
+  if (ctx->nr > n) {
     if (args->IndPtr) *args->IndPtr = SQL_NO_TOTAL;
-    if (args->StrLenPtr) *args->StrLenPtr = SQL_NO_TOTAL;
+    if (args->StrLenPtr) *args->StrLenPtr = ctx->nr;
     stmt_append_err_format(stmt, "01004", 0,
         "String data, right truncated:Column[%d], #%zd out of #%zd bytes consumed",
-        args->Col_or_Param_Num, n, n + ctx->nr);
+        args->Col_or_Param_Num, n, ctx->nr);
+    ctx->nr = ctx->nr - n;
     ctx->pos += n;
     return SQL_SUCCESS_WITH_INFO;
   }
 
   if (args->IndPtr) *args->IndPtr = 0; // FIXME:
   if (args->StrLenPtr) *args->StrLenPtr = n;
+  ctx->nr = 0;
   ctx->pos = (const char*)-1;
   return SQL_SUCCESS;
 }
@@ -2557,6 +2590,38 @@ static SQLRETURN _stmt_get_data_copy_double(stmt_t *stmt, double v, stmt_get_dat
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_get_data_copy_binary(stmt_t *stmt, const char *s, size_t nr, stmt_get_data_args_t *args)
+{
+  get_data_ctx_t *ctx = &stmt->get_data_ctx;
+  tsdb_data_t *tsdb = &ctx->tsdb;
+  switch (args->TargetType) {
+    case SQL_C_CHAR:
+      ctx->nr = tsdb_binary_to_string(tsdb->str.str, tsdb->str.len, (char*)ctx->buf, sizeof(ctx->buf));
+      ctx->pos = ctx->buf;
+      if (ctx->nr == -1) return SQL_ERROR;
+      return _stmt_get_data_copy_buf_to_char(stmt, args);
+    case SQL_C_BINARY:
+      return _stmt_get_data_copy_buf_to_binary(stmt, args);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]`not implemented yet",
+          args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+          sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
+      return SQL_ERROR;
+  }
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_get_data_copy_varbinary(stmt_t *stmt, const char *s, size_t nr, stmt_get_data_args_t *args)
+{
+  return _stmt_get_data_copy_binary(stmt, s, nr, args);
+}
+
+static SQLRETURN _stmt_get_data_copy_geometry(stmt_t *stmt, const char *s, size_t nr, stmt_get_data_args_t *args)
+{
+  return _stmt_get_data_copy_binary(stmt, s, nr, args);
+}
+
 static SQLRETURN _stmt_get_data_copy(stmt_t *stmt, stmt_get_data_args_t *args)
 {
   get_data_ctx_t *ctx = &stmt->get_data_ctx;
@@ -2602,6 +2667,10 @@ static SQLRETURN _stmt_get_data_copy(stmt_t *stmt, stmt_get_data_args_t *args)
       return _stmt_get_data_copy_nchar(stmt, tsdb->str.str, tsdb->str.len, args);
     case TSDB_DATA_TYPE_JSON:
       return _stmt_get_data_copy_json(stmt, tsdb->str.str, tsdb->str.len, args);
+    case TSDB_DATA_TYPE_VARBINARY:
+      return _stmt_get_data_copy_varbinary(stmt, tsdb->str.str, tsdb->str.len, args);
+    case TSDB_DATA_TYPE_GEOMETRY:
+      return _stmt_get_data_copy_geometry(stmt, tsdb->str.str, tsdb->str.len, args);
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]`not implemented yet",

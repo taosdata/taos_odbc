@@ -30,6 +30,7 @@
 #include "iconv_wrapper.h"
 
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -227,6 +228,10 @@ void strs_release(strs_t *strs) FA_HIDDEN;
 int strs_keep(strs_t *strs, size_t cap) FA_HIDDEN;
 int strs_flat(strs_t *strs, str_t *str) FA_HIDDEN;
 
+uint8_t is_hex(const uint8_t *z, size_t n) FA_HIDDEN;
+uint8_t is_validate_hex(const uint8_t *z, size_t n) FA_HIDDEN;
+int32_t byte2hex(const uint8_t *z, size_t n, uint8_t *data, size_t *size) FA_HIDDEN;
+int32_t hex2byte(const uint8_t *z, size_t n, uint8_t *data, size_t *size) FA_HIDDEN;
 
 EXTERN_C_END
 

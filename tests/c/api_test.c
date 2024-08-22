@@ -109,6 +109,21 @@
 
 #define MATCH(a, b)  (!!(a) == !!(b))
 
+struct col_check_s {
+  SQLUSMALLINT   col_index;
+  SQLSMALLINT    col_type;
+  char           col_literal[256];
+  char           col_bytes[256];
+};
+typedef struct col_check_s   col_check_t;
+
+struct col_check_cb_s {
+  size_t        nr;
+  col_check_t   cols[10];
+};
+typedef struct col_check_cb_s   col_check_cb_t;
+
+
 __attribute__((unused))
 static int test_ok(void)
 {
@@ -156,7 +171,32 @@ fail_dlsym:
 }
 
 __attribute__((unused))
-static int _sql_stmt_get_long_data_by_col(SQLHANDLE stmth, SQLSMALLINT ColumnNumber)
+static col_check_t * _do_get_col_check(col_check_cb_t *check_cb, SQLSMALLINT col_index)
+{
+  if (!check_cb) return NULL;
+  for (size_t i=0; i<=check_cb->nr; ++i) {
+    if (check_cb->cols[i].col_index == col_index)
+      return &(check_cb->cols[i]);
+  }
+  return NULL;
+}
+
+__attribute__((unused))
+static uint8_t _do_exec_col_check(col_check_t *check, const char *col_ptr, size_t col_len)
+{
+  if (!check) return 0;
+  switch (check->col_type) {
+    case SQL_C_CHAR:
+      return strncmp((const char*)check->col_literal, (const char *)col_ptr, col_len);
+    case SQL_C_BINARY:
+      return memcmp(check->col_bytes, col_ptr, col_len);
+    default:
+      return -1;
+  }
+}
+
+__attribute__((unused))
+static int _sql_stmt_get_long_data_by_col(SQLHANDLE stmth, SQLSMALLINT ColumnNumber, col_check_cb_t *check_cb)
 {
   char buf[1024];
   buf[0] = '\0';
@@ -170,6 +210,14 @@ static int _sql_stmt_get_long_data_by_col(SQLHANDLE stmth, SQLSMALLINT ColumnNum
   SQLLEN         BufferLength        = 4;
   SQLLEN         StrLen_or_Ind;
 
+  col_check_t *check = NULL;
+  if (check_cb) {
+    check = _do_get_col_check(check_cb, ColumnNumber);
+    if (check) {
+      TargetType = check->col_type;
+    }
+  }
+
   while (1) {
     SQLRETURN r = CALL_SQLGetData(stmth, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, &StrLen_or_Ind);
     if (r == SQL_NO_DATA) break;
@@ -178,31 +226,50 @@ static int _sql_stmt_get_long_data_by_col(SQLHANDLE stmth, SQLSMALLINT ColumnNum
         D("Column[#%d]: [[null]]", ColumnNumber);
         return 0;
       }
-      int n = (int)strlen(p);
-      if (n == 0) {
-        BufferLength += 2;
-        A((size_t)BufferLength <= sizeof(buf), "");
+      if (r == SQL_SUCCESS) break;
+      if (check && check->col_type == SQL_C_BINARY) {
+        p += BufferLength;
+        TargetValuePtr = p;
+        continue;
+      } else {
+        int n = (int)strlen(p);
+        if (n == 0) {
+          BufferLength += 2;
+          A((size_t)BufferLength <= sizeof(buf), "");
+          continue;
+        }
+        p += strlen(p);
+        TargetValuePtr = p;
         continue;
       }
-      p += strlen(p);
-      TargetValuePtr = p;
-      continue;
     }
     A(0, "");
     return -1;
   }
 
+  size_t actual_len = p - buf + StrLen_or_Ind;
+  if (actual_len < sizeof(buf)) buf[actual_len] = '\0';
   D("Column[#%d]: [%s]", ColumnNumber, buf);
+
+  if (check) {
+    if (_do_exec_col_check(check, buf, p-buf+StrLen_or_Ind)) {
+      if (check->col_type == SQL_C_CHAR)
+        E("(r#%d, c#%d) [%s] expected, but got ==%s==", 1, ColumnNumber, check->col_literal, buf);
+      else
+        E("(r#%d, c#%d) [%s] expected, but got ==%p==", 1, ColumnNumber, check->col_literal, buf);
+      return -1;
+    }
+  }
 
   return 0;
 }
 
 __attribute__((unused))
-static int _sql_stmt_get_long_data(SQLHANDLE stmth, SQLSMALLINT ColumnCount)
+static int _sql_stmt_get_long_data(SQLHANDLE stmth, SQLSMALLINT ColumnCount, col_check_cb_t *check_cb)
 {
   int i = 1;
   for (i=1; i<=ColumnCount; ++i) {
-    if (_sql_stmt_get_long_data_by_col(stmth, i)) break;
+    if (_sql_stmt_get_long_data_by_col(stmth, i, check_cb)) break;
   }
 
   if (i <= ColumnCount) return -1;
@@ -211,16 +278,24 @@ static int _sql_stmt_get_long_data(SQLHANDLE stmth, SQLSMALLINT ColumnCount)
 }
 
 __attribute__((unused))
-static int _sql_stmt_get_data(SQLHANDLE stmth, SQLSMALLINT ColumnCount)
+static int _sql_stmt_get_data(SQLHANDLE stmth, SQLSMALLINT ColumnCount, col_check_cb_t *check_cb)
 {
   char buf[1024];
   int i = 1;
+  col_check_t *check = NULL;
   for (i=1; i<=ColumnCount; ++i) {
     SQLUSMALLINT   Col_or_Param_Num    = i;
     SQLSMALLINT    TargetType          = SQL_C_CHAR;
     SQLPOINTER     TargetValuePtr      = (SQLPOINTER)buf;
     SQLLEN         BufferLength        = sizeof(buf);
     SQLLEN         StrLen_or_Ind;
+
+    if (check_cb) {
+      check = _do_get_col_check(check_cb, i);
+      if (check) {
+        TargetType = check->col_type;
+      }
+    }
 
     buf[0] = '\0';
     SQLRETURN r = CALL_SQLGetData(stmth, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, &StrLen_or_Ind);
@@ -230,8 +305,16 @@ static int _sql_stmt_get_data(SQLHANDLE stmth, SQLSMALLINT ColumnCount)
       D("Column[#%d]: [[null]]", i);
       continue;
     }
-
+    
+    if (0 <= StrLen_or_Ind < BufferLength) buf[StrLen_or_Ind] = '\0';
     D("Column[#%d]: [%s]", i, buf);
+
+    if (check) {
+      if (_do_exec_col_check(check, TargetValuePtr, StrLen_or_Ind)) {
+        E("(r#%d, c#%d) [%s] expected, but got ==%p==", 1, i, check->col_literal, TargetValuePtr);
+        return -1;
+      }
+    }
 
     r = CALL_SQLGetData(stmth, Col_or_Param_Num, TargetType, TargetValuePtr, BufferLength, &StrLen_or_Ind);
     if (FAILED(r) && r != SQL_NO_DATA) break;
@@ -261,9 +344,9 @@ static int test_sql_stmt_execute_direct(SQLHANDLE stmth, const char *statement)
   r = CALL_SQLFetch(stmth);
   if (r == SQL_NO_DATA) return 0;
 
-  rr = _sql_stmt_get_data(stmth, ColumnCount);
+  rr = _sql_stmt_get_data(stmth, ColumnCount, NULL);
   if (rr == 0) {
-    rr = _sql_stmt_get_data(stmth, ColumnCount);
+    rr = _sql_stmt_get_data(stmth, ColumnCount, NULL);
   }
 
   CALL_SQLCloseCursor(stmth);
@@ -279,18 +362,105 @@ static int test_sql_stmt_execute_direct(SQLHANDLE stmth, const char *statement)
   r = CALL_SQLFetch(stmth);
   if (r == SQL_NO_DATA) return 0;
 
-  rr = _sql_stmt_get_long_data(stmth, ColumnCount);
+  rr = _sql_stmt_get_long_data(stmth, ColumnCount, NULL);
   if (rr == 0) {
     if (ColumnCount > 1) {
-      rr = _sql_stmt_get_long_data(stmth, ColumnCount);
+      rr = _sql_stmt_get_long_data(stmth, ColumnCount, NULL);
     } else {
-      rr = _sql_stmt_get_long_data(stmth, ColumnCount);
+      rr = _sql_stmt_get_long_data(stmth, ColumnCount, NULL);
     }
   }
 
   CALL_SQLCloseCursor(stmth);
 
   return rr ? -1 : 0;
+}
+
+__attribute__((unused))
+static int test_sql_stmt_execute_check_col(SQLHANDLE stmth, const char *statement, col_check_cb_t *check_cb)
+{
+  SQLRETURN r = SQL_SUCCESS;
+  SQLSMALLINT ColumnCount = 0;
+  int rr = 0;
+
+  r = CALL_SQLExecDirect(stmth, (SQLCHAR*)statement, (SQLINTEGER)strlen(statement));
+  if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
+
+  r = CALL_SQLNumResultCols(stmth, &ColumnCount);
+  if (FAILED(r)) return -1;
+
+  r = CALL_SQLFetch(stmth);
+  if (r == SQL_NO_DATA) return 0;
+
+  rr = _sql_stmt_get_data(stmth, ColumnCount, check_cb);
+  if (rr == 0) {
+    rr = _sql_stmt_get_data(stmth, ColumnCount, check_cb);
+  }
+
+  CALL_SQLCloseCursor(stmth);
+
+  if (rr) return -1;
+
+  r = CALL_SQLExecDirect(stmth, (SQLCHAR*)statement, (SQLINTEGER)strlen(statement));
+  if (r != SQL_SUCCESS && r != SQL_SUCCESS_WITH_INFO) return -1;
+
+  r = CALL_SQLNumResultCols(stmth, &ColumnCount);
+  if (FAILED(r)) return -1;
+
+  r = CALL_SQLFetch(stmth);
+  if (r == SQL_NO_DATA) return 0;
+
+  rr = _sql_stmt_get_long_data(stmth, ColumnCount, check_cb);
+  if (rr == 0) {
+    if (ColumnCount > 1) {
+      rr = _sql_stmt_get_long_data(stmth, ColumnCount, check_cb);
+    } else {
+      rr = _sql_stmt_get_long_data(stmth, ColumnCount, check_cb);
+    }
+  }
+
+  CALL_SQLCloseCursor(stmth);
+
+  return rr ? -1 : 0;
+}
+
+__attribute__((unused))
+static int do_sql_stmt_execute_binary_col(SQLHANDLE stmth)
+{
+  CHK2(test_sql_stmt_execute_direct, stmth, "drop database if exists foo", 0);
+  CHK2(test_sql_stmt_execute_direct, stmth, "create database foo", 0);
+  CHK2(test_sql_stmt_execute_direct, stmth, "use foo", 0);
+
+  col_check_cb_t check_cb = {
+    3,
+    {
+      {
+        3,
+        SQL_C_CHAR,
+        "varchar\\x8f4e3e",
+        {0}
+      }, {
+        4,
+        SQL_C_BINARY,
+        "20160601",
+        {'2', '0', '1', '6', '0', '6', '0', '1'}
+      }, {
+        5,
+        SQL_C_BINARY,
+        "POINT(1 2)",
+        {0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xF0, 0x3F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40}
+      }
+    }
+  };
+
+  char sql[256];
+  (void)snprintf(sql, sizeof(sql), "insert into tb1 using stb tags(1) values(now, 1, '%s', '%s', '%s')", check_cb.cols[0].col_literal, check_cb.cols[1].col_literal, check_cb.cols[2].col_literal);
+
+  CHK2(test_sql_stmt_execute_direct, stmth, "drop stable if exists stb", 0);
+  CHK2(test_sql_stmt_execute_direct, stmth, "create stable stb(ts timestamp, v1 int, v2 varchar(50), v3 varbinary(50), v4 geometry(256)) tags(t1 int)", 0);
+  CHK2(test_sql_stmt_execute_direct, stmth, sql, 0);
+  CHK3(test_sql_stmt_execute_check_col, stmth, "select * from stb", &check_cb, 0);
+  return 0;
 }
 
 __attribute__((unused))
@@ -327,6 +497,8 @@ static int do_sql_stmt_execute_direct(SQLHANDLE stmth)
 
   CHK2(test_sql_stmt_execute_direct, stmth, "drop stable if exists s", 0);
   CHK2(test_sql_stmt_execute_direct, stmth, "create stable s (ts timestamp, v int) tags (id int, name nchar(10))", 0);
+
+  CHK1(do_sql_stmt_execute_binary_col, stmth, 0);
 
   return 0;
 }
@@ -495,6 +667,7 @@ static int do_sql_driver_conns(SQLHANDLE connh)
   CHK4(test_sql_conn, connh, "TAOS_ODBC_DSN", "", "", -1);
   CHK4(test_sql_conn, connh, "TAOS_ODBC_DSN", "", NULL, -1);
   CHK4(test_sql_conn, connh, "TAOS_ODBC_DSN", NULL, "", -1);
+  CHK4(test_sql_conn, connh, "TAOS_ODBC_WS_DSN", NULL, NULL, 0);
   CHK2(test_sql_driver_conn, connh, "bad", -1);
   CHK2(test_sql_driver_conn, connh, "DSN=NOT_EXIST", -1);
 #ifndef _WIN32                     /* { */
@@ -522,6 +695,7 @@ static int do_sql_driver_conns(SQLHANDLE connh)
   // CHK4(test_sql_conn, connh, "TAOS_ODBC_WS_DSN", "", "", -1);
   // CHK4(test_sql_conn, connh, "TAOS_ODBC_WS_DSN", "", NULL, -1);
   // CHK4(test_sql_conn, connh, "TAOS_ODBC_WS_DSN", NULL, "", -1);
+  CHK4(test_sql_conn, connh, "TAOS_ODBC_WS_DSN", NULL, NULL, 0);
   CHK2(test_sql_driver_conn, connh, "bad", -1);
   CHK2(test_sql_driver_conn, connh, "DSN=NOT_EXIST", -1);
   CHK2(test_sql_driver_conn, connh, "Driver={TAOS_ODBC_DRIVER};URL={http://www.examples.com};Server=" WS_FOR_TEST "", 0);

@@ -305,7 +305,7 @@ struct get_data_ctx_s {
   sqlc_data_t    sqlc;
 
   //
-  char           buf[64];
+  char           buf[1024];
   mem_t          mem;
 
   const char    *pos;

@@ -59,6 +59,13 @@ int tod_conv(const char *fromcode, const char *tocode, const char *src, size_t s
 #define tod_strncasecmp     strncasecmp
 #endif
 
+typedef uint16_t VarDataLenT;  // maxVarDataLen: 65535
+#define VARSTR_HEADER_SIZE sizeof(VarDataLenT)
+
+#define varDataLen(v)  ((VarDataLenT *)(v))[0]
+#define varDataVal(v)  ((char *)(v) + VARSTR_HEADER_SIZE)
+#define varDataTLen(v) (sizeof(VarDataLenT) + varDataLen(v))
+
 EXTERN_C_END
 
 #endif // _helpers_h_

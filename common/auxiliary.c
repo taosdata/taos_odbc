@@ -43,6 +43,46 @@ const char* tod_strptime(const char *s, const char *format, struct tm *tm)
 }
 #endif
 
+const char* tod_strptime_with_len(const char *s, size_t len, const char *fmt, struct tm *tm)
+{
+  char buf[4096]; *buf = '\0';
+  int n = snprintf(buf, sizeof(buf), "%.*s", (int)len, s);
+  if (n < 0) {
+    errno = EINVAL; // FIXME:
+    return NULL;
+  }
+  if ((size_t)n >= sizeof(buf)) {
+    errno = E2BIG;
+    return NULL;
+  }
+  const char *next = tod_strptime(buf, fmt, tm);
+  if (!next) return NULL;
+
+  return s + (next - buf);
+}
+
+static time_t _local_timezone = 0;
+
+static void _init_local_timezone(void)
+{
+  const char *dt  = "1970-01-01 00:00:00";
+  const char *fmt = "%Y-%m-%d %H:%M:%S";
+  struct tm tm0_local;
+  tod_strptime(dt, fmt, &tm0_local);
+  _local_timezone = 0 - mktime(&tm0_local);
+}
+
+time_t tod_get_local_timezone(void)
+{
+  static int init = 0;
+  if (!init) {
+    static pthread_once_t once = PTHREAD_ONCE_INIT;
+    pthread_once(&once, _init_local_timezone);
+    init = 1;
+  }
+  return _local_timezone;
+}
+
 static void _get_local_time(struct timeval *tv0, struct tm *tm0)
 {
   gettimeofday(tv0, NULL);

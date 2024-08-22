@@ -22,47 +22,26 @@
  * SOFTWARE.
  */
 
-#ifndef _helpers_h_
-#define _helpers_h_
+#ifndef _ts_parser_h_
+#define _ts_parser_h_
 
-#include "taos_odbc_config.h"
+#include "macros.h"
+#include "typedefs.h"
 
-#include "os_port.h"
-
-#include "logger.h"
-
-#include <inttypes.h>
-#include <stdio.h>
-#include <time.h>
-
-#ifdef _WIN32
-#include <windows.h>
-#else
-#include <string.h>
-#endif
+#include <stddef.h>
+#include <stdint.h>
 
 EXTERN_C_BEGIN
 
-const char *tod_strptime(const char *s, const char *format, struct tm *tm) FA_HIDDEN;
-const char *tod_strptime_with_len(const char *s, size_t len, const char *fmt, struct tm *tm) FA_HIDDEN;
-// NOTE: eg.: +28800 for Beijing +0800/+08:00
-time_t tod_get_local_timezone(void) FA_HIDDEN;
-uintptr_t tod_get_current_thread_id(void) FA_HIDDEN;
-uintptr_t tod_get_current_process_id(void) FA_HIDDEN;
-const char* tod_get_format_current_local_timestamp_ms(char *s, size_t n) FA_HIDDEN;
-const char* tod_get_format_current_local_timestamp_us(char *s, size_t n) FA_HIDDEN;
+void ts_parser_param_release(ts_parser_param_t *param) FA_HIDDEN;
 
-int tod_conv(const char *fromcode, const char *tocode, const char *src, size_t slen, char *dst, size_t dlen) FA_HIDDEN;
-
-#ifdef _WIN32
-#define tod_strcasecmp      _stricmp
-#define tod_strncasecmp     _strnicmp
-#else
-#define tod_strcasecmp      strcasecmp
-#define tod_strncasecmp     strncasecmp
-#endif
+// support ISO-8601 and RFC-3339, referenced by `man date`
+// tz_default: used when timezone field not found in `input`
+//             eg.: 28800 for Beijing as +0800/+08:00 == [8 * 60 * 60 + 0 * 60]
+int ts_parser_parse(const char *input, size_t len, ts_parser_param_t *param,
+    int64_t tz_default) FA_HIDDEN;
 
 EXTERN_C_END
 
-#endif // _helpers_h_
+#endif // _ts_parser_h_
 

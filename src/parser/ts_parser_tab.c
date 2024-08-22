@@ -22,47 +22,25 @@
  * SOFTWARE.
  */
 
-#ifndef _helpers_h_
-#define _helpers_h_
+#include "ts_parser.h"
 
-#include "taos_odbc_config.h"
+#include "../core/internal.h"        // FIXME:
+#include "log.h"
+#include "parser.h"
+#include "topic.h"
+#include "var.h"
 
-#include "os_port.h"
+#include "ts_parser.tab.h"
+#include "ts_parser.lex.c"
 
-#include "logger.h"
+#include "ts_parser.lex.h"
+#undef yylloc
+#undef yylval
+#include "ts_parser.tab.c"
 
-#include <inttypes.h>
-#include <stdio.h>
-#include <time.h>
-
-#ifdef _WIN32
-#include <windows.h>
-#else
-#include <string.h>
-#endif
-
-EXTERN_C_BEGIN
-
-const char *tod_strptime(const char *s, const char *format, struct tm *tm) FA_HIDDEN;
-const char *tod_strptime_with_len(const char *s, size_t len, const char *fmt, struct tm *tm) FA_HIDDEN;
-// NOTE: eg.: +28800 for Beijing +0800/+08:00
-time_t tod_get_local_timezone(void) FA_HIDDEN;
-uintptr_t tod_get_current_thread_id(void) FA_HIDDEN;
-uintptr_t tod_get_current_process_id(void) FA_HIDDEN;
-const char* tod_get_format_current_local_timestamp_ms(char *s, size_t n) FA_HIDDEN;
-const char* tod_get_format_current_local_timestamp_us(char *s, size_t n) FA_HIDDEN;
-
-int tod_conv(const char *fromcode, const char *tocode, const char *src, size_t slen, char *dst, size_t dlen) FA_HIDDEN;
-
-#ifdef _WIN32
-#define tod_strcasecmp      _stricmp
-#define tod_strncasecmp     _strnicmp
-#else
-#define tod_strcasecmp      strcasecmp
-#define tod_strncasecmp     strncasecmp
-#endif
-
-EXTERN_C_END
-
-#endif // _helpers_h_
+void ts_parser_param_release(ts_parser_param_t *param)
+{
+  if (!param) return;
+  param->ctx.err_msg[0] = '\0';
+}
 

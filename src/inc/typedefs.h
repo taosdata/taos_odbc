@@ -110,6 +110,8 @@ typedef struct tsdb_res_s               tsdb_res_t;
 typedef struct tsdb_fields_s            tsdb_fields_t;
 typedef struct tsdb_rows_block_s        tsdb_rows_block_t;
 
+typedef struct ts_parser_param_s        ts_parser_param_t;
+
 typedef struct typesinfo_s              typesinfo_t;
 
 typedef struct url_s                    url_t;

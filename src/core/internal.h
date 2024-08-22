@@ -531,6 +531,17 @@ struct url_parser_param_s {
   url_t                  url;
 };
 
+struct ts_parser_param_s {
+  parser_ctx_t           ctx;
+
+  time_t                 tm_utc0;
+
+  // breakdown
+  unsigned long long     frac_nano;
+  int64_t                tz_seconds;
+};
+
+
 struct charset_convs_s {
   charset_conv_t            *cnv_from_sqlc_charset_for_param_bind_to_wchar;
   charset_conv_t            *cnv_from_wchar_to_wchar;

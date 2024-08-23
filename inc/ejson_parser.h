@@ -34,27 +34,9 @@
 EXTERN_C_BEGIN
 
 typedef struct ejson_parser_param_s             ejson_parser_param_t;
-typedef struct ejson_parser_token_s             ejson_parser_token_t;
 
 typedef enum ejson_type_e               ejson_type_t;
 typedef struct ejson_s                  ejson_t;
-typedef struct _ejson_str_s             _ejson_str_t;
-typedef struct _ejson_kv_s              _ejson_kv_t;
-
-struct _ejson_str_s {
-  char                      *str;
-  size_t                     cap;
-  size_t                     nr;
-
-  parser_loc_t               loc;
-};
-
-struct _ejson_kv_s {
-  _ejson_str_t               key;
-  ejson_t                   *val;
-
-  parser_loc_t               loc;
-};
 
 enum ejson_type_e {
   EJSON_NULL,
@@ -99,25 +81,11 @@ size_t ejson_arr_count(ejson_t *ejson) FA_HIDDEN;
 ejson_t* ejson_arr_get(ejson_t *ejson, size_t idx) FA_HIDDEN;
 
 
-void _ejson_str_reset(_ejson_str_t *str) FA_HIDDEN;
-void _ejson_str_release(_ejson_str_t *str) FA_HIDDEN;
-int _ejson_str_init(_ejson_str_t *str, const char *v, size_t n) FA_HIDDEN;
-int _ejson_str_append(_ejson_str_t *str, const char *v, size_t n) FA_HIDDEN;
-
-
-void _ejson_kv_release(_ejson_kv_t *kv) FA_HIDDEN;
-void _ejson_kv_init(_ejson_kv_t *kv) FA_HIDDEN;
 
 
 
 
 
-
-
-struct ejson_parser_token_s {
-  const char      *text;
-  size_t           leng;
-};
 
 struct ejson_parser_param_s {
   parser_ctx_t                       ctx;

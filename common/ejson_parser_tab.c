@@ -27,6 +27,89 @@
 #include "logger.h"
 
 #include <math.h>
+#include <string.h>
+
+typedef struct _ejson_str_s             _ejson_str_t;
+typedef struct _ejson_kv_s              _ejson_kv_t;
+
+struct _ejson_str_s {
+  char                      *str;
+  size_t                     cap;
+  size_t                     nr;
+
+  parser_loc_t               loc;
+};
+
+struct _ejson_kv_s {
+  _ejson_str_t               key;
+  ejson_t                   *val;
+
+  parser_loc_t               loc;
+};
+
+typedef struct ejson_parser_token_s             ejson_parser_token_t;
+struct ejson_parser_token_s {
+  const char      *text;
+  size_t           leng;
+};
+
+static void _ejson_str_reset(_ejson_str_t *str)
+{
+  if (!str) return;
+  if (str->str) str->str[0] = '\0';
+  str->nr = 0;
+}
+
+static void _ejson_str_release(_ejson_str_t *str)
+{
+  if (!str) return;
+  _ejson_str_reset(str);
+  if (str->str) {
+    free(str->str);
+    str->str = NULL;
+  }
+  str->cap = 0;
+}
+
+static int _ejson_str_append(_ejson_str_t *str, const char *v, size_t n)
+{
+  size_t len = strnlen(v, n);
+  if (len == 0) return 0;
+  size_t cap = str->nr + len;
+  if (cap > str->cap) {
+    cap = (cap + 15) / 16 * 16;
+    char *p = (char*)realloc(str->str, cap + 1);
+    if (!p) return -1;
+    str->str = p;
+    str->cap = cap;
+  }
+  strncpy(str->str + str->nr, v, len);
+  str->nr += len;
+  str->str[str->nr] = '\0';
+  return 0;
+}
+
+static int _ejson_str_init(_ejson_str_t *str, const char *v, size_t n)
+{
+  memset(str, 0, sizeof(*str));
+  int r = _ejson_str_append(str, v, n);
+  if (r) {
+    _ejson_str_release(str);
+    return -1;
+  }
+  return 0;
+}
+
+static void _ejson_kv_release(_ejson_kv_t *kv)
+{
+  if (!kv) return;
+  _ejson_str_release(&kv->key);
+  if (kv->val) {
+    ejson_dec_ref(kv->val);
+    kv->val = NULL;
+  }
+}
+
 
 static ejson_t* _ejson_new_num(const char *s, size_t n);
 static ejson_t* _ejson_new_str(_ejson_str_t *str);
@@ -110,63 +193,6 @@ ejson_t* ejson_new_false(void)
 static void _ejson_num_release(ejson_num_t *num)
 {
   if (!num) return;
-}
-
-void _ejson_str_reset(_ejson_str_t *str)
-{
-  if (!str) return;
-  if (str->str) str->str[0] = '\0';
-  str->nr = 0;
-}
-
-void _ejson_str_release(_ejson_str_t *str)
-{
-  if (!str) return;
-  _ejson_str_reset(str);
-  if (str->str) {
-    free(str->str);
-    str->str = NULL;
-  }
-  str->cap = 0;
-}
-
-int _ejson_str_append(_ejson_str_t *str, const char *v, size_t n)
-{
-  size_t len = strnlen(v, n);
-  if (len == 0) return 0;
-  size_t cap = str->nr + len;
-  if (cap > str->cap) {
-    cap = (cap + 15) / 16 * 16;
-    char *p = (char*)realloc(str->str, cap + 1);
-    if (!p) return -1;
-    str->str = p;
-    str->cap = cap;
-  }
-  strncpy(str->str + str->nr, v, len);
-  str->nr += len;
-  str->str[str->nr] = '\0';
-  return 0;
-}
-
-int _ejson_str_init(_ejson_str_t *str, const char *v, size_t n)
-{
-  memset(str, 0, sizeof(*str));
-  int r = _ejson_str_append(str, v, n);
-  if (r) {
-    _ejson_str_release(str);
-    return -1;
-  }
-  return 0;
-}
-
-void _ejson_kv_release(_ejson_kv_t *kv)
-{
-  if (!kv) return;
-  _ejson_str_release(&kv->key);
-  if (kv->val) {
-    ejson_dec_ref(kv->val);
-    kv->val = NULL;
-  }
 }
 
 static void _ejson_obj_reset(ejson_obj_t *obj)

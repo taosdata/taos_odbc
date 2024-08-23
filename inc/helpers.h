@@ -29,6 +29,8 @@
 
 #include "os_port.h"
 
+#include "iconv_wrapper.h"
+
 #include "logger.h"
 
 #include <inttypes.h>
@@ -51,6 +53,12 @@ const char* tod_get_format_current_local_timestamp_us(char *s, size_t n) FA_HIDD
 
 int tod_conv(const char *fromcode, const char *tocode, const char *src, size_t slen, char *dst, size_t dlen) FA_HIDDEN;
 
+static inline int tod_little_endian(void)
+{
+  static const uint32_t v = 1;
+  return (*(uint8_t*)&v == 1);
+}
+
 #ifdef _WIN32
 #define tod_strcasecmp      _stricmp
 #define tod_strncasecmp     _strnicmp
@@ -58,6 +66,11 @@ int tod_conv(const char *fromcode, const char *tocode, const char *src, size_t s
 #define tod_strcasecmp      strcasecmp
 #define tod_strncasecmp     strncasecmp
 #endif
+
+void tod_hex2bytes_unsafe(const char *hex, size_t n,
+    unsigned char *bytes) FA_HIDDEN;
+int tod_conv_ucs2be_to_utf8_unsafe(const char *ucs2be, char *utf8,
+    iconv_t cnv) FA_HIDDEN;
 
 EXTERN_C_END
 

@@ -46,6 +46,7 @@ enum ejson_type_e {
   EJSON_STR,
   EJSON_OBJ,
   EJSON_ARR,
+  EJSON_BIN,
 };
 
 void ejson_inc_ref(ejson_t *ejson) FA_HIDDEN;
@@ -56,6 +57,8 @@ ejson_t* ejson_new_false(void) FA_HIDDEN;
 ejson_t* ejson_new_num(double v) FA_HIDDEN;
 ejson_t* ejson_new_obj(void) FA_HIDDEN;
 ejson_t* ejson_new_arr(void) FA_HIDDEN;
+ejson_t* ejson_new_str(const char *v, size_t n) FA_HIDDEN;
+ejson_t* ejson_new_bin(const unsigned char *v, size_t n) FA_HIDDEN;
 int ejson_arr_append(ejson_t *ejson, ejson_t *v) FA_HIDDEN;
 
 
@@ -63,6 +66,7 @@ int ejson_is_null(ejson_t *ejson) FA_HIDDEN;
 int ejson_is_true(ejson_t *ejson) FA_HIDDEN;
 int ejson_is_false(ejson_t *ejson) FA_HIDDEN;
 int ejson_is_str(ejson_t *ejson) FA_HIDDEN;
+int ejson_is_bin(ejson_t *ejson) FA_HIDDEN;
 int ejson_is_num(ejson_t *ejson) FA_HIDDEN;
 int ejson_is_obj(ejson_t *ejson) FA_HIDDEN;
 int ejson_is_arr(ejson_t *ejson) FA_HIDDEN;
@@ -73,6 +77,7 @@ int ejson_serialize(ejson_t *ejson, char *buf, size_t len) FA_HIDDEN;
 const parser_loc_t* ejson_get_loc(ejson_t *ejson) FA_HIDDEN;
 
 const char* ejson_str_get(ejson_t *ejson) FA_HIDDEN;
+const unsigned char* ejson_bin_get(ejson_t *ejson, size_t *len) FA_HIDDEN;
 int ejson_num_get(ejson_t *ejson, double *v) FA_HIDDEN;
 size_t ejson_obj_count(ejson_t *ejson) FA_HIDDEN;
 ejson_t* ejson_obj_idx(ejson_t *ejson, size_t idx, const char **k) FA_HIDDEN;

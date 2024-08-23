@@ -31,9 +31,18 @@
 
 typedef struct _ejson_str_s             _ejson_str_t;
 typedef struct _ejson_kv_s              _ejson_kv_t;
+typedef struct _ejson_bin_s             _ejson_bin_t;
 
 struct _ejson_str_s {
   char                      *str;
+  size_t                     cap;
+  size_t                     nr;
+
+  parser_loc_t               loc;
+};
+
+struct _ejson_bin_s {
+  unsigned char             *bin;
   size_t                     cap;
   size_t                     nr;
 
@@ -60,6 +69,13 @@ static void _ejson_str_reset(_ejson_str_t *str)
   str->nr = 0;
 }
 
+static void _ejson_bin_reset(_ejson_bin_t *bin)
+{
+  if (!bin) return;
+  if (bin->bin) bin->bin[0] = '\0';
+  bin->nr = 0;
+}
+
 static void _ejson_str_release(_ejson_str_t *str)
 {
   if (!str) return;
@@ -69,6 +85,17 @@ static void _ejson_str_release(_ejson_str_t *str)
     str->str = NULL;
   }
   str->cap = 0;
+}
+
+static void _ejson_bin_release(_ejson_bin_t *bin)
+{
+  if (!bin) return;
+  _ejson_bin_reset(bin);
+  if (bin->bin) {
+    free(bin->bin);
+    bin->bin = NULL;
+  }
+  bin->cap = 0;
 }
 
 static int _ejson_str_append(_ejson_str_t *str, const char *v, size_t n)
@@ -89,12 +116,39 @@ static int _ejson_str_append(_ejson_str_t *str, const char *v, size_t n)
   return 0;
 }
 
+static int _ejson_bin_append(_ejson_bin_t *bin, const unsigned char *v, size_t n)
+{
+  size_t cap = bin->nr + n;
+  if (cap > bin->cap) {
+    cap = (cap + 15) / 16 * 16;
+    unsigned char *p = (unsigned char*)realloc(bin->bin, cap + 1);
+    if (!p) return -1;
+    bin->bin = p;
+    bin->cap = cap;
+  }
+  memcpy(bin->bin + bin->nr, v, n);
+  bin->nr += n;
+  bin->bin[bin->nr] = '\0'; // NOTE: this is just for safe
+  return 0;
+}
+
 static int _ejson_str_init(_ejson_str_t *str, const char *v, size_t n)
 {
   memset(str, 0, sizeof(*str));
   int r = _ejson_str_append(str, v, n);
   if (r) {
     _ejson_str_release(str);
+    return -1;
+  }
+  return 0;
+}
+
+static int _ejson_bin_init(_ejson_bin_t *bin, const unsigned char *v, size_t n)
+{
+  memset(bin, 0, sizeof(*bin));
+  int r = _ejson_bin_append(bin, v, n);
+  if (r) {
+    _ejson_bin_release(bin);
     return -1;
   }
   return 0;
@@ -116,7 +170,6 @@ static ejson_t* _ejson_new_str(_ejson_str_t *str);
 static ejson_t* _ejson_new_obj(_ejson_kv_t *kv);
 static int _ejson_obj_set(ejson_t *ejson, _ejson_kv_t *kv);
 
-static ejson_t* ejson_new_str(const char *v, size_t n);
 // static int ejson_str_append(ejson_t *ejson, const char *v, size_t n);
 // static int ejson_obj_set(ejson_t *ejson, const char *k, size_t n, ejson_t *v);
 
@@ -148,6 +201,7 @@ struct ejson_s {
     _ejson_str_t             _str;
     ejson_obj_t              _obj;
     ejson_arr_t              _arr;
+    _ejson_bin_t             _bin;
   };
 
   parser_loc_t               loc;
@@ -311,7 +365,7 @@ ejson_t* ejson_new_num(double v)
   return ejson;
 }
 
-static ejson_t* ejson_new_str(const char *v, size_t n)
+ejson_t* ejson_new_str(const char *v, size_t n)
 {
   ejson_t *ejson = (ejson_t*)calloc(1, sizeof(*ejson));
   if (!ejson) return NULL;
@@ -324,6 +378,21 @@ static ejson_t* ejson_new_str(const char *v, size_t n)
   ejson->refc = 1;
   return ejson;
 }
+
+ejson_t* ejson_new_bin(const unsigned char *v, size_t n)
+{
+  ejson_t *ejson = (ejson_t*)calloc(1, sizeof(*ejson));
+  if (!ejson) return NULL;
+  int r = _ejson_bin_init(&ejson->_bin, v, n);
+  if (r) {
+    free(ejson);
+    return NULL;
+  }
+  ejson->type = EJSON_BIN;
+  ejson->refc = 1;
+  return ejson;
+}
+
 
 ejson_t* ejson_new_obj(void)
 {

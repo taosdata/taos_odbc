@@ -153,11 +153,13 @@ macro(check_requirements)
       set(CMAKE_REQUIRED_INCLUDES C:/TDengine/include)
       set(CMAKE_REQUIRED_LINK_OPTIONS /LIBPATH:C:/TDengine/driver)
     endif()
-    check_symbol_exists(ws_query "taosws.h" HAVE_TAOSWS)
-    if(NOT HAVE_TAOSWS)
-      message(STATUS "${Yellow}"
-                     "`taosws.h` is not found, you may refer to https://github.com/taosdata/TDengine"
-                     "${ColorReset}")
+    if(WITH_TAOSWS)
+      check_symbol_exists(ws_query "taosws.h" HAVE_TAOSWS)
+      if(NOT HAVE_TAOSWS)
+        message(STATUS "${Yellow}"
+                       "`taosws.h` is not found, you may refer to https://github.com/taosdata/TDengine"
+                       "${ColorReset}")
+      endif()
     endif()
   endif()
 

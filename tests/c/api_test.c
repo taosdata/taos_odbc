@@ -306,7 +306,7 @@ static int _sql_stmt_get_data(SQLHANDLE stmth, SQLSMALLINT ColumnCount, col_chec
       continue;
     }
     
-    if (0 <= StrLen_or_Ind < BufferLength) buf[StrLen_or_Ind] = '\0';
+    if (0 <= StrLen_or_Ind && StrLen_or_Ind < BufferLength) buf[StrLen_or_Ind] = '\0';
     D("Column[#%d]: [%s]", i, buf);
 
     if (check) {

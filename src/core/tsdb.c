@@ -200,7 +200,7 @@ static void _tsdb_params_reset_col_fields(tsdb_params_t *params)
   if (params->col_fields) {
 #ifdef HAVE_TAOSWS           /* [ */
     if (params->owner->owner->conn->cfg.url) {
-      CALL_ws_stmt_reclaim_fields((struct StmtField**)&params->col_fields, params->nr_col_fields);
+      CALL_ws_stmt_reclaim_fields(params->owner->stmt, (struct StmtField**)&params->col_fields, params->nr_col_fields);
     } else {
 #endif                       /* ] */
       CALL_taos_stmt_reclaim_fields(params->owner->stmt, params->col_fields);
@@ -545,7 +545,7 @@ static SQLRETURN _tsdb_stmt_describe_tags(tsdb_stmt_t *stmt)
   if (stmt->owner->conn->cfg.url) {
     // stmt_append_err(stmt->owner, "HY000", r, "General error:not implemented yet");
     // return SQL_ERROR;
-    r = CALL_ws_stmt_get_tag_fields(stmt->stmt, (struct StmtField**)&tags, &tagNum);
+    r = CALL_ws_stmt_get_tag_fields(stmt->stmt, &tagNum, (struct StmtField**)&tags);
     if (r) {
       stmt_append_err_format(stmt->owner, "HY000", r, "General error:[taosc]%s", CALL_ws_errstr(NULL));
       if (r != TSDB_CODE_APP_ERROR) return SQL_ERROR;
@@ -580,7 +580,7 @@ static SQLRETURN _tsdb_stmt_describe_cols(tsdb_stmt_t *stmt)
   if (stmt->owner->conn->cfg.url) {
     // stmt_append_err(stmt->owner, "HY000", r, "General error:not implemented yet");
     // return SQL_ERROR;
-    r = CALL_ws_stmt_get_col_fields(stmt->stmt, (struct StmtField**)&cols, &colNum);
+    r = CALL_ws_stmt_get_col_fields(stmt->stmt, &colNum, (struct StmtField**)&cols);
     if (r) {
       stmt_append_err_format(stmt->owner, "HY000", r, "General error:[taosc]%s", CALL_ws_errstr(NULL));
       if (r != TSDB_CODE_APP_ERROR) return SQL_ERROR;
@@ -675,7 +675,7 @@ static SQLRETURN _tsdb_stmt_get_taos_tags_cols_for_insert(tsdb_stmt_t *stmt)
 
     // sr = _tsdb_stmt_generate_default_param_fields(stmt, nr_params);
     // if (sr != SQL_SUCCESS) return SQL_ERROR;
-    r = CALL_ws_stmt_get_tag_fields(stmt->stmt, (struct StmtField**)&tag_fields, &tagNum);
+    r = CALL_ws_stmt_get_tag_fields(stmt->stmt, &tagNum, (struct StmtField**)&tag_fields);
     if (r) {
       int e = CALL_ws_errno(NULL);
       if (e == TSDB_CODE_TSC_STMT_TBNAME_ERROR) {
@@ -939,7 +939,7 @@ static SQLRETURN _tsdb_stmt_fetch_rows_block(tsdb_stmt_t *stmt)
     if (fields->nr == 0) return SQL_NO_DATA;
     const void *ptr = NULL;
     int32_t nr_rows = 0;
-    int32_t r = CALL_ws_fetch_block((WS_RES*)res->res, &ptr, &nr_rows);
+    int32_t r = CALL_ws_fetch_raw_block((WS_RES*)res->res, &ptr, &nr_rows);
     if (r != 0) return SQL_ERROR;
     
     if (nr_rows == 0) return SQL_NO_DATA;

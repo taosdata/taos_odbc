@@ -408,7 +408,7 @@ static int cmp_varbinary_against_val(SQLHANDLE hstmt, SQLSMALLINT iColumn, SQLUL
       char rbuf[4096]; hexify(rbuf, sizeof(rbuf), s, n);
       char lbuf[4096]; hexify(lbuf, sizeof(lbuf), buf, StrLen_or_Ind);
       // TODO:
-      E("==%s== <> ==%s==", lbuf, rbuf);
+      E("\n==%s==\n <> \n==%s==", lbuf, rbuf);
       return -1;
     }
   } else {
@@ -796,6 +796,26 @@ static int _conv_from_json_to_double(ejson_t  *src, char *dst, int bytes, int *n
   return -1;
 }
 
+static int _conv_from_json_to_bin(ejson_t *src, char *dst, int bytes, int *nr_required, SQLLEN *strlen_or_ind)
+{
+  if (ejson_is_bin(src)) {
+    size_t sz = 0;
+    const unsigned char *s = ejson_bin_get(src, &sz);
+    // FIXME:
+    size_t n = bytes;
+    if (n > sz) n = sz;
+    memcpy(dst, s, n);
+    *nr_required   = (int)n;
+    *strlen_or_ind = (SQLLEN)n;
+    return 0;
+  }
+  char buf_serialize[4096];
+  buf_serialize[0] = '\0';
+  ejson_serialize(src, buf_serialize, sizeof(buf_serialize));
+  E("non-determined src type, ==%s==", buf_serialize);
+  return -1;
+}
+
 static int _json_sql_c_type(ejson_t *json, SQLSMALLINT *ValueType, int *bytes, conv_from_json_f *conv)
 {
   if (ejson_is_str(json)) {
@@ -832,6 +852,18 @@ static int _json_sql_c_type(ejson_t *json, SQLSMALLINT *ValueType, int *bytes, c
       }
       return _json_sql_c_type(j, ValueType, bytes, conv);
     }
+  }
+  if (ejson_is_bin(json)) {
+    *ValueType = SQL_C_BINARY;
+    size_t sz = 0;
+    const unsigned char *s = ejson_bin_get(json, &sz);
+    if (!s) {
+      E("ejson_bin_get failed");
+      return -1;
+    }
+    *bytes = (int)sz; // FIXME:
+    if (conv) *conv = _conv_from_json_to_bin;
+    return 0;
   }
   char buf_serialize[4096];
   buf_serialize[0] = '\0';
@@ -985,6 +1017,11 @@ static int _run_execute_params_rs(executes_ctx_t *ctx, ejson_t *params, ejson_t 
         buffer_length = sizeof(double);
         r = _prepare_col_array_append(ctx, (int)rows, buffer_length);
         break;
+      case SQL_C_BINARY:
+        buffer_length = bytes;
+        r = _prepare_col_array_append(ctx, (int)rows, buffer_length);
+        if (r) return -1;
+        break;
       default:
         E("[%s] not implemented yet", sqlc_data_type(ValueType));
         return -1;
@@ -1010,6 +1047,14 @@ static int _run_execute_params_rs(executes_ctx_t *ctx, ejson_t *params, ejson_t 
         break;
       case SQL_C_DOUBLE:
         DataType = SQL_DOUBLE;
+        ParameterSize = buffer_length;
+        DecimalDigits = 0;
+        sr = CALL_SQLBindParameter(ctx->hstmt, (SQLUSMALLINT)i+1, SQL_PARAM_INPUT, ValueType,
+            DataType, ParameterSize, DecimalDigits, ctx->params.arrays[i], buffer_length, ctx->params.strlen_or_inds[i]);
+        if (FAILED(sr)) return -1;
+        break;
+      case SQL_C_BINARY:
+        DataType = SQL_VARBINARY;
         ParameterSize = buffer_length;
         DecimalDigits = 0;
         sr = CALL_SQLBindParameter(ctx->hstmt, (SQLUSMALLINT)i+1, SQL_PARAM_INPUT, ValueType,

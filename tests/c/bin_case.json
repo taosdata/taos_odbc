@@ -1,0 +1,38 @@
+[
+  {
+    conn: {dsn: "TAOS_ODBC_DSN"},
+    sqls: [
+      "show databases",
+      "drop database if exists foo",
+      "create database foo",
+      "use foo",
+      "create table t(ts timestamp,bin varbinary(20))",
+      "insert into t(ts,bin) values (now()+1s, '\\x4eba')",
+      "insert into t(ts,bin) values (now()+2s, '\\x000100020003')",
+      "select * from t",
+      "create table tt(ts timestamp, geo geometry(256))",
+      "insert into tt(ts,geo) values (now()+1s, 'POINT(1 2)')",
+      "insert into tt(ts,geo) values (now()+2s, 'LINESTRING(1.0 1.0, 2.0 2.0)')",
+      "select * from tt"
+    ]
+  },{
+    conn: {dsn: "TAOS_ODBC_DSN"},
+    sqls: [
+      "use foo",
+      {
+        sql: "select bin from t",
+        rs: [
+          [b"\x4eba"],
+          [b"\x000100020003"]
+        ]
+      },{
+        sql: "select geo from tt",
+        rs: [
+          [b"\x0101000000000000000000f03f0000000000000040"],
+          [b"m\x010200000002000000000000000000f03f000000000000f03f00000000000000400000000000000040"]
+        ]
+      }
+    ]
+  }
+]
+

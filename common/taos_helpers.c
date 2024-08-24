@@ -239,19 +239,36 @@ int helper_get_tsdb(TAOS_RES *res, int block, TAOS_FIELD *fields, int time_preci
     case TSDB_DATA_TYPE_VARCHAR:
     case TSDB_DATA_TYPE_NCHAR:
     case TSDB_DATA_TYPE_JSON:
+    case TSDB_DATA_TYPE_VARBINARY:
+    case TSDB_DATA_TYPE_GEOMETRY:
       if (block) {
         int *offsets = CALL_taos_get_column_data_offset(res, i_col);
         char *col = (char*)(rows[i_col]);
         col += offsets[i_row];
         int16_t length = *(int16_t*)col;
         col += sizeof(int16_t);
-        tsdb->str.str = col;
-        tsdb->str.len = length;
+
+        if (field->type == TSDB_DATA_TYPE_VARBINARY) {
+          tsdb->bin.bin = (const unsigned char*)col;
+          tsdb->bin.len = length;
+        } else if (field->type == TSDB_DATA_TYPE_GEOMETRY) {
+          tsdb->geo.geo = (const unsigned char*)col;
+          tsdb->geo.len = length;
+        } else {
+          tsdb->str.str = col;
+          tsdb->str.len = length;
+        }
       } else {
         char *col = (char*)(rows[i_col]);
         int16_t length = ((int16_t*)col)[-1];
-        tsdb->str.str = col;
-        tsdb->str.len = length;
+        if (field->type != TSDB_DATA_TYPE_VARBINARY) {
+          tsdb->str.str = col;
+          tsdb->str.len = length;
+        } else {
+          snprintf(buf, len, "Column[(%d,%d)/%s] conversion from `%s[0x%x/%d]` not implemented yet for non-block-fetching mode",
+              i_row + 1, i_col + 1, field->name, taos_data_type(field->type), field->type, field->type);
+          return -1;
+        }
       } break;
     case TSDB_DATA_TYPE_TIMESTAMP:
       {

@@ -356,6 +356,69 @@ static int cmp_wvarchar_against_val(SQLHANDLE hstmt, SQLSMALLINT iColumn, SQLULE
   return 0;
 }
 
+static void hexify(char *buf, size_t nr, const unsigned char *bytes, size_t len)
+{
+  if (nr == 0) return;
+
+  char                *dst = buf;
+  const unsigned char *src = bytes;
+  while (len--) {
+    if (nr < 3) break;
+    snprintf(dst, 3, "%02x", *src++);
+    dst += 2;
+    nr  -= 2;
+  }
+
+  *dst = '\0';
+}
+
+static int cmp_varbinary_against_val(SQLHANDLE hstmt, SQLSMALLINT iColumn, SQLULEN ColumnSize, ejson_t *val)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  SQLCHAR buf[1024]; buf[0] = '\0';
+  SQLLEN StrLen_or_Ind = 0;
+  if (sizeof(buf) <= ColumnSize) {
+    E("buffer is too small to hold data as large as [%zd]", (size_t)ColumnSize);
+    return -1;
+  }
+
+  sr = CALL_SQLGetData(hstmt, iColumn+1, SQL_C_BINARY, buf, sizeof(buf), &StrLen_or_Ind);
+  if (FAILED(sr)) return -1;
+  if (StrLen_or_Ind == SQL_NO_TOTAL) {
+    E("not implemented yet");
+    return -1;
+  }
+  if (StrLen_or_Ind == SQL_NULL_DATA) {
+    if (ejson_is_null(val)) return 0;
+    char rbuf[1024]; ejson_serialize(val, rbuf, sizeof(rbuf));
+    E("differ: null <> %s", rbuf);
+    return -1;
+  }
+  if ((size_t)StrLen_or_Ind >= sizeof(buf)) {
+    E("not implemented yet");
+    return -1;
+  }
+
+  size_t n = 0;
+  if (ejson_is_bin(val)) {
+    const unsigned char *s = ejson_bin_get(val, &n);
+    bool eq = (s && (n == (size_t)StrLen_or_Ind)) ? (memcmp((const char*)buf, s, n) == 0 ? true : false) : false;
+    if (!eq) {
+      char rbuf[4096]; hexify(rbuf, sizeof(rbuf), s, n);
+      char lbuf[4096]; hexify(lbuf, sizeof(lbuf), buf, StrLen_or_Ind);
+      // TODO:
+      E("==%s== <> ==%s==", lbuf, rbuf);
+      return -1;
+    }
+  } else {
+    E("not implemented yet");
+    return -1;
+  }
+
+  return 0;
+}
+
 static int record_cmp_row(SQLHANDLE hstmt, SQLSMALLINT ColumnCount, ejson_t *row)
 {
   int r = 0;
@@ -414,6 +477,10 @@ static int record_cmp_row(SQLHANDLE hstmt, SQLSMALLINT ColumnCount, ejson_t *row
         break;
       case SQL_WVARCHAR:
         r = cmp_wvarchar_against_val(hstmt, i, ColumnSize, val);
+        if (r) return -1;
+        break;
+      case SQL_VARBINARY:
+        r = cmp_varbinary_against_val(hstmt, i, ColumnSize, val);
         if (r) return -1;
         break;
       default:

@@ -26,6 +26,8 @@
 
 #include "helpers.h"
 
+#include "iconv_wrapper.h"
+
 #include <errno.h>
 #ifndef _WIN32
 #include <libgen.h>
@@ -326,24 +328,5 @@ void tod_hex2bytes_unsafe(
     uint16_t v2 = _hex_map[*s++];
     *d++ = (v1 << 4) | v2;
   }
-}
-
-int tod_conv_ucs2be_to_utf8_unsafe(const char *ucs2be, char *utf8,
-    iconv_t cnv)
-{
-  char buf[16]; *buf = '\0';
-
-  tod_hex2bytes_unsafe(ucs2be, 4, (unsigned char*)buf);
-
-  char        *inbuf            = buf;
-  size_t       inbytesleft      = 2;
-  char        *outbuf           = utf8;
-  size_t       outbytesleft     = 3;
-
-  size_t n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
-  *outbuf = '\0';
-  if (inbytesleft)  return -1;
-  if (n)           return -1;
-  return 0;
 }
 

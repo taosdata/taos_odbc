@@ -24,14 +24,17 @@
 
 #include "ejson_parser.h"
 
+#include "helpers.h"
 #include "logger.h"
 
+#include <errno.h>
 #include <math.h>
 #include <string.h>
 
 typedef struct _ejson_str_s             _ejson_str_t;
 typedef struct _ejson_kv_s              _ejson_kv_t;
 typedef struct _ejson_bin_s             _ejson_bin_t;
+typedef struct _ejson_internal_s        _ejson_internal_t;
 
 struct _ejson_str_s {
   char                      *str;
@@ -61,6 +64,47 @@ struct ejson_parser_token_s {
   const char      *text;
   size_t           leng;
 };
+
+struct _ejson_internal_s {
+  char            *buf;
+  size_t           nr;
+  size_t           cap;
+};
+
+static void _ejson_internal_reset(_ejson_internal_t *internal)
+{
+  if (!internal) return;
+  internal->nr = 0;
+  if (internal->buf) internal->buf[0] = '\0';
+}
+
+static void _ejson_internal_release(_ejson_internal_t *internal)
+{
+  if (!internal) return;
+  _ejson_internal_reset(internal);
+  if (internal->buf) {
+    free(internal->buf);
+    internal->buf = NULL;
+  }
+  internal->cap = 0;
+}
+
+void ejson_parser_param_release(ejson_parser_param_t *param)
+{
+  if (!param) return;
+  param->ctx.err_msg[0] = '\0';
+  param->ctx.bad_token.first_line = 0;
+  if (param->ejson) {
+    ejson_dec_ref(param->ejson);
+    param->ejson = NULL;
+  }
+  if (param->internal) {
+    _ejson_internal_t *internal = (_ejson_internal_t*)param->internal;
+    _ejson_internal_release(internal);
+    free(param->internal);
+    param->internal = NULL;
+  }
+}
 
 static void _ejson_str_reset(_ejson_str_t *str)
 {
@@ -118,6 +162,7 @@ static int _ejson_str_append(_ejson_str_t *str, const char *v, size_t n)
 
 static int _ejson_bin_append(_ejson_bin_t *bin, const unsigned char *v, size_t n)
 {
+  if (n == 0) return 0;
   size_t cap = bin->nr + n;
   if (cap > bin->cap) {
     cap = (cap + 15) / 16 * 16;
@@ -132,26 +177,72 @@ static int _ejson_bin_append(_ejson_bin_t *bin, const unsigned char *v, size_t n
   return 0;
 }
 
-static int _ejson_str_init(_ejson_str_t *str, const char *v, size_t n)
+static int _ejson_bin_append_hex(_ejson_bin_t *bin, const char *v, size_t n)
 {
-  memset(str, 0, sizeof(*str));
-  int r = _ejson_str_append(str, v, n);
-  if (r) {
-    _ejson_str_release(str);
+  if (n == 0) return 0;
+  if (n & 1) {
+    errno = EINVAL;
     return -1;
   }
+  while (n > 0) {
+    unsigned char buf[1024]; *buf = '\0';
+    size_t        hn = sizeof(buf) * 2;
+    if (hn > n) hn = n;
+    tod_hex2bytes_unsafe(v, hn, buf);
+    int r = _ejson_bin_append(bin, buf, hn / 2);
+    if (r) return -1;
+
+    v += hn;
+    n -= hn;
+  }
+
   return 0;
 }
 
-static int _ejson_bin_init(_ejson_bin_t *bin, const unsigned char *v, size_t n)
+static int _ejson_bin_append_str(_ejson_bin_t *bin, const char *v, size_t n)
+{
+  if (n == 0) return 0;
+  size_t cap = bin->nr + n;
+  if (cap > bin->cap) {
+    cap = (cap + 15) / 16 * 16;
+    unsigned char *p = (unsigned char*)realloc(bin->bin, cap + 1);
+    if (!p) return -1;
+    bin->bin = p;
+    bin->cap = cap;
+  }
+  memcpy(bin->bin + bin->nr, v, n);
+  bin->nr += n;
+  bin->bin[bin->nr] = '\0'; // NOTE: this is just for safe
+  return 0;
+}
+
+static int _ejson_str_append_uni(_ejson_str_t *str, const char *v, size_t n)
+{
+  if (1) return _ejson_str_append(str, v, n);
+  size_t len = strnlen(v, n);
+  if (len == 0) return 0;
+  size_t cap = str->nr + len;
+  if (cap > str->cap) {
+    cap = (cap + 15) / 16 * 16;
+    char *p = (char*)realloc(str->str, cap + 1);
+    if (!p) return -1;
+    str->str = p;
+    str->cap = cap;
+  }
+  strncpy(str->str + str->nr, v, len);
+  str->nr += len;
+  str->str[str->nr] = '\0';
+  return 0;
+}
+
+static void _ejson_str_init(_ejson_str_t *str)
+{
+  memset(str, 0, sizeof(*str));
+}
+
+static void _ejson_bin_init(_ejson_bin_t *bin)
 {
   memset(bin, 0, sizeof(*bin));
-  int r = _ejson_bin_append(bin, v, n);
-  if (r) {
-    _ejson_bin_release(bin);
-    return -1;
-  }
-  return 0;
 }
 
 static void _ejson_kv_release(_ejson_kv_t *kv)
@@ -167,6 +258,7 @@ static void _ejson_kv_release(_ejson_kv_t *kv)
 
 static ejson_t* _ejson_new_num(const char *s, size_t n);
 static ejson_t* _ejson_new_str(_ejson_str_t *str);
+static ejson_t* _ejson_new_bin(_ejson_bin_t *bin);
 static ejson_t* _ejson_new_obj(_ejson_kv_t *kv);
 static int _ejson_obj_set(ejson_t *ejson, _ejson_kv_t *kv);
 
@@ -369,7 +461,8 @@ ejson_t* ejson_new_str(const char *v, size_t n)
 {
   ejson_t *ejson = (ejson_t*)calloc(1, sizeof(*ejson));
   if (!ejson) return NULL;
-  int r = _ejson_str_init(&ejson->_str, v, n);
+  _ejson_str_init(&ejson->_str);
+  int r = _ejson_str_append(&ejson->_str, v, n);
   if (r) {
     free(ejson);
     return NULL;
@@ -378,21 +471,6 @@ ejson_t* ejson_new_str(const char *v, size_t n)
   ejson->refc = 1;
   return ejson;
 }
-
-ejson_t* ejson_new_bin(const unsigned char *v, size_t n)
-{
-  ejson_t *ejson = (ejson_t*)calloc(1, sizeof(*ejson));
-  if (!ejson) return NULL;
-  int r = _ejson_bin_init(&ejson->_bin, v, n);
-  if (r) {
-    free(ejson);
-    return NULL;
-  }
-  ejson->type = EJSON_BIN;
-  ejson->refc = 1;
-  return ejson;
-}
-
 
 ejson_t* ejson_new_obj(void)
 {
@@ -431,6 +509,9 @@ static void _ejson_release(ejson_t *ejson)
     case EJSON_STR:
       _ejson_str_release(&ejson->_str);
       break;
+    case EJSON_BIN:
+      _ejson_bin_release(&ejson->_bin);
+      break;
     case EJSON_OBJ:
       _ejson_obj_release(&ejson->_obj);
       break;
@@ -467,7 +548,10 @@ void ejson_dec_ref(ejson_t *ejson)
 
 int ejson_arr_append(ejson_t *ejson, ejson_t *v)
 {
-  if (ejson->type != EJSON_ARR) return -1;
+  if (ejson->type != EJSON_ARR) {
+    errno = EINVAL;
+    return -1;
+  }
   return _ejson_arr_append(&ejson->_arr, v);
 }
 
@@ -487,6 +571,17 @@ static ejson_t* _ejson_new_str(_ejson_str_t *str)
   memcpy(&ejson->_str, str, sizeof(*str));
   memset(str, 0, sizeof(*str));
   ejson->type = EJSON_STR;
+  ejson->refc = 1;
+  return ejson;
+}
+
+static ejson_t* _ejson_new_bin(_ejson_bin_t *bin)
+{
+  ejson_t *ejson = (ejson_t*)calloc(1, sizeof(*ejson));
+  if (!ejson) return NULL;
+  memcpy(&ejson->_bin, bin, sizeof(*bin));
+  memset(bin, 0, sizeof(*bin));
+  ejson->type = EJSON_BIN;
   ejson->refc = 1;
   return ejson;
 }
@@ -546,6 +641,11 @@ int ejson_is_str(ejson_t *ejson)
   return (ejson && ejson->type == EJSON_STR) ? 1 : 0;
 }
 
+int ejson_is_bin(ejson_t *ejson)
+{
+  return (ejson && ejson->type == EJSON_BIN) ? 1 : 0;
+}
+
 int ejson_is_num(ejson_t *ejson)
 {
   return (ejson && ejson->type == EJSON_NUM) ? 1 : 0;
@@ -563,25 +663,47 @@ int ejson_is_arr(ejson_t *ejson)
 
 const char* ejson_str_get(ejson_t *ejson)
 {
-  if (!ejson_is_str(ejson)) return NULL;
+  if (!ejson_is_str(ejson)) {
+    errno = EINVAL;
+    return NULL;
+  }
+  if (!ejson->_str.str) return "";
   return ejson->_str.str;
+}
+
+const unsigned char* ejson_bin_get(ejson_t *ejson, size_t *len)
+{
+  if (!ejson_is_bin(ejson)) {
+    errno = EINVAL;
+    return NULL;
+  }
+  *len = ejson->_bin.nr;
+  if (!ejson->_bin.bin) return (const unsigned char*)"";
+  return ejson->_bin.bin;
 }
 
 int ejson_num_get(ejson_t *ejson, double *v)
 {
-  if (!ejson_is_num(ejson)) return -1;
+  if (!ejson_is_num(ejson)) {
+    errno = EINVAL;
+    return -1;
+  }
   *v = ejson->_num.dbl;
   return 0;
 }
 
 ejson_t* ejson_obj_get(ejson_t *ejson, const char *k)
 {
-  if (!ejson_is_obj(ejson)) return NULL;
+  if (!ejson_is_obj(ejson)) {
+    errno = EINVAL;
+    return NULL;
+  }
   for (size_t i=0; i<ejson->_obj.nr; ++i) {
     _ejson_kv_t *kv = ejson->_obj.kvs + i;
     if (strcmp(k, kv->key.str)) continue;
     return kv->val;
   }
+  /* errno = 0; */
   return NULL;
 }
 
@@ -593,8 +715,14 @@ size_t ejson_obj_count(ejson_t *ejson)
 
 ejson_t* ejson_obj_idx(ejson_t *ejson, size_t idx, const char **k)
 {
-  if (!ejson_is_obj(ejson)) return NULL;
-  if (idx >= ejson->_obj.nr) return NULL;
+  if (!ejson_is_obj(ejson)) {
+    errno = EINVAL;
+    return NULL;
+  }
+  if (idx >= ejson->_obj.nr) {
+    errno = ERANGE;
+    return NULL;
+  }
   _ejson_kv_t *kv = ejson->_obj.kvs + idx;
   *k = kv->key.str;
   return kv->val;
@@ -602,14 +730,23 @@ ejson_t* ejson_obj_idx(ejson_t *ejson, size_t idx, const char **k)
 
 size_t ejson_arr_count(ejson_t *ejson)
 {
-  if (!ejson_is_arr(ejson)) return 0;
+  if (!ejson_is_arr(ejson)) {
+    // FIXME: return (size_t)-1;
+    return 0;
+  }
   return ejson->_arr.nr;
 }
 
 ejson_t* ejson_arr_get(ejson_t *ejson, size_t idx)
 {
-  if (!ejson_is_arr(ejson)) return NULL;
-  if (idx >= ejson->_arr.nr) return NULL;
+  if (!ejson_is_arr(ejson)) {
+    errno = EINVAL;
+    return NULL;
+  }
+  if (idx >= ejson->_arr.nr) {
+    errno = ERANGE;
+    return NULL;
+  }
   return ejson->_arr.vals[idx];
 }
 
@@ -648,8 +785,17 @@ static int _dbl_cmp(double l, double r)
   return (l<r) ? -1 : 1;
 }
 
+static int _ejson_bin_cmp(_ejson_bin_t *l, _ejson_bin_t *r)
+{
+  if (l->nr < r->nr) return -1;
+  if (l->nr > r->nr) return 1;
+  if (l->nr == 0) return 0;
+  return memcmp(l->bin, r->bin, l->nr);
+}
+
 int ejson_cmp(ejson_t *l, ejson_t *r)
 {
+  if (l == r) return 0;
   if (l->type < r->type) return -1;
   if (l->type > r->type) return 1;
   switch (l->type) {
@@ -661,17 +807,20 @@ int ejson_cmp(ejson_t *l, ejson_t *r)
       return _dbl_cmp(l->_num.dbl, r->_num.dbl);
     case EJSON_STR:
       return strcmp(l->_str.str, r->_str.str);
+    case EJSON_BIN:
+      return _ejson_bin_cmp(&l->_bin, &r->_bin);
+      break;
     case EJSON_OBJ:
       return _ejson_obj_cmp(&l->_obj, &r->_obj);
     case EJSON_ARR:
       return _ejson_arr_cmp(&l->_arr, &r->_arr);
-    default: return -1;
+    default: /* errno = EINVAL; */ return -1;
   }
 }
 
 #if 1        /* { */
 #define _ADJUST() do {                               \
-  if (n < 0) return -1;                              \
+  if (n < 0) { errno = EINVAL; return -1; }          \
   count += n;                                        \
   p += n;                                            \
   len -= n;                                          \
@@ -692,47 +841,62 @@ static int _str_serialize(const char *str, size_t nr, char *buf, size_t len)
   char *p = buf;
   int n = 0;
 
-  // if (!strchr(str, '\\')) {
-  //   if (!strchr(str, '"')) {
-  //     return snprintf(buf, len, "\"%s\"", str);
-  //   }
-  //   if (!strchr(str, '\'')) {
-  //     return snprintf(buf, len, "'%s'", str);
-  //   }
-  //   if (!strchr(str, '`')) {
-  //     return snprintf(buf, len, "`%s`", str);
-  //   }
-  // }
   _SNPRINTF("%c", '"');
 
-  const char *escape1 = "\\\"'`";
-  const char *escape2         = "\b\f\r\n\t";
-  const char *escape2_replace = "bfrnt";
-  const char *prev = str;
-  for (size_t i=0; i<nr; ++i) {
-    const char *curr = str + i;
-    const char c = *curr;
-    if (strchr(escape1, c)) {
-      if (curr > prev) {
-        _SNPRINTF("%.*s", (int)(curr - prev), prev);
+  if (str && nr > 0) {
+    const char *escape1 = "\\\"";
+    const char *escape2         = "\b\f\r\n\t";
+    const char *escape2_replace = "bfrnt";
+    const char *prev = str;
+    for (size_t i=0; i<nr; ++i) {
+      const char *curr = str + i;
+      const char c = *curr;
+      if (strchr(escape1, c)) {
+        if (curr > prev) {
+          _SNPRINTF("%.*s", (int)(curr - prev), prev);
+        }
+        _SNPRINTF("\\%c", c);
+        prev = ++curr;
+        continue;
       }
-      _SNPRINTF("\\%c", c);
-      prev = ++curr;
-      continue;
+      const char *pp = strchr(escape2, c);
+      if (pp) {
+        if (curr > prev) {
+          _SNPRINTF("%.*s", (int)(curr - prev), prev);
+        }
+        _SNPRINTF("\\%c", escape2_replace[pp-escape2]);
+        prev = ++curr;
+        continue;
+      }
     }
-    const char *pp = strchr(escape2, c);
-    if (pp) {
-      if (curr > prev) {
-        _SNPRINTF("%.*s", (int)(curr - prev), prev);
-      }
-      _SNPRINTF("\\%c", escape2_replace[pp-escape2]);
-      prev = ++curr;
-      continue;
+    if (*prev) {
+      _SNPRINTF("%s", prev);
     }
   }
-  if (*prev) {
-    _SNPRINTF("%s", prev);
+
+  _SNPRINTF("%c", '"');
+
+  return count;
+}
+
+static int _bin_serialize(const unsigned char *bin, size_t nr,
+    char *buf, size_t len)
+{
+  int count = 0;
+  char *p = buf;
+  int n = 0;
+
+  _SNPRINTF("b%c", '"');
+
+  if (bin && nr > 0) {
+    _SNPRINTF("\\x");
+    for (size_t i=0; i<nr; ++i) {
+      const unsigned char *curr = bin + i;
+      const unsigned char c = *curr;
+      _SNPRINTF("%02x", c);
+    }
   }
+
   _SNPRINTF("%c", '"');
 
   return count;
@@ -741,6 +905,11 @@ static int _str_serialize(const char *str, size_t nr, char *buf, size_t len)
 static int _ejson_str_serialize(_ejson_str_t *str, char *buf, size_t len)
 {
   return _str_serialize(str->str, str->nr, buf, len);
+}
+
+static int _ejson_bin_serialize(_ejson_bin_t *bin, char *buf, size_t len)
+{
+  return _bin_serialize(bin->bin, bin->nr, buf, len);
 }
 
 static int _ejson_kv_serialize(_ejson_kv_t *kv, char *buf, size_t len)
@@ -815,17 +984,56 @@ int ejson_serialize(ejson_t *ejson, char *buf, size_t len)
       return snprintf(buf, len, "%lg", ejson->_num.dbl);
     case EJSON_STR:
       return _ejson_str_serialize(&ejson->_str, buf, len);
+    case EJSON_BIN:
+      return _ejson_bin_serialize(&ejson->_bin, buf, len);
     case EJSON_OBJ:
       return _ejson_obj_serialize(&ejson->_obj, buf, len);
     case EJSON_ARR:
       return _ejson_arr_serialize(&ejson->_arr, buf, len);
-    default: return -1;
+    default: errno = EINVAL; return -1;
   }
 }
 
 const parser_loc_t* ejson_get_loc(ejson_t *ejson)
 {
-  if (!ejson) return NULL;
+  if (!ejson) {
+    errno = EINVAL;
+    return NULL;
+  }
   return &ejson->loc;
+}
+
+iconv_t ejson_parser_iconv_open(void)
+{
+  const char *to           = EJSON_PARSER_TO;
+  const char *from         = EJSON_PARSER_FROM;
+  return iconv_open(to, from);
+}
+
+void ejson_parser_iconv_close(iconv_t cnv)
+{
+  if (cnv == (iconv_t)-1) return;
+  iconv_close(cnv);
+}
+
+int ejson_parser_iconv_char_unsafe(const char *ucs2be, char *utf8,
+    iconv_t cnv)
+{
+  char buf[16]; *buf = '\0';
+
+  tod_hex2bytes_unsafe(ucs2be, 4, (unsigned char*)buf);
+
+  char        *inbuf            = buf;
+  size_t       inbytesleft      = 2;
+  char        *outbuf           = utf8;
+  size_t       outbytesleft     = 3;
+
+  size_t n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+  *outbuf = '\0';
+  if (inbytesleft || n) {
+    if (errno == 0) errno = EINVAL;
+    return -1;
+  }
+  return 0;
 }
 

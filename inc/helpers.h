@@ -29,8 +29,6 @@
 
 #include "os_port.h"
 
-#include "iconv_wrapper.h"
-
 #include "logger.h"
 
 #include <inttypes.h>
@@ -59,6 +57,9 @@ static inline int tod_little_endian(void)
   return (*(uint8_t*)&v == 1);
 }
 
+void tod_hex2bytes_unsafe(const char *hex, size_t n,
+    unsigned char *bytes) FA_HIDDEN;
+
 #ifdef _WIN32
 #define tod_strcasecmp      _stricmp
 #define tod_strncasecmp     _strnicmp
@@ -66,11 +67,6 @@ static inline int tod_little_endian(void)
 #define tod_strcasecmp      strcasecmp
 #define tod_strncasecmp     strncasecmp
 #endif
-
-void tod_hex2bytes_unsafe(const char *hex, size_t n,
-    unsigned char *bytes) FA_HIDDEN;
-int tod_conv_ucs2be_to_utf8_unsafe(const char *ucs2be, char *utf8,
-    iconv_t cnv) FA_HIDDEN;
 
 EXTERN_C_END
 

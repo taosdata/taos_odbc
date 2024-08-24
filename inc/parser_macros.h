@@ -71,6 +71,11 @@ do {                                              \
     yylval->token.leng = yyleng;                  \
 } while (0)
 
+#define CHR_BY_STR(s) do {                        \
+    yylval->token.text = s;                       \
+    yylval->token.leng = 1;                       \
+} while (0)
+
 #define SET_CHR(chr) do {                         \
     yylval->c = chr;                              \
 } while (0)

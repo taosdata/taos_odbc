@@ -27,9 +27,9 @@
 
 #include "macros.h"
 
+#include "iconv_wrapper.h"
 #include "parser.h"
 
-#include <stddef.h>
 
 EXTERN_C_BEGIN
 
@@ -58,7 +58,6 @@ ejson_t* ejson_new_num(double v) FA_HIDDEN;
 ejson_t* ejson_new_obj(void) FA_HIDDEN;
 ejson_t* ejson_new_arr(void) FA_HIDDEN;
 ejson_t* ejson_new_str(const char *v, size_t n) FA_HIDDEN;
-ejson_t* ejson_new_bin(const unsigned char *v, size_t n) FA_HIDDEN;
 int ejson_arr_append(ejson_t *ejson, ejson_t *v) FA_HIDDEN;
 
 
@@ -93,14 +92,33 @@ ejson_t* ejson_arr_get(ejson_t *ejson, size_t idx) FA_HIDDEN;
 
 
 struct ejson_parser_param_s {
-  parser_ctx_t                       ctx;
-  ejson_t                           *ejson;
+  parser_ctx_t      ctx;
+  ejson_t          *ejson;
+
+  // internal fields
+  iconv_t           cnv; // NOTE: from `ejson_parser_iconv_open()`
+  void             *internal;
 };
 
 void ejson_parser_param_release(ejson_parser_param_t *param) FA_HIDDEN;
 
+#define EJSON_PARSER_FROM      "UCS-2BE"
+#define EJSON_PARSER_TO        "UTF-8"
+
+iconv_t ejson_parser_iconv_open(void) FA_HIDDEN;
+void ejson_parser_iconv_close(iconv_t cnv) FA_HIDDEN;
+
+// ucs2be: 4-hexdigits
+// utf8:   at least 3 bytes, better 8 bytes
+// cnv:    from `ejson_parser_iconv_open()`
+// eg.:    "4eba" -> "人"
+int ejson_parser_iconv_char_unsafe(const char *ucs2be, char *utf8,
+    iconv_t cnv) FA_HIDDEN;
+
+// cnv: from `ejson_parser_iconv_open()`
 int ejson_parser_parse(const char *input, size_t len,
-    ejson_parser_param_t *param) FA_HIDDEN;
+    ejson_parser_param_t *param,
+    iconv_t cnv) FA_HIDDEN;
 
 EXTERN_C_END
 

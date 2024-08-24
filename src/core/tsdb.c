@@ -125,7 +125,7 @@ int tsdb_timestamp_to_string(int64_t val, int time_precision, char *buf, size_t 
 int tsdb_binary_to_string(const char *str, size_t n, char *buf, size_t len)
 {
   size_t size = len;
-  int32_t r = byte2hex(str, n, buf, &size);
+  int32_t r = byte2hex((const uint8_t *)str, n, (uint8_t *)buf, &size);
   if (r) return -1;
   return (int)size;
 }

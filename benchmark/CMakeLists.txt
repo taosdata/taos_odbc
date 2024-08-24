@@ -61,6 +61,8 @@ endif()
 
 if(TODBC_WINDOWS)
     set_source_files_properties(tb.c PROPERTIES COMPILE_OPTIONS "/source-charset:utf-8")
+else()
+    target_link_libraries(tb pthread)
 endif()
 
 add_executable(ob
@@ -70,7 +72,7 @@ add_executable(ob
     ob.c
 )
 if(NOT TODBC_WINDOWS)
-    target_link_libraries(ob odbc)
+    target_link_libraries(ob odbc pthread)
 else()
     target_link_libraries(ob odbc32)
     set_source_files_properties(ob.c PROPERTIES COMPILE_OPTIONS "/source-charset:utf-8")

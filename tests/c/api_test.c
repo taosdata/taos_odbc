@@ -453,7 +453,7 @@ static int do_sql_stmt_execute_binary_col(SQLHANDLE stmth)
     }
   };
 
-  char sql[256];
+  char sql[1024];
   (void)snprintf(sql, sizeof(sql), "insert into tb1 using stb tags(1) values(now, 1, '%s', '%s', '%s')", check_cb.cols[0].col_literal, check_cb.cols[1].col_literal, check_cb.cols[2].col_literal);
 
   CHK2(test_sql_stmt_execute_direct, stmth, "drop stable if exists stb", 0);

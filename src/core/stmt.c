@@ -2594,11 +2594,13 @@ static SQLRETURN _stmt_get_data_copy_binary(stmt_t *stmt, const char *s, size_t 
 {
   get_data_ctx_t *ctx = &stmt->get_data_ctx;
   tsdb_data_t *tsdb = &ctx->tsdb;
+  int size = 0;
   switch (args->TargetType) {
     case SQL_C_CHAR:
-      ctx->nr = tsdb_binary_to_string(tsdb->str.str, tsdb->str.len, (char*)ctx->buf, sizeof(ctx->buf));
+      size = tsdb_binary_to_string(s, nr, (char*)ctx->buf, sizeof(ctx->buf));
+      if (size < 0) return SQL_ERROR;
+      ctx->nr = (size_t)size;
       ctx->pos = ctx->buf;
-      if (ctx->nr == -1) return SQL_ERROR;
       return _stmt_get_data_copy_buf_to_char(stmt, args);
     case SQL_C_BINARY:
       return _stmt_get_data_copy_buf_to_binary(stmt, args);

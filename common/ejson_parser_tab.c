@@ -1016,6 +1016,7 @@ void ejson_parser_iconv_close(iconv_t cnv)
   iconv_close(cnv);
 }
 
+// eg.:    "4eba" -> "人"
 int ejson_parser_iconv_char_unsafe(const char *ucs2be, char *utf8,
     iconv_t cnv)
 {

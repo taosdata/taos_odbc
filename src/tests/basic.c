@@ -407,11 +407,12 @@ static int test_ejson_parser(void)
     RECORD("'\\t'",   "\"\\t\""),
     RECORD("`\\t`",   "\"\\t\""),
 
-    RECORD("\"\\u4eba\"", "\"人\""),
-    RECORD("\"x\\u4ebay\"", "\"x人y\""),
-    RECORD("'\\u4eba'", "\"人\""),
-    RECORD("`\\u4eba`", "\"人\""),
-    RECORD("'x\\u4ebay'", "\"x人y\""),
+    // NOTE: 人 <==> e4baba
+    RECORD("\"\\u4eba\"", "\"\xe4\xba\xba\""),
+    RECORD("\"x\\u4ebay\"", "\"x\xe4\xba\xbay\""),
+    RECORD("'\\u4eba'", "\"\xe4\xba\xba\""),
+    RECORD("`\\u4eba`", "\"\xe4\xba\xba\""),
+    RECORD("'x\\u4ebay'", "\"x\xe4\xba\xbay\""),
     RECORD("\"abc\\tdef\"", "\"abc\\tdef\""),
     RECORD("{d}]", NULL),
     RECORD("'\\\\'", "\"\\\\\""),
@@ -556,6 +557,7 @@ static int test_ejson_parser(void)
         if (strcmp(buf, match)) {
           E("parsing @[%dL]:%s", __line__, s);
           E("expecting:[%zd]%s", strlen(match), match);
+          // dump_for_debug(match, strlen(match));
           E("but got:[%zd]%s", strlen(buf), buf);
           r = -1;
           break;

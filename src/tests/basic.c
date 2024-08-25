@@ -1014,6 +1014,7 @@ static int test_iconv_names(void)
     RECORD("UTF8"),
     RECORD("UTF-8"),
     RECORD("UCS-2LE"),
+    RECORD("UCS-2BE"),
     RECORD("UCS-4LE"),
     RECORD("CP437"),
     RECORD("CP850"),
@@ -1181,6 +1182,9 @@ static int test_iconvs(void)
     RECORD(GB18030, UCS-2LE, "\x62\xc3\xf1\x30", 4, "\x62\x00\x11\x6c\x30\x00", 6), // b民0
     RECORD(GB18030, UCS-2LE, "\x0", 1, "\x00\x00", 2),
     RECORD(GB18030, UCS-4LE, "\x0", 1, "\x00\x00\x00\x00", 4),
+    RECORD(UCS-2BE, UTF-8, "\x4e\xba", 2, "\xe4\xba\xba", 3),
+    RECORD(UCS-2BE, UTF-8, "\x4e\xba\x4e\xba\x4e\x2d\x4e\x2d", 8, "\xe4\xba\xba\xe4\xba\xba\xe4\xb8\xad\xe4\xb8\xad", 12),
+    RECORD(UCS-2BE, UTF-8, "\x4e\xba\x4e\xba\x4e\x2d\x4e\x2d\x4e\xba\x4e\xba\x4e\x2d\x4e\x2d", 16, "\xe4\xba\xba\xe4\xba\xba\xe4\xb8\xad\xe4\xb8\xad\xe4\xba\xba\xe4\xba\xba\xe4\xb8\xad\xe4\xb8\xad", 24),
   };
   const size_t nr_cases = sizeof(_cases) / sizeof(_cases[0]);
 #undef RECORD

@@ -51,8 +51,8 @@ static inline void dump_for_debug(const char *s, size_t n)
 {
   fprintf(stderr, "====================\n0x");
   for (size_t i = 0; i < n; ++i) {
-    const char c = s[i];
-    fprintf(stderr, "%02x", (const unsigned char)c);
+    unsigned char c = (unsigned char)s[i];
+    fprintf(stderr, "%02x", c);
   }
   fprintf(stderr, "\n====================\n");
 }

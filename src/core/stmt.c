@@ -2396,12 +2396,14 @@ static SQLRETURN _stmt_get_data_copy_int64(stmt_t *stmt, int64_t v, stmt_get_dat
     case SQL_C_BIT:
       *(uint8_t*)args->TargetValuePtr = !!v;
       break;
+    case SQL_C_TINYINT:
     case SQL_C_STINYINT:
       *(int8_t*)args->TargetValuePtr = (int8_t)v;
       break;
     case SQL_C_UTINYINT:
       *(uint8_t*)args->TargetValuePtr = (uint8_t)v;
       break;
+    case SQL_C_SHORT:
     case SQL_C_SSHORT:
       *(int16_t*)args->TargetValuePtr = (int16_t)v;
       break;
@@ -2420,9 +2422,6 @@ static SQLRETURN _stmt_get_data_copy_int64(stmt_t *stmt, int64_t v, stmt_get_dat
       break;
     case SQL_C_UBIGINT:
       *(uint64_t*)args->TargetValuePtr = v;
-      break;
-    case SQL_C_SHORT:
-      *(int16_t*)args->TargetValuePtr = (int16_t)v;
       break;
     case SQL_C_CHAR:
       return _stmt_get_data_copy_buf_to_char(stmt, args);
@@ -2459,6 +2458,7 @@ static SQLRETURN _stmt_get_data_copy_uint64(stmt_t *stmt, uint64_t v, stmt_get_d
     case SQL_C_BIT:
       *(uint8_t*)args->TargetValuePtr = !!v;
       break;
+    case SQL_C_TINYINT:
     case SQL_C_STINYINT:
       *(int8_t*)args->TargetValuePtr = (int8_t)v;
       break;
@@ -2472,6 +2472,7 @@ static SQLRETURN _stmt_get_data_copy_uint64(stmt_t *stmt, uint64_t v, stmt_get_d
     case SQL_C_USHORT:
       *(uint16_t*)args->TargetValuePtr = (uint16_t)v;
       break;
+    case SQL_C_LONG:
     case SQL_C_SLONG:
       *(int32_t*)args->TargetValuePtr = (int32_t)v;
       break;

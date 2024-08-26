@@ -661,7 +661,7 @@ static int _check_col_bind_with_values_ap(int line, const char *func, handles_t 
         }
         case SQL_C_FLOAT:
         {
-          float expected = va_arg(ap, float);
+          double expected = va_arg(ap, double);
           float actual = *(float *)(bufs[i_col]);
           if (actual != expected) {
             DCASE("[%zd,%zd]:expected [%f], but got ==%f==", i_row+1, i_col+1, expected, actual);
@@ -766,10 +766,10 @@ static int test_alltypes_with_col_bind(handles_t *handles, const char *connstr, 
   if (r) return -1;
 
   // TODO: there is a problem with passing the float parameter in variable arguments
-  // sql = "select val5 from foo.test_types";
-  // float val5 = 5.5;
-  // r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, val5);
-  // if (r) return -1;
+  sql = "select val5 from foo.test_types";
+  double val5 = 5.5;
+  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, val5);
+  if (r) return -1;
 
   sql = "select val6 from foo.test_types";
   double val6 = 6.6666666666;

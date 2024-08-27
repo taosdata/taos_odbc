@@ -714,7 +714,7 @@ static int _check_with_values(int line, const char *func, handles_t *handles, in
 
 #define CHECK_WITH_VALUES(...)       _check_with_values(__LINE__, __func__, ##__VA_ARGS__)
 
-static int test_alltypes_with_col_bind(handles_t *handles, const char *connstr, int ws)
+static int test_all_types_with_col_bind(handles_t *handles, const char *connstr, int ws)
 {
   (void)ws;
 
@@ -734,16 +734,14 @@ static int test_alltypes_with_col_bind(handles_t *handles, const char *connstr, 
     "create database if not exists foo;"
     "create stable if not exists foo.test_types (ts timestamp, val1 int, val2 int unsigned, val3 bigint, val4 bigint unsigned, val5 float, val6 double, val7 binary(64), val8 smallint, val9 smallint unsigned, val10 tinyint, val11 tinyint unsigned, val12 bool, val13 nchar(10), val14 varchar(64)) tags(tag1 int);"
     "create table foo.d0 using foo.test_types (tag1) tags (1);"
-    "insert into foo.d0 values(now, -1, 2, -3, 4, 5.5, 6.6666666666, 'test', -32768, 65535, -128, 255, true, '中文2', 'test123');";
+    "insert into foo.d0 values('2024-08-25 10:20:45.678', -1, 2, -3, 4, 5.5, 6.6666666666, 'test', -32768, 65535, -128, 255, true, '中文2', 'test123');";
 
   r = _execute_batches_of_statements(handles, sqls);
   if (r) return -1;
 
-
-  // TODO: server time is different from local time, and the time changes over time
-  // sql = "select ts from foo.test_types";
-  // r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, L"2024-08-25");
-  // if (r) return -1;
+  sql = "select ts from foo.test_types";
+  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, L"2024-08-25 10:20:45.678");
+  if (r) return -1;
 
   sql = "select val1 from foo.test_types";
   long val1 = -1;
@@ -1559,7 +1557,7 @@ int main(int argc, char *argv[])
 
 #define RECORD(x) {#x, x}
   case_t _cases[] = {
-    RECORD(test_alltypes_with_col_bind),
+    RECORD(test_all_types_with_col_bind),
     RECORD(test_case0),
     RECORD(test_charsets),
     RECORD(test_charsets_with_col_bind),

@@ -49,7 +49,7 @@
   WS_RES *__res  = res;                                              \
   int _e         = ws_errno(__res);                                  \
   const char *_s = ws_errstr(__res);                                 \
-  if (!_s || !*_s) break;                                            \
+  if (!_e) break;                                            \
   LOGE_TAOSWS(file, line, func, "ws_errno/str(res:%p) => [%d/0x%x]%s%s%s", __res, _e, _e, color_red(), _s, color_reset());     \
 } while (0)
 
@@ -58,7 +58,7 @@
   int _e          = ws_errno(NULL);                                                       \
   const char *_s1 = ws_errstr(NULL);                                                      \
   const char *_s2 = ws_stmt_errstr(__stmt);                                               \
-  if (!_s2 || !*_s2) break;                                                               \
+  if (!_e) break;                                                               \
   LOGE_TAOSWS(file, line, func,                                                           \
       "ws_errno/str(stmt:%p) => [%d/0x%x]%s%s%s;ws_stmt_errstr:%s%s%s",                   \
       __stmt, _e, _e, color_red(), _s1, color_reset(), color_red(), _s2, color_reset());  \

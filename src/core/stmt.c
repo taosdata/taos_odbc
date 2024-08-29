@@ -810,6 +810,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "TIMESTAMP",
     .sql_type       = SQL_TYPE_TIMESTAMP,
     .sql_promoted   = SQL_TYPE_TIMESTAMP,
+    .prefix         = "'",
     .suffix         = "'",
     .length         = 0,
     .octet_length   = 8,
@@ -824,6 +825,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "BOOL",
     .sql_type       = SQL_BIT,
     .sql_promoted   = SQL_BIT,
+    .prefix         = "",
     .suffix         = "",
     .length         = 1,
     .octet_length   = 1,
@@ -838,6 +840,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "TINYINT",
     .sql_type       = SQL_TINYINT,
     .sql_promoted   = SQL_SMALLINT,
+    .prefix         = "",
     .suffix         = "",
     .length         = 3,
     .octet_length   = 1,
@@ -852,6 +855,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "SMALLINT",
     .sql_type       = SQL_SMALLINT,
     .sql_promoted   = SQL_SMALLINT,
+    .prefix         = "",
     .suffix         = "",
     .length         = 5,
     .octet_length   = 2,
@@ -866,6 +870,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "INT",
     .sql_type       = SQL_INTEGER,
     .sql_promoted   = SQL_INTEGER,
+    .prefix         = "",
     .suffix         = "",
     .length         = 10,
     .octet_length   = 4,
@@ -880,6 +885,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "BIGINT",
     .sql_type       = SQL_BIGINT,
     .sql_promoted   = SQL_BIGINT,
+    .prefix         = "",
     .suffix         = "",
     .length         = 19,
     .octet_length   = 8,
@@ -894,6 +900,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "FLOAT",
     .sql_type       = SQL_REAL,
     .sql_promoted   = SQL_REAL,
+    .prefix         = "",
     .suffix         = "",
     .length         = 7,
     .octet_length   = 4,
@@ -908,6 +915,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "DOUBLE",
     .sql_type       = SQL_DOUBLE,
     .sql_promoted   = SQL_DOUBLE,
+    .prefix         = "",
     .suffix         = "",
     .length         = 15,
     .octet_length   = 8,
@@ -922,6 +930,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "VARCHAR",
     .sql_type       = SQL_VARCHAR,
     .sql_promoted   = SQL_VARCHAR,
+    .prefix         = "'",
     .suffix         = "'",
     .length         = -1,
     .octet_length   = -1,
@@ -936,6 +945,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "NCHAR",
     .sql_type       = SQL_WVARCHAR,
     .sql_promoted   = SQL_WVARCHAR,
+    .prefix         = "'",
     .suffix         = "'",
     .length         = -1,
     .octet_length   = -2,
@@ -951,6 +961,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "JSON",
     .sql_type       = SQL_WVARCHAR,
     .sql_promoted   = SQL_WVARCHAR,
+    .prefix         = "'",
     .suffix         = "'",
     .length         = -1,
     .octet_length   = -2,
@@ -965,6 +976,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "TINYINT UNSIGNED",
     .sql_type       = SQL_TINYINT,
     .sql_promoted   = SQL_TINYINT,
+    .prefix         = "",
     .suffix         = "",
     .length         = 3,
     .octet_length   = 1,
@@ -979,6 +991,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "SMALLINT UNSIGNED",
     .sql_type       = SQL_SMALLINT,
     .sql_promoted   = SQL_INTEGER,
+    .prefix         = "",
     .suffix         = "",
     .length         = 5,
     .octet_length   = 2,
@@ -993,6 +1006,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "INT UNSIGNED",
     .sql_type       = SQL_INTEGER,
     .sql_promoted   = SQL_BIGINT,
+    .prefix         = "",
     .suffix         = "",
     .length         = 10,
     .octet_length   = 4,
@@ -1007,6 +1021,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "BIGINT UNSIGNED",
     .sql_type       = SQL_BIGINT,
     .sql_promoted   = SQL_BIGINT,
+    .prefix         = "",
     .suffix         = "",
     .length         = 20,
     .octet_length   = 8,
@@ -1022,7 +1037,8 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "VARBINARY",
     .sql_type       = SQL_VARBINARY,
     .sql_promoted   = SQL_C_BINARY,
-    .suffix         = "'\\x",      // FIXME:
+    .prefix         = "'\\x",
+    .suffix         = "'",
     .length         = -1,
     .octet_length   = -1,
     .precision      = -1,
@@ -1030,14 +1046,15 @@ static col_bind_map_t _col_bind_map[] = {
     .display_size   = -1,
     .num_prec_radix = 10,
     .unsigned_      = SQL_TRUE,
-    .searchable     = SQL_SEARCHABLE,
+    .searchable     = SQL_PRED_BASIC,
   },{
     // TODO & FIXME:
     .tsdb_type      = TSDB_DATA_TYPE_GEOMETRY,
     .type_name      = "GEOMETRY",  // FIXME:
     .sql_type       = SQL_VARBINARY,
     .sql_promoted   = SQL_C_BINARY,
-    .suffix         = "'\\x",      // FIXME:
+    .prefix         = "'\\x",      // FIXME:
+    .suffix         = "'",         // FIXME:
     .length         = -1,
     .octet_length   = -1,
     .precision      = -1,
@@ -1045,7 +1062,7 @@ static col_bind_map_t _col_bind_map[] = {
     .display_size   = -1,
     .num_prec_radix = 10,
     .unsigned_      = SQL_TRUE,
-    .searchable     = SQL_SEARCHABLE,
+    .searchable     = SQL_PRED_BASIC,
   },
 };
 
@@ -1278,6 +1295,24 @@ static SQLRETURN _stmt_col_DESC_UNSIGNED(
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_col_DESC_LITERAL_PREFIX(
+    stmt_t               *stmt,
+    col_bind_map_t       *_map,
+    SQLPOINTER            CharacterAttributePtr,
+    SQLSMALLINT           BufferLength,
+    SQLSMALLINT          *StringLengthPtr)
+{
+  const char *prefix = _map->prefix;
+  int n = snprintf(CharacterAttributePtr, BufferLength, "%s", prefix);
+  if (n < 0) {
+    int e = errno;
+    stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
+    return SQL_ERROR;
+  }
+  if (StringLengthPtr) *StringLengthPtr = n;
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_col_DESC_LITERAL_SUFFIX(
     stmt_t               *stmt,
     col_bind_map_t       *_map,
@@ -1398,7 +1433,7 @@ static SQLRETURN _stmt_fill_IRD(stmt_t *stmt)
     sr = _stmt_col_DESC_LENGTH(stmt, _map, col->bytes, &IRD_record->DESC_LENGTH);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-    sr = _stmt_col_DESC_LITERAL_SUFFIX(stmt, _map, IRD_record->DESC_LITERAL_PREFIX, sizeof(IRD_record->DESC_LITERAL_PREFIX), &StringLength);
+    sr = _stmt_col_DESC_LITERAL_PREFIX(stmt, _map, IRD_record->DESC_LITERAL_PREFIX, sizeof(IRD_record->DESC_LITERAL_PREFIX), &StringLength);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
 
     sr = _stmt_col_DESC_LITERAL_SUFFIX(stmt, _map, IRD_record->DESC_LITERAL_SUFFIX, sizeof(IRD_record->DESC_LITERAL_SUFFIX), &StringLength);

@@ -925,6 +925,7 @@ struct col_bind_map_s {
   int                    sql_type;
   int                    sql_promoted;
 
+  const char            *prefix;
   const char            *suffix;
 
   int                    length;

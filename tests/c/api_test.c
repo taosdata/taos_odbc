@@ -741,10 +741,12 @@ again:
   nr = StrLen_or_Ind;
   if (sr == SQL_SUCCESS_WITH_INFO) {
     if (StrLen_or_Ind == SQL_NO_TOTAL) {
-      nr = BufferLength - 1;
+      nr = BufferLength;
     } else if (nr >= BufferLength) {
-      nr = BufferLength - 1;
+      nr = BufferLength;
     }
+    if (TargetType == SQL_C_CHAR) nr -= 1;
+    if (TargetType == SQL_C_WCHAR) nr = (nr / 2 - 1) * 2;
   } else {
     nr = StrLen_or_Ind;
   }
@@ -783,6 +785,8 @@ static int run_SQLGetData1(int argc, char *argv[], int *i, SQLHANDLE hstmt)
     SQLSMALLINT          TargetType;
   } _target_types[] = {
     R(SQL_C_CHAR),
+    R(SQL_C_BINARY),
+    R(SQL_C_WCHAR),
   };
 #undef R
 // }
@@ -801,6 +805,7 @@ static int run_SQLGetData1(int argc, char *argv[], int *i, SQLHANDLE hstmt)
       for (size_t j=0; j<sizeof(_target_types)/sizeof(_target_types[0]); ++j) {
         if (strcmp(argv[*i], _target_types[j].name)) continue;
         TargetType = _target_types[j].TargetType;
+        r = 0;
         break;
       }
       if (r) {

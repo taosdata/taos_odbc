@@ -385,6 +385,34 @@ static int test_ejson_parser(void)
     const char            *match;
     int                    __line__;
   } _cases[] = {
+    RECORD("b\"\"",          "b\"\""),
+    RECORD("b\"ff\"",        "b\"\\x6666\""),
+    RECORD("b\"\t\"",        "b\"\\x09\""),
+    RECORD("b\"\\x4eba\"",   "b\"\\x4eba\""),
+    RECORD("b\"a\\x4ebaz\"", "b\"\\x614eba7a\""),
+
+    RECORD("\"\"", "\"\""),
+    RECORD("''",   "\"\""),
+    RECORD("``",   "\"\""),
+
+    RECORD("\"\\\"\"", "\"\\\"\""),
+    RECORD("'\\''",    "\"'\""),
+    RECORD("`\\``",    "\"`\""),
+
+    RECORD("\"\t\"", "\"\\t\""),
+    RECORD("'\t'",   "\"\\t\""),
+    RECORD("`\t`",   "\"\\t\""),
+
+    RECORD("\"\\t\"", "\"\\t\""),
+    RECORD("'\\t'",   "\"\\t\""),
+    RECORD("`\\t`",   "\"\\t\""),
+
+    // NOTE: 人 <==> e4baba
+    RECORD("\"\\u4eba\"", "\"\xe4\xba\xba\""),
+    RECORD("\"x\\u4ebay\"", "\"x\xe4\xba\xbay\""),
+    RECORD("'\\u4eba'", "\"\xe4\xba\xba\""),
+    RECORD("`\\u4eba`", "\"\xe4\xba\xba\""),
+    RECORD("'x\\u4ebay'", "\"x\xe4\xba\xbay\""),
     RECORD("\"abc\\tdef\"", "\"abc\\tdef\""),
     RECORD("{d}]", NULL),
     RECORD("'\\\\'", "\"\\\\\""),
@@ -488,12 +516,20 @@ static int test_ejson_parser(void)
   param.ctx.debug_flex = 1;
   // param.ctx.debug_bison = 1;
 
+  iconv_t cnv = ejson_parser_iconv_open();
+  if (cnv == (iconv_t)-1) {
+    E("no convertion found for %s -> %s",
+        EJSON_PARSER_FROM, EJSON_PARSER_TO);
+    return -1;
+  }
+
+  int r = 0;
   char buf[4096]; buf[0] = '\0';
   for (size_t i=0; i<nr; ++i) {
     const char *s         = _cases[i].text;
     const char *match     = _cases[i].match;
     int         __line__  = _cases[i].__line__;
-    int r = ejson_parser_parse(s, strlen(s), &param);
+    r = ejson_parser_parse(s, strlen(s), &param, cnv);
     buf[0] = '\0';
     do {
       if (r == 0) {
@@ -521,6 +557,7 @@ static int test_ejson_parser(void)
         if (strcmp(buf, match)) {
           E("parsing @[%dL]:%s", __line__, s);
           E("expecting:[%zd]%s", strlen(match), match);
+          // dump_for_debug(match, strlen(match));
           E("but got:[%zd]%s", strlen(buf), buf);
           r = -1;
           break;
@@ -530,9 +567,13 @@ static int test_ejson_parser(void)
     } while (0);
 
     ejson_parser_param_release(&param);
-    if (r) return -1;
+    if (r) break;
   }
 
+  ejson_parser_iconv_close(cnv);
+  cnv = (iconv_t)-1;
+
+  if (r) return -1;
   return 0;
 }
 
@@ -973,6 +1014,7 @@ static int test_iconv_names(void)
     RECORD("UTF8"),
     RECORD("UTF-8"),
     RECORD("UCS-2LE"),
+    RECORD("UCS-2BE"),
     RECORD("UCS-4LE"),
     RECORD("CP437"),
     RECORD("CP850"),
@@ -1140,6 +1182,9 @@ static int test_iconvs(void)
     RECORD(GB18030, UCS-2LE, "\x62\xc3\xf1\x30", 4, "\x62\x00\x11\x6c\x30\x00", 6), // b民0
     RECORD(GB18030, UCS-2LE, "\x0", 1, "\x00\x00", 2),
     RECORD(GB18030, UCS-4LE, "\x0", 1, "\x00\x00\x00\x00", 4),
+    RECORD(UCS-2BE, UTF-8, "\x4e\xba", 2, "\xe4\xba\xba", 3),
+    RECORD(UCS-2BE, UTF-8, "\x4e\xba\x4e\xba\x4e\x2d\x4e\x2d", 8, "\xe4\xba\xba\xe4\xba\xba\xe4\xb8\xad\xe4\xb8\xad", 12),
+    RECORD(UCS-2BE, UTF-8, "\x4e\xba\x4e\xba\x4e\x2d\x4e\x2d\x4e\xba\x4e\xba\x4e\x2d\x4e\x2d", 16, "\xe4\xba\xba\xe4\xba\xba\xe4\xb8\xad\xe4\xb8\xad\xe4\xba\xba\xe4\xba\xba\xe4\xb8\xad\xe4\xb8\xad", 24),
   };
   const size_t nr_cases = sizeof(_cases) / sizeof(_cases[0]);
 #undef RECORD
@@ -1626,3 +1671,4 @@ int main(int argc, char *argv[])
 
   return !!r;
 }
+

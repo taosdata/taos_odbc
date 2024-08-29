@@ -33,6 +33,7 @@ option(ENABLE_SQLITE3_TEST "whether to test with sqlite3 or not" OFF)
 option(ENABLE_SQLSERVER_TEST "whether to test with sqlserver or not" OFF)
 option(FAKE_TAOS "whether to fake `taos` or not" OFF)
 option(FAKE_TAOSWS "whether to fake `taosws` or not" OFF)
+option(WITH_TAOSWS "whether to build with taosws" ON)
 
 # experimental
 option(BUILD_TAOSWSD_EXPERIMENTAL "whether to build `taoswsd` or not" OFF)

@@ -956,6 +956,14 @@ struct tsdb_data_s {
       int64_t     ts;
       int         precision;
     }                   ts;
+    struct {
+      const unsigned char *bin;
+      size_t               len;
+    }                   bin;
+    struct {
+      const unsigned char *geo;
+      size_t               len;
+    }                   geo;
   };
 
   uint8_t               is_null:1;

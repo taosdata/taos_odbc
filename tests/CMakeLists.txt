@@ -32,6 +32,8 @@ if(TODBC_WINDOWS)
     if(USE_WIN_ICONV)
         add_dependencies(test_helper_obj ex_iconv)
     endif()
+    # NOTE: because 'utf8' is found in inc/ejson_parser.h
+    set_source_files_properties(test_helper.c PROPERTIES COMPILE_OPTIONS "/source-charset:utf-8")
 endif()
 add_dependencies(test_helper_obj ex_cjson)
 set_property(TARGET test_helper_obj PROPERTY POSITION_INDEPENDENT_CODE 1)

@@ -51,6 +51,15 @@ const char* tod_get_format_current_local_timestamp_us(char *s, size_t n) FA_HIDD
 
 int tod_conv(const char *fromcode, const char *tocode, const char *src, size_t slen, char *dst, size_t dlen) FA_HIDDEN;
 
+static inline int tod_little_endian(void)
+{
+  static const uint32_t v = 1;
+  return (*(uint8_t*)&v == 1);
+}
+
+void tod_hex2bytes_unsafe(const char *hex, size_t n,
+    unsigned char *bytes) FA_HIDDEN;
+
 #ifdef _WIN32
 #define tod_strcasecmp      _stricmp
 #define tod_strncasecmp     _strnicmp

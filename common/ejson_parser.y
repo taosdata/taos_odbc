@@ -57,9 +57,13 @@
         const char *errsg
     );
 
-    #define OOM(_loc) do {                                           \
-        _yyerror_impl(&_loc, arg, param, "out of memory");           \
-        return -1;                                                   \
+    #define EPE(_loc, fmt, ...) do {                                 \
+      YLOG(LOG_MALS, &_loc, fmt, ##__VA_ARGS__);                     \
+      YYABORT;                                                       \
+    } while (0)
+    #define EEE(_loc, fmt, ...) do {                                 \
+      EPE(_loc, "[%d]%s" fmt "",                                     \
+          errno, strerror(errno), ##__VA_ARGS__);                    \
     } while (0)
 
     #define SET_LOC(_dst, _src) do {                                 \
@@ -70,24 +74,32 @@
       const char *s = _token.text;                                   \
       size_t n = _token.leng;                                        \
       _ejson = ejson_new_str(s, n);                                  \
-      if (!_ejson) OOM(_loc);                                        \
+      if (!_ejson) EEE(_loc, ":invalid id:[%.*s]", (int)n, s);       \
     } while (0)
 
     #define EJSON_NEW_WITH_NUM(_ejson, _token, _loc) do {            \
       const char *s = _token.text;                                   \
       size_t n = _token.leng;                                        \
       _ejson = _ejson_new_num(s, n);                                 \
-      if (!_ejson) OOM(_loc);                                        \
+      if (!_ejson) {                                                 \
+        EEE(_loc, ":OOM or invalid number:[%.*s]", (int)n, s);       \
+      }                                                              \
     } while (0)
 
     #define EJSON_NEW_WITH_STR(_ejson, _str, _loc) do {              \
       _ejson = _ejson_new_str(&_str);                                \
-      if (!_ejson) OOM(_loc);                                        \
+      if (!_ejson) EEE(_loc, "%s", "");                              \
     } while (0)
+
+    #define EJSON_NEW_WITH_BIN(_ejson, _bin, _loc) do {              \
+      _ejson = _ejson_new_bin(&_bin);                                \
+      if (!_ejson) EEE(_loc, "%s", "");                              \
+    } while (0)
+
 
     #define EJSON_NEW_ARR(_ejson, _loc) do {                         \
       _ejson = ejson_new_arr();                                      \
-      if (!_ejson) OOM(_loc);                                        \
+      if (!_ejson) EEE(_loc, "%s", "");                              \
     } while (0)
 
     #define EJSON_DEC_REF(_v) do {                                   \
@@ -98,13 +110,13 @@
       _ejson = ejson_new_arr();                                      \
       if (!_ejson) {                                                 \
         EJSON_DEC_REF(_val);                                         \
-        OOM(_loc);                                                   \
+        EEE(_loc, "%s", "");                                         \
       }                                                              \
       int r = ejson_arr_append(_ejson, _val);                        \
       EJSON_DEC_REF(_val);                                           \
       if (r) {                                                       \
         EJSON_DEC_REF(_ejson);                                       \
-        OOM(_loc);                                                   \
+        EEE(_loc, "%s", "");                                         \
       }                                                              \
     } while (0)
 
@@ -113,20 +125,20 @@
       EJSON_DEC_REF(_val);                                           \
       if (r) {                                                       \
         EJSON_DEC_REF(_vals);                                        \
-        OOM(_loc);                                                   \
+        EEE(_loc, "%s", "");                                         \
       }                                                              \
       _ejson = _vals;                                                \
     } while (0)
 
     #define EJSON_NEW_OBJ(_ejson, _loc) do {                         \
       _ejson = ejson_new_obj();                                      \
-      if (!_ejson) OOM(_loc);                                        \
+      if (!_ejson) EEE(_loc, "%s", "");                              \
     } while (0)
 
     #define EJSON_NEW_OBJ_WITH_KV(_ejson, _kv, _loc) do {            \
       _ejson = _ejson_new_obj(&_kv);                                 \
       _ejson_kv_release(&_kv);                                       \
-      if (!_ejson) OOM(_loc);                                        \
+      if (!_ejson) EEE(_loc, "%s", "");                              \
     } while (0)
 
     #define EJSON_OBJ_APPEND(_ejson, _kvs, _kv, _loc) do {           \
@@ -134,41 +146,72 @@
       _ejson_kv_release(&_kv);                                       \
       if (r) {                                                       \
         EJSON_DEC_REF(_kvs);                                         \
-        OOM(_loc);                                                   \
+        EEE(_loc, "%s", "");                                         \
       }                                                              \
       _ejson = _kvs;                                                 \
     } while (0)
 
-    #define STR_INIT_EMPTY(_str, _loc) do {                          \
-      if (_ejson_str_init(&_str, "", 0)) OOM(_loc);                  \
+    #define STR_INIT(_str, _loc) do {                                \
+      _ejson_str_init(&_str);                                        \
     } while (0)
 
-    #define STR_INIT(_str, _token, _loc) do {                        \
-      const char *s = _token.text;                                   \
-      size_t n = _token.leng;                                        \
-      if (_ejson_str_init(&_str, s, n)) OOM(_loc);                   \
+    #define BIN_INIT(_bin, _loc) do {                                \
+      _ejson_bin_init(&_bin);                                        \
     } while (0)
 
-    #define STR_INIT_CHR(_str, _c, _loc) do {                        \
-      if (_ejson_str_init(&_str, &_c, 1)) OOM(_loc);                 \
-    } while (0)
-
-    #define STR_APPEND(_str, _v, _token, _loc) do {                  \
-      const char *s = _token.text;                                   \
-      size_t n = _token.leng;                                        \
-      if (_ejson_str_append(&_v, s, n)) {                            \
-        _ejson_str_release(&_v);                                     \
-        OOM(_loc);                                                   \
+    #define STR_APPEND(_str, _v, _loc) do {                          \
+      if (_ejson_str_append(&_str, _v.text, _v.leng)) {              \
+        _ejson_str_release(&_str);                                   \
+        EEE(_loc, "%s", "");                                         \
       }                                                              \
-      _str = _v;                                                     \
     } while (0)
 
-    #define STR_APPEND_CHR(_str, _v, _c, _loc) do {                  \
-      if (_ejson_str_append(&_v, &_c, 1)) {                          \
-        _ejson_str_release(&_v);                                     \
-        OOM(_loc);                                                   \
+    #define BIN_APPEND_HEX(_bin, _v, _loc) do {                      \
+      const char *s = _v.text;                                       \
+      size_t      n = _v.leng;                                       \
+      if (n & 1) {                                                   \
+        _ejson_bin_release(&_bin);                                   \
+        errno = EINVAL;                                              \
+        EEE(_loc, ":[%.*s] not even", (int)n, s);                    \
       }                                                              \
-      _str = _v;                                                     \
+      if (_ejson_bin_append_hex(&_bin, s+2, n-2)) {                  \
+        _ejson_bin_release(&_bin);                                   \
+        EEE(_loc, "%s", "");                                         \
+      }                                                              \
+    } while (0)
+
+    #define BIN_APPEND_STR(_bin, _v, _loc) do {                      \
+      if (_ejson_bin_append_str(&_bin, _v.text, _v.leng)) {          \
+        _ejson_bin_release(&_bin);                                   \
+        EEE(_loc, "%s", "");                                         \
+      }                                                              \
+    } while (0)
+
+    #define STR_APPEND_CHR(_str, _c, _loc) do {                      \
+      if (_ejson_str_append(&_str, &_c, 1)) {                        \
+        _ejson_str_release(&_str);                                   \
+        EEE(_loc, "%s", "");                                         \
+      }                                                              \
+    } while (0)
+
+    #define STR_APPEND_UNI(_str, _u, _loc) do {                      \
+      const char *s = _u.text + 2;                                   \
+      if (strncmp(s, "0000", 4) == 0) {                              \
+        _ejson_str_release(&_str);                                   \
+        errno = EINVAL;                                              \
+        EEE(_loc, ":[\\u%.4s] not allowd", s);                       \
+      }                                                              \
+      char utf8[8]; *utf8 = '\0';                                    \
+      iconv_t cnv = param->cnv;                                      \
+      int r = ejson_parser_iconv_char_unsafe(s, utf8, cnv);          \
+      if (r) {                                                       \
+        _ejson_str_release(&_str);                                   \
+        EEE(_loc, ":invalid %s:[\\u%.4s]", EJSON_PARSER_FROM, s);    \
+      }                                                              \
+      if (_ejson_str_append_uni(&_str, utf8, strlen(utf8))) {        \
+        _ejson_str_release(&_str);                                   \
+        EEE(_loc, "%s", "");                                         \
+      }                                                              \
     } while (0)
 
     #define KV_INIT_WITH_STR(_kv, _str, _loc) do {                   \
@@ -180,7 +223,8 @@
       const char *s = _token.text;                                   \
       size_t n = _token.leng;                                        \
       memset(&_kv, 0, sizeof(_kv));                                  \
-      if (_ejson_str_init(&_kv.key, s, n)) OOM(_loc);                \
+      _ejson_str_init(&_kv.key);                                     \
+      if (_ejson_str_append(&_kv.key, s, n)) EEE(_loc, "%s", "");    \
       _kv.val = ejson_new_null();                                    \
     } while (0)
 
@@ -188,22 +232,13 @@
       const char *s = _token.text;                                   \
       size_t n = _token.leng;                                        \
       _kv.val = _val;                                                \
-      if (_ejson_str_init(&_kv.key, s, n)) {                         \
+      _ejson_str_init(&_kv.key);                                     \
+      if (_ejson_str_append(&_kv.key, s, n)) {                       \
         _ejson_kv_release(&_kv);                                     \
-        OOM(_loc);                                                   \
+        EEE(_loc, "%s", "");                                         \
       }                                                              \
     } while (0)
 
-    void ejson_parser_param_release(ejson_parser_param_t *param)
-    {
-      if (!param) return;
-      param->ctx.err_msg[0] = '\0';
-      param->ctx.bad_token.first_line = 0;
-      if (param->ejson) {
-        ejson_dec_ref(param->ejson);
-        param->ejson = NULL;
-      }
-    }
 }
 
 /* Bison declarations. */
@@ -225,18 +260,21 @@
 %union { ejson_parser_token_t  token; }
 %union { ejson_t              *ejson; }
 %union { _ejson_str_t          str; }
+%union { _ejson_bin_t          bin; }
 %union { _ejson_kv_t           kv; }
 %union { char                  c; }
+%union { uint32_t              uni; }
 
-%token V_TRUE V_FALSE V_NULL ESC
-%token <token> ID NUMBER STR EUNI
-%token <c> ECHR
+%token V_TRUE V_FALSE V_NULL BQ
+%token <token> ID NUMBER STR CHR EUNI HEX
 %nterm <ejson> json obj arr kvs jsons
 %nterm <str> str strings
+%nterm <bin> bin bins
 %nterm <kv> kv
 
 %destructor { ejson_dec_ref($$); $$ = NULL; }           <ejson>
 %destructor { _ejson_str_release(&$$); }     <str>
+%destructor { _ejson_bin_release(&$$); }     <bin>
 %destructor { _ejson_kv_release(&$$);  }     <kv>
 
  /* %nterm <str>   args */ // non-terminal `input` use `str` to store
@@ -257,24 +295,41 @@ json:
 | V_FALSE           { $$ = ejson_new_false();         SET_LOC($$->loc, @$); }
 | V_NULL            { $$ = ejson_new_null();          SET_LOC($$->loc, @$); }
 | str               { EJSON_NEW_WITH_STR($$, $1, @$); SET_LOC($$->loc, @$); }
+| bin               { EJSON_NEW_WITH_BIN($$, $1, @$); SET_LOC($$->loc, @$); }
 | obj               { $$ = $1; SET_LOC($$->loc, @$); }
 | arr               { $$ = $1; SET_LOC($$->loc, @$); }
+;
+
+bin:
+  BQ BQ             { BIN_INIT($$, @$); SET_LOC($$.loc, @$); }
+| BQ bins BQ        { $$ = $2; SET_LOC($$.loc, @$); }
+;
+
+bins:
+  HEX               { BIN_INIT($$, @$); BIN_APPEND_HEX($$, $1, @$);  SET_LOC($$.loc, @$); }
+| STR               { BIN_INIT($$, @$); BIN_APPEND_STR($$, $1, @$);  SET_LOC($$.loc, @$); }
+| CHR               { BIN_INIT($$, @$); BIN_APPEND_STR($$, $1, @$);  SET_LOC($$.loc, @$); }
+| bins HEX          { $$ = $1; BIN_APPEND_HEX($$, $2, @$);    SET_LOC($$.loc, @$); }
+| bins STR          { $$ = $1; BIN_APPEND_STR($$, $2, @$);    SET_LOC($$.loc, @$); }
+| bins CHR          { $$ = $1; BIN_APPEND_STR($$, $2, @$);    SET_LOC($$.loc, @$); }
 ;
 
 str:
   '"' strings '"'      { $$ = $2; SET_LOC($$.loc, @$); }
 | '\'' strings '\''    { $$ = $2; SET_LOC($$.loc, @$); }
 | '`' strings '`'      { $$ = $2; SET_LOC($$.loc, @$); }
-| '"' '"'              { STR_INIT_EMPTY($$, @$); SET_LOC($$.loc, @$); }
-| '\'' '\''            { STR_INIT_EMPTY($$, @$); SET_LOC($$.loc, @$); }
-| '`' '`'              { STR_INIT_EMPTY($$, @$); SET_LOC($$.loc, @$); }
+| '"' '"'              { STR_INIT($$, @$); SET_LOC($$.loc, @$); }
+| '\'' '\''            { STR_INIT($$, @$); SET_LOC($$.loc, @$); }
+| '`' '`'              { STR_INIT($$, @$); SET_LOC($$.loc, @$); }
 ;
 
 strings:
-  STR                  { STR_INIT($$, $1, @$);           SET_LOC($$.loc, @$); }
-| ESC ECHR             { STR_INIT_CHR($$, $2, @$);       SET_LOC($$.loc, @$); }
-| strings STR          { STR_APPEND($$, $1, $2, @$);     SET_LOC($$.loc, @$); }
-| strings ESC ECHR     { STR_APPEND_CHR($$, $1, $3, @$); SET_LOC($$.loc, @$); }
+  STR                  { STR_INIT($$, @$); STR_APPEND($$, $1, @$);         SET_LOC($$.loc, @$); }
+| CHR                  { STR_INIT($$, @$); STR_APPEND($$, $1, @$);         SET_LOC($$.loc, @$); }
+| EUNI                 { STR_INIT($$, @$); STR_APPEND_UNI($$, $1, @$);     SET_LOC($$.loc, @$); }
+| strings STR          { $$ = $1; STR_APPEND($$, $2, @$);     SET_LOC($$.loc, @$); }
+| strings CHR          { $$ = $1; STR_APPEND($$, $2, @$);     SET_LOC($$.loc, @$); }
+| strings EUNI         { $$ = $1; STR_APPEND_UNI($$, $2, @$); SET_LOC($$.loc, @$); }
 ;
 
 arr:
@@ -354,7 +409,8 @@ static void yyerror(
   _yyerror_impl(yylloc, arg, param, errmsg);
 }
 
-int ejson_parser_parse(const char *input, size_t len, ejson_parser_param_t *param)
+int ejson_parser_parse(const char *input, size_t len,
+    ejson_parser_param_t *param, iconv_t cnv)
 {
   yyscan_t arg = {0};
   yylex_init(&arg);
@@ -368,6 +424,9 @@ int ejson_parser_parse(const char *input, size_t len, ejson_parser_param_t *para
   param->ctx.len   = len;
   param->ctx.prev  = 0;
   param->ctx.pres  = 0;
+  param->internal  = NULL;
+  param->cnv       = cnv;
+
   yy_scan_bytes(input ? input : "", input ? (int)len : 0, arg);
   int ret =yyparse(arg, param);
   yylex_destroy(arg);

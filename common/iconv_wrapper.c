@@ -131,14 +131,6 @@ struct iconv_s {
   size_t (*conv)(iconv_t cd, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft);
 };
 
-static void hexify(const char *data, size_t sz)
-{
-  fprintf(stderr, "0x");
-  for (size_t i=0; i<sz; ++i) {
-    fprintf(stderr, "%02x", (unsigned char)(data[i]));
-  }
-}
-
 /*
  * http://www.faqs.org/rfcs/rfc2781.html
  */
@@ -180,6 +172,7 @@ static int iconv_get_acp(const char *code, cpinfo_t *info)
     RECORD("UTF8",           CP_UTF8),
     RECORD("UTF-8",          CP_UTF8),
     RECORD("UCS-2LE",        1200),
+    RECORD("UCS-2BE",        1201),
     RECORD("UCS-4LE",        12000),
     RECORD("CP437",          437),
     RECORD("CP850",          850),
@@ -201,6 +194,7 @@ static int iconv_get_acp(const char *code, cpinfo_t *info)
 cpinfo:
   snprintf(info->name, sizeof(info->name), "%s", code);
   if (info->cp == 1200) return 0;
+  if (info->cp == 1201) return 0;
   if (info->cp == 12000) return 0;
   if (GetCPInfo(info->cp, &info->info)) {
     info->buf = calloc(info->info.MaxCharSize, sizeof(*info->buf));
@@ -554,6 +548,36 @@ static size_t mbcs_to_ucs2le(iconv_t cd, char **inbuf, size_t *inbytesleft, char
   return 0;
 }
 
+static void swap_endian(unsigned char *dst, size_t nr)
+{
+  for (size_t i=0; i<nr; i+=2) {
+    unsigned char *x1 = dst + i;
+    unsigned char *x2 = dst + i + 1;
+    unsigned char c;
+    c   = *x1;
+    *x1 = *x2;
+    *x2 = c;
+  }
+}
+static size_t mbcs_to_ucs2be(iconv_t cd, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
+{
+  int r = 0;
+  int n = 0;
+  const char            *src      = *inbuf;
+  size_t                 src_len  = *inbytesleft;
+  char                  *dst      = *outbuf;
+  size_t                 dst_len  = *outbytesleft;
+
+  size_t nr = mbcs_to_ucs2le(cd, inbuf, inbytesleft, outbuf, outbytesleft);
+  if (nr == (size_t)-1) return -1;
+
+  nr = dst_len - *outbytesleft;
+  swap_endian(dst, nr);
+
+  errno = 0;
+  return 0;
+}
+
 static size_t ucs2le_to_mbcs(iconv_t cd, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
 {
   int r = 0;
@@ -589,6 +613,58 @@ static size_t ucs2le_to_mbcs(iconv_t cd, char **inbuf, size_t *inbytesleft, char
   n = CALL_MultiByteToWideChar(cd->to.cp, dwFlags1, dst, n, NULL, 0);
   *inbuf            += n * 2;
   *inbytesleft      -= n * 2;
+
+  return 0;
+}
+
+static size_t ucs2be_to_mbcs(iconv_t cd, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
+{
+  int r = 0;
+  int n = 0;
+  const char            *src      = *inbuf;
+  size_t                 src_len  = *inbytesleft;
+  char                  *dst      = *outbuf;
+  size_t                 dst_len  = *outbytesleft;
+
+  if (src_len == 1) {
+    // TOD_LOGE("incomplete sequence");
+    errno = EINVAL;
+    return (size_t)-1;
+  }
+
+  if (dst_len < 1) {
+    // TOD_LOGE("no sufficient room for outbuf");
+    errno = E2BIG;
+    return (size_t)-1;
+  }
+
+  const char *ptr = src;
+  size_t      len = src_len;
+  while (len) {
+    char buf[4096]; *buf = '\0';
+    size_t nr = len;
+    if (nr > sizeof(buf)) nr = sizeof(buf);
+    memcpy(buf, ptr, nr);
+    swap_endian(buf, nr);
+    char       *in      = buf;
+    size_t      inbytes = nr;
+    size_t n = ucs2le_to_mbcs(cd, &in, &inbytes, outbuf, outbytesleft);
+    if (n == (size_t)-1) return -1;
+
+    size_t delta = nr - inbytes;
+    *inbuf       += delta;
+    *inbytesleft -= delta;
+
+    if (inbytes) {
+      // TOD_LOGE("no sufficient room for outbuf");
+      errno = E2BIG;
+      return (size_t)-1;
+    }
+
+
+    len -= nr;
+    ptr += nr;
+  }
 
   return 0;
 }
@@ -761,15 +837,24 @@ static int iconv_init(iconv_t cd)
     if (cd->to.cp == 12000) goto err;
     cd->conv = ucs2le_to_mbcs;
     return 0;
+  } else if (cd->from.cp == 1201) {
+    if (cd->to.cp == 12000) goto err;
+    cd->conv = ucs2be_to_mbcs;
+    return 0;
   }
   if (cd->from.cp == 12000) {
-    if (cd->to.cp == 1200) goto err;
+    if (cd->to.cp == 1200 || cd->to.cp == 1201) goto err;
     cd->conv = ucs4le_to_mbcs;
     return 0;
   }
 
   if (cd->to.cp   == 1200) {
     cd->conv = mbcs_to_ucs2le;
+    return 0;
+  }
+
+  if (cd->to.cp   == 1201) {
+    cd->conv = mbcs_to_ucs2be;
     return 0;
   }
 
@@ -870,6 +955,7 @@ size_t iconv(iconv_t cd, char **inbuf, size_t *inbytesleft, char **outbuf, size_
   }
 
   // TOD_LOGE("inbytes:%zd;outbytes:%zd", n_inbytes, n_outbytes);
+  // dump_for_debug(*inbuf, *inbytesleft);
   // TOD_LOGE("enter: from %s[%zd] -> %s[%zd]", cd->from.name, *inbytesleft, cd->to.name, *outbytesleft);
   size_t r = cd->conv(cd, inbuf, inbytesleft, outbuf, outbytesleft);
   // TOD_LOGE("leave: from %s[%zd] -> %s[%zd]", cd->from.name, *inbytesleft, cd->to.name, *outbytesleft);

@@ -220,6 +220,10 @@ struct sqlc_data_s {
       const char *wstr;
       size_t      wlen; // in characters
     }                   wstr;
+    struct {
+      const unsigned char *bin;
+      size_t               len;
+    }                   bin;
     int64_t             ts;
   };
 
@@ -259,6 +263,10 @@ struct sql_data_s {
       int64_t           i64;
       uint8_t           is_i64:1;
     }                   ts;
+    struct {
+      const unsigned char *bin;
+      size_t               len;
+    }                   bin;
   };
 
   mem_t          mem;
@@ -917,6 +925,7 @@ struct col_bind_map_s {
   int                    sql_type;
   int                    sql_promoted;
 
+  const char            *prefix;
   const char            *suffix;
 
   int                    length;

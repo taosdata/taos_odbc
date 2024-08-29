@@ -27,34 +27,16 @@
 
 #include "macros.h"
 
+#include "iconv_wrapper.h"
 #include "parser.h"
 
-#include <stddef.h>
 
 EXTERN_C_BEGIN
 
 typedef struct ejson_parser_param_s             ejson_parser_param_t;
-typedef struct ejson_parser_token_s             ejson_parser_token_t;
 
 typedef enum ejson_type_e               ejson_type_t;
 typedef struct ejson_s                  ejson_t;
-typedef struct _ejson_str_s             _ejson_str_t;
-typedef struct _ejson_kv_s              _ejson_kv_t;
-
-struct _ejson_str_s {
-  char                      *str;
-  size_t                     cap;
-  size_t                     nr;
-
-  parser_loc_t               loc;
-};
-
-struct _ejson_kv_s {
-  _ejson_str_t               key;
-  ejson_t                   *val;
-
-  parser_loc_t               loc;
-};
 
 enum ejson_type_e {
   EJSON_NULL,
@@ -64,6 +46,7 @@ enum ejson_type_e {
   EJSON_STR,
   EJSON_OBJ,
   EJSON_ARR,
+  EJSON_BIN,
 };
 
 void ejson_inc_ref(ejson_t *ejson) FA_HIDDEN;
@@ -74,6 +57,7 @@ ejson_t* ejson_new_false(void) FA_HIDDEN;
 ejson_t* ejson_new_num(double v) FA_HIDDEN;
 ejson_t* ejson_new_obj(void) FA_HIDDEN;
 ejson_t* ejson_new_arr(void) FA_HIDDEN;
+ejson_t* ejson_new_str(const char *v, size_t n) FA_HIDDEN;
 int ejson_arr_append(ejson_t *ejson, ejson_t *v) FA_HIDDEN;
 
 
@@ -81,6 +65,7 @@ int ejson_is_null(ejson_t *ejson) FA_HIDDEN;
 int ejson_is_true(ejson_t *ejson) FA_HIDDEN;
 int ejson_is_false(ejson_t *ejson) FA_HIDDEN;
 int ejson_is_str(ejson_t *ejson) FA_HIDDEN;
+int ejson_is_bin(ejson_t *ejson) FA_HIDDEN;
 int ejson_is_num(ejson_t *ejson) FA_HIDDEN;
 int ejson_is_obj(ejson_t *ejson) FA_HIDDEN;
 int ejson_is_arr(ejson_t *ejson) FA_HIDDEN;
@@ -91,6 +76,7 @@ int ejson_serialize(ejson_t *ejson, char *buf, size_t len) FA_HIDDEN;
 const parser_loc_t* ejson_get_loc(ejson_t *ejson) FA_HIDDEN;
 
 const char* ejson_str_get(ejson_t *ejson) FA_HIDDEN;
+const unsigned char* ejson_bin_get(ejson_t *ejson, size_t *len) FA_HIDDEN;
 int ejson_num_get(ejson_t *ejson, double *v) FA_HIDDEN;
 size_t ejson_obj_count(ejson_t *ejson) FA_HIDDEN;
 ejson_t* ejson_obj_idx(ejson_t *ejson, size_t idx, const char **k) FA_HIDDEN;
@@ -99,35 +85,40 @@ size_t ejson_arr_count(ejson_t *ejson) FA_HIDDEN;
 ejson_t* ejson_arr_get(ejson_t *ejson, size_t idx) FA_HIDDEN;
 
 
-void _ejson_str_reset(_ejson_str_t *str) FA_HIDDEN;
-void _ejson_str_release(_ejson_str_t *str) FA_HIDDEN;
-int _ejson_str_init(_ejson_str_t *str, const char *v, size_t n) FA_HIDDEN;
-int _ejson_str_append(_ejson_str_t *str, const char *v, size_t n) FA_HIDDEN;
-
-
-void _ejson_kv_release(_ejson_kv_t *kv) FA_HIDDEN;
-void _ejson_kv_init(_ejson_kv_t *kv) FA_HIDDEN;
 
 
 
 
 
-
-
-struct ejson_parser_token_s {
-  const char      *text;
-  size_t           leng;
-};
 
 struct ejson_parser_param_s {
-  parser_ctx_t                       ctx;
-  ejson_t                           *ejson;
+  parser_ctx_t      ctx;
+  ejson_t          *ejson;
+
+  // internal fields
+  iconv_t           cnv; // NOTE: from `ejson_parser_iconv_open()`
+  void             *internal;
 };
 
 void ejson_parser_param_release(ejson_parser_param_t *param) FA_HIDDEN;
 
+#define EJSON_PARSER_FROM      "UCS-2BE"
+#define EJSON_PARSER_TO        "UTF-8"
+
+iconv_t ejson_parser_iconv_open(void) FA_HIDDEN;
+void ejson_parser_iconv_close(iconv_t cnv) FA_HIDDEN;
+
+// ucs2be: 4-hexdigits
+// utf8:   at least 3 bytes, better 8 bytes
+// cnv:    from `ejson_parser_iconv_open()`
+// eg.:    "4eba" -> "人"
+int ejson_parser_iconv_char_unsafe(const char *ucs2be, char *utf8,
+    iconv_t cnv) FA_HIDDEN;
+
+// cnv: from `ejson_parser_iconv_open()`
 int ejson_parser_parse(const char *input, size_t len,
-    ejson_parser_param_t *param) FA_HIDDEN;
+    ejson_parser_param_t *param,
+    iconv_t cnv) FA_HIDDEN;
 
 EXTERN_C_END
 

@@ -711,11 +711,11 @@ static int run_SQLGetData2(SQLHANDLE hstmt, const char *sql, SQLSMALLINT TargetT
   r = -1;
 
   SQLLEN StrLen_or_Ind = 0;
-  // SQLLEN nr = 0;
-  // SQLCHAR sql_state[10]; *sql_state = '\0';
+  SQLLEN nr = 0;
 
 again:
 
+  memset(p, 'x', BufferLength);
   StrLen_or_Ind = 0;
   sr = SQLGetData(hstmt, 1, TargetType, p, BufferLength, &StrLen_or_Ind);
   fprintf(stdout, "sr:[%d]%s\n", sr, sql_return_type(sr));
@@ -728,11 +728,6 @@ again:
   }
 
   r = 0;
-  // if (sr == SQL_SUCCESS_WITH_INFO) {
-  //   SQLGetDiagRec(SQL_HANDLE_STMT, hstmt, 1, sql_state, NULL, NULL, 0, NULL);
-  //   if (strncmp(sql_state, "01004", 5) == 0) {
-  //   }
-  // }
 
   if (StrLen_or_Ind < 0) {
     if (StrLen_or_Ind == SQL_NULL_DATA) goto end;
@@ -743,18 +738,32 @@ again:
     }
   }
 
-  // if (StrLen_or_Ind == SQL_NO_TOTAL) {
-  //   nr = BufferLength;
-  // } else {
-  //   nr = StrLen_or_Ind;
-  // }
+  nr = StrLen_or_Ind;
+  if (sr == SQL_SUCCESS_WITH_INFO) {
+    if (StrLen_or_Ind == SQL_NO_TOTAL) {
+      nr = BufferLength - 1;
+    } else if (nr >= BufferLength) {
+      nr = BufferLength - 1;
+    }
+  } else {
+    nr = StrLen_or_Ind;
+  }
 
-  // fprintf(stdout, "data:[0x");
-  // for (SQLLEN i=0; i<nr; ++i) {
-  //   unsigned char c = p[i];
-  //   fprintf(stdout, "%02x", c);
-  // }
-  // fprintf(stdout, "]\n");
+  fprintf(stdout, "data:[0x");
+  for (SQLLEN i=0; i<nr; ++i) {
+    unsigned char c = p[i];
+    fprintf(stdout, "%02x", c);
+  }
+  fprintf(stdout, "]\n");
+
+  nr = BufferLength;
+  fprintf(stdout, "buff:[0x");
+  for (SQLLEN i=0; i<nr; ++i) {
+    unsigned char c = p[i];
+    fprintf(stdout, "%02x", c);
+  }
+  fprintf(stdout, "]\n");
+
 
   goto again;
 

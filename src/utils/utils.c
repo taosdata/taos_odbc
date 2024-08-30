@@ -210,10 +210,10 @@ int mem_iconv(mem_t *mem, const char *fromcode, const char *tocode, const char *
 int mem_copy(mem_t *mem, const char *src)
 {
   size_t len = strlen(src);
-  return mem_copy_str(mem, src, len);
+  return mem_copy_bin(mem, (const unsigned char*)src, len);
 }
 
-int mem_copy_str(mem_t *mem, const char *src, size_t len)
+int mem_copy_bin(mem_t *mem, const unsigned char *src, size_t len)
 {
   int r = 0;
   mem_reset(mem);

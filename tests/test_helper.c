@@ -277,11 +277,18 @@ static inline cJSON* load_json_from_file(const char *json_file, FILE *fn, const 
   }
 
   if (0) {
+    iconv_t cnv = ejson_parser_iconv_open();
+    if (cnv == (iconv_t)-1) {
+      E("no convertion found for %s -> %s",
+          EJSON_PARSER_FROM, EJSON_PARSER_TO);
+      return NULL;
+    }
+
     ejson_parser_param_t param = {0};
     // param.ctx.debug_flex = 1;
     // param.ctx.debug_bison = 1;
 
-    r = ejson_parser_parse(p, strlen(p), &param);
+    r = ejson_parser_parse(p, strlen(p), &param, cnv);
     if (r) {
       parser_loc_t *loc = &param.ctx.bad_token;
       E("parsing @[%s]:%s", json_file, p);
@@ -290,11 +297,11 @@ static inline cJSON* load_json_from_file(const char *json_file, FILE *fn, const 
       E("failed:%s", param.ctx.err_msg);
       free(gb);
       free(buf);
-      ejson_parser_param_release(&param);
-      return NULL;
     }
-
     ejson_parser_param_release(&param);
+
+    ejson_parser_iconv_close(cnv);
+    if (r) return NULL;
   }
 
   cJSON *json = cJSON_ParseWithOpts(p, &next, true);
@@ -509,9 +516,10 @@ static ejson_t* load_ejson_from_file(const char *json_file, FILE *fn, const char
     outbuf[0] = '\0';
     p = gb;
   } while (0);
-  iconv_close(cnv);
+
   if (!gb) {
     free(buf);
+    iconv_close(cnv);
     return NULL;
   }
 
@@ -519,26 +527,26 @@ static ejson_t* load_ejson_from_file(const char *json_file, FILE *fn, const char
   // param.ctx.debug_flex = 1;
   // param.ctx.debug_bison = 1;
 
-  r = ejson_parser_parse(p, strlen(p), &param);
+  ejson_t *v = NULL;
+
+  r = ejson_parser_parse(p, strlen(p), &param, cnv);
   if (r) {
     parser_loc_t *loc = &param.ctx.bad_token;
     E("parsing @[%s]:%s", json_file, p);
     E("location:(%d,%d)->(%d,%d)",
         loc->first_line, loc->first_column, loc->last_line, loc->last_column);
     E("failed:%s", param.ctx.err_msg);
-    free(gb);
-    free(buf);
-    ejson_parser_param_release(&param);
-    return NULL;
+  } else {
+    v = param.ejson;
+    param.ejson = NULL;
   }
-
-  ejson_t *v = param.ejson;
-  param.ejson = NULL;
 
   ejson_parser_param_release(&param);
 
   free(gb);
   free(buf);
+
+  iconv_close(cnv);
 
   return v;
 }

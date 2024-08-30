@@ -27,6 +27,8 @@
 
 #include "macros.h"
 
+#include <stdio.h>
+
 #cmakedefine USE_WIN_ICONV
 
 EXTERN_C_BEGIN
@@ -44,6 +46,16 @@ size_t iconv(iconv_t cd, char **inbuf, size_t *inbytesleft, char **outbuf, size_
 #else                               /* }{ */
 #include <iconv.h>
 #endif                              /* } */
+
+static inline void dump_for_debug(const char *s, size_t n)
+{
+  fprintf(stderr, "====================\n0x");
+  for (size_t i = 0; i < n; ++i) {
+    unsigned char c = (unsigned char)s[i];
+    fprintf(stderr, "%02x", c);
+  }
+  fprintf(stderr, "\n====================\n");
+}
 
 EXTERN_C_END
 

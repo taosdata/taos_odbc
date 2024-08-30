@@ -202,6 +202,7 @@ SQLRETURN descriptor_bind_col(descriptor_t *ARD,
   memset(ARD_record, 0, sizeof(*ARD_record));
 
   switch (TargetType) {
+    case SQL_C_BIT:
     case SQL_C_TINYINT:
     case SQL_C_STINYINT:
     case SQL_C_UTINYINT:

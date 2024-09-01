@@ -3008,7 +3008,7 @@ int main(int argc, char *argv[])
   // windows:       set TEST_WITH_ENTERPRISE=ON
 
   if (!env_val || tod_strcasecmp(env_val, "ON")) {
-    I("set environment `TEST_WITH_ENTERPRISE` to `ON` to allow test-cases that rquire features provided by TAOS");
+    I("set environment `TEST_WITH_ENTERPRISE` to `ON` to allow test-cases that require features provided by TAOS-enterprise");
   } else {
     _test_with_enterprise = 1;
   }

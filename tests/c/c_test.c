@@ -36,6 +36,7 @@
 
 #define DUMP(fmt, ...)             fprintf(stderr, fmt "\n", ##__VA_ARGS__)
 #define DCASE(fmt, ...)            fprintf(stderr, "@%d:%s():@%d:%s():" fmt "\n", __LINE__, __func__, line, func, ##__VA_ARGS__)
+#ifdef _WIN32        /* { */
 #define DCASE_W(fmt, ...)          do { \
     wchar_t wfunc1[512]; \
     wchar_t wfunc2[512]; \
@@ -49,6 +50,9 @@
         wprintf(L"@%d: Conversion failed for function name\n", __LINE__); \
     } \
 } while (0)
+#else                /* }{ */
+#define DCASE_W(fmt, ...)
+#endif               /* } */
 
 
 typedef struct handles_s                 handles_t;
@@ -454,6 +458,7 @@ static int _check_with_values_ap(int line, const char *func, handles_t *handles,
   return -1;
 }
 
+#ifdef _WIN32             /* { */
 static SQLSMALLINT sqltype_2_ctype(SQLLEN v)
 {
   SQLSMALLINT TargetType = 0;
@@ -695,6 +700,7 @@ static int _check_col_bind_with_values_ap(int line, const char *func, handles_t 
   DCASE("expected %zd rows, but got ==more rows==", nr_rows);
   return -1;
 }
+#endif                    /* } */
 
 static int _check_with_values(int line, const char *func, handles_t *handles, int with_col_bind, const char *sql, size_t nr_rows, size_t nr_cols, ...)
 {
@@ -705,7 +711,9 @@ static int _check_with_values(int line, const char *func, handles_t *handles, in
   if (!with_col_bind) {
     r = _check_with_values_ap(line, func, handles, sql, nr_rows, nr_cols, ap);
   } else {
+#ifdef _WIN32             /* { */
     r = _check_col_bind_with_values_ap(line, func, handles, sql, nr_rows, nr_cols, ap);
+#endif                    /* } */
   }
   va_end(ap);
 
@@ -714,6 +722,7 @@ static int _check_with_values(int line, const char *func, handles_t *handles, in
 
 #define CHECK_WITH_VALUES(...)       _check_with_values(__LINE__, __func__, ##__VA_ARGS__)
 
+#ifdef _WIN32          /* { */
 static int test_all_types_with_col_bind(handles_t *handles, const char *connstr, int ws)
 {
   (void)ws;
@@ -811,6 +820,7 @@ static int test_all_types_with_col_bind(handles_t *handles, const char *connstr,
 
   return 0;
 }
+#endif                 /* } */
 
 static int test_charsets(handles_t *handles, const char *connstr, int ws)
 {
@@ -855,6 +865,7 @@ static int test_charsets(handles_t *handles, const char *connstr, int ws)
   return 0;
 }
 
+#ifdef _WIN32          /* { */
 static int test_charsets_with_col_bind(handles_t *handles, const char *connstr, int ws)
 {
   (void)ws;
@@ -897,6 +908,7 @@ static int test_charsets_with_col_bind(handles_t *handles, const char *connstr, 
 
   return 0;
 }
+#endif                 /* } */
 
 static int _insert_with_values_ap(int line, const char *func, handles_t *handles, const char *sql, size_t nr_rows, size_t nr_cols, va_list ap)
 {
@@ -1557,10 +1569,14 @@ int main(int argc, char *argv[])
 
 #define RECORD(x) {#x, x}
   case_t _cases[] = {
+#ifdef _WIN32          /* { */
     RECORD(test_all_types_with_col_bind),
+#endif                 /* } */
     RECORD(test_case0),
     RECORD(test_charsets),
+#ifdef _WIN32          /* { */
     RECORD(test_charsets_with_col_bind),
+#endif                 /* } */
     RECORD(test_charsets_with_param_bind),
     RECORD(test_topic),
     RECORD(test_params_with_all_chars),

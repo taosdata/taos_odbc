@@ -594,7 +594,7 @@ static INT_PTR OnOK(HWND hDlg, WPARAM wParam, LPARAM lParam, url_parser_param_t 
   if (ok) ok = SaveKeyVal(hDlg, config.dsn, "DB", config.database[0] ? config.database : "");
   if (ok) ok = SaveKeyVal(hDlg, config.dsn, "UNSIGNED_PROMOTION", config.unsigned_promotion ? "1" : "0");
   if (ok) ok = SaveKeyVal(hDlg, config.dsn, "TIMESTAMP_AS_IS", config.timestamp_as_is ? "1" : "0");
-u
+
 
   snprintf(buf, sizeof(buf), "%u", !!config.conn_mode);
   if (ok) ok = SaveKeyVal(hDlg, config.dsn, "CONN_MODE", buf);

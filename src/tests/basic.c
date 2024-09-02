@@ -184,16 +184,16 @@ static int test_conn_parser(void)
       {
         .dsn                    = "TAOS_ODBC_DSN",
         .unsigned_promotion     = 1,
-        .scada                  = 0,
+        .customproduct          = 0,
         .charset_for_col_bind   = "UTF-8",
       },
     },{
       __LINE__,
-      "DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION=1;CONN_MODE=1;SCADA=1;CHARSET_ENCODER_FOR_PARAM_BIND=UTF-8",
+      "DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION=1;CONN_MODE=1;CUSTOMPRODUCT={kingscada};CHARSET_ENCODER_FOR_PARAM_BIND=UTF-8",
       {
         .dsn                    = "TAOS_ODBC_DSN",
         .unsigned_promotion     = 1,
-        .scada                  = 1,
+        .customproduct          = 1,
         .charset_for_col_bind   = "UTF-8",
       },
     },
@@ -263,6 +263,12 @@ static int test_conn_parser(void)
       if (expected->port != param.conn_cfg->port) {
         E("parsing[@line:%d]:%s", line, s);
         E("port expected to be `%d`, but got ==%d==", expected->port, param.conn_cfg->port);
+        r = -1;
+        break;
+      }
+      if (expected->customproduct != param.conn_cfg->customproduct) {
+        E("parsing[@line:%d]:%s", line, s);
+        E("customproduct expected to be `%d`, but got ==%d==", expected->customproduct, param.conn_cfg->customproduct);
         r = -1;
         break;
       }

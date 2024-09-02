@@ -56,8 +56,37 @@ void conn_cfg_release(conn_cfg_t *conn_cfg)
   TOD_SAFE_FREE(conn_cfg->db);
   TOD_SAFE_FREE(conn_cfg->charset_for_col_bind);
   TOD_SAFE_FREE(conn_cfg->charset_for_param_bind);
+  TOD_SAFE_FREE(conn_cfg->customproduct_name);
 
   memset(conn_cfg, 0, sizeof(*conn_cfg));
+}
+
+int conn_cfg_set_customproduct(conn_cfg_t *conn_cfg, const char *s, size_t n)
+{
+/* { */
+#define R(x, y)       {x, y}
+  struct {
+    const char         *name;
+    customproduct_t     customproduct;
+  } _cases[] = {
+    R("kingscada",         CUSTP_KINGSCADA),
+  };
+#undef  R
+/* } */
+
+  for (size_t i=0; i<sizeof(_cases)/sizeof(_cases[0]); ++i) {
+    const char       *name = _cases[i].name;
+    size_t            len  = strlen(name);
+    if (len == n && tod_strncasecmp(s, name, len) == 0) {
+      TOD_SAFE_FREE(conn_cfg->customproduct_name);
+      conn_cfg->customproduct_name = strndup(s, n);
+      if (!conn_cfg->customproduct_name) return -1;
+      conn_cfg->customproduct = _cases[i].customproduct;
+      return 0;
+    }
+  }
+
+  return -1;
 }
 
 static void _conn_init(conn_t *conn, env_t *env)
@@ -660,8 +689,8 @@ static void _conn_fill_out_connection_str(
   }
   if (n>0) count += n;
 
-  if (conn->cfg.scada) {
-    fixed_buf_sprintf(n, &buffer, "SCADA=%u;", conn->cfg.scada);
+  if (conn->cfg.customproduct) {
+    fixed_buf_sprintf(n, &buffer, "CUSTOMPRODUCT=%s;", conn->cfg.customproduct_name);
   }
   if (n>0) count += n;
 
@@ -750,8 +779,14 @@ static int _conn_cfg_init_by_dsn(conn_cfg_t *cfg, char *ebuf, size_t elen)
   if (r == 1) cfg->conn_mode = !!atoi(buf);
 
   buf[0] = '\0';
-  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "SCADA", (LPCSTR)"0", (LPSTR)buf, sizeof(buf), "Odbc.ini");
-  if (r == 1) cfg->scada = !!atoi(buf);
+  r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "CUSTOMPRODUCT", (LPCSTR)"0", (LPSTR)buf, sizeof(buf), "Odbc.ini");
+  if (r == 1) {
+    size_t len = strnlen(buf, sizeof(buf));
+    if (conn_cfg_set_customproduct(cfg, buf, len)) {
+      snprintf(ebuf, elen, "@%d:%s():out of memory or not valid customproduct:[%.*s]", __LINE__, __func__, (int)len, buf);
+      return -1;
+    }
+  }
 
   buf[0] = '\0';
   r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "CHARSET_ENCODER_FOR_COL_BIND", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
@@ -1744,10 +1779,13 @@ SQLRETURN conn_set_attr(
       break;
     case SQL_ATTR_LOGIN_TIMEOUT:
       if ((SQLUINTEGER)(uintptr_t)ValuePtr == 0) return SQL_SUCCESS;
-      if (conn->cfg.scada) {
-        // FIXME: add for king scada joint debugging
-        conn->login_timeout = (SQLUINTEGER)(uintptr_t)ValuePtr;
-        return SQL_SUCCESS;
+      switch (conn->cfg.customproduct) {
+        case CUSTP_KINGSCADA:
+          // FIXME: add for king scada joint debugging
+          conn->login_timeout = (SQLUINTEGER)(uintptr_t)ValuePtr;
+          return SQL_SUCCESS;
+        default:
+          break;
       }
 
       conn_append_err_format(conn, "01S02", 0,
@@ -1893,11 +1931,14 @@ SQLRETURN conn_get_attr(
     case SQL_ATTR_ENLIST_IN_DTC:
       break;
     case SQL_ATTR_LOGIN_TIMEOUT:
-      if (conn->cfg.scada) {
-        // FIXME: add for king scada joint debugging
-        *(SQLUINTEGER*)Value = conn->login_timeout;
-      } else {
-        *(SQLUINTEGER*)Value = 0;
+      switch (conn->cfg.customproduct) {
+        case CUSTP_KINGSCADA:
+          // FIXME: add for king scada joint debugging
+          *(SQLUINTEGER*)Value = conn->login_timeout;
+          return SQL_SUCCESS;
+        default:
+          *(SQLUINTEGER*)Value = 0;
+          break;
       }
       return SQL_SUCCESS;
     case SQL_ATTR_METADATA_ID:

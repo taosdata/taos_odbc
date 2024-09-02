@@ -171,10 +171,12 @@
       param->conn_cfg->conn_mode = !!atoi(_s);                                                  \
     } while (0)
 
-    #define SET_SCADA(_s, _n, _loc) do {                                                        \
+    #define SET_CUSTOMPRODUCT(_s, _n, _loc) do {                                                \
       if (!param) break;                                                                        \
-      OA_NIY(_s[_n] == '\0');                                                                   \
-      param->conn_cfg->scada = _s ? !!atoi(_s) : 0;                                             \
+      if (conn_cfg_set_customproduct(param->conn_cfg, _s, _n)) {                                \
+        YLOG(LOG_MALS, &_loc, "unknown customproduct:[%.*s]", (int)_n, _s);                     \
+        YYABORT;                                                                                \
+      }                                                                                         \
     } while (0)
 
     void conn_parser_param_release(conn_parser_param_t *param)
@@ -204,10 +206,10 @@
 %union { char c; }
 
 %token DSN UID PWD DRIVER URL SERVER UNSIGNED_PROMOTION TIMESTAMP_AS_IS CONN_MODE DB
-%token SCADA
+%token CUSTOMPRODUCT
 %token CHARSET_FOR_COL_BIND CHARSET_FOR_PARAM_BIND
 %token TOPIC
-%token <token> ID VALUE FQDN DIGITS
+%token <token> ID VALUE FQDN DIGITS VALUEX
 %token <token> TNAME TKEY TVAL
 
  /* %nterm <str>   args */ // non-terminal `input` use `str` to store
@@ -281,7 +283,7 @@ dsn:
 
 driver:
   DRIVER '=' VALUE                { SET_DRIVER($3, @$); }
-| DRIVER '=' '{' VALUE '}'        { SET_DRIVER($4, @$); }
+| DRIVER '=' '{' VALUEX '}'       { SET_DRIVER($4, @$); }
 ;
 
 odbc_attr:
@@ -296,16 +298,16 @@ odbc_attr:
 ;
 
 url_attr:
-  URL '=' '{' VALUE '}'           { SET_URL($4, @$); }
+  URL '=' '{' VALUEX '}'          { SET_URL($4, @$); }
 ;
 
 attribute:
-  UNSIGNED_PROMOTION '=' DIGITS   { SET_UNSIGNED_PROMOTION($3.text, $3.leng, @$); }
-| TIMESTAMP_AS_IS '=' DIGITS      { SET_TIMESTAMP_AS_IS($3.text, $3.leng, @$); }
+  UNSIGNED_PROMOTION '=' DIGITS    { SET_UNSIGNED_PROMOTION($3.text, $3.leng, @$); }
+| TIMESTAMP_AS_IS '=' DIGITS       { SET_TIMESTAMP_AS_IS($3.text, $3.leng, @$); }
 | CHARSET_FOR_COL_BIND '=' VALUE               { SET_CHARSET_FOR_COL_BIND($3, @$); }
 | CHARSET_FOR_PARAM_BIND '=' VALUE             { SET_CHARSET_FOR_PARAM_BIND($3, @$); }
-| CONN_MODE '=' DIGITS            { SET_CONN_MODE($3.text, $3.leng, @$); }
-| SCADA '=' DIGITS                { SET_SCADA($3.text, $3.leng, @$); }
+| CONN_MODE '=' DIGITS             { SET_CONN_MODE($3.text, $3.leng, @$); }
+| CUSTOMPRODUCT '=' '{' VALUEX '}' { SET_CUSTOMPRODUCT($4.text, $4.leng, @$); }
 ;
 
 %%

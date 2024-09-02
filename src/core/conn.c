@@ -780,7 +780,7 @@ static int _conn_cfg_init_by_dsn(conn_cfg_t *cfg, char *ebuf, size_t elen)
 
   buf[0] = '\0';
   r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "CUSTOMPRODUCT", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
-  if (r == 1) {
+  if (r > 0) {
     size_t len = strnlen(buf, sizeof(buf));
     if (len && conn_cfg_set_customproduct(cfg, buf, len)) {
       snprintf(ebuf, elen, "@%d:%s():out of memory or not valid customproduct:[%.*s]", __LINE__, __func__, (int)len, buf);

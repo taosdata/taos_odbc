@@ -1418,8 +1418,9 @@ static int test_iconv_full(void)
       }
       if (n == (size_t)-1) {
         if (err != errno) {
-          char ebuf[4096]; *ebuf = '\0'; strerror_s(ebuf, sizeof(ebuf), errno);
-          E("@[%d]:`[%d]%s` expected, but got ==[%d]%s==", line, err, strerror(err), errno, (const char*)ebuf);
+          char ebuf[4096]; *ebuf = '\0';
+          char fbuf[4096]; *fbuf = '\0';
+          E("@[%d]:`[%d]%s` expected, but got ==[%d]%s==", line, err, tod_strerror_x(err, ebuf, sizeof(ebuf)), errno, tod_strerror_x(errno, fbuf, sizeof(fbuf)));
           r = -1;
           break;
         }

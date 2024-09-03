@@ -64,6 +64,9 @@ const char* tod_hexify(char *hex, size_t nr, const unsigned char *bin, size_t n)
 void tod_hex2bytes_unsafe(const char *hex, size_t n,
     unsigned char *bytes) FA_HIDDEN;
 
+char *tod_strerror_x(int errnum, char *buf, size_t buflen) FA_HIDDEN;
+
+
 #ifdef _WIN32
 #define tod_strcasecmp      _stricmp
 #define tod_strncasecmp     _strnicmp

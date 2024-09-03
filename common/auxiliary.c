@@ -362,3 +362,4 @@ const char* tod_hexify(char *hex, size_t nr, const unsigned char *bin, size_t n)
   *hex = '\0';
   return p;
 }
+

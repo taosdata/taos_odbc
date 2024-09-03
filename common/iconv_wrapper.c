@@ -132,8 +132,8 @@ struct codepage_s {
   BOOL                  usedDefaultChar;
   LPBOOL                lpUsedDefaultChar;
 
-  int (*src_to_wchar)(codepage_t *codepage, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft);
-  int (*wchar_to_dst)(codepage_t *codepage, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft);
+  int (*src_to_widechar)(codepage_t *codepage, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft);
+  int (*widechar_to_dst)(codepage_t *codepage, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft);
   int (*ilseq_or_inval)(codepage_t *codepage, const unsigned char *remain, size_t remainlen);
 
   uint8_t               ucs2:1;
@@ -1051,48 +1051,15 @@ err:
   return -1;
 }
 
-static int UTF_16LE_to_wchar(codepage_t *codepage, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
-{
-  (void)codepage;
-
-  while (*inbytesleft >= 2 && *outbytesleft >= 2) {
-    uint16_t wc = *(uint16_t*)*outbuf = *(uint16_t*)*inbuf;
-    if (codepage->ucs2 && wc >= 0xD800 && wc <= 0xDBFF) return EILSEQ;
-    *inbuf           += 2;
-    *inbytesleft     -= 2;
-    *outbuf          += 2;
-    *outbytesleft    -= 2;
-  }
-
-  if (*inbytesleft) return E2BIG;
-  return 0;
-}
-
-static int wchar_to_UTF_16LE(codepage_t *codepage, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
-{
-  (void)codepage;
-
-  while (*inbytesleft >= 2 && *outbytesleft >= 2) {
-    uint16_t wc = *(uint16_t*)*outbuf = *(uint16_t*)*inbuf;
-    if (codepage->ucs2 && wc >= 0xD800 && wc <= 0xDBFF) return EILSEQ;
-    *inbuf           += 2;
-    *inbytesleft     -= 2;
-    *outbuf          += 2;
-    *outbytesleft    -= 2;
-  }
-
-  if (*inbytesleft) return E2BIG;
-  return 0;
-}
-
-static int UTF_16BE_to_wchar(codepage_t *codepage, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
+static int UTF_16LE_to_widechar(codepage_t *codepage, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
 {
   (void)codepage;
 
   while (*inbytesleft >= 2 && *outbytesleft >= 2) {
     uint16_t wc = *(uint16_t*)*inbuf;
-    *(uint16_t*)*outbuf = wc = ((wc & 0xff) << 8) | (wc >> 8);
+    if (codepage->be) wc = ((wc & 0xff)<<8) | (wc >> 8);
     if (codepage->ucs2 && wc >= 0xD800 && wc <= 0xDBFF) return EILSEQ;
+    *(uint16_t*)*outbuf = wc;
     *inbuf           += 2;
     *inbytesleft     -= 2;
     *outbuf          += 2;
@@ -1103,14 +1070,15 @@ static int UTF_16BE_to_wchar(codepage_t *codepage, char **inbuf, size_t *inbytes
   return 0;
 }
 
-static int wchar_to_UTF_16BE(codepage_t *codepage, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
+static int widechar_to_UTF_16LE(codepage_t *codepage, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
 {
   (void)codepage;
 
   while (*inbytesleft >= 2 && *outbytesleft >= 2) {
-    uint16_t wc = *(uint16_t*)*outbuf = *(uint16_t*)*inbuf;
+    uint16_t wc = *(uint16_t*)*inbuf;
     if (codepage->ucs2 && wc >= 0xD800 && wc <= 0xDBFF) return EILSEQ;
-    *(uint16_t*)*outbuf = ((wc & 0xff) << 8) | (wc >> 8);
+    if (codepage->be) wc = ((wc & 0xff)<<8) | (wc >> 8);
+    *(uint16_t*)*outbuf = wc;
     *inbuf           += 2;
     *inbytesleft     -= 2;
     *outbuf          += 2;
@@ -1121,7 +1089,7 @@ static int wchar_to_UTF_16BE(codepage_t *codepage, char **inbuf, size_t *inbytes
   return 0;
 }
 
-static int UTF_32LE_to_wchar(codepage_t *codepage, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
+static int UTF_32LE_to_widechar(codepage_t *codepage, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
 {
   (void)codepage;
 
@@ -1149,7 +1117,7 @@ static int UTF_32LE_to_wchar(codepage_t *codepage, char **inbuf, size_t *inbytes
   return 0;
 }
 
-static int wchar_to_UTF_32LE(codepage_t *codepage, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
+static int widechar_to_UTF_32LE(codepage_t *codepage, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
 {
   (void)codepage;
 
@@ -1245,13 +1213,13 @@ static int codepage_init(codepage_t *codepage, const char *name)
     RECORD("UCS-2LE",        1200          ,1,        0),
 
     RECORD("UTF-32LE",       12000         ,0,        0),
-    RECORD("UCS-4LE",        12000         ,1,        0),
+    RECORD("UCS-4LE",        12000         ,0,        0),
 
     RECORD("UTF-16BE",       1201          ,0,        1),
     RECORD("UCS-2BE",        1201          ,1,        1),
 
-    RECORD("UTF-32BE",       12000         ,0,        1),
-    RECORD("UCS-4BE",        12000         ,1,        1),
+    RECORD("UTF-32BE",       12001         ,0,        1),
+    RECORD("UCS-4BE",        12001         ,0,        1),
 
     RECORD("CP437",          437           ,0,        0),
     RECORD("CP850",          850           ,0,        0),
@@ -1319,24 +1287,22 @@ static int codepage_init(codepage_t *codepage, const char *name)
 
   switch (cp) {
     case 1200:  // UTF-16LE
-      codepage->src_to_wchar = UTF_16LE_to_wchar;
-      codepage->wchar_to_dst = wchar_to_UTF_16LE;
-      break;
     case 1201:  // UTF-16BE
-      codepage->src_to_wchar = UTF_16BE_to_wchar;
-      codepage->wchar_to_dst = wchar_to_UTF_16BE;
+      codepage->src_to_widechar = UTF_16LE_to_widechar;
+      codepage->widechar_to_dst = widechar_to_UTF_16LE;
       break;
     case 12000: // UTF-32LE
-      codepage->src_to_wchar = UTF_32LE_to_wchar;
-      codepage->wchar_to_dst = wchar_to_UTF_32LE;
+    case 12001: // UTF-32BE
+      codepage->src_to_widechar = UTF_32LE_to_widechar;
+      codepage->widechar_to_dst = widechar_to_UTF_32LE;
       break;
     default:
       if (!GetCPInfoEx(cp, 0, &codepage->info)) {
         errno = EINVAL;
         return -1;
       }
-      codepage->src_to_wchar = m2w;
-      codepage->wchar_to_dst = w2m;
+      codepage->src_to_widechar = m2w;
+      codepage->widechar_to_dst = w2m;
       if (cp == CP_UTF8) {
         codepage->ilseq_or_inval = ilseq_or_inval_utf8;
       } else {
@@ -1436,7 +1402,7 @@ static size_t do_iconv(iconv_t cd, char **inbuf, size_t *inbytesleft, char **out
 
     // TOD_LOGE("m2w:([%d]%s->wchar_t)[%zd]->[%zd]", cd->codepage_from.cp, cd->codepage_from.name, *inbytesleft, n);
     // dump_buf(stderr, *inbuf, *inbytesleft, "I:", "\n");
-    err1 = cd->codepage_from.src_to_wchar(&cd->codepage_from, inbuf, inbytesleft, &p, &n);
+    err1 = cd->codepage_from.src_to_widechar(&cd->codepage_from, inbuf, inbytesleft, &p, &n);
     // dump_buf(stderr, *inbuf, *inbytesleft, "R:", "\n");
     // dump_buf(stderr, buf, sizeof(buf) - n, "C:", "\n");
     if (err1 && (err1 != E2BIG)) {
@@ -1454,7 +1420,7 @@ static size_t do_iconv(iconv_t cd, char **inbuf, size_t *inbytesleft, char **out
 
     // TOD_LOGE("w2m:(wchar_t->[%d]%s)[%zd]->[%zd]", cd->codepage_to.cp, cd->codepage_to.name, nn, *outbytesleft);
     // dump_buf(stderr, pp, nn, "I:", "\n");
-    err2 = cd->codepage_to.wchar_to_dst(&cd->codepage_to, &pp, &nn, outbuf, outbytesleft);
+    err2 = cd->codepage_to.widechar_to_dst(&cd->codepage_to, &pp, &nn, outbuf, outbytesleft);
     // dump_buf(stderr, pp, nn, "R:", "\n");
     // dump_buf(stderr, qq, mm - *outbytesleft, "C:", "\n");
 

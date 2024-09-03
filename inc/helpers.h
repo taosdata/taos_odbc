@@ -57,6 +57,10 @@ static inline int tod_little_endian(void)
   return (*(uint8_t*)&v == 1);
 }
 
+unsigned char* tod_hex2bytes(unsigned char *buf, size_t n, const char *hex, size_t nr) FA_HIDDEN;
+const char* tod_hexify(char *hex, size_t nr, const unsigned char *bin, size_t n) FA_HIDDEN;
+
+
 void tod_hex2bytes_unsafe(const char *hex, size_t n,
     unsigned char *bytes) FA_HIDDEN;
 

@@ -121,6 +121,25 @@ struct buffer_s {
   size_t                 len;
 };
 
+typedef struct codepage_s                  codepage_t;
+struct codepage_s {
+  char                  name[64];
+  UINT                  cp;
+  CPINFOEX              info;
+
+  DWORD                 flags_m2w;
+  DWORD                 flags_w2m;
+  BOOL                  usedDefaultChar;
+  LPBOOL                lpUsedDefaultChar;
+
+  int (*src_to_wchar)(codepage_t *codepage, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft);
+  int (*wchar_to_dst)(codepage_t *codepage, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft);
+  int (*ilseq_or_inval)(codepage_t *codepage, const unsigned char *remain, size_t remainlen);
+
+  uint8_t               ucs2:1;
+  uint8_t               be:1;
+};
+
 struct iconv_s {
   cpinfo_t        from;
   cpinfo_t        to;
@@ -129,6 +148,11 @@ struct iconv_s {
   cache_t         mbcs;
 
   size_t (*conv)(iconv_t cd, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft);
+
+  codepage_t      codepage_from;
+  codepage_t      codepage_to;
+
+  uint8_t         use_codepage:1;
 };
 
 /*
@@ -160,6 +184,161 @@ static void ucs4_to_utf16(uint32_t wc, uint16_t *wbuf, uint32_t *wbufsize)
         *wbufsize = 2;
     }
 }
+
+static int m2w(codepage_t *codepage, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
+{
+  int err = 0;
+
+  UINT     cp         = codepage->cp;
+  LPCCH    src        = *inbuf;
+  int      src_len    = (int)*inbytesleft;
+  LPWSTR   dst        = (LPWSTR)*outbuf;
+  int      dst_len    = (int)(*outbytesleft / sizeof(*dst));
+
+  DWORD dw_m2w = codepage->flags_m2w;
+  DWORD dw_w2m = codepage->flags_w2m;
+
+  int   recover = codepage->info.MaxCharSize;
+
+  int nr = 0;
+  LPBOOL lpUsedDefaultChar = codepage->lpUsedDefaultChar;
+
+  LPSTR prev = NULL;
+
+again:
+
+  nr = CALL_MultiByteToWideChar(cp, dw_m2w, src, src_len, dst, dst_len);
+  if (nr > 0) {
+    codepage->usedDefaultChar = FALSE;
+    // TODO: nonreversible convertion
+    int n = CALL_WideCharToMultiByte(cp, dw_w2m, dst, nr, NULL, 0, NULL, lpUsedDefaultChar);
+    if (n > 0) {
+      if (!codepage->usedDefaultChar) {
+        *inbuf           += n;
+        *inbytesleft     -= n;
+        n = nr * sizeof(*dst);
+        *outbuf          += n;
+        *outbytesleft    -= n;
+        return 0;
+      }
+      // TOD_LOGE("back convertion (wchar_t->%d) result in DEFAULT_CHAR_USED", cp);
+      err = EILSEQ;
+    } else {
+      // TODO: nonreversible convertion
+      // TOD_LOGE("back convertion (wchar_t->%d) failed", cp);
+      err = EINVAL; // FIXME: for the moment
+    }
+  } else {
+    // TOD_LOGE("convertion (%d->wchar_t) failed", cp);
+    switch (GetLastError()) {
+      case ERROR_INSUFFICIENT_BUFFER:
+        err = E2BIG;
+        break;
+      case ERROR_INVALID_FLAGS:
+      case ERROR_INVALID_PARAMETER:
+        err = EINVAL;
+        break;
+      case ERROR_NO_UNICODE_TRANSLATION:
+        err = EINVAL;
+        break;
+      default:
+        err = EINVAL;
+        break;
+    }
+  }
+
+  if (recover-- > 1) {
+    --src_len;
+    if (src_len == 0) return err;
+
+    goto again;
+  }
+
+  recover = codepage->info.MaxCharSize;
+  src_len /= 2;
+  if (src_len == 0) return err;
+
+  goto again;
+}
+
+// all-in-bytes
+static int w2m(codepage_t *codepage, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
+{
+  int err = 0;
+
+  UINT        cp            = codepage->cp;
+  LPCWSTR     src           = (LPCWSTR)*inbuf;
+  int         src_len       = (int)(*inbytesleft / sizeof(*src));
+  LPSTR       dst           = (LPSTR)*outbuf;
+  int         dst_len       = (int)*outbytesleft;
+
+  DWORD dw_m2w = codepage->flags_m2w;
+  DWORD dw_w2m = codepage->flags_w2m;
+
+  int n = 0;
+  LPBOOL lpUsedDefaultChar = codepage->lpUsedDefaultChar;
+
+again:
+  codepage->usedDefaultChar = FALSE;
+
+  n = CALL_WideCharToMultiByte(cp, dw_w2m, src, src_len, dst, dst_len, NULL, lpUsedDefaultChar);
+  if (n > 0) {
+    if (!codepage->usedDefaultChar) {
+      int nr = CALL_MultiByteToWideChar(cp, dw_m2w, dst, n, NULL, 0);
+      if (nr > 0) {
+        *outbuf              += n;
+        *outbytesleft        -= n;
+        n = nr * sizeof(*src);
+        *inbuf               += n;
+        *inbytesleft         -= n;
+        return 0;
+      }
+      // TOD_LOGE("back convertion (%d->wchar_t) failed", cp);
+      err = EINVAL;
+    } else {
+      // TOD_LOGE("back convertion (%d->wchar_t) result in DEFAULT_CHAR_USED", cp);
+      switch (GetLastError()) {
+        case ERROR_INSUFFICIENT_BUFFER:
+          err = E2BIG;
+          break;
+        case ERROR_INVALID_FLAGS:
+        case ERROR_INVALID_PARAMETER:
+          err = EINVAL;
+          break;
+        case ERROR_NO_UNICODE_TRANSLATION:
+          err = EINVAL;
+          break;
+        default:
+          err = EINVAL;
+          break;
+      }
+    }
+  } else {
+    // WLOGE(err, "convertion (wchar_t->%d)", cp);
+    switch (GetLastError()) {
+      case ERROR_INSUFFICIENT_BUFFER:
+        err = E2BIG;
+        break;
+      case ERROR_INVALID_FLAGS:
+      case ERROR_INVALID_PARAMETER:
+        err = EINVAL;
+        break;
+      case ERROR_NO_UNICODE_TRANSLATION:
+        err = EINVAL;
+        break;
+      default:
+        err = EINVAL;
+        break;
+    }
+  }
+
+  src_len /= 2;
+
+  if (src_len == 0) return err;
+
+  goto again;
+}
+
 
 static int iconv_get_acp(const char *code, cpinfo_t *info)
 {
@@ -872,6 +1051,316 @@ err:
   return -1;
 }
 
+static int UTF_16LE_to_wchar(codepage_t *codepage, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
+{
+  (void)codepage;
+
+  while (*inbytesleft >= 2 && *outbytesleft >= 2) {
+    uint16_t wc = *(uint16_t*)*outbuf = *(uint16_t*)*inbuf;
+    if (codepage->ucs2 && wc >= 0xD800 && wc <= 0xDBFF) return EILSEQ;
+    *inbuf           += 2;
+    *inbytesleft     -= 2;
+    *outbuf          += 2;
+    *outbytesleft    -= 2;
+  }
+
+  if (*inbytesleft) return E2BIG;
+  return 0;
+}
+
+static int wchar_to_UTF_16LE(codepage_t *codepage, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
+{
+  (void)codepage;
+
+  while (*inbytesleft >= 2 && *outbytesleft >= 2) {
+    uint16_t wc = *(uint16_t*)*outbuf = *(uint16_t*)*inbuf;
+    if (codepage->ucs2 && wc >= 0xD800 && wc <= 0xDBFF) return EILSEQ;
+    *inbuf           += 2;
+    *inbytesleft     -= 2;
+    *outbuf          += 2;
+    *outbytesleft    -= 2;
+  }
+
+  if (*inbytesleft) return E2BIG;
+  return 0;
+}
+
+static int UTF_16BE_to_wchar(codepage_t *codepage, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
+{
+  (void)codepage;
+
+  while (*inbytesleft >= 2 && *outbytesleft >= 2) {
+    uint16_t wc = *(uint16_t*)*inbuf;
+    *(uint16_t*)*outbuf = wc = ((wc & 0xff) << 8) | (wc >> 8);
+    if (codepage->ucs2 && wc >= 0xD800 && wc <= 0xDBFF) return EILSEQ;
+    *inbuf           += 2;
+    *inbytesleft     -= 2;
+    *outbuf          += 2;
+    *outbytesleft    -= 2;
+  }
+
+  if (*inbytesleft) return E2BIG;
+  return 0;
+}
+
+static int wchar_to_UTF_16BE(codepage_t *codepage, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
+{
+  (void)codepage;
+
+  while (*inbytesleft >= 2 && *outbytesleft >= 2) {
+    uint16_t wc = *(uint16_t*)*outbuf = *(uint16_t*)*inbuf;
+    if (codepage->ucs2 && wc >= 0xD800 && wc <= 0xDBFF) return EILSEQ;
+    *(uint16_t*)*outbuf = ((wc & 0xff) << 8) | (wc >> 8);
+    *inbuf           += 2;
+    *inbytesleft     -= 2;
+    *outbuf          += 2;
+    *outbytesleft    -= 2;
+  }
+
+  if (*inbytesleft) return E2BIG;
+  return 0;
+}
+
+static int UTF_32LE_to_wchar(codepage_t *codepage, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
+{
+  (void)codepage;
+
+  while (*inbytesleft >= 4) {
+    uint32_t wc = *(uint32_t*)*inbuf;
+    if (codepage->be) wc = ((wc & 0xff)<<24) | ((wc & 0xff00)<<8) | ((wc & 0xff0000)>>8) | (wc >> 24);
+    uint16_t *dst = (uint16_t*)*outbuf;
+    if (wc < 0x10000) {
+        if (*outbytesleft<2) return E2BIG;
+        dst[0] = (uint16_t)wc;
+        *outbuf       += 2;
+        *outbytesleft -= 2;
+    } else {
+        if (*outbytesleft<4) return E2BIG;
+        wc -= 0x10000;
+        dst[0] = (uint16_t)(0xD800 | ((wc >> 10) & 0x3FF));
+        dst[1] = (uint16_t)(0xDC00 | (wc & 0x3FF));
+        *outbuf       += 4;
+        *outbytesleft -= 4;
+    }
+    *inbuf        += 4;
+    *inbytesleft  -= 4;
+  }
+  if (*inbytesleft) return E2BIG;
+  return 0;
+}
+
+static int wchar_to_UTF_32LE(codepage_t *codepage, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
+{
+  (void)codepage;
+
+  while (*inbytesleft >= 2) {
+    if (*outbytesleft < 4) return E2BIG;
+    uint16_t *wbuf = (uint16_t*)*inbuf;
+    uint32_t wc = wbuf[0];
+    int n = 2;
+    if (0xD800 <= wc && wc <= 0xDBFF) {
+      if (*inbytesleft < 4) return E2BIG;
+
+      wc = ((wc & 0x3FF) << 10) + (wbuf[1] & 0x3FF) + 0x10000;
+      n = 4;
+    }
+
+    if (codepage->be) wc = ((wc & 0xff)<<24) | ((wc & 0xff00)<<8) | ((wc & 0xff0000)>>8) | (wc >> 24);
+
+    *inbuf        += n;
+    *inbytesleft  -= n;
+    *(uint32_t*)*outbuf = wc;
+    *outbuf       += 4;
+    *outbytesleft -= 4;
+  }
+
+  if (*inbytesleft) return E2BIG;
+  return 0;
+}
+
+static int ilseq_or_inval_utf8(codepage_t *codepage, const unsigned char *remain, size_t remainlen)
+{
+  int len = 0;
+
+  if ((remain[0] & 0xE0) == 0xC0) len = 2;
+  else if ((remain[0] & 0xF0) == 0xE0) len = 3;
+  else if ((remain[0] & 0xF8) == 0xF0) len = 4;
+  else if ((remain[0] & 0xFC) == 0xF8) len = 5;
+  else if ((remain[0] & 0xFE) == 0xFC) len = 6;
+  else return EILSEQ;
+
+  for (size_t i=1; i<len && i<codepage->info.MaxCharSize; ++i) {
+    if (remainlen <= i) return EINVAL;
+    if ((remain[i] & 0xC0) == 0x80) continue;
+    return EILSEQ;
+  }
+
+  return EINVAL;
+}
+
+static int ilseq_or_inval_others(codepage_t *codepage, const unsigned char *remain, size_t remainlen)
+{
+  int len = 0;
+  if (codepage->info.MaxCharSize == 1) return EINVAL;
+  if (codepage->info.MaxCharSize == 2) {
+    len = IsDBCSLeadByteEx(codepage->cp, remain[0]) ? 2 : 1;
+    if (len == 1) return EINVAL;
+    if (remainlen < 2) return EINVAL;
+    return EILSEQ;
+  }
+
+  if (codepage->cp == 54936) {
+	  // 1: [0x00~0x7F]
+    // 2: [0x81~0xFE]([0x40~0x7E]|[0x80~0xFE])
+    // 4: [0x81~0xFE][0x30~0x39]..
+    if (remainlen == 1) return EINVAL;
+    if (remain[0] < 0x81 || remain[0] > 0xFE) return EILSEQ;
+    if (remainlen < 2) return EINVAL;
+    if (remainlen == 2) return EILSEQ;
+    return EINVAL;
+  }
+
+	return EINVAL;
+}
+
+#define M2W_FLAGS            (MB_PRECOMPOSED | MB_ERR_INVALID_CHARS)
+#define W2M_FLAGS            (WC_COMPOSITECHECK | WC_ERR_INVALID_CHARS | WC_NO_BEST_FIT_CHARS)
+
+static int codepage_init(codepage_t *codepage, const char *name)
+{
+  int r = 0;
+
+#define RECORD(x, y, z, a) { x, y, z, a}
+  struct {
+    const char          *name;
+    UINT                 cp;
+    uint8_t              ucs2:1;
+    uint8_t              be:1;
+  } names[] = {
+    RECORD("GB18030",        54936         ,0,        0),
+    RECORD("UTF8",           CP_UTF8       ,0,        0),
+    RECORD("UTF-8",          CP_UTF8       ,0,        0),
+
+    RECORD("UTF-16LE",       1200          ,0,        0),
+    RECORD("UCS-2LE",        1200          ,1,        0),
+
+    RECORD("UTF-32LE",       12000         ,0,        0),
+    RECORD("UCS-4LE",        12000         ,1,        0),
+
+    RECORD("UTF-16BE",       1201          ,0,        1),
+    RECORD("UCS-2BE",        1201          ,1,        1),
+
+    RECORD("UTF-32BE",       12000         ,0,        1),
+    RECORD("UCS-4BE",        12000         ,1,        1),
+
+    RECORD("CP437",          437           ,0,        0),
+    RECORD("CP850",          850           ,0,        0),
+    RECORD("CP858",          858           ,0,        0),
+    RECORD("CP1252",         1252          ,0,        0),
+  };
+  const size_t nr_names = sizeof(names) / sizeof(names[0]);
+#undef RECORD
+
+  r = -1;
+  for (size_t i=0; i<nr_names; ++i) {
+    if (tod_strcasecmp(name, names[i].name)) continue;
+    codepage->cp   = names[i].cp;
+    codepage->ucs2 = names[i].ucs2;
+    codepage->be   = names[i].be;
+    r = 0;
+  }
+
+  if (r) {
+    // TOD_LOGE("codepage [%s] not supported yet", name);
+    errno = EINVAL;
+    return -1;
+  }
+
+  UINT cp = codepage->cp;
+
+  snprintf(codepage->name, sizeof(codepage->name), "%s", name);
+
+  if (cp < 57002 || cp > 57011) {
+    switch (cp) {
+      case 50220:
+      case 50221:
+      case 50222:
+      case 50225:
+      case 50227:
+      case 50229:
+      case CP_UTF7:// 65000: // UTF-7
+      case 42:
+        break;
+      case CP_UTF8: // 65001: // UTF-8
+      case 54936: // GB18030
+        codepage->flags_m2w = MB_ERR_INVALID_CHARS;
+        codepage->flags_w2m = WC_ERR_INVALID_CHARS;
+        break;
+      default:
+        codepage->flags_m2w = M2W_FLAGS;
+        codepage->flags_w2m = W2M_FLAGS;
+        break;
+    }
+  }
+
+  switch (cp) {
+    case CP_UTF7:
+    case CP_UTF8:
+      codepage->lpUsedDefaultChar = NULL;
+      break;
+    case 54936:
+      // FIXME: different than https://learn.microsoft.com/en-us/windows/win32/api/stringapiset/nf-stringapiset-widechartomultibyte
+      codepage->lpUsedDefaultChar = NULL;
+      break;
+    default:
+      codepage->lpUsedDefaultChar = &codepage->usedDefaultChar;
+      break;
+  }
+
+  switch (cp) {
+    case 1200:  // UTF-16LE
+      codepage->src_to_wchar = UTF_16LE_to_wchar;
+      codepage->wchar_to_dst = wchar_to_UTF_16LE;
+      break;
+    case 1201:  // UTF-16BE
+      codepage->src_to_wchar = UTF_16BE_to_wchar;
+      codepage->wchar_to_dst = wchar_to_UTF_16BE;
+      break;
+    case 12000: // UTF-32LE
+      codepage->src_to_wchar = UTF_32LE_to_wchar;
+      codepage->wchar_to_dst = wchar_to_UTF_32LE;
+      break;
+    default:
+      if (!GetCPInfoEx(cp, 0, &codepage->info)) {
+        errno = EINVAL;
+        return -1;
+      }
+      codepage->src_to_wchar = m2w;
+      codepage->wchar_to_dst = w2m;
+      if (cp == CP_UTF8) {
+        codepage->ilseq_or_inval = ilseq_or_inval_utf8;
+      } else {
+        codepage->ilseq_or_inval = ilseq_or_inval_others;
+      }
+      break;
+  }
+
+  // char defaultChar[1024];               *defaultChar        = '\0';
+  // char leadByte[1024];                  *leadByte           = '\0';
+  // char unicodeDefaultChar[1024];        *unicodeDefaultChar = '\0';
+  // char codePageName[1024];              *codePageName = '\0';
+
+  // fprintf(stderr, "\n");
+  // fprintf(stderr, "%s[%d]\n", name, cp);
+  // fprintf(stderr, "MaxCharSize:%d\n", codepage->info.MaxCharSize);
+  // fprintf(stderr, "DefaultChar:0x%s\n", tod_hexify(defaultChar, sizeof(defaultChar), codepage->info.DefaultChar, sizeof(codepage->info.DefaultChar)));
+  // fprintf(stderr, "LeadByte:%s\n", tod_hexify(leadByte, sizeof(leadByte), codepage->info.LeadByte, sizeof(codepage->info.LeadByte)));
+  // fprintf(stderr, "UnicodeDefaultChar:%s\n", tod_hexify(unicodeDefaultChar, sizeof(unicodeDefaultChar), (const unsigned char*)&codepage->info.UnicodeDefaultChar, sizeof(codepage->info.UnicodeDefaultChar)));
+  // fprintf(stderr, "CodePageName:%s\n", tod_hexify(codePageName, sizeof(codePageName), codepage->info.CodePageName, sizeof(codepage->info.CodePageName)));
+
+  return 0;
+}
+
 iconv_t iconv_open(const char *tocode, const char *fromcode)
 {
   int r = 0;
@@ -885,13 +1374,23 @@ iconv_t iconv_open(const char *tocode, const char *fromcode)
 
   BOOL ok = TRUE;
 
+  cnv->use_codepage = 1;
+
   do {
-    r = iconv_get_acp(fromcode, &cnv->from);
-    if (r) break;
-    r = iconv_get_acp(tocode, &cnv->to);
-    if (r) break;
-    r = iconv_init(cnv);
-    if (r) break;
+    if (cnv->use_codepage) {
+      r = codepage_init(&cnv->codepage_from, fromcode);
+      if (r) break;
+      r = codepage_init(&cnv->codepage_to, tocode);
+      if (r) break;
+    } else {
+      r = iconv_get_acp(fromcode, &cnv->from);
+      if (r) break;
+      r = iconv_get_acp(tocode, &cnv->to);
+      if (r) break;
+
+      r = iconv_init(cnv);
+      if (r) break;
+    }
 
     // TOD_LOGE("from %s -> %s", fromcode, tocode);
     // TOD_LOGE("from %d -> %d", cnv->from.cp, cnv->to.cp);
@@ -911,6 +1410,71 @@ int iconv_close(iconv_t cd)
   cpinfo_release(&cd->from);
   cpinfo_release(&cd->to);
   free(cd);
+  return 0;
+}
+
+static size_t do_iconv(iconv_t cd, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
+{
+  char      *src        = *inbuf;
+  size_t     src_len    = *inbytesleft;
+  char      *dst        = *outbuf;
+  size_t     dst_len    = *outbytesleft;
+
+  char buf[4096]; *buf = '\0';
+
+  while (*inbytesleft) {
+    if (*outbytesleft == 0) {
+      errno = E2BIG;
+      return (size_t)-1;
+    }
+
+    char       *p            = buf;
+    size_t      n            = sizeof(buf);
+
+    int err1 = 0;
+    int err2 = 0;
+
+    // TOD_LOGE("m2w:([%d]%s->wchar_t)[%zd]->[%zd]", cd->codepage_from.cp, cd->codepage_from.name, *inbytesleft, n);
+    // dump_buf(stderr, *inbuf, *inbytesleft, "I:", "\n");
+    err1 = cd->codepage_from.src_to_wchar(&cd->codepage_from, inbuf, inbytesleft, &p, &n);
+    // dump_buf(stderr, *inbuf, *inbytesleft, "R:", "\n");
+    // dump_buf(stderr, buf, sizeof(buf) - n, "C:", "\n");
+    if (err1 && (err1 != E2BIG)) {
+      errno = err1;
+      if (!cd->codepage_from.ilseq_or_inval) return (size_t)-1;
+      errno = cd->codepage_from.ilseq_or_inval(&cd->codepage_from, (const unsigned char*)*inbuf, *inbytesleft);
+      return (size_t)-1;
+    }
+
+    char    *pp = buf;
+    size_t   nn = sizeof(buf) - n;
+
+    char    *qq = *outbuf;
+    size_t   mm = *outbytesleft;
+
+    // TOD_LOGE("w2m:(wchar_t->[%d]%s)[%zd]->[%zd]", cd->codepage_to.cp, cd->codepage_to.name, nn, *outbytesleft);
+    // dump_buf(stderr, pp, nn, "I:", "\n");
+    err2 = cd->codepage_to.wchar_to_dst(&cd->codepage_to, &pp, &nn, outbuf, outbytesleft);
+    // dump_buf(stderr, pp, nn, "R:", "\n");
+    // dump_buf(stderr, qq, mm - *outbytesleft, "C:", "\n");
+
+    if (nn) {
+      // TOD_LOGE("calc:(wchar_t->%d)[%zd]", cd->codepage_from.cp, nn);
+      // dump_buf(stderr, pp, nn, "I:", "\n");
+      int nnn = CALL_WideCharToMultiByte(cd->codepage_from.cp, cd->codepage_from.flags_w2m, (LPCWCH)pp, (int)(nn/2), NULL, 0, NULL, NULL);
+      // TOD_LOGE("nnn:%d", nnn);
+      *inbuf       -= nnn;
+      *inbytesleft += nnn;
+      err1          = 0;
+    }
+
+    if (err2) {
+      // WLOGE(err, "convertion (wchar_t->%d)", cd->codepage_to.cp);
+      errno = err2;
+      return (size_t)-1;
+    }
+  }
+
   return 0;
 }
 
@@ -952,6 +1516,10 @@ size_t iconv(iconv_t cd, char **inbuf, size_t *inbytesleft, char **outbuf, size_
     // TOD_LOGE("no sufficient room for outbuf");
     errno = E2BIG;
     return (size_t)-1;
+  }
+
+  if (cd->use_codepage) {
+    return do_iconv(cd, inbuf, inbytesleft, outbuf, outbytesleft);
   }
 
   // TOD_LOGE("inbytes:%zd;outbytes:%zd", n_inbytes, n_outbytes);

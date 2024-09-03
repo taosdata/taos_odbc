@@ -945,7 +945,7 @@ static int test_wildmatch(void)
     {"你\\_",            "你_",                1},
     {"你\\_",            "你.",                0},
     {"",                 "",                   1},
-  };
+ };
 
   for (size_t i=0; i<sizeof(cases)/sizeof(cases[0]); ++i) {
     string_t pattern = {
@@ -1133,7 +1133,7 @@ static int test_iconv(void)
     outbytesleft = outbytes;
     n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
     A(n == (size_t)-1, "-1 expected, but got ==%zd==", n);
-    A(errno == E2BIG, "");
+    A(errno == E2BIG, "errno:[%d]%s", errno, strerror(errno));
     A(inbytes - inbytesleft == 6, "6 expected, but got ==%zd==", inbytes - inbytesleft);
     A(outbytes - outbytesleft == 2, "%zd", outbytes - outbytesleft);
     A(strncmp(buf, "\xd6\xd0\xce\xc4", 4)==0, "");
@@ -1338,24 +1338,49 @@ static int test_iconv_full(void)
     size_t                 ret;
     int                    err;
   } _cases[] = {
+    RECORD("GB18030", "%%%%%%%%%%%%%%%%", 16, 16, "UCS-4LE", "\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00", 64, 0, 0),
+    RECORD("GB18030", "hello", 5, 5, "UCS-4LE", "\x68\x00\x00\x00\x65\x00\x00\x00\x6c\x00\x00\x00\x6c\x00\x00\x00\x6f\x00\x00\x00", 20, 0, 0),
+    RECORD("UCS-2BE", "\x00\x61", 2, 2, "UTF8", "a", 1, 0, 0),
+    RECORD("UTF8", "a", 1, 1, "UCS-2BE", "\x00\x61", 2, 0, 0),
+    RECORD("UCS-2LE", "\x61\x00", 2, 2, "UTF8", "a", 1, 0, 0),
+    RECORD("UTF8", "a", 1, 1, "UCS-2LE", "\x61\x00", 2, 0, 0),
+    RECORD("UTF8", "a", 1, 1, "UCS-4LE", "\x61\x00\x00\x00", 4, 0, 0),
+    RECORD("UTF8", "a", 1, 1, "UTF-16LE", "\x61\x00", 2, 0, 0),
+    RECORD("UTF8", "a", 1, 1, "UTF-32LE", "\x61\x00\x00\x00", 4, 0, 0),
+
+    RECORD("UTF8", "\xf0\x9f\x98\x80", 4, 4, "UCS-4LE", "\x00\xf6\x01\x00", 4, 0, 0), // 😀
+    RECORD("UTF8", "\xf0\x9f\x98\x80", 4, 4, "UCS-4BE", "\x00\x01\xf6\x00", 4, 0, 0), // 😀
+    RECORD("UTF8", "\xf0\x9f\x98\x80", 4, 4, "UTF-32LE", "\x00\xf6\x01\x00", 4, 0, 0), // 😀
+    RECORD("UTF8", "\xf0\x9f\x98\x80", 4, 4, "UTF-32BE", "\x00\x01\xf6\x00", 4, 0, 0), // 😀
+    RECORD("UTF8", "\xf0\x9f\x98\x80", 4, 4, "UTF-16LE", "\x3d\xd8\x00\xde", 4, 0, 0), // 😀
+    RECORD("UTF8", "\xf0\x9f\x98\x80", 4, 4, "UTF-16BE", "\xd8\x3d\xde\x00", 4, 0, 0), // 😀
+    RECORD("UTF8", "\xf0\x9f\x98\x80", 4, 0, "UCS-2LE", "", 0, (size_t)-1, EILSEQ), // 😀
+    RECORD("UTF8", "\xf0\x9f\x98\x80", 4, 0, "UCS-2BE", "", 0, (size_t)-1, EILSEQ), // 😀
+
+    RECORD("UCS-4LE", "\x00\xf6\x01\x00",  4, 4, "UTF8", "\xf0\x9f\x98\x80", 4, 0, 0), // 😀
+    RECORD("UCS-4BE", "\x00\x01\xf6\x00",  4, 4, "UTF8", "\xf0\x9f\x98\x80", 4, 0, 0), // 😀
+    RECORD("UTF-32LE", "\x00\xf6\x01\x00", 4, 4, "UTF8", "\xf0\x9f\x98\x80", 4, 0, 0), // 😀
+    RECORD("UTF-32BE", "\x00\x01\xf6\x00", 4, 4, "UTF8", "\xf0\x9f\x98\x80", 4, 0, 0), // 😀
+    RECORD("UTF-16LE", "\x3d\xd8\x00\xde", 4, 4, "UTF8", "\xf0\x9f\x98\x80", 4, 0, 0), // 😀
+    RECORD("UTF-16BE", "\xd8\x3d\xde\x00", 4, 4, "UTF8", "\xf0\x9f\x98\x80", 4, 0, 0), // 😀
+    RECORD("UCS-2LE", "\x3d\xd8\x00\xde", 4, 0, "UTF8", "", 0, (size_t)-1, EILSEQ), // 😀
+    RECORD("UCS-2BE", "\xd8\x3d\xde\x00", 4, 0, "UTF8", "", 0, (size_t)-1, EILSEQ), // 😀
+
+    RECORD("UCS-4LE", "\x00\xf6\x01\x00", 4, 4, "UTF8", "\xf0\x9f\x98\x80", 4, 0, 0), // 😀
+    RECORD("UCS-4LE", "\x61\x00\x00\x00", 4, 4, "UTF8", "a", 1, 0, 0),
+    RECORD("UTF-32LE", "\x61\x00\x00\x00", 4, 4, "UTF8", "a", 1, 0, 0),
+
     RECORD("UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96\xe7\x95\x8c", 12, 12, "GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7", 8, 0, 0),
+    RECORD("UTF8", "\xe4\xbd\xa0", 3, 3, "UCS-4LE", "\x60\x4f\x00\x00", 4, 0, 0),
     RECORD("UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96\xe7\x95", 11, 9, "GB18030", "\xc4\xe3\xba\xc3\xca\xc0", 6, (size_t)-1, EINVAL),
-#ifdef _WIN32       /* { */
-    // NOTE: on windows, currently, failed to distinguish between EILSEQ (illegal sequence) and EINVAL (incomplete sequence)
-    RECORD("UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96\xe7\x95\x00", 12, 9, "GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7", 6, -1, EINVAL),
-#else               /* }{ */
+    RECORD("UCS-4LE", "\x60\x4f\x00\x00\x7d\x59\x00\x00\x16\x4e\x00\x00\x4c\x75\x00\x00", 16, 16, "GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7", 8, 0, 0),
     RECORD("UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96\xe7\x95\x00", 12, 9, "GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7", 6, -1, EILSEQ),
-#endif              /* } */
     RECORD("GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7", 8, 8, "UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96\xe7\x95\x8c", 12, 0, 0),
     RECORD("GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd", 7, 6, "UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96", 9, -1, EINVAL),
-#ifdef _WIN32       /* { */
-    // NOTE: on windows, currently, failed to distinguish between EILSEQ (illegal sequence) and EINVAL (incomplete sequence)
-    RECORD("GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd\x00", 8, 6, "UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96", 9, -1, EINVAL),
-#else               /* }{ */
     RECORD("GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd\x00", 8, 6, "UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96", 9, -1, EILSEQ),
-#endif              /* } */
     RECORD("UCS-4LE", "\x00\xf6\x01\x00", 4, 4, "UTF8", "\xf0\x9f\x98\x80", 4, 0, 0), // 😀
     RECORD("UTF8", "\xf0\x9f\x98\x80", 4, 4, "UCS-4LE", "\x00\xf6\x01\x00", 4, 0, 0), // 😀
+    RECORD("UCS-4LE", "\x00\xf6\x01\x00", 4, 4, "UTF-16LE", "\x3d\xd8\x00\xde", 4, 0, 0), // 😀
   };
   const size_t _nr_cases = sizeof(_cases) / sizeof(_cases[0]);
 #undef RECORD
@@ -1393,7 +1418,8 @@ static int test_iconv_full(void)
       }
       if (n == (size_t)-1) {
         if (err != errno) {
-          E("@[%d]:`[%d]%s` expected, but got ==[%d]%s==", line, err, strerror(err), errno, strerror(errno));
+          char ebuf[4096]; *ebuf = '\0'; strerror_s(ebuf, sizeof(ebuf), errno);
+          E("@[%d]:`[%d]%s` expected, but got ==[%d]%s==", line, err, strerror(err), errno, (const char*)ebuf);
           r = -1;
           break;
         }
@@ -1422,6 +1448,87 @@ static int test_iconv_full(void)
   }
 
   return r ? -1 : 0;
+}
+
+static int test_iconv_err(void)
+{
+// {
+#define R(a, b, c, d, e, f) {__LINE__, a, b, c, d, (size_t)e, f}
+  static struct {
+    int         line;
+    const char *code_name;
+    const char *in;
+    const char *remain;
+    const char *converted;
+    size_t      ret;
+    int         err;
+  } _cases[] = {
+    R("UTF-8", "\xe4\xba", "\xe4\xba", "", -1, EINVAL),
+    R("UTF-8", "\xe4\x0a", "\xe4\x0a", "", -1, EILSEQ),
+  };
+#undef  R
+// }
+
+  for (size_t i=0; i<sizeof(_cases)/sizeof(_cases[0]); ++i) {
+    int         line           = _cases[i].line;
+    const char *code_name      = _cases[i].code_name;
+    const char *in             = _cases[i].in;
+    size_t      inlen          = strlen(_cases[i].in);
+    const char *remain         = _cases[i].remain;
+    size_t      remainlen      = strlen(_cases[i].remain);
+    const char *converted      = _cases[i].converted;
+    size_t      convertedlen   = strlen(_cases[i].converted);
+    size_t      ret            = _cases[i].ret;
+    int         err            = _cases[i].err;
+
+    const char *tocode = "UTF-16LE";
+    iconv_t cd = iconv_open(tocode, code_name);
+    if (cd == (iconv_t)-1) {
+      E("@[%d]:not convertion found for %s->UTF-16LE", line, code_name);
+      return -1;
+    }
+
+    int r = -1;
+
+    do {
+      char buf[4096]; *buf = '\0';
+      char      *inbuf               = (char*)in;
+      size_t     inbytesleft         = inlen;
+      char      *outbuf              = buf;
+      size_t     outbytesleft        = sizeof(buf);
+      size_t n = iconv(cd, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+      int e = errno;
+      if (n != (size_t)-1) e = 0;
+      if (n != ret) {
+        E("@[%d]:return value mismatched:expecting %zd, but got ==%zd==", line, ret, n);
+        break;
+      }
+      char sbuf1[4096]; *sbuf1 = '\0';
+      char sbuf2[4096]; *sbuf2 = '\0';
+      if (inbytesleft != remainlen || memcmp(inbuf, remain, remainlen)) {
+        E("@[%d]:remaining msimatched", line); // TODO
+        break;
+      }
+      if (sizeof(buf) - outbytesleft != convertedlen || memcmp(buf, converted, convertedlen)) {
+        E("@[%d]:converted msimatched", line); // TODO
+        break;
+      }
+      if (err != e) {
+        char buf1[4096]; *buf1 = '\0';
+        char buf2[4096]; *buf2 = '\0';
+        snprintf(buf1, sizeof(buf1), "%s", strerror(err));
+        snprintf(buf2, sizeof(buf2), "%s", strerror(e));
+        E("@[%d]:errno mismatched:expecting [%d]%s, but got ==[%d]%s==", line, err, buf1, e, buf2);
+        break;
+      }
+      r = 0;
+    } while (0);
+    iconv_close(cd);
+
+    if (r) return -1;
+  }
+
+  return 0;
 }
 
 
@@ -1616,6 +1723,7 @@ static struct {
   RECORD(test_iconv_perf_reuse),
   RECORD(test_iconv_perf_on_the_fly),
   RECORD(test_iconv_full),
+  RECORD(test_iconv_err),
 #ifdef _WIN32              /* { */
   RECORD(test_mbcs),
   RECORD(test_codepages),

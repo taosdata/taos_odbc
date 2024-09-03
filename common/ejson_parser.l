@@ -106,10 +106,12 @@ V_NULL        (?i:null)
 .                      { R(); C(); return *yytext; } /* let bison to handle */
 }
 
+  /* https://en.wikipedia.org/wiki/UTF-16 */
 <DQ>{
 {DQ}                   { R(); POP(); C(); return *yytext; }
 [^"\\[:cntrl:]]+       { R(); SET_STR(); C(); return MKT(STR); }
 "\\"/[bfnrt"\\]        { R(); PUSH(ESC); C(); } /* eat */
+"\\u"[dD][8-9a-fA-F][[:xdigit:]]{2}"\\u"[dD][c-fC-F][[:xdigit:]]{2} { R(); SET_STR(); C(); return MKT(EUNI); }
 "\\u"[[:xdigit:]]{4}   { R(); SET_STR(); C(); return MKT(EUNI); }
 "\t"                   { R(); CHR_BY_STR("\t"); C(); return MKT(CHR); }
 ["[:cntrl:]]           { R(); C(); return *yytext; } /* let bison to handle */
@@ -120,6 +122,7 @@ V_NULL        (?i:null)
 {SQ}                   { R(); POP(); C(); return *yytext; }
 [^'\\[:cntrl:]]+       { R(); SET_STR(); C(); return MKT(STR); }
 "\\"/[bfnrt'\\]        { R(); PUSH(ESC); C(); } /* eat */
+"\\u"[dD][8-9a-fA-F][[:xdigit:]]{2}"\\u"[dD][c-fC-F][[:xdigit:]]{2} { R(); SET_STR(); C(); return MKT(EUNI); }
 "\\u"[[:xdigit:]]{4}   { R(); SET_STR(); C(); return MKT(EUNI); }
 "\t"                   { R(); CHR_BY_STR("\t"); C(); return MKT(CHR); }
 ['[:cntrl:]]           { R(); C(); return *yytext; } /* let bison to handle */
@@ -130,6 +133,7 @@ V_NULL        (?i:null)
 {AA}                   { R(); POP(); C(); return *yytext; }
 [^`\\[:cntrl:]]+       { R(); SET_STR(); C(); return MKT(STR); }
 "\\"/[bfnrt`\\]        { R(); PUSH(ESC); C(); } /* eat */
+"\\u"[dD][8-9a-fA-F][[:xdigit:]]{2}"\\u"[dD][c-fC-F][[:xdigit:]]{2} { R(); SET_STR(); C(); return MKT(EUNI); }
 "\\u"[[:xdigit:]]{4}   { R(); SET_STR(); C(); return MKT(EUNI); }
 "\t"                   { R(); CHR_BY_STR("\t"); C(); return MKT(CHR); }
 [`[:cntrl:]]           { R(); C(); return *yytext; } /* let bison to handle */

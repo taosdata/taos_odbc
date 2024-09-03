@@ -437,6 +437,7 @@ static int test_ejson_parser(void)
     RECORD("'\\u4eba'", "\"\xe4\xba\xba\""),
     RECORD("`\\u4eba`", "\"\xe4\xba\xba\""),
     RECORD("'x\\u4ebay'", "\"x\xe4\xba\xbay\""),
+    RECORD("\"\\u4eba\\ud83d\\ude00\"", "\"\xe4\xba\xba\xf0\x9f\x98\x80\""),
     RECORD("\"abc\\tdef\"", "\"abc\\tdef\""),
     RECORD("{d}]", NULL),
     RECORD("'\\\\'", "\"\\\\\""),

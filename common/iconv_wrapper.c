@@ -1178,7 +1178,9 @@ static int ilseq_or_inval_others(codepage_t *codepage, const unsigned char *rema
   }
 
   if (codepage->cp == 54936) {
-	  // 1: [0x00~0x7F]
+    // https://github.com/win-iconv/win-iconv.git v0.0.8
+    // win_iconv.c[1297]::mbcs_mblen(...)
+    // 1: [0x00~0x7F]
     // 2: [0x81~0xFE]([0x40~0x7E]|[0x80~0xFE])
     // 4: [0x81~0xFE][0x30~0x39]..
     if (remainlen == 1) return EINVAL;
@@ -1188,7 +1190,7 @@ static int ilseq_or_inval_others(codepage_t *codepage, const unsigned char *rema
     return EINVAL;
   }
 
-	return EINVAL;
+  return EINVAL;
 }
 
 #define M2W_FLAGS            (MB_PRECOMPOSED | MB_ERR_INVALID_CHARS)

@@ -3273,4 +3273,21 @@
    fun:_ZN94_$LT$taos_ws..stmt..Stmt$u20$as$u20$taos_query..stmt..Bindable$LT$taos_ws..query..Taos$GT$$GT$4init17h0f668ef2958ff69cE
    fun:ws_stmt_init
 }
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:_ZN4http6header4name7HdrName10from_bytes17h8f777230c6ee7bd0E
+   fun:_ZN4http6header3map18HeaderMap$LT$T$GT$3get17hca5878680c5e7e58E
+   fun:_ZN11tungstenite9handshake6client10VerifyData15verify_response17h783827d674ff6141E
+   fun:_ZN11tungstenite9handshake24MidHandshake$LT$Role$GT$9handshake17hfb25d70d21d0e38fE
+   fun:_ZN114_$LT$tokio_tungstenite..handshake..StartedHandshakeFuture$LT$F$C$S$GT$$u20$as$u20$core..future..future..Future$GT$4poll17h222df5915692f967E
+   fun:_ZN17tokio_tungstenite7connect7connect28_$u7b$$u7b$closure$u7d$$u7d$17hf09af116ae04ed2cE
+   fun:_ZN7taos_ws11TaosBuilder16build_stream_opt28_$u7b$$u7b$closure$u7d$$u7d$17h6199a5efc94b43cdE
+   fun:_ZN5tokio7runtime4park16CachedParkThread8block_on17h5463a111298f8367E
+   fun:_ZN5tokio7runtime7context7runtime13enter_runtime17h0a57ce34c2482c72E
+   fun:_ZN5tokio7runtime7runtime7Runtime8block_on17h1ee7c949636c12feE
+   fun:_ZN10taos_query24block_in_place_or_global17h0c219b3adddb426eE
+   fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$5build17h4a6aecd016639bdfE
+   fun:ws_connect_with_dsn
+}
 

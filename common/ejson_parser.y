@@ -201,12 +201,19 @@
         errno = EINVAL;                                              \
         EEE(_loc, ":[\\u%.4s] not allowd", s);                       \
       }                                                              \
-      char utf8[8]; *utf8 = '\0';                                    \
+      char utf16[64]; *utf16 = '\0';                                 \
+      snprintf(utf16, sizeof(utf16), "%.4s", s);                     \
+      if (_u.leng == 12) {                                           \
+        snprintf(utf16+4, sizeof(utf16)-4, "%.4s", s + 6);           \
+      }                                                              \
+      char utf8[64]; *utf8 = '\0';                                   \
       iconv_t cnv = param->cnv;                                      \
-      int r = ejson_parser_iconv_char_unsafe(s, utf8, cnv);          \
+      int r = _ejson_parser_iconv_char_unsafe(utf16,                 \
+          utf8, sizeof(utf8), cnv);                                  \
       if (r) {                                                       \
         _ejson_str_release(&_str);                                   \
-        EEE(_loc, ":invalid %s:[\\u%.4s]", EJSON_PARSER_FROM, s);    \
+        EEE(_loc, ":invalid %s:[%.*s]",                              \
+          EJSON_PARSER_FROM, (int)_u.leng, _u.text);                 \
       }                                                              \
       if (_ejson_str_append_uni(&_str, utf8, strlen(utf8))) {        \
         _ejson_str_release(&_str);                                   \

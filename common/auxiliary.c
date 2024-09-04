@@ -330,3 +330,36 @@ void tod_hex2bytes_unsafe(
   }
 }
 
+unsigned char* tod_hex2bytes(unsigned char *buf, size_t n, const char *hex, size_t nr)
+{
+  if (nr & 1) {
+    errno = EINVAL;
+    return NULL;
+  }
+  if (n <= nr / 2) {
+    errno = E2BIG;
+    return NULL;
+  }
+  tod_hex2bytes_unsafe(hex, nr, (unsigned char*)buf);
+  return buf;
+}
+
+const char* tod_hexify(char *hex, size_t nr, const unsigned char *bin, size_t n)
+{
+  static const char digits[] = {
+    '0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'
+  };
+  if (nr / 2 <= n) {
+    errno = E2BIG;
+    return NULL;
+  }
+  char *p = hex;
+  for (size_t i=0; i<n; ++i) {
+    unsigned char c = *bin++;
+    *hex++ = digits[c>>4];
+    *hex++ = digits[c&0x0f];
+  }
+  *hex = '\0';
+  return p;
+}
+

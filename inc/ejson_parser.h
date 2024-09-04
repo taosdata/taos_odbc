@@ -102,18 +102,11 @@ struct ejson_parser_param_s {
 
 void ejson_parser_param_release(ejson_parser_param_t *param) FA_HIDDEN;
 
-#define EJSON_PARSER_FROM      "UCS-2BE"
+#define EJSON_PARSER_FROM      "UTF-16BE"
 #define EJSON_PARSER_TO        "UTF-8"
 
 iconv_t ejson_parser_iconv_open(void) FA_HIDDEN;
 void ejson_parser_iconv_close(iconv_t cnv) FA_HIDDEN;
-
-// ucs2be: 4-hexdigits
-// utf8:   at least 3 bytes, better 8 bytes
-// cnv:    from `ejson_parser_iconv_open()`
-// eg.:    "4eba" -> "人"
-int ejson_parser_iconv_char_unsafe(const char *ucs2be, char *utf8,
-    iconv_t cnv) FA_HIDDEN;
 
 // cnv: from `ejson_parser_iconv_open()`
 int ejson_parser_parse(const char *input, size_t len,

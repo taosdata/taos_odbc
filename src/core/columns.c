@@ -818,7 +818,7 @@ SQLRETURN columns_open(
     }
   }
 
-  sr = tables_open(&columns->tables, CatalogName, NameLength1, SchemaName, NameLength2, TableName, NameLength3, (SQLCHAR*)"TABLE", SQL_NTS);
+  sr = tables_open(&columns->tables, CatalogName, NameLength1, SchemaName, NameLength2, TableName, NameLength3, (SQLCHAR*)"TABLE,VIEW", SQL_NTS);
   if (sr != SQL_SUCCESS) return SQL_ERROR;
 
   return _fetch_and_desc_next_table(columns);

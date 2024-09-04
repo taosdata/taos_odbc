@@ -36,6 +36,8 @@ target_link_directories(taos_test PRIVATE ${CJSON_INSTALL_PATH}/lib)
 # NOTE: cJSON_xxx exported in `libtaos.so`
 if(TODBC_WINDOWS)
   target_link_libraries(taos_test cjson)
+  # NOTE: because 'utf8' is found in inc/ejson_parser.h
+  set_source_files_properties(taos_test.c PROPERTIES COMPILE_OPTIONS "/source-charset:utf-8")
 else()
   target_link_libraries(taos_test cjson dl pthread)
 endif()

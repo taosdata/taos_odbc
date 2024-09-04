@@ -179,6 +179,24 @@ static int test_conn_parser(void)
         .conn_mode               = 1,
         .charset_for_col_bind   = "UTF-8",
       },
+    },{
+      __LINE__,
+      "DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION=1;CONN_MODE=1;CHARSET_ENCODER_FOR_PARAM_BIND=UTF-8",
+      {
+        .dsn                    = "TAOS_ODBC_DSN",
+        .unsigned_promotion     = 1,
+        .customproduct          = 0,
+        .charset_for_col_bind   = "UTF-8",
+      },
+    },{
+      __LINE__,
+      "DSN=TAOS_ODBC_DSN;UNSIGNED_PROMOTION=1;CONN_MODE=1;CUSTOMPRODUCT={kingscada};CHARSET_ENCODER_FOR_PARAM_BIND=UTF-8",
+      {
+        .dsn                    = "TAOS_ODBC_DSN",
+        .unsigned_promotion     = 1,
+        .customproduct          = 1,
+        .charset_for_col_bind   = "UTF-8",
+      },
     },
   };
 
@@ -246,6 +264,12 @@ static int test_conn_parser(void)
       if (expected->port != param.conn_cfg->port) {
         E("parsing[@line:%d]:%s", line, s);
         E("port expected to be `%d`, but got ==%d==", expected->port, param.conn_cfg->port);
+        r = -1;
+        break;
+      }
+      if (expected->customproduct != param.conn_cfg->customproduct) {
+        E("parsing[@line:%d]:%s", line, s);
+        E("customproduct expected to be `%d`, but got ==%d==", expected->customproduct, param.conn_cfg->customproduct);
         r = -1;
         break;
       }
@@ -386,6 +410,35 @@ static int test_ejson_parser(void)
     const char            *match;
     int                    __line__;
   } _cases[] = {
+    RECORD("b\"\"",          "b\"\""),
+    RECORD("b\"ff\"",        "b\"\\x6666\""),
+    RECORD("b\"\t\"",        "b\"\\x09\""),
+    RECORD("b\"\\x4eba\"",   "b\"\\x4eba\""),
+    RECORD("b\"a\\x4ebaz\"", "b\"\\x614eba7a\""),
+
+    RECORD("\"\"", "\"\""),
+    RECORD("''",   "\"\""),
+    RECORD("``",   "\"\""),
+
+    RECORD("\"\\\"\"", "\"\\\"\""),
+    RECORD("'\\''",    "\"'\""),
+    RECORD("`\\``",    "\"`\""),
+
+    RECORD("\"\t\"", "\"\\t\""),
+    RECORD("'\t'",   "\"\\t\""),
+    RECORD("`\t`",   "\"\\t\""),
+
+    RECORD("\"\\t\"", "\"\\t\""),
+    RECORD("'\\t'",   "\"\\t\""),
+    RECORD("`\\t`",   "\"\\t\""),
+
+    // NOTE: 人 <==> e4baba
+    RECORD("\"\\u4eba\"", "\"\xe4\xba\xba\""),
+    RECORD("\"x\\u4ebay\"", "\"x\xe4\xba\xbay\""),
+    RECORD("'\\u4eba'", "\"\xe4\xba\xba\""),
+    RECORD("`\\u4eba`", "\"\xe4\xba\xba\""),
+    RECORD("'x\\u4ebay'", "\"x\xe4\xba\xbay\""),
+    RECORD("\"\\u4eba\\ud83d\\ude00\"", "\"\xe4\xba\xba\xf0\x9f\x98\x80\""),
     RECORD("\"abc\\tdef\"", "\"abc\\tdef\""),
     RECORD("{d}]", NULL),
     RECORD("'\\\\'", "\"\\\\\""),
@@ -489,12 +542,20 @@ static int test_ejson_parser(void)
   param.ctx.debug_flex = 1;
   // param.ctx.debug_bison = 1;
 
+  iconv_t cnv = ejson_parser_iconv_open();
+  if (cnv == (iconv_t)-1) {
+    E("no convertion found for %s -> %s",
+        EJSON_PARSER_FROM, EJSON_PARSER_TO);
+    return -1;
+  }
+
+  int r = 0;
   char buf[4096]; buf[0] = '\0';
   for (size_t i=0; i<nr; ++i) {
     const char *s         = _cases[i].text;
     const char *match     = _cases[i].match;
     int         __line__  = _cases[i].__line__;
-    int r = ejson_parser_parse(s, strlen(s), &param);
+    r = ejson_parser_parse(s, strlen(s), &param, cnv);
     buf[0] = '\0';
     do {
       if (r == 0) {
@@ -522,6 +583,7 @@ static int test_ejson_parser(void)
         if (strcmp(buf, match)) {
           E("parsing @[%dL]:%s", __line__, s);
           E("expecting:[%zd]%s", strlen(match), match);
+          // dump_for_debug(match, strlen(match));
           E("but got:[%zd]%s", strlen(buf), buf);
           r = -1;
           break;
@@ -531,9 +593,13 @@ static int test_ejson_parser(void)
     } while (0);
 
     ejson_parser_param_release(&param);
-    if (r) return -1;
+    if (r) break;
   }
 
+  ejson_parser_iconv_close(cnv);
+  cnv = (iconv_t)-1;
+
+  if (r) return -1;
   return 0;
 }
 
@@ -976,7 +1042,7 @@ static int test_wildmatch(void)
     {"你\\_",            "你_",                1},
     {"你\\_",            "你.",                0},
     {"",                 "",                   1},
-  };
+ };
 
   for (size_t i=0; i<sizeof(cases)/sizeof(cases[0]); ++i) {
     string_t pattern = {
@@ -1069,6 +1135,7 @@ static int test_iconv_names(void)
     RECORD("UTF8"),
     RECORD("UTF-8"),
     RECORD("UCS-2LE"),
+    RECORD("UCS-2BE"),
     RECORD("UCS-4LE"),
     RECORD("CP437"),
     RECORD("CP850"),
@@ -1163,7 +1230,7 @@ static int test_iconv(void)
     outbytesleft = outbytes;
     n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
     A(n == (size_t)-1, "-1 expected, but got ==%zd==", n);
-    A(errno == E2BIG, "");
+    A(errno == E2BIG, "errno:[%d]%s", errno, strerror(errno));
     A(inbytes - inbytesleft == 6, "6 expected, but got ==%zd==", inbytes - inbytesleft);
     A(outbytes - outbytesleft == 2, "%zd", outbytes - outbytesleft);
     A(strncmp(buf, "\xd6\xd0\xce\xc4", 4)==0, "");
@@ -1236,6 +1303,9 @@ static int test_iconvs(void)
     RECORD(GB18030, UCS-2LE, "\x62\xc3\xf1\x30", 4, "\x62\x00\x11\x6c\x30\x00", 6), // b民0
     RECORD(GB18030, UCS-2LE, "\x0", 1, "\x00\x00", 2),
     RECORD(GB18030, UCS-4LE, "\x0", 1, "\x00\x00\x00\x00", 4),
+    RECORD(UCS-2BE, UTF-8, "\x4e\xba", 2, "\xe4\xba\xba", 3),
+    RECORD(UCS-2BE, UTF-8, "\x4e\xba\x4e\xba\x4e\x2d\x4e\x2d", 8, "\xe4\xba\xba\xe4\xba\xba\xe4\xb8\xad\xe4\xb8\xad", 12),
+    RECORD(UCS-2BE, UTF-8, "\x4e\xba\x4e\xba\x4e\x2d\x4e\x2d\x4e\xba\x4e\xba\x4e\x2d\x4e\x2d", 16, "\xe4\xba\xba\xe4\xba\xba\xe4\xb8\xad\xe4\xb8\xad\xe4\xba\xba\xe4\xba\xba\xe4\xb8\xad\xe4\xb8\xad", 24),
   };
   const size_t nr_cases = sizeof(_cases) / sizeof(_cases[0]);
 #undef RECORD
@@ -1365,24 +1435,49 @@ static int test_iconv_full(void)
     size_t                 ret;
     int                    err;
   } _cases[] = {
+    RECORD("GB18030", "%%%%%%%%%%%%%%%%", 16, 16, "UCS-4LE", "\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00\x25\x00\x00\x00", 64, 0, 0),
+    RECORD("GB18030", "hello", 5, 5, "UCS-4LE", "\x68\x00\x00\x00\x65\x00\x00\x00\x6c\x00\x00\x00\x6c\x00\x00\x00\x6f\x00\x00\x00", 20, 0, 0),
+    RECORD("UCS-2BE", "\x00\x61", 2, 2, "UTF8", "a", 1, 0, 0),
+    RECORD("UTF8", "a", 1, 1, "UCS-2BE", "\x00\x61", 2, 0, 0),
+    RECORD("UCS-2LE", "\x61\x00", 2, 2, "UTF8", "a", 1, 0, 0),
+    RECORD("UTF8", "a", 1, 1, "UCS-2LE", "\x61\x00", 2, 0, 0),
+    RECORD("UTF8", "a", 1, 1, "UCS-4LE", "\x61\x00\x00\x00", 4, 0, 0),
+    RECORD("UTF8", "a", 1, 1, "UTF-16LE", "\x61\x00", 2, 0, 0),
+    RECORD("UTF8", "a", 1, 1, "UTF-32LE", "\x61\x00\x00\x00", 4, 0, 0),
+
+    RECORD("UTF8", "\xf0\x9f\x98\x80", 4, 4, "UCS-4LE", "\x00\xf6\x01\x00", 4, 0, 0), // 😀
+    RECORD("UTF8", "\xf0\x9f\x98\x80", 4, 4, "UCS-4BE", "\x00\x01\xf6\x00", 4, 0, 0), // 😀
+    RECORD("UTF8", "\xf0\x9f\x98\x80", 4, 4, "UTF-32LE", "\x00\xf6\x01\x00", 4, 0, 0), // 😀
+    RECORD("UTF8", "\xf0\x9f\x98\x80", 4, 4, "UTF-32BE", "\x00\x01\xf6\x00", 4, 0, 0), // 😀
+    RECORD("UTF8", "\xf0\x9f\x98\x80", 4, 4, "UTF-16LE", "\x3d\xd8\x00\xde", 4, 0, 0), // 😀
+    RECORD("UTF8", "\xf0\x9f\x98\x80", 4, 4, "UTF-16BE", "\xd8\x3d\xde\x00", 4, 0, 0), // 😀
+    RECORD("UTF8", "\xf0\x9f\x98\x80", 4, 0, "UCS-2LE", "", 0, (size_t)-1, EILSEQ), // 😀
+    RECORD("UTF8", "\xf0\x9f\x98\x80", 4, 0, "UCS-2BE", "", 0, (size_t)-1, EILSEQ), // 😀
+
+    RECORD("UCS-4LE", "\x00\xf6\x01\x00",  4, 4, "UTF8", "\xf0\x9f\x98\x80", 4, 0, 0), // 😀
+    RECORD("UCS-4BE", "\x00\x01\xf6\x00",  4, 4, "UTF8", "\xf0\x9f\x98\x80", 4, 0, 0), // 😀
+    RECORD("UTF-32LE", "\x00\xf6\x01\x00", 4, 4, "UTF8", "\xf0\x9f\x98\x80", 4, 0, 0), // 😀
+    RECORD("UTF-32BE", "\x00\x01\xf6\x00", 4, 4, "UTF8", "\xf0\x9f\x98\x80", 4, 0, 0), // 😀
+    RECORD("UTF-16LE", "\x3d\xd8\x00\xde", 4, 4, "UTF8", "\xf0\x9f\x98\x80", 4, 0, 0), // 😀
+    RECORD("UTF-16BE", "\xd8\x3d\xde\x00", 4, 4, "UTF8", "\xf0\x9f\x98\x80", 4, 0, 0), // 😀
+    RECORD("UCS-2LE", "\x3d\xd8\x00\xde", 4, 0, "UTF8", "", 0, (size_t)-1, EILSEQ), // 😀
+    RECORD("UCS-2BE", "\xd8\x3d\xde\x00", 4, 0, "UTF8", "", 0, (size_t)-1, EILSEQ), // 😀
+
+    RECORD("UCS-4LE", "\x00\xf6\x01\x00", 4, 4, "UTF8", "\xf0\x9f\x98\x80", 4, 0, 0), // 😀
+    RECORD("UCS-4LE", "\x61\x00\x00\x00", 4, 4, "UTF8", "a", 1, 0, 0),
+    RECORD("UTF-32LE", "\x61\x00\x00\x00", 4, 4, "UTF8", "a", 1, 0, 0),
+
     RECORD("UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96\xe7\x95\x8c", 12, 12, "GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7", 8, 0, 0),
+    RECORD("UTF8", "\xe4\xbd\xa0", 3, 3, "UCS-4LE", "\x60\x4f\x00\x00", 4, 0, 0),
     RECORD("UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96\xe7\x95", 11, 9, "GB18030", "\xc4\xe3\xba\xc3\xca\xc0", 6, (size_t)-1, EINVAL),
-#ifdef _WIN32       /* { */
-    // NOTE: on windows, currently, failed to distinguish between EILSEQ (illegal sequence) and EINVAL (incomplete sequence)
-    RECORD("UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96\xe7\x95\x00", 12, 9, "GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7", 6, -1, EINVAL),
-#else               /* }{ */
+    RECORD("UCS-4LE", "\x60\x4f\x00\x00\x7d\x59\x00\x00\x16\x4e\x00\x00\x4c\x75\x00\x00", 16, 16, "GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7", 8, 0, 0),
     RECORD("UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96\xe7\x95\x00", 12, 9, "GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7", 6, -1, EILSEQ),
-#endif              /* } */
     RECORD("GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd\xe7", 8, 8, "UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96\xe7\x95\x8c", 12, 0, 0),
     RECORD("GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd", 7, 6, "UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96", 9, -1, EINVAL),
-#ifdef _WIN32       /* { */
-    // NOTE: on windows, currently, failed to distinguish between EILSEQ (illegal sequence) and EINVAL (incomplete sequence)
-    RECORD("GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd\x00", 8, 6, "UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96", 9, -1, EINVAL),
-#else               /* }{ */
     RECORD("GB18030", "\xc4\xe3\xba\xc3\xca\xc0\xbd\x00", 8, 6, "UTF8", "\xe4\xbd\xa0\xe5\xa5\xbd\xe4\xb8\x96", 9, -1, EILSEQ),
-#endif              /* } */
     RECORD("UCS-4LE", "\x00\xf6\x01\x00", 4, 4, "UTF8", "\xf0\x9f\x98\x80", 4, 0, 0), // 😀
     RECORD("UTF8", "\xf0\x9f\x98\x80", 4, 4, "UCS-4LE", "\x00\xf6\x01\x00", 4, 0, 0), // 😀
+    RECORD("UCS-4LE", "\x00\xf6\x01\x00", 4, 4, "UTF-16LE", "\x3d\xd8\x00\xde", 4, 0, 0), // 😀
   };
   const size_t _nr_cases = sizeof(_cases) / sizeof(_cases[0]);
 #undef RECORD
@@ -1420,7 +1515,9 @@ static int test_iconv_full(void)
       }
       if (n == (size_t)-1) {
         if (err != errno) {
-          E("@[%d]:`[%d]%s` expected, but got ==[%d]%s==", line, err, strerror(err), errno, strerror(errno));
+          char ebuf[4096]; *ebuf = '\0';
+          char fbuf[4096]; *fbuf = '\0';
+          E("@[%d]:`[%d]%s` expected, but got ==[%d]%s==", line, err, tod_strerror_x(err, ebuf, sizeof(ebuf)), errno, tod_strerror_x(errno, fbuf, sizeof(fbuf)));
           r = -1;
           break;
         }
@@ -1449,6 +1546,87 @@ static int test_iconv_full(void)
   }
 
   return r ? -1 : 0;
+}
+
+static int test_iconv_err(void)
+{
+// {
+#define R(a, b, c, d, e, f) {__LINE__, a, b, c, d, (size_t)e, f}
+  static struct {
+    int         line;
+    const char *code_name;
+    const char *in;
+    const char *remain;
+    const char *converted;
+    size_t      ret;
+    int         err;
+  } _cases[] = {
+    R("UTF-8", "\xe4\xba", "\xe4\xba", "", -1, EINVAL),
+    R("UTF-8", "\xe4\x0a", "\xe4\x0a", "", -1, EILSEQ),
+  };
+#undef  R
+// }
+
+  for (size_t i=0; i<sizeof(_cases)/sizeof(_cases[0]); ++i) {
+    int         line           = _cases[i].line;
+    const char *code_name      = _cases[i].code_name;
+    const char *in             = _cases[i].in;
+    size_t      inlen          = strlen(_cases[i].in);
+    const char *remain         = _cases[i].remain;
+    size_t      remainlen      = strlen(_cases[i].remain);
+    const char *converted      = _cases[i].converted;
+    size_t      convertedlen   = strlen(_cases[i].converted);
+    size_t      ret            = _cases[i].ret;
+    int         err            = _cases[i].err;
+
+    const char *tocode = "UTF-16LE";
+    iconv_t cd = iconv_open(tocode, code_name);
+    if (cd == (iconv_t)-1) {
+      E("@[%d]:not convertion found for %s->UTF-16LE", line, code_name);
+      return -1;
+    }
+
+    int r = -1;
+
+    do {
+      char buf[4096]; *buf = '\0';
+      char      *inbuf               = (char*)in;
+      size_t     inbytesleft         = inlen;
+      char      *outbuf              = buf;
+      size_t     outbytesleft        = sizeof(buf);
+      size_t n = iconv(cd, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+      int e = errno;
+      if (n != (size_t)-1) e = 0;
+      if (n != ret) {
+        E("@[%d]:return value mismatched:expecting %zd, but got ==%zd==", line, ret, n);
+        break;
+      }
+      char sbuf1[4096]; *sbuf1 = '\0';
+      char sbuf2[4096]; *sbuf2 = '\0';
+      if (inbytesleft != remainlen || memcmp(inbuf, remain, remainlen)) {
+        E("@[%d]:remaining msimatched", line); // TODO
+        break;
+      }
+      if (sizeof(buf) - outbytesleft != convertedlen || memcmp(buf, converted, convertedlen)) {
+        E("@[%d]:converted msimatched", line); // TODO
+        break;
+      }
+      if (err != e) {
+        char buf1[4096]; *buf1 = '\0';
+        char buf2[4096]; *buf2 = '\0';
+        snprintf(buf1, sizeof(buf1), "%s", strerror(err));
+        snprintf(buf2, sizeof(buf2), "%s", strerror(e));
+        E("@[%d]:errno mismatched:expecting [%d]%s, but got ==[%d]%s==", line, err, buf1, e, buf2);
+        break;
+      }
+      r = 0;
+    } while (0);
+    iconv_close(cd);
+
+    if (r) return -1;
+  }
+
+  return 0;
 }
 
 
@@ -1644,6 +1822,7 @@ static struct {
   RECORD(test_iconv_perf_reuse),
   RECORD(test_iconv_perf_on_the_fly),
   RECORD(test_iconv_full),
+  RECORD(test_iconv_err),
 #ifdef _WIN32              /* { */
   RECORD(test_mbcs),
   RECORD(test_codepages),
@@ -1723,3 +1902,4 @@ int main(int argc, char *argv[])
 
   return !!r;
 }
+

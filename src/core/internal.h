@@ -220,6 +220,10 @@ struct sqlc_data_s {
       const char *wstr;
       size_t      wlen; // in characters
     }                   wstr;
+    struct {
+      const unsigned char *bin;
+      size_t               len;
+    }                   bin;
     int64_t             ts;
   };
 
@@ -259,6 +263,10 @@ struct sql_data_s {
       int64_t           i64;
       uint8_t           is_i64:1;
     }                   ts;
+    struct {
+      const unsigned char *bin;
+      size_t               len;
+    }                   bin;
   };
 
   mem_t          mem;
@@ -420,6 +428,12 @@ enum backend_e {
   BACKEND_TAOSWS,
 };
 
+typedef enum customproduct_e {
+  CUSTP_UNKNOWN           = 0,
+  CUSTP_KINGSCADA         = 1,
+} customproduct_t;
+
+
 struct conn_cfg_s {
   char                  *driver;
   char                  *dsn;
@@ -436,6 +450,9 @@ struct conn_cfg_s {
   char                  *charset_for_col_bind;
   char                  *charset_for_param_bind;
   int                    port;
+
+  char                  *customproduct_name;
+  customproduct_t        customproduct;
 
   // NOTE: 1.this is to hack node.odbc, which maps SQL_TINYINT to SQL_C_UTINYINT
   //       2.node.odbc does not call SQLGetInfo/SQLColAttribute to get signess of integers
@@ -928,6 +945,7 @@ struct col_bind_map_s {
   int                    sql_type;
   int                    sql_promoted;
 
+  const char            *prefix;
   const char            *suffix;
 
   int                    length;

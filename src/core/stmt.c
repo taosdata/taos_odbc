@@ -810,6 +810,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "TIMESTAMP",
     .sql_type       = SQL_TYPE_TIMESTAMP,
     .sql_promoted   = SQL_TYPE_TIMESTAMP,
+    .prefix         = "'",
     .suffix         = "'",
     .length         = 0,
     .octet_length   = 8,
@@ -824,6 +825,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "BOOL",
     .sql_type       = SQL_BIT,
     .sql_promoted   = SQL_BIT,
+    .prefix         = "",
     .suffix         = "",
     .length         = 1,
     .octet_length   = 1,
@@ -838,6 +840,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "TINYINT",
     .sql_type       = SQL_TINYINT,
     .sql_promoted   = SQL_SMALLINT,
+    .prefix         = "",
     .suffix         = "",
     .length         = 3,
     .octet_length   = 1,
@@ -852,6 +855,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "SMALLINT",
     .sql_type       = SQL_SMALLINT,
     .sql_promoted   = SQL_SMALLINT,
+    .prefix         = "",
     .suffix         = "",
     .length         = 5,
     .octet_length   = 2,
@@ -866,6 +870,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "INT",
     .sql_type       = SQL_INTEGER,
     .sql_promoted   = SQL_INTEGER,
+    .prefix         = "",
     .suffix         = "",
     .length         = 10,
     .octet_length   = 4,
@@ -880,6 +885,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "BIGINT",
     .sql_type       = SQL_BIGINT,
     .sql_promoted   = SQL_BIGINT,
+    .prefix         = "",
     .suffix         = "",
     .length         = 19,
     .octet_length   = 8,
@@ -894,6 +900,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "FLOAT",
     .sql_type       = SQL_REAL,
     .sql_promoted   = SQL_REAL,
+    .prefix         = "",
     .suffix         = "",
     .length         = 7,
     .octet_length   = 4,
@@ -908,6 +915,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "DOUBLE",
     .sql_type       = SQL_DOUBLE,
     .sql_promoted   = SQL_DOUBLE,
+    .prefix         = "",
     .suffix         = "",
     .length         = 15,
     .octet_length   = 8,
@@ -922,6 +930,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "VARCHAR",
     .sql_type       = SQL_VARCHAR,
     .sql_promoted   = SQL_VARCHAR,
+    .prefix         = "'",
     .suffix         = "'",
     .length         = -1,
     .octet_length   = -1,
@@ -936,6 +945,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "NCHAR",
     .sql_type       = SQL_WVARCHAR,
     .sql_promoted   = SQL_WVARCHAR,
+    .prefix         = "'",
     .suffix         = "'",
     .length         = -1,
     .octet_length   = -2,
@@ -951,6 +961,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "JSON",
     .sql_type       = SQL_WVARCHAR,
     .sql_promoted   = SQL_WVARCHAR,
+    .prefix         = "'",
     .suffix         = "'",
     .length         = -1,
     .octet_length   = -2,
@@ -965,6 +976,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "TINYINT UNSIGNED",
     .sql_type       = SQL_TINYINT,
     .sql_promoted   = SQL_TINYINT,
+    .prefix         = "",
     .suffix         = "",
     .length         = 3,
     .octet_length   = 1,
@@ -979,6 +991,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "SMALLINT UNSIGNED",
     .sql_type       = SQL_SMALLINT,
     .sql_promoted   = SQL_INTEGER,
+    .prefix         = "",
     .suffix         = "",
     .length         = 5,
     .octet_length   = 2,
@@ -993,6 +1006,7 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "INT UNSIGNED",
     .sql_type       = SQL_INTEGER,
     .sql_promoted   = SQL_BIGINT,
+    .prefix         = "",
     .suffix         = "",
     .length         = 10,
     .octet_length   = 4,
@@ -1007,12 +1021,45 @@ static col_bind_map_t _col_bind_map[] = {
     .type_name      = "BIGINT UNSIGNED",
     .sql_type       = SQL_BIGINT,
     .sql_promoted   = SQL_BIGINT,
+    .prefix         = "",
     .suffix         = "",
     .length         = 20,
     .octet_length   = 8,
     .precision      = 20,
     .scale          = 0,
     .display_size   = 20,
+    .num_prec_radix = 10,
+    .unsigned_      = SQL_TRUE,
+    .searchable     = SQL_PRED_BASIC,
+  },{
+    // TODO & FIXME:
+    .tsdb_type      = TSDB_DATA_TYPE_VARBINARY,
+    .type_name      = "VARBINARY",
+    .sql_type       = SQL_VARBINARY,
+    .sql_promoted   = SQL_C_BINARY,
+    .prefix         = "'\\x",
+    .suffix         = "'",
+    .length         = -1,
+    .octet_length   = -1,
+    .precision      = -1,
+    .scale          = 0,
+    .display_size   = -1,
+    .num_prec_radix = 10,
+    .unsigned_      = SQL_TRUE,
+    .searchable     = SQL_PRED_BASIC,
+  },{
+    // TODO & FIXME:
+    .tsdb_type      = TSDB_DATA_TYPE_GEOMETRY,
+    .type_name      = "GEOMETRY",  // FIXME:
+    .sql_type       = SQL_VARBINARY,
+    .sql_promoted   = SQL_C_BINARY,
+    .prefix         = "'\\x",      // FIXME:
+    .suffix         = "'",         // FIXME:
+    .length         = -1,
+    .octet_length   = -1,
+    .precision      = -1,
+    .scale          = 0,
+    .display_size   = -1,
     .num_prec_radix = 10,
     .unsigned_      = SQL_TRUE,
     .searchable     = SQL_PRED_BASIC,
@@ -1248,6 +1295,24 @@ static SQLRETURN _stmt_col_DESC_UNSIGNED(
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_col_DESC_LITERAL_PREFIX(
+    stmt_t               *stmt,
+    col_bind_map_t       *_map,
+    SQLPOINTER            CharacterAttributePtr,
+    SQLSMALLINT           BufferLength,
+    SQLSMALLINT          *StringLengthPtr)
+{
+  const char *prefix = _map->prefix;
+  int n = snprintf(CharacterAttributePtr, BufferLength, "%s", prefix);
+  if (n < 0) {
+    int e = errno;
+    stmt_append_err_format(stmt, "HY000", 0, "General error:internal logic error:[%d]%s", e, strerror(e));
+    return SQL_ERROR;
+  }
+  if (StringLengthPtr) *StringLengthPtr = n;
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_col_DESC_LITERAL_SUFFIX(
     stmt_t               *stmt,
     col_bind_map_t       *_map,
@@ -1368,7 +1433,7 @@ static SQLRETURN _stmt_fill_IRD(stmt_t *stmt)
     sr = _stmt_col_DESC_LENGTH(stmt, _map, col->bytes, &IRD_record->DESC_LENGTH);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
 
-    sr = _stmt_col_DESC_LITERAL_SUFFIX(stmt, _map, IRD_record->DESC_LITERAL_PREFIX, sizeof(IRD_record->DESC_LITERAL_PREFIX), &StringLength);
+    sr = _stmt_col_DESC_LITERAL_PREFIX(stmt, _map, IRD_record->DESC_LITERAL_PREFIX, sizeof(IRD_record->DESC_LITERAL_PREFIX), &StringLength);
     if (sr != SQL_SUCCESS) return SQL_ERROR;
 
     sr = _stmt_col_DESC_LITERAL_SUFFIX(stmt, _map, IRD_record->DESC_LITERAL_SUFFIX, sizeof(IRD_record->DESC_LITERAL_SUFFIX), &StringLength);
@@ -1801,6 +1866,14 @@ static SQLRETURN _stmt_get_data_prepare_ctx(stmt_t *stmt, stmt_get_data_args_t *
       ctx->nr = tsdb->str.len;
       ctx->pos = tsdb->str.str;
       break;
+    case TSDB_DATA_TYPE_VARBINARY:
+      ctx->nr  = tsdb->bin.len;
+      ctx->pos = (const char*)tsdb->bin.bin;
+      break;
+    case TSDB_DATA_TYPE_GEOMETRY:
+      ctx->nr  = tsdb->geo.len;
+      ctx->pos = (const char*)tsdb->geo.geo;
+      break;
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Column[%d] conversion from `%s[0x%x/%d]` not implemented yet",
@@ -1988,9 +2061,8 @@ static SQLRETURN _stmt_get_data_copy_buf_to_binary(stmt_t *stmt, stmt_get_data_a
     return SQL_ERROR;
   }
 
-  size_t n = ctx->nr - args->BufferLength;
-  if (n > 0) n = args->BufferLength;
-  else       n = ctx->nr;
+  size_t n = args->BufferLength;
+  if (ctx->nr < n) n = ctx->nr;
 
   memcpy(args->TargetValuePtr, ctx->pos, n);
 
@@ -2325,6 +2397,124 @@ static SQLRETURN _stmt_get_data_copy_json(stmt_t *stmt, const char *s, size_t nr
   return _stmt_get_data_copy_nchar(stmt, s, nr, args);
 }
 
+static SQLRETURN _stmt_get_data_copy_varbinary_to_binary(stmt_t *stmt, stmt_get_data_args_t *args)
+{
+  get_data_ctx_t *ctx = &stmt->get_data_ctx;
+  tsdb_data_t *tsdb = &ctx->tsdb;
+  if (ctx->pos == (const char*)-1) return SQL_NO_DATA;
+  if (args->BufferLength < 0) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:buffer too small",
+        args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+        sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
+    return SQL_ERROR;
+  }
+
+  size_t n = args->BufferLength;
+  if (ctx->nr < n) n = ctx->nr;
+
+  memcpy(args->TargetValuePtr, ctx->pos, n);
+
+  ctx->nr = ctx->nr - n;
+
+  if (ctx->nr) {
+    if (args->IndPtr) *args->IndPtr = SQL_NO_TOTAL;
+    if (args->StrLenPtr) *args->StrLenPtr = SQL_NO_TOTAL;
+    stmt_append_err_format(stmt, "01004", 0,
+        "String data, right truncated:Column[%d], #%zd out of #%zd bytes consumed",
+        args->Col_or_Param_Num, n, n + ctx->nr);
+    ctx->pos += n;
+    return SQL_SUCCESS_WITH_INFO;
+  }
+
+  if (args->IndPtr) *args->IndPtr = 0; // FIXME:
+  if (args->StrLenPtr) *args->StrLenPtr = n;
+  ctx->pos = (const char*)-1;
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_get_data_copy_geometry_to_binary(stmt_t *stmt, stmt_get_data_args_t *args)
+{
+  get_data_ctx_t *ctx = &stmt->get_data_ctx;
+  tsdb_data_t *tsdb = &ctx->tsdb;
+  if (ctx->pos == (const char*)-1) return SQL_NO_DATA;
+  if (args->BufferLength < 0) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:buffer too small",
+        args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+        sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
+    return SQL_ERROR;
+  }
+
+  size_t n = args->BufferLength;
+  if (ctx->nr < n) n = ctx->nr;
+
+  memcpy(args->TargetValuePtr, ctx->pos, n);
+
+  ctx->nr = ctx->nr - n;
+
+  if (ctx->nr) {
+    if (args->IndPtr) *args->IndPtr = SQL_NO_TOTAL;
+    if (args->StrLenPtr) *args->StrLenPtr = SQL_NO_TOTAL;
+    stmt_append_err_format(stmt, "01004", 0,
+        "String data, right truncated:Column[%d], #%zd out of #%zd bytes consumed",
+        args->Col_or_Param_Num, n, n + ctx->nr);
+    ctx->pos += n;
+    return SQL_SUCCESS_WITH_INFO;
+  }
+
+  if (args->IndPtr) *args->IndPtr = 0; // FIXME:
+  if (args->StrLenPtr) *args->StrLenPtr = n;
+  ctx->pos = (const char*)-1;
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_get_data_copy_varbinary(stmt_t *stmt, const unsigned char *s, size_t nr, stmt_get_data_args_t *args)
+{
+  (void)s;
+  (void)nr;
+  // SQLRETURN sr = SQL_SUCCESS;
+
+  get_data_ctx_t *ctx = &stmt->get_data_ctx;
+  tsdb_data_t *tsdb = &ctx->tsdb;
+
+  switch (args->TargetType) {
+    case SQL_C_BINARY:
+      return _stmt_get_data_copy_varbinary_to_binary(stmt, args);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]`not implemented yet",
+          args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+          sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
+      return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_get_data_copy_geometry(stmt_t *stmt, const unsigned char *s, size_t nr, stmt_get_data_args_t *args)
+{
+  (void)s;
+  (void)nr;
+  // SQLRETURN sr = SQL_SUCCESS;
+
+  get_data_ctx_t *ctx = &stmt->get_data_ctx;
+  tsdb_data_t *tsdb = &ctx->tsdb;
+
+  switch (args->TargetType) {
+    case SQL_C_BINARY:
+      return _stmt_get_data_copy_geometry_to_binary(stmt, args);
+    default:
+      stmt_append_err_format(stmt, "HY000", 0,
+          "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]`not implemented yet",
+          args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
+          sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
+      return SQL_ERROR;
+  }
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_get_data_copy_timestamp(stmt_t *stmt, int64_t v, int precision, stmt_get_data_args_t *args)
 {
   get_data_ctx_t *ctx = &stmt->get_data_ctx;
@@ -2396,12 +2586,14 @@ static SQLRETURN _stmt_get_data_copy_int64(stmt_t *stmt, int64_t v, stmt_get_dat
     case SQL_C_BIT:
       *(uint8_t*)args->TargetValuePtr = !!v;
       break;
+    case SQL_C_TINYINT:
     case SQL_C_STINYINT:
       *(int8_t*)args->TargetValuePtr = (int8_t)v;
       break;
     case SQL_C_UTINYINT:
       *(uint8_t*)args->TargetValuePtr = (uint8_t)v;
       break;
+    case SQL_C_SHORT:
     case SQL_C_SSHORT:
       *(int16_t*)args->TargetValuePtr = (int16_t)v;
       break;
@@ -2420,9 +2612,6 @@ static SQLRETURN _stmt_get_data_copy_int64(stmt_t *stmt, int64_t v, stmt_get_dat
       break;
     case SQL_C_UBIGINT:
       *(uint64_t*)args->TargetValuePtr = v;
-      break;
-    case SQL_C_SHORT:
-      *(int16_t*)args->TargetValuePtr = (int16_t)v;
       break;
     case SQL_C_CHAR:
       return _stmt_get_data_copy_buf_to_char(stmt, args);
@@ -2459,6 +2648,7 @@ static SQLRETURN _stmt_get_data_copy_uint64(stmt_t *stmt, uint64_t v, stmt_get_d
     case SQL_C_BIT:
       *(uint8_t*)args->TargetValuePtr = !!v;
       break;
+    case SQL_C_TINYINT:
     case SQL_C_STINYINT:
       *(int8_t*)args->TargetValuePtr = (int8_t)v;
       break;
@@ -2472,6 +2662,7 @@ static SQLRETURN _stmt_get_data_copy_uint64(stmt_t *stmt, uint64_t v, stmt_get_d
     case SQL_C_USHORT:
       *(uint16_t*)args->TargetValuePtr = (uint16_t)v;
       break;
+    case SQL_C_LONG:
     case SQL_C_SLONG:
       *(int32_t*)args->TargetValuePtr = (int32_t)v;
       break;
@@ -2602,6 +2793,10 @@ static SQLRETURN _stmt_get_data_copy(stmt_t *stmt, stmt_get_data_args_t *args)
       return _stmt_get_data_copy_nchar(stmt, tsdb->str.str, tsdb->str.len, args);
     case TSDB_DATA_TYPE_JSON:
       return _stmt_get_data_copy_json(stmt, tsdb->str.str, tsdb->str.len, args);
+    case TSDB_DATA_TYPE_VARBINARY:
+      return _stmt_get_data_copy_varbinary(stmt, tsdb->bin.bin, tsdb->bin.len, args);
+    case TSDB_DATA_TYPE_GEOMETRY:
+      return _stmt_get_data_copy_geometry(stmt, tsdb->geo.geo, tsdb->geo.len, args);
     default:
       stmt_append_err_format(stmt, "HY000", 0,
           "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]`not implemented yet",
@@ -3219,7 +3414,28 @@ static SQLRETURN _stmt_param_copy_sqlc_char_sql_varchar(stmt_t *stmt, const char
     return SQL_ERROR;
   }
 
-  r = mem_copy_str(mem, s, n);
+  r = mem_copy_bin(mem, (const unsigned char*)s, n);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+
+  data->type    = (SQLSMALLINT)IPD_record->DESC_CONCISE_TYPE;
+  data->bin.bin = mem->base;
+  data->bin.len = mem->nr;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_param_copy_sqlc_binary_sql_varbinary(stmt_t *stmt, const unsigned char *s, size_t n, param_state_t *param_state)
+{
+  int r = 0;
+
+  desc_record_t *IPD_record = param_state->IPD_record;
+  sql_data_t    *data       = &param_state->sql_data;
+  mem_t         *mem        = &data->mem;
+
+  r = mem_copy_bin(mem, s, n);
   if (r) {
     stmt_oom(stmt);
     return SQL_ERROR;
@@ -3584,6 +3800,21 @@ static SQLRETURN _stmt_param_check_sqlc_char_sql_varchar(stmt_t *stmt, param_sta
   return SQL_SUCCESS;
 }
 
+static SQLRETURN _stmt_param_check_sqlc_binary_sql_varbinary(stmt_t *stmt, param_state_t *param_state)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  const unsigned char *s = param_state->sqlc_data.bin.bin;
+  size_t               n = param_state->sqlc_data.bin.len;
+
+  sr = _stmt_param_copy_sqlc_binary_sql_varbinary(stmt, s, n, param_state);
+  if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+  param_state->sql_data.type = SQL_VARCHAR;
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_param_check_sqlc_char_sql_wvarchar(stmt_t *stmt, param_state_t *param_state)
 {
   SQLRETURN sr = SQL_SUCCESS;
@@ -3616,7 +3847,7 @@ static SQLRETURN _stmt_param_check_sqlc_char_sql_bigint(stmt_t *stmt, param_stat
 
   mem_t *mem = &param_state->tmp;
 
-  r = mem_copy_str(mem, s, n);
+  r = mem_copy_bin(mem, (const unsigned char*)s, n);
   if (r) {
     stmt_oom(stmt);
     return SQL_ERROR;
@@ -3654,7 +3885,7 @@ static SQLRETURN _stmt_param_check_sqlc_char_sql_integer(stmt_t *stmt, param_sta
 
   mem_t *mem = &param_state->tmp;
 
-  r = mem_copy_str(mem, s, n);
+  r = mem_copy_bin(mem, (const unsigned char*)s, n);
   if (r) {
     stmt_oom(stmt);
     return SQL_ERROR;
@@ -3710,7 +3941,7 @@ static SQLRETURN _stmt_param_check_sqlc_char_sql_smallint(stmt_t *stmt, param_st
 
   mem_t *mem = &param_state->tmp;
 
-  r = mem_copy_str(mem, s, n);
+  r = mem_copy_bin(mem, (const unsigned char*)s, n);
   if (r) {
     stmt_oom(stmt);
     return SQL_ERROR;
@@ -3766,7 +3997,7 @@ static SQLRETURN _stmt_param_check_sqlc_char_sql_tinyint(stmt_t *stmt, param_sta
 
   mem_t *mem = &param_state->tmp;
 
-  r = mem_copy_str(mem, s, n);
+  r = mem_copy_bin(mem, (const unsigned char*)s, n);
   if (r) {
     stmt_oom(stmt);
     return SQL_ERROR;
@@ -3822,7 +4053,7 @@ static SQLRETURN _stmt_param_check_sqlc_char_sql_bit(stmt_t *stmt, param_state_t
 
   mem_t *mem = &param_state->tmp;
 
-  r = mem_copy_str(mem, s, n);
+  r = mem_copy_bin(mem, (const unsigned char*)s, n);
   if (r) {
     stmt_oom(stmt);
     return SQL_ERROR;
@@ -3859,7 +4090,7 @@ static SQLRETURN _stmt_param_check_sqlc_char_sql_double(stmt_t *stmt, param_stat
 
   mem_t *mem = &param_state->tmp;
 
-  r = mem_copy_str(mem, s, n);
+  r = mem_copy_bin(mem, (const unsigned char*)s, n);
   if (r) {
     stmt_oom(stmt);
     return SQL_ERROR;
@@ -3889,7 +4120,7 @@ static SQLRETURN _stmt_param_check_sqlc_char_sql_float(stmt_t *stmt, param_state
 
   mem_t *mem = &param_state->tmp;
 
-  r = mem_copy_str(mem, s, n);
+  r = mem_copy_bin(mem, (const unsigned char*)s, n);
   if (r) {
     stmt_oom(stmt);
     return SQL_ERROR;
@@ -4101,6 +4332,17 @@ static SQLRETURN _stmt_param_guess_sqlc_char(stmt_t *stmt, param_state_t *param_
   return _stmt_guess_tsdb_params_for_sql_c_char(stmt, param_state);
 }
 
+static SQLRETURN _stmt_param_guess_sqlc_binary(stmt_t *stmt, param_state_t *param_state)
+{
+  (void)stmt;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+
+  tsdb_field->type = TSDB_DATA_TYPE_VARBINARY;
+  tsdb_field->bytes = sizeof(int64_t);
+
+  return SQL_SUCCESS;
+}
+
 static SQLRETURN _stmt_param_guess_sqlc_double(stmt_t *stmt, param_state_t *param_state)
 {
   (void)stmt;
@@ -4172,6 +4414,27 @@ static SQLRETURN _stmt_param_guess_sqlc_wchar(stmt_t *stmt, param_state_t *param
 }
 
 static SQLRETURN _stmt_param_bind_set_APD_record_sqlc_char(stmt_t* stmt,
+    desc_record_t  *APD_record,
+    SQLUSMALLINT    ParameterNumber,
+    SQLSMALLINT     ValueType,
+    SQLPOINTER      ParameterValuePtr,
+    SQLLEN          BufferLength,
+    SQLLEN         *StrLen_or_IndPtr)
+{
+  (void)stmt;
+  (void)ParameterNumber;
+
+  APD_record->DESC_TYPE                = ValueType;
+  APD_record->DESC_CONCISE_TYPE        = ValueType;
+  APD_record->DESC_OCTET_LENGTH        = BufferLength;
+  APD_record->DESC_DATA_PTR            = ParameterValuePtr;
+  APD_record->DESC_INDICATOR_PTR       = StrLen_or_IndPtr;
+  APD_record->DESC_OCTET_LENGTH_PTR    = StrLen_or_IndPtr;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_param_bind_set_APD_record_sqlc_binary(stmt_t* stmt,
     desc_record_t  *APD_record,
     SQLUSMALLINT    ParameterNumber,
     SQLSMALLINT     ValueType,
@@ -4368,6 +4631,28 @@ static SQLRETURN _stmt_param_bind_set_APD_record_sqlc_tinyint(stmt_t* stmt,
 }
 
 static SQLRETURN _stmt_param_bind_set_IPD_record_sql_varchar(stmt_t* stmt,
+    desc_record_t  *IPD_record,
+    SQLUSMALLINT    ParameterNumber,
+    SQLSMALLINT     InputOutputType,
+    SQLSMALLINT     ParameterType,
+    SQLULEN         ColumnSize,
+    SQLSMALLINT     DecimalDigits)
+{
+  (void)stmt;
+  (void)ParameterNumber;
+  (void)DecimalDigits;
+
+  IPD_record->DESC_PARAMETER_TYPE      = InputOutputType;
+  IPD_record->DESC_TYPE                = ParameterType;
+  IPD_record->DESC_CONCISE_TYPE        = ParameterType;
+
+  IPD_record->DESC_LENGTH              = ColumnSize;
+  IPD_record->DESC_PRECISION           = 0;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_param_bind_set_IPD_record_sql_varbinary(stmt_t* stmt,
     desc_record_t  *IPD_record,
     SQLUSMALLINT    ParameterNumber,
     SQLSMALLINT     InputOutputType,
@@ -4591,6 +4876,20 @@ static SQLRETURN _stmt_param_get_sqlc_char(stmt_t* stmt, param_state_t *param_st
   sqlc_data->str.str = base;
   sqlc_data->str.len = len;
   if (sqlc_data->str.len == (size_t)SQL_NTS) sqlc_data->str.len = strlen(sqlc_data->str.str);
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_param_get_sqlc_binary(stmt_t* stmt, param_state_t *param_state)
+{
+  (void)stmt;
+
+  sqlc_data_t          *sqlc_data  = &param_state->sqlc_data;
+  const unsigned char  *base       = (const unsigned char*)param_state->sqlc_base;
+  size_t                len        = param_state->sqlc_len;
+
+  sqlc_data->bin.bin = base;
+  sqlc_data->bin.len = len;
 
   return SQL_SUCCESS;
 }
@@ -4898,6 +5197,13 @@ static const sqlc_sql_map_t          _sqlc_sql_map[] = {
     _stmt_param_get_sqlc_float,
     _stmt_param_check_sqlc_float_sql_real,
     _stmt_param_guess_sqlc_float},
+
+  {SQL_C_BINARY, SQL_VARBINARY,
+    _stmt_param_bind_set_APD_record_sqlc_binary,
+    _stmt_param_bind_set_IPD_record_sql_varbinary,
+    _stmt_param_get_sqlc_binary,
+    _stmt_param_check_sqlc_binary_sql_varbinary,
+    _stmt_param_guess_sqlc_binary},
 };
 
 static SQLRETURN _stmt_bind_param(
@@ -5513,6 +5819,11 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_char_tsdb_varchar(stmt_t *stmt,
       return SQL_ERROR;
     }
   }
+
+  if (tsdb_bind->length) {
+    tsdb_bind->length[i_row - param_state->i_batch_offset] = (int32_t)(outbytes - outbytesleft);
+  }
+
   if (inbytesleft) {
     stmt_append_err_format(stmt, "22001", 0,
         "String data, right truncated:[iconv]Character set conversion for `%s` to `%s`, #%zd out of #%zd bytes consumed, #%zd out of #%zd bytes converted:[%d]%s",
@@ -5520,8 +5831,62 @@ static SQLRETURN _stmt_conv_param_data_from_sqlc_char_tsdb_varchar(stmt_t *stmt,
     return SQL_SUCCESS_WITH_INFO;
   }
 
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_binary_tsdb_varbinary(stmt_t *stmt, param_state_t *param_state, const unsigned char *s, size_t len)
+{
+  (void)stmt;
+
+  int                   i_row             = param_state->i_row;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  unsigned char *tsdb_varbinary = tsdb_bind->buffer;
+  tsdb_varbinary += (i_row - param_state->i_batch_offset) * tsdb_bind->buffer_length;
+  size_t tsdb_varbinary_len = tsdb_bind->buffer_length;
+
+  size_t n = len;
+  if (n > tsdb_varbinary_len) n = tsdb_varbinary_len;
+  memcpy(tsdb_varbinary, s, n);
+
   if (tsdb_bind->length) {
-    tsdb_bind->length[i_row - param_state->i_batch_offset] = (int32_t)(outbytes - outbytesleft);
+    tsdb_bind->length[i_row - param_state->i_batch_offset] = (int32_t)n;
+  }
+
+  if (len > tsdb_varbinary_len) {
+    stmt_append_err_format(stmt, "22001", 0,
+        "String data, right truncated: varbinary too large (#%zd > #%zd)",
+        len, tsdb_varbinary_len);
+    return SQL_SUCCESS_WITH_INFO; // FIXME: or SQL_ERROR?
+  }
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_conv_param_data_from_sqlc_binary_tsdb_geometry(stmt_t *stmt, param_state_t *param_state, const unsigned char *s, size_t len)
+{
+  (void)stmt;
+
+  int                   i_row             = param_state->i_row;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  unsigned char *tsdb_geometry = tsdb_bind->buffer;
+  tsdb_geometry += (i_row - param_state->i_batch_offset) * tsdb_bind->buffer_length;
+  size_t tsdb_geometry_len = tsdb_bind->buffer_length;
+
+  size_t n = len;
+  if (n > tsdb_geometry_len) n = tsdb_geometry_len;
+  memcpy(tsdb_geometry, s, n);
+
+  if (tsdb_bind->length) {
+    tsdb_bind->length[i_row - param_state->i_batch_offset] = (int32_t)n;
+  }
+
+  if (len > tsdb_geometry_len) {
+    stmt_append_err_format(stmt, "22001", 0,
+        "String data, right truncated: geometry too large (#%zd > #%zd)",
+        len, tsdb_geometry_len);
+    return SQL_SUCCESS_WITH_INFO; // FIXME: or SQL_ERROR?
   }
 
   return SQL_SUCCESS;
@@ -5673,6 +6038,64 @@ static SQLRETURN _stmt_param_adjust_tsdb_timestamp(stmt_t *stmt, param_state_t *
 }
 
 static SQLRETURN _stmt_param_adjust_tsdb_varchar(stmt_t *stmt, param_state_t *param_state)
+{
+  int nr_batch_size                       = param_state->nr_batch_size;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  tsdb_param_column_t  *param_column      = param_state->param_column;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  int r = 0;
+
+  r = mem_keep(&param_column->mem_length, sizeof(*tsdb_bind->length) * nr_batch_size);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+  tsdb_bind->length = (int32_t*)param_column->mem_length.base;
+
+  tsdb_bind->buffer_type = tsdb_field->type;
+  tsdb_bind->buffer_length = tsdb_field->bytes - 2;
+
+  r = mem_keep(&param_column->mem, sizeof(char) * tsdb_bind->buffer_length * nr_batch_size);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+  tsdb_bind->buffer = param_column->mem.base;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_param_adjust_tsdb_varbinary(stmt_t *stmt, param_state_t *param_state)
+{
+  int nr_batch_size                       = param_state->nr_batch_size;
+  TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
+  tsdb_param_column_t  *param_column      = param_state->param_column;
+  TAOS_MULTI_BIND      *tsdb_bind         = param_state->tsdb_bind;
+
+  int r = 0;
+
+  r = mem_keep(&param_column->mem_length, sizeof(*tsdb_bind->length) * nr_batch_size);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+  tsdb_bind->length = (int32_t*)param_column->mem_length.base;
+
+  tsdb_bind->buffer_type = tsdb_field->type;
+  tsdb_bind->buffer_length = tsdb_field->bytes - 2;
+
+  r = mem_keep(&param_column->mem, sizeof(char) * tsdb_bind->buffer_length * nr_batch_size);
+  if (r) {
+    stmt_oom(stmt);
+    return SQL_ERROR;
+  }
+  tsdb_bind->buffer = param_column->mem.base;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_param_adjust_tsdb_geometry(stmt_t *stmt, param_state_t *param_state)
 {
   int nr_batch_size                       = param_state->nr_batch_size;
   TAOS_FIELD_E         *tsdb_field        = param_state->tsdb_field;
@@ -6022,6 +6445,22 @@ static SQLRETURN _stmt_param_conv_sqlc_char_to_tsdb_varchar(stmt_t *stmt, param_
   size_t len = param_state->sqlc_data.str.len;
 
   return _stmt_conv_param_data_from_sqlc_char_tsdb_varchar(stmt, param_state, s, len);
+}
+
+static SQLRETURN _stmt_param_conv_sqlc_binary_to_tsdb_varbinary(stmt_t *stmt, param_state_t *param_state)
+{
+  const unsigned char *s   = param_state->sqlc_data.bin.bin;
+  size_t               len = param_state->sqlc_data.bin.len;
+
+  return _stmt_conv_param_data_from_sqlc_binary_tsdb_varbinary(stmt, param_state, s, len);
+}
+
+static SQLRETURN _stmt_param_conv_sqlc_binary_to_tsdb_geometry(stmt_t *stmt, param_state_t *param_state)
+{
+  const unsigned char *s   = param_state->sqlc_data.bin.bin;
+  size_t               len = param_state->sqlc_data.bin.len;
+
+  return _stmt_conv_param_data_from_sqlc_binary_tsdb_geometry(stmt, param_state, s, len);
 }
 
 static SQLRETURN _stmt_param_conv_sqlc_char_to_tsdb_nchar(stmt_t *stmt, param_state_t *param_state)
@@ -6708,6 +7147,14 @@ static const param_bind_map_t _param_bind_map[] = {
   {SQL_C_STINYINT, SQL_VARCHAR, TSDB_DATA_TYPE_SMALLINT,
     _stmt_param_adjust_reuse_sqlc_tinyint,
     _stmt_param_conv_dummy},
+
+  {SQL_C_BINARY, SQL_VARBINARY, TSDB_DATA_TYPE_VARBINARY,
+    _stmt_param_adjust_tsdb_varbinary,
+    _stmt_param_conv_sqlc_binary_to_tsdb_varbinary},
+
+  {SQL_C_BINARY, SQL_VARBINARY, TSDB_DATA_TYPE_GEOMETRY,
+    _stmt_param_adjust_tsdb_geometry,
+    _stmt_param_conv_sqlc_binary_to_tsdb_geometry},
 };
 
 static SQLRETURN _stmt_param_tsdb_init(stmt_t *stmt, param_state_t *param_state)
@@ -7573,6 +8020,8 @@ SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr,
 {
   (void)StringLength;
 
+  conn_t *conn = stmt->conn;
+
   switch (Attribute) {
     case SQL_ATTR_APP_PARAM_DESC:
       return _stmt_set_param_desc(stmt, ValuePtr);
@@ -7663,8 +8112,14 @@ SQLRETURN stmt_set_attr(stmt_t *stmt, SQLINTEGER Attribute, SQLPOINTER ValuePtr,
       if ((SQLULEN)(uintptr_t)ValuePtr == SQL_UB_OFF) return SQL_SUCCESS;
       break;
     case SQL_ROWSET_SIZE:
-      // FIXME: add for king scada joint debugging
-      return _stmt_set_row_array_size(stmt, (SQLULEN)ValuePtr);
+      switch (conn->cfg.customproduct) {
+        case CUSTP_KINGSCADA:
+          // FIXME: add for king scada joint debugging
+          return _stmt_set_row_array_size(stmt, (SQLULEN)ValuePtr);
+        default:
+          break;
+      }
+      break;
 
     default:
       break;
@@ -7682,6 +8137,8 @@ SQLRETURN stmt_get_attr(stmt_t *stmt,
 {
   (void)BufferLength;
   (void)StringLength;
+  conn_t *conn = stmt->conn;
+
 
   switch (Attribute) {
     case SQL_ATTR_APP_PARAM_DESC:
@@ -7767,9 +8224,15 @@ SQLRETURN stmt_get_attr(stmt_t *stmt,
     case SQL_ATTR_USE_BOOKMARKS:
       break;
     case SQL_ROWSET_SIZE:
-      // FIXME: add for king scada joint debugging
-      *(SQLULEN*)Value = (SQLULEN)_stmt_get_row_array_size(stmt);
-      return SQL_SUCCESS;
+      switch (conn->cfg.customproduct) {
+        case CUSTP_KINGSCADA:
+          // FIXME: add for king scada joint debugging
+          *(SQLULEN*)Value = (SQLULEN)_stmt_get_row_array_size(stmt);
+          return SQL_SUCCESS;
+        default:
+          break;
+      }
+      break;
     default:
       break;
   }

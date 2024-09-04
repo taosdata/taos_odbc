@@ -685,7 +685,7 @@ static SQLRETURN _tsdb_stmt_get_taos_tags_cols_for_insert(tsdb_stmt_t *stmt)
       } else {
         // temp processing due to a bug in taosws TD-31398
         D("call ws_stmt_get_tag_fields, result: 0x%x, e: 0x%x", r, e);
-        if ((int32_t)(r | 0x80000000) == (int32_t)TSDB_CODE_TSC_STMT_API_ERROR) {
+        if ((int32_t)(r | 0x80000000) == TSDB_CODE_TSC_STMT_API_ERROR) {
           D("temp processing due to a bug in taows of ws_stmt_get_tag_fields");
           sr = _tsdb_stmt_get_taos_tags_cols_for_normal_insert(stmt, r);
         } else {

@@ -42,7 +42,7 @@
 %option never-interactive
 %option nounistd
 
-%x DQ SQ AA ESC
+%x BQ DQ SQ AA ESC
 
 SP            [ \t]
 LN            "\r\n"|"\n\r"|[\f\r\n]
@@ -77,41 +77,67 @@ V_NULL        (?i:null)
 {DQ}          { R(); PUSH(DQ); C(); return *yytext; }
 {SQ}          { R(); PUSH(SQ); C(); return *yytext; }
 {AA}          { R(); PUSH(AA); C(); return *yytext; }
+"b"["]        { R(); PUSH(BQ); C(); return MKT(BQ); }
 {SP}          { R(); C(); } /* eat */
 {LN}          { R(); L(); } /* eat */
 .             { R(); C(); return *yytext; } /* let bison to handle */
 
+<ESC>{
+[b]                 { R(); CHR_BY_STR("\b"); POP(); C(); return MKT(CHR); }
+[f]                 { R(); CHR_BY_STR("\f"); POP(); C(); return MKT(CHR); }
+[n]                 { R(); CHR_BY_STR("\n"); POP(); C(); return MKT(CHR); }
+[r]                 { R(); CHR_BY_STR("\r"); POP(); C(); return MKT(CHR); }
+[t]                 { R(); CHR_BY_STR("\t"); POP(); C(); return MKT(CHR); }
+["]                 { R(); CHR_BY_STR("\""); POP(); C(); return MKT(CHR); }
+[']                 { R(); CHR_BY_STR("'");  POP(); C(); return MKT(CHR); }
+[`]                 { R(); CHR_BY_STR("`");  POP(); C(); return MKT(CHR); }
+[\\]                { R(); CHR_BY_STR("\\"); POP(); C(); return MKT(CHR); }
+{LN}                { R(); L(); return *yytext; } /* let bison to handle */
+.                   { R(); C(); return *yytext; } /* let bison to handle */
+}
+
+<BQ>{
+{DQ}                   { R(); POP();     C(); return MKT(BQ); }
+[^"\\[:cntrl:]]+       { R(); SET_STR(); C(); return MKT(STR); }
+"\\"/[bfnrt"\\]        { R(); PUSH(ESC); C(); } /* eat */
+"\\x"[[:xdigit:]]+     { R(); SET_STR(); C(); return MKT(HEX); }
+"\t"                   { R(); CHR_BY_STR("\t"); C(); return MKT(CHR); }
+["[:cntrl:]]           { R(); C(); return *yytext; } /* let bison to handle */
+.                      { R(); C(); return *yytext; } /* let bison to handle */
+}
+
+  /* https://en.wikipedia.org/wiki/UTF-16 */
 <DQ>{
 {DQ}                   { R(); POP(); C(); return *yytext; }
 [^"\\[:cntrl:]]+       { R(); SET_STR(); C(); return MKT(STR); }
-[\\]                   { R(); PUSH(ESC); C(); return MKT(ESC); }
+"\\"/[bfnrt"\\]        { R(); PUSH(ESC); C(); } /* eat */
+"\\u"[dD][8-9a-fA-F][[:xdigit:]]{2}"\\u"[dD][c-fC-F][[:xdigit:]]{2} { R(); SET_STR(); C(); return MKT(EUNI); }
+"\\u"[[:xdigit:]]{4}   { R(); SET_STR(); C(); return MKT(EUNI); }
+"\t"                   { R(); CHR_BY_STR("\t"); C(); return MKT(CHR); }
 ["[:cntrl:]]           { R(); C(); return *yytext; } /* let bison to handle */
+.                      { R(); C(); return *yytext; } /* let bison to handle */
 }
 
 <SQ>{
 {SQ}                   { R(); POP(); C(); return *yytext; }
 [^'\\[:cntrl:]]+       { R(); SET_STR(); C(); return MKT(STR); }
-[\\]                   { R(); PUSH(ESC); C(); return MKT(ESC); }
+"\\"/[bfnrt'\\]        { R(); PUSH(ESC); C(); } /* eat */
+"\\u"[dD][8-9a-fA-F][[:xdigit:]]{2}"\\u"[dD][c-fC-F][[:xdigit:]]{2} { R(); SET_STR(); C(); return MKT(EUNI); }
+"\\u"[[:xdigit:]]{4}   { R(); SET_STR(); C(); return MKT(EUNI); }
+"\t"                   { R(); CHR_BY_STR("\t"); C(); return MKT(CHR); }
 ['[:cntrl:]]           { R(); C(); return *yytext; } /* let bison to handle */
+.                      { R(); C(); return *yytext; } /* let bison to handle */
 }
 
 <AA>{
 {AA}                   { R(); POP(); C(); return *yytext; }
 [^`\\[:cntrl:]]+       { R(); SET_STR(); C(); return MKT(STR); }
-[\\]                   { R(); PUSH(ESC); C(); return MKT(ESC); }
+"\\"/[bfnrt`\\]        { R(); PUSH(ESC); C(); } /* eat */
+"\\u"[dD][8-9a-fA-F][[:xdigit:]]{2}"\\u"[dD][c-fC-F][[:xdigit:]]{2} { R(); SET_STR(); C(); return MKT(EUNI); }
+"\\u"[[:xdigit:]]{4}   { R(); SET_STR(); C(); return MKT(EUNI); }
+"\t"                   { R(); CHR_BY_STR("\t"); C(); return MKT(CHR); }
 [`[:cntrl:]]           { R(); C(); return *yytext; } /* let bison to handle */
-}
-
-<ESC>{
-[b]                  { R(); SET_CHR('\b'); POP(); C(); return MKT(ECHR); }
-[f]                  { R(); SET_CHR('\f'); POP(); C(); return MKT(ECHR); }
-[n]                  { R(); SET_CHR('\n'); POP(); C(); return MKT(ECHR); }
-[r]                  { R(); SET_CHR('\r'); POP(); C(); return MKT(ECHR); }
-[t]                  { R(); SET_CHR('\t'); POP(); C(); return MKT(ECHR); }
-[\\]                 { R(); SET_CHR('\\'); POP(); C(); return MKT(ECHR); }
-[u][[:xdigit:]]{4}   { R(); SET_STR(); POP(); C(); return MKT(EUNI); }
-{LN}                 { R(); L(); return *yytext; } /* let bison to handle */
-.                    { R(); C(); return *yytext; } /* let bison to handle */
+.                      { R(); C(); return *yytext; } /* let bison to handle */
 }
 
 %%

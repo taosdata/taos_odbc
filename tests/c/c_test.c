@@ -25,6 +25,7 @@
 #include "odbc_helpers.h"
 
 #include <errno.h>
+#include <iconv.h>
 #include <stdarg.h>
 #include <stdint.h>
 #ifdef _WIN32       /* { */
@@ -32,11 +33,11 @@
 #else               /* }{ */
 #include <unistd.h>
 #endif              /* } */
+#include <wchar.h>
 
 
 #define DUMP(fmt, ...)             fprintf(stderr, fmt "\n", ##__VA_ARGS__)
 #define DCASE(fmt, ...)            fprintf(stderr, "@%d:%s():@%d:%s():" fmt "\n", __LINE__, __func__, line, func, ##__VA_ARGS__)
-#ifdef _WIN32        /* { */
 #define DCASE_W(fmt, ...)          do { \
     wchar_t wfunc1[512]; \
     wchar_t wfunc2[512]; \
@@ -50,10 +51,17 @@
         wprintf(L"@%d: Conversion failed for function name\n", __LINE__); \
     } \
 } while (0)
-#else                /* }{ */
-#define DCASE_W(fmt, ...)
-#endif               /* } */
 
+
+#ifdef _WIN32             /* { */
+#define WCHAR_ENCODER_NAME          "UTF-16LE"
+#else                     /* }{ */
+#define WCHAR_ENCODER_NAME          "UTF-32LE"
+#endif                    /* } */
+
+static const char          *SQL_C_WCHAR_encoder_name = "UTF-16LE";
+static const char          *wchar_encoder_name       = WCHAR_ENCODER_NAME;
+static iconv_t              widechar_conv            = (iconv_t)-1;
 
 typedef struct handles_s                 handles_t;
 struct handles_s {
@@ -458,8 +466,7 @@ static int _check_with_values_ap(int line, const char *func, handles_t *handles,
   return -1;
 }
 
-#ifdef _WIN32             /* { */
-static SQLSMALLINT sqltype_2_ctype(SQLLEN v)
+static SQLSMALLINT sqltype_2_ctype(SQLLEN v, SQLLEN is_unsigned)
 {
   SQLSMALLINT TargetType = 0;
   switch (v) {
@@ -478,10 +485,10 @@ static SQLSMALLINT sqltype_2_ctype(SQLLEN v)
       TargetType = SQL_C_NUMERIC;
       break;
     case SQL_SMALLINT:
-      TargetType = SQL_C_SHORT;
+      TargetType = is_unsigned ? SQL_C_USHORT : SQL_C_SSHORT;
       break;
     case SQL_INTEGER:
-      TargetType = SQL_C_LONG;
+      TargetType = is_unsigned ? SQL_C_ULONG : SQL_C_SLONG;
       break;
     case SQL_REAL:
     case SQL_FLOAT:
@@ -494,10 +501,10 @@ static SQLSMALLINT sqltype_2_ctype(SQLLEN v)
       TargetType = SQL_C_BIT;
       break;
     case SQL_TINYINT:
-      TargetType = SQL_C_TINYINT;
+      TargetType = is_unsigned ? SQL_C_UTINYINT : SQL_C_STINYINT;
       break;
     case SQL_BIGINT:
-      TargetType = SQL_C_SBIGINT;
+      TargetType = is_unsigned ? SQL_C_UBIGINT : SQL_C_SBIGINT;
       break;
     case SQL_BINARY:
     case SQL_VARBINARY:
@@ -568,14 +575,20 @@ static int _check_col_bind_with_values_ap(int line, const char *func, handles_t 
     sr = CALL_SQLDescribeCol(handles->hstmt, (SQLUSMALLINT)i_col+1, (SQLCHAR*)colName, sizeof(colName), &NameLength, DataType, &ColumnSize, &DecimalDigits, &Nullable);
     if (FAILED(sr)) return -1;
 
-    bufs[i_col][0] = '\0';
-    lens[0] = 0;
-    c_types[i_col] = sqltype_2_ctype(*DataType);
+    SQLLEN is_unsigned = SQL_FALSE;
+
+    sr = CALL_SQLColAttribute(handles->hstmt, (SQLUSMALLINT)i_col+1, SQL_DESC_UNSIGNED, NULL, 0, NULL, &is_unsigned);
+    if (FAILED(sr)) return -1;
+
+    c_types[i_col] = sqltype_2_ctype(*DataType, is_unsigned);
     sr = CALL_SQLBindCol(handles->hstmt, (SQLUSMALLINT)i_col+1, c_types[i_col], bufs[i_col], sizeof(bufs[i_col]), lens + i_col);
     if (sr != SQL_SUCCESS) return -1;
   }
 
   for (size_t i_row = 0; i_row < nr_rows; ++i_row) {
+    memset(bufs, 0, sizeof(bufs));
+    memset(lens, 0, sizeof(lens));
+
     sr = CALL_SQLFetch(handles->hstmt);
     if (sr==SQL_NO_DATA) {
       DCASE("expected %zd rows, but got ==%zd==", nr_rows, i_row);
@@ -603,8 +616,8 @@ static int _check_col_bind_with_values_ap(int line, const char *func, handles_t 
         }
         case SQL_C_WCHAR:
         {
+          const unsigned char *utf16le = (const unsigned char*)bufs[i_col];
           const wchar_t *expected = va_arg(ap, const wchar_t *);
-          const wchar_t *actual = (const wchar_t *)bufs[i_col];
           if (lens[i_col] == SQL_NULL_DATA) {
             if (expected) {
               DCASE_W(L"[%zd,%zd]:expected [%ls], but got ==null==", i_row+1, i_col+1, expected);
@@ -612,54 +625,112 @@ static int _check_col_bind_with_values_ap(int line, const char *func, handles_t 
             }
             continue;
           }
-          lens[i_col] = (SQLLEN)wcslen(actual);
-          if (wcslen(expected) != (size_t)lens[i_col] || wcsncmp(actual, expected, (size_t)lens[i_col])) {
-              DCASE_W(L"[%zd,%zd]:expected [%ls], but got ==%ls==", i_row+1, i_col+1, expected, actual);
-              return -1;
+
+          wchar_t widechar[4096]; *widechar = L'\0';
+          char          *inbuf           = (char*)utf16le;
+          size_t         inbytesleft     = (size_t)lens[i_col];
+          char          *outbuf          = (char*)widechar;
+          size_t         outbytesleft    = sizeof(widechar);
+
+          size_t n = iconv(widechar_conv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+          iconv(widechar_conv, NULL, NULL, NULL, NULL);
+          if (n) {
+            DCASE("failed to convert from %s -> %s", SQL_C_WCHAR_encoder_name, wchar_encoder_name);
+            return -1;
+          }
+          size_t widechar_bytes = sizeof(widechar) - outbytesleft;
+          size_t WCHAR_bytes = wcslen(expected) * sizeof(wchar_t);
+
+          if (widechar_bytes != WCHAR_bytes) {
+            DCASE("bytes expected [%zd], but got ====%zd====", WCHAR_bytes, widechar_bytes);
+            return -1;
+          }
+          if (memcmp(widechar, expected, widechar_bytes)) {
+            DCASE_W(L"[%zd,%zd]:expected [%ls], but got ==%ls==", i_row+1, i_col+1, expected, widechar);
+            return -1;
           }
           break;
         }
         case SQL_C_BIT:
         case SQL_C_TINYINT:
+        case SQL_C_STINYINT:
         {
-          char expected = va_arg(ap, char);
-          char actual = bufs[i_col][0];
+          int64_t expected = va_arg(ap, int64_t);
+          int64_t actual = *(int8_t*)bufs[i_col];
           if (actual != expected) {
-            DCASE("[%zd,%zd]:expected [%d], but got ==%d==", i_row+1, i_col+1, expected, actual);
+            DCASE("[%zd,%zd]:expected [%" PRId64 "], but got ==%" PRId64 "==", i_row+1, i_col+1, expected, actual);
+            return -1;
+          }
+          break;
+        }
+        case SQL_C_UTINYINT:
+        {
+          uint64_t expected = va_arg(ap, uint64_t);
+          uint64_t actual = *(uint8_t*)bufs[i_col];
+          if (actual != expected) {
+            DCASE("[%zd,%zd]:expected [%" PRIu64 "], but got ==%" PRIu64 "==", i_row+1, i_col+1, expected, actual);
             return -1;
           }
           break;
         }
         case SQL_C_SHORT:
         case SQL_C_SSHORT:
+        {
+          int64_t expected = va_arg(ap, int64_t);
+          int64_t actual = *(int16_t *)(bufs[i_col]);
+          if (actual != expected) {
+            DCASE("[%zd,%zd]:expected [%" PRId64 "], but got ==%" PRId64 "==", i_row+1, i_col+1, expected, actual);
+            return -1;
+          }
+          break;
+        }
         case SQL_C_USHORT:
         {
-          short expected = va_arg(ap, short);
-          short actual = *(short *)(bufs[i_col]);
+          uint64_t expected = va_arg(ap, uint64_t);
+          uint64_t actual = *(uint16_t *)(bufs[i_col]);
           if (actual != expected) {
-            DCASE("[%zd,%zd]:expected [%d], but got ==%d==", i_row+1, i_col+1, expected, actual);
+            DCASE("[%zd,%zd]:expected [%" PRIu64 "], but got ==%" PRIu64 "==", i_row+1, i_col+1, expected, actual);
             return -1;
           }
           break;
         }
         case SQL_C_LONG:
         case SQL_C_SLONG:
+        {
+          int64_t expected = va_arg(ap, int64_t);
+          int64_t actual = *(int32_t *)(bufs[i_col]);
+          if (actual != expected) {
+            DCASE("[%zd,%zd]:expected [%" PRId64 "], but got ==%" PRId64 "==", i_row+1, i_col+1, expected, actual);
+            return -1;
+          }
+          break;
+        }
         case SQL_C_ULONG:
         {
-          long expected = va_arg(ap, long);
-          long actual = *(long *)(bufs[i_col]);
+          uint64_t expected = va_arg(ap, uint64_t);
+          uint64_t actual = *(uint32_t *)(bufs[i_col]);
           if (actual != expected) {
-            DCASE("[%zd,%zd]:expected [%ld], but got ==%ld==", i_row+1, i_col+1, expected, actual);
+            DCASE("[%zd,%zd]:expected [%" PRIu64 "], but got ==%" PRIu64 "==", i_row+1, i_col+1, expected, actual);
             return -1;
           }
           break;
         }
         case SQL_C_SBIGINT:
         {
-          SQLBIGINT expected = va_arg(ap, SQLBIGINT);
-          SQLBIGINT actual = *(SQLBIGINT *)(bufs[i_col]);
+          int64_t expected = va_arg(ap, int64_t);
+          int64_t actual = *(int64_t*)(bufs[i_col]);
           if (actual != expected) {
-            DCASE("[%zd,%zd]:expected [%lld], but got ==%lld==", i_row+1, i_col+1, expected, actual);
+            DCASE("[%zd,%zd]:expected [%" PRId64 "], but got ==%" PRId64 "==", i_row+1, i_col+1, (int64_t)expected, (int64_t)actual);
+            return -1;
+          }
+          break;
+        }
+        case SQL_C_UBIGINT:
+        {
+          uint64_t expected = va_arg(ap, uint64_t);
+          uint64_t actual = *(uint64_t *)(bufs[i_col]);
+          if (actual != expected) {
+            DCASE("[%zd,%zd]:expected [%" PRIu64 "], but got ==%" PRIu64 "==", i_row+1, i_col+1, expected, actual);
             return -1;
           }
           break;
@@ -667,7 +738,7 @@ static int _check_col_bind_with_values_ap(int line, const char *func, handles_t 
         case SQL_C_FLOAT:
         {
           double expected = va_arg(ap, double);
-          float actual = *(float *)(bufs[i_col]);
+          double actual = *(float *)(bufs[i_col]);
           if (actual != expected) {
             DCASE("[%zd,%zd]:expected [%f], but got ==%f==", i_row+1, i_col+1, expected, actual);
             return -1;
@@ -685,7 +756,7 @@ static int _check_col_bind_with_values_ap(int line, const char *func, handles_t 
           break;
         }
         default:
-          DCASE("[%zd,%zd]:invalid target type, sql_type[%d], c_type:[%d]", i_row+1, i_col+1, sql_types[i_col], c_types[i_col]);
+          DCASE("[%zd,%zd]:invalid target type, sql_type[%d][%s], c_type:[%d][%s]", i_row+1, i_col+1, sql_types[i_col], sql_data_type(sql_types[i_col]), c_types[i_col], sqlc_data_type(c_types[i_col]));
           return -1;
       }
     }
@@ -700,7 +771,6 @@ static int _check_col_bind_with_values_ap(int line, const char *func, handles_t 
   DCASE("expected %zd rows, but got ==more rows==", nr_rows);
   return -1;
 }
-#endif                    /* } */
 
 static int _check_with_values(int line, const char *func, handles_t *handles, int with_col_bind, const char *sql, size_t nr_rows, size_t nr_cols, ...)
 {
@@ -711,9 +781,7 @@ static int _check_with_values(int line, const char *func, handles_t *handles, in
   if (!with_col_bind) {
     r = _check_with_values_ap(line, func, handles, sql, nr_rows, nr_cols, ap);
   } else {
-#ifdef _WIN32             /* { */
     r = _check_col_bind_with_values_ap(line, func, handles, sql, nr_rows, nr_cols, ap);
-#endif                    /* } */
   }
   va_end(ap);
 
@@ -722,7 +790,6 @@ static int _check_with_values(int line, const char *func, handles_t *handles, in
 
 #define CHECK_WITH_VALUES(...)       _check_with_values(__LINE__, __func__, ##__VA_ARGS__)
 
-#ifdef _WIN32          /* { */
 static int test_all_types_with_col_bind(handles_t *handles, const char *connstr, int ws)
 {
   (void)ws;
@@ -741,7 +808,7 @@ static int test_all_types_with_col_bind(handles_t *handles, const char *connstr,
   sqls =
     "drop database if exists foo;"
     "create database if not exists foo;"
-    "create stable if not exists foo.test_types (ts timestamp, val1 int, val2 int unsigned, val3 bigint, val4 bigint unsigned, val5 float, val6 double, val7 binary(64), val8 smallint, val9 smallint unsigned, val10 tinyint, val11 tinyint unsigned, val12 bool, val13 nchar(10), val14 varchar(64)) tags(tag1 int);"
+    "create stable if not exists foo.test_types (ts timestamp, i32 int, u32 int unsigned, i64 bigint, u64 bigint unsigned, flt float, dbl double, bin binary(64), i16 smallint, u16 smallint unsigned, i8 tinyint, u8 tinyint unsigned, b bool, mark nchar(10), name varchar(64)) tags(tag1 int);"
     "create table foo.d0 using foo.test_types (tag1) tags (1);"
     "insert into foo.d0 values('2024-08-25 10:20:45.678', -1, 2, -3, 4, 5.5, 6.6666666666, 'test', -32768, 65535, -128, 255, true, '中文2', 'test123');";
 
@@ -752,75 +819,74 @@ static int test_all_types_with_col_bind(handles_t *handles, const char *connstr,
   r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, L"2024-08-25 10:20:45.678");
   if (r) return -1;
 
-  sql = "select val1 from foo.test_types";
-  long val1 = -1;
-  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, val1);
+  sql = "select i32 from foo.test_types";
+  int64_t i32 = -1;
+  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, i32);
   if (r) return -1;
 
-  sql = "select val2 from foo.test_types";
-  unsigned long val2 = 2;
-  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, val2);
+  sql = "select u32 from foo.test_types";
+  uint64_t u32 = 2;
+  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, u32);
   if (r) return -1;
 
-  sql = "select val3 from foo.test_types";
-  int64_t val3 = -3;
-  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, val3);
+  sql = "select i64 from foo.test_types";
+  int64_t i64 = -3;
+  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, i64);
   if (r) return -1;
 
-  sql = "select val4 from foo.test_types";
-  uint64_t val4 = 4;
-  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, val4);
+  sql = "select u64 from foo.test_types";
+  uint64_t u64 = 4;
+  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, u64);
   if (r) return -1;
 
   // TODO: there is a problem with passing the float parameter in variable arguments
-  sql = "select val5 from foo.test_types";
-  double val5 = 5.5;
-  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, val5);
+  sql = "select flt from foo.test_types";
+  double flt = 5.5;
+  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, flt);
   if (r) return -1;
 
-  sql = "select val6 from foo.test_types";
-  double val6 = 6.6666666666;
-  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, val6);
+  sql = "select dbl from foo.test_types";
+  double dbl = 6.6666666666;
+  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, dbl);
   if (r) return -1;
 
-  sql = "select val8 from foo.test_types";
-  int16_t val8 = -32768;
-  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, val8);
+  sql = "select i16 from foo.test_types";
+  int64_t i16 = -32768;
+  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, i16);
   if (r) return -1;
 
-  sql = "select val9 from foo.test_types";
-  uint16_t val9 = 65535;
-  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, val9);
+  sql = "select u16 from foo.test_types";
+  uint64_t u16 = 65535;
+  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, u16);
   if (r) return -1;
 
-  sql = "select val10 from foo.test_types";
-  int8_t val10 = -128;
-  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, val10);
+  sql = "select i8 from foo.test_types";
+  int64_t i8 = -128;
+  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, i8);
   if (r) return -1;
 
-  sql = "select val11 from foo.test_types";
-  uint8_t val11 = 255;
-  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, val11);
+  sql = "select u8 from foo.test_types";
+  uint64_t u8 = 255;
+  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, u8);
   if (r) return -1;
 
-  sql = "select val12 from foo.test_types";
-  uint8_t val12 = 1;
-  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, val12);
+  sql = "select b from foo.test_types";
+  uint64_t b = 1;
+  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, b);
   if (r) return -1;
 
-  sql = "select val13 from foo.test_types";
-  const wchar_t val13[] = L"中文2";
-  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, val13);
+  sql = "select mark from foo.test_types";
+  const wchar_t mark[] = L"中文2";
+  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, mark);
   if (r) return -1;
 
-  sql = "select val14 from foo.test_types";
-  const char val14[] = "test123";
-  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, val14);
+  sql = "select name from foo.test_types";
+  const char name[] = "test123";
+  r = CHECK_WITH_VALUES(handles, 1, sql, 1, 1, name);
   if (r) return -1;
 
   return 0;
 }
-#endif                 /* } */
 
 static int test_charsets(handles_t *handles, const char *connstr, int ws)
 {
@@ -865,7 +931,6 @@ static int test_charsets(handles_t *handles, const char *connstr, int ws)
   return 0;
 }
 
-#ifdef _WIN32          /* { */
 static int test_charsets_with_col_bind(handles_t *handles, const char *connstr, int ws)
 {
   (void)ws;
@@ -908,7 +973,6 @@ static int test_charsets_with_col_bind(handles_t *handles, const char *connstr, 
 
   return 0;
 }
-#endif                 /* } */
 
 static int _insert_with_values_ap(int line, const char *func, handles_t *handles, const char *sql, size_t nr_rows, size_t nr_cols, va_list ap)
 {
@@ -1569,14 +1633,10 @@ int main(int argc, char *argv[])
 
 #define RECORD(x) {#x, x}
   case_t _cases[] = {
-#ifdef _WIN32          /* { */
     RECORD(test_all_types_with_col_bind),
-#endif                 /* } */
     RECORD(test_case0),
     RECORD(test_charsets),
-#ifdef _WIN32          /* { */
     RECORD(test_charsets_with_col_bind),
-#endif                 /* } */
     RECORD(test_charsets_with_param_bind),
     RECORD(test_topic),
     RECORD(test_params_with_all_chars),
@@ -1594,9 +1654,19 @@ int main(int argc, char *argv[])
   if (0) sr = CALL_SQLSetEnvAttr(SQL_NULL_HANDLE, SQL_ATTR_CONNECTION_POOLING, (SQLPOINTER)SQL_CP_ONE_PER_DRIVER, 0);
   if (FAILED(sr)) return -1;
 
-  handles_t handles = {0};
-  r = running_with_args(argc, argv, &handles, _cases, _nr_cases);
-  handles_release(&handles);
+  widechar_conv = iconv_open(wchar_encoder_name, SQL_C_WCHAR_encoder_name);
+  if (widechar_conv == (iconv_t)-1) {
+    E("failed to open convertion from %s -> %s", SQL_C_WCHAR_encoder_name, wchar_encoder_name);
+    r = -1;
+  } else {
+    handles_t handles = {0};
+    r = running_with_args(argc, argv, &handles, _cases, _nr_cases);
+    handles_release(&handles);
+  }
+  if (widechar_conv != (iconv_t)-1) {
+    iconv_close(widechar_conv);
+  }
+
   fprintf(stderr, "==%s==\n", r ? "failure" : "success");
   return !!r;
 }

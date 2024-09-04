@@ -428,6 +428,12 @@ enum backend_e {
   BACKEND_TAOSWS,
 };
 
+typedef enum customproduct_e {
+  CUSTP_UNKNOWN           = 0,
+  CUSTP_KINGSCADA         = 1,
+} customproduct_t;
+
+
 struct conn_cfg_s {
   char                  *driver;
   char                  *dsn;
@@ -444,6 +450,9 @@ struct conn_cfg_s {
   char                  *charset_for_col_bind;
   char                  *charset_for_param_bind;
   int                    port;
+
+  char                  *customproduct_name;
+  customproduct_t        customproduct;
 
   // NOTE: 1.this is to hack node.odbc, which maps SQL_TINYINT to SQL_C_UTINYINT
   //       2.node.odbc does not call SQLGetInfo/SQLColAttribute to get signess of integers

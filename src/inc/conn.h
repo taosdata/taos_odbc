@@ -34,7 +34,9 @@
 
 EXTERN_C_BEGIN
 
-void conn_cfg_release(conn_cfg_t *conn_str) FA_HIDDEN;
+void conn_cfg_release(conn_cfg_t *conn_cfg) FA_HIDDEN;
+
+int conn_cfg_set_customproduct(conn_cfg_t *conn_cfg, const char *s, size_t n) FA_HIDDEN;
 
 conn_t* conn_create(env_t *env) FA_HIDDEN;
 conn_t* conn_ref(conn_t *conn) FA_HIDDEN;

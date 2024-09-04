@@ -37,6 +37,7 @@
 #define SQLSERVER_ODBC   0x08
 
 static int _under_taos_mysql_sqlite3 = 0;  // 0: taos; 1: mysql; 2: sqlite3
+static int _test_with_enterprise     = 0;
 
 typedef struct conn_arg_s             conn_arg_t;
 struct conn_arg_s {
@@ -883,7 +884,7 @@ static int test_case5_with_stmt_1(SQLHANDLE hstmt)
 
 
   // test view
-  {
+  if (_test_with_enterprise) {
     struct {
       const char *sql;
     } view_sqls[] = {
@@ -2999,6 +3000,19 @@ static int test(int argc, char *argv[])
 int main(int argc, char *argv[])
 {
   int r = 0;
+
+  const char *env_val = getenv("TEST_WITH_ENTERPRISE");
+  // eg.:
+  // linux:         export TEST_WITH_ENTERPRISE=ON
+  // or
+  // windows:       set TEST_WITH_ENTERPRISE=ON
+
+  if (!env_val || tod_strcasecmp(env_val, "ON")) {
+    I("set environment `TEST_WITH_ENTERPRISE` to `ON` to allow test-cases that require features provided by TAOS-enterprise");
+  } else {
+    _test_with_enterprise = 1;
+  }
+
   r = test(argc, argv);
   fprintf(stderr, "==%s==\n", r ? "failure" : "success");
   return !!r;

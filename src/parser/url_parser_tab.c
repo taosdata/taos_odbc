@@ -424,6 +424,7 @@ int url_parse_and_encode(const conn_cfg_t *cfg, char **out, url_parser_param_t *
   uint16_t port = cfg->port;
   const char *db = cfg->db;
   int8_t conn_mode = !!cfg->conn_mode;
+  // cfg::customproduct: this is local property, no need to propagate to ws
 
 
   int r = 0;

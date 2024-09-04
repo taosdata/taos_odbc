@@ -24,8 +24,9 @@
 
 #include "odbc_helpers.h"
 
+#include "iconv_wrapper.h"
+
 #include <errno.h>
-#include <iconv.h>
 #include <stdarg.h>
 #include <stdint.h>
 #ifdef _WIN32       /* { */

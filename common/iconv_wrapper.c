@@ -1148,7 +1148,7 @@ static int widechar_to_UTF_32LE(codepage_t *codepage, char **inbuf, size_t *inby
 
 static int ilseq_or_inval_utf8(codepage_t *codepage, const unsigned char *remain, size_t remainlen)
 {
-  int len = 0;
+  size_t len = 0;
 
   if ((remain[0] & 0xE0) == 0xC0) len = 2;
   else if ((remain[0] & 0xF0) == 0xE0) len = 3;

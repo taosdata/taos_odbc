@@ -70,10 +70,12 @@ static void _init_local_timezone(void)
   // struct tm tm0_local;
   // tod_strptime(dt, fmt, &tm0_local);
   // _local_timezone = 0 - mktime(&tm0_local);
-  time_t t0 = 0;
+
+  // https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/mktime-mktime32-mktime64?view=msvc-170
+  time_t t0 = 12*60*60;
   struct tm tm;
   gmtime_r(&t0, &tm);
-  _local_timezone = 0 - mktime(&tm);
+  _local_timezone = t0 - mktime(&tm);
 }
 
 time_t tod_get_local_timezone(void)

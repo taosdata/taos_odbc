@@ -35,9 +35,12 @@ const char* tod_strptime(const char *s, const char *format, struct tm *tm)
   std::istringstream ss(s);
   // ss.imbue(std::locale("de_DE.utf-8"));
   ss >> std::get_time(tm, format);
-  std::streamoff count = ss.tellg();
+  if (ss.fail()) return NULL;
+  if (ss.eof())  return s + strlen(s);
 
-  if (ss.fail() || count < 0) return NULL;
+  std::streampos count = ss.tellg();
 
-  return s + static_cast<ptrdiff_t>(count);
+  if (count < 0) return NULL;
+
+  return s + count;
 }

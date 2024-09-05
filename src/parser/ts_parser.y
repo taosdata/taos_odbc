@@ -83,7 +83,7 @@
         YLOG(LOG_MALS, &_loc, "bad timefraction:[.%.*s]", (int)_n, _nano);     \
         YYABORT;                                                               \
       }                                                                        \
-      param->decimal_digits = _n;                                              \
+      param->decimal_digits = (uint8_t)_n;                                     \
       while (_n++<9)                                                           \
         param->frac_nano *= 10;                                                \
     } while (0)

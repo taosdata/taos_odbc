@@ -347,9 +347,9 @@ static void _wild_match_one(wildex_t *wild, const int32_t *s, size_t nr, size_t 
 
   if (inode + 1 == wild->nr) {
     if (p<end) {
-      DW("nr:%zd;inode:%zd: unmatched", nr, inode); 
+      DW("nr:%zd;inode:%zd: unmatched", nr, inode);
     } else {
-      DW("nr:%zd;inode:%zd: matched", nr, inode); 
+      DW("nr:%zd;inode:%zd: matched", nr, inode);
     }
     if (p<end) return;
     *matched = 1;
@@ -361,10 +361,10 @@ static void _wild_match_one(wildex_t *wild, const int32_t *s, size_t nr, size_t 
 static void _wild_match_specific(wildex_t *wild, const int32_t *s, size_t nr, size_t inode, int *matched)
 {
   wildex_node_t *node = wild->nodes + inode;
-  if (nr < node->nr) DW("nr:%zd;inode:%zd;node->nr:%zd: unmatched", nr, inode, node->nr); 
+  if (nr < node->nr) DW("nr:%zd;inode:%zd;node->nr:%zd: unmatched", nr, inode, node->nr);
   if (nr < node->nr) return;
   int r = memcmp(s, node->base, node->nr * sizeof(*node->base));
-  if (r) DW("nr:%zd;inode:%zd;node->nr:%zd: unmatched", nr, inode, node->nr); 
+  if (r) DW("nr:%zd;inode:%zd;node->nr:%zd: unmatched", nr, inode, node->nr);
   if (r) return;
 
   if (inode + 1 == wild->nr) {

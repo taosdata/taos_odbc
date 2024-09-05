@@ -37,6 +37,7 @@
 #define SQLSERVER_ODBC   0x08
 
 static int _under_taos_mysql_sqlite3 = 0;  // 0: taos; 1: mysql; 2: sqlite3
+static int _test_with_enterprise     = 0;
 
 typedef struct conn_arg_s             conn_arg_t;
 struct conn_arg_s {
@@ -879,6 +880,88 @@ static int test_case5_with_stmt_1(SQLHANDLE hstmt)
   if (sr != SQL_NO_DATA) {
     E("SQL_NO_DATA expected, but got ==%s==", sql_return_type(sr));
     return -1;
+  }
+
+
+  // test view
+  if (_test_with_enterprise) {
+    struct {
+      const char *sql;
+    } view_sqls[] = {
+      {"drop database if exists foo"},
+      {"create database if not exists foo"},
+      {"create table foo.t (ts timestamp, name varchar(20), mark nchar(20))"},
+      {"create view foo.view_test as select * from foo.t"},
+    };
+
+    for (size_t i=0; i<sizeof(view_sqls)/sizeof(view_sqls[0]); ++i) {
+      const char *sql = view_sqls[i].sql;
+      sr = CALL_SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
+      if (sr != SQL_SUCCESS) return -1;
+    }
+
+    CatalogName = "foo";
+    SchemaName = NULL;
+    TableName = NULL;
+    TableType = "VIEW";
+    sr = CALL_SQLTables(hstmt,
+      (SQLCHAR*)CatalogName, (SQLSMALLINT)strlen(CatalogName),
+      (SQLCHAR*)SchemaName,  (SQLSMALLINT)0,
+      (SQLCHAR*)TableName,   (SQLSMALLINT)0,
+      (SQLCHAR*)TableType,   (SQLSMALLINT)strlen(TableType));
+    if (FAILED(sr)) return -1;
+
+    sr = CALL_SQLNumResultCols(hstmt, &ColumnCount);
+    if (FAILED(sr)) return -1;
+
+    if (ColumnCount != 5) {
+      E("5 result columns expected, but got ==%d==", ColumnCount);
+      return -1;
+    }
+
+    sr = CALL_SQLFetch(hstmt);
+    if (sr != SQL_SUCCESS) {
+      E("SQL_SUCCESS expected, but got ==%s==", sql_return_type(sr));
+      return -1;
+    }
+
+    SQLUSMALLINT col_index = 3;
+    char buf[1024];
+    SQLLEN ind;
+    sr = CALL_SQLGetData(hstmt, col_index, SQL_C_CHAR, (SQLPOINTER)buf, sizeof(buf), &ind);
+    if (FAILED(sr)) return -1;
+    D("Column[%d]: ==%s==", col_index, ind == SQL_NULL_DATA ? "(null)" : buf);
+    if (strcmp(buf, "view_test")) {
+      E("view test failed, expected view_test, but got ==%s==", buf);
+      return -1;
+    }
+
+    sr = CALL_SQLFetch(hstmt);
+    if (sr != SQL_NO_DATA) {
+      E("SQL_NO_DATA expected, but got ==%s==", sql_return_type(sr));
+      return -1;
+    }
+
+    const char *CatalogName;
+    const char *SchemaName;
+    const char *TableName;
+    const char *ColumnName;
+
+    CatalogName = "foo";
+    SchemaName = "";
+    TableName = "view_test";
+    ColumnName = NULL;
+
+    sr = CALL_SQLColumns(hstmt,
+      (SQLCHAR*)CatalogName, (SQLSMALLINT)strlen(CatalogName),
+      (SQLCHAR*)SchemaName,  (SQLSMALLINT)strlen(SchemaName),
+      (SQLCHAR*)TableName,   (SQLSMALLINT)strlen(TableName),
+      (SQLCHAR*)ColumnName,   (SQLSMALLINT)0);
+    if (sr != SQL_SUCCESS) {
+      E("SQL_SUCCESS expected, but got ==%s==", sql_return_type(sr));
+      return -1;
+    }
+
   }
 
   return 0;
@@ -2917,6 +3000,19 @@ static int test(int argc, char *argv[])
 int main(int argc, char *argv[])
 {
   int r = 0;
+
+  const char *env_val = getenv("TEST_WITH_ENTERPRISE");
+  // eg.:
+  // linux:         export TEST_WITH_ENTERPRISE=ON
+  // or
+  // windows:       set TEST_WITH_ENTERPRISE=ON
+
+  if (!env_val || tod_strcasecmp(env_val, "ON")) {
+    I("set environment `TEST_WITH_ENTERPRISE` to `ON` to allow test-cases that require features provided by TAOS-enterprise");
+  } else {
+    _test_with_enterprise = 1;
+  }
+
   r = test(argc, argv);
   fprintf(stderr, "==%s==\n", r ? "failure" : "success");
   return !!r;

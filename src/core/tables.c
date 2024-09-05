@@ -729,6 +729,10 @@ SQLRETURN tables_open(
     "       else 'UNKNOWN'"
     "  end `TABLE_TYPE`, table_comment `REMARKS` from information_schema.ins_tables"
     " "
+    "union all"
+    " "
+    "select db_name `TABLE_CAT`, '' `TABLE_SCHEM`, view_name `TABLE_NAME`, 'VIEW' `TABLE_TYPE`, NULL `REMARKS` from information_schema.ins_views"
+    " "
     "order by `TABLE_TYPE`, `TABLE_CAT`, `TABLE_SCHEM`, `TABLE_NAME`";
   // BI mode do not show system table and child table
   if (stmt->conn->cfg.conn_mode){
@@ -739,6 +743,10 @@ SQLRETURN tables_open(
         " "
         "select db_name `TABLE_CAT`, '' `TABLE_SCHEM`, table_name `TABLE_NAME`, 'TABLE' `TABLE_TYPE`, table_comment `REMARKS` from information_schema.ins_tables "
         "where type = 'NORMAL_TABLE' "
+        " "
+        "union all"
+        " "
+        "select db_name `TABLE_CAT`, '' `TABLE_SCHEM`, view_name `TABLE_NAME`, 'VIEW' `TABLE_TYPE`, NULL `REMARKS` from information_schema.ins_views"
         " "
         "order by `TABLE_TYPE`, `TABLE_CAT`, `TABLE_SCHEM`, `TABLE_NAME`";
   }

@@ -200,3 +200,10 @@ const char * dlerror(void)
   if (!dl_err[0]) return NULL;
   return dl_err;
 }
+
+char *tod_strerror_x(int errnum, char *buf, size_t buflen)
+{
+  strerror_s(buf, buflen, errnum);
+  return buf;
+}
+

@@ -43,6 +43,7 @@
 #include "tls.h"
 #include "topic.h"
 #include "tsdb.h"
+#include "ts_parser.h"
 #include "typesinfo.h"
 
 #include <errno.h>
@@ -3176,84 +3177,48 @@ static SQLRETURN _stmt_sql_c_char_to_tsdb_timestamp(stmt_t *stmt, const char *s,
 
 static SQLRETURN _stmt_conv_sql_c_char_to_tsdb_timestamp_x(stmt_t *stmt, const char *src, size_t len, int precision, int64_t *dst)
 {
+  int r = 0;
+
   SQLRETURN sr = SQL_SUCCESS;
 
   int64_t v = 0;
   // OW("len:%zd", len);
 
-  const char *p;
-  const char *format = "%Y-%m-%d %H:%M:%S";
-  struct tm t = {0};
-  time_t tt;
-  p = tod_strptime(src, format, &t);
-  tt = mktime(&t);
-  v = tt;
-  if (!p) {
+  char *end = NULL;
+  strtol(src, &end, 0);
+  if (end && !*end) {
     // TODO: precision
     sr = _stmt_sql_c_char_to_tsdb_timestamp(stmt, src, &v);
     if (sr == SQL_ERROR) return SQL_ERROR;
-  } else if (*p) {
-    if (*p != '.') {
+  } else {
+    int64_t tz_default = tod_get_local_timezone();
+
+    ts_parser_param_t param = {0};
+    // param.ctx.debug_flex = 1;
+    // param.ctx.debug_bison = 1;
+    r = ts_parser_parse(src, len, &param, tz_default);
+    if (r) {
       stmt_append_err_format(stmt, "22007", 0,
           "Invalid datetime format:timestamp is required, but got ==[%.*s]==", (int)len, src);
       return SQL_ERROR;
     }
-    int n = (int)(len - (p-src));
-    if (n == 4) {
-      if (precision != 0) {
-        stmt_append_err_format(stmt, "22007", 0,
-            "Invalid datetime format:`ms` timestamp is required, but got ==[%.*s]==", (int)len, src);
-        return SQL_ERROR;
-      }
-      char *end = NULL;
-      long int x = strtol(p+1, &end, 10);
-      if (end && end-p!=4) {
-        stmt_append_err_format(stmt, "22007", 0,
-            "Invalid datetime format:`ms` timestamp is required, but got ==[%.*s]==", (int)len, src);
-        return SQL_ERROR;
-      }
-      v *= 1000;
-      v += x;
-    } else if (n == 7) {
-      if (precision != 1) {
-        stmt_append_err_format(stmt, "22007", 0,
-            "Invalid datetime format:`us` timestamp is required, but got ==[%.*s]==", (int)len, src);
-        return SQL_ERROR;
-      }
-      char *end = NULL;
-      long int x = strtol(p+1, &end, 10);
-      if (end && end-p!=7) {
-        stmt_append_err_format(stmt, "22007", 0,
-            "Invalid datetime format:`us` timestamp is required, but got ==[%.*s]==", (int)len, src);
-        return SQL_ERROR;
-      }
-      v *= 1000000;
-      v += x;
-    } else if (n == 10) {
-      if (precision != 1) {
-        stmt_append_err_format(stmt, "22007", 0,
-            "Invalid datetime format:`ns` timestamp is required, but got ==[%.*s]==", (int)len, src);
-        return SQL_ERROR;
-      }
-      char *end = NULL;
-      long int x = strtol(p+1, &end, 10);
-      if (end && end-p!=10) {
-        stmt_append_err_format(stmt, "22007", 0,
-            "Invalid datetime format:`ns` timestamp is required, but got ==[%.*s]==", (int)len, src);
-        return SQL_ERROR;
-      }
-      v *= 1000000000;
-      v += x;
-    } else {
-      stmt_append_err_format(stmt, "22007", 0,
-          "Invalid datetime format:timestamp is required, but got ==[%.*s]==, precision:%d;n:%d", (int)len, src, precision,n);
-      return SQL_ERROR;
+
+    time_t             tm_utc0        = param.tm_utc0;
+    unsigned long long frac_nano      = param.frac_nano;
+
+    ts_parser_param_release(&param);
+
+    switch (precision) {
+      case 0:       // ms
+        v = tm_utc0 * 1000 + frac_nano / 1000000;
+        break;
+      case 1:       // us
+        v = tm_utc0 * 1000000 + frac_nano / 1000;
+        break;
+      default:      // ns
+        v = tm_utc0 * 1000000000 + frac_nano;
+        break;
     }
-  } else {
-    // TODO: precision
-    stmt_append_err_format(stmt, "22007", 0,
-        "Invalid datetime format:timestamp is required, but got ==[%.*s]==", (int)len, src);
-    return SQL_ERROR;
   }
 
   *dst = v;
@@ -3569,6 +3534,8 @@ static SQLRETURN _stmt_param_copy_sqlc_wchar_sql_varchar(stmt_t *stmt, const cha
 
 static SQLRETURN _stmt_param_copy_to_sql_timestamp(stmt_t *stmt, const char *src, size_t len, param_state_t *param_state)
 {
+  int r = 0;
+
   SQLRETURN sr = SQL_SUCCESS;
 
   char buf[1024];
@@ -3585,53 +3552,39 @@ static SQLRETURN _stmt_param_copy_to_sql_timestamp(stmt_t *stmt, const char *src
 
   data->type = SQL_TYPE_TIMESTAMP;
 
-  const char *p;
-  const char *format = "%Y-%m-%d %H:%M:%S";
-  struct tm t = {0};
-  p = tod_strptime(src, format, &t);
-  if (!p) {
-    int64_t v = 0;
+  int64_t v = 0;
+
+  char *end = NULL;
+  strtol(src, &end, 0);
+  if (end && !*end) {
+    // TODO: precision
     sr = _stmt_sql_c_char_to_tsdb_timestamp(stmt, src, &v);
     if (sr == SQL_ERROR) return SQL_ERROR;
     data->ts.i64 = v;
     data->ts.is_i64 = 1;
     return SQL_SUCCESS;
   }
-  if (*p && *p != '.') {
+
+  int64_t tz_default = tod_get_local_timezone();
+
+  ts_parser_param_t param = {0};
+  // param.ctx.debug_flex = 1;
+  // param.ctx.debug_bison = 1;
+  r = ts_parser_parse(src, len, &param, tz_default);
+  if (r) {
     stmt_append_err_format(stmt, "22007", 0,
         "Invalid datetime format:timestamp is required, but got ==[%.*s]==", (int)len, src);
     return SQL_ERROR;
   }
 
-  data->ts.sec = (int64_t)mktime(&t);
-  data->ts.nsec = 0;
+  time_t             tm_utc0        = param.tm_utc0;
+  unsigned long long frac_nano      = param.frac_nano;
+
+  ts_parser_param_release(&param);
+
+  data->ts.sec    = tm_utc0;
+  data->ts.nsec   = frac_nano;
   data->ts.is_i64 = 0;
-
-  if (!p || !*p) return SQL_SUCCESS;
-
-  // TODO: precision
-  n = (int)(len - (p-src));
-  if (n<0 || n>9) {
-    stmt_append_err_format(stmt, "22007", 0,
-        "Invalid datetime format:timestamp is required, but got ==[%.*s]==", (int)len, src);
-    return SQL_ERROR;
-  }
-
-  char *end = NULL;
-  int64_t x = strtol(p+1, &end, 10);
-  if (end && *end) {
-    stmt_append_err_format(stmt, "22007", 0,
-        "Invalid datetime format:`ms` timestamp is required, but got ==[%.*s]==, unexpected [0x%02x] @ %zd", (int)len, src, (unsigned char)*end, (size_t)(end - src));
-    return SQL_ERROR;
-  }
-  if (x < 0) {
-    stmt_append_err_format(stmt, "22007", 0,
-        "Invalid datetime format:`ms` timestamp is required, but got ==[%.*s]==", (int)len, src);
-    return SQL_ERROR;
-  }
-  while (n++<=9) x *= 10;
-
-  data->ts.nsec = x;
 
   return SQL_SUCCESS;
 }

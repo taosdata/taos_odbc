@@ -556,6 +556,7 @@ struct ts_parser_param_s {
   // breakdown
   unsigned long long     frac_nano;
   int64_t                tz_seconds;
+  uint8_t                decimal_digits;
 };
 
 

@@ -702,7 +702,7 @@ static int run_SQLGetData2(SQLHANDLE hstmt, const char *sql, SQLSMALLINT TargetT
     return -1;
   }
 
-  SQLCHAR *p = (SQLCHAR*)calloc(1, BufferLength);
+  SQLCHAR *p = (SQLCHAR*)calloc(1, BufferLength > 0 ? BufferLength : 0);
   if (!p) {
     RUN_E("calloc failure");
     return -1;
@@ -715,7 +715,7 @@ static int run_SQLGetData2(SQLHANDLE hstmt, const char *sql, SQLSMALLINT TargetT
 
 again:
 
-  memset(p, 'x', BufferLength);
+  if (BufferLength>0) memset(p, 'x', BufferLength);
   StrLen_or_Ind = 0;
   sr = SQLGetData(hstmt, 1, TargetType, p, BufferLength, &StrLen_or_Ind);
   fprintf(stdout, "sr:[%d]%s\n", sr, sql_return_type(sr));
@@ -827,10 +827,6 @@ static int run_SQLGetData1(int argc, char *argv[], int *i, SQLHANDLE hstmt)
         return -1;
       }
       if (errno == ERANGE && (v == LONG_MIN || v == LONG_MAX)) {
-        RUN_E("invalid BufferLength:-n %s", argv[*i]);
-        return -1;
-      }
-      if (v <= 0) {
         RUN_E("invalid BufferLength:-n %s", argv[*i]);
         return -1;
       }

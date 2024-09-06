@@ -597,9 +597,9 @@ static int do_cases(void)
 #elif defined(_WIN32)
   CHK1(test_so, "taos_odbc.dll", -1);
 #ifdef TODBC_X86
-  CHK1(test_so, "C:/Program Files (x86)/taos_odbc/bin/taos_odbc.dll", 0);
+  CHK1(test_so, "C:/TDengine/taos_odbc/x86/bin/taos_odbc.dll", 0);
 #else
-  CHK1(test_so, "C:/Program Files/taos_odbc/bin/taos_odbc.dll", 0);
+  CHK1(test_so, "C:/TDengine/taos_odbc/x64/bin/taos_odbc.dll", 0);
 #endif
   CHK1(test_so, "taos_odbc.dll", -1);
 #else

@@ -616,6 +616,8 @@ static int do_cases(void)
 typedef struct options_s          options_t;
 struct options_s {
   const char *dsn_or_conn;
+  const char *uid;
+  const char *pwd;
 
   uint8_t     dsn:1;
 };
@@ -645,13 +647,13 @@ int open_conn(SQLHANDLE *henv, SQLHANDLE *hconn, SQLHANDLE *hstmt, const options
   }
 
   if (options->dsn) {
-    sr = SQLConnect(*hconn, (SQLCHAR*)options->dsn_or_conn, SQL_NTS, NULL, 0, NULL, 0);
+    sr = CALL_SQLConnect(*hconn, (SQLCHAR*)options->dsn_or_conn, SQL_NTS, (SQLCHAR*)options->uid, SQL_NTS, (SQLCHAR*)options->pwd, SQL_NTS);
     if (!SQL_SUCCEEDED(sr)) {
       RUN_E("SQLConnect failure");
       goto end4;
     }
   } else {
-    sr = SQLDriverConnect(*hconn, NULL, (SQLCHAR*)options->dsn_or_conn, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT);
+    sr = CALL_SQLDriverConnect(*hconn, NULL, (SQLCHAR*)options->dsn_or_conn, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT);
     if (!SQL_SUCCEEDED(sr)) {
       RUN_E("SQLDriverConnect failure");
       goto end4;
@@ -891,6 +893,22 @@ static int run(int argc, char *argv[])
       }
       options.dsn_or_conn = argv[i];
       options.dsn         = 0;
+      continue;
+    }
+    if (tod_strcasecmp(arg, "-u") == 0) {
+      if (++i>=argc) {
+        RUN_E("-u requires an argument for <UID>");
+        return -1;
+      }
+      options.uid         = argv[i];
+      continue;
+    }
+    if (tod_strcasecmp(arg, "-p") == 0) {
+      if (++i>=argc) {
+        RUN_E("-p requires an argument for <PWD>");
+        return -1;
+      }
+      options.pwd         = argv[i];
       continue;
     }
 

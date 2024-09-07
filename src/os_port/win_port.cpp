@@ -42,5 +42,5 @@ const char* tod_strptime(const char *s, const char *format, struct tm *tm)
 
   if (count < 0) return NULL;
 
-  return s + count;
+  return s + static_cast<size_t>(count);
 }

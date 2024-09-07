@@ -367,7 +367,7 @@ static int _conn_get_timezone_from_tsdb(conn_t *conn, const tsdb_data_t *ts)
         (int)ts->str.len, ts->str.str);
   } else {
     int64_t tz = param.tz_seconds;
-    conn->tz         = tz / 3600 * 100 + (tz - tz / 3600 * 3600) / 60;
+    conn->tz         = tz / 3600 * 100 + (tz % 3600) / 60;
     conn->tz_seconds = tz;
   }
 

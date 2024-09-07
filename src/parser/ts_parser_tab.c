@@ -22,25 +22,25 @@
  * SOFTWARE.
  */
 
-#include "helpers.h"
+#include "ts_parser.h"
 
-#include <iostream>
-#include <sstream>
-#include <locale>
-#include <iomanip>
+#include "../core/internal.h"        // FIXME:
+#include "log.h"
+#include "parser.h"
+#include "topic.h"
+#include "var.h"
 
-const char* tod_strptime(const char *s, const char *format, struct tm *tm)
+#include "ts_parser.tab.h"
+#include "ts_parser.lex.c"
+
+#include "ts_parser.lex.h"
+#undef yylloc
+#undef yylval
+#include "ts_parser.tab.c"
+
+void ts_parser_param_release(ts_parser_param_t *param)
 {
-  // std::tm t = {};
-  std::istringstream ss(s);
-  // ss.imbue(std::locale("de_DE.utf-8"));
-  ss >> std::get_time(tm, format);
-  if (ss.fail()) return NULL;
-  if (ss.eof())  return s + strlen(s);
-
-  std::streampos count = ss.tellg();
-
-  if (count < 0) return NULL;
-
-  return s + static_cast<size_t>(count);
+  if (!param) return;
+  param->ctx.err_msg[0] = '\0';
 }
+

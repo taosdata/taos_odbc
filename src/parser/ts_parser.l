@@ -1,3 +1,4 @@
+%{
 /*
  * MIT License
  *
@@ -21,26 +22,36 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+%}
 
-#include "helpers.h"
 
-#include <iostream>
-#include <sstream>
-#include <locale>
-#include <iomanip>
+%{
+#include "parser_macros.h"
+%}
 
-const char* tod_strptime(const char *s, const char *format, struct tm *tm)
-{
-  // std::tm t = {};
-  std::istringstream ss(s);
-  // ss.imbue(std::locale("de_DE.utf-8"));
-  ss >> std::get_time(tm, format);
-  if (ss.fail()) return NULL;
-  if (ss.eof())  return s + strlen(s);
+%option bison-bridge bison-locations reentrant
+%option nounistd
+%option noyywrap noinput nounput
+%option verbose
+%option debug
+%option stack
+%option nodefault
+%option warn
+%option perf-report
+%option 8bit
+%option never-interactive
+%option nounistd
 
-  std::streampos count = ss.tellg();
+LN            "\r\n"|"\n\r"|[\f\r\n]
 
-  if (count < 0) return NULL;
+DIGITS        [[:digit:]]+
+%%
 
-  return s + static_cast<size_t>(count);
-}
+<<EOF>> { if (0) { int state; TOP_STATE(state); if (state != INITIAL) return -1; }
+          yyterminate(); }
+{DIGITS}      { R(); SET_STR(); C(); return MKT(DIGITS); }
+{LN}          { R(); L(); return (unsigned char)*yytext; } /* let bison to handle */
+.             { R(); C(); return (unsigned char)*yytext; } /* let bison to handle */
+
+%%
+

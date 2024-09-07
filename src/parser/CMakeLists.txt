@@ -89,3 +89,18 @@ target_include_directories(url_parser_obj PRIVATE
     ${INTERNAL_INC_PATH})
 set_property(TARGET url_parser_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
 
+parser_gen(ts_parser)
+
+set(ts_parser_SOURCES
+    ts_parser_tab.c)
+
+add_library(ts_parser_obj OBJECT ${ts_parser_SOURCES})
+if(TODBC_WINDOWS)
+    if(USE_WIN_ICONV)
+        add_dependencies(ts_parser_obj ex_iconv)
+    endif()
+endif()
+target_include_directories(ts_parser_obj PRIVATE
+    ${INTERNAL_INC_PATH})
+set_property(TARGET ts_parser_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
+

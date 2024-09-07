@@ -22,25 +22,26 @@
  * SOFTWARE.
  */
 
-#include "helpers.h"
+#ifndef _ts_parser_h_
+#define _ts_parser_h_
 
-#include <iostream>
-#include <sstream>
-#include <locale>
-#include <iomanip>
+#include "macros.h"
+#include "typedefs.h"
 
-const char* tod_strptime(const char *s, const char *format, struct tm *tm)
-{
-  // std::tm t = {};
-  std::istringstream ss(s);
-  // ss.imbue(std::locale("de_DE.utf-8"));
-  ss >> std::get_time(tm, format);
-  if (ss.fail()) return NULL;
-  if (ss.eof())  return s + strlen(s);
+#include <stddef.h>
+#include <stdint.h>
 
-  std::streampos count = ss.tellg();
+EXTERN_C_BEGIN
 
-  if (count < 0) return NULL;
+void ts_parser_param_release(ts_parser_param_t *param) FA_HIDDEN;
 
-  return s + static_cast<size_t>(count);
-}
+// support ISO-8601 and RFC-3339, referenced by `man date`
+// tz_default: used when timezone field not found in `input`
+//             eg.: 28800 for Beijing as +0800/+08:00 == [8 * 60 * 60 + 0 * 60]
+int ts_parser_parse(const char *input, size_t len, ts_parser_param_t *param,
+    int64_t tz_default) FA_HIDDEN;
+
+EXTERN_C_END
+
+#endif // _ts_parser_h_
+

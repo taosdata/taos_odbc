@@ -111,11 +111,31 @@ namespace ConsoleApp1
                 }
             }
         }
+        private static void run(bool ws, string ts)
+        {
+            string connString  = "DSN=TAOS_ODBC_DSN";
+            if (ws) connString = "DSN=TAOS_ODBC_WS_DSN";
+
+            string queryString = "drop database if exists foo; create database if not exists foo; use foo; drop table if exists t;create table t(ts timestamp, name varchar(20), mark nchar(20)); insert into t (ts, name, mark) values (now(), '测试', '人物')";
+            execute_non_query(connString, queryString);
+            execute_query(connString, "select * from foo.t");
+
+            Console.WriteLine(ts);
+            execute_query_with_params(connString, "insert into foo.t (ts, name, mark) values (?, ?, ?)", new string [] {ts, "测试", "人物"});
+
+            if (ws) {
+                // NOTE: does taosws-rs support select-with-params?
+                return;
+            }
+            execute_query_with_params(connString, "select * from t where name = ?", new string [] {"测试"});
+            execute_query_with_params(connString, "select * from t where mark = ?", new string [] {"人物"});
+            execute_query_with_params(connString, "select * from t where mark = ?", new string [] {"人物z"});
+        }
         static void Main(string[] args)
         {
             Console.WriteLine("Hello, World!");
-            string connString;
-            string queryString;
+            // string connString;
+            // string queryString;
             // if (false) {
             //     connString = "DSN=SQLSERVER_ODBC_DSN";
             //     queryString = "drop table if exists t;create table t(name varchar(20), mark nchar(20)); insert into t (name, mark) values ('测试', '人物')";
@@ -126,26 +146,17 @@ namespace ConsoleApp1
             //     execute_query_with_params(connString, "select * from t where mark = ?", new string [] {"人物"});
             // }
 
-#if !FAKE_TAOS
-            connString = "DSN=TAOS_ODBC_DSN";
-#else
-            connString = "DSN=TAOS_ODBC_WS_DSN";
-#endif
-            queryString = "drop database if exists foo; create database if not exists foo; use foo; drop table if exists t;create table t(ts timestamp, name varchar(20), mark nchar(20)); insert into t (ts, name, mark) values (now(), '测试', '人物')";
-            execute_non_query(connString, queryString);
-            execute_query(connString, "select * from foo.t");
-#if !FAKE_TAOS
             String ts = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
-#else
-            String ts = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+            String tsZ = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+#if HAVE_TAOS
+            run(false, ts);
+            run(false, tsZ);
 #endif
-            Console.WriteLine(ts);
-            execute_query_with_params(connString, "insert into foo.t (ts, name, mark) values (?, ?, ?)", new string [] {ts, "测试", "人物"});
-#if !FAKE_TAOS
-            execute_query_with_params(connString, "select * from t where name = ?", new string [] {"测试"});
-            execute_query_with_params(connString, "select * from t where mark = ?", new string [] {"人物"});
-            execute_query_with_params(connString, "select * from t where mark = ?", new string [] {"人物z"});
+#if HAVE_TAOSWS
+            run(true, ts);
+            run(true, tsZ);
 #endif
+            Console.WriteLine("success!");
         }
     }
 }

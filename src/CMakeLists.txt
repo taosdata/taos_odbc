@@ -56,6 +56,7 @@ list(APPEND taos_odbc_a_SOURCES
     $<TARGET_OBJECTS:ext_parser_obj>
     $<TARGET_OBJECTS:sqls_parser_obj>
     $<TARGET_OBJECTS:url_parser_obj>
+    $<TARGET_OBJECTS:ts_parser_obj>
     $<TARGET_OBJECTS:taos_helpers_obj>)
 
 add_library(taos_odbc_a STATIC ${taos_odbc_a_SOURCES})

@@ -33,6 +33,7 @@
 #include "conn_parser.h"
 #include "ext_parser.h"
 #include "sqls_parser.h"
+#include "ts_parser.h"
 #include "ejson_parser.h"
 #include "url_parser.h"
 #include "tls.h"
@@ -878,6 +879,103 @@ static int test_url_parser(void)
   return 0;
 }
 
+static int test_ts_parser(void)
+{
+  // NOTE: date +%s --date='1970-01-02 12:34:56.12345'
+#define TZ 18800
+#define OK_TS(x,utc0, frac_nano)     {__LINE__, x, utc0, frac_nano, 1 }
+#define BAD_TS(x)                    {__LINE__, x, 0,    0,         0 }
+  static const struct {
+    int                     line;
+    const char             *sql;
+    int64_t                 utc0;
+    uint64_t                frac_nano;
+    uint8_t                 ok:1;
+  } _cases [] = {
+    OK_TS("1970-01-02 12:34:56+0000",            131696,        0),
+    OK_TS("1970-01-02 12:34:56",                 131696-TZ,     0),
+    OK_TS("1970-01-02 12:34:56.1",               131696-TZ,     100000000),
+    OK_TS("1970-01-02 12:34:56.12",              131696-TZ,     120000000),
+    OK_TS("1970-01-02 12:34:56.123",             131696-TZ,     123000000),
+    OK_TS("1970-01-02 12:34:56.1234",            131696-TZ,     123400000),
+    OK_TS("1970-01-02 12:34:56.12345",           131696-TZ,     123450000),
+    OK_TS("1970-01-02 12:34:56.123456",          131696-TZ,     123456000),
+    OK_TS("1970-01-02 12:34:56.1234567",         131696-TZ,     123456700),
+    OK_TS("1970-01-02 12:34:56.12345678",        131696-TZ,     123456780),
+    OK_TS("1970-01-02 12:34:56.123456789",       131696-TZ,     123456789),
+    OK_TS("1970-01-02 12:34:56.123456789+0800",  131696-28800,  123456789),
+    OK_TS("1970-01-02 12:34:56.123456789+08:00", 131696-28800,  123456789),
+    OK_TS("1970-01-02 12:34:56.123456789-0800",  131696+28800,  123456789),
+    OK_TS("1970-01-02 12:34:56.123456789-08:00", 131696+28800,  123456789),
+    OK_TS("1970-01-02 12:34:56+0800",            131696-28800,  0),
+    OK_TS("1970-01-02 12:34:56-0800",            131696+28800,  0),
+    OK_TS("1970-01-02 12:34:56+0730",            131696-27000,  0),
+    OK_TS("1970-01-02 12:34:56-0730",            131696+27000,  0),
+    OK_TS("1970-01-02 12:34:56+0731",            131696-27060,  0),
+    OK_TS("1970-01-02 12:34:56-0731",            131696+27060,  0),
+
+    OK_TS("1970-01-02T12:34:56.123456789+0800",  131696-28800,  123456789),
+    OK_TS("1970-01-02T12:34:56.123456789Z",      131696,        123456789),
+
+    BAD_TS(""),
+    BAD_TS("1970-01-02M12:34:56"),
+    BAD_TS("1970-01-02 12:34:56."),
+    BAD_TS("1970-01-02 12:34:56.1234567890"),
+    BAD_TS("1970-01-02M12:34:56+"),
+    BAD_TS("1970-01-02M12:34:56-"),
+    BAD_TS("1970-01-02M12:34:56+1"),
+    BAD_TS("1970-01-02M12:34:56+12"),
+    BAD_TS("1970-01-02M12:34:56+123"),
+    BAD_TS("1970-01-02M12:34:56+1:"),
+    BAD_TS("1970-01-02M12:34:56+12:1"),
+    BAD_TS("1970-01-02M12:34:56+24:00"),
+    BAD_TS("1970-01-02M12:34:56+23:60"),
+  };
+  const size_t _nr_cases = sizeof(_cases) / sizeof(_cases[0]);
+#undef OK_TS
+#undef BAD_TS
+
+  for (size_t i=0; i<_nr_cases; ++i) {
+    int         line            = _cases[i].line;
+    const char *sql             = _cases[i].sql;
+    int64_t     utc0            = _cases[i].utc0;
+    uint64_t    frac_nano       = _cases[i].frac_nano;
+    uint8_t     ok              = _cases[i].ok;
+    ts_parser_param_t param = {0};
+    param.ctx.debug_flex = 1;
+    // param.ctx.debug_bison = 1;
+    int r = ts_parser_parse(sql, strlen(sql), &param, TZ);
+    if (!r != !!ok) {
+      E("parsing:@%dL:%s", line, sql);
+      if (r) {
+        parser_loc_t *loc = &param.ctx.bad_token;
+        E("location:(%d,%d)->(%d,%d)",
+            loc->first_line, loc->first_column, loc->last_line, loc->last_column);
+        E("failed:%s", param.ctx.err_msg);
+      } else {
+        E("expecting failure, but got ==success==");
+      }
+    } else if (r == 0) {
+      if (param.tm_utc0 != utc0) {
+        E("parsing:@%dL:%s", line, sql);
+        E("expecting utc0:%" PRId64 ", but got ==%" PRId64 "==",
+            utc0, (int64_t)param.tm_utc0);
+        r = -1;
+      } else if (param.frac_nano != frac_nano) {
+        E("parsing:@%dL:%s", line, sql);
+        E("expecting frac_nano:%" PRIu64 ", but got ==%" PRIu64 "==",
+            frac_nano, (int64_t)param.frac_nano);
+        r = -1;
+      }
+    }
+
+    ts_parser_param_release(&param);
+    if (!r != !!ok) return -1;
+  }
+
+  return 0;
+}
+
 static int _wildcard_match(const string_t *ex, const string_t *str, const int match)
 {
   int r;
@@ -1716,6 +1814,7 @@ static struct {
   RECORD(test_sqls_parser),
   RECORD(test_ejson_parser),
   RECORD(test_url_parser),
+  RECORD(test_ts_parser),
   RECORD(test_wildmatch),
   RECORD(test_basename_dirname),
   RECORD(test_pthread_once),

@@ -412,9 +412,10 @@ static TAOS_FIELD_E* _tsdb_stmt_get_tsdb_field_by_tsdb_params(tsdb_stmt_t *stmt,
   if (!stmt->is_insert_stmt) return (TAOS_FIELD_E*)&_default_param_field;
 
 #ifdef HAVE_TAOSWS           /* [ */
-  if (stmt->owner->conn->cfg.url) {
-    return (TAOS_FIELD_E*)&_default_param_field;
-  }
+  // NOTE: does taosws-rs support select-with-params?
+  // if (stmt->owner->conn->cfg.url) {
+  //   return (TAOS_FIELD_E*)&_default_param_field;
+  // }
 #endif                       /* ] */
 
   if (i_param == 0 && params->subtbl_required) {

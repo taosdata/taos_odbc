@@ -7442,8 +7442,9 @@ static SQLRETURN _stmt_prepare_col(stmt_t *stmt, param_state_t *param_state)
     }
 #ifdef HAVE_TAOSWS           /* [ */
     if (stmt->conn->cfg.url) {
-      sr = _stmt_param_guess(stmt, param_state);
-      if (sr != SQL_SUCCESS) return SQL_ERROR;
+      // NOTE: does taosws-rs support select-with-params?
+      // sr = _stmt_param_guess(stmt, param_state);
+      // if (sr != SQL_SUCCESS) return SQL_ERROR;
       sr = _stmt_param_tsdb_init(stmt, param_state);
       if (sr != SQL_SUCCESS) return SQL_ERROR;
     } else {

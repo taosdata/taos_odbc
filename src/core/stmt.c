@@ -2029,7 +2029,7 @@ static SQLRETURN _stmt_get_data_copy_buf_to_char(stmt_t *stmt, stmt_get_data_arg
 
   size_t      curr        = ctx->curr;
   size_t      end         = ctx->end;
-  SQLPOINTER  target_ptr  = args->TargetValuePtr;
+  uint8_t    *target_ptr  = (uint8_t*)args->TargetValuePtr;
   SQLLEN      buffer_len  = args->BufferLength;
   const char *residual    = ctx->residual;
 
@@ -2044,7 +2044,7 @@ static SQLRETURN _stmt_get_data_copy_buf_to_char(stmt_t *stmt, stmt_get_data_arg
 
   if (curr < end) {
     // NOTE: flushing residual
-    int n = snprintf(target_ptr, buffer_len, "%.*s", (int)(end - curr), residual + curr);
+    int n = snprintf((char*)target_ptr, buffer_len, "%.*s", (int)(end - curr), residual + curr);
     if (n < 0) {
       stmt_append_err(stmt, "HY000", 0, "General error:internal logic error");
       return SQL_ERROR;
@@ -2055,14 +2055,14 @@ static SQLRETURN _stmt_get_data_copy_buf_to_char(stmt_t *stmt, stmt_get_data_arg
       // NOTE: too big to flush all
       nr_copied_residual = buffer_len - 1; // NOTE: null-terminator exclusive
       ctx->curr += nr_copied_residual;
-      ((char*)target_ptr)[nr_copied_residual] = '\0';
+      target_ptr[nr_copied_residual] = 0;
       return _stmt_return_SQL_SUCCESS_WITH_INFO(stmt, args, nr_remains);
     }
 
     curr            += nr_copied_residual;
     target_ptr      += nr_copied_residual;
     buffer_len      -= nr_copied_residual;
-    ((char*)target_ptr)[0]    = '\0';
+    target_ptr[0]    = 0;
   }
 
   // NOTE: convert remainings
@@ -2161,7 +2161,7 @@ static SQLRETURN _stmt_get_data_copy_buf_to_wchar(stmt_t *stmt, stmt_get_data_ar
 
   size_t      curr        = ctx->curr;
   size_t      end         = ctx->end;
-  SQLPOINTER  target_ptr  = args->TargetValuePtr;
+  uint8_t    *target_ptr  = (uint8_t*)args->TargetValuePtr;
   SQLLEN      buffer_len  = args->BufferLength;
   const char *residual    = ctx->residual;
 
@@ -2184,14 +2184,14 @@ static SQLRETURN _stmt_get_data_copy_buf_to_wchar(stmt_t *stmt, stmt_get_data_ar
     if (end - curr > (size_t)buffer_len - 2) {
       // NOTE: too big to flush all
       ctx->curr += nr_copied_residual;
-      *(uint16_t*)(((uint8_t*)target_ptr)+nr_copied_residual) = 0;
+      *(uint16_t*)(target_ptr+nr_copied_residual) = 0;
       return _stmt_return_SQL_SUCCESS_WITH_INFO(stmt, args, nr_remains);
     }
 
     curr            += nr_copied_residual;
     target_ptr      += nr_copied_residual;
     buffer_len      -= nr_copied_residual;
-    ((uint16_t*)target_ptr)[0]    = 0;
+    *(uint16_t*)target_ptr    = 0;
   }
 
   // NOTE: convert remainings

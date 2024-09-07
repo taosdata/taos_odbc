@@ -882,7 +882,7 @@ static int run_SQLGetData1(int argc, char *argv[], int *i, SQLHANDLE hstmt)
         return -1;
       }
 
-      Col_or_Param_Num = v;
+      Col_or_Param_Num = (SQLUSMALLINT)v; // NOTE: yes, we know it might underflow 
 
       continue;
     }

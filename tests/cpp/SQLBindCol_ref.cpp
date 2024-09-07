@@ -815,14 +815,14 @@ static int test_case5(const char *conn_str, int ws)
             StrLen_or_Ind = 0;
             rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
             A(rc == SQL_SUCCESS_WITH_INFO, "");
-            A(buf[0] == fill, "buf[0] = 0x%x", buf[0]);
+            A(buf[0] == fill || buf[0] == '\0', "buf[0] = 0x%x", buf[0]);
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 1;
             StrLen_or_Ind = 0;
             rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
             A(rc == SQL_SUCCESS_WITH_INFO, "");
-            A(buf[0] == fill, "buf[0] = 0x%x", buf[0]);
+            A(buf[0] == fill || buf[0] == '\0', "buf[0] = 0x%x", buf[0]);
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 2;

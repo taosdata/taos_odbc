@@ -98,6 +98,8 @@ int mem_iconv(mem_t *mem, const char *fromcode, const char *tocode, const char *
 int mem_copy(mem_t *mem, const char *src) FA_HIDDEN;
 int mem_copy_bin(mem_t *mem, const unsigned char *src, size_t len) FA_HIDDEN;
 
+int iconv_calc(iconv_t cnv, const char *in, size_t len, size_t *outbytes) FA_HIDDEN;
+
 typedef struct buf_s               buf_t;
 struct buf_s {
   char               *base;

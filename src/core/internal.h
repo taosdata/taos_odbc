@@ -312,6 +312,10 @@ struct get_data_ctx_s {
   tsdb_data_t    tsdb;
   sqlc_data_t    sqlc;
 
+  char           residual[64];
+  size_t         curr;
+  size_t         end;
+
   //
   char           buf[64];
   mem_t          mem;
@@ -1107,6 +1111,7 @@ struct stmt_s {
   stmt_base_t               *base;
 
   unsigned int               strict:1; // 1: param-truncation as failure
+  unsigned int               no_total:1;
 };
 
 struct tls_s {

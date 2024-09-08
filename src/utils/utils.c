@@ -225,6 +225,39 @@ int mem_copy_bin(mem_t *mem, const unsigned char *src, size_t len)
   return 0;
 }
 
+int iconv_calc(iconv_t cnv, const char *in, size_t len, size_t *outbytes)
+{
+  char buf[4096]; *buf = '\0';
+
+  *outbytes = 0;
+
+  while (len) {
+    char            *inbuf               = (char*)in;
+    size_t           inbytesleft         = len;
+    char            *outbuf              = buf;
+    size_t           outbytesleft        = sizeof(buf);
+
+    size_t n = CALL_iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+    int e = errno;
+    iconv(cnv, NULL, NULL, NULL, NULL);
+    if (n == (size_t)-1) {
+      if (e != E2BIG) {
+        errno = e;
+        return -1;
+      }
+    } else if (n) {
+      errno = EINVAL; // FIXME: not convertable or EILSEQ?
+      return -1;
+    }
+
+    *outbytes  += sizeof(buf) - outbytesleft;
+    in          = (const char*)inbuf;
+    len         = inbytesleft;
+  }
+
+  return 0;
+}
+
 void buf_release(buf_t *buf)
 {
   if (buf->base) {

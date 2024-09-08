@@ -189,6 +189,8 @@ static int test_case1(const char *conn_str, int ws)
               memset(Name, '\x01', sizeof(Name));
               rc = CALL_SQLFetch(hstmt);
               if (rc == SQL_NO_DATA) break;
+              E("cbName:%" PRId64 "", (int64_t)cbName);
+              if (cbName > 1) dump_for_debug((const char*)Name, cbName);
               A(SUCCEEDED(rc), "");
               char buf[1024];
               char cmp[sizeof(buf)+2];
@@ -200,9 +202,9 @@ static int test_case1(const char *conn_str, int ws)
                 char *outbuf = buf;
                 size_t outbytes = sizeof(buf);
 
-                int x = _encode("UCS-2LE", &inbuf, &inbytes,
+                int x = _encode("UTF-16LE", &inbuf, &inbytes,
                     "UTF8", &outbuf, &outbytes);
-                A(x == 0, "");
+                A(x == 0, "x:%d", x);
                 *outbuf = '\0';
                 int n = snprintf(cmp, sizeof(cmp), "[%s]", buf);
                 A(n >= 0 && (size_t)n < sizeof(cmp), "");
@@ -485,7 +487,6 @@ static int test_case4(const char *conn_str, int ws)
   (void)ws;
 
   // TODO: remove this restriction
-  if (1) return 0;
   SQLHENV henv = 0;
   SQLHDBC hdbc = 0;
   SQLHSTMT hstmt = 0;
@@ -569,79 +570,92 @@ static int test_case4(const char *conn_str, int ws)
             StrLen_or_Ind = 0;
             rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
             A(FAILED(rc), "");
+            A(StrLen_or_Ind == 0, "StrLen_or_Ind:%" PRId64 "", (int64_t)StrLen_or_Ind);
+            A(buf[0] == fill, "buf[0]:0x%02x", (unsigned char)buf[0]);
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = -1;
             rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
             A(FAILED(rc), "");
+            A(StrLen_or_Ind == 0, "StrLen_or_Ind:%" PRId64 "", (int64_t)StrLen_or_Ind);
+            A(buf[0] == fill, "buf[0]:0x%02x", (unsigned char)buf[0]);
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 0;
             StrLen_or_Ind = 0;
             rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
-            A(FAILED(rc), "");
+            A(rc == SQL_SUCCESS_WITH_INFO, "[%d]%s", rc, sql_return_type(rc));
+            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind == 5, "StrLen_or_Ind:%" PRId64 "", (int64_t)StrLen_or_Ind);
+            A(buf[0] == fill, "buf[0]:0x%02x", (unsigned char)buf[0]);
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 0;
             StrLen_or_Ind = 0;
             rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
-            A(FAILED(rc), "");
+            A(rc == SQL_SUCCESS_WITH_INFO, "[%d]%s", rc, sql_return_type(rc));
+            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind == 5, "StrLen_or_Ind:%" PRId64 "", (int64_t)StrLen_or_Ind);
+            A(buf[0] == fill, "buf[0]:0x%02x", (unsigned char)buf[0]);
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 1;
             StrLen_or_Ind = 0;
             rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
-            A(rc == SQL_SUCCESS_WITH_INFO, "");
-            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind >= 1, "");
-            A(buf[0] == '\0', "");
+            A(rc == SQL_SUCCESS_WITH_INFO, "[%d]%s", rc, sql_return_type(rc));
+            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind == 5, "StrLen_or_Ind:%" PRId64 "", (int64_t)StrLen_or_Ind);
+            A(buf[0] == '\0', "buf[0]:0x%02x", (unsigned char)buf[0]);
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 1;
             StrLen_or_Ind = 0;
             rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
-            A(rc == SQL_SUCCESS_WITH_INFO, "");
-            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind >= 1, "");
-            A(buf[0] == '\0', "");
+            A(rc == SQL_SUCCESS_WITH_INFO, "[%d]%s", rc, sql_return_type(rc));
+            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind == 5, "StrLen_or_Ind:%" PRId64 "", (int64_t)StrLen_or_Ind);
+            A(buf[0] == '\0', "buf[0]:0x%02x", (unsigned char)buf[0]);
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 2;
             StrLen_or_Ind = 0;
             rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
-            A(rc == SQL_SUCCESS_WITH_INFO, "");
-            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind >= 1, "");
-            A(strcmp((const char*)TargetValue, "n") == 0, "");
+            A(rc == SQL_SUCCESS_WITH_INFO, "[%d]%s", rc, sql_return_type(rc));
+            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind == 5, "StrLen_or_Ind:%" PRId64 "", (int64_t)StrLen_or_Ind);
+            A(buf[0] == 'n', "buf[0]:0x%02x", (unsigned char)buf[0]);
+            A(buf[1] == '\0', "buf[0]:0x%02x", (unsigned char)buf[1]);
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 2;
             StrLen_or_Ind = 0;
             rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
-            A(rc == SQL_SUCCESS_WITH_INFO, "");
-            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind >= 1, "");
-            A(strcmp((const char*)TargetValue, "a") == 0, "");
+            A(rc == SQL_SUCCESS_WITH_INFO, "[%d]%s", rc, sql_return_type(rc));
+            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind == 4, "StrLen_or_Ind:%" PRId64 "", (int64_t)StrLen_or_Ind);
+            A(buf[0] == 'a', "buf[0]:0x%02x", (unsigned char)buf[0]);
+            A(buf[1] == '\0', "buf[0]:0x%02x", (unsigned char)buf[1]);
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 2;
             StrLen_or_Ind = 0;
             rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
-            A(rc == SQL_SUCCESS_WITH_INFO, "");
-            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind >= 1, "");
-            A(strcmp((const char*)TargetValue, "m") == 0, "");
+            A(rc == SQL_SUCCESS_WITH_INFO, "[%d]%s", rc, sql_return_type(rc));
+            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind == 3, "StrLen_or_Ind:%" PRId64 "", (int64_t)StrLen_or_Ind);
+            A(buf[0] == 'm', "buf[0]:0x%02x", (unsigned char)buf[0]);
+            A(buf[1] == '\0', "buf[0]:0x%02x", (unsigned char)buf[1]);
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 2;
             StrLen_or_Ind = 0;
             rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
-            A(rc == SQL_SUCCESS_WITH_INFO, "");
-            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind >= 1, "");
-            A(strcmp((const char*)TargetValue, "e") == 0, "");
+            A(rc == SQL_SUCCESS_WITH_INFO, "[%d]%s", rc, sql_return_type(rc));
+            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind == 2, "StrLen_or_Ind:%" PRId64 "", (int64_t)StrLen_or_Ind);
+            A(buf[0] == 'e', "buf[0]:0x%02x", (unsigned char)buf[0]);
+            A(buf[1] == '\0', "buf[0]:0x%02x", (unsigned char)buf[1]);
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 2;
             StrLen_or_Ind = 0;
             rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
-            A(rc == SQL_SUCCESS, "");
-            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind >= 1, "");
-            A(strcmp((const char*)TargetValue, "1") == 0, "");
+            A(rc == SQL_SUCCESS, "[%d]%s", rc, sql_return_type(rc));
+            A(StrLen_or_Ind == 1, "StrLen_or_Ind:%" PRId64 "", (int64_t)StrLen_or_Ind);
+            A(buf[0] == '1', "buf[0]:0x%02x", (unsigned char)buf[0]);
+            A(buf[1] == '\0', "buf[0]:0x%02x", (unsigned char)buf[1]);
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 2;
@@ -690,7 +704,6 @@ static int test_case5(const char *conn_str, int ws)
   (void)ws;
 
   // TODO: remove this restriction
-  if (1) return 0;
 
   SQLHENV henv = 0;
   SQLHDBC hdbc = 0;
@@ -787,36 +800,36 @@ static int test_case5(const char *conn_str, int ws)
             BufferLength = 0;
             StrLen_or_Ind = 0;
             rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
-            A(FAILED(rc) || rc == SQL_SUCCESS_WITH_INFO, "");
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
             A(buf[0] == fill, "buf[0] = 0x%x", buf[0]);
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 0;
             StrLen_or_Ind = 0;
             rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
-            A(FAILED(rc) || rc == SQL_SUCCESS_WITH_INFO, "");
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
             A(buf[0] == fill, "buf[0] = 0x%x", buf[0]);
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 1;
             StrLen_or_Ind = 0;
             rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
-            A(FAILED(rc) || rc == SQL_SUCCESS_WITH_INFO, "");
-            A(buf[0] == fill, "buf[0] = 0x%x", buf[0]);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(buf[0] == fill || buf[0] == '\0', "buf[0] = 0x%x", buf[0]);
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 1;
             StrLen_or_Ind = 0;
             rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
-            A(FAILED(rc) || rc == SQL_SUCCESS_WITH_INFO, "");
-            A(buf[0] == fill, "buf[0] = 0x%x", buf[0]);
+            A(rc == SQL_SUCCESS_WITH_INFO, "");
+            A(buf[0] == fill || buf[0] == '\0', "buf[0] = 0x%x", buf[0]);
 
             memset(buf, fill, sizeof(buf)); buf[sizeof(buf)-1] = '\0';
             BufferLength = 2;
             StrLen_or_Ind = 0;
             rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
-            A(rc == SQL_SUCCESS_WITH_INFO, "");
-            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind >= 0, "");
+            A(rc == SQL_SUCCESS_WITH_INFO, "[%d]%s", rc, sql_return_type(rc));
+            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind == 10, "StrLen_or_Ind:%" PRId64 "", (int64_t)StrLen_or_Ind);
             A(buf[0] == '\0', "buf[0] = 0x%x", buf[0]);
             A(buf[1] == '\0', "buf[1] = 0x%x", buf[1]);
             A(buf[2] == fill, "buf[2] = 0x%x", buf[2]);
@@ -825,8 +838,8 @@ static int test_case5(const char *conn_str, int ws)
             BufferLength = 2;
             StrLen_or_Ind = 0;
             rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
-            A(rc == SQL_SUCCESS_WITH_INFO, "");
-            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind >= 0, "");
+            A(rc == SQL_SUCCESS_WITH_INFO, "[%d]%s", rc, sql_return_type(rc));
+            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind == 10, "StrLen_or_Ind:%" PRId64 "", (int64_t)StrLen_or_Ind);
             A(buf[0] == '\0', "buf[0] = 0x%x", buf[0]);
             A(buf[1] == '\0', "buf[1] = 0x%x", buf[1]);
             A(buf[2] == fill, "buf[2] = 0x%x", buf[2]);
@@ -835,8 +848,8 @@ static int test_case5(const char *conn_str, int ws)
             BufferLength = 3;
             StrLen_or_Ind = 0;
             rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
-            A(rc == SQL_SUCCESS_WITH_INFO, "");
-            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind >= 0, "");
+            A(rc == SQL_SUCCESS_WITH_INFO, "[%d]%s", rc, sql_return_type(rc));
+            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind == 10, "StrLen_or_Ind:%" PRId64 "", (int64_t)StrLen_or_Ind);
             A(buf[0] == '\0', "buf[0] = 0x%x", buf[0]);
             A(buf[1] == '\0', "buf[1] = 0x%x", buf[1]);
             A(buf[2] == fill, "buf[2] = 0x%x", buf[2]);
@@ -845,8 +858,8 @@ static int test_case5(const char *conn_str, int ws)
             BufferLength = 3;
             StrLen_or_Ind = 0;
             rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
-            A(rc == SQL_SUCCESS_WITH_INFO, "");
-            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind >= 0, "");
+            A(rc == SQL_SUCCESS_WITH_INFO, "[%d]%s", rc, sql_return_type(rc));
+            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind == 10, "StrLen_or_Ind:%" PRId64 "", (int64_t)StrLen_or_Ind);
             A(buf[0] == '\0', "buf[0] = 0x%x", buf[0]);
             A(buf[1] == '\0', "buf[1] = 0x%x", buf[1]);
             A(buf[2] == fill, "buf[2] = 0x%x", buf[2]);
@@ -855,8 +868,8 @@ static int test_case5(const char *conn_str, int ws)
             BufferLength = 4;
             StrLen_or_Ind = 0;
             rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
-            A(rc == SQL_SUCCESS_WITH_INFO, "");
-            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind >= 0, "");
+            A(rc == SQL_SUCCESS_WITH_INFO, "[%d]%s", rc, sql_return_type(rc));
+            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind == 10, "StrLen_or_Ind:%" PRId64 "", (int64_t)StrLen_or_Ind);
             A(buf[0] == 'n', "buf[0] = 0x%x", buf[0]);
             A(buf[1] == '\0', "buf[1] = 0x%x", buf[1]);
             A(buf[2] == '\0', "buf[2] = 0x%x", buf[2]);
@@ -867,8 +880,8 @@ static int test_case5(const char *conn_str, int ws)
             BufferLength = 4;
             StrLen_or_Ind = 0;
             rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
-            A(rc == SQL_SUCCESS_WITH_INFO, "");
-            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind >= 0, "");
+            A(rc == SQL_SUCCESS_WITH_INFO, "[%d]%s", rc, sql_return_type(rc));
+            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind == 8, "StrLen_or_Ind:%" PRId64 "", (int64_t)StrLen_or_Ind);
             A(buf[0] == 'a', "buf[0] = 0x%x", buf[0]);
             A(buf[1] == '\0', "buf[1] = 0x%x", buf[1]);
             A(buf[2] == '\0', "buf[2] = 0x%x", buf[2]);
@@ -879,8 +892,8 @@ static int test_case5(const char *conn_str, int ws)
             BufferLength = 8;
             StrLen_or_Ind = 0;
             rc = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, TargetValue, BufferLength, &StrLen_or_Ind);
-            A(rc == SQL_SUCCESS, "");
-            A(StrLen_or_Ind > 0, "");
+            A(rc == SQL_SUCCESS, "[%d]%s", rc, sql_return_type(rc));
+            A(StrLen_or_Ind == SQL_NO_TOTAL || StrLen_or_Ind == 6, "StrLen_or_Ind:%" PRId64 "", (int64_t)StrLen_or_Ind);
             A(buf[0] == 'm', "buf[0] = 0x%x", buf[0]);
             A(buf[1] == '\0', "buf[1] = 0x%x", buf[1]);
             A(buf[2] == 'e', "buf[2] = 0x%x", buf[2]);

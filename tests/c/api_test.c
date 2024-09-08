@@ -528,7 +528,7 @@ static int do_sql_driver_conns(SQLHANDLE connh)
   CHK2(test_sql_driver_conn, connh, "DSN=TAOS_ODBC_WS_DSN", 0);
   CHK2(test_sql_driver_conn, connh, "Driver={TAOS_ODBC_DRIVER};URL={http://" WS_FOR_TEST "};DB=what", -1);
   CHK2(test_sql_driver_conn, connh, "DSN=TAOS_ODBC_WS_DSN;URL={http://www.examples.com};Server=" WS_FOR_TEST "", 0);
-  
+
   // Note that the ws_connect_with_dsn interface is blocking
   // CHK2(test_sql_driver_conn, connh, "DSN=TAOS_ODBC_WS_DSN;URL={http://www.examples.com};Server=127.0.0.1:6666", -1);
 #endif                            /* } */
@@ -611,9 +611,478 @@ static int do_cases(void)
   return 0;
 }
 
-int main(void)
+#define RUN_E(fmt, ...) fprintf(stderr, "" fmt "\n", ##__VA_ARGS__)
+
+typedef struct options_s          options_t;
+struct options_s {
+  const char *dsn_or_conn;
+  const char *uid;
+  const char *pwd;
+
+  uint8_t     dsn:1;
+};
+
+int open_conn(SQLHANDLE *henv, SQLHANDLE *hconn, SQLHANDLE *hstmt, const options_t *options)
+{
+  int r = -1;
+
+  SQLRETURN sr;
+
+  sr = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, henv);
+  if (!SQL_SUCCEEDED(sr)) {
+    RUN_E("SQLAllocHandle failure");
+    goto end1;
+  }
+
+  sr = SQLSetEnvAttr(*henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, 0);
+  if (!SQL_SUCCEEDED(sr)) {
+    RUN_E("SQLSetEnvAttr failure");
+    goto end2;
+  }
+
+  sr = CALL_SQLAllocHandle(SQL_HANDLE_DBC, *henv, hconn);
+  if (!SQL_SUCCEEDED(sr)) {
+    RUN_E("SQLAllocHandle failure");
+    goto end3;
+  }
+
+  if (options->dsn) {
+    sr = CALL_SQLConnect(*hconn, (SQLCHAR*)options->dsn_or_conn, SQL_NTS, (SQLCHAR*)options->uid, SQL_NTS, (SQLCHAR*)options->pwd, SQL_NTS);
+    if (!SQL_SUCCEEDED(sr)) {
+      RUN_E("SQLConnect failure");
+      goto end4;
+    }
+  } else {
+    sr = CALL_SQLDriverConnect(*hconn, NULL, (SQLCHAR*)options->dsn_or_conn, SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT);
+    if (!SQL_SUCCEEDED(sr)) {
+      RUN_E("SQLDriverConnect failure");
+      goto end4;
+    }
+  }
+
+  sr = CALL_SQLAllocHandle(SQL_HANDLE_STMT, *hconn, hstmt);
+  if (!SQL_SUCCEEDED(sr)) {
+    RUN_E("SQLAllocHandle failure");
+    goto end5;
+  }
+
+  return 0;
+
+end5:
+  SQLDisconnect(*hconn);
+
+end4:
+
+end3:
+  SQLFreeHandle(SQL_HANDLE_DBC, *hconn);
+  *hconn = SQL_NULL_HANDLE;
+
+end2:
+  SQLFreeHandle(SQL_HANDLE_ENV, *henv);
+  *henv = SQL_NULL_HANDLE;
+
+end1:
+
+  return r;
+}
+
+static int exec_direct(SQLHANDLE hstmt, const char *sql)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  sr = SQLExecDirect(hstmt, (SQLCHAR*)sql, SQL_NTS);
+  if (!SQL_SUCCEEDED(sr)) {
+    RUN_E("SQLExecDirect failure");
+    return -1;
+  }
+
+  return 0;
+}
+
+static int run_SQLGetData2(SQLHANDLE hstmt, SQLUSMALLINT Col_or_Param_Num, SQLSMALLINT TargetType, SQLLEN BufferLength, size_t fix_length)
 {
   int r = 0;
+  SQLRETURN sr = SQL_SUCCESS;
+
+  sr = SQLFetch(hstmt);
+  if (sr == SQL_NO_DATA) return 0;
+  if (!SQL_SUCCEEDED(sr)) {
+    RUN_E("SQLExecDirect failure");
+    return -1;
+  }
+
+  size_t bytes = BufferLength > 0 ? (size_t)BufferLength : 0;
+  if (bytes < fix_length) bytes = fix_length;
+
+  SQLCHAR *p = (SQLCHAR*)calloc(1, bytes);
+  if (!p) {
+    RUN_E("calloc failure");
+    return -1;
+  }
+
+  r = -1;
+
+  SQLLEN StrLen_or_Ind = 0;
+  SQLLEN nr = 0;
+
+again:
+
+  if (BufferLength>0) memset(p, 'x', BufferLength);
+  StrLen_or_Ind = 0;
+  sr = CALL_SQLGetData(hstmt, Col_or_Param_Num, TargetType, p, BufferLength, &StrLen_or_Ind);
+  fprintf(stdout, "sr:[%d]%s\n", sr, sql_return_type(sr));
+  fprintf(stdout, "StrLen_or_Ind:%" PRId64 "\n", (int64_t)StrLen_or_Ind);
+  if (sr == SQL_NO_DATA) goto end;
+
+  if (!SQL_SUCCEEDED(sr)) {
+    RUN_E("SQLGetData failure");
+    goto end;
+  }
+
+  r = 0;
+
+  if (StrLen_or_Ind < 0) {
+    if (StrLen_or_Ind == SQL_NULL_DATA) goto end;
+    if (StrLen_or_Ind != SQL_NO_TOTAL) {
+      RUN_E("unexpected StrLen_or_Ind value");
+      r = -1;
+      goto end;
+    }
+  }
+
+  nr = StrLen_or_Ind;
+  if (sr == SQL_SUCCESS_WITH_INFO) {
+    if (StrLen_or_Ind == SQL_NO_TOTAL) {
+      nr = BufferLength;
+    } else if (nr >= BufferLength) {
+      nr = BufferLength;
+    }
+    if (TargetType == SQL_C_CHAR) nr -= 1;
+    if (TargetType == SQL_C_WCHAR) nr = (nr / 2 - 1) * 2;
+  } else {
+    nr = StrLen_or_Ind;
+  }
+
+  fprintf(stdout, "data:[0x");
+  for (SQLLEN i=0; i<nr; ++i) {
+    unsigned char c = p[i];
+    fprintf(stdout, "%02x", c);
+  }
+  fprintf(stdout, "]\n");
+
+  nr = bytes;
+  fprintf(stdout, "buff:[0x");
+  for (SQLLEN i=0; i<nr; ++i) {
+    unsigned char c = p[i];
+    fprintf(stdout, "%02x", c);
+  }
+  fprintf(stdout, "]\n");
+
+  if (SQL_SUCCEEDED(sr) && fix_length) goto end;
+
+  goto again;
+
+end:
+  free(p);
+  return r;
+}
+
+static int run_SQLGetData1(int argc, char *argv[], int *i, SQLHANDLE hstmt)
+{
+  int r = 0;
+
+// {
+#define R(x, y) {#x, x, y}
+  static struct {
+    const char          *name;
+    SQLSMALLINT          TargetType;
+    size_t               fix_length;
+  } _target_types[] = {
+    R(SQL_C_CHAR,           0),
+    R(SQL_C_BINARY,         0),
+    R(SQL_C_WCHAR,          0),
+    R(SQL_C_TYPE_TIMESTAMP, sizeof(TIMESTAMP_STRUCT)),
+    R(SQL_C_BIT,            sizeof(uint8_t)),
+    R(SQL_C_STINYINT,       sizeof(int8_t)),
+    R(SQL_C_UTINYINT,       sizeof(uint8_t)),
+    R(SQL_C_SSHORT,         sizeof(int16_t)),
+    R(SQL_C_USHORT,         sizeof(uint16_t)),
+    R(SQL_C_SLONG,          sizeof(int32_t)),
+    R(SQL_C_ULONG,          sizeof(uint32_t)),
+    R(SQL_C_SBIGINT,        sizeof(int64_t)),
+    R(SQL_C_UBIGINT,        sizeof(uint64_t)),
+    R(SQL_C_FLOAT,          sizeof(float)),
+    R(SQL_C_DOUBLE,         sizeof(double)),
+    R(SQL_C_NUMERIC,        sizeof(SQL_NUMERIC_STRUCT)),
+  };
+#undef R
+// }
+
+  SQLSMALLINT       TargetType       = SQL_C_CHAR;
+  SQLLEN            BufferLength     = 1024;
+  SQLUSMALLINT      Col_or_Param_Num = 1;
+  size_t            fix_length       = 0;
+
+  for (++*i; *i<argc; ++*i) {
+    const char *arg = argv[*i];
+    if (strcmp(arg, "-b") == 0) {
+      if (++*i>=argc) {
+        RUN_E("-b requires an argument for <TargetType>");
+        return -1;
+      }
+      r = -1;
+      for (size_t j=0; j<sizeof(_target_types)/sizeof(_target_types[0]); ++j) {
+        if (strcmp(argv[*i], _target_types[j].name)) continue;
+        TargetType      = _target_types[j].TargetType;
+        fix_length      = _target_types[j].fix_length;
+        r = 0;
+        break;
+      }
+      if (r) {
+        RUN_E("unknown TargetType:-b %s", argv[*i]);
+        return -1;
+      }
+      continue;
+    }
+    if (strcmp(arg, "-n") == 0) {
+      if (++*i>=argc) {
+        RUN_E("-n requires an argument for <BufferLength>");
+        return -1;
+      }
+      char *end = 0;
+      errno = 0;
+      long v = strtol(argv[*i], &end, 0);
+      if (*end) {
+        RUN_E("invalid BufferLength:-n %s", argv[*i]);
+        return -1;
+      }
+      if (errno == ERANGE && (v == LONG_MIN || v == LONG_MAX)) {
+        RUN_E("invalid BufferLength:-n %s", argv[*i]);
+        return -1;
+      }
+
+      BufferLength = v;
+
+      continue;
+    }
+    if (strcmp(arg, "-c") == 0) {
+      if (++*i>=argc) {
+        RUN_E("-c requires an argument for <Col_or_Param_Num>");
+        return -1;
+      }
+      char *end = 0;
+      errno = 0;
+      long v = strtol(argv[*i], &end, 0);
+      if (*end) {
+        RUN_E("invalid Col_or_Param_Num:-c %s", argv[*i]);
+        return -1;
+      }
+      if (errno == ERANGE && (v == LONG_MIN || v == LONG_MAX)) {
+        RUN_E("invalid Col_or_Param_Num:-c %s", argv[*i]);
+        return -1;
+      }
+
+      Col_or_Param_Num = (SQLUSMALLINT)v; // NOTE: yes, we know it might underflow 
+
+      continue;
+    }
+
+    r = exec_direct(hstmt, arg);
+    if (r) return -1;
+
+    r = run_SQLGetData2(hstmt, Col_or_Param_Num, TargetType, BufferLength, fix_length);
+    if (r) return -1;
+
+    ++*i;
+
+    break;
+  }
+
+  return 0;
+}
+
+static int run_SQLGetData(int argc, char *argv[], int *i, const options_t *options)
+{
+  int r = 0;
+
+  SQLHANDLE henv     = SQL_NULL_HANDLE;
+  SQLHANDLE hconn    = SQL_NULL_HANDLE;
+  SQLHANDLE hstmt    = SQL_NULL_HANDLE;
+
+  r = open_conn(&henv, &hconn, &hstmt, options);
+  if (r) goto end;
+
+  r = run_SQLGetData1(argc, argv, i, hstmt);
+
+  SQLFreeStmt(hstmt, SQL_UNBIND);
+  SQLFreeStmt(hstmt, SQL_RESET_PARAMS);
+  SQLFreeHandle(SQL_HANDLE_STMT, hstmt); hstmt = SQL_NULL_HANDLE;
+  SQLDisconnect(hconn);
+  SQLFreeHandle(SQL_HANDLE_DBC,  hconn); hconn = SQL_NULL_HANDLE;
+  SQLFreeHandle(SQL_HANDLE_ENV,  henv);  henv  = SQL_NULL_HANDLE;
+
+end:
+  return r;
+}
+
+static int run_SQLDescribeCol2(SQLHANDLE hstmt)
+{
+  SQLRETURN sr = SQL_SUCCESS;
+
+  SQLSMALLINT ColumnCount = 0;
+
+  sr = SQLNumResultCols(hstmt, &ColumnCount);
+  if (!SQL_SUCCEEDED(sr)) {
+    RUN_E("SQLNumResultCols failure");
+    return -1;
+  }
+
+  for (SQLSMALLINT i=1; i<=ColumnCount; ++i) {
+    SQLCHAR     ColumnName[4096]; *ColumnName = '\0';
+    SQLSMALLINT BufferLength  = (SQLSMALLINT)sizeof(ColumnName);
+    SQLSMALLINT NameLength    = 0;
+    SQLSMALLINT DataType      = 0;
+    SQLULEN     ColumnSize    = 0;
+    SQLSMALLINT DecimalDigits = 0;
+    SQLSMALLINT Nullable      = 0;
+    sr = CALL_SQLDescribeCol(hstmt, i, ColumnName, BufferLength, &NameLength, &DataType, &ColumnSize, &DecimalDigits, &Nullable);
+    if (!SQL_SUCCEEDED(sr)) {
+      RUN_E("SQLDescribeCol failure");
+      return -1;
+    }
+    if (i>1) fprintf(stdout, "\n");
+    fprintf(stdout, "   ColumnName:[%d][%.*s]\n", NameLength, NameLength, (const char*)ColumnName);
+    fprintf(stdout, "     DataType:[%d]%s\n", DataType, sql_data_type(DataType));
+    fprintf(stdout, "   ColumnSize:[%" PRIu64 "]\n", (uint64_t)ColumnSize);
+    fprintf(stdout, "DecimalDigits:[%d]\n", DecimalDigits);
+    fprintf(stdout, "     Nullable:[%d]%s\n", Nullable, sql_nullable(Nullable));
+  }
+
+  return 0;
+}
+
+static int run_SQLDescribeCol1(int argc, char *argv[], int *i, SQLHANDLE hstmt)
+{
+  int r = 0;
+
+  for (++*i; *i<argc; ++*i) {
+    const char *arg = argv[*i];
+    r = exec_direct(hstmt, arg);
+    if (r) return -1;
+    r = run_SQLDescribeCol2(hstmt);
+    if (r) return -1;
+
+    ++*i;
+
+    break;
+  }
+
+  return 0;
+}
+
+static int run_SQLDescribeCol(int argc, char *argv[], int *i, const options_t *options)
+{
+  int r = 0;
+
+  SQLHANDLE henv     = SQL_NULL_HANDLE;
+  SQLHANDLE hconn    = SQL_NULL_HANDLE;
+  SQLHANDLE hstmt    = SQL_NULL_HANDLE;
+
+  r = open_conn(&henv, &hconn, &hstmt, options);
+  if (r) goto end;
+
+  r = run_SQLDescribeCol1(argc, argv, i, hstmt);
+
+  SQLFreeStmt(hstmt, SQL_UNBIND);
+  SQLFreeStmt(hstmt, SQL_RESET_PARAMS);
+  SQLFreeHandle(SQL_HANDLE_STMT, hstmt); hstmt = SQL_NULL_HANDLE;
+  SQLDisconnect(hconn);
+  SQLFreeHandle(SQL_HANDLE_DBC,  hconn); hconn = SQL_NULL_HANDLE;
+  SQLFreeHandle(SQL_HANDLE_ENV,  henv);  henv  = SQL_NULL_HANDLE;
+
+end:
+  return r;
+}
+
+static int run(int argc, char *argv[])
+{
+  int r = 0;
+
+  options_t      options = {NULL};
+
+  for (int i=1; i<argc; ++i) {
+    const char *arg = argv[i];
+    if (tod_strcasecmp(arg, "-d") == 0) {
+      if (++i>=argc) {
+        RUN_E("-d requires an argument for <DSN>");
+        return -1;
+      }
+      options.dsn_or_conn = argv[i];
+      options.dsn         = 1;
+      continue;
+    }
+    if (tod_strcasecmp(arg, "-c") == 0) {
+      if (++i>=argc) {
+        RUN_E("-c requires an argument for <connection string>");
+        return -1;
+      }
+      options.dsn_or_conn = argv[i];
+      options.dsn         = 0;
+      continue;
+    }
+    if (tod_strcasecmp(arg, "-u") == 0) {
+      if (++i>=argc) {
+        RUN_E("-u requires an argument for <UID>");
+        return -1;
+      }
+      options.uid         = argv[i];
+      continue;
+    }
+    if (tod_strcasecmp(arg, "-p") == 0) {
+      if (++i>=argc) {
+        RUN_E("-p requires an argument for <PWD>");
+        return -1;
+      }
+      options.pwd         = argv[i];
+      continue;
+    }
+
+    if (strcmp(arg, "SQLGetData") == 0) {
+      if (options.dsn_or_conn == NULL) {
+        RUN_E("missing -d <DSN> or -c <connectiong string");
+        return -1;
+      }
+      r = run_SQLGetData(argc, argv, &i, &options);
+      if (r) return -1;
+      --i;
+      continue;
+    }
+
+    if (strcmp(arg, "SQLDescribeCol") == 0) {
+      if (options.dsn_or_conn == NULL) {
+        RUN_E("missing -d <DSN> or -c <connectiong string");
+        return -1;
+      }
+      r = run_SQLDescribeCol(argc, argv, &i, &options);
+      if (r) return -1;
+      --i;
+      continue;
+    }
+
+    RUN_E("unknown argument:[%d]%s", i, arg);
+    return -1;
+  }
+
+  return 0;
+}
+
+int main(int argc, char *argv[])
+{
+  int r = 0;
+
+  if (argc > 1) {
+    return run(argc, argv);
+  }
 
 // #define CHK_LEAK
 #ifdef CHK_LEAK                /* { */

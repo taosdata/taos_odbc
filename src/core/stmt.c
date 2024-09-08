@@ -290,7 +290,8 @@ static void _stmt_init(stmt_t *stmt, conn_t *conn)
 {
   stmt->conn = conn_ref(conn);
 
-  stmt->strict = 1;
+  stmt->strict   = 1;
+  stmt->no_total = 0;
 
   errs_init(&stmt->errs);
   stmt->errs.connected_conn = conn;
@@ -1906,21 +1907,96 @@ static void _dump_iconv(
   OW("%s\n", buf);
 }
 
-static SQLRETURN _stmt_get_data_copy_buf_to_char(stmt_t *stmt, stmt_get_data_args_t *args)
+static SQLRETURN _stmt_conv_one_character(stmt_t *stmt, const char *fromcode, const char *tocode, char **in, size_t *inlen, char **out, size_t *outlen)
 {
-  get_data_ctx_t *ctx = &stmt->get_data_ctx;
-  tsdb_data_t *tsdb = &ctx->tsdb;
-  if (ctx->pos == (const char*)-1) return SQL_NO_DATA;
-  if (args->BufferLength < 4) {
-    // TODO: remove this restriction
-    stmt_append_err_format(stmt, "HY000", 0,
-        "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:buffer too small,"
-        " "
-        "currently at least 4 bytes in which case a complete unicode character could be converted and stored",
-        args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-        sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
+  const char *utf_32le = "UTF-32LE";
+
+  charset_conv_t *to_utf_32le   = tls_get_charset_conv(fromcode, utf_32le);
+  if (!to_utf_32le) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, utf_32le);
     return SQL_ERROR;
   }
+  charset_conv_t *from_utf_32le = tls_get_charset_conv(utf_32le, tocode);
+  if (!from_utf_32le) {
+    stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", utf_32le, tocode);
+    return SQL_ERROR;
+  }
+
+  int e = 0;
+  char buf[4]; *buf   = '\0';
+  size_t inlenlen     = 1;
+  size_t n            = 0;
+
+  char          *outbuf              = buf;
+  size_t         outbytesleft        = sizeof(buf);
+  char          *inbuf               = *in;
+  size_t         inbytesleft         = 1;
+
+again:
+
+  outbuf         = buf;
+  outbytesleft   = sizeof(buf);
+  inbuf          = *in;
+  inlenlen       = inbytesleft;
+
+  if (inbytesleft > *inlen) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:[iconv]Character set conversion for `%s` to `%s` failed:[%d]%s",
+        to_utf_32le->from, to_utf_32le->to, e, strerror(e));
+    return SQL_ERROR;
+  }
+
+  n = CALL_iconv(to_utf_32le->cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+  e = errno;
+  iconv(to_utf_32le->cnv, NULL, NULL, NULL, NULL);
+  if (n == (size_t)-1) {
+    ++inbytesleft;
+    goto again;
+  }
+
+  size_t converted = inlenlen - inbytesleft;
+
+  outbuf       = buf;
+  outbytesleft = sizeof(buf);
+
+  n = CALL_iconv(from_utf_32le->cnv, &outbuf, &outbytesleft, out, outlen);
+  e = errno;
+  iconv(from_utf_32le->cnv, NULL, NULL, NULL, NULL);
+  if (n == (size_t)-1) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:[iconv]Character set conversion for `%s` to `%s` failed:[%d]%s",
+        from_utf_32le->from, from_utf_32le->to, e, strerror(e));
+    return SQL_ERROR;
+  }
+
+  *in        += converted;
+  *inlen     -= converted;
+
+  return SQL_SUCCESS;
+}
+
+static SQLRETURN _stmt_return_SQL_SUCCESS_WITH_INFO(stmt_t *stmt, stmt_get_data_args_t *args, size_t nr_remains)
+{
+  if (stmt->no_total) {
+    if (args->IndPtr) *args->IndPtr = SQL_NO_TOTAL;
+    if (args->StrLenPtr) *args->StrLenPtr = SQL_NO_TOTAL;
+  } else {
+    if (args->IndPtr) *args->IndPtr = 0;
+    if (args->StrLenPtr) *args->StrLenPtr = nr_remains;
+  }
+  stmt_append_err(stmt, "01004", 0, "String data, right truncated");
+  return SQL_SUCCESS_WITH_INFO;
+}
+
+static SQLRETURN _stmt_get_data_copy_buf_to_char(stmt_t *stmt, stmt_get_data_args_t *args)
+{
+  int r = 0;
+  SQLRETURN sr = SQL_SUCCESS;
+
+  get_data_ctx_t *ctx = &stmt->get_data_ctx;
+  tsdb_data_t *tsdb = &ctx->tsdb;
+
+  if (ctx->pos == (const char*)-1) return SQL_NO_DATA;
 
   const char *fromcode = conn_get_tsdb_charset(stmt->conn);
   const char *tocode   = conn_get_sqlc_charset(stmt->conn);
@@ -1941,16 +2017,65 @@ static SQLRETURN _stmt_get_data_copy_buf_to_char(stmt_t *stmt, stmt_get_data_arg
     return SQL_ERROR;
   }
 
+  // NOTE: calculate remaining bytes in whole-characters
+  size_t nr_remains = 0;  // NOTE: store as StrLen_or_Ind when SQL_SUCCESS_WITH_INFO
+  r = iconv_calc(cnv->cnv, ctx->pos, ctx->nr, &nr_remains);
+  if (r) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:[iconv]Character set conversion for `%s` to `%s` failed",
+        cnv->from, cnv->to);
+    return SQL_ERROR;
+  }
+
+  size_t      curr        = ctx->curr;
+  size_t      end         = ctx->end;
+  uint8_t    *target_ptr  = (uint8_t*)args->TargetValuePtr;
+  SQLLEN      buffer_len  = args->BufferLength;
+  const char *residual    = ctx->residual;
+
+  nr_remains += end - curr;
+
+  if (buffer_len <= 1) {
+    if (buffer_len) ((char*)args->TargetValuePtr)[0] = '\0';
+    return _stmt_return_SQL_SUCCESS_WITH_INFO(stmt, args, nr_remains);
+  }
+
+  size_t nr_copied_residual = 0;
+
+  if (curr < end) {
+    // NOTE: flushing residual
+    int n = snprintf((char*)target_ptr, buffer_len, "%.*s", (int)(end - curr), residual + curr);
+    if (n < 0) {
+      stmt_append_err(stmt, "HY000", 0, "General error:internal logic error");
+      return SQL_ERROR;
+    }
+
+    nr_copied_residual = n;
+    if (n >= buffer_len) {
+      // NOTE: too big to flush all
+      nr_copied_residual = buffer_len - 1; // NOTE: null-terminator exclusive
+      ctx->curr += nr_copied_residual;
+      target_ptr[nr_copied_residual] = 0;
+      return _stmt_return_SQL_SUCCESS_WITH_INFO(stmt, args, nr_remains);
+    }
+
+    curr            += nr_copied_residual;
+    target_ptr      += nr_copied_residual;
+    buffer_len      -= nr_copied_residual;
+    target_ptr[0]    = 0;
+  }
+
+  // NOTE: convert remainings
   const size_t     inbytes             = ctx->nr;
-  const size_t     outbytes            = args->BufferLength - 1;
+  const size_t     outbytes            = buffer_len - 1; // NOTE: leaving one byte for null-terminator
 
   char            *inbuf               = (char*)ctx->pos;
   size_t           inbytesleft         = inbytes;
-  char            *outbuf              = (char*)args->TargetValuePtr;
+  char            *outbuf              = (char*)target_ptr;
   size_t           outbytesleft        = outbytes;
 
   size_t n = CALL_iconv(cnv->cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
-  if (0) _dump_iconv(fromcode, tocode, (char*)ctx->pos, inbytes, inbytesleft, (char*)args->TargetValuePtr, outbytes, outbytesleft);
+  if (0) _dump_iconv(fromcode, tocode, (char*)ctx->pos, inbytes, inbytesleft, (char*)target_ptr, outbytes, outbytesleft);
   // OW("[%.*s]", (int)(outbytes - outbytesleft), (char*)args->TargetValuePtr);
   int e = errno;
   iconv(cnv->cnv, NULL, NULL, NULL, NULL);
@@ -1962,43 +2087,57 @@ static SQLRETURN _stmt_get_data_copy_buf_to_char(stmt_t *stmt, stmt_get_data_arg
       return SQL_ERROR;
     }
   }
-  ctx->nr = inbytesleft;
-  *(int8_t*)outbuf = 0;
 
-  if (ctx->nr) {
-    if (args->IndPtr) *args->IndPtr = SQL_NO_TOTAL;
-    if (args->StrLenPtr) *args->StrLenPtr = SQL_NO_TOTAL;
-    stmt_append_err_format(stmt, "01004", 0,
-        "String data, right truncated:[iconv]Character set conversion for `%s` to `%s`, #%zd out of #%zd bytes consumed, #%zd out of #%zd bytes converted:[%d]%s",
-        cnv->from, cnv->to, inbytes - inbytesleft, inbytes, outbytes - outbytesleft, outbytes, e, strerror(e));
-    ctx->pos = inbuf;
-    return SQL_SUCCESS_WITH_INFO;
+  *outbuf = '\0';
+
+  if (inbytesleft) {
+    // NOTE: convert next valid unicode-character and store it as residual
+    char       *out                 = ctx->residual;
+    size_t      outlen              = sizeof(ctx->residual);
+    sr = _stmt_conv_one_character(stmt, fromcode, tocode, &inbuf, &inbytesleft, &out, &outlen);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    ctx->curr = 0;
+    ctx->end  = sizeof(ctx->residual) - outlen;
+
+    size_t n = ctx->end - ctx->curr;
+    if (n > outbytesleft) n = outbytesleft;
+    memcpy(outbuf, ctx->residual, n);
+    outbuf    += n;
+    ctx->curr  = n;
+  } else {
+    ctx->curr = ctx->end;
+  }
+
+  n = inbytes - inbytesleft;
+  ctx->pos  += n;
+  ctx->nr   -= n;
+
+  size_t nr_converted = outbuf - (char*)args->TargetValuePtr;
+
+  *outbuf   = '\0';
+
+  if (ctx->nr || ctx->curr < ctx->end) {
+    return _stmt_return_SQL_SUCCESS_WITH_INFO(stmt, args, nr_remains);
   }
 
   ctx->pos = (const char*)-1;
   if (args->IndPtr) *args->IndPtr = 0; // FIXME:
-  if (args->StrLenPtr) *args->StrLenPtr = outbytes - outbytesleft;
+  if (args->StrLenPtr) *args->StrLenPtr = nr_converted;
   return SQL_SUCCESS;
 }
 
 static SQLRETURN _stmt_get_data_copy_buf_to_wchar(stmt_t *stmt, stmt_get_data_args_t *args)
 {
+  int r = 0;
+  SQLRETURN sr = SQL_SUCCESS;
+
   get_data_ctx_t *ctx = &stmt->get_data_ctx;
   tsdb_data_t *tsdb = &ctx->tsdb;
   if (ctx->pos == (const char*)-1) return SQL_NO_DATA;
-  if (args->BufferLength < 4) {
-    // TODO: remove this restriction
-    stmt_append_err_format(stmt, "HY000", 0,
-        "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:buffer too small,"
-        " "
-        "currently at least 4 bytes in which case a complete unicode character could be converted and stored",
-        args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-        sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
-    return SQL_ERROR;
-  }
 
   const char *fromcode = conn_get_tsdb_charset(stmt->conn);
-  const char *tocode   = "UCS-2LE";
+  const char *tocode   = "UTF-16LE";
 
   if (tsdb->type == TSDB_DATA_TYPE_NCHAR && tsdb->str.encoder) {
     fromcode = tsdb->str.encoder;
@@ -2010,16 +2149,63 @@ static SQLRETURN _stmt_get_data_copy_buf_to_wchar(stmt_t *stmt, stmt_get_data_ar
     return SQL_ERROR;
   }
 
+  // NOTE: calculate remaining bytes in whole-characters
+  size_t nr_remains = 0;  // NOTE: store as StrLen_or_Ind when SQL_SUCCESS_WITH_INFO
+  r = iconv_calc(cnv->cnv, ctx->pos, ctx->nr, &nr_remains);
+  if (r) {
+    stmt_append_err_format(stmt, "HY000", 0,
+        "General error:[iconv]Character set conversion for `%s` to `%s` failed",
+        cnv->from, cnv->to);
+    return SQL_ERROR;
+  }
+
+  size_t      curr        = ctx->curr;
+  size_t      end         = ctx->end;
+  uint8_t    *target_ptr  = (uint8_t*)args->TargetValuePtr;
+  SQLLEN      buffer_len  = args->BufferLength;
+  const char *residual    = ctx->residual;
+
+  nr_remains += end - curr;
+
+  if (buffer_len <= 2) {
+    if (buffer_len == 2) ((uint16_t*)args->TargetValuePtr)[0] = 0;
+    return _stmt_return_SQL_SUCCESS_WITH_INFO(stmt, args, nr_remains);
+  }
+
+  size_t nr_copied_residual = 0;
+
+  if (curr < end) {
+    // NOTE: flushing residual
+    size_t n = end - curr;
+    if (n > (size_t)buffer_len - 2) n = (buffer_len - 2) / 2 * 2; // NOTE: null-terminator exclusive
+    memcpy(target_ptr, residual + curr, n);
+
+    nr_copied_residual = n;
+    if (end - curr > (size_t)buffer_len - 2) {
+      // NOTE: too big to flush all
+      ctx->curr += nr_copied_residual;
+      *(uint16_t*)(target_ptr+nr_copied_residual) = 0;
+      return _stmt_return_SQL_SUCCESS_WITH_INFO(stmt, args, nr_remains);
+    }
+
+    curr            += nr_copied_residual;
+    target_ptr      += nr_copied_residual;
+    buffer_len      -= nr_copied_residual;
+    *(uint16_t*)target_ptr    = 0;
+  }
+
+  // NOTE: convert remainings
   const size_t     inbytes             = ctx->nr;
-  const size_t     outbytes            = args->BufferLength - 2;
+  const size_t     outbytes            = buffer_len - 2; // NOTE: leaving one byte for null-terminator
 
   char            *inbuf               = (char*)ctx->pos;
   size_t           inbytesleft         = inbytes;
-  char            *outbuf              = (char*)args->TargetValuePtr;
+  char            *outbuf              = (char*)target_ptr;
   size_t           outbytesleft        = outbytes;
 
   size_t n = CALL_iconv(cnv->cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
-  if (0) _dump_iconv(fromcode, tocode, (char*)ctx->pos, inbytes, inbytesleft, (char*)args->TargetValuePtr, outbytes, outbytesleft);
+  if (0) _dump_iconv(fromcode, tocode, (char*)ctx->pos, inbytes, inbytesleft, (char*)target_ptr, outbytes, outbytesleft);
+  // OW("[%.*s]", (int)(outbytes - outbytesleft), (char*)args->TargetValuePtr);
   int e = errno;
   iconv(cnv->cnv, NULL, NULL, NULL, NULL);
   if (n == (size_t)-1) {
@@ -2030,57 +2216,141 @@ static SQLRETURN _stmt_get_data_copy_buf_to_wchar(stmt_t *stmt, stmt_get_data_ar
       return SQL_ERROR;
     }
   }
-  ctx->nr = inbytesleft;
-  *(int16_t*)outbuf = 0;
 
-  if (ctx->nr) {
-    if (args->IndPtr) *args->IndPtr = SQL_NO_TOTAL;
-    if (args->StrLenPtr) *args->StrLenPtr = SQL_NO_TOTAL;
-    stmt_append_err_format(stmt, "01004", 0,
-        "String data, right truncated:[iconv]Character set conversion for `%s` to `%s`, #%zd out of #%zd bytes consumed, #%zd out of #%zd bytes converted:[%d]%s",
-        cnv->from, cnv->to, inbytes - inbytesleft, inbytes, outbytes - outbytesleft, outbytes, e, strerror(e));
-    ctx->pos = inbuf;
-    return SQL_SUCCESS_WITH_INFO;
+  *(uint16_t*)outbuf = 0;
+
+  if (inbytesleft) {
+    // NOTE: convert next valid unicode-character and store it as residual
+    char       *out                 = ctx->residual;
+    size_t      outlen              = sizeof(ctx->residual);
+    sr = _stmt_conv_one_character(stmt, fromcode, tocode, &inbuf, &inbytesleft, &out, &outlen);
+    if (sr != SQL_SUCCESS) return SQL_ERROR;
+
+    ctx->curr = 0;
+    ctx->end  = sizeof(ctx->residual) - outlen;
+
+    size_t n = ctx->end - ctx->curr;
+    if (n > outbytesleft / 2 * 2) n = outbytesleft / 2 * 2;
+    memcpy(outbuf, ctx->residual, n);
+    outbuf    += n;
+    ctx->curr  = n;
+  } else {
+    ctx->curr = ctx->end;
   }
 
-  if (args->IndPtr) *args->IndPtr = 0; // FIXME:
-  if (args->StrLenPtr) *args->StrLenPtr = outbytes - outbytesleft;
+  n = inbytes - inbytesleft;
+  ctx->pos  += n;
+  ctx->nr   -= n;
+
+  size_t nr_converted = outbuf - (char*)args->TargetValuePtr;
+
+  *(uint16_t*)outbuf   = 0;
+
+  if (ctx->nr || ctx->curr < ctx->end) {
+    return _stmt_return_SQL_SUCCESS_WITH_INFO(stmt, args, nr_remains);
+  }
+
   ctx->pos = (const char*)-1;
+  if (args->IndPtr) *args->IndPtr = 0; // FIXME:
+  if (args->StrLenPtr) *args->StrLenPtr = nr_converted;
   return SQL_SUCCESS;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  // const size_t     inbytes             = ctx->nr;
+  // const size_t     outbytes            = args->BufferLength < 2 ? 0 : args->BufferLength - 2;
+
+  // char            *inbuf               = (char*)ctx->pos;
+  // size_t           inbytesleft         = inbytes;
+  // char            *outbuf              = (char*)args->TargetValuePtr;
+  // size_t           outbytesleft        = outbytes;
+
+  // size_t n = CALL_iconv(cnv->cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+  // if (0) _dump_iconv(fromcode, tocode, (char*)ctx->pos, inbytes, inbytesleft, (char*)args->TargetValuePtr, outbytes, outbytesleft);
+  // int e = errno;
+  // iconv(cnv->cnv, NULL, NULL, NULL, NULL);
+  // if (n == (size_t)-1) {
+  //   if (e != E2BIG) {
+  //     stmt_append_err_format(stmt, "HY000", 0,
+  //         "General error:[iconv]Character set conversion for `%s` to `%s` failed:[%d]%s",
+  //         cnv->from, cnv->to, e, strerror(e));
+  //     return SQL_ERROR;
+  //   }
+  // }
+  // if (args->BufferLength > 1) *(int16_t*)outbuf = 0;
+
+  // if (inbytesleft) {
+  //   if (stmt->no_total) {
+  //     if (args->IndPtr) *args->IndPtr = SQL_NO_TOTAL;
+  //     if (args->StrLenPtr) *args->StrLenPtr = SQL_NO_TOTAL;
+  //   } else {
+  //     if (args->IndPtr) *args->IndPtr = 0;
+  //     if (args->StrLenPtr) *args->StrLenPtr = ctx->nr;
+  //   }
+  //   stmt_append_err_format(stmt, "01004", 0,
+  //       "String data, right truncated:[iconv]Character set conversion for `%s` to `%s`, #%zd out of #%zd bytes consumed, #%zd out of #%zd bytes converted:[%d]%s",
+  //       cnv->from, cnv->to, inbytes - inbytesleft, inbytes, outbytes - outbytesleft, outbytes, e, strerror(e));
+  //   ctx->pos = inbuf;
+  //   ctx->nr  = inbytesleft;
+  //   return SQL_SUCCESS_WITH_INFO;
+  // }
+
+  // if (args->IndPtr) *args->IndPtr = 0; // FIXME:
+  // if (args->StrLenPtr) *args->StrLenPtr = outbytes - outbytesleft;
+  // ctx->pos = (const char*)-1;
+  // ctx->nr  = inbytesleft;
+  // return SQL_SUCCESS;
 }
 
 static SQLRETURN _stmt_get_data_copy_buf_to_binary(stmt_t *stmt, stmt_get_data_args_t *args)
 {
   get_data_ctx_t *ctx = &stmt->get_data_ctx;
-  tsdb_data_t *tsdb = &ctx->tsdb;
   if (ctx->pos == (const char*)-1) return SQL_NO_DATA;
-  if (args->BufferLength < 0) {
-    stmt_append_err_format(stmt, "HY000", 0,
-        "General error:Column[%d] conversion from `%s[0x%x/%d]` to `%s[0x%x/%d]` failed:buffer too small",
-        args->Col_or_Param_Num, taos_data_type(tsdb->type), tsdb->type, tsdb->type,
-        sqlc_data_type(args->TargetType), args->TargetType, args->TargetType);
+  if (args->BufferLength < 1) {
+    stmt_append_err(stmt, "01004", 0, "String data, right truncated");
     return SQL_ERROR;
   }
+
+  size_t nr_remains = ctx->nr;
 
   size_t n = args->BufferLength;
   if (ctx->nr < n) n = ctx->nr;
 
   memcpy(args->TargetValuePtr, ctx->pos, n);
 
-  ctx->nr = ctx->nr - n;
+  size_t nr_copied = n;
+
+  ctx->nr -= n;
 
   if (ctx->nr) {
-    if (args->IndPtr) *args->IndPtr = SQL_NO_TOTAL;
-    if (args->StrLenPtr) *args->StrLenPtr = SQL_NO_TOTAL;
-    stmt_append_err_format(stmt, "01004", 0,
-        "String data, right truncated:Column[%d], #%zd out of #%zd bytes consumed",
-        args->Col_or_Param_Num, n, n + ctx->nr);
     ctx->pos += n;
-    return SQL_SUCCESS_WITH_INFO;
+    return _stmt_return_SQL_SUCCESS_WITH_INFO(stmt, args, nr_remains);
   }
 
   if (args->IndPtr) *args->IndPtr = 0; // FIXME:
-  if (args->StrLenPtr) *args->StrLenPtr = n;
+  if (args->StrLenPtr) *args->StrLenPtr = nr_copied;
   ctx->pos = (const char*)-1;
   return SQL_SUCCESS;
 }
@@ -2419,8 +2689,13 @@ static SQLRETURN _stmt_get_data_copy_varbinary_to_binary(stmt_t *stmt, stmt_get_
   ctx->nr = ctx->nr - n;
 
   if (ctx->nr) {
-    if (args->IndPtr) *args->IndPtr = SQL_NO_TOTAL;
-    if (args->StrLenPtr) *args->StrLenPtr = SQL_NO_TOTAL;
+    if (stmt->no_total) {
+      if (args->IndPtr) *args->IndPtr = SQL_NO_TOTAL;
+      if (args->StrLenPtr) *args->StrLenPtr = SQL_NO_TOTAL;
+    } else {
+      if (args->IndPtr) *args->IndPtr = 0;
+      if (args->StrLenPtr) *args->StrLenPtr = ctx->nr;
+    }
     stmt_append_err_format(stmt, "01004", 0,
         "String data, right truncated:Column[%d], #%zd out of #%zd bytes consumed",
         args->Col_or_Param_Num, n, n + ctx->nr);
@@ -2455,8 +2730,13 @@ static SQLRETURN _stmt_get_data_copy_geometry_to_binary(stmt_t *stmt, stmt_get_d
   ctx->nr = ctx->nr - n;
 
   if (ctx->nr) {
-    if (args->IndPtr) *args->IndPtr = SQL_NO_TOTAL;
-    if (args->StrLenPtr) *args->StrLenPtr = SQL_NO_TOTAL;
+    if (stmt->no_total) {
+      if (args->IndPtr) *args->IndPtr = SQL_NO_TOTAL;
+      if (args->StrLenPtr) *args->StrLenPtr = SQL_NO_TOTAL;
+    } else {
+      if (args->IndPtr) *args->IndPtr = 0;
+      if (args->StrLenPtr) *args->StrLenPtr = ctx->nr;
+    }
     stmt_append_err_format(stmt, "01004", 0,
         "String data, right truncated:Column[%d], #%zd out of #%zd bytes consumed",
         args->Col_or_Param_Num, n, n + ctx->nr);
@@ -4204,7 +4484,7 @@ static SQLRETURN _stmt_param_check_sqlc_wchar_sql_timestamp(stmt_t *stmt, param_
   const char *wstr = param_state->sqlc_data.wstr.wstr;
   size_t      wlen = param_state->sqlc_data.wstr.wlen;
 
-  const char *fromcode = "UCS-2LE";
+  const char *fromcode = "UTF-16LE";
   const char *tocode   = "UTF-8";
 
   mem_t *mem = &param_state->tmp;
@@ -7261,7 +7541,7 @@ static SQLRETURN _stmt_init_param_state_cnvs(stmt_t *stmt, param_state_t *param_
   charset_conv_t *cnv  = NULL;
 
   fromcode = conn_get_sqlc_charset(stmt->conn);
-  tocode   = "UCS-2LE";
+  tocode   = "UTF-16LE";
   if (1) {
     // FIXME:
     fromcode = conn_get_sqlc_charset_for_param_bind(stmt->conn);
@@ -7273,8 +7553,8 @@ static SQLRETURN _stmt_init_param_state_cnvs(stmt_t *stmt, param_state_t *param_
   }
   param_state->charset_convs.cnv_from_sqlc_charset_for_param_bind_to_wchar = cnv;
 
-  fromcode = "UCS-2LE";
-  tocode   = "UCS-2LE";
+  fromcode = "UTF-16LE";
+  tocode   = "UTF-16LE";
   cnv  = tls_get_charset_conv(fromcode, tocode);
   if (!cnv) {
     stmt_append_err_format(stmt, "HY000", 0, "General error:conversion for `%s` to `%s` not found or out of memory", fromcode, tocode);
@@ -7282,7 +7562,7 @@ static SQLRETURN _stmt_init_param_state_cnvs(stmt_t *stmt, param_state_t *param_
   }
   param_state->charset_convs.cnv_from_wchar_to_wchar = cnv;
 
-  fromcode = "UCS-2LE";
+  fromcode = "UTF-16LE";
   tocode   = conn_get_sqlc_charset(stmt->conn);
   cnv  = tls_get_charset_conv(fromcode, tocode);
   if (!cnv) {
@@ -7304,7 +7584,7 @@ static SQLRETURN _stmt_init_param_state_cnvs(stmt_t *stmt, param_state_t *param_
   }
   param_state->charset_convs.cnv_from_sqlc_charset_for_param_bind_to_tsdb = cnv;
 
-  fromcode = "UCS-2LE";
+  fromcode = "UTF-16LE";
   tocode   = conn_get_tsdb_charset(stmt->conn);
   cnv  = tls_get_charset_conv(fromcode, tocode);
   if (!cnv) {
@@ -7333,7 +7613,7 @@ static SQLRETURN _stmt_prepare_col_subtbl(stmt_t *stmt, param_state_t *param_sta
   SQLSMALLINT ValueType = (SQLSMALLINT)APD_record->DESC_CONCISE_TYPE;
   switch (ValueType) {
     case SQL_C_WCHAR:
-      fromcode = "UCS-2LE";
+      fromcode = "UTF-16LE";
       break;
     case SQL_C_CHAR:
       fromcode = tocode;

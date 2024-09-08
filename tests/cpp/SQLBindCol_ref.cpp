@@ -189,7 +189,7 @@ static int test_case1(const char *conn_str, int ws)
               memset(Name, '\x01', sizeof(Name));
               rc = CALL_SQLFetch(hstmt);
               if (rc == SQL_NO_DATA) break;
-              E("cbName:%" PRId64 "", cbName);
+              E("cbName:%" PRId64 "", (int64_t)cbName);
               if (cbName > 1) dump_for_debug((const char*)Name, cbName);
               A(SUCCEEDED(rc), "");
               char buf[1024];

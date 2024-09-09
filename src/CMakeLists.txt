@@ -98,9 +98,20 @@ if(NOT TODBC_WINDOWS)
   set_source_files_properties(odbc.c PROPERTIES COMPILE_FLAGS -fvisibility=default)
 endif()
 
-set_target_properties(taos_odbc PROPERTIES
-    VERSION 0.1)
-install(TARGETS taos_odbc)
+set_target_properties(taos_odbc PROPERTIES VERSION 0.1)
+
+if(TODBC_WINDOWS)
+  if(TODBC_X86)
+    set(INSTALL_PREFIX "C:/TDengine/taos_odbc/x86")
+  else()
+    set(INSTALL_PREFIX "C:/TDengine/taos_odbc/x64")
+  endif()
+  
+  install(TARGETS taos_odbc  
+          RUNTIME DESTINATION "${INSTALL_PREFIX}/bin"
+          ARCHIVE DESTINATION "${INSTALL_PREFIX}/lib")
+else()
+  install(TARGETS taos_odbc)
+endif()
 
 add_subdirectory(tests)
-

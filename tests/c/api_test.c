@@ -596,12 +596,22 @@ static int do_cases(void)
   CHK1(test_so, "libtaos_odbc.dylib", 0);
 #elif defined(_WIN32)
   CHK1(test_so, "taos_odbc.dll", -1);
+
+  char dll_fullname[256] = {0};
 #ifdef TODBC_X86
-  CHK1(test_so, "C:/Program Files (x86)/taos_odbc/bin/taos_odbc.dll", 0);
+  char *dll_fullpath = "C:/TDengine/taos_odbc/x86/bin";
 #else
-  CHK1(test_so, "C:/Program Files/taos_odbc/bin/taos_odbc.dll", 0);
+  char *dll_fullpath = "C:/TDengine/taos_odbc/x64/bin";
 #endif
-  CHK1(test_so, "taos_odbc.dll", -1);
+  (void)snprintf(dll_fullname, sizeof(dll_fullname), "%s/%s", dll_fullpath, "taos_odbc.dll");
+
+  if (!SetDllDirectory(dll_fullpath)) {  
+    fprintf(stderr, "set dll directory failed.\n");
+    return -1;
+  }
+  CHK1(test_so, dll_fullname, 0);
+
+  CHK1(test_so, "taos_odbc.dll", 0);
 #else
   CHK1(test_so, "/tmp/not_exists.so", -1);
   CHK1(test_so, "libtaos_odbc.so", 0);

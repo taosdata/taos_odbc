@@ -22,25 +22,27 @@
  * SOFTWARE.
  */
 
+#ifndef _WIN32                        /* { */
+#define _GNU_SOURCE
+
 #include "helpers.h"
 
-#include <iostream>
-#include <sstream>
-#include <locale>
-#include <iomanip>
-
-const char* tod_strptime(const char *s, const char *format, struct tm *tm)
+#ifdef _WIN32             /* { */
+// moved to src/os_port/win_port.c
+#elif defined(__APPLE__)  /* }{ */
+char *tod_strerror_x(int errnum, char *buf, size_t buflen)
 {
-  // std::tm t = {};
-  std::istringstream ss(s);
-  // ss.imbue(std::locale("de_DE.utf-8"));
-  ss >> std::get_time(tm, format);
-  if (ss.fail()) return NULL;
-  if (ss.eof())  return s + strlen(s);
-
-  std::streampos count = ss.tellg();
-
-  if (count < 0) return NULL;
-
-  return s + static_cast<size_t>(count);
+  strerror_r(errnum, buf, buflen);
+  return buf;
 }
+#else                     /* }{ */
+char *tod_strerror_x(int errnum, char *buf, size_t buflen)
+{
+  const char *p = strerror_r(errnum, buf, buflen);
+  if (p != buf) snprintf(buf, buflen, "%s", p);
+  return buf;
+}
+#endif                    /* } */
+
+#endif                                /* } */
+

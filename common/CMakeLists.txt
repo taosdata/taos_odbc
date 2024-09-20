@@ -25,6 +25,7 @@
 list(APPEND common_SOURCES
     auxiliary.c
     enums.c
+    gnu_source.c
     iconv_wrapper.c
     logger.c
     parser.c)

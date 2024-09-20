@@ -43,6 +43,52 @@ const char* tod_strptime(const char *s, const char *format, struct tm *tm)
 }
 #endif
 
+const char* tod_strptime_with_len(const char *s, size_t len, const char *fmt, struct tm *tm)
+{
+  char buf[4096]; *buf = '\0';
+  int n = snprintf(buf, sizeof(buf), "%.*s", (int)len, s);
+  if (n < 0) {
+    errno = EINVAL; // FIXME:
+    return NULL;
+  }
+  if ((size_t)n >= sizeof(buf)) {
+    errno = E2BIG;
+    return NULL;
+  }
+  const char *next = tod_strptime(buf, fmt, tm);
+  if (!next) return NULL;
+
+  return s + (next - buf);
+}
+
+static time_t _local_timezone = 0;
+
+static void _init_local_timezone(void)
+{
+  // const char *dt  = "1970-01-01 00:00:00";
+  // const char *fmt = "%Y-%m-%d %H:%M:%S";
+  // struct tm tm0_local;
+  // tod_strptime(dt, fmt, &tm0_local);
+  // _local_timezone = 0 - mktime(&tm0_local);
+
+  // https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/mktime-mktime32-mktime64?view=msvc-170
+  time_t t0 = 12*60*60;
+  struct tm tm;
+  gmtime_r(&t0, &tm);
+  _local_timezone = t0 - mktime(&tm);
+}
+
+time_t tod_get_local_timezone(void)
+{
+  static int init = 0;
+  if (!init) {
+    static pthread_once_t once = PTHREAD_ONCE_INIT;
+    pthread_once(&once, _init_local_timezone);
+    init = 1;
+  }
+  return _local_timezone;
+}
+
 static void _get_local_time(struct timeval *tv0, struct tm *tm0)
 {
   gettimeofday(tv0, NULL);
@@ -328,5 +374,38 @@ void tod_hex2bytes_unsafe(
     uint16_t v2 = _hex_map[*s++];
     *d++ = (v1 << 4) | v2;
   }
+}
+
+unsigned char* tod_hex2bytes(unsigned char *buf, size_t n, const char *hex, size_t nr)
+{
+  if (nr & 1) {
+    errno = EINVAL;
+    return NULL;
+  }
+  if (n <= nr / 2) {
+    errno = E2BIG;
+    return NULL;
+  }
+  tod_hex2bytes_unsafe(hex, nr, (unsigned char*)buf);
+  return buf;
+}
+
+const char* tod_hexify(char *hex, size_t nr, const unsigned char *bin, size_t n)
+{
+  static const char digits[] = {
+    '0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'
+  };
+  if (nr / 2 <= n) {
+    errno = E2BIG;
+    return NULL;
+  }
+  char *p = hex;
+  for (size_t i=0; i<n; ++i) {
+    unsigned char c = *bin++;
+    *hex++ = digits[c>>4];
+    *hex++ = digits[c&0x0f];
+  }
+  *hex = '\0';
+  return p;
 }
 

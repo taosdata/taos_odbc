@@ -300,6 +300,31 @@ struct ejson_s {
   int                        refc;
 };
 
+// utf-16be: 4/8-hexdigits
+// cnv:      from `ejson_parser_iconv_open()`
+// eg.:      "4eba" -> "人"
+static int _ejson_parser_iconv_char_unsafe(const char *utf16be,
+    char *utf8, size_t nr, iconv_t cnv)
+{
+  char buf[64]; *buf = '\0';
+  size_t len = strlen(utf16be);
+
+  tod_hex2bytes_unsafe(utf16be, len, (unsigned char*)buf);
+
+  char        *inbuf            = buf;
+  size_t       inbytesleft      = len / 2;
+  char        *outbuf           = utf8;
+  size_t       outbytesleft     = nr;
+
+  size_t n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
+  *outbuf = '\0';
+  if (inbytesleft || n) {
+    if (errno == 0) errno = EINVAL;
+    return -1;
+  }
+  return 0;
+}
+
 #include "ejson_parser.tab.h"
 #include "ejson_parser.lex.c"
 
@@ -1014,27 +1039,5 @@ void ejson_parser_iconv_close(iconv_t cnv)
 {
   if (cnv == (iconv_t)-1) return;
   iconv_close(cnv);
-}
-
-// eg.:    "4eba" -> "人"
-int ejson_parser_iconv_char_unsafe(const char *ucs2be, char *utf8,
-    iconv_t cnv)
-{
-  char buf[16]; *buf = '\0';
-
-  tod_hex2bytes_unsafe(ucs2be, 4, (unsigned char*)buf);
-
-  char        *inbuf            = buf;
-  size_t       inbytesleft      = 2;
-  char        *outbuf           = utf8;
-  size_t       outbytesleft     = 3;
-
-  size_t n = iconv(cnv, &inbuf, &inbytesleft, &outbuf, &outbytesleft);
-  *outbuf = '\0';
-  if (inbytesleft || n) {
-    if (errno == 0) errno = EINVAL;
-    return -1;
-  }
-  return 0;
 }
 

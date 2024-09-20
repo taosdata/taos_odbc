@@ -22,47 +22,26 @@
  * SOFTWARE.
  */
 
-#ifndef _iconv_wrapper_h_
-#define _iconv_wrapper_h_
+#ifndef _ts_parser_h_
+#define _ts_parser_h_
 
 #include "macros.h"
+#include "typedefs.h"
 
-#include <stdio.h>
-
-#cmakedefine USE_WIN_ICONV
+#include <stddef.h>
+#include <stdint.h>
 
 EXTERN_C_BEGIN
 
-#ifdef _WIN32                       /* { */
-#ifdef USE_WIN_ICONV         /* { */
-#include <iconv.h>
-#else                        /* }{ */
-#include <stddef.h>
-typedef struct iconv_s          *iconv_t;
-iconv_t iconv_open(const char *tocode, const char *fromcode) FA_HIDDEN;
-int iconv_close(iconv_t cd) FA_HIDDEN;
-size_t iconv(iconv_t cd, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft) FA_HIDDEN;
-#endif                       /* } */
-#else                               /* }{ */
-#include <iconv.h>
-#endif                              /* } */
+void ts_parser_param_release(ts_parser_param_t *param) FA_HIDDEN;
 
-static inline void dump_buf(FILE *fd, const char *s, size_t n, const char *open, const char *close)
-{
-  if (open) fprintf(fd, "%s", open);
-  for (size_t i = 0; i < n; ++i) {
-    unsigned char c = (unsigned char)s[i];
-    fprintf(fd, "%02x", c);
-  }
-  if (close)   fprintf(fd, "%s", close);
-}
-
-static inline void dump_for_debug(const char *s, size_t n)
-{
-  dump_buf(stderr, s, n, "====================\n", "\n====================\n");
-}
+// support ISO-8601 and RFC-3339, referenced by `man date`
+// tz_default: used when timezone field not found in `input`
+//             eg.: 28800 for Beijing as +0800/+08:00 == [8 * 60 * 60 + 0 * 60]
+int ts_parser_parse(const char *input, size_t len, ts_parser_param_t *param,
+    int64_t tz_default) FA_HIDDEN;
 
 EXTERN_C_END
 
-#endif // xiconv_wrapper_h_
+#endif // _ts_parser_h_
 

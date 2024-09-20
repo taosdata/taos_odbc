@@ -312,6 +312,10 @@ struct get_data_ctx_s {
   tsdb_data_t    tsdb;
   sqlc_data_t    sqlc;
 
+  char           residual[64];
+  size_t         curr;
+  size_t         end;
+
   //
   char           buf[64];
   mem_t          mem;
@@ -547,6 +551,18 @@ struct url_parser_param_s {
   parser_ctx_t           ctx;
   url_t                  url;
 };
+
+struct ts_parser_param_s {
+  parser_ctx_t           ctx;
+
+  time_t                 tm_utc0;
+
+  // breakdown
+  unsigned long long     frac_nano;
+  int64_t                tz_seconds;
+  uint8_t                decimal_digits;
+};
+
 
 struct charset_convs_s {
   charset_conv_t            *cnv_from_sqlc_charset_for_param_bind_to_wchar;
@@ -1095,6 +1111,7 @@ struct stmt_s {
   stmt_base_t               *base;
 
   unsigned int               strict:1; // 1: param-truncation as failure
+  unsigned int               no_total:1;
 };
 
 struct tls_s {

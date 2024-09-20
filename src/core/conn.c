@@ -38,6 +38,7 @@
 #include "taosws_helpers.h"
 #endif                       /* } */
 #include "tls.h"
+#include "ts_parser.h"
 #include "url_parser.h"
 
 #include <odbcinst.h>
@@ -346,55 +347,33 @@ static int _conn_setup_iconvs(conn_t *conn)
 
 static int _conn_get_timezone_from_tsdb(conn_t *conn, const tsdb_data_t *ts)
 {
-  char buf[4096];
-  buf[0] = '\0';
+  int r = 0;
 
   if (ts->type != TSDB_DATA_TYPE_VARCHAR || ts->is_null) {
     conn_append_err(conn, "HY000", 0, "General error:internal logic error or taosc conformance issue");
     return -1;
   }
 
-  int start_pos = 19;
-  if (ts->str.len == 28) {
-    start_pos = 23;
-  }
+  time_t tz_default = tod_get_local_timezone();
 
-  if (ts->str.len != 24 && ts->str.len != 28) {
-    conn_append_err_format(conn, "HY000", 0,
-        "General error:format for `%.*s` len not implemented yet",
-        (int)ts->str.len, ts->str.str);
-    return -1;
-  }
-
-  if (ts->str.str[start_pos] != '+' && ts->str.str[start_pos] != '-') {
-    conn_append_err_format(conn, "HY000", 0,
-          "General error:format for `%.*s` not implemented yet",
-          (int)ts->str.len, ts->str.str);
-    return -1;
-  }
-
-  snprintf(buf, sizeof(buf), "%.*s", 5, ts->str.str + start_pos);
-  int tz = 0;
-  int n = sscanf(buf, "%d", &tz);
-  if (n!=1) {
+  ts_parser_param_t param = {0};
+  // param.ctx.debug_flex = 1;
+  // param.ctx.debug_bison = 1;
+  // NOTE: actually speaking, `tz_default` shall not be used, because `to_iso8601` shall return timezone-d timestamp
+  r = ts_parser_parse(ts->str.str, ts->str.len, &param, tz_default);
+  if (r) {
     conn_append_err_format(conn, "HY000", 0,
         "General error:format for `%.*s` not implemented yet",
         (int)ts->str.len, ts->str.str);
-    return -1;
-  }
-  buf[0] = '\0';
-  snprintf(buf, sizeof(buf), "%+05d", tz);
-  if (strncmp(buf, ts->str.str + start_pos, 5)) {
-    conn_append_err_format(conn, "HY000", 0,
-        "General error:format for `%.*s` not implemented yet",
-        (int)ts->str.len, ts->str.str);
-    return -1;
+  } else {
+    int64_t tz = param.tz_seconds;
+    conn->tz         = tz / 3600 * 100 + (tz % 3600) / 60;
+    conn->tz_seconds = tz;
   }
 
-  conn->tz = tz; // +0800 for Asia/Shanghai
-  conn->tz_seconds = ((tz / 100) * 60 + (tz % 100)) * 60;
+  ts_parser_param_release(&param);
 
-  return 0;
+  return r;
 }
 
 static int _conn_get_timezone_from_res(conn_t *conn, const char *sql, ds_res_t *ds_res)

@@ -44,6 +44,9 @@
 EXTERN_C_BEGIN
 
 const char *tod_strptime(const char *s, const char *format, struct tm *tm) FA_HIDDEN;
+const char *tod_strptime_with_len(const char *s, size_t len, const char *fmt, struct tm *tm) FA_HIDDEN;
+// NOTE: eg.: +28800 for Beijing +0800/+08:00
+time_t tod_get_local_timezone(void) FA_HIDDEN;
 uintptr_t tod_get_current_thread_id(void) FA_HIDDEN;
 uintptr_t tod_get_current_process_id(void) FA_HIDDEN;
 const char* tod_get_format_current_local_timestamp_ms(char *s, size_t n) FA_HIDDEN;
@@ -57,8 +60,15 @@ static inline int tod_little_endian(void)
   return (*(uint8_t*)&v == 1);
 }
 
+unsigned char* tod_hex2bytes(unsigned char *buf, size_t n, const char *hex, size_t nr) FA_HIDDEN;
+const char* tod_hexify(char *hex, size_t nr, const unsigned char *bin, size_t n) FA_HIDDEN;
+
+
 void tod_hex2bytes_unsafe(const char *hex, size_t n,
     unsigned char *bytes) FA_HIDDEN;
+
+char *tod_strerror_x(int errnum, char *buf, size_t buflen) FA_HIDDEN;
+
 
 #ifdef _WIN32
 #define tod_strcasecmp      _stricmp

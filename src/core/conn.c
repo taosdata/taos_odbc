@@ -550,7 +550,7 @@ static SQLRETURN _do_conn_connect(conn_t *conn)
       return SQL_ERROR;
     }
     url_parser_param_release(&param);
-    conn->ds_conn.taos = CALL_ws_connect_with_dsn(url);
+    conn->ds_conn.taos = CALL_ws_connect(url);
     if (!conn->ds_conn.taos) {
       conn_append_err_format(conn, "08001", ws_errno(NULL), "Client unable to establish connection:[%s][%s]", url, ws_errstr(NULL));
       TOD_SAFE_FREE(url);

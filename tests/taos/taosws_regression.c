@@ -1211,7 +1211,7 @@ static int on_init(const arg_t *arg)
   r = arg->regress(arg, STAGE_INITED, NULL, NULL);
   if (r) return -1;
 
-  WS_TAOS *taos = CALL_ws_connect_with_dsn(arg->url);
+  WS_TAOS *taos = CALL_ws_connect(arg->url);
   if (!taos) E("%d:%s", ws_errno(NULL), ws_errstr(NULL));
   if (!taos) return -1;
 

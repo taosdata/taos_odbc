@@ -313,7 +313,7 @@ static void check_taosws_connection(HWND hDlg, config_t *config, url_parser_para
   }
 
   char buf[4096]; buf[0] = '\0';
-  WS_TAOS *taosws = CALL_ws_connect_with_dsn(out);
+  WS_TAOS *taosws = CALL_ws_connect(out);
   if (!taosws) {
     int e = ws_errno(NULL);
     const char *errstr = ws_errstr(NULL);

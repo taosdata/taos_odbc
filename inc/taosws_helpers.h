@@ -76,12 +76,12 @@ static inline int32_t call_ws_enable_log(const char *file, int line, const char 
   return r;
 }
 
-static inline WS_TAOS *call_ws_connect_with_dsn(const char *file, int line, const char *func, const char *dsn)
+static inline WS_TAOS *call_ws_connect(const char *file, int line, const char *func, const char *dsn)
 {
-  LOGD_TAOSWS(file, line, func, "ws_connect_with_dsn(dsn:%s) ...", dsn);
-  WS_TAOS *ws_taos = ws_connect_with_dsn(dsn);
+  LOGD_TAOSWS(file, line, func, "ws_connect(dsn:%s) ...", dsn);
+  WS_TAOS *ws_taos = ws_connect(dsn);
   if (!ws_taos) diag_ws_res(NULL);
-  LOGD_TAOSWS(file, line, func, "ws_connect_with_dsn(dsn:%s) => %p", dsn, ws_taos);
+  LOGD_TAOSWS(file, line, func, "ws_connect(dsn:%s) => %p", dsn, ws_taos);
   return ws_taos;
 }
 
@@ -352,7 +352,7 @@ static inline int32_t call_ws_stmt_close(const char *file, int line, const char 
 
 
 #define CALL_ws_enable_log(...)                          call_ws_enable_log(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
-#define CALL_ws_connect_with_dsn(...)                    call_ws_connect_with_dsn(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
+#define CALL_ws_connect(...)                             call_ws_connect(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_ws_get_server_info(...)                     call_ws_get_server_info(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_ws_close(...)                               call_ws_close(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_ws_query(...)                               call_ws_query(__FILE__, __LINE__, __func__, ##__VA_ARGS__)

@@ -62,32 +62,43 @@ void conn_cfg_release(conn_cfg_t *conn_cfg)
   memset(conn_cfg, 0, sizeof(*conn_cfg));
 }
 
-int conn_cfg_set_customproduct(conn_cfg_t *conn_cfg, const char *s, size_t n)
-{
-/* { */
-#define R(x, y)       {x, y}
-  struct {
-    const char         *name;
-    customproduct_t     customproduct;
-  } _cases[] = {
-    R("kingscada",         CUSTP_KINGSCADA),
-  };
-#undef  R
-/* } */
+const custprod_case_t custprod_cases[] = {
+  {"common", CUSTP_COMMON},
+  {"kingscada", CUSTP_KINGSCADA},
+  {"kepware", CUSTP_KEPWARE},
+};
 
-  for (size_t i=0; i<sizeof(_cases)/sizeof(_cases[0]); ++i) {
-    const char       *name = _cases[i].name;
+const custprod_case_t *conn_get_custprod_case_by_index(size_t index)
+{
+  if (index >=0 && index < sizeof(custprod_cases)/sizeof(custprod_cases[0]))
+    return &custprod_cases[index];
+  else
+    return NULL;
+}
+
+const custprod_case_t *conn_get_custprod_case_by_name(const char *s, size_t n)
+{
+  for (size_t i=0; i<sizeof(custprod_cases)/sizeof(custprod_cases[0]); ++i) {
+    const char       *name = custprod_cases[i].name;
     size_t            len  = strlen(name);
     if (len == n && tod_strncasecmp(s, name, len) == 0) {
-      TOD_SAFE_FREE(conn_cfg->customproduct_name);
-      conn_cfg->customproduct_name = strndup(s, n);
-      if (!conn_cfg->customproduct_name) return -1;
-      conn_cfg->customproduct = _cases[i].customproduct;
-      return 0;
+      return &custprod_cases[i];
     }
   }
+  return NULL;
+}
 
-  return -1;
+int conn_cfg_set_customproduct(conn_cfg_t *conn_cfg, const char *s, size_t n)
+{
+  const custprod_case_t *custprod_case = conn_get_custprod_case_by_name(s, n);
+  if (!custprod_case)
+    return -1;
+
+  TOD_SAFE_FREE(conn_cfg->customproduct_name);
+  conn_cfg->customproduct_name = strndup(s, n);
+  if (!conn_cfg->customproduct_name) return -1;
+  conn_cfg->customproduct = custprod_case->custprod_type;
+  return 0;
 }
 
 static void _conn_init(conn_t *conn, env_t *env)

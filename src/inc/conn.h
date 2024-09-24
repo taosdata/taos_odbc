@@ -36,6 +36,10 @@ EXTERN_C_BEGIN
 
 void conn_cfg_release(conn_cfg_t *conn_cfg) FA_HIDDEN;
 
+const custprod_case_t *conn_get_custprod_case_by_index(size_t index) FA_HIDDEN;
+
+const custprod_case_t *conn_get_custprod_case_by_name(const char *s, size_t n) FA_HIDDEN;
+
 int conn_cfg_set_customproduct(conn_cfg_t *conn_cfg, const char *s, size_t n) FA_HIDDEN;
 
 conn_t* conn_create(env_t *env) FA_HIDDEN;

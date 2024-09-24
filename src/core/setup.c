@@ -164,6 +164,25 @@ static void GetItemText(HWND hDlg, int idc, char *buf, size_t sz)
   snprintf(buf, sz, "%.*s", (int)(end - start), start);
 }
 
+static int GetSelectedComboBoxIndex(HWND hWndCombo)
+{
+    return SendMessage(hWndCombo, CB_GETCURSEL, 0, 0);
+}
+
+static int GetSelectedComboBoxIndexAndText(HWND hWndCombo, char *buf, size_t sz)
+{
+    int nCurSel = SendMessage(hWndCombo, CB_GETCURSEL, 0, 0);
+    if (nCurSel != CB_ERR) {
+        SendMessage(hWndCombo, CB_GETLBTEXT, nCurSel, (LPARAM)buf);
+        buf[sz - 1] = '\0';
+        return nCurSel;
+    }
+    else {
+        buf[0] = '\0';
+        return CB_ERR;
+    }
+}
+
 static int ParseServer(HWND hDlg, config_t *config)
 {
   config->host[0] = '\0';
@@ -195,7 +214,7 @@ static void GetConfig(HWND hDlg, config_t *config)
   config->taos_checked = (IsDlgButtonChecked(hDlg, IDC_RAD_TAOS) == BST_CHECKED) ? 1 : 0;
   GetItemText(hDlg, IDC_EDT_SERVER, config->server, sizeof(config->server));
   GetItemText(hDlg, IDC_EDT_DB, config->database, sizeof(config->database));
-  config->url_checked = (IsDlgButtonChecked(hDlg, IDC_CHK_UNSIGNED_PROMOTION) == BST_CHECKED) ? 1 : 0;
+  config->url_checked = (IsDlgButtonChecked(hDlg, IDC_RAD_TAOSWS) == BST_CHECKED) ? 1 : 0;
   GetItemText(hDlg, IDC_EDT_URL, config->url, sizeof(config->url));
   // config->unsigned_promotion = (IsDlgButtonChecked(hDlg, IDC_CHK_UNSIGNED_PROMOTION) == BST_CHECKED) ? 1 : 0;
   // config->timestamp_as_is= (IsDlgButtonChecked(hDlg, IDC_CHK_TIMESTAMP_AS_IS) == BST_CHECKED) ? 1 : 0;
@@ -206,7 +225,9 @@ static void GetConfig(HWND hDlg, config_t *config)
   // config->encoder_col_checked= (IsDlgButtonChecked(hDlg, IDC_CHK_ENCODER_COL) == BST_CHECKED) ? 1 : 0;
   // GetItemText(hDlg, IDC_EDT_ENCODER_COL, config->encoder_col, sizeof(config->encoder_col));
 
-  //first version for power bi etc:
+  HWND hWndCombo = GetDlgItem(hDlg, IDC_COMBO_COMPATBL_SOFTWARE);
+  (void)GetSelectedComboBoxIndexAndText(hWndCombo, config->customproduct_name, sizeof(config->customproduct_name));
+  // first version for power bi etc:
   config->unsigned_promotion = 0;
   config->timestamp_as_is= 0;
   config->conn_mode = 1;
@@ -411,6 +432,19 @@ static INT_PTR OnCheckCol(HWND hDlg, WPARAM wParam, LPARAM lParam)
   return TRUE;
 }
 
+static void LoadComboBoxOptions(HINSTANCE hInstance, HWND hWndCombo)
+{
+  char message[256] = {0};
+  LoadString(hInstance, IDS_COMBO_APP_NAME_OPT_COMMON, message, sizeof(message));
+  SendMessage(hWndCombo, CB_ADDSTRING, 0, (LPARAM)message);
+
+  LoadString(hInstance, IDS_COMBO_APP_NAME_OPT_KINGSCADA, message, sizeof(message));
+  SendMessage(hWndCombo, CB_ADDSTRING, 0, (LPARAM)message);
+
+  LoadString(hInstance, IDS_COMBO_APP_NAME_OPT_KEPWARE, message, sizeof(message));
+  SendMessage(hWndCombo, CB_ADDSTRING, 0, (LPARAM)message);
+}
+
 static INT_PTR OnInitDlg(HWND hDlg, WPARAM wParam, LPARAM lParam)
 {
   LPCSTR lpszAttributes = gAttributes;
@@ -419,6 +453,11 @@ static INT_PTR OnInitDlg(HWND hDlg, WPARAM wParam, LPARAM lParam)
 #ifdef FAKE_TAOS
   ShowWindow(GetDlgItem(hDlg, IDC_RAD_TAOS), FALSE);
 #endif
+
+  HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtr(hDlg, GWLP_HINSTANCE);
+  HWND hWndCombo = GetDlgItem(hDlg, IDC_COMBO_COMPATBL_SOFTWARE);
+  LoadComboBoxOptions(hInstance, hWndCombo);
+  SendMessage(hWndCombo, CB_SETCURSEL, 0, 0);
 
   if (lpszAttributes) {
     const char *p = lpszAttributes;
@@ -490,6 +529,16 @@ static INT_PTR OnInitDlg(HWND hDlg, WPARAM wParam, LPARAM lParam)
           //   ShowWindow(GetDlgItem(hDlg, IDC_EDT_ENCODER_COL), FALSE);
           // }
           // SetDlgItemText(hDlg, IDC_EDT_ENCODER_COL, k);
+
+          SQLGetPrivateProfileString(v, "CUSTOMPRODUCT", "", k, sizeof(k), "Odbc.ini");
+          if (k[0]) {
+            int index = SendMessage(hWndCombo, CB_SELECTSTRING, -1, (LPARAM)k);
+            
+            if (index == CB_ERR) {
+              SendMessage(hWndCombo, CB_SETCURSEL, 0, 0);
+            }
+          }
+
           break;
         }
       }

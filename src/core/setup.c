@@ -435,7 +435,7 @@ static INT_PTR OnCheckCol(HWND hDlg, WPARAM wParam, LPARAM lParam)
 static void LoadComboBoxOptions(HINSTANCE hInstance, HWND hWndCombo)
 {
   char message[256] = {0};
-  LoadString(hInstance, IDS_COMBO_APP_NAME_OPT_COMMON, message, sizeof(message));
+  LoadString(hInstance, IDS_COMBO_APP_NAME_OPT_GENERAL, message, sizeof(message));
   SendMessage(hWndCombo, CB_ADDSTRING, 0, (LPARAM)message);
 
   LoadString(hInstance, IDS_COMBO_APP_NAME_OPT_KINGSCADA, message, sizeof(message));

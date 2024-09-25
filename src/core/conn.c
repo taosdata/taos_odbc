@@ -63,7 +63,7 @@ void conn_cfg_release(conn_cfg_t *conn_cfg)
 }
 
 const custprod_item_t custprod_array[] = {
-  {"common", CUSTP_COMMON},
+  {"general", CUSTP_GENERAL},
   {"kingscada", CUSTP_KINGSCADA},
   {"kepware", CUSTP_KEPWARE},
 };
@@ -91,8 +91,11 @@ const custprod_item_t *conn_get_custprod_by_name(const char *s, size_t n)
 int conn_cfg_set_custom_product(conn_cfg_t *conn_cfg, const char *s, size_t n)
 {
   const custprod_item_t *custprod_case = conn_get_custprod_by_name(s, n);
-  if (!custprod_case)
-    return -1;
+  if (!custprod_case) {
+    custprod_case = conn_get_custprod_by_index(0);
+    if (!custprod_case)
+      return -1;
+  }
 
   TOD_SAFE_FREE(conn_cfg->customproduct_name);
   conn_cfg->customproduct_name = strndup(s, n);

@@ -433,7 +433,7 @@ enum backend_e {
 };
 
 enum custprod_type_e {
-  CUSTP_COMMON            = 0,
+  CUSTP_GENERAL           = 0,
   CUSTP_KINGSCADA         = 1,
   CUSTP_KEPWARE           = 2,
 };

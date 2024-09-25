@@ -274,7 +274,7 @@ static int _fetch(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STMT 
   if (res) {
     const void *ptr = NULL;
     int32_t rows = 0;
-    r = CALL_ws_fetch_block(res, &ptr, &rows);
+    r = CALL_ws_fetch_raw_block(res, &ptr, &rows);
     E("r:%d;ptr:%p;rows:%d", r, ptr, rows);
   }
   if (res) {
@@ -352,7 +352,7 @@ static int _charset(const arg_t *arg, const stage_t stage, WS_TAOS *taos, WS_STM
   if (res) {
     const void *ptr = NULL;
     int32_t rows = 0;
-    r = CALL_ws_fetch_block(res, &ptr, &rows);
+    r = CALL_ws_fetch_raw_block(res, &ptr, &rows);
     E("r:%d;ptr:%p;rows:%d", r, ptr, rows);
   }
   if (res) {
@@ -1027,9 +1027,9 @@ static int _prepare_normal_get_col_fields(const arg_t *arg, const stage_t stage,
 
     int colNum = 0;
     struct StmtField *cols = NULL;
-    r = CALL_ws_stmt_get_col_fields(stmt, &cols, &colNum);
+    r = CALL_ws_stmt_get_col_fields(stmt, &colNum, &cols);
     if (cols) {
-      CALL_ws_stmt_reclaim_fields(&cols, colNum); cols = NULL;
+      CALL_ws_stmt_reclaim_fields(stmt, &cols, colNum); cols = NULL;
     }
     if (r) return -1;
     if (colNum != nr_cols) {
@@ -1131,9 +1131,9 @@ static int _prepare_get_tag_col_fields(const arg_t *arg, const stage_t stage, WS
 
     int tagNum = 0;
     struct StmtField *tags = NULL;
-    r = CALL_ws_stmt_get_tag_fields(stmt, &tags, &tagNum);
+    r = CALL_ws_stmt_get_tag_fields(stmt, &tagNum, &tags);
     if (tags) {
-      CALL_ws_stmt_reclaim_fields(&tags, tagNum); tags = NULL;
+      CALL_ws_stmt_reclaim_fields(stmt, &tags, tagNum); tags = NULL;
     }
     if (r) return -1;
     if (tagNum != nr_tags) {
@@ -1143,9 +1143,9 @@ static int _prepare_get_tag_col_fields(const arg_t *arg, const stage_t stage, WS
 
     int colNum = 0;
     struct StmtField *cols = NULL;
-    r = CALL_ws_stmt_get_col_fields(stmt, &cols, &colNum);
+    r = CALL_ws_stmt_get_col_fields(stmt, &colNum, &cols);
     if (cols) {
-      CALL_ws_stmt_reclaim_fields(&cols, colNum); cols = NULL;
+      CALL_ws_stmt_reclaim_fields(stmt, &cols, colNum); cols = NULL;
     }
     if (r) return -1;
     if (colNum != nr_cols) {
@@ -1211,7 +1211,7 @@ static int on_init(const arg_t *arg)
   r = arg->regress(arg, STAGE_INITED, NULL, NULL);
   if (r) return -1;
 
-  WS_TAOS *taos = CALL_ws_connect_with_dsn(arg->url);
+  WS_TAOS *taos = CALL_ws_connect(arg->url);
   if (!taos) E("%d:%s", ws_errno(NULL), ws_errstr(NULL));
   if (!taos) return -1;
 

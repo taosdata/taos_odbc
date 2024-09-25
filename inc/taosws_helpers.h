@@ -67,19 +67,21 @@
 #define diag_ws_res(x_res)          diag_ws_res_impl(file, line, func, x_res)
 #define diag_ws_stmt(x_stmt)        diag_ws_stmt_impl(file, line, func, x_stmt)
 
-static inline void call_ws_enable_log(const char *file, int line, const char *func)
+static inline int32_t call_ws_enable_log(const char *file, int line, const char *func, const char *log_level)
 {
-  LOGD_TAOSWS(file, line, func, "ws_enable_log() ...");
-  ws_enable_log();
-  LOGD_TAOSWS(file, line, func, "ws_enable_log() => void");
+  LOGD_TAOSWS(file, line, func, "ws_enable_log(log_level:%s) ...", log_level);
+  int32_t r = ws_enable_log(log_level);
+  if (r) diag_ws_res(NULL);
+  LOGD_TAOSWS(file, line, func, "ws_enable_log(log_level:%s) => %d", log_level, r);
+  return r;
 }
 
-static inline WS_TAOS *call_ws_connect_with_dsn(const char *file, int line, const char *func, const char *dsn)
+static inline WS_TAOS *call_ws_connect(const char *file, int line, const char *func, const char *dsn)
 {
-  LOGD_TAOSWS(file, line, func, "ws_connect_with_dsn(dsn:%s) ...", dsn);
-  WS_TAOS *ws_taos = ws_connect_with_dsn(dsn);
+  LOGD_TAOSWS(file, line, func, "ws_connect(dsn:%s) ...", dsn);
+  WS_TAOS *ws_taos = ws_connect(dsn);
   if (!ws_taos) diag_ws_res(NULL);
-  LOGD_TAOSWS(file, line, func, "ws_connect_with_dsn(dsn:%s) => %p", dsn, ws_taos);
+  LOGD_TAOSWS(file, line, func, "ws_connect(dsn:%s) => %p", dsn, ws_taos);
   return ws_taos;
 }
 
@@ -91,11 +93,13 @@ static inline const char *call_ws_get_server_info(const char *file, int line, co
   return s;
 }
 
-static inline void call_ws_close(const char *file, int line, const char *func, WS_TAOS *taos)
+static inline int call_ws_close(const char *file, int line, const char *func, WS_TAOS *taos)
 {
   LOGD_TAOSWS(file, line, func, "ws_close(ws_taos:%p) ...", taos);
-  ws_close(taos);
-  LOGD_TAOSWS(file, line, func, "ws_close(ws_taos:%p) => void", taos);
+  int r = ws_close(taos);
+  if (r) diag_ws_res(NULL);
+  LOGD_TAOSWS(file, line, func, "ws_close(ws_taos:%p) => %d", taos, r);
+  return r;
 }
 
 static inline WS_RES *call_ws_query(const char *file, int line, const char *func, WS_TAOS *taos, const char *sql)
@@ -107,7 +111,7 @@ static inline WS_RES *call_ws_query(const char *file, int line, const char *func
   return res;
 }
 
-// static inline void call_ws_stop_query(const char *file, int line, const char *func, WS_RES *rs)
+// static inline int32_t call_ws_stop_query(const char *file, int line, const char *func, WS_RES *rs)
 // static inline WS_RES *call_ws_query_timeout(const char *file, int line, const char *func, WS_TAOS *taos, const char *sql, uint32_t seconds)
 // static inline int64_t call_ws_take_timing(const char *file, int line, const char *func, WS_RES *rs)
 static inline int32_t call_ws_errno(const char *file, int line, const char *func, WS_RES *rs)
@@ -164,21 +168,23 @@ static inline const struct WS_FIELD *call_ws_fetch_fields(const char *file, int 
 
 // static inline const struct WS_FIELD_V2 *call_ws_fetch_fields_v2(const char *file, int line, const char *func, WS_RES *rs)
 
-static inline int32_t call_ws_fetch_block(const char *file, int line, const char *func, WS_RES *rs, const void **ptr, int32_t *rows)
+static inline int32_t call_ws_fetch_raw_block(const char *file, int line, const char *func, WS_RES *rs, const void **ptr, int32_t *rows)
 {
-  LOGD_TAOSWS(file, line, func, "ws_fetch_block(rs:%p, ptr:%p, rows:%p) ...", rs, ptr, rows);
-  int32_t r = ws_fetch_block(rs, ptr, rows);
+  LOGD_TAOSWS(file, line, func, "ws_fetch_raw_block(rs:%p, ptr:%p, rows:%p) ...", rs, ptr, rows);
+  int32_t r = ws_fetch_raw_block(rs, ptr, rows);
   diag_ws_res(rs);
-  LOGD_TAOSWS(file, line, func, "ws_fetch_block(rs:%p, ptr:%p(%p), rows:%p(%d)) => %d",
+  LOGD_TAOSWS(file, line, func, "ws_fetch_raw_block(rs:%p, ptr:%p(%p), rows:%p(%d)) => %d",
       rs, ptr, ptr ? *ptr : NULL, rows, rows ? *rows : -1, r);
   return r;
 }
 
-static inline void call_ws_free_result(const char *file, int line, const char *func, WS_RES *rs)
+static inline int32_t call_ws_free_result(const char *file, int line, const char *func, WS_RES *rs)
 {
   LOGD_TAOSWS(file, line, func, "ws_free_result(rs:%p) ...", rs);
-  ws_free_result(rs);
-  LOGD_TAOSWS(file, line, func, "ws_free_result(rs:%p) => void", rs);
+  int32_t r = ws_free_result(rs);
+  if (r) diag_ws_res(NULL);
+  LOGD_TAOSWS(file, line, func, "ws_free_result(rs:%p) => %d", rs, r);
+  return r;
 }
 
 static inline int32_t call_ws_result_precision(const char *file, int line, const char *func, const WS_RES *rs)
@@ -237,37 +243,39 @@ static inline int call_ws_stmt_set_tbname_tags(const char *file, int line, const
   return r;
 }
 
-static inline int call_ws_stmt_get_tag_fields(const char *file, int line, const char *func, WS_STMT *stmt, struct StmtField **fields, int *fieldNum)
+static inline int call_ws_stmt_get_tag_fields(const char *file, int line, const char *func, WS_STMT *stmt, int *fieldNum, struct StmtField **fields)
 {
-  LOGD_TAOSWS(file, line, func, "ws_stmt_get_tag_fields(stmt:%p,fields:%p,fieldNum:%p) ...", stmt, fields, fieldNum);
-  int r = ws_stmt_get_tag_fields(stmt, fields, fieldNum);
+  LOGD_TAOSWS(file, line, func, "ws_stmt_get_tag_fields(stmt:%p,fieldNum:%p,fields:%p) ...", stmt, fieldNum, fields);
+  int r = ws_stmt_get_tag_fields(stmt, fieldNum, fields);
   if (r) diag_ws_stmt(stmt);
-  LOGD_TAOSWS(file, line, func, "ws_stmt_get_tag_fields(stmt:%p,fields:%p(%p),fieldNum:%p(%d)) => %d",
+  LOGD_TAOSWS(file, line, func, "ws_stmt_get_tag_fields(stmt:%p,fieldNum:%p(%d),fields:%p(%p)) => %d",
       stmt,
-      fields, fields ? *fields : NULL,
       fieldNum, fieldNum ? *fieldNum : -1,
+      fields, fields ? *fields : NULL,
       r);
   return r;
 }
 
-static inline int call_ws_stmt_get_col_fields(const char *file, int line, const char *func, WS_STMT *stmt, struct StmtField **fields, int *fieldNum)
+static inline int call_ws_stmt_get_col_fields(const char *file, int line, const char *func, WS_STMT *stmt, int *fieldNum, struct StmtField **fields)
 {
-  LOGD_TAOSWS(file, line, func, "ws_stmt_get_col_fields(stmt:%p,fields:%p,fieldNum:%p) ...", stmt, fields, fieldNum);
-  int r = ws_stmt_get_col_fields(stmt, fields, fieldNum);
+  LOGD_TAOSWS(file, line, func, "ws_stmt_get_col_fields(stmt:%p,fieldNum:%p,fields:%p) ...", stmt, fieldNum, fields);
+  int r = ws_stmt_get_col_fields(stmt, fieldNum, fields);
   if (r) diag_ws_stmt(stmt);
-  LOGD_TAOSWS(file, line, func, "ws_stmt_get_col_fields(stmt:%p,fields:%p(%p),fieldNum:%p(%d)) => %d",
+  LOGD_TAOSWS(file, line, func, "ws_stmt_get_col_fields(stmt:%p,fieldNum:%p(%d),fields:%p(%p)) => %d",
       stmt,
-      fields, fields ? *fields : NULL,
       fieldNum, fieldNum ? *fieldNum : -1,
+      fields, fields ? *fields : NULL,
       r);
   return r;
 }
 
-static inline void call_ws_stmt_reclaim_fields(const char *file, int line, const char *func, struct StmtField **fields, int fieldNum)
+static inline int call_ws_stmt_reclaim_fields(const char *file, int line, const char *func, WS_STMT *stmt, struct StmtField **fields, int fieldNum)
 {
-  LOGD_TAOSWS(file, line, func, "ws_stmt_reclaim_fields(fields:%p,fieldNum:%d) ...", fields, fieldNum);
-  ws_stmt_reclaim_fields(fields, fieldNum);
-  LOGD_TAOSWS(file, line, func, "ws_stmt_reclaim_fields(fields:%p,fieldNum:(%d)) => void", fields, fieldNum);
+  LOGD_TAOSWS(file, line, func, "ws_stmt_reclaim_fields(stmt:%p,fields:%p,fieldNum:%d) ...", stmt, fields, fieldNum);
+  int r = ws_stmt_reclaim_fields(stmt, fields, fieldNum);
+  if (r) diag_ws_stmt(stmt);
+  LOGD_TAOSWS(file, line, func, "ws_stmt_reclaim_fields(stmt:%p,fields:%p,fieldNum:(%d)) => %d", stmt, fields, fieldNum, r);
+  return r;
 }
 
 static inline int call_ws_stmt_is_insert(const char *file, int line, const char *func, WS_STMT *stmt, int *insert)
@@ -332,17 +340,19 @@ static inline const char *call_ws_stmt_errstr(const char *file, int line, const 
   return ws_stmt_errstr(stmt);
 }
 
-static inline void call_ws_stmt_close(const char *file, int line, const char *func, WS_STMT *stmt)
+static inline int32_t call_ws_stmt_close(const char *file, int line, const char *func, WS_STMT *stmt)
 {
   LOGD_TAOSWS(file, line, func, "ws_stmt_close(stmt:%p) ...", stmt);
-  ws_stmt_close(stmt);
-  LOGD_TAOSWS(file, line, func, "ws_stmt_close(stmt:%p) => void", stmt);
+  int32_t r = ws_stmt_close(stmt);
+  if (r) diag_ws_stmt(stmt);
+  LOGD_TAOSWS(file, line, func, "ws_stmt_close(stmt:%p) => %d", stmt, r);
+  return r;
 }
 
 
 
 #define CALL_ws_enable_log(...)                          call_ws_enable_log(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
-#define CALL_ws_connect_with_dsn(...)                    call_ws_connect_with_dsn(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
+#define CALL_ws_connect(...)                             call_ws_connect(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_ws_get_server_info(...)                     call_ws_get_server_info(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_ws_close(...)                               call_ws_close(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_ws_query(...)                               call_ws_query(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
@@ -356,7 +366,7 @@ static inline void call_ws_stmt_close(const char *file, int line, const char *fu
 #define CALL_ws_is_update_query(...)                     call_ws_is_update_query(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_ws_fetch_fields(...)                        call_ws_fetch_fields(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_ws_fetch_fields_v2(...)                     call_ws_fetch_fields_v2(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
-#define CALL_ws_fetch_block(...)                         call_ws_fetch_block(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
+#define CALL_ws_fetch_raw_block(...)                     call_ws_fetch_raw_block(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_ws_free_result(...)                         call_ws_free_result(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_ws_result_precision(...)                    call_ws_result_precision(__FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #define CALL_ws_get_value_in_block(...)                  call_ws_get_value_in_block(__FILE__, __LINE__, __func__, ##__VA_ARGS__)

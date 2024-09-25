@@ -14,7 +14,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17he219ae05736953baE
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17hb2066bd9950392f7E
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17hc14f34db185767f0E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -33,7 +33,7 @@
    fun:_ZN10taos_query24block_in_place_or_global17h8dc786029eb0d9d3E
    fun:_ZN10taos_query7prelude4sync9Queryable4exec17h31532307446b6e42E
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17h6f125e998b1d28ceE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -240,7 +240,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17he219ae05736953baE
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17hb2066bd9950392f7E
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17hc14f34db185767f0E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -259,7 +259,7 @@
    fun:_ZN10taos_query24block_in_place_or_global17h8dc786029eb0d9d3E
    fun:_ZN10taos_query7prelude4sync9Queryable4exec17h31532307446b6e42E
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17h6f125e998b1d28ceE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -280,7 +280,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17he219ae05736953baE
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17hb2066bd9950392f7E
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17hc14f34db185767f0E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -296,7 +296,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17he219ae05736953baE
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17hb2066bd9950392f7E
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17hc14f34db185767f0E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -364,7 +364,7 @@
    fun:_ZN10taos_query24block_in_place_or_global17h8dc786029eb0d9d3E
    fun:_ZN10taos_query7prelude4sync9Queryable4exec17h31532307446b6e42E
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17h6f125e998b1d28ceE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -382,7 +382,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hdbdb17532d489117E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h5e0277e975daef6cE
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17h9aec34124242865bE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -398,7 +398,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hdbdb17532d489117E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h5e0277e975daef6cE
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17h9aec34124242865bE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -416,7 +416,7 @@
    fun:_ZN10taos_query20global_tokio_runtime17h4c1004074d9434f3E
    fun:_ZN10taos_query7prelude4sync9Queryable4exec17h3088737762675c21E
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17h37429edb71070b59E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -437,7 +437,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hdbdb17532d489117E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h5e0277e975daef6cE
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17h9aec34124242865bE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -453,7 +453,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hdbdb17532d489117E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h5e0277e975daef6cE
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17h9aec34124242865bE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -490,7 +490,7 @@
    fun:_ZN5tokio7runtime7runtime7Runtime8block_on17ha00c3ede52eb1fd5E
    fun:_ZN10taos_query7prelude4sync9Queryable4exec17h3088737762675c21E
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17h37429edb71070b59E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -508,7 +508,7 @@
    fun:_ZN5tokio7runtime7runtime7Runtime8block_on17ha00c3ede52eb1fd5E
    fun:_ZN10taos_query7prelude4sync9Queryable4exec17h3088737762675c21E
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17h37429edb71070b59E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -726,7 +726,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hdbdb17532d489117E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h5e0277e975daef6cE
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17h3e78e8a42ad88af3E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -742,7 +742,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hdbdb17532d489117E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h5e0277e975daef6cE
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17h3e78e8a42ad88af3E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -760,7 +760,7 @@
    fun:_ZN10taos_query20global_tokio_runtime17hb7e4fce65c734263E
    fun:_ZN10taos_query7prelude4sync9Queryable4exec17hcb485d26f0bb1edcE
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17hdbd63c72e36dfa51E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -781,7 +781,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hdbdb17532d489117E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h5e0277e975daef6cE
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17h3e78e8a42ad88af3E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -797,7 +797,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hdbdb17532d489117E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h5e0277e975daef6cE
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17h3e78e8a42ad88af3E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -819,7 +819,7 @@
    fun:_ZN5tokio7runtime7runtime7Runtime8block_on17hb1b22882134d7028E
    fun:_ZN10taos_query7prelude4sync9Queryable4exec17hcb485d26f0bb1edcE
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17hdbd63c72e36dfa51E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -837,7 +837,7 @@
    fun:_ZN5tokio7runtime7runtime7Runtime8block_on17hb1b22882134d7028E
    fun:_ZN10taos_query7prelude4sync9Queryable4exec17hcb485d26f0bb1edcE
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17hdbd63c72e36dfa51E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -1025,7 +1025,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hd27202612621f899E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h1b9983bf3de0f317E
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17he1c6fca206cf9273E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -1041,7 +1041,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hd27202612621f899E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h1b9983bf3de0f317E
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17he1c6fca206cf9273E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -1059,7 +1059,7 @@
    fun:_ZN10taos_query20global_tokio_runtime17h59c6b21f1cde911bE
    fun:_ZN10taos_query7prelude4sync9Queryable4exec17h867e019cacc386beE
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17h95b448d6d2e1efffE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -1080,7 +1080,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hd27202612621f899E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h1b9983bf3de0f317E
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17he1c6fca206cf9273E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -1096,7 +1096,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hd27202612621f899E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h1b9983bf3de0f317E
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17he1c6fca206cf9273E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -1134,7 +1134,7 @@
    fun:_ZN5tokio7runtime7runtime7Runtime8block_on17h9ce6ceea9c22d128E
    fun:_ZN10taos_query7prelude4sync9Queryable4exec17h867e019cacc386beE
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17h95b448d6d2e1efffE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -1152,7 +1152,7 @@
    fun:_ZN5tokio7runtime7runtime7Runtime8block_on17h9ce6ceea9c22d128E
    fun:_ZN10taos_query7prelude4sync9Queryable4exec17h867e019cacc386beE
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17h95b448d6d2e1efffE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -1370,7 +1370,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hd27202612621f899E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h1b9983bf3de0f317E
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17hae5bc2e63e2966c6E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -1386,7 +1386,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hd27202612621f899E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h1b9983bf3de0f317E
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17hae5bc2e63e2966c6E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -1404,7 +1404,7 @@
    fun:_ZN10taos_query20global_tokio_runtime17hbc1eb209d84811ccE
    fun:_ZN10taos_query7prelude4sync9Queryable4exec17h4009420cab74c099E
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17hb57f078d31249f1aE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -1425,7 +1425,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hd27202612621f899E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h1b9983bf3de0f317E
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17hae5bc2e63e2966c6E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -1441,7 +1441,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hd27202612621f899E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h1b9983bf3de0f317E
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17hae5bc2e63e2966c6E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -1464,7 +1464,7 @@
    fun:_ZN5tokio7runtime7runtime7Runtime8block_on17h9d2a7de5c0e9719eE
    fun:_ZN10taos_query7prelude4sync9Queryable4exec17h4009420cab74c099E
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17hb57f078d31249f1aE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -1482,7 +1482,7 @@
    fun:_ZN5tokio7runtime7runtime7Runtime8block_on17h9d2a7de5c0e9719eE
    fun:_ZN10taos_query7prelude4sync9Queryable4exec17h4009420cab74c099E
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17hb57f078d31249f1aE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -1670,7 +1670,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hd27202612621f899E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h1b9983bf3de0f317E
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17h8d555f943b01a389E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -1686,7 +1686,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hd27202612621f899E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h1b9983bf3de0f317E
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17h8d555f943b01a389E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -1704,7 +1704,7 @@
    fun:_ZN10taos_query20global_tokio_runtime17h280e9750c3726531E
    fun:_ZN10taos_query7prelude4sync9Queryable4exec17hbafa4b57c60db3c2E
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17h92ef37779ce24730E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -1725,7 +1725,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hd27202612621f899E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h1b9983bf3de0f317E
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17h8d555f943b01a389E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -1741,7 +1741,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hd27202612621f899E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h1b9983bf3de0f317E
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17h8d555f943b01a389E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -1759,7 +1759,7 @@
    fun:_ZN5tokio7runtime7runtime7Runtime8block_on17ha7145bf49fda0210E
    fun:_ZN10taos_query7prelude4sync9Queryable4exec17hbafa4b57c60db3c2E
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17h92ef37779ce24730E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -1952,7 +1952,7 @@
    fun:_ZN5tokio7runtime7runtime7Runtime8block_on17ha7145bf49fda0210E
    fun:_ZN10taos_query7prelude4sync9Queryable4exec17hbafa4b57c60db3c2E
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17h92ef37779ce24730E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -1970,7 +1970,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hd27202612621f899E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h1b9983bf3de0f317E
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17h1a9bdce817200999E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -1986,7 +1986,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hd27202612621f899E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h1b9983bf3de0f317E
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17h1a9bdce817200999E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2004,7 +2004,7 @@
    fun:_ZN10taos_query20global_tokio_runtime17hbccea813343ca861E
    fun:_ZN10taos_query7prelude4sync9Queryable4exec17h38e539d4a0818e12E
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17h69c3e3253bcb616fE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2025,7 +2025,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hd27202612621f899E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h1b9983bf3de0f317E
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17h1a9bdce817200999E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2041,7 +2041,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hd27202612621f899E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h1b9983bf3de0f317E
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17h1a9bdce817200999E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2059,7 +2059,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hd27202612621f899E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h1b9983bf3de0f317E
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17h1a9bdce817200999E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2081,7 +2081,7 @@
    fun:_ZN5tokio7runtime7runtime7Runtime8block_on17h649420a734c09f4aE
    fun:_ZN10taos_query7prelude4sync9Queryable4exec17h38e539d4a0818e12E
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17h69c3e3253bcb616fE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2099,7 +2099,7 @@
    fun:_ZN5tokio7runtime7runtime7Runtime8block_on17h649420a734c09f4aE
    fun:_ZN10taos_query7prelude4sync9Queryable4exec17h38e539d4a0818e12E
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17h69c3e3253bcb616fE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2308,7 +2308,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hd27202612621f899E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h1b9983bf3de0f317E
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17h241127e9134360ddE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2324,7 +2324,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hd27202612621f899E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h1b9983bf3de0f317E
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17h241127e9134360ddE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2342,7 +2342,7 @@
    fun:_ZN10taos_query20global_tokio_runtime17h0ce38f818429f837E
    fun:_ZN10taos_query7prelude4sync9Queryable4exec17ha22c6939713864ccE
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17hd4c384d9de75ca91E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2363,7 +2363,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hd27202612621f899E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h1b9983bf3de0f317E
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17h241127e9134360ddE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2379,7 +2379,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17hd27202612621f899E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h1b9983bf3de0f317E
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17h241127e9134360ddE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2397,7 +2397,7 @@
    fun:_ZN5tokio7runtime7runtime7Runtime8block_on17h86c7cf30bf1c84c8E
    fun:_ZN10taos_query7prelude4sync9Queryable4exec17ha22c6939713864ccE
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17hd4c384d9de75ca91E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2589,7 +2589,7 @@
    fun:_ZN5tokio7runtime7runtime7Runtime8block_on17h86c7cf30bf1c84c8E
    fun:_ZN10taos_query7prelude4sync9Queryable4exec17ha22c6939713864ccE
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17hd4c384d9de75ca91E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2656,7 +2656,7 @@
    fun:_ZN5tokio7runtime7runtime7Runtime8block_on17h1ee7c949636c12feE
    fun:_ZN10taos_query24block_in_place_or_global17h0c219b3adddb426eE
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$5build17h4a6aecd016639bdfE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2672,7 +2672,7 @@
    fun:_ZN5tokio7runtime7runtime7Runtime8block_on17h1ee7c949636c12feE
    fun:_ZN10taos_query24block_in_place_or_global17h0c219b3adddb426eE
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$5build17h4a6aecd016639bdfE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2689,7 +2689,7 @@
    fun:_ZN5tokio7runtime7runtime7Runtime8block_on17h1ee7c949636c12feE
    fun:_ZN10taos_query24block_in_place_or_global17h0c219b3adddb426eE
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$5build17h4a6aecd016639bdfE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2705,7 +2705,7 @@
    fun:_ZN5tokio7runtime7runtime7Runtime8block_on17h1ee7c949636c12feE
    fun:_ZN10taos_query24block_in_place_or_global17h0c219b3adddb426eE
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$5build17h4a6aecd016639bdfE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2722,7 +2722,7 @@
    fun:_ZN5tokio7runtime7runtime7Runtime8block_on17h1ee7c949636c12feE
    fun:_ZN10taos_query24block_in_place_or_global17h0c219b3adddb426eE
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$5build17h4a6aecd016639bdfE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2739,7 +2739,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17h58bc20fb666f9806E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h437854a896fae16eE
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17h0f9d773b4bc984c5E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2760,7 +2760,7 @@
    fun:_ZN10taos_query24block_in_place_or_global17h574679e84bf2ff04E
    fun:_ZN10taos_query7prelude4sync9Queryable4exec17h6cf56ad9d9df39f8E
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17h196da85253ffc314E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2810,7 +2810,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17h58bc20fb666f9806E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h437854a896fae16eE
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17h0f9d773b4bc984c5E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2827,7 +2827,7 @@
    fun:_ZN10taos_query20global_tokio_runtime17haab5ff833595846bE
    fun:_ZN10taos_query24block_in_place_or_global17h0c219b3adddb426eE
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$5build17h4a6aecd016639bdfE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2843,7 +2843,7 @@
    fun:_ZN5tokio7runtime7runtime7Runtime8block_on17h1ee7c949636c12feE
    fun:_ZN10taos_query24block_in_place_or_global17h0c219b3adddb426eE
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$5build17h4a6aecd016639bdfE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2863,7 +2863,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17h58bc20fb666f9806E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h437854a896fae16eE
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17h0f9d773b4bc984c5E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2878,7 +2878,7 @@
    fun:_ZN4mdsn3Dsn10from_regex17h58bc20fb666f9806E
    fun:_ZN41_$LT$$RF$str$u20$as$u20$mdsn..IntoDsn$GT$8into_dsn17h437854a896fae16eE
    fun:_ZN7taos_ws11TaosBuilder8from_dsn17h0f9d773b4bc984c5E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2910,7 +2910,7 @@
    fun:_ZN10taos_query24block_in_place_or_global17h574679e84bf2ff04E
    fun:_ZN10taos_query7prelude4sync9Queryable4exec17h6cf56ad9d9df39f8E
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$4ping17h196da85253ffc314E
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>
@@ -2962,7 +2962,7 @@
    fun:_ZN5tokio7runtime7runtime7Runtime8block_on17h1ee7c949636c12feE
    fun:_ZN10taos_query24block_in_place_or_global17h0c219b3adddb426eE
    fun:_ZN61_$LT$taos_ws..TaosBuilder$u20$as$u20$taos_query..TBuilder$GT$5build17h4a6aecd016639bdfE
-   fun:ws_connect_with_dsn
+   fun:ws_connect
 }
 {
    <insert_a_suppression_name_here>

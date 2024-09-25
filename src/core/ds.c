@@ -398,7 +398,7 @@ static int _ds_res_ws_fetch_block(ds_res_t *ds_res)
 
   const void *block = NULL;
   int32_t rows_in_block = 0;
-  r = CALL_ws_fetch_block(res, &block, &rows_in_block);
+  r = CALL_ws_fetch_raw_block(res, &block, &rows_in_block);
   if (r == 0) {
     ds_block_t *ds_block = &ds_res->block;
     ds_block->nr_rows_in_block = rows_in_block;

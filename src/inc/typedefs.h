@@ -37,7 +37,7 @@ typedef struct columns_s                columns_t;
 
 typedef enum custprod_type_e            custprod_type_e;
 
-typedef struct custprod_case_s          custprod_case_t;
+typedef struct custprod_item_s          custprod_item_t;
 
 typedef struct conn_cfg_s               conn_cfg_t;
 

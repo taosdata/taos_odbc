@@ -62,35 +62,35 @@ void conn_cfg_release(conn_cfg_t *conn_cfg)
   memset(conn_cfg, 0, sizeof(*conn_cfg));
 }
 
-const custprod_case_t custprod_cases[] = {
+const custprod_item_t custprod_array[] = {
   {"common", CUSTP_COMMON},
   {"kingscada", CUSTP_KINGSCADA},
   {"kepware", CUSTP_KEPWARE},
 };
 
-const custprod_case_t *conn_get_custprod_case_by_index(size_t index)
+const custprod_item_t *conn_get_custprod_by_index(size_t index)
 {
-  if (index >=0 && index < sizeof(custprod_cases)/sizeof(custprod_cases[0]))
-    return &custprod_cases[index];
+  if (index >=0 && index < sizeof(custprod_array)/sizeof(custprod_array[0]))
+    return &custprod_array[index];
   else
     return NULL;
 }
 
-const custprod_case_t *conn_get_custprod_case_by_name(const char *s, size_t n)
+const custprod_item_t *conn_get_custprod_by_name(const char *s, size_t n)
 {
-  for (size_t i=0; i<sizeof(custprod_cases)/sizeof(custprod_cases[0]); ++i) {
-    const char       *name = custprod_cases[i].name;
+  for (size_t i=0; i<sizeof(custprod_array)/sizeof(custprod_array[0]); ++i) {
+    const char       *name = custprod_array[i].name;
     size_t            len  = strlen(name);
     if (len == n && tod_strncasecmp(s, name, len) == 0) {
-      return &custprod_cases[i];
+      return &custprod_array[i];
     }
   }
   return NULL;
 }
 
-int conn_cfg_set_customproduct(conn_cfg_t *conn_cfg, const char *s, size_t n)
+int conn_cfg_set_custom_product(conn_cfg_t *conn_cfg, const char *s, size_t n)
 {
-  const custprod_case_t *custprod_case = conn_get_custprod_case_by_name(s, n);
+  const custprod_item_t *custprod_case = conn_get_custprod_by_name(s, n);
   if (!custprod_case)
     return -1;
 
@@ -772,7 +772,7 @@ static int _conn_cfg_init_by_dsn(conn_cfg_t *cfg, char *ebuf, size_t elen)
   r = SQLGetPrivateProfileString((LPCSTR)cfg->dsn, "CUSTOMPRODUCT", (LPCSTR)"", (LPSTR)buf, sizeof(buf), "Odbc.ini");
   if (r > 0) {
     size_t len = strnlen(buf, sizeof(buf));
-    if (len && conn_cfg_set_customproduct(cfg, buf, len)) {
+    if (len && conn_cfg_set_custom_product(cfg, buf, len)) {
       snprintf(ebuf, elen, "@%d:%s():out of memory or not valid customproduct:[%.*s]", __LINE__, __func__, (int)len, buf);
       return -1;
     }

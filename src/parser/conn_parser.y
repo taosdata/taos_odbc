@@ -173,7 +173,7 @@
 
     #define SET_CUSTOMPRODUCT(_s, _n, _loc) do {                                                \
       if (!param) break;                                                                        \
-      if (conn_cfg_set_customproduct(param->conn_cfg, _s, _n)) {                                \
+      if (conn_cfg_set_custom_product(param->conn_cfg, _s, _n)) {                               \
         YLOG(LOG_MALS, &_loc, "unknown customproduct:[%.*s]", (int)_n, _s);                     \
         YYABORT;                                                                                \
       }                                                                                         \

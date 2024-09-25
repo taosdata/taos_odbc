@@ -438,7 +438,7 @@ enum custprod_type_e {
   CUSTP_KEPWARE           = 2,
 };
 
-struct custprod_case_s {
+struct custprod_item_s {
   const char *name;
   custprod_type_e custprod_type;
 };

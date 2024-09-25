@@ -164,14 +164,14 @@ static void GetItemText(HWND hDlg, int idc, char *buf, size_t sz)
   snprintf(buf, sz, "%.*s", (int)(end - start), start);
 }
 
-static int GetSelectedComboBoxIndex(HWND hWndCombo)
-{
-    return SendMessage(hWndCombo, CB_GETCURSEL, 0, 0);
-}
+// static int GetSelectedComboBoxIndex(HWND hWndCombo)
+// {
+//     return (int)SendMessage(hWndCombo, CB_GETCURSEL, 0, 0);
+// }
 
 static int GetSelectedComboBoxIndexAndText(HWND hWndCombo, char *buf, size_t sz)
 {
-    int nCurSel = SendMessage(hWndCombo, CB_GETCURSEL, 0, 0);
+    int nCurSel = (int)SendMessage(hWndCombo, CB_GETCURSEL, 0, 0);
     if (nCurSel != CB_ERR) {
         SendMessage(hWndCombo, CB_GETLBTEXT, nCurSel, (LPARAM)buf);
         buf[sz - 1] = '\0';
@@ -532,7 +532,7 @@ static INT_PTR OnInitDlg(HWND hDlg, WPARAM wParam, LPARAM lParam)
 
           SQLGetPrivateProfileString(v, "CUSTOMPRODUCT", "", k, sizeof(k), "Odbc.ini");
           if (k[0]) {
-            int index = SendMessage(hWndCombo, CB_SELECTSTRING, -1, (LPARAM)k);
+            int index = (int)SendMessage(hWndCombo, CB_SELECTSTRING, -1, (LPARAM)k);
             
             if (index == CB_ERR) {
               SendMessage(hWndCombo, CB_SETCURSEL, 0, 0);

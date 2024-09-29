@@ -35,6 +35,10 @@ typedef struct col_bind_map_s           col_bind_map_t;
 typedef struct columns_args_s           columns_args_t;
 typedef struct columns_s                columns_t;
 
+typedef enum custprod_type_e            custprod_type_e;
+
+typedef struct custprod_item_s          custprod_item_t;
+
 typedef struct conn_cfg_s               conn_cfg_t;
 
 typedef struct conn_parser_param_s      conn_parser_param_t;
@@ -98,7 +102,7 @@ typedef struct tables_s                 tables_t;
 
 typedef struct tls_s                    tls_t;
 
-typedef enum tables_type_e              tables_type_t;
+typedef enum tables_type_e              tables_type_e;
 
 typedef struct topic_s                  topic_t;
 typedef struct topic_cfg_s              topic_cfg_t;

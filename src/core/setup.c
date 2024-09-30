@@ -164,6 +164,7 @@ static void GetItemText(HWND hDlg, int idc, char *buf, size_t sz)
   snprintf(buf, sz, "%.*s", (int)(end - start), start);
 }
 
+#ifdef TODBC_X86
 // static int GetSelectedComboBoxIndex(HWND hWndCombo)
 // {
 //     return (int)SendMessage(hWndCombo, CB_GETCURSEL, 0, 0);
@@ -182,6 +183,7 @@ static int GetSelectedComboBoxIndexAndText(HWND hWndCombo, char *buf, size_t sz)
         return CB_ERR;
     }
 }
+#endif
 
 static int ParseServer(HWND hDlg, config_t *config)
 {
@@ -225,8 +227,11 @@ static void GetConfig(HWND hDlg, config_t *config)
   // config->encoder_col_checked= (IsDlgButtonChecked(hDlg, IDC_CHK_ENCODER_COL) == BST_CHECKED) ? 1 : 0;
   // GetItemText(hDlg, IDC_EDT_ENCODER_COL, config->encoder_col, sizeof(config->encoder_col));
 
+#ifdef TODBC_X86
   HWND hWndCombo = GetDlgItem(hDlg, IDC_COMBO_COMPATBL_SOFTWARE);
   (void)GetSelectedComboBoxIndexAndText(hWndCombo, config->customproduct_name, sizeof(config->customproduct_name));
+#endif
+
   // first version for power bi etc:
   config->unsigned_promotion = 0;
   config->timestamp_as_is= 0;
@@ -432,6 +437,7 @@ static INT_PTR OnCheckCol(HWND hDlg, WPARAM wParam, LPARAM lParam)
   return TRUE;
 }
 
+#ifdef TODBC_X86
 static void LoadComboBoxOptions(HINSTANCE hInstance, HWND hWndCombo)
 {
   char message[256] = {0};
@@ -444,6 +450,7 @@ static void LoadComboBoxOptions(HINSTANCE hInstance, HWND hWndCombo)
   LoadString(hInstance, IDS_COMBO_APP_NAME_OPT_KEPWARE, message, sizeof(message));
   SendMessage(hWndCombo, CB_ADDSTRING, 0, (LPARAM)message);
 }
+#endif
 
 static INT_PTR OnInitDlg(HWND hDlg, WPARAM wParam, LPARAM lParam)
 {
@@ -454,10 +461,12 @@ static INT_PTR OnInitDlg(HWND hDlg, WPARAM wParam, LPARAM lParam)
   ShowWindow(GetDlgItem(hDlg, IDC_RAD_TAOS), FALSE);
 #endif
 
+#ifdef TODBC_X86
   HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtr(hDlg, GWLP_HINSTANCE);
   HWND hWndCombo = GetDlgItem(hDlg, IDC_COMBO_COMPATBL_SOFTWARE);
   LoadComboBoxOptions(hInstance, hWndCombo);
   SendMessage(hWndCombo, CB_SETCURSEL, 0, 0);
+#endif
 
   if (lpszAttributes) {
     const char *p = lpszAttributes;
@@ -530,6 +539,7 @@ static INT_PTR OnInitDlg(HWND hDlg, WPARAM wParam, LPARAM lParam)
           // }
           // SetDlgItemText(hDlg, IDC_EDT_ENCODER_COL, k);
 
+#ifdef TODBC_X86
           SQLGetPrivateProfileString(v, "CUSTOMPRODUCT", "", k, sizeof(k), "Odbc.ini");
           if (k[0]) {
             int index = (int)SendMessage(hWndCombo, CB_SELECTSTRING, -1, (LPARAM)k);
@@ -538,6 +548,7 @@ static INT_PTR OnInitDlg(HWND hDlg, WPARAM wParam, LPARAM lParam)
               SendMessage(hWndCombo, CB_SETCURSEL, 0, 0);
             }
           }
+#endif
 
           break;
         }

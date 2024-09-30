@@ -40,9 +40,12 @@
 #define IDC_STC_UID                     1027
 #define IDC_STC_PWD                     1028
 #define IDC_CHK_BI_MODE                 1029
+
+#ifdef TODBC_X86
 #define IDC_GRP_EXTRA_INFO              1030
 #define IDC_STC_COMPATBL_SOFTWARE       1031
 #define IDC_COMBO_COMPATBL_SOFTWARE     1032
+#endif
 
 #define IDS_TEST_CONN_TITLE                  1101
 #define IDS_TEST_CONN_MSG_SUCCESS            1102
@@ -54,9 +57,11 @@
 #define IDS_TEST_CONN_SERVER_INVALID         1107
 #define IDS_TEST_CONN_NATIVE_MSG_SUCCESS     1108
 
+#ifdef TODBC_X86
 #define IDS_COMBO_APP_NAME_OPT_GENERAL       1109
 #define IDS_COMBO_APP_NAME_OPT_KINGSCADA     1110
 #define IDS_COMBO_APP_NAME_OPT_KEPWARE       1111
+#endif
 
 #define IDC_STATIC                      -1
 

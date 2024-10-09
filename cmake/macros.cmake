@@ -265,6 +265,14 @@ macro(check_requirements)
     message(FATAL_ERROR "${Red}odbc requirement not satisfied, check detail in ${CMAKE_BINARY_DIR}/CMakeFiles/CMakeError.log${ColorReset}")
   endif()
 
+  ## check `git`
+  tod_find_prog(GIT 2.0.0 git "--version" "git version (.*)" OUTPUT_VARIABLE)
+  if (NOT HAVE_GIT)
+    message(STATUS "${Yellow}"
+                   "`git 2.0.0 or above` not found, git info is unavailable"
+                   "${ColorReset}")
+  endif ()
+
   ## check `valgrind`
   tod_find_prog(VALGRIND 3.18 valgrind "--version" "valgrind-(.*)" OUTPUT_VARIABLE)
   if (NOT HAVE_VALGRIND)

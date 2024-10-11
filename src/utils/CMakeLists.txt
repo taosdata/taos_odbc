@@ -22,7 +22,7 @@
 # SOFTWARE.
 ###############################################################################
 
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/buildinfo.c.in" "${CMAKE_CURRENT_SOURCE_DIR}/buildinfo.c")
+configure_file("buildinfo.c.in" "${CMAKE_CURRENT_BINARY_DIR}/buildinfo.c")
 
 set(utils_SOURCES
     utils.c

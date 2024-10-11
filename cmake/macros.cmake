@@ -107,10 +107,16 @@ macro(check_requirements)
 
   ## set required lib path
   set(REQUIRED_LIB_PATH "")
-  if(TODBC_X86)
-    set(REQUIRED_LIB_PATH "C:/TDengine/taos_odbc/x86/lib")
+  if(TODBC_WINDOWS)
+    if(TODBC_X86)
+      set(REQUIRED_LIB_PATH "C:/TDengine/taos_odbc/x86/lib")
+    else()
+      set(REQUIRED_LIB_PATH "C:/TDengine/taos_odbc/x64/lib")
+    endif()
+  elseif(TODBC_DARWIN)
+    set(REQUIRED_LIB_PATH "")
   else()
-    set(REQUIRED_LIB_PATH "C:/TDengine/taos_odbc/x64/lib")
+    set(REQUIRED_LIB_PATH "")
   endif()
 
   ## check `taos`
@@ -139,9 +145,12 @@ macro(check_requirements)
   set(TAOSWS_LIB_NAME "taosws")
   find_library(TAOSWS NAMES ${TAOSWS_LIB_NAME} PATHS ${REQUIRED_LIB_PATH})
   if(${TAOSWS} STREQUAL TAOSWS-NOTFOUND)
-    message(STATUS "${Yellow}"
-                   "`libtaosws.so/libtaosws.dylib/taosws.dll/taosws.lib` is not found, you may refer to https://github.com/taosdata/TDengine"
-                   "${ColorReset}")
+    set(ErrorMessage "`libtaosws.so/libtaosws.dylib/taosws.dll/taosws.lib` is not found, you may refer to https://github.com/taosdata/TDengine")
+    if(TODBC_WINDOWS AND TODBC_X86)
+      message(FATAL_ERROR "${Red}${ErrorMessage}${ColorReset}")
+    else()
+      message(STATUS "${Yellow}${ErrorMessage}${ColorReset}")
+    endif()
   else()
     set(CMAKE_REQUIRED_LIBRARIES ${TAOSWS_LIB_NAME})
     if(TODBC_DARWIN)
@@ -255,6 +264,14 @@ macro(check_requirements)
   if(NOT HAVE_ODBCINST_DEV)
     message(FATAL_ERROR "${Red}odbc requirement not satisfied, check detail in ${CMAKE_BINARY_DIR}/CMakeFiles/CMakeError.log${ColorReset}")
   endif()
+
+  ## check `git`
+  tod_find_prog(GIT 2.0.0 git "--version" "git version (.*)" OUTPUT_VARIABLE)
+  if (NOT HAVE_GIT)
+    message(STATUS "${Yellow}"
+                   "`git 2.0.0 or above` not found, git info is unavailable"
+                   "${ColorReset}")
+  endif ()
 
   ## check `valgrind`
   tod_find_prog(VALGRIND 3.18 valgrind "--version" "valgrind-(.*)" OUTPUT_VARIABLE)

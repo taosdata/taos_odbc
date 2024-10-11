@@ -2,6 +2,9 @@
 // Microsoft Visual C++ 生成的包含文件。
 // 供 taos_odbc_setup_zh.rc 使用
 //
+
+#include "taos_odbc_config.h"
+
 #define IDC_MYICON                      2
 #define IDD_TAOSODBCSETUP_DIALOG        102
 #define IDS_APP_TITLE                   103

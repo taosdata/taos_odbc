@@ -74,6 +74,8 @@ BEGIN
             VALUE "OriginalFilename", "taos_odbc.dll"
             VALUE "ProductName", "TDengine"
             VALUE "ProductVersion", "1.1.0.0"
+            VALUE "GitInfo", "${TODBC_BUILD_GIT}"
+            VALUE "BuildInfo", "${TODBC_BUILD_TARGET_OSTYPE}-${TODBC_BUILD_TARGET_CPUTYPE}-'${TODBC_BUILD_DATE}'"
         END
     END
     BLOCK "VarFileInfo"

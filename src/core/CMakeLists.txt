@@ -39,6 +39,7 @@ list(APPEND core_SOURCES typesinfo.c)
 list(APPEND core_SOURCES var.c)
 
 if(TODBC_WINDOWS)
+  configure_file("taos_odbc_ver_en.rc.in" "${CMAKE_CURRENT_BINARY_DIR}/taos_odbc_ver_en.rc")
   list(APPEND core_SOURCES setup.c)
   if(TODBC_X86)
     list(APPEND core_SOURCES taos_odbc_setup_en_x86.rc)
@@ -63,4 +64,6 @@ target_include_directories(core_obj PRIVATE
     ${ODBCINST_INCLUDE_DIRECTORY})
 set_property(TARGET core_obj PROPERTY POSITION_INDEPENDENT_CODE 1)
 target_include_directories(core_obj PRIVATE
-    ${CMAKE_CURRENT_BINARY_DIR}/../..)
+    ${CMAKE_CURRENT_BINARY_DIR}/../..
+    ${CMAKE_CURRENT_SOURCE_DIR}    
+    )

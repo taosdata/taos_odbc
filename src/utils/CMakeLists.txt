@@ -22,8 +22,11 @@
 # SOFTWARE.
 ###############################################################################
 
+configure_file("buildinfo.c.in" "${CMAKE_CURRENT_BINARY_DIR}/buildinfo.c")
+
 set(utils_SOURCES
-    utils.c)
+    utils.c
+    buildinfo.c)
 
 add_library(utils_obj OBJECT ${utils_SOURCES})
 target_include_directories(utils_obj PRIVATE
